@@ -42,6 +42,7 @@ const round = (n: number, places: number) => {
 
 /** The issue's bar for each text pair, by theme. Every other pair is 4.5. */
 function bar(theme: Theme, key: Exclude<keyof Measures, "highestChroma">): number {
+  if (key === "noneOnBg" || key === "noneOnPaper") return 3;
   if (theme === "light" && key === "accentOnPaper") return 5;
   if (theme === "light" && key === "accentOnSurface") return 4.6;
   if (theme === "dark" && key === "accentOnPaper") return 6;
@@ -62,6 +63,8 @@ const PAIRS = [
   "mutedOnHighlight",
   "lowestStatus",
   "lowestTag",
+  "noneOnBg",
+  "noneOnPaper",
 ] as const;
 
 /** Every pair at its bar. Each miss below is an issue value kept on purpose. */
@@ -76,6 +79,8 @@ const OK = {
   mutedOnHighlight: "ok",
   lowestStatus: "ok",
   lowestTag: "ok",
+  noneOnBg: "ok",
+  noneOnPaper: "ok",
 };
 
 test("every palette's status and tag hues sit at least 20 degrees apart", () => {

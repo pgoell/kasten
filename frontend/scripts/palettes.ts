@@ -162,6 +162,8 @@ export interface Measures {
   mutedOnHighlight: number;
   lowestStatus: number;
   lowestTag: number;
+  noneOnBg: number;
+  noneOnPaper: number;
   highestChroma: number;
   warnGap: number;
   dangerGap: number;
@@ -195,6 +197,8 @@ function measure(tokens: Tokens): Measures {
     mutedOnHighlight: onGround("--k-muted", highlight),
     lowestStatus: Math.min(...STATUS.map((n) => onGround(n, paper))),
     lowestTag: Math.min(...TAGS.map((n) => onGround(n, bg))),
+    noneOnBg: onGround("--tg-none", bg),
+    noneOnPaper: onGround("--tg-none", paper),
     highestChroma: Math.max(
       ...[...STATUS, ...TAGS].map((n) => rgbToLch(colour(at(tokens, n), BLACK)).c),
     ),
@@ -261,6 +265,8 @@ function bar(theme: Theme, key: keyof Measures): number | undefined {
     key === "dangerHue"
   )
     return undefined;
+  // The dot of an untagged note is held to the epic's 3:1 for a mark (#776), not a slot's 4.5.
+  if (key === "noneOnBg" || key === "noneOnPaper") return 3;
   if (theme === "light" && key === "accentOnPaper") return 5;
   if (theme === "light" && key === "accentOnSurface") return 4.6;
   if (theme === "dark" && key === "accentOnPaper") return 6;
@@ -278,6 +284,8 @@ const ROWS: [keyof Measures, string][] = [
   ["mutedOnHighlight", "Muted on highlight"],
   ["lowestStatus", "Lowest status on paper"],
   ["lowestTag", "Lowest tag on bg"],
+  ["noneOnBg", "Untagged dot on bg"],
+  ["noneOnPaper", "Untagged dot on paper"],
   ["highestChroma", "Highest chroma of status and tags"],
   ["warnGap", "Warn hue gap to accent"],
   ["dangerGap", "Danger hue gap to accent"],

@@ -99,6 +99,11 @@ function measure(tokens: Record<string, string>) {
       tg9: onBg("--tg-9", bg),
       tg10: onBg("--tg-10", bg),
     },
+    // The dot of a note with no tag sits on the ground and on paper (#852).
+    untagged: {
+      tgNoneOnBg: onBg("--tg-none", bg),
+      tgNoneOnPaper: onBg("--tg-none", paper),
+    },
   };
 }
 
@@ -106,11 +111,12 @@ const light = declarations(/:root\s*{([^}]*)}/);
 const dark = declarations(/\[data-theme="dark"\]\s*{([^}]*)}/);
 
 test("every light pair of #777 clears its bar", () => {
-  const { text, status, tags } = measure(light);
+  const { text, status, tags, untagged } = measure(light);
   expect({
     ...gradeAll(text, 4.5),
     ...gradeAll(status, 4.5),
     ...gradeAll(tags, 3),
+    ...gradeAll(untagged, 3),
     lowestStatus: round(Math.min(...Object.values(status))),
     lowestTag: round(Math.min(...Object.values(tags))),
   }).toEqual({
@@ -136,17 +142,20 @@ test("every light pair of #777 clears its bar", () => {
     tg8: "ok",
     tg9: "ok",
     tg10: "ok",
+    tgNoneOnBg: "ok",
+    tgNoneOnPaper: "ok",
     lowestStatus: 5.06,
     lowestTag: 4.09,
   });
 });
 
 test("every dark pair of #777 clears its bar, muted on the highlight excepted", () => {
-  const { text, status, tags } = measure(dark);
+  const { text, status, tags, untagged } = measure(dark);
   expect({
     ...gradeAll(text, 4.5),
     ...gradeAll(status, 4.5),
     ...gradeAll(tags, 3),
+    ...gradeAll(untagged, 3),
     // The one exception the issue names: muted on the dark highlight stays
     // under 4.5, so it is reported as a number and flagged, not graded "ok".
     // The number is 3.98 here; the issue rounds it as 4.01.
@@ -179,6 +188,8 @@ test("every dark pair of #777 clears its bar, muted on the highlight excepted", 
     tg8: "ok",
     tg9: "ok",
     tg10: "ok",
+    tgNoneOnBg: "ok",
+    tgNoneOnPaper: "ok",
     lowestStatus: 8.37,
     lowestTag: 8.23,
   });
