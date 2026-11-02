@@ -390,7 +390,7 @@ it("with a mouse, a new selection under the foot toast keeps its Take button in 
   await expect.poll(() => mounted.host.querySelector("[role='status']") !== null).toBe(true);
 
   const toast = mounted.host.querySelector("[role='status']") as HTMLElement;
-  const [, passage, source] = toast.querySelectorAll("p");
+  const [, passage, source] = [...toast.querySelectorAll("p")].map((p) => p.offsetHeight);
   await select(frame, ["p1", 0, "p1", 5]);
   await expect.poll(() => takeButton(mounted) !== null).toBe(true);
   const button = takeButton(mounted) as HTMLElement;
@@ -400,9 +400,8 @@ it("with a mouse, a new selection under the foot toast keeps its Take button in 
     under: at.top < box.bottom && at.bottom > box.top,
     onTop: onTop(button),
     undo: buttonNamed("Undo") !== undefined,
-    whole:
-      toast.scrollHeight <= toast.clientHeight && passage?.offsetHeight && source?.offsetHeight,
-  }).toEqual({ under: true, onTop: true, undo: true, whole: expect.any(Number) });
+    whole: [toast.scrollHeight <= toast.clientHeight, passage, source].every(Boolean),
+  }).toEqual({ under: true, onTop: true, undo: true, whole: true });
   await userEvent.click(button);
   await expect.poll(() => api.dumps.length).toBe(2);
   expect(api.dumps[1]).toContain("> Delta");
