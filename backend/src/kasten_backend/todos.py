@@ -160,7 +160,7 @@ Narrower than `TODO_LINE`: the editor's `.` matches no carriage return, U+2028 o
 so a line holding one is no todo here either. rg matches it all the same.
 """
 
-COMMENT_OPENING = r"^ {0,3}(?:(?:>|(?:[-*+]|[0-9]{1,9}[.)])[ \t]) {0,4})*<!--[^\n]*"
+COMMENT_OPENING = r"^ {0,3}(?:(?:>|(?:[-*+]|[0-9]{1,9}[.)])[ \t])[ \t]{0,4})*<!--[^\n]*"
 LINE_SPANS = re.compile(f"{COMMENT_OPENING}|{SPANS.pattern}")
 """`SPANS` and, first, a comment opening the line or a list item or quote on it.
 

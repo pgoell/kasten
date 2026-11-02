@@ -33,7 +33,7 @@ export const SPANS = /\[\[[^[\]\n]+\]\]|\[[^\]\n]*\]\([^)\n]*\)|`[^`\n]*`|<!--[^
  * would backtrack exponentially.
  */
 const LINE_SPANS = new RegExp(
-  String.raw`^ {0,3}(?:(?:>|(?:[-*+]|[0-9]{1,9}[.)])[ \t]) {0,4})*<!--[^\n]*|${SPANS.source}`,
+  String.raw`^ {0,3}(?:(?:>|(?:[-*+]|[0-9]{1,9}[.)])[ \t])[ \t]{0,4})*<!--[^\n]*|${SPANS.source}`,
   "g",
 );
 

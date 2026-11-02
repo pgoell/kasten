@@ -94,5 +94,6 @@
     "id": "deep-quote-no-comment",
     "text": "> > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > #a",
     "tags": ["#a"]
-  }
+  },
+  { "id": "comment-opens-quote-after-tab", "text": ">\t<!-- x --> #hidden", "tags": [] }
 ]
