@@ -25,6 +25,31 @@
     "body": "body"
   },
   {
+    "name": "a tab after the closer still closes",
+    "note": "---\na: b\n---\t\nbody",
+    "body": "body"
+  },
+  {
+    "name": "four dashes are no closer, the fence under them is",
+    "note": "---\na: b\n----\nc: d\n---\nbody",
+    "body": "body"
+  },
+  {
+    "name": "a fence with text after it is no closer, the fence under it is",
+    "note": "---\na: b\n---x\nc: d\n---\nbody",
+    "body": "body"
+  },
+  {
+    "name": "four dashes with no fence under them close nothing",
+    "note": "---\na: b\n----\nbody",
+    "body": "---\na: b\n----\nbody"
+  },
+  {
+    "name": "a carriage return block that holds a modified line",
+    "note": "---\r\nid: a\r\nmodified: b\r\n---\r\nbody",
+    "body": "body"
+  },
+  {
     "name": "a plain block",
     "note": "---\na: b\n---\nbody",
     "body": "body"

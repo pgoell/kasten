@@ -18,15 +18,19 @@ function fence(line: string | undefined): boolean {
   return line?.replace(/[ \t\r]+$/, "") === FENCE;
 }
 
+/** Which of `lines` closes the block, or -1 without one: `closing` in `frontmatter.py` (#1449). */
+export function closing(lines: readonly string[]): number {
+  if (!fence(lines[0])) return -1;
+  return lines.findIndex((line, index) => index > 0 && fence(line));
+}
+
 /**
  * The block's lines and the note's, or null without one. Mirrors `_split` in `frontmatter.py`.
  * A lone opening fence is a horizontal rule, not a block.
  */
 function split(text: string): { block: string[]; body: string[] } | null {
   const lines = text.split("\n");
-  if (!fence(lines[0])) return null;
-
-  const end = lines.findIndex((line, index) => index > 0 && fence(line));
+  const end = closing(lines);
   if (end === -1) return null;
 
   return { block: lines.slice(1, end), body: lines.slice(end + 1) };

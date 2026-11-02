@@ -8,6 +8,7 @@ import { FOODS_NOTE } from "@/lib/layout";
 import type { Choice } from "@/lib/log/food-search";
 import type { BrokenLine } from "@/lib/log/log-kinds";
 import { parseFood, tenth } from "@/lib/log/log-lines";
+import { closing } from "@/lib/note-frontmatter";
 
 /** The four nutrients, null where the line gives none. */
 export interface Nutrients {
@@ -64,7 +65,7 @@ export function parseMyFood(line: string): MyFood | null {
 /** The foods a note names, and its `- ` lines that name none. The frontmatter holds no food. */
 export function parseMyFoods(note: string): MyFoods {
   const lines = note.split("\n");
-  const close = lines[0] === "---" ? lines.indexOf("---", 1) : -1;
+  const close = closing(lines);
   const foods: MyFood[] = [];
   const broken: BrokenLine[] = [];
   for (const [index, text] of lines.entries()) {

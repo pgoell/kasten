@@ -8,6 +8,8 @@ import re
 import unicodedata
 from dataclasses import dataclass
 
+from kasten_backend.frontmatter import closing
+
 NUMBER = r"[0-9]{1,9}(?:[.,][0-9]{1,9})?"
 """One to nine digits, then an optional point or comma and one to nine more.
 
@@ -171,10 +173,9 @@ def parse_config(note: str | None) -> Config:
     if note is None:
         return DEFAULT_CONFIG
     lines = note.split("\n")
-    # The frontmatter runs from a first `---` to the next one, and holds no config.
-    close = -1
-    if lines[0] == "---" and "---" in lines[1:]:
-        close = lines.index("---", 1)
+    # The frontmatter holds no config.
+    end = closing(lines)
+    close = -1 if end is None else end
     kinds: list[Kind] = []
     broken: list[tuple[int, str]] = []
     marks: set[str] = set()

@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { closing } from "@/lib/note-frontmatter";
 
 /**
  * A new key, not the old shape under the same one: a tab of the build before still reads it as
@@ -300,16 +301,16 @@ export function sameText(a: string, b: string): boolean {
 /** The keys the backend's `stamp` writes into a block that lacks them. */
 const STAMPED = new Set(["id", "created", "type"]);
 
-/** The block's lines bar `modified`, and everything from the closing fence on. */
-function parts(text: string): { block: string[]; rest: string } | undefined {
-  if (!text.startsWith("---\n")) return undefined;
-  const end = text.indexOf("\n---", 4);
+/** The block's lines bar `modified`, whether that dropped any, and everything from the closing fence on. */
+function parts(
+  text: string,
+): { head: string; block: string[]; dropped: boolean; rest: string } | undefined {
+  const lines = text.split("\n");
+  const end = closing(lines);
   if (end === -1) return undefined;
-  const block = text
-    .slice(4, end)
-    .split("\n")
-    .filter((line) => !line.startsWith("modified:"));
-  return { block, rest: text.slice(end) };
+  const block = lines.slice(1, end).filter((line) => !line.startsWith("modified:"));
+  const rest = text.slice(lines.slice(0, end).join("\n").length);
+  return { head: lines[0] ?? "", block, dropped: block.length < end - 1, rest };
 }
 
 /**
@@ -335,12 +336,8 @@ export function landedAs(held: string, vault: string): boolean {
 
 /** `text` without its frontmatter's `modified` line, which every write restamps. */
 export function unstamped(text: string): string {
-  if (!text.startsWith("---\n")) return text;
-  const end = text.indexOf("\n---", 4);
-  if (end === -1) return text;
-  const block = text
-    .slice(4, end)
-    .split("\n")
-    .filter((line) => !line.startsWith("modified:"));
-  return `---\n${block.join("\n")}${text.slice(end)}`;
+  const held = parts(text);
+  // With no line dropped the text stands, so an empty block gains no blank line.
+  if (held === undefined || !held.dropped) return text;
+  return `${held.head}\n${held.block.join("\n")}${held.rest}`;
 }
