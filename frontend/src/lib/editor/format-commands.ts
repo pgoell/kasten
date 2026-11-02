@@ -3,6 +3,7 @@ import type { ChangeSpec, EditorState, Line, SelectionRange, Text } from "@codem
 import type { EditorView } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
 import { alignTable, tableAt } from "@/lib/editor/table";
+import { belowFrontmatter } from "@/lib/frontmatter-language";
 
 export interface MarkSpec {
   open: string;
@@ -73,7 +74,8 @@ const BULLET = /^(\s*)[*+](\s)/;
 
 /** Where the line-by-line tidy stands, and the changes it has gathered. */
 interface Tidy {
-  inFront: boolean;
+  /** From `frontEnd`. */
+  front: number;
   inFence: boolean;
   blanks: number;
   seen: number;
@@ -87,7 +89,7 @@ interface Tidy {
 export function formatDocument(view: EditorView): boolean {
   const { doc } = view.state;
   const tidy: Tidy = {
-    inFront: doc.line(1).text === "---",
+    front: frontEnd(doc),
     inFence: false,
     blanks: 0,
     seen: 0,
@@ -100,15 +102,18 @@ export function formatDocument(view: EditorView): boolean {
   return true;
 }
 
+/** The line of the block's closing fence, or 0 with no block. */
+function frontEnd(doc: Text): number {
+  const below = belowFrontmatter(doc.toString());
+  return below === 0 ? 0 : doc.lineAt(below - 1).number;
+}
+
 /** Tidies line `n` and returns the last line it covered, a table's last when it took one. */
 function tidyLine(doc: Text, n: number, tidy: Tidy): number {
   const line = doc.line(n);
   tidy.seen++;
 
-  if (tidy.inFront) {
-    if (n > 1 && line.text === "---") tidy.inFront = false;
-    return n;
-  }
+  if (n <= tidy.front) return n;
   if (FENCE.test(line.text)) {
     tidy.inFence = !tidy.inFence;
     tidy.blanks = 0;

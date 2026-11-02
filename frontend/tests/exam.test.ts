@@ -75,6 +75,12 @@ describe("parseExam", () => {
     expect(parseExam(NOTE)?.title).toBe("Claude Certified Associate – Foundations (CCAO-F)");
   });
 
+  it("#654 reads a heading above a column-0 closer as the block's, not the title", () => {
+    const text = `---\nref: x\n ---\n# Inside the block\n${NOTE.slice(4)}`;
+
+    expect(parseExam(text)?.title).toBe("Claude Certified Associate – Foundations (CCAO-F)");
+  });
+
   it("finds every question, in the order the note writes them", () => {
     expect(parseExam(NOTE)?.questions.map((q) => q.id)).toEqual(["1.1", "2.1"]);
   });

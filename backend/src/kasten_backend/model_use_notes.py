@@ -47,7 +47,8 @@ def _split(text: str) -> tuple[list[str], list[str]]:
     lines = text.split("\n")
     if lines[0].rstrip() != FENCE:
         return [], lines
-    end = next((i for i, line in enumerate(lines[1:], 1) if line.strip() == FENCE), None)
+    # At column 0, as frontmatter.py closes a block (#654).
+    end = next((i for i, line in enumerate(lines[1:], 1) if line.rstrip() == FENCE), None)
     if end is None:
         return [], lines
     return lines[1:end], lines[end + 1 :]

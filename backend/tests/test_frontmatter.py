@@ -1,6 +1,11 @@
+import json
 from datetime import UTC, datetime
+from pathlib import Path
 from uuid import UUID
 
+import pytest
+
+from kasten_backend import model_use_notes
 from kasten_backend.frontmatter import _split, body_start, stamp, with_type
 
 NOW = datetime(2026, 8, 6, 12, 0, tzinfo=UTC)
@@ -166,6 +171,34 @@ def test_651_a6_a_fence_after_a_space_opens_no_block() -> None:
 
 def test_651_i7_a_save_puts_the_block_above_a_note_opening_with_a_spaced_fence() -> None:
     content = ' ---\ncolor: "#fff"\n---\n'
+
+    stamped = stamp(content, now=NOW)
+
+    assert {"fields": set(fields(stamped)), "body": body(stamped)} == {
+        "fields": {"id", "created", "type", "modified"},
+        "body": content,
+    }
+
+
+CLOSERS = json.loads(
+    (Path(__file__).parent / "fixtures/frontmatter_closers.json").read_text(encoding="utf-8")
+)
+"""#654: which line closes a block, the cases `frontend/tests/note-frontmatter.test.ts` runs too."""
+
+
+@pytest.mark.parametrize("case", CLOSERS, ids=[case["name"] for case in CLOSERS])
+def test_654_a_block_closes_only_on_a_fence_at_column_0(case: dict) -> None:
+    note = case["note"]
+
+    assert {
+        "split": "\n".join(_split(note)[1]),
+        "body_start": note[body_start(note) :],
+        "model_use": "\n".join(model_use_notes._split(note)[1]),
+    } == dict.fromkeys(("split", "body_start", "model_use"), case["body"])
+
+
+def test_654_a_save_puts_the_block_above_a_note_closed_only_by_a_spaced_fence() -> None:
+    content = "---\nref: x #a\n ---\n#real"
 
     stamped = stamp(content, now=NOW)
 

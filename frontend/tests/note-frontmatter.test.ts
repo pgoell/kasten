@@ -7,7 +7,10 @@
  * the client is the only thing that can write `reading:`.
  */
 
-import { readField, setField } from "@/lib/note-frontmatter";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { belowFrontmatter } from "@/lib/frontmatter-language";
+import { noteBody, readField, setField } from "@/lib/note-frontmatter";
 
 const CFI = "epubcfi(/6/14!/4/2/2/1:0)";
 
@@ -133,5 +136,30 @@ describe("setField", () => {
 
     expect(written).toContain(`reading: ${CFI}`);
     expect(readField(written, "reading")).toBe(CFI);
+  });
+});
+
+const CLOSERS: { name: string; note: string; body: string }[] = JSON.parse(
+  readFileSync(
+    path.resolve(import.meta.dirname, "../../backend/tests/fixtures/frontmatter_closers.json"),
+    "utf8",
+  ),
+);
+
+describe("#654 a block closes only on a fence at column 0, as frontmatter.py closes it", () => {
+  it.each(CLOSERS.map((one) => [one.name, one] as const))("%s", (_, one) => {
+    expect({
+      noteBody: noteBody(one.note),
+      editor: one.note.slice(belowFrontmatter(one.note)),
+    }).toEqual({ noteBody: one.body, editor: one.body });
+  });
+
+  it("reads and writes no field above a spaced closer", () => {
+    const text = note("---", "ref: x #a", " ---", "#real");
+
+    expect({ read: readField(text, "ref"), set: setField(text, "reading", CFI) }).toEqual({
+      read: undefined,
+      set: note("---", `reading: ${CFI}`, "---", text),
+    });
   });
 });

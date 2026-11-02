@@ -1,5 +1,6 @@
-import { fireEvent, waitFor } from "@testing-library/react";
+import { act, fireEvent, waitFor } from "@testing-library/react";
 import { Editor } from "@/components/editor";
+import { toggleVim } from "@/lib/editor/vim-setting";
 import { content, liveHooks, renderEditor } from "./live-preview-fixture";
 
 liveHooks();
@@ -36,5 +37,18 @@ describe("live preview", () => {
     );
 
     expect(container.querySelector(".cm-tag")).toBeNull();
+  });
+
+  it("#654 reads a block closed only by ` ---` as text, its hashes tags, with vim off and on", () => {
+    // Obsidian closes a block only on `---` at column 0, as frontmatter.py does.
+    const { container } = renderEditor(<Editor initialDoc={"---\nref: x #a\n ---\n#real"} />);
+    const tags = () => [...container.querySelectorAll(".cm-tag")].map((tag) => tag.textContent);
+
+    const off = tags();
+    act(() => toggleVim());
+    const on = tags();
+    act(() => toggleVim());
+
+    expect({ off, on }).toEqual({ off: ["#a", "#real"], on: ["#a", "#real"] });
   });
 });

@@ -70,13 +70,21 @@ def _split(content: str) -> tuple[list[str], list[str]]:
 def _closing(lines: list[str]) -> int | None:
     """Which line closes the block, or None when there is no block.
 
-    Only a fence at the very start opens one, with spaces or tabs after it. ` ---` is a rule to
-    Obsidian and the editor, so it is one here too.
+    A fence opens or closes one only at column 0, with spaces or tabs after it. ` ---` is a rule
+    to Obsidian and the editor, so it is one here too (#654).
     """
-    if lines[0].rstrip(" \t\r") != FENCE:
+    if not _fence(lines[0]):
         return None
 
-    return next((i for i, line in enumerate(lines[1:], 1) if line.strip() == FENCE), None)
+    return next((i for i, line in enumerate(lines[1:], 1) if _fence(line)), None)
+
+
+def _fence(line: str) -> bool:
+    """Whether `line` opens or closes a block.
+
+    The client reads the same cases, in backend/tests/fixtures/frontmatter_closers.json.
+    """
+    return line.rstrip(" \t\r") == FENCE
 
 
 def body_start(content: str) -> int:

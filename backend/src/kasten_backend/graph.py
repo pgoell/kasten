@@ -164,13 +164,16 @@ def _types(hits: Iterable[tuple[str, int, str]]) -> dict[str, str]:
         lines.sort()
         if not lines or lines[0][0] != 1 or lines[0][1].strip() != "---":
             continue
+        typed = None
         for _, text in lines[1:]:
             if text.strip() == "---":
+                # Only a block that closes has a type, as `frontmatter.py` reads it (#654).
+                if typed:
+                    found[path] = typed
                 break
             match = TYPE.match(text)
-            if match and match.group(1):
-                found[path] = match.group(1).strip("\"'")
-                break
+            if match and match.group(1) and typed is None:
+                typed = match.group(1).strip("\"'")
     return found
 
 
