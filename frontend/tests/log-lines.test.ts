@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import cases from "@/lib/log/log-cases.json";
-import { amountLine, drinkTotals, foodLine, logLines, parseDrink, parseFood } from "@/lib/log/log-lines";
+import {
+  amountLine,
+  drinkTotals,
+  foodLine,
+  logLines,
+  parseDrink,
+  parseFood,
+} from "@/lib/log/log-lines";
 import fixture from "./fixtures/done-lines.json";
 
 interface Row {

@@ -140,9 +140,13 @@ function itemColumn(lines: string[], floor: number, opener: number): number {
   if (index < floor || HEADING_LINE.test(at(index))) return 0;
   const first = LIST_MARKER.exec(at(index));
   if (first !== null) return contentColumn(first) <= n ? contentColumn(first) : 0;
-  // A lazy continuation line: the item's marker may sit further up, with no blank line between.
-  for (index -= 1; index >= floor; index -= 1) {
-    const held = at(index);
+  return lazyItemColumn(lines, floor, index - 1, n);
+}
+
+/** A lazy continuation line's item: its marker may sit further up, with no blank line between. */
+function lazyItemColumn(lines: string[], floor: number, from: number, n: number): number {
+  for (let index = from; index >= floor; index -= 1) {
+    const held = lines[index] ?? "";
     if (held.trim() === "" || HEADING_LINE.test(held)) return 0;
     const marker = LIST_MARKER.exec(held);
     if (marker !== null && contentColumn(marker) <= n) return contentColumn(marker);

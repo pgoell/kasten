@@ -214,30 +214,36 @@ describe("the log card", () => {
   it.each([
     ["on", [vim(), vimModeState()]],
     ["off", [vimKeys.of(false)]],
-  ])("#754 with vim %s, a tap after a fence open in a list item counts in the totals", (_, keys) => {
-    const view = mount(LISTED, DAILY, keys);
-    press(view, "Log water");
-    expect([text(view), totals(view)]).toEqual([
-      `${LISTED}- 💧 250 ml\n`,
-      expect.stringContaining("💧 250 ml"),
-    ]);
-  });
+  ])(
+    "#754 with vim %s, a tap after a fence open in a list item counts in the totals",
+    (_, keys) => {
+      const view = mount(LISTED, DAILY, keys);
+      press(view, "Log water");
+      expect([text(view), totals(view)]).toEqual([
+        `${LISTED}- 💧 250 ml\n`,
+        expect.stringContaining("💧 250 ml"),
+      ]);
+    },
+  );
 
   it.each([
     ["on", [vim(), vimModeState()]],
     ["off", [vimKeys.of(false)]],
-  ])("#754 with vim %s, a closer indented four spaces gets the real closer, one undo back", (_, keys) => {
-    const view = mount(INDENTED, DAILY, keys);
-    press(view, "Log water");
-    const after = [text(view), totals(view)];
-    if (keys.length === 1) undo(view);
-    else fireEvent.keyDown(view.contentDOM, { key: "u" });
-    expect([...after, text(view)]).toEqual([
-      `${INDENTED}\`\`\`\n- 💧 250 ml\n`,
-      expect.stringContaining("💧 250 ml"),
-      INDENTED,
-    ]);
-  });
+  ])(
+    "#754 with vim %s, a closer indented four spaces gets the real closer, one undo back",
+    (_, keys) => {
+      const view = mount(INDENTED, DAILY, keys);
+      press(view, "Log water");
+      const after = [text(view), totals(view)];
+      if (keys.length === 1) undo(view);
+      else fireEvent.keyDown(view.contentDOM, { key: "u" });
+      expect([...after, text(view)]).toEqual([
+        `${INDENTED}\`\`\`\n- 💧 250 ml\n`,
+        expect.stringContaining("💧 250 ml"),
+        INDENTED,
+      ]);
+    },
+  );
 
   it("with vim off, a tap into a ## Log ending in an unclosed fence closes it and undo takes both back", () => {
     const view = mount(FENCED, DAILY, [vimKeys.of(false)]);
