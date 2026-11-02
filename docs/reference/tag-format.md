@@ -35,6 +35,10 @@ finder that leaves a name inside a tag alone.
    spaces or a tab after a blank line, or after a quote or list marker, so
    `>     #h` and `-     #h` open code; a line indented under a list item goes
    on with the item and keeps its tags. A comment may run over several lines.
+   As in the editor, `<!-->` after other text opens no comment, so
+   `a <!--> #x -->` carries `#x`, while `<!--->` opens one that runs to the
+   next `-->`. A line opening with either is a block that ends on that line
+   (#657).
 6. A `<!--` that opens a line, a list item or a quote, three spaces in front
    at most and outside code, starts an HTML block, as CommonMark reads it. The
    block ends with the first line holding `-->`, that whole line included, or

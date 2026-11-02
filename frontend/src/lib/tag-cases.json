@@ -168,5 +168,12 @@
     "id": "html-processing-instruction-spans-lines",
     "text": "<?x\n#hidden\n?>\n#real",
     "tags": ["#real"]
-  }
+  },
+  { "id": "empty-comment-runs-on", "text": "a <!--> #real\n-->", "tags": ["#real"] },
+  { "id": "empty-comment-dash-runs-on", "text": "a <!---> #hidden\n-->", "tags": [] },
+  { "id": "empty-comment-same-line", "text": "a <!--> #real -->", "tags": ["#real"] },
+  { "id": "empty-comment-dash-same-line", "text": "a <!---> #hidden -->", "tags": [] },
+  { "id": "empty-comment-opens-line", "text": "<!--> #hidden\n#real", "tags": ["#real"] },
+  { "id": "empty-comment-dash-opens-line", "text": "<!---> #hidden\n#real", "tags": ["#real"] },
+  { "id": "empty-comment-after-box", "text": "- [ ] go <!--> #real -->", "tags": ["#real"] }
 ]
