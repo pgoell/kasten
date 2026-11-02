@@ -129,7 +129,7 @@ depends = ["test:py", "fe:test", "shell:test"]
 
 [tasks."test:py"]
 description = "Run backend and host job tests"
-run = "uv run pytest"
+run = "uv run pytest -n 4"
 
 [tasks."fe:test"]
 description = "Run frontend tests"
