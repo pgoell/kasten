@@ -52,7 +52,8 @@ them but spaces or tabs, open it, and the next such line closes it. Both
 fences sit at column 0: ` ---`, a space or tab in front, neither opens nor
 closes a block, and a note whose block never closes has none. So in `---`,
 `ref: x #a`, ` ---`, `#real` both `#a` and `#real` are tags, as in Obsidian.
-The editor, the graph and every other reader of the block follow the same rule. The editor draws no tag from
+The editor, the graph and every other reader of the block read ` ---` so;
+some still want exactly `---` and miss a closer with blanks after it (#1449). The editor draws no tag from
 the field; `GET /api/tags` and the graph read it.
 
 A deck tag is a tag by this rule that is `#flashcards` or starts

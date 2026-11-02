@@ -74,7 +74,7 @@ const BULLET = /^(\s*)[*+](\s)/;
 
 /** Where the line-by-line tidy stands, and the changes it has gathered. */
 interface Tidy {
-  /** The line of the block's closing fence, or 0 with no block. */
+  /** From `frontEnd`. */
   front: number;
   inFence: boolean;
   blanks: number;
