@@ -160,12 +160,13 @@ Narrower than `TODO_LINE`: the editor's `.` matches no carriage return, U+2028 o
 so a line holding one is no todo here either. rg matches it all the same.
 """
 
-COMMENT_OPENING = r"^ {0,3}<!--[^\n]*"
+COMMENT_OPENING = r"^ {0,3}(?:(?:>|(?:[-*+]|[0-9]{1,9}[.)])[ \t])[ \t]{0,4})*<!--[^\n]*"
 LINE_SPANS = re.compile(f"{COMMENT_OPENING}|{SPANS.pattern}")
-"""`SPANS` and, first, a comment opening the line, for a reader holding a whole line.
+"""`SPANS` and, first, a comment opening the line or a list item or quote on it.
 
-A `<!--` opening a line starts an HTML block, which takes the whole line, so no tag after
-it counts. Not in `SPANS`: a todo's `<!--` after its box is a plain comment.
+That `<!--` starts an HTML block, which takes the whole line, so no tag after it counts.
+Not in `SPANS`: a todo's `<!--` after its box is a plain comment. `tag-rule.ts` agrees.
+Each pass opens on a marker, so a line of `> ` cannot backtrack exponentially.
 """
 
 
@@ -187,33 +188,6 @@ def line_tags(text: str) -> list[tuple[int, int]]:
 
 COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 """An HTML comment, over as many lines as it runs."""
-
-COMMENT_LINE = re.compile(r"^ {0,3}<!--", re.MULTILINE)
-"""A `<!--` opening a line, three spaces in front at most: an HTML block by CommonMark."""
-
-
-def _comment_blocks(text: str, base: str) -> list[tuple[int, int]]:
-    """Where `text` holds an HTML block that a `COMMENT_LINE` opens, read on `base`.
-
-    `base` is `text` with code blanked, so a `<!--` in code opens nothing. The block runs
-    to the end of the first line holding `-->`, so `<!-- x --> #a` hides `#a`; one never
-    closed runs to the end of the note.
-    """
-    blocks: list[tuple[int, int]] = []
-    end = 0
-    for found in COMMENT_LINE.finditer(base):
-        # A `<!--` inside a block already found opens nothing, and nor does one
-        # whose spaces in front are a code span blanked, as in `` `a`<!-- ``.
-        if found.start() < end or text[found.start() : found.end()] != found[0]:
-            continue
-        close = text.find("-->", found.start())
-        if close == -1:
-            blocks.append((found.start(), len(text)))
-            break
-        end = text.find("\n", close)
-        end = len(text) if end == -1 else end
-        blocks.append((found.start(), end))
-    return blocks
 
 
 INDENTED = re.compile(r"^(?: {4}|\t).*#", re.MULTILINE)
@@ -244,12 +218,10 @@ def tags_in(text: str) -> list[tuple[int, int]]:
     if "```" in text or "~~~" in text or "<!--" in text or INDENTED.search(text, body):
         # The block as spaces, which the parser reads as blank lines, so an
         # indented line under it opens code as it does under a blank line.
-        hidden += code_spans(_blanked(text, hidden, " "), indented=True)
+        hidden += code_spans(_blanked(text, hidden, " "), indented=True, comments="<!--" in text)
         # Looked for with the code blanked: a `<!--` in code opens no comment,
         # and paired with a real `-->` below it would hide the tags between.
-        base = _blanked(text, hidden, " ")
-        hidden += _comment_blocks(text, base)
-        hidden += [found.span() for found in COMMENT.finditer(base)]
+        hidden += [found.span() for found in COMMENT.finditer(_blanked(text, hidden, " "))]
     if not hidden:
         return line_tags(text)
     return line_tags(_blanked(text, hidden, "\N{NO-BREAK SPACE}"))
