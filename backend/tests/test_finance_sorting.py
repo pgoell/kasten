@@ -299,7 +299,10 @@ async def test_a_run_holds_the_sort_lock_until_its_transaction_ends(
     await sorting.apply_rules(finance_session)
 
     held = await finance_session.scalar(
-        text("SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND objid = :lock"),
+        text(
+            "SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND objid = :lock "
+            "AND database = (SELECT oid FROM pg_database WHERE datname = current_database())"
+        ),
         {"lock": sorting.SORT_LOCK},
     )
     assert held == 1
