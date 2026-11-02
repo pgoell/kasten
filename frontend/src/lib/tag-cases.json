@@ -32,6 +32,18 @@
   { "id": "rule-lower-down", "text": "#a\n\n---\nref: x #b\n\n---", "tags": ["#a", "#b"] },
   { "id": "indented-code", "text": "para\n\n    #indented\n\n#real", "tags": ["#real"] },
   { "id": "tab-code", "text": "para\n\n\t#indented\n\n#real", "tags": ["#real"] },
+  { "id": "container-code-quote", "text": "> a\n>\n>     #hidden\n\n#real", "tags": ["#real"] },
+  { "id": "container-code-item", "text": "-     #hidden\n\n#real", "tags": ["#real"] },
+  { "id": "container-code-ordered", "text": "1.     #hidden\n\n#real", "tags": ["#real"] },
+  { "id": "container-code-quote-opens", "text": ">     #hidden\n\n#real", "tags": ["#real"] },
+  {
+    "id": "container-code-nested-quote",
+    "text": "> > a\n> >\n> >     #hidden\n\n#real",
+    "tags": ["#real"]
+  },
+  { "id": "container-code-quote-tabs", "text": ">\t\t#hidden\n\n#real", "tags": ["#real"] },
+  { "id": "container-code-continuation", "text": "- a\n      #real", "tags": ["#real"] },
+  { "id": "container-code-box", "text": "- [ ]     #box\n\n#real", "tags": ["#box", "#real"] },
   {
     "id": "list-continuation",
     "text": "- [ ] a\n    - [ ] x #p\n\n    more #q",

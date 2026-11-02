@@ -190,8 +190,8 @@ COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 """An HTML comment, over as many lines as it runs."""
 
 
-INDENTED = re.compile(r"^(?: {4}|\t).*#", re.MULTILINE)
-"""A line indented as far as code is, holding a hash: what may be a tag in code."""
+INDENTED = re.compile(r"^(?:[ \t>]|(?:[-*+]|[0-9]{1,9}[.)])[ \t])*(?: {4}|\t).*#", re.MULTILINE)
+"""A line indented as far as code is, after markers or not, holding a hash: a tag in code, maybe."""
 
 
 def _blanked(text: str, spans: list[tuple[int, int]], filler: str) -> str:

@@ -2,6 +2,7 @@ import { undo } from "@codemirror/commands";
 import { EditorView } from "@codemirror/view";
 import { act, fireEvent, render } from "@testing-library/react";
 import { Editor } from "@/components/editor";
+import cases from "@/lib/tag-cases.json";
 import { stubCommands } from "./stub-commands";
 
 const PATH = "02 Projects/Kasten/Reader.md";
@@ -407,6 +408,41 @@ describe("#1456 the header skips the tags inside an indented code block, as the 
     );
     const view = viewIn(container);
     const at = view.state.doc.line(3).from;
+    act(() => view.dispatch({ changes: { from: at, insert: "    " } }));
+    const indented = part(container, "meta").includes("#h");
+    act(() => view.dispatch({ changes: { from: at, to: at + 4 } }));
+    expect([indented, part(container, "meta").includes("#h")]).toEqual([false, true]);
+  });
+});
+
+describe("#1459 the header skips a tag in code that opens after a quote or list marker", () => {
+  // The rows `test_tag_rule.py` runs through `GET /api/tags`, so both read the same strings.
+  const rows = cases.filter((one) => one.id.startsWith("container-code-"));
+  const shown = (body: string, vim: boolean) => {
+    if (vim) localStorage.setItem("kasten.vim", "on");
+    const { container, unmount } = render(
+      <Editor initialDoc={`${body}\n`} path={PATH} commands={stubCommands()} />,
+    );
+    const meta = part(container, "meta");
+    unmount();
+    return ["#hidden", "#box", "#real"].filter((tag) => meta.includes(tag));
+  };
+
+  it.each([false, true])(
+    "#1459 the header reads the table's rows as the backend does, vim %s",
+    (vim) => {
+      const read = (of: (one: (typeof rows)[number]) => string[]) =>
+        Object.fromEntries(rows.map((one) => [one.id, of(one)]));
+      expect(read((one) => shown(one.text, vim))).toEqual(read((one) => one.tags));
+    },
+  );
+
+  it("#1459 indenting a quoted line into code hides its tag on that edit, and outdenting shows it", () => {
+    const { container } = render(
+      <Editor initialDoc={"> a\n>\n> #h\n"} path={PATH} commands={stubCommands()} />,
+    );
+    const view = viewIn(container);
+    const at = view.state.doc.line(3).from + 2;
     act(() => view.dispatch({ changes: { from: at, insert: "    " } }));
     const indented = part(container, "meta").includes("#h");
     act(() => view.dispatch({ changes: { from: at, to: at + 4 } }));
