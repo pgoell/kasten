@@ -172,6 +172,12 @@ block as CommonMark and the editor read it, most often four spaces or a tab
 after a blank line. An indented line that only goes on with a paragraph or a
 list item is no code block and stays a card.
 
+Nor is a card inside an HTML comment, on one line or several, as the editor
+shows those lines as a comment. A comment opening a line ends the card above
+it, and a card on the line after `-->` is asked. A `<!--` nobody closes hides
+every card under it. A schedule comment on its own line is no such comment: it
+still holds its card's schedule.
+
 ### As a cloze
 
 ```markdown
