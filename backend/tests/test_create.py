@@ -1,3 +1,5 @@
+import hashlib
+import os
 from typing import TYPE_CHECKING
 
 from kasten_backend.vault import resolve_folder, resolve_path
@@ -207,6 +209,50 @@ async def test_refuses_a_null_byte_rather_than_raising(client: AsyncClient, vaul
     # The rule below guards against stalling an event loop, and a test reading
     # one throwaway directory has no loop worth protecting.
     assert list(vault.iterdir()) == []  # noqa: ASYNC240
+
+
+def test_the_resolver_refuses_a_link_to_a_name_that_is_not_utf8(vault: Path) -> None:
+    # The caller sends a plain name; the surrogate appears only once `resolve` follows the link.
+    (vault / os.fsdecode(b"d\xff")).mkdir()
+    (vault / os.fsdecode(b"x\xff.md")).write_text("# x\n")
+    (vault / "link.md").symlink_to(os.fsdecode(b"x\xff.md"))
+    (vault / "folder").symlink_to(os.fsdecode(b"d\xff"))
+
+    assert resolve_path(vault, "link.md") is None
+    assert resolve_folder(vault, "folder") is None
+
+
+async def test_the_agent_answers_a_link_to_a_name_that_is_not_utf8_as_absent(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    (agent_vault / os.fsdecode(b"x\xff.md")).write_text("# x\n")
+    (agent_vault / "link.md").symlink_to(os.fsdecode(b"x\xff.md"))
+
+    response = await client.get("/agent/notes/link.md", headers=bearer)
+
+    assert response.status_code == 404
+
+
+async def test_an_agent_write_leaves_a_note_not_in_utf8_alone(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    # No read can show these bytes, so no write may replace them (#1504). `index.md` is
+    # reserved, so `_write` never decodes it: only the refusal up front keeps it.
+    latin = b"caf\xe9\n"
+    digest = hashlib.sha256(latin).hexdigest()
+    for name in ("latin.md", "index.md"):
+        (agent_vault / name).write_bytes(latin)
+        answers = [
+            await client.put(f"/agent/notes/{name}", json={"content": "# x"}, headers=bearer),
+            await client.put(
+                f"/agent/notes/{name}", json={"content": "# x", "sha": digest}, headers=bearer
+            ),
+            await client.post(f"/agent/notes/{name}/append", json={"text": "x"}, headers=bearer),
+        ]
+
+        assert [answer.status_code for answer in answers] == [404, 404, 404]
+        assert answers[0].json() == {"detail": "No such note"}
+        assert (agent_vault / name).read_bytes() == latin
 
 
 def test_the_resolver_refuses_a_path_that_does_not_encode_as_utf8(vault: Path) -> None:

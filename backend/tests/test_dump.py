@@ -470,3 +470,19 @@ async def test_only_the_browser_capture_takes_an_id(client: AsyncClient) -> None
 
     assert "id" in properties("/api/dump")
     assert "id" not in properties("/agent/dump")
+
+
+async def test_a_daily_note_not_in_utf8_is_refused_and_kept(
+    client: AsyncClient, vault: Path, receipts: Path
+) -> None:
+    # Written outside kasten in another encoding: no dump may rewrite what no read can show (#1504).
+    (vault / DAY).parent.mkdir(parents=True)
+    (vault / DAY).write_bytes(b"caf\xe9\n")
+
+    fresh = await client.post("/api/dump", json={"text": "water", "date": "2026-09-29"})
+    seed(receipts, [ID])
+    resent = await client.post("/api/dump", json={"text": "again", "date": "2026-09-29", "id": ID})
+
+    # A 4xx, which the phone's outbox keeps with its reason rather than dropping or retrying.
+    assert [fresh.status_code, resent.status_code] == [400, 400]
+    assert (vault / DAY).read_bytes() == b"caf\xe9\n"

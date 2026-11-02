@@ -401,9 +401,8 @@ editing one copy and not the other fails a test.
 
 * `422` with `Nothing to capture` when the text is empty once trimmed.
 * `422` when `date` is missing or is not a real day, `2026-02-30` included.
-* `400` when the vault will not take the daily note's path, which only happens
-  when something that is not a folder stands where `00 Daily` in the periodic
-  folder should be.
+* `400` when the vault will not take the daily note: a file stands where
+  `00 Daily` in the periodic folder should be, or the note is not UTF-8.
 
 `POST /agent/dump` in [the Agent API](/reference/agent-api/routes.md#post-agentdump)
 runs the same function behind a bearer token, so a thought from an agent lands

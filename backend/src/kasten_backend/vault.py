@@ -138,7 +138,12 @@ def legal_name(part: str) -> bool:
     Its own function so a caller holding a name and no vault, the Anki reader,
     asks the rule `_resolve_inside` applies rather than a copy of it.
     """
-    return not part.startswith(".") and len(part.encode("utf-8")) <= _NAME_LIMIT_BYTES
+    try:
+        size = len(part.encode("utf-8"))
+    # A surrogate, which `resolve` makes of a name on disk that is not UTF-8 (#1505).
+    except UnicodeEncodeError:
+        return False
+    return not part.startswith(".") and size <= _NAME_LIMIT_BYTES
 
 
 def _resolve_inside(root: Path, relative: str) -> Path | None:

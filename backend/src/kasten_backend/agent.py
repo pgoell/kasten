@@ -229,7 +229,7 @@ async def read_note(settings: Settings, path: str) -> NoteRead | None:
 
     try:
         return _read(settings.vault_path, note)
-    except OSError:
+    except OSError, UnicodeDecodeError:
         return None
 
 
@@ -328,6 +328,17 @@ def _words_only(running: indexer.Indexer | None) -> str:
     return "The model could not embed the query, so these rank by words alone."
 
 
+def _unreadable(previous: bytes | None) -> bool:
+    """Whether the note on disk is not UTF-8: bytes no read shows, so no write replaces (#1504)."""
+    if previous is None:
+        return False
+    try:
+        previous.decode("utf-8")
+    except UnicodeDecodeError:
+        return True
+    return False
+
+
 def _agree(previous: bytes | None, sha: str | None, *, optional: bool) -> None:
     """Refuse a write whose caller read a different note, or none at all.
 
@@ -386,6 +397,9 @@ async def _put(
     relative = relative_path(settings.vault_path, note)
     async with vault_write():
         previous = note.read_bytes() if note.is_file() else None
+        # Before `_agree`, whose conflict would hand out the digest of a note reads call absent.
+        if _unreadable(previous):
+            return None
         _agree(previous, sha, optional=appending)
 
         if appending and previous is not None:
@@ -439,12 +453,14 @@ async def dump(
     store = settings.tokens_path.with_name("dump-receipts.json")
     async with vault_write():
         written = _receipts(store) if sent is not None else []
-        # `is_file` because the note may have been deleted since, and a resend
-        # then has nothing to hand back but a fresh note with the paragraph.
-        if str(sent) in written and note.is_file():
+        previous = note.read_bytes() if note.is_file() else None
+        if _unreadable(previous):
+            return None
+        # The note may have been deleted since, and a resend then has nothing to
+        # hand back but a fresh note with the paragraph.
+        if str(sent) in written and previous is not None:
             return _read(settings.vault_path, note)
 
-        previous = note.read_bytes() if note.is_file() else None
         held = (
             daily_note(day, settings.periodic_path)
             if previous is None
