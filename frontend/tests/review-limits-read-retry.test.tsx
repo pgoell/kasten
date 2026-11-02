@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { ReviewDecks } from "@/components/review-decks";
 import { ReviewSession } from "@/components/review-session";
@@ -247,5 +247,45 @@ describe("the daily limits' reads retry a backend that is restarting (#1149)", (
 
     expect(readsOf(decks, DECKS)).toBe(2);
     expect(screen.getByText(TWENTY)).toBeInTheDocument();
+  });
+});
+
+describe("the overview's limits alert can try again (#1170)", () => {
+  const ALERT = "The daily limits could not be read: GET /api/review/limits failed with 502";
+
+  it("#1170 A1 after a limits read failed for good the overview's Try again reads them again, and the rows show with no alert", async () => {
+    vault([FIVE_NOTE], { "a.md": ALPHA_NOTE });
+    limits([...Array.from({ length: 8 }, () => failure("/api/review/limits", 502)), NO_DEFAULTS]);
+    overview();
+    await settle(61_000);
+    expect(screen.getByRole("alert")).toHaveTextContent(ALERT);
+    const again = screen.getByRole("button", { name: "Try again" });
+    // The shared button, a thumb's target like the sitting's.
+    expect(again).toHaveAttribute("data-reread");
+    expect(again.className).toContain("min-h-11");
+
+    fireEvent.click(again);
+    await settle(100);
+
+    expect(screen.getByText(FIVE)).toBeInTheDocument();
+    expect(document.querySelector("button[data-deck]")).not.toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+  });
+
+  it("#1170 I1 the overview's Try again while the backend is still down says Reading the vault…, then the alert and Try again come back", async () => {
+    vault([FIVE_NOTE], { "a.md": ALPHA_NOTE });
+    limits([failure("/api/review/limits", 502)]);
+    overview();
+    await settle(61_000);
+
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    await settle(100);
+    expect(screen.getByText("Reading the vault…")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+
+    await settle(61_000);
+    expect(screen.getByRole("alert")).toHaveTextContent(ALERT);
+    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
   });
 });

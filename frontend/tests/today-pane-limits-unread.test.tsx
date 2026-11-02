@@ -1,4 +1,4 @@
-import { act } from "@testing-library/react";
+import { act, fireEvent, within } from "@testing-library/react";
 import { pageHooks, renderApp, theRoute } from "./home-route-fixture";
 
 // The doubles, the same in every home-route file: see home-route-fixture.tsx.
@@ -128,5 +128,49 @@ describe("the today pane when the daily limits cannot be read", () => {
       "Cards could not be counted: the daily limits could not be read",
     );
     expect(due?.textContent).not.toContain("Nothing due.");
+  });
+
+  /** Lets the timers run on, and the updates they cause land on screen. */
+  async function settle(ms: number) {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(ms);
+    });
+  }
+
+  it("#1170 A2 after the limits read failed for good the Due column's Try again reads them again, and the unread row goes", async () => {
+    vi.setSystemTime(TODAY);
+    await renderApp();
+    await settle(61_000);
+    const [, , due] = columns();
+    const again = within(due as HTMLElement).getByRole("button", { name: "Try again" });
+    expect(again).toHaveAttribute("data-reread");
+    expect(again.className).toContain("min-h-11");
+
+    vi.mocked(fetchReviewLimits).mockResolvedValue({ new_per_day: null, reviews_per_day: null });
+    fireEvent.click(again);
+    await settle(100);
+
+    expect(due?.textContent).not.toContain("Cards could not be counted");
+    expect(due?.textContent).toContain("Nothing due.");
+    expect(within(due as HTMLElement).queryByRole("button", { name: "Try again" })).toBeNull();
+  });
+
+  it("#1170 I5 the Due column's Try again while the limits read still fails brings the unread row and Try again back", async () => {
+    vi.setSystemTime(TODAY);
+    await renderApp();
+    await settle(61_000);
+    const [, , due] = columns();
+
+    fireEvent.click(within(due as HTMLElement).getByRole("button", { name: "Try again" }));
+    await settle(100);
+    expect(due?.textContent).not.toContain("Cards could not be counted");
+
+    await settle(61_000);
+    expect(due?.textContent).toContain(
+      "Cards could not be counted: the daily limits could not be read",
+    );
+    expect(
+      within(due as HTMLElement).getByRole("button", { name: "Try again" }),
+    ).toBeInTheDocument();
   });
 });

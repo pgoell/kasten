@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { NotePreview } from "@/components/note-preview";
-import { BUTTON, ReviewAnswer, ReviewSource } from "@/components/review-answer";
+import { BUTTON, ReviewAnswer, ReviewSource, TryAgain } from "@/components/review-answer";
 import { SwipeCard } from "@/components/review-swipe";
 import { shiftDay } from "@/lib/clock";
 import { noteName } from "@/lib/note-path";
@@ -522,21 +522,7 @@ function ReadFailure({
           {failed}
         </p>
       )}
-      {rereadable && (
-        // The reread unmounts this button, and a focus on it would fall to the
-        // body and take the pane's keys with it, so the focus goes to the pane first.
-        <button
-          type="button"
-          data-reread
-          onClick={(event) => {
-            event.currentTarget.closest<HTMLElement>("[tabindex]")?.focus();
-            onReread();
-          }}
-          className={`mt-3 ${BUTTON}`}
-        >
-          Try again
-        </button>
-      )}
+      {rereadable && <TryAgain onClick={onReread} />}
     </>
   );
 }

@@ -5,7 +5,7 @@ import { ReviewPane } from "@/components/review-pane";
 import { ReviewSession } from "@/components/review-session";
 import * as api from "@/lib/api";
 import { readRetry } from "@/lib/read-retry";
-import type { Deck } from "@/lib/review/review";
+import type { Deck, Limits } from "@/lib/review/review";
 import { shownCard } from "./review-card";
 import { HITS, serveNotes } from "./review-pane-fixture";
 import { stubCommands } from "./stub-commands";
@@ -166,5 +166,103 @@ describe("a sitting whose daily limits read failed for good can try again (#1167
     fireEvent.click(again);
 
     expect(await shownCard()).toHaveTextContent("c");
+  });
+});
+
+describe("a sitting whose limits refetch failed for good does not ask under the cached answer (#1171)", () => {
+  /** Mounts the sitting over a client that already holds `cached`, as the overview leaves it. */
+  function mountCached(cached: Limits) {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(["cards", "limits"], cached);
+    render(
+      <QueryClientProvider client={client}>
+        <ReviewSession deck={TRIVIA} onLeave={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    return client;
+  }
+
+  /** `decks.md` as it read before the edit: no limit. */
+  const STALE: Limits = { note: "", defaults: NO_LIMITS };
+
+  /** `decks.md` reads `trivia: 5 new`, the edit the cached answer predates. */
+  function editedDecks() {
+    vi.spyOn(api, "fetchNote").mockImplementation((path) =>
+      Promise.resolve(path === NOTE ? TRIVIA_NOTE : "trivia: 5 new\n"),
+    );
+  }
+
+  it("#1171 A4 a sitting over a cached limits answer whose refetch fails for good says the limits could not be read, offers Try again and asks no card", async () => {
+    editedDecks();
+    limitsDown();
+    mountCached(STALE);
+    await settle(61_000);
+
+    expect(screen.getByRole("alert")).toHaveTextContent(LIMITS_ALERT);
+    expect(screen.queryByTestId("review-card")).toBeNull();
+    expect(tryAgain()).not.toBeNull();
+  });
+
+  it("#1171 I2 Try again once the backend is back asks under the new limits, not the cached ones", async () => {
+    editedDecks();
+    const backend = limitsDown();
+    mountCached(STALE);
+    await settle(61_000);
+
+    backend.down = false;
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    await settle(100);
+
+    expect(screen.getByTestId("review-card")).toBeInTheDocument();
+    expect(screen.getByText("5 left")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("#1171 I3 a sitting that latched its limits keeps asking with no alert when a rating's limits refetch fails for good", async () => {
+    editedDecks();
+    const backend = limitsDown();
+    backend.down = false;
+    vi.spyOn(api, "saveNote").mockImplementation((path, content) =>
+      Promise.resolve({ path, content }),
+    );
+    const client = mountCached(STALE);
+    await settle(100);
+    expect(screen.getByText("5 left")).toBeInTheDocument();
+
+    backend.down = true;
+    fireEvent.click(screen.getByRole("button", { name: "Show the answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Good" }));
+    act(() => {
+      void client.invalidateQueries({ queryKey: ["cards"] });
+    });
+    await settle(61_000);
+
+    expect(screen.getByTestId("review-card")).toBeInTheDocument();
+    expect(screen.getByText("4 left")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+});
+
+describe("the overview's limits Try again in the review pane (#1170)", () => {
+  it("#1170 I4 Enter on the focused overview Try again in the review pane is left to the browser, and its click shows the decks", async () => {
+    // Real timers: the pane's own reads are awaited with `findBy`, not advanced by hand.
+    vi.useRealTimers();
+    // One refused read, not a minute of tries, so the alert shows at once.
+    vi.spyOn(readRetry, "retry").mockReturnValue(false);
+    const backend = limitsDown();
+    vi.spyOn(api, "fetchCards").mockResolvedValue(HITS);
+    serveNotes(HITS);
+    mount(<ReviewPane commands={stubCommands()} onClose={vi.fn()} onOpen={vi.fn()} />);
+    const again = await screen.findByRole("button", { name: "Try again" });
+
+    again.focus();
+    backend.down = false;
+    expect(fireEvent.keyDown(again, { key: "Enter" })).toBe(true);
+    fireEvent.click(again);
+
+    expect(await screen.findByRole("button", { name: /^alpha/ })).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+    // The focus went to the pane, so its keys still work once the button is gone.
+    expect(screen.getByLabelText("review")).toHaveFocus();
   });
 });

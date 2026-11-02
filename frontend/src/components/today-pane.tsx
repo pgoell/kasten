@@ -1,8 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
+import { TryAgain } from "@/components/review-answer";
 import { fetchTodos, type TodoHit } from "@/lib/api";
 import { readClock } from "@/lib/clock";
 import { noteName } from "@/lib/note-path";
+import { useReviewLimits } from "@/lib/review/use-review-limits";
 import { useReviewWaiting } from "@/lib/review/use-review-waiting";
 import { isOpen, parseTodo, STATE_SYMBOL, type Todo, type TodoState } from "@/lib/todo/todo";
 import { sectionOf } from "@/lib/todo/todo-view";
@@ -48,6 +50,8 @@ export function TodayPane({
   const todos = useQuery({ queryKey: ["todos", archive], queryFn: () => fetchTodos(archive) });
   const recent = useRecentNotes(archive);
   const review = useReviewWaiting(archive);
+  // The same query the count waits on, so Try again reads the limits it lacks.
+  const { retry: retryLimits } = useReviewLimits();
 
   const parsed = (todos.data ?? []).flatMap((hit) => {
     const todo = parseTodo(hit.text);
@@ -115,6 +119,10 @@ export function TodayPane({
               <Row onClick={onReview}>
                 <span>Cards could not be counted: the daily limits could not be read</span>
               </Row>
+              {/* Wrapped, so the column's flex does not stretch it to the full width. */}
+              <div className="px-2">
+                <TryAgain onClick={retryLimits} />
+              </div>
             </Group>
           )}
           {overdue.length > 0 && (
