@@ -160,13 +160,32 @@ Narrower than `TODO_LINE`: the editor's `.` matches no carriage return, U+2028 o
 so a line holding one is no todo here either. rg matches it all the same.
 """
 
-COMMENT_OPENING = r"^ {0,3}(?:(?:>|(?:[-*+]|[0-9]{1,9}[.)])[ \t])[ \t]{0,4})*<!--[^\n]*"
-LINE_SPANS = re.compile(f"{COMMENT_OPENING}|{SPANS.pattern}")
-"""`SPANS` and, first, a comment opening the line or a list item or quote on it.
+HTML_OPENER = (
+    r"(?i:<!--|<(?:script|pre|style)(?:\s|>|$)|<\?|<![a-z]|<!\[CDATA\[|</?(?:address|article"
+    r"|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div"
+    r"|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|html"
+    r"|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|section"
+    r"|source|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul)(?:\s|/?>|$))"
+)
+"""What opens an HTML block that may break a paragraph, kinds 1 to 6, by the editor's names.
 
-That `<!--` starts an HTML block, which takes the whole line, so no tag after it counts.
-Not in `SPANS`: a todo's `<!--` after its box is a plain comment. `tag-rule.ts` agrees.
-Each pass opens on a marker, so a line of `> ` cannot backtrack exponentially.
+A lone tag, kind 7, may not, so only `tags_in`'s parse places it. `tag-rule.ts` agrees.
+"""
+
+MARKERS = r"^ {0,3}(?:(?:>|(?:[-*+]|[0-9]{1,9}[.)])[ \t])[ \t]{0,4})*"
+BLOCK_OPENING = rf"{MARKERS}{HTML_OPENER}[^\n]*"
+LINE_SPANS = re.compile(f"{BLOCK_OPENING}|{SPANS.pattern}")
+"""`SPANS` and, first, an HTML block opening the line or a list item or quote on it.
+
+The block takes the whole line, so no tag after it counts. Not in `SPANS`: a todo's `<!--`
+or `<div>` after its box is inline HTML. Each pass opens on a marker, so a line of `> `
+cannot backtrack exponentially.
+"""
+
+HTML_LINE = r"^(?:[ \t>]|(?:[-*+]|[0-9]{1,9}[.)])[ \t])*<(?:[A-Za-z/?]|![A-Za-z\[])"
+"""A line that may open an HTML block other than a comment: a superset, costing a parse.
+
+Only the parse says where such a block ends, or whether a lone tag opens one at all.
 """
 
 
@@ -185,6 +204,8 @@ def line_tags(text: str) -> list[tuple[int, int]]:
     """
     return [found.span() for found in TAG.finditer(blank(text, LINE_SPANS))]
 
+
+HTML_LINES = re.compile(HTML_LINE, re.MULTILINE)
 
 COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 """An HTML comment, over as many lines as it runs."""
@@ -215,10 +236,11 @@ def tags_in(text: str) -> list[tuple[int, int]]:
     hidden = [(0, body)] if body else []
     # Most notes hold no fence, comment or indented hash, so the parse is skipped:
     # it is most of the time a vault's tags take.
-    if "```" in text or "~~~" in text or "<!--" in text or INDENTED.search(text, body):
+    html = "<!--" in text or HTML_LINES.search(text, body) is not None
+    if "```" in text or "~~~" in text or html or INDENTED.search(text, body):
         # The block as spaces, which the parser reads as blank lines, so an
         # indented line under it opens code as it does under a blank line.
-        hidden += code_spans(_blanked(text, hidden, " "), indented=True, comments="<!--" in text)
+        hidden += code_spans(_blanked(text, hidden, " "), indented=True, html=html)
         # Looked for with the code blanked: a `<!--` in code opens no comment,
         # and paired with a real `-->` below it would hide the tags between.
         hidden += [found.span() for found in COMMENT.finditer(_blanked(text, hidden, " "))]

@@ -60,18 +60,21 @@ const UNSURE_COMMENT =
  */
 const INDENTED = /^(?:[ \t>]|(?:[-*+]|[0-9]{1,9}[.)])[ \t])*(?: {4}|\t).*#/m;
 
+/** A line that may open an HTML block other than a comment, whose end only the parse knows, as `todos.HTML_LINE`. */
+const HTML_LINE = /^(?:[ \t>]|(?:[-*+]|[0-9]{1,9}[.)])[ \t])*<(?:[A-Za-z/?]|![A-Za-z[])/m;
+
 /** The editor's parser, for the notes whose tags only it can read. */
 const notes = noteLanguage().language.parser;
 
-/** `text` with its comments and indented code blanked where a line cannot tell them, as the editor parses it. */
+/** `text` with its HTML blocks and indented code blanked where a line cannot tell them, as the editor parses it. */
 export function tagText(text: string): string {
-  if (!UNSURE_COMMENT.test(text) && !INDENTED.test(text)) return text;
+  if (!UNSURE_COMMENT.test(text) && !INDENTED.test(text) && !HTML_LINE.test(text)) return text;
   let blanked = "";
   let at = 0;
   notes.parse(text).iterate({
     enter(node) {
       if (node.name === "FencedCode") return false;
-      if (!["Comment", "CommentBlock", "CodeBlock"].includes(node.name)) return;
+      if (!["Comment", "CommentBlock", "HTMLBlock", "CodeBlock"].includes(node.name)) return;
       blanked += text.slice(at, node.from) + text.slice(node.from, node.to).replace(/[^\n]/g, " ");
       at = node.to;
       return false;

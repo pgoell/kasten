@@ -27,13 +27,11 @@ BACKTICKS = re.compile(r"`+")
 """One run of backticks, which opens or closes an inline code span."""
 
 
-def code_spans(
-    text: str, *, indented: bool = False, comments: bool = False
-) -> list[tuple[int, int]]:
+def code_spans(text: str, *, indented: bool = False, html: bool = False) -> list[tuple[int, int]]:
     """Where `text` holds code, as `(start, end)` offsets: fenced blocks and inline spans.
 
     Indented blocks are not code: four spaces also continue a list item, and `indented`
-    reads them for tags. `comments` adds the HTML blocks a `<!--` opens, at any depth.
+    reads them for tags. `html` adds the HTML blocks, comments among them, at any depth.
     In doubt the text is not code. Lines split on LF alone (`splitlines` breaks at U+2028).
     """
     lines = text.split("\n")
@@ -46,15 +44,11 @@ def code_spans(
     # neither has none, and skips the parse that is most of a long note's time.
     fenced = []
     kinds = ("fence", "code_block") if indented else ("fence",)
-    if indented or comments or "```" in text or "~~~" in text:
+    if indented or html or "```" in text or "~~~" in text:
         for token in FENCES.parse(text.replace("\r", " ")):
             if token.map is None:
                 continue
-            if token.type in kinds or (
-                comments
-                and token.type == "html_block"
-                and token.content.lstrip().startswith("<!--")
-            ):
+            if token.type in kinds or (html and token.type == "html_block"):
                 fenced.append((token.map[0], token.map[1]))
 
     spans = []

@@ -27,14 +27,20 @@ export const GLUED = /[\p{L}\p{N}_/]$/u;
 export const SPANS = /\[\[[^[\]\n]+\]\]|\[[^\]\n]*\]\([^)\n]*\)|`[^`\n]*`|<!--[^\n]*?-->/g;
 
 /**
- * `SPANS`, plus a comment opening the line or a list item or quote on it: CommonMark makes
- * that an HTML block, so no tag follows it. Not after a box, which opens a plain paragraph.
- * `todos.COMMENT_OPENING` is the same pattern; each pass opens on a marker, or a line of `> `
+ * What opens an HTML block that may break a paragraph, CommonMark's kinds 1 to 6, with the
+ * editor's block names. A lone tag, kind 7, may not, so only a whole-note reader places it.
+ */
+const HTML_OPENER = String.raw`<!--|<(?:script|pre|style)(?:\s|>|$)|<\?|<![a-z]|<!\[CDATA\[|<\/?(?:address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|section|source|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul)(?:\s|\/?>|$)`;
+
+/**
+ * `SPANS`, plus an HTML block opening the line or a list item or quote on it, which takes the
+ * line, so no tag follows it. Not after a box, which opens a plain paragraph.
+ * `todos.BLOCK_OPENING` is the same pattern; each pass opens on a marker, or a line of `> `
  * would backtrack exponentially.
  */
 const LINE_SPANS = new RegExp(
-  String.raw`^ {0,3}(?:(?:>|(?:[-*+]|[0-9]{1,9}[.)])[ \t])[ \t]{0,4})*<!--[^\n]*|${SPANS.source}`,
-  "g",
+  String.raw`^ {0,3}(?:(?:>|(?:[-*+]|[0-9]{1,9}[.)])[ \t])[ \t]{0,4})*(?:${HTML_OPENER})[^\n]*|${SPANS.source}`,
+  "gi",
 );
 
 /** `text` with every one of `spans` blanked to the same length. */

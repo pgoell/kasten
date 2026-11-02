@@ -163,3 +163,15 @@ async def test_1459_walks_past_code_opening_after_a_quote_or_list_marker(
 
     assert response.status_code == 200
     assert response.json() == ["#continued"]
+
+
+async def test_656_an_html_block_hides_its_tags(client: AsyncClient, vault: Path) -> None:
+    # Each note on the line pass, then the parse, as the editor draws them: no tag in a block.
+    write(vault, "div.md", "<div> #hidden\n\n- [ ] <div> #box\n")
+    write(vault, "details.md", "> <details> #hidden\n")
+    write(vault, "lone.md", "<span>\n#hidden\n\n#real\n")
+
+    response = await client.get("/api/tags")
+
+    assert response.status_code == 200
+    assert response.json() == ["#box", "#real"]

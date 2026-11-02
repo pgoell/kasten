@@ -1,7 +1,7 @@
 """Every tag written in the vault, for the completion that offers one and for the graph.
 
 Two rg passes: one matches each tag-like span, the other names the notes that need a
-whole-note read (a fence, a multi-line comment, indented code, a frontmatter tag). Both
+whole-note read (a fence, an HTML block, indented code, a frontmatter tag). Both
 feed the readers the board uses, so no tag is offered that the editor would not read.
 """
 
@@ -61,8 +61,8 @@ lookbehind, so the character before a hash is consumed. A span is consumed whole
 hash inside one matches alone.
 """
 
-_LINE_PASS = rf"{todos.COMMENT_OPENING}|({_SPAN_OR_TAG})"
-"""`_SPAN_OR_TAG`, and first a comment opening the line, which takes the line.
+_LINE_PASS = rf"{todos.BLOCK_OPENING}|({_SPAN_OR_TAG})"
+"""`_SPAN_OR_TAG`, and first an HTML block opening the line, which takes the line.
 
 rg's `^` matches only a line's start, and `--replace '${1}'` prints the comment as
 nothing, so no hash on that line is a tag. Any other match goes to `todos.word_tags`.
@@ -100,7 +100,10 @@ Under a paragraph a number past 1 starts no list, so the line goes on with the p
 A superset: a `1.` or a list going on costs one whole-note read, not a wrong tag.
 """
 
-MARKS = rf"{BLOCK}|{FENCE}|{OPEN_COMMENT}|{ORDERED_COMMENT}|{todos.INDENTED.pattern}"
+MARKS = (
+    rf"{BLOCK}|{FENCE}|{OPEN_COMMENT}|{ORDERED_COMMENT}|{todos.HTML_LINE}"
+    rf"|{todos.INDENTED.pattern}"
+)
 """What says a note's lines cannot be read one at a time.
 
 Only the whole note says where a block, fence or comment starts and ends. The match is

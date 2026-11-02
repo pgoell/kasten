@@ -124,5 +124,44 @@
     "id": "ordered-deck-past-one-continues-paragraph",
     "text": "text\n2. <!-- x --> #flashcards/z",
     "tags": ["#flashcards/z"]
+  },
+  { "id": "html-div-line-start", "text": "<div> #hidden", "tags": [] },
+  { "id": "html-details-line-start", "text": "<details> #hidden", "tags": [] },
+  { "id": "html-pre-line-start", "text": "<pre> #hidden", "tags": [] },
+  { "id": "html-closing-div", "text": "</div> #hidden", "tags": [] },
+  { "id": "html-upper-case", "text": "<DIV> #hidden", "tags": [] },
+  { "id": "html-div-opens-list-item", "text": "- <div> #hidden", "tags": [] },
+  { "id": "html-div-opens-quote", "text": "> <div> #hidden", "tags": [] },
+  { "id": "html-div-after-box", "text": "- [ ] <div> #real", "tags": ["#real"] },
+  { "id": "html-div-after-text", "text": "text <div> #real", "tags": ["#real"] },
+  { "id": "html-span-is-inline", "text": "<span> #real", "tags": ["#real"] },
+  { "id": "html-img-is-inline", "text": "<img src=a> #real", "tags": ["#real"] },
+  { "id": "html-divider-is-no-div", "text": "<divider> #real", "tags": ["#real"] },
+  { "id": "html-div-in-code-span", "text": "`<div>` #real", "tags": ["#real"] },
+  { "id": "html-div-breaks-paragraph", "text": "text\n<div> #hidden", "tags": [] },
+  { "id": "html-div-runs-to-blank-line", "text": "<div>\n#hidden\n\n#real", "tags": ["#real"] },
+  {
+    "id": "html-pre-runs-to-closing-tag",
+    "text": "<pre>\n\n#hidden\n</pre>\n#real",
+    "tags": ["#real"]
+  },
+  {
+    "id": "html-lone-tag-hides-lines-below",
+    "text": "<span>\n#hidden\n\n#real",
+    "tags": ["#real"]
+  },
+  { "id": "html-lone-tag-under-paragraph", "text": "text\n<span>\n#real", "tags": ["#real"] },
+  { "id": "html-div-in-fence", "text": "```\n<div>\n```\n#real", "tags": ["#real"] },
+  { "id": "html-div-continues-paragraph", "text": "a\n    <div> #real", "tags": ["#real"] },
+  { "id": "html-div-under-list-item", "text": "- a\n    <div> #hidden", "tags": [] },
+  {
+    "id": "html-div-in-quote-spans-lines",
+    "text": "> <div>\n> #hidden\n\n#real",
+    "tags": ["#real"]
+  },
+  {
+    "id": "html-div-in-list-item-spans-lines",
+    "text": "- a\n  <div>\n  #hidden\n\n#real",
+    "tags": ["#real"]
   }
 ]

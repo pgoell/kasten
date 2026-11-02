@@ -417,7 +417,8 @@ describe("#1456 the header skips the tags inside an indented code block, as the 
 
 describe("#1459 the header skips a tag in code that opens after a quote or list marker", () => {
   // The rows `test_tag_rule.py` runs through `GET /api/tags`, so both read the same strings.
-  const rows = cases.filter((one) => one.id.startsWith("container-code-"));
+  // The `html-` rows are #656's HTML blocks, which the header skips the same way.
+  const rows = cases.filter((one) => /^(?:container-code|html)-/.test(one.id));
   const shown = (body: string, vim: boolean) => {
     if (vim) localStorage.setItem("kasten.vim", "on");
     const { container, unmount } = render(
@@ -437,15 +438,16 @@ describe("#1459 the header skips a tag in code that opens after a quote or list 
     },
   );
 
-  it("#1459 indenting a quoted line into code hides its tag on that edit, and outdenting shows it", () => {
-    const { container } = render(
-      <Editor initialDoc={"> a\n>\n> #h\n"} path={PATH} commands={stubCommands()} />,
-    );
+  it.each([
+    ["#1459 indenting a quoted line into code", "> a\n>\n> #h\n", "    "],
+    ["#656 typing <div> before a tag", "text\n\n#h\n", "<div> "],
+  ])("%s hides its tag on that edit, and taking it off shows it", (_, doc, typed) => {
+    const { container } = render(<Editor initialDoc={doc} path={PATH} commands={stubCommands()} />);
     const view = viewIn(container);
-    const at = view.state.doc.line(3).from + 2;
-    act(() => view.dispatch({ changes: { from: at, insert: "    " } }));
-    const indented = part(container, "meta").includes("#h");
-    act(() => view.dispatch({ changes: { from: at, to: at + 4 } }));
-    expect([indented, part(container, "meta").includes("#h")]).toEqual([false, true]);
+    const at = view.state.doc.line(3).from + (doc.startsWith(">") ? 2 : 0);
+    act(() => view.dispatch({ changes: { from: at, insert: typed } }));
+    const hidden = part(container, "meta").includes("#h");
+    act(() => view.dispatch({ changes: { from: at, to: at + typed.length } }));
+    expect([hidden, part(container, "meta").includes("#h")]).toEqual([false, true]);
   });
 });
