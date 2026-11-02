@@ -251,6 +251,110 @@ class _Tokens(HTMLParser):
             self.head_at = self._offset()
 
 
+_RAW_TEXT = (
+    "script",
+    "style",
+    "textarea",
+    "title",
+    "xmp",
+    "iframe",
+    "noembed",
+    "noframes",
+    "noscript",
+)
+"""Elements whose text runs to their own end tag, so a `<` inside one opens nothing."""
+
+_OPEN = re.compile(r"<(!--|[!?]|/[A-Za-z]|/|[A-Za-z])")
+_TAG_NAME = re.compile(r"[^\s/>]*")
+_NAME = re.compile(r"=?[^\s/>=]*")
+_UNQUOTED = re.compile(r"[^\s>]*")
+_COMMENT_END = re.compile(r"--!?>")
+_SPACE = " \t\n\f\r"
+
+
+def _past(pattern: re.Pattern[str], page: str, at: int) -> int:
+    """Where a run of `pattern` from `at` ends. Each pattern here matches an empty run too."""
+    found = pattern.match(page, at)
+    return found.end() if found else at
+
+
+def _value_end(page: str, at: int) -> int | str:
+    """Where the value after an `=` at `at` ends, or what closes the tag if the page ends first."""
+    while at < len(page) and page[at] in _SPACE:
+        at += 1
+    if at == len(page):
+        return ">"
+    if page[at] in "\"'":
+        close = page.find(page[at], at + 1)
+        return page[at] + ">" if close == -1 else close + 1
+    # A `>` here ends the tag with no value, and the caller reads it.
+    return _past(_UNQUOTED, page, at) if page[at] != ">" else at
+
+
+def _tag_end(page: str, at: int) -> int | str:
+    """Where a tag ends, from just past its name, or what closes it when the page ends inside it.
+
+    The states are the WHATWG tokenizer's: an `=` starts a value only after a name.
+    """
+    named = False
+    while at < len(page):
+        char = page[at]
+        if char == ">":
+            return at + 1
+        if char in _SPACE or char == "/":
+            named = named and char != "/"
+            at += 1
+            continue
+        if char == "=" and named:
+            end = _value_end(page, at + 1)
+            if isinstance(end, str):
+                return end
+            at, named = end, False
+            continue
+        at, named = _past(_NAME, page, at), True
+    return ">"
+
+
+def _element_end(page: str, found: re.Match[str]) -> int | str:
+    """Where a tag, and the text of a raw text element it starts, ends, or what closes them."""
+    end_tag = found.group(1).startswith("/")
+    name_at = found.start() + (2 if end_tag else 1)
+    name_end = _past(_TAG_NAME, page, name_at)
+    name = page[name_at:name_end].lower()
+    end = _tag_end(page, name_end)
+    if end_tag or name not in _RAW_TEXT:
+        return end
+    if isinstance(end, str):
+        return end + f"</{name}>"
+    closing = re.compile(rf"</{name}(?=[\s/>]|\Z)", re.IGNORECASE).search(page, end)
+    return f"</{name}>" if closing is None else _tag_end(page, closing.end())
+
+
+def _closer(page: str) -> str:
+    """What closes the tag, comment or raw text a page cut off mid-write leaves open (#886).
+
+    Appended scripts would land inside it and not run. A whole page needs nothing.
+    """
+    at = 0
+    while (found := _OPEN.search(page, at)) is not None:
+        kind = found.group(1)
+        if kind[-1].isalpha():
+            end = _element_end(page, found)
+        elif kind == "!--" and page.startswith((">", "->"), found.end()):
+            end = page.index(">", found.end()) + 1
+        elif kind == "!--":
+            closing = _COMMENT_END.search(page, found.end())
+            end = "-->" if closing is None else closing.end()
+        else:
+            # A doctype, a bogus comment, or a `</` with no name, each ended by the next `>`.
+            closing = page.find(">", found.end())
+            end = ">" if closing == -1 else closing + 1
+        if isinstance(end, str):
+            return end
+        at = end
+    return ""
+
+
 def _bytes(text: str) -> bytes:
     """Encode a piece of a page the way the page was decoded, so the bad bytes come back."""
     return text.encode("utf-8", "surrogateescape")
@@ -271,7 +375,8 @@ def serve_page(raw: bytes, theme: str | None, palette: str | None) -> tuple[byte
         encoding = "utf-16-le" if raw.startswith(b"\xff\xfe") else "utf-16-be"
         if len(raw) % 2:
             raw += b"\x00"
-        return raw + (LINKS_OUT + PAGE_SCRIPT).decode("ascii").encode(encoding), "utf-8"
+        closer = _closer(raw[2:].decode(encoding, "replace"))
+        return raw + (closer + (LINKS_OUT + PAGE_SCRIPT).decode("ascii")).encode(encoding), "utf-8"
 
     page = raw.decode("utf-8", "surrogateescape")
     tokens = _Tokens(page)
@@ -280,10 +385,11 @@ def serve_page(raw: bytes, theme: str | None, palette: str | None) -> tuple[byte
     doctype_end = page.find(">", tokens.first or 0) if tokens.first_is_doctype else -1
     bom = 1 if page.startswith("﻿") else 0
     script_at = doctype_end + 1 if doctype_end != -1 else bom
+    closer = _closer(page)
 
     if tokens.meta_end is None or theme not in THEMES or palette not in PALETTES:
         return (
-            _bytes(page[:script_at]) + PAGE_SCRIPT + _bytes(page[script_at:]) + LINKS_OUT,
+            _bytes(page[:script_at]) + PAGE_SCRIPT + _bytes(page[script_at:] + closer) + LINKS_OUT,
             charset,
         )
 
@@ -296,7 +402,7 @@ def serve_page(raw: bytes, theme: str | None, palette: str | None) -> tuple[byte
         + PAGE_SCRIPT
         + _bytes(page[script_at:head_at])
         + _bytes(STYLES)
-        + _bytes(page[head_at:])
+        + _bytes(page[head_at:] + closer)
         + LINKS_OUT,
         charset,
     )
