@@ -95,5 +95,22 @@
     "text": "> > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > #a",
     "tags": ["#a"]
   },
-  { "id": "comment-opens-quote-after-tab", "text": ">\t<!-- x --> #hidden", "tags": [] }
+  { "id": "comment-opens-quote-after-tab", "text": ">\t<!-- x --> #hidden", "tags": [] },
+  { "id": "ordered-item-past-one-alone", "text": "2. <!-- x --> #hidden", "tags": [] },
+  {
+    "id": "ordered-item-past-one-continues-paragraph",
+    "text": "text\n2. <!-- x --> #real",
+    "tags": ["#real"]
+  },
+  { "id": "ordered-item-past-one-in-a-list", "text": "1. a\n2. <!-- x --> #hidden", "tags": [] },
+  {
+    "id": "ordered-item-past-one-in-an-item",
+    "text": "- a\n  2. <!-- x --> #real",
+    "tags": ["#real"]
+  },
+  {
+    "id": "ordered-deck-past-one-continues-paragraph",
+    "text": "text\n2. <!-- x --> #flashcards/z",
+    "tags": ["#flashcards/z"]
+  }
 ]
