@@ -20,11 +20,12 @@ import {
   paneOf,
   sectionOf,
   selectPara,
+  selectUnder,
   takeIn,
   toastIn,
   until,
 } from "./book-take-fixture";
-import { api, type Mounted, setUp, tearDown } from "./html-take-fixture";
+import { api, buttonNamed, type Mounted, onTop, setUp, tearDown } from "./html-take-fixture";
 
 const { fetchBook } = vi.hoisted(() => ({ fetchBook: vi.fn() }));
 // `fetchBook` is the one call the book reads from the vault that a plain fetch cannot answer.
@@ -131,5 +132,82 @@ describe("the take out of a book pane", () => {
     expect.soft(api.notes[RIGHT]).toContain(PARA);
     expect.soft(api.notes[LEFT]).toBe("# Left\n");
     expect.soft(toastIn(mounted, LEFT)).toBe("");
+  }, 40_000);
+
+  /** A take high on the page, so its toast shows at the foot of the text column. */
+  async function takeHigh(mode: string): Promise<{ doc: Document; toast: HTMLElement }> {
+    localStorage.setItem("kasten.vim", mode);
+    await page.viewport(1440, 900);
+    api.notes[NOTE] = PLAIN;
+    mountBooks(mounted, [NOTE]);
+    const doc = await sectionOf(NOTE);
+    await focusPara(mounted, NOTE, doc);
+    selectPara(doc);
+    await vi.waitFor(() => expect(takeIn(mounted, NOTE)).not.toBeNull());
+    await userEvent.keyboard("y");
+    await until(() => toastIn(mounted, NOTE).includes("Undo"), 5_000);
+    const toast = paneOf(mounted, NOTE).querySelector('[role="status"]') as HTMLElement;
+    return { doc, toast };
+  }
+
+  it.each(["on", "off"])(
+    "with a mouse and vim mode %s, a new selection under the toast keeps its Take button on top (#1482)",
+    async (mode) => {
+      const { doc, toast } = await takeHigh(mode);
+      expect(onTop(buttonNamed("Undo") as HTMLElement), "the toast's own Undo").toBe(true);
+      expect(selectUnder(doc, toast.getBoundingClientRect()), "words under the toast").toBe(true);
+      await vi.waitFor(() => expect(takeIn(mounted, NOTE)).not.toBeNull());
+
+      const button = takeIn(mounted, NOTE) as HTMLElement;
+      const at = button.getBoundingClientRect();
+      const box = toast.getBoundingClientRect();
+      expect({
+        under: at.top < box.bottom && at.bottom > box.top,
+        onTop: onTop(button),
+      }).toEqual({ under: true, onTop: true });
+      await userEvent.click(button);
+      await until(() => (api.notes[NOTE]?.match(/\^hl-/g) ?? []).length === 2, 5_000);
+      expect(api.notes[NOTE]?.match(/\^hl-/g)).toHaveLength(2);
+    },
+    40_000,
+  );
+
+  it("the contents overlay still covers a selection's Take button (#1482)", async () => {
+    const { doc, toast } = await takeHigh("off");
+    expect(selectUnder(doc, toast.getBoundingClientRect())).toBe(true);
+    await vi.waitFor(() => expect(takeIn(mounted, NOTE)).not.toBeNull());
+    await userEvent.keyboard("t");
+    await until(() => paneOf(mounted, NOTE).querySelector('[role="dialog"]') !== null);
+
+    const button = takeIn(mounted, NOTE) as HTMLElement;
+    const sheet = paneOf(mounted, NOTE).querySelector('[role="dialog"]') as HTMLElement;
+    const box = button.getBoundingClientRect();
+    const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+    expect({ button: onTop(button), sheet: sheet.contains(hit) }).toEqual({
+      button: false,
+      sheet: true,
+    });
+  }, 40_000);
+
+  it("at 390 with touch, a second selection's footer Take stays in reach while the toast shows (#1482)", async () => {
+    await page.viewport(390, 844);
+    await browser.emulateMedia({ touch: true });
+    api.notes[NOTE] = PLAIN;
+    mountBooks(mounted, [NOTE]);
+    const doc = await sectionOf(NOTE);
+    const pane = paneOf(mounted, NOTE);
+    const footerTake = () => pane.querySelector<HTMLElement>("footer [data-take]");
+    selectPara(doc);
+    await vi.waitFor(() => expect(footerTake()).not.toBeNull());
+    await userEvent.click(footerTake() as HTMLElement);
+    await until(() => toastIn(mounted, NOTE).includes("Undo"), 5_000);
+
+    const toast = pane.querySelector('[role="status"]') as HTMLElement;
+    expect(selectUnder(doc, toast.getBoundingClientRect())).toBe(true);
+    await vi.waitFor(() => expect(footerTake()).not.toBeNull());
+    expect(onTop(footerTake() as HTMLElement)).toBe(true);
+    await userEvent.click(footerTake() as HTMLElement);
+    await until(() => (api.notes[NOTE]?.match(/\^hl-/g) ?? []).length === 2, 5_000);
+    expect(api.notes[NOTE]?.match(/\^hl-/g)).toHaveLength(2);
   }, 40_000);
 });
