@@ -66,6 +66,16 @@ function reports(state: number, currentTime = 0) {
   );
 }
 
+/** One info delivery with whatever `info` holds, for one that names a video. */
+function delivers(info: object) {
+  window.dispatchEvent(
+    new MessageEvent("message", {
+      origin: "https://www.youtube.com",
+      data: JSON.stringify({ event: "infoDelivery", info }),
+    }),
+  );
+}
+
 /** The frame, with its `postMessage` replaced so the commands sent to it can be read. */
 async function spyOnFrame() {
   const frame = (await screen.findByTitle("video")) as HTMLIFrameElement;
@@ -253,6 +263,39 @@ describe("the video pane shield and keys", () => {
     rerenderWith({ seekSignal: { seconds: 90, signal: 4 } });
     expect(seeks()).toEqual([{ func: "seekTo", args: [90, true] }]);
     frameWindow.mockRestore();
+  });
+
+  it("#1192 A2 a seek for the linked video while the player is on another loads the linked one at that second", async () => {
+    const { rerenderWith } = renderPane({ seekSignal: { seconds: 90, signal: 0 } });
+    const { sent } = await spyOnFrame();
+
+    act(() => delivers({ videoData: { video_id: "iDulhoQ2pro" }, playerState: 1 }));
+    rerenderWith({ seekSignal: { seconds: 90, signal: 1, id: "dQw4w9WgXcQ" } });
+    expect(commandsOf(sent)).toEqual([{ func: "loadVideoById", args: ["dQw4w9WgXcQ", 90] }]);
+  });
+
+  it("#1192 I2 a seek for the linked video while the player is on it still seeks", async () => {
+    const { rerenderWith } = renderPane({ seekSignal: { seconds: 90, signal: 0 } });
+    const { sent } = await spyOnFrame();
+
+    act(() => delivers({ videoData: { video_id: "dQw4w9WgXcQ" }, playerState: 1 }));
+    rerenderWith({ seekSignal: { seconds: 90, signal: 1, id: "dQw4w9WgXcQ" } });
+    expect(commandsOf(sent)).toEqual([{ func: "seekTo", args: [90, true] }]);
+  });
+
+  it("#1192 I3 the linked video loaded back by a seek reports its pause under its id", async () => {
+    const { onWatched, rerenderWith } = renderPane({ seekSignal: { seconds: 90, signal: 0 } });
+    await spyOnFrame();
+
+    act(() =>
+      delivers({ videoData: { video_id: "iDulhoQ2pro" }, playerState: 1, currentTime: 30 }),
+    );
+    rerenderWith({ seekSignal: { seconds: 90, signal: 1, id: "dQw4w9WgXcQ" } });
+    act(() =>
+      delivers({ videoData: { video_id: "dQw4w9WgXcQ" }, playerState: 1, currentTime: 91 }),
+    );
+    act(() => reports(2, 95));
+    expect(onWatched.mock.calls).toEqual([["dQw4w9WgXcQ", 95]]);
   });
 
   it("#791 R8 a seek for another of the note's videos switches to it and opens it at that second", async () => {

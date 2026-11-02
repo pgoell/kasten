@@ -80,7 +80,8 @@ the start next time.
 Only the linked video writes its entry. A player that moves on to another video,
 such as a suggestion picked on YouTube's end screen, writes nothing while it
 plays that one, in the pane or in the note, and closing the pane then writes
-nothing either. Back on the linked video, it writes again.
+nothing either. Back on the linked video, it writes again once that video
+plays; a linked video that ended keeps its entry dropped until it plays again.
 
 ### Speed, captions and volume
 
@@ -212,7 +213,8 @@ new tab.
 Under the player are the video's title and its speaker.
 
 The title is the one the player reports for the video. Until the player has
-reported one, the title is the note's name.
+reported one, the title is the note's name. A suggestion the player moves on to
+leaves the linked video's title and speaker in place.
 
 The speaker is the note's `speaker:` field, with link brackets and quotes taken
 off it. A note without one shows the channel the player names.
@@ -361,7 +363,9 @@ line. These are the times it draws:
 
 A press seeks the player that is playing this note's video. If no player is
 open for the note in the tab on screen, the status bar says
-`No player is open for this note: Space g v opens it`.
+`No player is open for this note: Space g v opens it`. A player that moved on to
+another video, such as a suggestion picked on YouTube's end screen, goes back to
+the linked video at that second.
 
 The cursor on the line shows the source, as it does for any link. The button
 stands in for the source everywhere else.

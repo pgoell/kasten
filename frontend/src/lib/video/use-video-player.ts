@@ -216,9 +216,10 @@ export function useVideoPlayer({
         setAt(info.currentTime);
       }
       // The title and the author come in the same deliveries, and are kept by
-      // the video they are about, so a `n` to another video shows its own.
+      // the video they are about, so a `n` to another video shows its own. A
+      // suggestion the player moved on to is not the linked video (#1191).
       const data = info?.videoData;
-      if (id !== undefined && data) {
+      if (id !== undefined && data && !elsewhere.current) {
         const next = { title: nonEmpty(data.title), author: nonEmpty(data.author) };
         setDetails((was) => ({ ...was, [id]: next }));
       }
@@ -228,7 +229,9 @@ export function useVideoPlayer({
       const was = runningNow.current;
       runningNow.current = RUNNING.has(state);
       setRunning(runningNow.current);
-      if (runningNow.current) ended.current = false;
+      // Another video running is not this one played again, so its dropped
+      // entry stays dropped (#1193).
+      if (runningNow.current && !elsewhere.current) ended.current = false;
       // An ended video starts from the beginning next time, so its entry goes
       // rather than its end. Written once: the player may say `ended` again.
       if (state === 0 && id !== undefined && !ended.current && !elsewhere.current) {
@@ -317,8 +320,14 @@ export function useVideoPlayer({
       onOtherVideo?.(seekId, seekTo);
       return;
     }
+    // The player moved on to a suggestion: a time for this video brings it back
+    // at that second, as a time for another linked video opens that one (#1192).
+    if (elsewhere.current && id !== undefined) {
+      command(frame.current, "loadVideoById", [id, Math.max(0, seekTo)]);
+      return;
+    }
     seek(seekTo);
-  }, [seekCount, seekTo, seekId, id, seek, onOtherVideo]);
+  }, [seekCount, seekTo, seekId, id, seek, onOtherVideo, frame]);
 
   return {
     at,
