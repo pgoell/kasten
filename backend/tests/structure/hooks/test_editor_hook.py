@@ -93,3 +93,19 @@ def test_one_run_on_this_repo_uses_little_cpu() -> None:
 
     assert result.returncode == 0, result.stderr
     assert cpu < 2, f"editor-hook used {cpu:.2f}s of CPU"
+
+
+def test_an_edit_in_another_repo_runs_this_checkouts_hook_not_its_own(tmp_path: Path) -> None:
+    # A clone nobody has read may carry an executable at the hook's path (#1464).
+    planted = tmp_path / "scripts/structure/structure-hook"
+    planted.parent.mkdir(parents=True)
+    planted.write_text(f"#!/bin/sh\ntouch {tmp_path}/ran\n", encoding="utf-8")
+    planted.chmod(0o755)
+    write(tmp_path, "big.md", 20004)
+    git(tmp_path, "init", "-q")
+
+    result = edit(REPO, tmp_path / "big.md")
+
+    assert not (tmp_path / "ran").exists()
+    assert result.returncode == 2
+    assert "file-size: big.md is ~5001 tokens (bytes/4); the limit is 5000." in result.stderr

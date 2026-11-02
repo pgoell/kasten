@@ -3,6 +3,7 @@
 ci.yml is read as text, as the backend env has no YAML parser among its direct dependencies.
 """
 
+import hashlib
 import re
 import shutil
 import subprocess
@@ -71,6 +72,21 @@ def test_the_scripts_are_committed_executable() -> None:
         "scripts/structure/structure-hook",
     }
     assert set(modes.values()) == {"100755"}
+
+
+# sha256 of each script at pgoell/pgoell-claude-tools b6cfd4af21, in
+# plugins/structure/skills/setting-up-the-checks/assets/ (#1464). Recopy, then update.
+PLUGIN_COPIES = {
+    "check-fan-out": "cd7a2c3060592650bf5cca2cf4f8df0c9a27b30be3eab67af5671417a479e58a",
+    "check-file-size": "e48ce5f363102b88c285ce888f7ef136b38a36f9a0e95df014f15d474d117cae",
+    "structure-hook": "0f5fda3badd95b46d540a1c387cad3b3187fc9893bf789607d0ce87462402e05",
+}
+
+
+def test_the_scripts_match_the_plugins_copy() -> None:
+    for name, digest in PLUGIN_COPIES.items():
+        data = (REPO / "scripts/structure" / name).read_bytes()
+        assert hashlib.sha256(data).hexdigest() == digest, name
 
 
 OLD_SCRIPT = "scripts/" + "file_size.py"  # split, so this file does not name it
