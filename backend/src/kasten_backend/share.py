@@ -159,6 +159,11 @@ def words(rest: str) -> str:
     return todo_fields.BLOCK_ID.sub("", todo_fields.words(rest).strip())
 
 
+def kept(text: str) -> str:
+    """The words an add of `text` shows as on the list, which the app counts a landed add by."""
+    return words(" ".join(text.split()))
+
+
 def _shape(name: str, raw: bytes | None) -> Checklist:
     """The list a note's bytes make, or the empty list a note that is not there makes."""
     if raw is None:

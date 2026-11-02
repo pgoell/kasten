@@ -92,6 +92,12 @@ Answers the names of the lists: the notes directly in the shared folder, without
 Answers the `List` for one list. A list that is not there answers
 `{"name": "<name>", "sha": null, "items": []}`, so the app shows its empty state.
 
+With `?text=<typed text>` the answer also carries `kept`: the `text` an add of
+that text shows as, such as `"kept": "Butter #einkauf"` for `Butter ⏫ #einkauf`.
+The app reads it before it sends an add and counts the open items showing it,
+so an add whose answer was lost is not sent twice. A read without `text` has no
+`kept`.
+
 ## POST /share/lists/{name}/items
 
 Takes `{"text": "Milch", "sha": "3f9c1a0"}` and appends `- [ ] Milch` after the

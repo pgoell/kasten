@@ -156,3 +156,37 @@ async def test_809_a6_the_route_answers_the_assignee(client: AsyncClient, folder
             "ticked_at": None,
         },
     ]
+
+
+async def test_1493_the_read_answers_what_an_add_of_every_case_shows_as(
+    client: AsyncClient, folder: Path
+) -> None:
+    sha = put(folder, BLOCK)
+    seen = {}
+    for case in CASES:
+        read = await client.get("/share/lists/Einkauf", params={"text": case["rest"]})
+        added = await client.post(
+            "/share/lists/Einkauf/items", json={"text": case["rest"], "sha": sha}
+        )
+        sha = added.json()["sha"]
+        seen[case["id"]] = (read.json()["kept"], added.json()["items"][-1]["text"])
+        assert "kept" not in added.json()
+
+    assert {key: kept for key, (kept, _) in seen.items()} == {
+        key: shown for key, (_, shown) in seen.items()
+    }
+
+
+async def test_1493_the_read_answers_kept_only_for_a_named_text(
+    client: AsyncClient, folder: Path
+) -> None:
+    put(folder, BLOCK + "- [ ] Butter ⏫ #einkauf\n")
+
+    named = await client.get("/share/lists/Einkauf", params={"text": "Butter  ⏫ #einkauf"})
+    plain = await client.get("/share/lists/Einkauf")
+
+    assert (named.json()["kept"], named.json()["items"][0]["text"]) == (
+        "Butter #einkauf",
+        "Butter #einkauf",
+    )
+    assert "kept" not in plain.json()

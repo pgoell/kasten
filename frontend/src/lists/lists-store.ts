@@ -20,7 +20,8 @@ export type Item = {
   ticked_at: string | null;
 };
 
-export type ListData = { name: string; sha: string | null; items: Item[] };
+/** `kept` comes on a read that named a text: what an add of it shows as. */
+export type ListData = { name: string; sha: string | null; items: Item[]; kept?: string };
 
 /** Who is using the app, and the people an item can be for. */
 type Who = { me: string | null; people: string[] };
@@ -28,11 +29,11 @@ const NOBODY: Who = { me: null, people: [] };
 
 /**
  * A write the phone has made and the server has not yet taken. `before` counts
- * the open items with the text before the first send, so an answer lost after
+ * the open items showing `kept` before the first send, so an answer lost after
  * the server wrote shows as one more afterwards.
  */
 type OpBody =
-  | { kind: "add"; list: string; text: string; before?: number }
+  | { kind: "add"; list: string; text: string; before?: number; kept?: string }
   | { kind: "tick"; list: string; text: string; done: boolean }
   | { kind: "assign"; list: string; text: string; assignee: string | null; from: string | null }
   | { kind: "clear"; list: string };
@@ -96,6 +97,9 @@ class HttpError extends Error {
 /** The session expired: the server answered with the sign-in page, not the list. */
 class SignInError extends Error {}
 
+/** A read that did not say what an add keeps, as a backend older than the app answers. */
+class NoKeptError extends Error {}
+
 /**
  * A failure that says nothing about the write itself: the network is down, the
  * server broke, a conflict outlasted its tries, or the session expired. The write
@@ -103,6 +107,7 @@ class SignInError extends Error {}
  */
 function transient(error: unknown): boolean {
   if (error instanceof TypeError || error instanceof SignInError) return true;
+  if (error instanceof NoKeptError) return true;
   // A request the timeout gave up on.
   if (error instanceof DOMException && error.name === "TimeoutError") return true;
   return error instanceof HttpError && (error.status >= 500 || error.status === 409);
@@ -173,7 +178,8 @@ function retries(error: unknown, attempt: number): boolean {
 
 /** Sent before, and the list has one more of it: the answer was lost and the add is in. */
 function alreadyIn(op: Op, list: ListData): boolean {
-  return op.kind === "add" && op.before !== undefined && openCount(list, op.text) > op.before;
+  if (op.kind !== "add" || op.before === undefined || op.kept === undefined) return false;
+  return openCount(list, op.kept) > op.before;
 }
 
 /**
@@ -283,8 +289,10 @@ export function createListsStore(): ListsStore {
     if (!snap.errors.includes(message)) update({ errors: [...snap.errors, message] });
   }
 
-  function getList(name: string): Promise<ListData> {
-    return send<ListData>("GET", listPath(name));
+  /** A list, and with `text` what an add of it keeps. */
+  function getList(name: string, text?: string): Promise<ListData> {
+    const query = text === undefined ? "" : `?text=${encodeURIComponent(text)}`;
+    return send<ListData>("GET", `${listPath(name)}${query}`);
   }
 
   /** Who this session is and who can be assigned, or null when the read failed. */
@@ -310,10 +318,18 @@ export function createListsStore(): ListsStore {
     update(who);
   }
 
+  /** The list an op writes to; an add's read also asks what it keeps. */
+  function readFor(op: Op): Promise<ListData> {
+    return getList(op.list, op.kind === "add" ? op.text : undefined);
+  }
+
   /** An add counted, and kept, before its first send, so a lost answer can be told from a lost write. */
   function counted(op: Op, list: ListData): Op {
-    if (op.kind !== "add" || op.before !== undefined) return op;
-    const kept: Op = { ...op, before: openCount(list, op.text) };
+    if (op.kind !== "add" || op.kept !== undefined) return op;
+    // Counted against a guess, the add could be sent twice, so it waits for a server that says.
+    if (list.kept === undefined) throw new NoKeptError();
+    // An add an older page queued was counted by its own copy of the reader, which agrees.
+    const kept: Op = { ...op, kept: list.kept, before: op.before ?? openCount(list, list.kept) };
     patchQueued(kept);
     return kept;
   }
@@ -322,7 +338,7 @@ export function createListsStore(): ListsStore {
   async function write(first: Op): Promise<void> {
     let op = first;
     for (let attempt = 1; ; attempt += 1) {
-      const list = await getList(op.list);
+      const list = await readFor(op);
       op = counted(op, list);
       // Checked on every try, so a read that failed once does not leave the add to be posted again.
       if (alreadyIn(op, list)) return;
@@ -337,13 +353,16 @@ export function createListsStore(): ListsStore {
     }
   }
 
-  /** Did an add land although its answer was lost? The list then holds one more open item with its text. */
+  /** Did an add land although its answer was lost? The list then holds one more open item showing what it keeps. */
   function landed(id: string): Promise<boolean> {
     const op = readQueue().find((queued) => queued.id === id);
     if (op?.kind !== "add" || op.before === undefined) return Promise.resolve(false);
     const { list, text, before } = op;
-    return getList(list).then(
-      (now) => openCount(now, text) > before,
+    return getList(list, text).then(
+      (now) => {
+        const kept = op.kept ?? now.kept;
+        return kept !== undefined && openCount(now, kept) > before;
+      },
       () => false,
     );
   }

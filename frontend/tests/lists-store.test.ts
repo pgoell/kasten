@@ -1,7 +1,6 @@
-import cases from "@/lib/notes/links/person-field-cases.json";
 import type { ListData } from "@/lists/lists-store";
 import { createListsStore } from "@/lists/lists-store";
-import { localDay, openCount, requestFor } from "@/lists/lists-view";
+import { localDay, requestFor } from "@/lists/lists-view";
 import { fakeShare, setOnline } from "./lists-fixture";
 
 class FakeEventSource {
@@ -169,6 +168,58 @@ describe("the lists store", () => {
 
     await vi.waitFor(() => expect(store.snapshot().queue).toEqual([]));
     expect(share.items("Einkauf").map((item) => item.text)).toEqual(["Milch"]);
+    expect(share.posts.map((post) => post.body.text)).toEqual(["Milch"]);
+    store.close();
+  });
+
+  it("#1493: an add with fields whose answer was lost is counted by the text the read says is kept", async () => {
+    const share = fakeShare({ Einkauf: [], Todo: [] });
+    vi.stubGlobal("fetch", share.fetch);
+    const store = createListsStore();
+    await vi.waitFor(() => expect(store.snapshot().lists.Einkauf).toBeDefined());
+
+    share.loseNextAnswer();
+    store.add("Einkauf", "Butter ⏫ #einkauf");
+
+    await vi.waitFor(() => expect(store.snapshot().queue).toEqual([]));
+    expect(share.items("Einkauf").map((item) => item.text)).toEqual(["Butter ⏫ #einkauf"]);
+    expect(share.posts.map((post) => post.body.text)).toEqual(["Butter ⏫ #einkauf"]);
+    store.close();
+  });
+
+  it("#1493: an add waits unsent while the read says nothing of what it keeps", async () => {
+    const share = fakeShare({ Einkauf: [], Todo: [] });
+    vi.stubGlobal("fetch", share.fetch);
+    const store = createListsStore();
+    await vi.waitFor(() => expect(store.snapshot().lists.Einkauf).toBeDefined());
+
+    share.oldServer();
+    store.add("Einkauf", "Milch");
+
+    // The drain has given up once the refresh after it reads the last list.
+    const urls = () => share.fetch.mock.calls.map(([url]) => url);
+    await vi.waitFor(() => {
+      const at = urls().indexOf("/share/lists/Einkauf?text=Milch");
+      expect(at).toBeGreaterThanOrEqual(0);
+      expect(urls().slice(at)).toContain("/share/lists/Todo");
+    });
+    expect(store.snapshot().queue).toHaveLength(1);
+    expect(share.posts).toEqual([]);
+    store.close();
+  });
+
+  it("#1493: an add an older page queued and counted is not sent again once it is in", async () => {
+    const share = fakeShare({ Einkauf: [{ text: "Milch", done: false }], Todo: [] });
+    vi.stubGlobal("fetch", share.fetch);
+    localStorage.setItem(
+      "kasten.lists.queue",
+      JSON.stringify([{ kind: "add", list: "Einkauf", text: "Milch", before: 0, id: "old" }]),
+    );
+    const store = createListsStore();
+
+    await vi.waitFor(() => expect(store.snapshot().queue).toEqual([]));
+    expect(share.items("Einkauf").map((item) => item.text)).toEqual(["Milch"]);
+    expect(share.posts).toEqual([]);
     store.close();
   });
 
@@ -380,23 +431,5 @@ describe("the lists store", () => {
     }).toEqual({ items: ["Milch", "Brot"], posts: 2, locks: 1 });
     tabA.close();
     tabB.close();
-  });
-});
-
-describe("openCount", () => {
-  const unblocked = (text: string) => text.replace(/(?:^|[ \t]+)\^[\w-]+$/, "");
-  const listOf = (text: string): ListData => ({
-    name: "Einkauf",
-    sha: null,
-    items: [{ line: 0, text, done: false, assignee: null, ticked_by: null, ticked_at: null }],
-  });
-
-  it("#1055: counts an item with a bare id mark, or one inside a link, by the editor's words", () => {
-    expect(openCount(listOf("a 🆔 more"), "a 🆔 ⛔ kt-1 more")).toBe(1);
-    expect(openCount(listOf("see [[🆔 kt-1]]"), "see [[🆔 kt-1]]")).toBe(1);
-  });
-
-  it.each(cases)("#1055: counts $id as the server reads it", ({ rest, text }) => {
-    expect(openCount(listOf(unblocked(text)), rest)).toBe(1);
   });
 });

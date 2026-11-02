@@ -82,86 +82,9 @@ export function viewOf(snap: Snapshot, list: string): Item[] {
   return items;
 }
 
-// The server's field reader (`todo_fields.py`, the port of the editor's `readFields`), copied
-// because the lists app may not import src/lib; `lists-store.test.ts` holds it to the same cases.
-const STOP = "📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🏁|🆔|⛔|⏲|⏱";
-const DATE = String.raw`️?[ \t]+(\d{4}-\d{2}-\d{2})`;
-const ONE_WORD = String.raw`️?[ \t]+(?!${STOP}|🔁)(\S+)`;
-const BLOCK = String.raw`\^[\w-]+[ \t]*(?:\n|$)`;
-const ENDS = String.raw`(?=[ \t]+(?:${STOP}|🔁|👤|#|${BLOCK})|[ \t]*\n|[ \t]*$)`;
-const BLOCKED_BY = new RegExp(`⛔${ONE_WORD}`);
-const READ_ORDER = [
-  `(?:📅|📆|🗓)${DATE}`,
-  `⏳${DATE}`,
-  `🛫${DATE}`,
-  "(🔺|⏫|🔼|🔽|⏬)️?",
-  String.raw`🔁️?[ \t]+(.+?)(?=[ \t]*(?:${STOP}|👤|#)|[ \t]+${BLOCK}|[ \t]*\n|[ \t]*$)`,
-  String.raw`🏁️?[ \t]+(keep|delete)(?=[ \t\n]|$)`,
-  `➕${DATE}`,
-  `✅${DATE}`,
-  `❌${DATE}`,
-  `⏲${ONE_WORD}`,
-  `⏱${ONE_WORD}`,
-  `🆔${ONE_WORD}`,
-]
-  .map((source) => new RegExp(source))
-  .concat([
-    BLOCKED_BY,
-    new RegExp(String.raw`👤${DATE}(?:[ \t]+(.+?))??${ENDS}`),
-    new RegExp(
-      String.raw`👤️?[ \t]+(?![ \t])(?!\d{4}-\d{2}-\d{2}(?:[ \t]|$)|${STOP}|🔁|👤|#|${BLOCK})(.+?)${ENDS}`,
-    ),
-  ]);
-const SPANS = /\[\[[^[\]\n]+\]\]|\[[^\]\n]*\]\([^)\n]*\)|`[^`\n]*`|<!--[^>\n][^\n]*?-->/g;
-// Where a field was taken out, so a value read after it stops there.
-const CUT = "\n";
-
-/** The text and its mask with the first match of `pattern` that carries a value cut out, or null. */
-function cut([text, mask]: [string, string], pattern: RegExp): [string, string] | null {
-  const found = pattern.exec(mask);
-  if (found === null || found.slice(1).every((value) => value === undefined)) return null;
-  const end = found.index + found[0].length;
-  return [
-    text.slice(0, found.index) + CUT + text.slice(end),
-    mask.slice(0, found.index) + CUT + mask.slice(end),
-  ];
-}
-
-/** A todo's words with every field out, in the reader's order; only `⛔` repeats. */
-function readWords(rest: string): string {
-  let pair: [string, string] = [
-    rest,
-    rest.replace(SPANS, (span) => span.replace(/[^ \t]/g, "\u00A0")),
-  ];
-  for (const pattern of READ_ORDER) {
-    for (
-      let next = cut(pair, pattern);
-      next !== null;
-      next = pattern === BLOCKED_BY ? cut(pair, pattern) : null
-    ) {
-      pair = next;
-    }
-  }
-  return pair[0].replaceAll(CUT, "").replace(/[ \t]+/g, " ");
-}
-
-/**
- * The text the server keeps for an item, which is what a list shows and what the
- * count compares against: `share.add` writes `" ".join(text.split())`, and `share.words`
- * reads it with every field out and no trailing `^block-id`.
- */
-function shownText(text: string): string {
-  const words = text.split(/\s+/).filter(Boolean).join(" ");
-  return readWords(words)
-    .trim()
-    .replace(/(?:^|[ \t]+)\^[\w-]+$/, "")
-    .trim();
-}
-
-/** How many open items a text would show as on the list: what a write's answer is checked against. */
-export function openCount(list: ListData, text: string): number {
-  const shown = shownText(text);
-  return list.items.filter((item) => !item.done && item.text === shown).length;
+/** How many open items show `kept`, the text the server said an add keeps: what a lost answer is checked against. */
+export function openCount(list: ListData, kept: string): number {
+  return list.items.filter((item) => !item.done && item.text === kept).length;
 }
 
 const fold = (text: string) => text.toLocaleLowerCase("de-DE");

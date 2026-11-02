@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from kasten_backend import share, share_history, vcs
 from kasten_backend.config import Settings, get_settings
@@ -131,12 +131,21 @@ async def list_names(settings: Annotated[Settings, Depends(get_settings)]) -> li
     return share.names(settings)
 
 
+class Read(share.Checklist):
+    """A list read, with what an add of the `text` it names would show as."""
+
+    kept: str | None = Field(default=None, exclude_if=lambda kept: kept is None)
+    """`share.kept(text)`, left out when the read named no text: a plain read answers as before."""
+
+
 @router.get("/lists/{name:path}")
 async def read_list(
-    name: str, settings: Annotated[Settings, Depends(get_settings)]
-) -> share.Checklist:
+    name: str, settings: Annotated[Settings, Depends(get_settings)], text: str | None = None
+) -> Read:
     """One list with its task lines, or an empty one when the note is not there yet."""
-    return await _answer(settings, await share.read(settings, name))
+    found = await _answer(settings, await share.read(settings, name))
+    kept = None if text is None else share.kept(text)
+    return Read(name=found.name, sha=found.sha, items=found.items, kept=kept)
 
 
 @router.post("/lists/{name:path}/items")
