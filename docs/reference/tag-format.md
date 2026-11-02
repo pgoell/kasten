@@ -32,7 +32,8 @@ finder that leaves a name inside a tag alone.
    HTML comment, a wikilink or a markdown link (its text or its address) is no
    tag. A fence opened with tildes is a fence too, and one nobody closed runs to
    the end of the note. An indented block is code as CommonMark reads it, four
-   spaces or a tab after a blank line; a line indented under a list item goes
+   spaces or a tab after a blank line, or after a quote or list marker, so
+   `>     #h` and `-     #h` open code; a line indented under a list item goes
    on with the item and keeps its tags. A comment may run over several lines.
 6. A `<!--` that opens a line, a list item or a quote, three spaces in front
    at most and outside code, starts an HTML block, as CommonMark reads it. The
