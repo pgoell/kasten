@@ -412,6 +412,44 @@ it("#1184 A3 a read-only preview pane draws a draw.io label", async () => {
   await expect.poll(() => picture(host)?.querySelector("switch > text")?.textContent).toBe("Plan");
 });
 
+const WIDE =
+  '<svg width="800" height="100"><rect width="800" height="100" fill="currentColor"/></svg>';
+const WIDE_NOTE = ["before", "", WIDE, "", "after"].join("\n");
+
+/** The drawn rect lies inside the note and keeps the svg's 8:1 shape. */
+function fitsTheNote(svg: SVGSVGElement) {
+  const box = svg.closest(".cm-svg-block")?.getBoundingClientRect() as DOMRect;
+  const drawn = svg.querySelector("rect")?.getBoundingClientRect() as DOMRect;
+  expect(drawn.width).toBeGreaterThan(0);
+  expect(drawn.right).toBeLessThanOrEqual(box.right + 0.5);
+  expect(drawn.height).toBeCloseTo(drawn.width / 8, 0);
+}
+
+it.each([
+  ["off", false],
+  ["on", true],
+] as const)(
+  "#1538 A1 an svg with no viewBox fits the note at phone width, vim %s",
+  async (_, vimOn) => {
+    await page.viewport(414, 896);
+    const at = mount(WIDE_NOTE, vimOn, 0, [EditorView.lineWrapping]);
+    await expect.poll(() => picture(at.dom)).not.toBeNull();
+
+    fitsTheNote(picture(at.dom) as SVGSVGElement);
+    expect(at.state.doc.toString()).toBe(WIDE_NOTE);
+  },
+);
+
+it("#1538 I1 a read-only preview pane fits an svg with no viewBox", async () => {
+  await page.viewport(414, 896);
+  host = document.body.appendChild(document.createElement("div"));
+  root = createRoot(host);
+  root.render(<NotePreview text={WIDE_NOTE} />);
+  await expect.poll(() => picture(host)).not.toBeNull();
+
+  fitsTheNote(picture(host) as SVGSVGElement);
+});
+
 it("#1184 A7 a draw.io svg fits the note at phone width", async () => {
   await page.viewport(414, 896);
   const at = mount(DRAWN_NOTE, false, 0, [EditorView.lineWrapping]);
@@ -431,8 +469,8 @@ it.runIf(import.meta.env.VITE_KASTEN_SHOTS)(
     try {
       for (const width of [1440, 414]) {
         await page.viewport(width, 900);
-        const at = mount(`${FILES}\n\n${DRAWIO}`, false, 0, [EditorView.lineWrapping]);
-        await expect.poll(() => at.dom.querySelectorAll(".cm-svg-block svg").length).toBe(5);
+        const at = mount(`${FILES}\n\n${DRAWIO}\n\n${WIDE}`, false, 0, [EditorView.lineWrapping]);
+        await expect.poll(() => at.dom.querySelectorAll(".cm-svg-block svg").length).toBe(6);
         expect(await shot(at.dom, `inline-svg-files-${width}`)).toBe(width);
         at.dom.parentElement?.remove();
         at.destroy();

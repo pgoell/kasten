@@ -437,3 +437,23 @@ it("#1184 I4 a switch whose first child draws nothing shows its source", async (
   await vi.waitFor(() => expect(at.contentDOM.textContent).toContain("<switch>"));
   expect(at.dom.querySelector(".cm-svg-block svg")).toBeNull();
 });
+
+it.each([
+  ["a unit", '<svg width="800px" height="100">'],
+  ["a percent", '<svg width="50%" height="100">'],
+  ["an em", '<svg width="10em" height="100">'],
+  ["a missing height", '<svg width="800">'],
+  ["a zero width", '<svg width="0" height="100">'],
+  ["its own viewBox", '<svg viewBox="0 0 20 20" width="800" height="100">'],
+])("#1538 I2 adds no viewBox for %s", async (_, open) => {
+  const picture = await drawn(`${open}${PATH}</svg>`);
+
+  expect(picture.getAttribute("viewBox")).toBe(open.match(/viewBox="([^"]*)"/)?.[1] ?? null);
+});
+
+it("#1538 I3 the added viewBox holds the parsed width and height", async () => {
+  const picture = await drawn(`<svg width=" 800.5 " height="100">${PATH}</svg>`);
+
+  expect(picture.getAttribute("viewBox")).toBe("0 0 800.5 100");
+  expectSafe(picture);
+});
