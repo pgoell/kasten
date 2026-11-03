@@ -166,9 +166,9 @@
   },
   {
     "type": "cycle",
-    "from": "src/lib/highlight.ts",
-    "to": "src/lib/html-take.ts",
-    "unresolvedTo": "@/lib/html-take",
+    "from": "src/lib/takes/highlight.ts",
+    "to": "src/lib/takes/html-take.ts",
+    "unresolvedTo": "@/lib/takes/html-take",
     "dependencyTypes": ["undetermined", "import"],
     "rule": {
       "severity": "error",
@@ -176,11 +176,11 @@
     },
     "cycle": [
       {
-        "name": "src/lib/html-take.ts",
+        "name": "src/lib/takes/html-take.ts",
         "dependencyTypes": ["undetermined", "import"]
       },
       {
-        "name": "src/lib/highlight.ts",
+        "name": "src/lib/takes/highlight.ts",
         "dependencyTypes": ["undetermined", "import"]
       }
     ]

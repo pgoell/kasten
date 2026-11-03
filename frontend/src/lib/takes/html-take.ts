@@ -4,8 +4,8 @@
  * nothing the page sends can stand as a heading, a rule or a todo.
  */
 
-import { collapse } from "@/lib/highlight";
 import { noteSectionOf } from "@/lib/note-section";
+import { collapse } from "@/lib/takes/highlight";
 
 /** What a page sends as the selection. */
 export interface PagePassage {

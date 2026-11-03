@@ -8,8 +8,8 @@
 import "./html-take-api";
 import { vi } from "vitest";
 import { commands as browser, page, userEvent } from "vitest/browser";
-import { takenQuote } from "@/lib/html-take";
 import { periodicNote } from "@/lib/periodic";
+import { takenQuote } from "@/lib/takes/html-take";
 import {
   api,
   ask,

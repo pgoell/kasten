@@ -17,7 +17,7 @@ import { vi } from "vitest";
 import { VideoPane } from "@/components/video-pane";
 import { WhichKey } from "@/components/which-key";
 import { fetchNote, NoteMissing } from "@/lib/api";
-import type { Passage } from "@/lib/highlight";
+import type { Passage } from "@/lib/takes/highlight";
 import { PLAYER } from "@/lib/video/video";
 import type { Mounted } from "./html-take-fixture";
 

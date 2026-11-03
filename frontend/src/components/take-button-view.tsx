@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import { type Anchor, fitButton } from "@/lib/page-selection";
-import type { PressHandlers } from "@/lib/take-button";
+import { type Anchor, fitButton } from "@/lib/takes/page-selection";
+import type { PressHandlers } from "@/lib/takes/take-button";
 
 /**
  * The button's look, the book's `TAKE` in `book-pane.tsx` with the coarse

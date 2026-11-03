@@ -1,6 +1,6 @@
 import { updateNote } from "@/lib/api";
-import { addHighlight } from "@/lib/highlight";
-import { quoteParagraphs } from "@/lib/html-take";
+import { addHighlight } from "@/lib/takes/highlight";
+import { quoteParagraphs } from "@/lib/takes/html-take";
 import { newId } from "@/lib/todo/todo";
 
 /**

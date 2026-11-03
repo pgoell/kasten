@@ -1,7 +1,7 @@
 import { withoutHighlight } from "@/lib/book/highlight-undo";
-import { addHighlight } from "@/lib/highlight";
 import { noteBase } from "@/lib/note-base";
-import { undoFor, undoPassage } from "@/lib/page-undo";
+import { addHighlight } from "@/lib/takes/highlight";
+import { undoFor, undoPassage } from "@/lib/takes/page-undo";
 
 const { fetchNote, saveNote } = vi.hoisted(() => ({ fetchNote: vi.fn(), saveNote: vi.fn() }));
 vi.mock("@/lib/api", () => {

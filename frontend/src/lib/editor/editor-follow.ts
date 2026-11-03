@@ -3,7 +3,6 @@ import { type EditorState, type Extension, Facet, type Text } from "@codemirror/
 import { EditorView } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
 import { type CM5EditorInterface, Vim } from "@replit/codemirror-vim";
-import { highlightAt, mayBeHighlightLine } from "@/lib/highlight";
 import {
   type FileLink,
   fileLinkAt,
@@ -13,6 +12,7 @@ import {
 } from "@/lib/markdown/link-reference";
 import { noteSectionOf } from "@/lib/note-section";
 import { NOTE, repeats, watchPresses } from "@/lib/presses";
+import { highlightAt, mayBeHighlightLine } from "@/lib/takes/highlight";
 import { notePath } from "@/lib/todo/todo-commands";
 import { splitTarget, wikiLinkAt } from "@/lib/wikilink";
 

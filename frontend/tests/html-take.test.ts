@@ -8,6 +8,7 @@
  */
 
 import { expect, it } from "vitest";
+import { tagsOf } from "@/lib/tag-rule";
 import {
   HEADING_CAP,
   PASSAGE_CAP,
@@ -15,8 +16,7 @@ import {
   quoteParagraphs,
   takenQuote,
   withoutTaken,
-} from "@/lib/html-take";
-import { tagsOf } from "@/lib/tag-rule";
+} from "@/lib/takes/html-take";
 
 const PATH = "01 Periodic/05 Newspaper/2026-10-07.html";
 

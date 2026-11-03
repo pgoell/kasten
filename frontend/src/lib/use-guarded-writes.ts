@@ -9,12 +9,12 @@ import {
 } from "react";
 import { type BookBeside, ChangedOnDisk, type Mention, saveNote, updateNote } from "@/lib/api";
 import { heldText } from "@/lib/held-text";
-import { addHighlight, type Passage } from "@/lib/highlight";
-import { escapedParagraphs } from "@/lib/html-take";
 import { linkMention, mentionLinkText } from "@/lib/mention-link";
 import { noteBase } from "@/lib/note-base";
 import { readField, setField } from "@/lib/note-frontmatter";
 import { bookType } from "@/lib/note-path";
+import { addHighlight, type Passage } from "@/lib/takes/highlight";
+import { escapedParagraphs } from "@/lib/takes/html-take";
 import { newId } from "@/lib/todo/todo";
 import { useBookmark } from "@/lib/use-bookmark";
 import { useNoteWrites } from "@/lib/use-note-writes";

@@ -3,7 +3,7 @@
  * A page is drawn again when it scrolls back, so a `Range` would point into a layer that is gone.
  */
 
-import { aliasOf, fileLink, fileOf, quoteBlock } from "@/lib/html-take";
+import { aliasOf, fileLink, fileOf, quoteBlock } from "@/lib/takes/html-take";
 
 /** The highlight's name in the document, which the stylesheet paints with `::highlight`. */
 const TAKEN = "kasten-taken";

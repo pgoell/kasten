@@ -5,7 +5,7 @@
  * is the format PR 6 reads back, so the exactness is the point of the file.
  */
 
-import { addHighlight, highlightAt, highlightBlocks } from "@/lib/highlight";
+import { addHighlight, highlightAt, highlightBlocks } from "@/lib/takes/highlight";
 
 /** A literature note before anything was taken out of the book. */
 const NOTE = "---\nid: one\n---\n# Designing Data-Intensive Applications\n";

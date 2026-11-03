@@ -3,10 +3,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { HtmlPane } from "@/components/html-pane";
 import { readClock } from "@/lib/clock";
-import { pageLink, takenQuote } from "@/lib/html-take";
 import { noteBase } from "@/lib/note-base";
 import { reset } from "@/lib/outbox";
 import { periodicNote } from "@/lib/periodic";
+import { pageLink, takenQuote } from "@/lib/takes/html-take";
 import { hostLeader } from "@/lib/which-key";
 import {
   answering,

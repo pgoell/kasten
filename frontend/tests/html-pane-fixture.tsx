@@ -1,9 +1,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, render, screen } from "@testing-library/react";
 import { HtmlPane } from "@/components/html-pane";
-import { takenQuote } from "@/lib/html-take";
 import { waiting } from "@/lib/outbox";
 import { periodicNote } from "@/lib/periodic";
+import { takenQuote } from "@/lib/takes/html-take";
 import { stubCommands } from "./stub-commands";
 
 // The html pane's take tests share these. Each test file mocks the api and the

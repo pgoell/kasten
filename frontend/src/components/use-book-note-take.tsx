@@ -2,10 +2,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useRef } from "react";
 import { useTakeToast } from "@/components/use-take-toast";
 import { withoutHighlight } from "@/lib/book/highlight-undo";
-import { collapse, type Passage } from "@/lib/highlight";
-import { aliasOf, fileLink, needsMarkdown } from "@/lib/html-take";
 import { noteName } from "@/lib/note-path";
-import { BOOK_REFUSED, undoFor } from "@/lib/page-undo";
+import { collapse, type Passage } from "@/lib/takes/highlight";
+import { aliasOf, fileLink, needsMarkdown } from "@/lib/takes/html-take";
+import { BOOK_REFUSED, undoFor } from "@/lib/takes/page-undo";
 
 /**
  * The take out of a book: the passage goes into the book's note under its

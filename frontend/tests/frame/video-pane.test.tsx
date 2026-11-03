@@ -11,7 +11,7 @@ import { syntaxTreeAvailable } from "@codemirror/language";
 import { EditorView } from "@codemirror/view";
 import "./html-take-api";
 import { commands as browser, page, userEvent } from "vitest/browser";
-import type { Passage } from "@/lib/highlight";
+import type { Passage } from "@/lib/takes/highlight";
 import { type Mounted, panelOf, setUp, tearDown } from "./html-take-fixture";
 import { DESKTOP, leader, mount, registerReaderFixture, unmount } from "./reader-fixture";
 import {

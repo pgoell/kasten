@@ -1,6 +1,6 @@
 import { ChangedOnDisk, fetchNote, saveNote } from "@/lib/api";
-import { withoutTaken } from "@/lib/html-take";
 import { noteBase } from "@/lib/note-base";
+import { withoutTaken } from "@/lib/takes/html-take";
 
 /** What a take left in the daily note, which its Undo takes back. */
 export interface Undo {

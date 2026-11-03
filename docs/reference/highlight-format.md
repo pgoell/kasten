@@ -2,7 +2,7 @@
 type: Reference
 title: Highlight format
 description: The block a passage taken out of a book is written as, the quote rule and its character classes, the figure line, the chapter line and its fallback, the anchor, and the rule that reads a highlight back.
-resource: frontend/src/lib/highlight.ts
+resource: frontend/src/lib/takes/highlight.ts
 tags: [vault, reader, epub, format, frontend]
 status: stable
 ---
