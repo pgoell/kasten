@@ -420,7 +420,7 @@ it.each([
     await browser.servePage(RIGHT_PATH, NEWS);
     render(mounted, touch ? [LEFT_PATH] : [LEFT_PATH, RIGHT_PATH], touch);
     const frame = frameOf(mounted, 0);
-    // onLoad drops the toast, and the page says hello before load.
+    // Measured after the load, over the page as it ends up drawn.
     const loaded = new Promise((done) => frame.addEventListener("load", done, { once: true }));
     await ready(frame);
     await loaded;

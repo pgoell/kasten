@@ -168,6 +168,30 @@ describe.each(KINDS)("$name", ({ phone, vim }) => {
     await expect.poll(() => api.dumps.length).toBe(1);
     expect(api.dumps[0]).toContain("> bravo");
   });
+
+  it("a take after the page's hello but before its load keeps its toast and Undo through the load (#1485)", async () => {
+    await browser.serveSlowly(SLOW, 2000);
+    await browser.servePage(PATH, late("slow"));
+    renderPanes(mounted, [PATH], { phone });
+    const frame = frameOf(mounted, 0);
+    const loaded = loadOf(frame);
+    await ready(frame);
+    await choose(frame, ["p1", 6, "p1", 11]);
+    if (phone) await userEvent.click(takeButton(mounted) as HTMLElement);
+    else await userEvent.keyboard("y");
+    await expect.poll(() => buttonNamed("Undo")).not.toBeUndefined();
+    expect(loaded()).toBe(false);
+    expect(api.dumps).toEqual([expect.stringContaining("> bravo")]);
+
+    await expect.poll(loaded, { timeout: 5000 }).toBe(true);
+    expect(buttonNamed("Undo")).not.toBeUndefined();
+    await expect.poll(() => marksOf(frame)).toEqual(["bravo"]);
+    await userEvent.click(buttonNamed("Undo") as HTMLButtonElement);
+
+    await expect.poll(() => api.puts.length).toBe(1);
+    expect(api.puts[0]?.content).not.toContain("bravo");
+    await expect.poll(() => marksOf(frame)).toEqual([]);
+  });
 });
 
 describe.each(KINDS.filter((kind) => !kind.phone))("$name, keys", ({ vim }) => {
