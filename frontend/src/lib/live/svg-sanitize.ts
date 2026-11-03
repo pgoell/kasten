@@ -7,7 +7,7 @@ const SVG = "http://www.w3.org/2000/svg";
 const XLINK = "http://www.w3.org/1999/xlink";
 
 const ELEMENTS = new Set(
-  "svg g defs symbol use path rect circle ellipse line polyline polygon text tspan textPath title desc marker linearGradient radialGradient stop clipPath mask pattern".split(
+  "svg g switch defs symbol use path rect circle ellipse line polyline polygon text tspan textPath title desc marker linearGradient radialGradient stop clipPath mask pattern".split(
     " ",
   ),
 );
@@ -28,6 +28,9 @@ const ATTRIBUTES = new Set([...GEOMETRY, ...PRESENTATION]);
 
 /** Markup, a quote or a script hook in a value; the value is dropped. */
 const UNSAFE = /[\\<>@&"']|\/\*|expression|javascript:/i;
+/** A font name, bare or in quotes (#1184); no parenthesis, so no url( or expression(. */
+const FAMILY = String.raw`(?:"[^"'\\<>@&():;\n\r\f]*"|'[^"'\\<>@&():;\n\r\f]*'|[\w .-]+)`;
+const FONT_FAMILY = new RegExp(String.raw`^\s*${FAMILY}(?:\s*,\s*${FAMILY})*\s*$`);
 // CSS white space only: `\s` also matches a no-break space, which a browser does not read as one.
 const URL_REF = /^url\([ \t\n\r\f]*#([A-Za-z_][\w.-]*)[ \t\n\r\f]*\)$/i;
 const HREF = /^#([A-Za-z_][\w.-]*)$/;
@@ -59,7 +62,8 @@ type Block = { prefix: string; ids: Map<string, Element>; deferred: Deferred[] }
  * The value with its refs moved to the block's prefixed ids, or null if it may not stay.
  * Every `name(` must be a function a drawing needs, and a `url(...)` one ref in the block.
  */
-function clean(value: string, block: Block): string | null {
+function clean(value: string, block: Block, name: string): string | null {
+  if (name === "font-family" && FONT_FAMILY.test(value)) return value;
   if (UNSAFE.test(value)) return null;
   const names = Array.from(value.matchAll(FUNCTION), (m) => (m[1] ?? "").toLowerCase());
   if (!names.includes("url")) return names.every((n) => FUNCTIONS.has(n)) ? value : null;
@@ -115,7 +119,7 @@ function styleOf(value: string, block: Block): string {
     if (colon < 0) continue;
     const prop = piece.slice(0, colon).trim().toLowerCase();
     const val = piece.slice(colon + 1).trim();
-    const cleaned = PRESENTATION.has(prop) ? clean(val, block) : null;
+    const cleaned = PRESENTATION.has(prop) ? clean(val, block, prop) : null;
     if (cleaned !== null) kept.push(`${prop}: ${cleaned}`);
   }
   return kept.join("; ");
@@ -140,7 +144,7 @@ function settle(el: Element, name: string, value: string, block: Block) {
     const style = styleOf(value, block);
     if (style) el.setAttribute("style", style);
   } else {
-    const cleaned = clean(value, block);
+    const cleaned = clean(value, block, name);
     if (cleaned !== null) el.setAttribute(name, cleaned);
   }
 }
@@ -203,10 +207,21 @@ function addNamed(value: string, byId: Map<string, Element>, targets: Set<Elemen
   }
 }
 
+/** Whether each switch above `el` draws it: a switch draws only its first element child. */
+function chosen(el: Element): boolean {
+  for (let s = el.closest("switch"); s; s = s.parentElement?.closest("switch") ?? null) {
+    if (!s.firstElementChild?.contains(el)) return false;
+  }
+  return true;
+}
+
 /** Whether something outside the hidden parts draws: a shape, or a use still pointing at one. */
 function drawsSomething(root: Element): boolean {
   return Array.from(root.querySelectorAll(DRAWN)).some(
-    (el) => (el.localName !== "use" || el.hasAttribute("href")) && el.closest(HIDDEN) === null,
+    (el) =>
+      (el.localName !== "use" || el.hasAttribute("href")) &&
+      el.closest(HIDDEN) === null &&
+      chosen(el),
   );
 }
 

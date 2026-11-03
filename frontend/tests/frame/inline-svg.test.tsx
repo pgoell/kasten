@@ -98,6 +98,17 @@ const SPACED = [
 const FILES = ["before", "", PRELUDED, "", COMMENTED, "", FULL_FILE, "", SPACED, "", "after"].join(
   "\n",
 );
+// As draw.io saves a label (#1184): html in a foreignObject, a plain text fallback beside it.
+const DRAWIO = [
+  '<svg viewBox="0 0 600 60" width="600" height="60">',
+  '  <rect x="1" y="1" width="598" height="58" fill="none" stroke="currentColor" />',
+  "  <switch>",
+  '    <foreignObject requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" width="600" height="60"><div>Plan</div></foreignObject>',
+  '    <text x="300" y="36" fill="currentColor" font-family="\'Segoe UI\', sans-serif" text-anchor="middle">Plan</text>',
+  "  </switch>",
+  "</svg>",
+].join("\n");
+const DRAWN_NOTE = ["before", "", DRAWIO, "", "after"].join("\n");
 
 function mount(doc: string, vimOn: boolean, anchor = 0, extra: Extension[] = []): EditorView {
   const parent = document.body.appendChild(document.createElement("div"));
@@ -377,14 +388,51 @@ it("#1183 I8 a whole file fits the note at phone width", async () => {
   );
 });
 
+it.each([
+  ["off", false],
+  ["on", true],
+] as const)("#1184 A1 draws a draw.io label's text fallback, vim %s", async (_, vimOn) => {
+  const at = mount(DRAWN_NOTE, vimOn);
+
+  await expect
+    .poll(() => picture(at.dom)?.querySelector("switch > text")?.textContent)
+    .toBe("Plan");
+  const label = picture(at.dom)?.querySelector("text") as SVGTextElement;
+  expect(label.getBBox().width).toBeGreaterThan(0);
+  expect(getComputedStyle(label).fontFamily).toBe('"Segoe UI", sans-serif');
+  expect(picture(at.dom)?.querySelector("foreignObject")).toBeNull();
+  expect(at.state.doc.toString()).toBe(DRAWN_NOTE);
+});
+
+it("#1184 A3 a read-only preview pane draws a draw.io label", async () => {
+  host = document.body.appendChild(document.createElement("div"));
+  root = createRoot(host);
+  root.render(<NotePreview text={DRAWN_NOTE} />);
+
+  await expect.poll(() => picture(host)?.querySelector("switch > text")?.textContent).toBe("Plan");
+});
+
+it("#1184 A7 a draw.io svg fits the note at phone width", async () => {
+  await page.viewport(414, 896);
+  const at = mount(DRAWN_NOTE, false, 0, [EditorView.lineWrapping]);
+  await expect.poll(() => picture(at.dom)?.querySelector("switch > text")).not.toBeNull();
+
+  const svg = picture(at.dom) as SVGSVGElement;
+  const block = svg.closest(".cm-svg-block") as HTMLElement;
+  expect(svg.getBoundingClientRect().width).toBeGreaterThan(0);
+  expect(svg.getBoundingClientRect().width).toBeLessThanOrEqual(
+    block.getBoundingClientRect().width,
+  );
+});
+
 it.runIf(import.meta.env.VITE_KASTEN_SHOTS)(
   "#1183 takes pictures of whole svg files at 414 and 1440",
   async () => {
     try {
       for (const width of [1440, 414]) {
         await page.viewport(width, 900);
-        const at = mount(FILES, false, 0, [EditorView.lineWrapping]);
-        await expect.poll(() => at.dom.querySelectorAll(".cm-svg-block svg").length).toBe(4);
+        const at = mount(`${FILES}\n\n${DRAWIO}`, false, 0, [EditorView.lineWrapping]);
+        await expect.poll(() => at.dom.querySelectorAll(".cm-svg-block svg").length).toBe(5);
         expect(await shot(at.dom, `inline-svg-files-${width}`)).toBe(width);
         at.dom.parentElement?.remove();
         at.destroy();
