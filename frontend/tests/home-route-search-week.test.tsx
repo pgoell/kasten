@@ -1,6 +1,6 @@
 import { EditorView } from "@codemirror/view";
 import { cleanup, fireEvent, screen } from "@testing-library/react";
-import type { SearchHit } from "@/lib/api";
+import type { SearchHit } from "@/lib/core/api";
 import { noteBase } from "@/lib/notes/note-base";
 import { hashed } from "./digests";
 import { act, FakeEventSource, pageHooks, renderApp, settle, VAULT } from "./home-route-fixture";
@@ -73,7 +73,7 @@ const {
     fetchHistoryText: vi.fn(),
   };
 });
-vi.mock("@/lib/api", () => ({
+vi.mock("@/lib/core/api", () => ({
   fetchFiles,
   fetchNote,
   saveNote,

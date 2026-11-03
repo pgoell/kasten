@@ -3,7 +3,7 @@
  * The wikilink listing keeps them, so a link into the archive does not read as dead.
  */
 
-import { ARCHIVE } from "@/lib/layout";
+import { ARCHIVE } from "@/lib/core/layout";
 
 export { ARCHIVE };
 

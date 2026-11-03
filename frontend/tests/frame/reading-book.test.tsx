@@ -23,8 +23,8 @@ const READING = "99 Misc/01 Config/reading-now.md";
 // The real module with every read the route makes on mount answered here,
 // there being no backend behind the frame. The config note's read is the 404
 // the refusal is about.
-vi.mock("@/lib/api", async (importOriginal) => {
-  const real = await importOriginal<typeof import("@/lib/api")>();
+vi.mock("@/lib/core/api", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/core/api")>();
   return {
     ...real,
     fetchFiles: async () => ["index.md"],

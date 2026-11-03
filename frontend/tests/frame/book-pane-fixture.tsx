@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRoot, type Root } from "react-dom/client";
 import { userEvent } from "vitest/browser";
 import { BookPane } from "@/components/book-pane";
-import { fetchBook, fetchNote } from "@/lib/api";
+import { fetchBook, fetchNote } from "@/lib/core/api";
 import { applyTheme, PALETTE_KEY, type Palette, THEME_KEY, type Theme } from "@/lib/ui/theme";
 // A book written for a white page (#467). Two chapters, `One` and `Two`, with
 // the same markup and one stylesheet: `body { color: #000; background: #fff }`,
@@ -195,7 +195,7 @@ export async function drawBook(
   // pane must not fetch here. Seeding the query instead is a trap: seeded data is
   // stale at once under the default staleTime, so mounting refetches against the
   // dead proxy anyway and the rejection swaps the error panel in over a book that
-  // already drew. The test files mock `@/lib/api` instead, and this module reaches
+  // already drew. The test files mock `@/lib/core/api` instead, and this module reaches
   // those fakes through the import above.
   // The pane asks the vault what is beside the note and is answered with the
   // file's own path, so a mock hands back both halves.

@@ -4,8 +4,8 @@
  * `routes/finance_plans.py` and `routes/finance_goals.py` give.
  */
 
-import { client, reason } from "@/lib/api-client";
 import type { components } from "@/lib/api-types";
+import { client, reason } from "@/lib/core/api-client";
 
 export type PlanIn = components["schemas"]["PlanIn"];
 export type Plan = components["schemas"]["PlanOut"];

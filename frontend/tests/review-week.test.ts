@@ -1,4 +1,4 @@
-import type { TodoHit } from "@/lib/api";
+import type { TodoHit } from "@/lib/core/api";
 import type { LogDay } from "@/lib/log/food-api";
 import { DEFAULT_CONFIG, type LogConfig } from "@/lib/log/log-kinds";
 import {

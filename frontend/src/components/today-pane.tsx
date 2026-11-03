@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { TryAgain } from "@/components/review-answer";
-import { fetchTodos, type TodoHit } from "@/lib/api";
-import { readClock } from "@/lib/clock";
+import { fetchTodos, type TodoHit } from "@/lib/core/api";
+import { readClock } from "@/lib/core/clock";
 import { noteName } from "@/lib/notes/links/note-path";
 import { useReviewLimits } from "@/lib/review/use-review-limits";
 import { useReviewWaiting } from "@/lib/review/use-review-waiting";

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { type Clock as ClockReading, readClock } from "@/lib/clock";
+import { type Clock as ClockReading, readClock } from "@/lib/core/clock";
 
 const MINUTE_MS = 60_000;
 

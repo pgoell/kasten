@@ -7,7 +7,7 @@ const { fetchBook, fetchNote, uploadAsset } = vi.hoisted(() => ({
   fetchNote: vi.fn(),
   uploadAsset: vi.fn(),
 }));
-vi.mock("@/lib/api", () => ({ fetchBook, fetchNote, uploadAsset }));
+vi.mock("@/lib/core/api", () => ({ fetchBook, fetchNote, uploadAsset }));
 
 // The factory is not optional: see `book-pane-touch.test.tsx`.
 vi.mock("foliate-js/view.js", () => ({}));

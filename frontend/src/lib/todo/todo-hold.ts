@@ -1,4 +1,4 @@
-import type { TodoHit } from "@/lib/api";
+import type { TodoHit } from "@/lib/core/api";
 import { parseTodo, wordTags } from "@/lib/todo/todo";
 import { AGENT } from "@/lib/todo/todo-agent";
 import { type Row, rowKey } from "@/lib/todo/use-todo-rows";

@@ -1,12 +1,12 @@
 import { type RefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { type TocRow, tocRows } from "@/components/book-contents";
-import { type BookBeside, fetchNote } from "@/lib/api";
 import { pageStyles } from "@/lib/book/book-backing";
 import { trackPages } from "@/lib/book/book-pages";
 import { closeView, type FoliateView, isError, pdfLayer } from "@/lib/book/foliate-view";
 import type { BookHighlights } from "@/lib/book/use-book-highlights";
 import type { BookTake } from "@/lib/book/use-book-take";
 import type { BookTurns } from "@/lib/book/use-book-turns";
+import { type BookBeside, fetchNote } from "@/lib/core/api";
 import { readField } from "@/lib/notes/text/note-frontmatter";
 import { onThemeChange } from "@/lib/ui/theme";
 

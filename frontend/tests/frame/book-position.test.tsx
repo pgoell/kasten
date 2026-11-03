@@ -4,8 +4,8 @@ import plainUrl from "../fixtures/plain.epub?url";
 import { chooseTheme, drawBook, drawn, sections, trackMounted } from "./book-pane-fixture";
 
 const { fetchBook, fetchNote } = vi.hoisted(() => ({ fetchBook: vi.fn(), fetchNote: vi.fn() }));
-vi.mock("@/lib/api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/api")>()),
+vi.mock("@/lib/core/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/core/api")>()),
   fetchBook,
   fetchNote,
 }));

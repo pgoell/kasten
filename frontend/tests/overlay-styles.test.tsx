@@ -19,7 +19,7 @@ const { searchNotes, fetchNote, fetchMentions, fetchTodos } = vi.hoisted(() => (
   fetchMentions: vi.fn().mockResolvedValue([]),
   fetchTodos: vi.fn().mockResolvedValue([]),
 }));
-vi.mock("@/lib/api", () => ({ searchNotes, fetchNote, fetchMentions, fetchTodos }));
+vi.mock("@/lib/core/api", () => ({ searchNotes, fetchNote, fetchMentions, fetchTodos }));
 
 /** The box the panel draws, which is the child of the backdrop. */
 function panelOf(label: string): HTMLElement {

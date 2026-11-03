@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, screen } from "@testing-library/react";
-import type { SearchHit } from "@/lib/api";
 import type { PdfRenderer } from "@/lib/book/pdf-view";
+import type { SearchHit } from "@/lib/core/api";
 import { hashed } from "./digests";
 import {
   defineFoliateFake,
@@ -46,7 +46,7 @@ const {
   fetchTags: vi.fn(),
   fetchVersion: vi.fn(),
 }));
-vi.mock("@/lib/api", () => ({
+vi.mock("@/lib/core/api", () => ({
   fetchFiles,
   fetchNote,
   saveNote,

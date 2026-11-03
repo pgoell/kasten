@@ -1,7 +1,7 @@
 import { render } from "@testing-library/react";
 import { LogTrends } from "@/components/log-trends";
-import { shiftDay } from "@/lib/clock";
-import { applyLayout } from "@/lib/layout";
+import { shiftDay } from "@/lib/core/clock";
+import { applyLayout } from "@/lib/core/layout";
 import type { LogDay } from "@/lib/log/food-api";
 import { parseConfig } from "@/lib/log/log-kinds";
 import { noteBase } from "@/lib/notes/note-base";
@@ -96,7 +96,7 @@ const {
     fetchReviewLimits: vi.fn(),
   };
 });
-vi.mock("@/lib/api", () => ({
+vi.mock("@/lib/core/api", () => ({
   fetchFiles,
   fetchNote,
   saveNote,

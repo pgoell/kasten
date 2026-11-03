@@ -71,8 +71,8 @@ const NOTE = [
   "- [ ] overdue 📅 2020-01-02",
 ].join("\n");
 
-vi.mock("@/lib/api", async (importOriginal) => {
-  const real = await importOriginal<typeof import("@/lib/api")>();
+vi.mock("@/lib/core/api", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/core/api")>();
   return {
     ...real,
     fetchFiles: async () => FILES,

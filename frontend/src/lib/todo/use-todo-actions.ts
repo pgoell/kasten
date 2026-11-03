@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { type Dispatch, type RefObject, type SetStateAction, useCallback, useRef } from "react";
-import { createNote, fetchNote, type SearchHit, type TodoHit, updateNote } from "@/lib/api";
-import { readClock } from "@/lib/clock";
+import { createNote, fetchNote, type SearchHit, type TodoHit, updateNote } from "@/lib/core/api";
+import { readClock } from "@/lib/core/clock";
 import { heldText } from "@/lib/saving/held-text";
 import type { GuardedWrites } from "@/lib/saving/use-guarded-writes";
 import type { TodoState } from "@/lib/todo/todo";

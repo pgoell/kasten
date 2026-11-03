@@ -20,8 +20,8 @@ import {
 } from "./reader-fixture";
 import { barOf, mountTabs, registerTabNotes, twoTabs, wrappers } from "./tab-strip-fixture";
 
-vi.mock("@/lib/api", async (importOriginal) => {
-  const real = await importOriginal<typeof import("@/lib/api")>();
+vi.mock("@/lib/core/api", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/core/api")>();
   return {
     ...real,
     fetchFiles: vi.fn(),

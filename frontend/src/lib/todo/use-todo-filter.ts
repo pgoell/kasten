@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useRef, useState } from "react";
-import { createNote, fetchFiles, fetchNote } from "@/lib/api";
+import { createNote, fetchFiles, fetchNote } from "@/lib/core/api";
 import { DEFAULT_VIEWS, parseViews, VIEWS_NOTE } from "@/lib/todo/todo-view";
 
 /** Whether the shared lists are shown, kept per device. Off unless stored as on. */

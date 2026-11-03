@@ -7,7 +7,7 @@ import {
   useEffect,
   useState,
 } from "react";
-import { type BookBeside, ChangedOnDisk, type Mention, saveNote, updateNote } from "@/lib/api";
+import { type BookBeside, ChangedOnDisk, type Mention, saveNote, updateNote } from "@/lib/core/api";
 import { bookType } from "@/lib/notes/links/note-path";
 import { noteBase } from "@/lib/notes/note-base";
 import { readField, setField } from "@/lib/notes/text/note-frontmatter";

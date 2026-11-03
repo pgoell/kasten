@@ -3,7 +3,7 @@
  * the pane only draws what these answer. The project lane comes from the backend.
  */
 
-import { shiftDay } from "@/lib/clock";
+import { shiftDay } from "@/lib/core/clock";
 import { wikiLinkPath, wikiLinkTargets } from "@/lib/notes/links/wikilink";
 import { parseTodo, type Todo } from "@/lib/todo/todo";
 import { endsOfWords } from "@/lib/todo/todo-fields";

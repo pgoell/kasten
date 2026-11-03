@@ -27,8 +27,8 @@ const { fetchTodos, fetchNote, fetchFiles, createNote } = vi.hoisted(() => ({
   fetchFiles: vi.fn(),
   createNote: vi.fn(),
 }));
-vi.mock("@/lib/api", async (original) => ({
-  ...(await original<typeof import("@/lib/api")>()),
+vi.mock("@/lib/core/api", async (original) => ({
+  ...(await original<typeof import("@/lib/core/api")>()),
   fetchTodos,
   fetchNote,
   fetchFiles,

@@ -1,7 +1,7 @@
 /**
  * The todo pane over one fixed vault, drawn in a real browser for the frame tests of
  * the overview and board redesign (#811). The test file that uses this sets the
- * `@/lib/api` doubles itself, so its `vi.mock` hoists where it has to.
+ * `@/lib/core/api` doubles itself, so its `vi.mock` hoists where it has to.
  */
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -10,7 +10,7 @@ import type {} from "@vitest/browser-playwright";
 import { createRoot } from "react-dom/client";
 import { cdp, page } from "vitest/browser";
 import { TodoPane } from "@/components/todo-pane";
-import type { TodoHit } from "@/lib/api";
+import type { TodoHit } from "@/lib/core/api";
 import { VIEWS_NOTE } from "@/lib/todo/todo-view";
 import { COARSE, NARROW, stubMatchMedia } from "../match-media";
 import { stubCommands } from "../stub-commands";

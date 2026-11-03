@@ -9,15 +9,15 @@ import { EditorState, type Extension } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
 import { page } from "vitest/browser";
-import { fetchNote, NoteMissing } from "@/lib/api";
+import { fetchNote, NoteMissing } from "@/lib/core/api";
 import { logCard } from "@/lib/log/log-card";
 import { notePath } from "@/lib/todo/todo-commands";
 import { paletteEntries } from "@/lib/ui/palette";
 import { stubCommands } from "../stub-commands";
 import "@/styles/app.css";
 
-vi.mock("@/lib/api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/api")>()),
+vi.mock("@/lib/core/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/core/api")>()),
   fetchNote: vi.fn(),
 }));
 

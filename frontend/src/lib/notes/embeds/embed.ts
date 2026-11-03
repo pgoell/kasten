@@ -10,7 +10,7 @@ import {
   QueryObserver,
   type QueryObserverResult,
 } from "@tanstack/react-query";
-import { fetchNote } from "@/lib/api";
+import { fetchNote } from "@/lib/core/api";
 import { encodePath } from "@/lib/notes/links/note-path";
 import { namesAFile } from "@/lib/notes/links/wikilink";
 

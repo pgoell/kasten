@@ -7,7 +7,7 @@ import type {
   MarkdownConfig,
 } from "@lezer/markdown";
 import type katex from "katex";
-import { loadOnce } from "@/lib/load-once";
+import { loadOnce } from "@/lib/core/load-once";
 
 /** `$`, which the parser sees as a code point rather than a string. */
 const DOLLAR = 36;

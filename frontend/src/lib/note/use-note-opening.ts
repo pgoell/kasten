@@ -8,7 +8,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { createNote, fetchNote, NoteExists, type SearchHit } from "@/lib/api";
+import { createNote, fetchNote, NoteExists, type SearchHit } from "@/lib/core/api";
 import type { FileTarget } from "@/lib/editor/editor-follow";
 import { queryEmbedSource } from "@/lib/notes/embeds/embed";
 import { encodePath } from "@/lib/notes/links/note-path";

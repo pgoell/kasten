@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { type SearchHit, searchNotes } from "@/lib/api";
-import { readClock, shiftDay } from "@/lib/clock";
+import { type SearchHit, searchNotes } from "@/lib/core/api";
+import { readClock, shiftDay } from "@/lib/core/clock";
 
 /** How many notes the middle column lists. */
 const RECENT = 8;

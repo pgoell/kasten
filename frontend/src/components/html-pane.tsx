@@ -3,7 +3,7 @@ import { Rsvp } from "@/components/rsvp";
 import { TAKE_HOST, TakeButton } from "@/components/take-button-view";
 import { useDumpTake } from "@/components/use-dump-take";
 import { usePageReload } from "@/components/use-page-reload";
-import { readClock } from "@/lib/clock";
+import { readClock } from "@/lib/core/clock";
 import { encodePath } from "@/lib/notes/links/note-path";
 import { type Story, shareLine, storyOf } from "@/lib/panes/html/html-share";
 import { postLook } from "@/lib/panes/html/page-look";

@@ -9,7 +9,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { PersonCard, PersonFooter } from "@/components/person-card";
-import * as api from "@/lib/api";
+import * as api from "@/lib/core/api";
 
 const MAX = "03 Areas/08 People/Max Bosch.md";
 const MEETING = "02 Projects/FDE/2026-09-28 FDE Check-in.md";

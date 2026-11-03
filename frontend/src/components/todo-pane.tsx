@@ -5,7 +5,7 @@ import { TodoFooter } from "@/components/todo-footer";
 import { TodoHeader } from "@/components/todo-header";
 import { TodoLegend } from "@/components/todo-legend";
 import { TodoList } from "@/components/todo-list";
-import { fetchTodos, type SearchHit, type TodoHit } from "@/lib/api";
+import { fetchTodos, type SearchHit, type TodoHit } from "@/lib/core/api";
 import type { TodoState } from "@/lib/todo/todo";
 import { useArmed } from "@/lib/todo/use-armed";
 import { useBlockerPick } from "@/lib/todo/use-blocker-pick";

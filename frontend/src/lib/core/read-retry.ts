@@ -1,4 +1,4 @@
-import { fetchNote } from "@/lib/api";
+import { fetchNote } from "@/lib/core/api";
 
 /** Waits between the tries of a request the backend dropped: about a minute in all. */
 export const BACKOFF = [1000, 2000, 4000, 8000, 15000, 15000, 15000];

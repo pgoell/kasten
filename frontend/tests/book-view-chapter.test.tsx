@@ -6,7 +6,7 @@ import { CFI, CHAPTERS } from "./book-pane-fixture";
 import { defineFoliateFake, FakeView, lastView, resetFoliateFake } from "./foliate-fake";
 
 const { fetchNote } = vi.hoisted(() => ({ fetchNote: vi.fn() }));
-vi.mock("@/lib/api", () => ({ fetchNote, fetchBook: vi.fn(), uploadAsset: vi.fn() }));
+vi.mock("@/lib/core/api", () => ({ fetchNote, fetchBook: vi.fn(), uploadAsset: vi.fn() }));
 
 // The factory is not optional, for the reason `book-pane-keys.test.tsx` gives.
 vi.mock("foliate-js/view.js", () => ({}));

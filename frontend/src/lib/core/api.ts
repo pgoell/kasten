@@ -1,6 +1,6 @@
-import { client, postFile, reason, refused } from "@/lib/api-client";
 import type { components } from "@/lib/api-types";
-import { applyLayout, type Layout } from "@/lib/layout";
+import { client, postFile, reason, refused } from "@/lib/core/api-client";
+import { applyLayout, type Layout } from "@/lib/core/layout";
 import { noteBase } from "@/lib/notes/note-base";
 import { pressWrote } from "@/lib/todo/todo-press-echo";
 

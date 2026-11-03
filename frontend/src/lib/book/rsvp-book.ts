@@ -4,10 +4,10 @@
  */
 
 import type { RefObject } from "react";
-import type { BookBeside } from "@/lib/api";
-import { fetchNote } from "@/lib/api";
 import { type FoliateView, pdfLayer } from "@/lib/book/foliate-view";
 import { readPdf } from "@/lib/book/use-book-seek";
+import type { BookBeside } from "@/lib/core/api";
+import { fetchNote } from "@/lib/core/api";
 import { noteName } from "@/lib/notes/links/note-path";
 import { readField } from "@/lib/notes/text/note-frontmatter";
 import { findQuote, firstOf, indexAt, type RsvpSource, type Word } from "@/lib/panes/rsvp/rsvp";

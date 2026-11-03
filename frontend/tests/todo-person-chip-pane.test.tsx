@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { TodoPane } from "@/components/todo-pane";
-import type { SearchHit } from "@/lib/api";
+import type { SearchHit } from "@/lib/core/api";
 import { DEFAULT_VIEWS, VIEWS_NOTE } from "@/lib/todo/todo-view";
 import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";
@@ -14,7 +14,7 @@ const { fetchTodos, fetchNote, fetchFiles, createNote } = vi.hoisted(() => ({
   fetchFiles: vi.fn(),
   createNote: vi.fn(),
 }));
-vi.mock("@/lib/api", () => ({ fetchTodos, fetchNote, fetchFiles, createNote }));
+vi.mock("@/lib/core/api", () => ({ fetchTodos, fetchNote, fetchFiles, createNote }));
 
 paneHooks();
 

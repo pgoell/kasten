@@ -1,4 +1,4 @@
-import { ChangedOnDisk } from "@/lib/api";
+import { ChangedOnDisk } from "@/lib/core/api";
 import { noteBase } from "@/lib/notes/note-base";
 
 type Read = (path: string) => Promise<string>;

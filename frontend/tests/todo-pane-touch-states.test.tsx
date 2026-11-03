@@ -9,7 +9,7 @@ const { fetchTodos, fetchNote, fetchFiles, createNote } = vi.hoisted(() => ({
   fetchFiles: vi.fn(),
   createNote: vi.fn(),
 }));
-vi.mock("@/lib/api", () => ({ fetchTodos, fetchNote, fetchFiles, createNote }));
+vi.mock("@/lib/core/api", () => ({ fetchTodos, fetchNote, fetchFiles, createNote }));
 
 paneHooks();
 

@@ -1,6 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import { LogTrends } from "@/components/log-trends";
-import { shiftDay } from "@/lib/clock";
+import { shiftDay } from "@/lib/core/clock";
 import type { LogDay } from "@/lib/log/food-api";
 import { parseConfig } from "@/lib/log/log-kinds";
 import { streakOf } from "@/lib/log/log-streak";

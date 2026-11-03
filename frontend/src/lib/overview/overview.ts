@@ -5,8 +5,8 @@
  * reads answered and each rule here is checked on plain input.
  */
 
-import type { LineHit, TodoHit } from "@/lib/api";
-import { readClock, shiftDay } from "@/lib/clock";
+import type { LineHit, TodoHit } from "@/lib/core/api";
+import { readClock, shiftDay } from "@/lib/core/clock";
 import { isOpen, parseTodo } from "@/lib/todo/todo";
 import { sectionOf } from "@/lib/todo/todo-view";
 

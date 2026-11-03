@@ -4,7 +4,7 @@ import { addHighlight } from "@/lib/takes/highlight";
 import { undoFor, undoPassage } from "@/lib/takes/page-undo";
 
 const { fetchNote, saveNote } = vi.hoisted(() => ({ fetchNote: vi.fn(), saveNote: vi.fn() }));
-vi.mock("@/lib/api", () => {
+vi.mock("@/lib/core/api", () => {
   // A class of its own, as the real one is, so `instanceof` in the undo answers the same.
   class ChangedOnDisk extends Error {}
   return { fetchNote, saveNote, ChangedOnDisk };

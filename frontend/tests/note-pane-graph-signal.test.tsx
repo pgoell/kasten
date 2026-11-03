@@ -10,8 +10,8 @@ const { fetchNote, fetchMentions } = vi.hoisted(() => ({
   fetchNote: vi.fn(),
   fetchMentions: vi.fn(),
 }));
-vi.mock("@/lib/api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/api")>()),
+vi.mock("@/lib/core/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/core/api")>()),
   fetchNote,
   fetchMentions,
 }));

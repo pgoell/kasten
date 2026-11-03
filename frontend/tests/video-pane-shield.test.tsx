@@ -8,7 +8,7 @@ import { stubCommands } from "./stub-commands";
 // Standing in for the module rather than for `fetch`, the way the exam pane's
 // tests do: what the pane owns is what it asks the vault for.
 const { fetchNote } = vi.hoisted(() => ({ fetchNote: vi.fn() }));
-vi.mock("@/lib/api", () => ({ fetchNote }));
+vi.mock("@/lib/core/api", () => ({ fetchNote }));
 
 const NOTE = "lit/attention is all you need.md";
 const TEXT = "# The talk\n\n[the recording](https://youtu.be/dQw4w9WgXcQ)\n\nNotes below.\n";

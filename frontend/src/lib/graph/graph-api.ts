@@ -1,5 +1,5 @@
-import { client, reason } from "@/lib/api-client";
 import type { components } from "@/lib/api-types";
+import { client, reason } from "@/lib/core/api-client";
 
 /** The notes as a graph, and for a pattern the rows it matched. */
 export type Graph = components["schemas"]["Graph"];

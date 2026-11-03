@@ -6,7 +6,7 @@ import { PATHS } from "./note-finder-fixture";
 // The finder's own preview asks the api for a note, which is what must not
 // happen for a file row, so the api is stood in for and its calls counted.
 const { fetchNote } = vi.hoisted(() => ({ fetchNote: vi.fn() }));
-vi.mock("@/lib/api", () => ({ fetchNote }));
+vi.mock("@/lib/core/api", () => ({ fetchNote }));
 
 const FILES = ["docs/plan.pdf", "lit/DDIA.epub", "notes/page.html"];
 

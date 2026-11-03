@@ -1,5 +1,5 @@
-import { NoteMissing } from "@/lib/api";
-import { applyLayout } from "@/lib/layout";
+import { NoteMissing } from "@/lib/core/api";
+import { applyLayout } from "@/lib/core/layout";
 import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
 import { FakeEventSource, pageHooks, renderApp, settle, stream, VAULT } from "./home-route-fixture";
@@ -118,7 +118,7 @@ const {
     fetchReviewLimits: vi.fn(),
   };
 });
-vi.mock("@/lib/api", () => ({
+vi.mock("@/lib/core/api", () => ({
   fetchFiles,
   fetchNote,
   saveNote,

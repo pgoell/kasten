@@ -2,8 +2,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { NoteSearch } from "@/components/note-search";
-import type { SearchHit } from "@/lib/api";
-import { fetchMentions, searchNotes } from "@/lib/api";
+import type { SearchHit } from "@/lib/core/api";
+import { fetchMentions, searchNotes } from "@/lib/core/api";
 
 // The test files beside this one mock the api module at this level, the way the
 // note search's do: what the page owns is what it asks the vault for and how

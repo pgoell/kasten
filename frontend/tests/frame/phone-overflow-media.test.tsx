@@ -18,7 +18,7 @@ import { createRoot } from "react-dom/client";
 import { commands, page } from "vitest/browser";
 import { NoteSearch } from "@/components/note-search";
 import { PdfPane } from "@/components/pdf-pane";
-import { fetchBook, fetchMentions, fetchTodos, type SearchHit, searchNotes } from "@/lib/api";
+import { fetchBook, fetchMentions, fetchTodos, type SearchHit, searchNotes } from "@/lib/core/api";
 import plainUrl from "../fixtures/plain.epub?url";
 import { COARSE, NARROW, stubMatchMedia } from "../match-media";
 import { PLAIN as BOOK_PLAIN, mountBooks, paneOf, sectionOf } from "./book-take-fixture";
@@ -39,8 +39,8 @@ import {
 } from "./vault-graph-fixture";
 import { registerNotes, renderPanes, TAKE, TALK, talkNote, VIDEO } from "./video-pane-fixture";
 
-vi.mock("@/lib/api", async (importOriginal) => {
-  const real = await importOriginal<typeof import("@/lib/api")>();
+vi.mock("@/lib/core/api", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/core/api")>();
   return {
     ...real,
     fetchBook: vi.fn(),

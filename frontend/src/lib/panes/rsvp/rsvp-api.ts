@@ -3,8 +3,8 @@
  * backend's two routes. Its own module, as `food-api.ts` and `todo-api.ts` are.
  */
 
-import { client } from "@/lib/api-client";
 import type { components } from "@/lib/api-types";
+import { client } from "@/lib/core/api-client";
 
 /** Where an RSVP run last stopped in one file: the word, the length of its list, and the words there. */
 export type RsvpPlace = components["schemas"]["Place"];

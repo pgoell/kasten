@@ -4,14 +4,14 @@ import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { Editor } from "@/components/editor";
-import { ARCHIVE, applyLayout, INBOX, type Layout, PERIODIC } from "@/lib/layout";
+import { ARCHIVE, applyLayout, INBOX, type Layout, PERIODIC } from "@/lib/core/layout";
 import { IMAGE_FOLDER, imageCompletions, imagePaths } from "@/lib/notes/embeds/image";
 
 // The upload is the one thing here that leaves the browser. Standing in for the
 // module is the right level: what these tests own is which path the paste writes
 // and what it puts in the note, not the HTTP.
 const { uploadAsset } = vi.hoisted(() => ({ uploadAsset: vi.fn() }));
-vi.mock("@/lib/api", () => ({ uploadAsset }));
+vi.mock("@/lib/core/api", () => ({ uploadAsset }));
 
 const SHOT = `${IMAGE_FOLDER}/2026-08-12-abcdef01.png`;
 

@@ -13,7 +13,7 @@ import { getCM } from "@replit/codemirror-vim";
 import { waitFor } from "@testing-library/react";
 import { act } from "react";
 import { userEvent } from "vitest/browser";
-import { fetchNote } from "@/lib/api";
+import { fetchNote } from "@/lib/core/api";
 import {
   DESKTOP,
   leader,
@@ -32,8 +32,8 @@ import { registerNotes, TALK, talkNote, VIDEO } from "./video-pane-fixture";
 /** What the saves wrote, by path, so a note written and opened again reads back what was typed. */
 const { saved } = vi.hoisted(() => ({ saved: new Map<string, string>() }));
 
-vi.mock("@/lib/api", async (importOriginal) => {
-  const real = await importOriginal<typeof import("@/lib/api")>();
+vi.mock("@/lib/core/api", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/core/api")>();
   return {
     ...real,
     fetchFiles: vi.fn(),

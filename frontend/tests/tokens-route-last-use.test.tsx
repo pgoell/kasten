@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { Suspense } from "react";
-import { client } from "@/lib/api-client";
+import { client } from "@/lib/core/api-client";
 import { Route } from "@/routes/tokens";
 
 const MINUTE = 60_000;

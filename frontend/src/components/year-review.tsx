@@ -1,7 +1,7 @@
 import { ActivityGrid, Bars, WeightLine } from "@/components/charts";
 import { Caption, daysBetween, Failed, Reading, Section, Words } from "@/components/review-parts";
-import type { TodoHit } from "@/lib/api";
-import { readClock } from "@/lib/clock";
+import type { TodoHit } from "@/lib/core/api";
+import { readClock } from "@/lib/core/clock";
 import { rangeDates, weightOf } from "@/lib/log/log-weight";
 import { grouped } from "@/lib/log/log-words";
 import { plural } from "@/lib/overview/overview-words";

@@ -14,7 +14,7 @@ import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/rea
 import { fireEvent, waitFor } from "@testing-library/react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { fetchFiles, fetchMentions, fetchNote, NoteMissing } from "@/lib/api";
+import { fetchFiles, fetchMentions, fetchNote, NoteMissing } from "@/lib/core/api";
 import { fetchGraph } from "@/lib/graph/graph-api";
 import { routeTree } from "@/routeTree.gen";
 import { need } from "./reader-fixture";

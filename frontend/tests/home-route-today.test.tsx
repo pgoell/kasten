@@ -1,4 +1,4 @@
-import type { SearchHit, TodoHit } from "@/lib/api";
+import type { SearchHit, TodoHit } from "@/lib/core/api";
 import { pageHooks, renderApp, settle, theRoute } from "./home-route-fixture";
 
 // The doubles, the same in every home-route file: see home-route-fixture.tsx.
@@ -58,7 +58,7 @@ const {
   fetchHistoryText: vi.fn(),
 }));
 
-vi.mock("@/lib/api", () => ({
+vi.mock("@/lib/core/api", () => ({
   fetchFiles,
   fetchNote,
   saveNote,

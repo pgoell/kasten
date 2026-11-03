@@ -17,8 +17,8 @@ import {
 import { DESKTOP, need, nextFrame, type Size, TOUCH, unmount } from "./reader-fixture";
 import { shot } from "./shots";
 
-vi.mock("@/lib/api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/api")>()),
+vi.mock("@/lib/core/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/core/api")>()),
   fetchFiles: mocks.fetchFiles,
   fetchNote: mocks.fetchNote,
   saveNote: mocks.saveNote,

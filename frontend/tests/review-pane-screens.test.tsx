@@ -1,5 +1,5 @@
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
-import * as api from "@/lib/api";
+import * as api from "@/lib/core/api";
 import { shownCard } from "./review-card";
 import { renderPane } from "./review-pane-fixture";
 

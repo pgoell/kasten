@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import type { SearchHit } from "@/lib/api";
+import type { SearchHit } from "@/lib/core/api";
 import type { TodoState } from "@/lib/todo/todo";
 
 /**

@@ -8,7 +8,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import { PersonFooter } from "@/components/person-card";
-import * as api from "@/lib/api";
+import * as api from "@/lib/core/api";
 
 const PASCAL = "03 Areas/08 People/Pascal.md";
 const DAILY = "01 Periodic/00 Daily/2026-10-25.md";

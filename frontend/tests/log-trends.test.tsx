@@ -1,5 +1,5 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { shiftDay } from "@/lib/clock";
+import { shiftDay } from "@/lib/core/clock";
 import { back, CONFIG_NOTE, logDays, renderPane, TODAY } from "./log-pane-fixture";
 
 const { fetchLog, fetchNote, searchFood, readBarcode } = vi.hoisted(() => ({
@@ -15,7 +15,7 @@ vi.mock("@/lib/log/my-foods", async (importOriginal) => ({
   fetchMyFoods: async () => ({ foods: [], broken: [] }),
   addMyFood: vi.fn(),
 }));
-vi.mock("@/lib/api", () => ({
+vi.mock("@/lib/core/api", () => ({
   fetchNote,
   NoteMissing: class NoteMissing extends Error {},
 }));

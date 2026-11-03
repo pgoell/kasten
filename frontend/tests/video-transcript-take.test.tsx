@@ -10,7 +10,7 @@ const { fetchNote, saveNote, updateNote, searchNotes } = vi.hoisted(() => ({
   updateNote: vi.fn(),
   searchNotes: vi.fn(),
 }));
-vi.mock("@/lib/api", () => {
+vi.mock("@/lib/core/api", () => {
   class ChangedOnDisk extends Error {}
   return { fetchNote, saveNote, updateNote, searchNotes, ChangedOnDisk };
 });

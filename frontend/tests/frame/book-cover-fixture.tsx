@@ -2,8 +2,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRoot, type Root } from "react-dom/client";
 import { page } from "vitest/browser";
 import { BookPane } from "@/components/book-pane";
-import { fetchBook, fetchNote } from "@/lib/api";
 import { backImages, treatmentFor } from "@/lib/book/book-backing";
+import { fetchBook, fetchNote } from "@/lib/core/api";
 import { THEME_KEY } from "@/lib/ui/theme";
 // A book written for a white page, `body { color: #000; background: #fff }`,
 // with a cover page first and two chapters after it. The cover page holds only

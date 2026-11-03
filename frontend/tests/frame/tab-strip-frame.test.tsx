@@ -48,8 +48,8 @@ import {
   wrappers,
 } from "./tab-strip-fixture";
 
-vi.mock("@/lib/api", async (importOriginal) => {
-  const real = await importOriginal<typeof import("@/lib/api")>();
+vi.mock("@/lib/core/api", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/core/api")>();
   return {
     ...real,
     fetchFiles: vi.fn(),
@@ -124,7 +124,7 @@ it("A1 the strip is 40 px and sticky right under the top bar at 1440", async () 
       const bar = need(host.querySelector<HTMLElement>("header[data-top-bar]"), "top bar");
       const under = bar.getBoundingClientRect().bottom;
       if (size === DESKTOP) expect(under).toBe(56);
-      // The entrance slides the strip up from 6 px for 240 ms, so it is measured once done.
+      // The entrance slides the strip up 6 px for 240 ms, so it is measured once done.
       await expect.poll(() => strip.getBoundingClientRect().top, PATIENCE).toBe(under);
 
       // The note scrolls under the strip, which stays where it was.
@@ -146,7 +146,7 @@ it("A7 at 1440 twelve tabs fold behind N more and the active tab stays drawn", a
     const strip = stripOf(host);
     const box = strip.getBoundingClientRect();
     // Folding is measured before the paint, so the button is there at once; the poll
-    // only waits for the first render of the test's own mount.
+    // only waits for the first render of the test's mount.
     await expect.poll(() => moreButton(host)?.textContent ?? "", PATIENCE).toMatch(/^\d+ more$/);
     const shown = drawn(host);
     expect(shown.length).toBeGreaterThan(0);

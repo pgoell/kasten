@@ -5,7 +5,7 @@
  * reads them, loaded on the first scan that needs it.
  */
 
-import { loadOnce } from "@/lib/load-once";
+import { loadOnce } from "@/lib/core/load-once";
 
 export type Format = "ean_13" | "ean_8" | "upc_a" | "upc_e";
 

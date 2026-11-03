@@ -1,7 +1,7 @@
 import { Transaction } from "@codemirror/state";
 import { useQueryClient } from "@tanstack/react-query";
 import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
-import { fetchNote } from "@/lib/api";
+import { fetchNote } from "@/lib/core/api";
 import type { useAutosave } from "@/lib/note/use-autosave";
 import { docIn, paneView } from "@/lib/panes/layout/pane-doc";
 import { type Layout, tabPanes } from "@/lib/panes/layout/panes";

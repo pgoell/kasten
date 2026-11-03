@@ -1,4 +1,4 @@
-import { ChangedOnDisk, NoteExists, NoteMissing } from "@/lib/api";
+import { ChangedOnDisk, NoteExists, NoteMissing } from "@/lib/core/api";
 import { noteBase } from "@/lib/notes/note-base";
 import { periodicNote } from "@/lib/notes/text/periodic";
 import { cycleTodoAside } from "@/lib/todo/todo-api";
@@ -15,10 +15,10 @@ const { createNote, fetchNote, fetchTodos, saveNote, searchNotes, updateNote } =
   searchNotes: vi.fn(),
   updateNote: vi.fn(),
 }));
-vi.mock("@/lib/api", async (importOriginal) => {
+vi.mock("@/lib/core/api", async (importOriginal) => {
   // The refusals the writes tell apart by class, which a factory leaving them
   // out would hand over as undefined.
-  const real = await importOriginal<typeof import("@/lib/api")>();
+  const real = await importOriginal<typeof import("@/lib/core/api")>();
   return {
     ChangedOnDisk: real.ChangedOnDisk,
     NoteExists: real.NoteExists,

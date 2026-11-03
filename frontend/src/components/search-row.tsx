@@ -1,4 +1,4 @@
-import type { Mention, SearchHit } from "@/lib/api";
+import type { Mention, SearchHit } from "@/lib/core/api";
 import { isMention } from "@/lib/search/use-search-hits";
 import { parseTodo, STATE_SYMBOL } from "@/lib/todo/todo";
 import { ROW, TAP } from "@/lib/ui/overlay-styles";

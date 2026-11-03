@@ -3,7 +3,7 @@ import { fireEvent, render } from "@testing-library/react";
 import { useMemo } from "react";
 import { NoteEditor } from "@/components/note-editor";
 import { StatusBar } from "@/components/status-bar";
-import { fetchNote } from "@/lib/api";
+import { fetchNote } from "@/lib/core/api";
 import { useAutosave } from "@/lib/note/use-autosave";
 import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
 

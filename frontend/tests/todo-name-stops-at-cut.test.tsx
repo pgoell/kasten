@@ -1,7 +1,7 @@
 import { EditorView } from "@codemirror/view";
 import { fireEvent, screen } from "@testing-library/react";
 import { afterEach } from "vitest";
-import { NoteMissing, type TodoHit } from "@/lib/api";
+import { NoteMissing, type TodoHit } from "@/lib/core/api";
 import { noteBase } from "@/lib/notes/note-base";
 import { cycleTodoAtCursor } from "@/lib/todo/todo-commands";
 import { patchFields, readFields } from "@/lib/todo/todo-fields";
@@ -82,7 +82,7 @@ const {
     fetchHistoryText: vi.fn(),
   };
 });
-vi.mock("@/lib/api", () => ({
+vi.mock("@/lib/core/api", () => ({
   fetchFiles,
   fetchNote,
   saveNote,

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const { fetchNote } = vi.hoisted(() => ({ fetchNote: vi.fn() }));
 
-vi.mock("@/lib/api", () => ({ fetchNote }));
+vi.mock("@/lib/core/api", () => ({ fetchNote }));
 
 import { queryEmbedSource } from "@/lib/notes/embeds/embed";
 

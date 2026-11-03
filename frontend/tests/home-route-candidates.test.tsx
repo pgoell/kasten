@@ -1,8 +1,8 @@
 import { cleanup, screen } from "@testing-library/react";
 import { useMemo } from "react";
 import { buildTree } from "@/components/file-explorer";
-import type { TodoHit } from "@/lib/api";
 import type { PdfRenderer } from "@/lib/book/pdf-view";
+import type { TodoHit } from "@/lib/core/api";
 import { noteBase } from "@/lib/notes/note-base";
 import { folderCandidates, noteCandidates } from "@/lib/search/fuzzy";
 import type { TodoState } from "@/lib/todo/todo";
@@ -87,7 +87,7 @@ const {
     fetchHistoryText: vi.fn(),
   };
 });
-vi.mock("@/lib/api", () => ({
+vi.mock("@/lib/core/api", () => ({
   fetchFiles,
   fetchNote,
   saveNote,

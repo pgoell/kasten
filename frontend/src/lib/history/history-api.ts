@@ -1,5 +1,5 @@
-import { client } from "@/lib/api-client";
 import type { components } from "@/lib/api-types";
+import { client } from "@/lib/core/api-client";
 
 /** One jj change that touched a note, as the history pane lists it. */
 export type HistoryChange = components["schemas"]["HistoryChange"];

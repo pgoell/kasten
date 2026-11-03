@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ReviewSession } from "@/components/review-session";
-import * as api from "@/lib/api";
+import * as api from "@/lib/core/api";
 import { type Deck, decksFrom } from "@/lib/review/review";
 import { cardsOf } from "@/lib/review/review-queue";
 import { shownCard } from "./review-card";

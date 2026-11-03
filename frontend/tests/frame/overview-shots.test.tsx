@@ -15,8 +15,8 @@ import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/rea
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { commands, page } from "vitest/browser";
-import type { LineHit, TodoHit } from "@/lib/api";
-import { readClock, shiftDay } from "@/lib/clock";
+import type { LineHit, TodoHit } from "@/lib/core/api";
+import { readClock, shiftDay } from "@/lib/core/clock";
 import type { LogDay } from "@/lib/log/food-api";
 import { applyTheme, PALETTE_KEY, THEME_KEY, type Theme } from "@/lib/ui/theme";
 import { routeTree } from "@/routeTree.gen";
@@ -160,8 +160,8 @@ const TODOS: TodoHit[] = [
   todo(93, "- [ ] Read the paper"),
 ];
 
-vi.mock("@/lib/api", async (importOriginal) => {
-  const real = await importOriginal<typeof import("@/lib/api")>();
+vi.mock("@/lib/core/api", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/core/api")>();
   return {
     ...real,
     fetchFiles: async () => ["index.md"],

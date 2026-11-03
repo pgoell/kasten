@@ -8,7 +8,7 @@ import { ensureSyntaxTree, syntaxTree } from "@codemirror/language";
 import { type EditorState, Facet } from "@codemirror/state";
 import type { SyntaxNode } from "@lezer/common";
 import type { Element, InlineContext, MarkdownConfig } from "@lezer/markdown";
-import { INBOX } from "@/lib/layout";
+import { INBOX } from "@/lib/core/layout";
 
 /** `[`, which the parser sees as a code point rather than a string. */
 const BRACKET = 91;

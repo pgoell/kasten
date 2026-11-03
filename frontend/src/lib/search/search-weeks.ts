@@ -1,6 +1,6 @@
 /** The weeks the search histogram counts lines into, named as the weekly notes name them. */
 
-import { isoWeek } from "@/lib/clock";
+import { isoWeek } from "@/lib/core/clock";
 
 /** How many bars the histogram draws. */
 export const WEEKS = 14;

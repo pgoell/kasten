@@ -3,7 +3,7 @@
  * is a tag, not a folder; `parseCards` is shared with the sitting so they agree.
  */
 
-import type { ReviewLimits, SearchHit } from "@/lib/api";
+import type { ReviewLimits, SearchHit } from "@/lib/core/api";
 import { noteName } from "@/lib/notes/links/note-path";
 import { type Divided, divide, parks, suspended } from "@/lib/review/card-line";
 import { deckPath, withoutTags } from "@/lib/review/deck-tag";

@@ -1,8 +1,8 @@
 import { EditorView } from "@codemirror/view";
 import { act, cleanup, fireEvent, screen, within } from "@testing-library/react";
 import { useMemo } from "react";
-import type { TodoHit } from "@/lib/api";
 import type { PdfRenderer } from "@/lib/book/pdf-view";
+import type { TodoHit } from "@/lib/core/api";
 import { drawGraph } from "@/lib/graph/graph-canvas";
 import { noteBase } from "@/lib/notes/note-base";
 import type { TodoState } from "@/lib/todo/todo";
@@ -81,7 +81,7 @@ const {
     fetchGraph: vi.fn(),
   };
 });
-vi.mock("@/lib/api", () => ({
+vi.mock("@/lib/core/api", () => ({
   fetchFiles,
   fetchNote,
   saveNote,

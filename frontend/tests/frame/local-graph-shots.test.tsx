@@ -135,8 +135,8 @@ const MENTIONS = [
   { path: "Alpha.md", line: 7, text: "the hub again", start: 4, end: 7, name: "Hub" },
 ];
 
-vi.mock("@/lib/api", async (importOriginal) => {
-  const real = await importOriginal<typeof import("@/lib/api")>();
+vi.mock("@/lib/core/api", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/core/api")>();
   return {
     ...real,
     fetchFiles: async () => Object.keys(NOTES),

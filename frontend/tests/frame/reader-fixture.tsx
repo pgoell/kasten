@@ -17,7 +17,7 @@ import { fireEvent, waitFor } from "@testing-library/react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { commands, page } from "vitest/browser";
-import { fetchFiles, fetchNote, fetchTodos, NoteMissing, searchNotes } from "@/lib/api";
+import { fetchFiles, fetchNote, fetchTodos, NoteMissing, searchNotes } from "@/lib/core/api";
 import { fetchGraph } from "@/lib/graph/graph-api";
 import { startPress } from "@/lib/ui/input/press";
 import { routeTree } from "@/routeTree.gen";

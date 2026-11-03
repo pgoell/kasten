@@ -11,7 +11,7 @@ import {
   WeightSlot,
   WeightTiles,
 } from "@/components/log-weight";
-import { shiftDay } from "@/lib/clock";
+import { shiftDay } from "@/lib/core/clock";
 import type { LogDay } from "@/lib/log/food-api";
 import { overMax } from "@/lib/log/log-day";
 import type { FoodField, Goal, LogConfig, LogKind } from "@/lib/log/log-kinds";

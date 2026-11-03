@@ -1,5 +1,5 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import type { SearchHit } from "@/lib/api";
+import type { SearchHit } from "@/lib/core/api";
 import { renderContent, searchHooks } from "./content-search-fixture";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 
@@ -9,7 +9,7 @@ const { searchNotes, fetchNote, fetchTodos, fetchMentions } = vi.hoisted(() => (
   fetchTodos: vi.fn(),
   fetchMentions: vi.fn(),
 }));
-vi.mock("@/lib/api", () => ({ searchNotes, fetchNote, fetchTodos, fetchMentions }));
+vi.mock("@/lib/core/api", () => ({ searchNotes, fetchNote, fetchTodos, fetchMentions }));
 
 searchHooks();
 

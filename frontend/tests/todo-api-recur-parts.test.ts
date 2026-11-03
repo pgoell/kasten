@@ -11,8 +11,8 @@ const { createNote, fetchNote, fetchTodos, saveNote, searchNotes, updateNote } =
   searchNotes: vi.fn(),
   updateNote: vi.fn(),
 }));
-vi.mock("@/lib/api", async (importOriginal) => {
-  const real = await importOriginal<typeof import("@/lib/api")>();
+vi.mock("@/lib/core/api", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/core/api")>();
   return {
     ChangedOnDisk: real.ChangedOnDisk,
     NoteExists: real.NoteExists,

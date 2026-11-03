@@ -1,4 +1,4 @@
-import { readClock } from "@/lib/clock";
+import { readClock } from "@/lib/core/clock";
 
 // Built from local parts rather than parsed from a string, because a bare ISO
 // date parses as UTC and the strip reports the wall clock.

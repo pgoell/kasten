@@ -17,8 +17,8 @@ import { shot } from "./shots";
 import "@/styles/app.css";
 
 const { fetchTodos } = vi.hoisted(() => ({ fetchTodos: vi.fn() }));
-vi.mock("@/lib/api", async (original) => ({
-  ...(await original<typeof import("@/lib/api")>()),
+vi.mock("@/lib/core/api", async (original) => ({
+  ...(await original<typeof import("@/lib/core/api")>()),
   fetchTodos,
   fetchNote: () => Promise.resolve(DEFAULT_VIEWS),
   fetchFiles: () => Promise.resolve([]),

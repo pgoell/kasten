@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-quer
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { useRef, useState } from "react";
 import { TodoPane } from "@/components/todo-pane";
-import { fetchFiles } from "@/lib/api";
+import { fetchFiles } from "@/lib/core/api";
 import { periodicNote } from "@/lib/notes/text/periodic";
 import { useTodoActions } from "@/lib/todo/use-todo-actions";
 import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
@@ -23,8 +23,8 @@ const vault = vi.hoisted(() => ({
   allow: undefined as number | undefined,
 }));
 
-vi.mock("@/lib/api-client", async (importOriginal) => {
-  const real = await importOriginal<typeof import("@/lib/api-client")>();
+vi.mock("@/lib/core/api-client", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/core/api-client")>();
   const ok = (data: unknown) => ({ data, response: { status: 200 } });
   const missing = { data: undefined, response: { status: 404 } };
   return {

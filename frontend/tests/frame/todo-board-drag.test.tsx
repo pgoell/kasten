@@ -9,7 +9,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRoot } from "react-dom/client";
 import { page } from "vitest/browser";
 import { TodoPane } from "@/components/todo-pane";
-import type { SearchHit } from "@/lib/api";
+import type { SearchHit } from "@/lib/core/api";
 import type { TodoState } from "@/lib/todo/todo";
 import { DEFAULT_VIEWS } from "@/lib/todo/todo-view";
 import { COARSE, NARROW, stubMatchMedia } from "../match-media";
@@ -19,8 +19,8 @@ import "@/styles/app.css";
 
 // The pane's reads, answered here, as the board's frame test answers them.
 const { fetchTodos } = vi.hoisted(() => ({ fetchTodos: vi.fn() }));
-vi.mock("@/lib/api", async (original) => ({
-  ...(await original<typeof import("@/lib/api")>()),
+vi.mock("@/lib/core/api", async (original) => ({
+  ...(await original<typeof import("@/lib/core/api")>()),
   fetchTodos,
   fetchNote: () => Promise.resolve(DEFAULT_VIEWS),
   fetchFiles: () => Promise.resolve([]),

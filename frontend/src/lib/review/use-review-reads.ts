@@ -13,13 +13,13 @@ import {
   type LineHit,
   NoteMissing,
   type TodoHit,
-} from "@/lib/api";
-import { shiftDay } from "@/lib/clock";
-import { LOG_NOTE } from "@/lib/layout";
+} from "@/lib/core/api";
+import { shiftDay } from "@/lib/core/clock";
+import { LOG_NOTE } from "@/lib/core/layout";
+import { readRetry } from "@/lib/core/read-retry";
 import { fetchLog, type LogDay } from "@/lib/log/food-api";
 import { DEFAULT_CONFIG, type LogConfig, parseConfig } from "@/lib/log/log-kinds";
 import { periodicNote } from "@/lib/notes/text/periodic";
-import { readRetry } from "@/lib/read-retry";
 import {
   fetchGithub,
   fetchModelUse,

@@ -28,8 +28,8 @@ import "@/styles/app.css";
 // The pane's reads, answered here: the board is drawn off these and no server.
 // The rest kept, as the browser checks every named import the graph holds.
 const { fetchTodos } = vi.hoisted(() => ({ fetchTodos: vi.fn() }));
-vi.mock("@/lib/api", async (original) => ({
-  ...(await original<typeof import("@/lib/api")>()),
+vi.mock("@/lib/core/api", async (original) => ({
+  ...(await original<typeof import("@/lib/core/api")>()),
   fetchTodos,
   fetchNote: () => Promise.resolve(DEFAULT_VIEWS),
   fetchFiles: () => Promise.resolve([]),

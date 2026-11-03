@@ -7,7 +7,7 @@ const { searchNotes, fetchNote, fetchTodos, fetchMentions } = vi.hoisted(() => (
   fetchTodos: vi.fn(),
   fetchMentions: vi.fn(),
 }));
-vi.mock("@/lib/api", () => ({ searchNotes, fetchNote, fetchTodos, fetchMentions }));
+vi.mock("@/lib/core/api", () => ({ searchNotes, fetchNote, fetchTodos, fetchMentions }));
 
 searchHooks();
 
