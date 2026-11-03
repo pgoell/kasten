@@ -11,7 +11,7 @@
     "skipLibCheck": true,
     "composite": true,
     "emitDeclarationOnly": true,
-    // vite.config.ts imports src/lib/csp.ts by its real name, which is what
+    // vite.config.ts imports src/lib/app/csp.ts by its real name, which is what
     // Vite's native config loader wants and what keeps it from warning.
     "allowImportingTsExtensions": true,
     "declaration": true,

@@ -5,7 +5,7 @@ import { StatusBar } from "@/components/status-bar";
 // whatever commit the checkout running these tests is on. Mocked to a fixed one
 // rather than read, or the cases below would assert against the working tree.
 const { BUILD } = vi.hoisted(() => ({ BUILD: { value: "" } }));
-vi.mock("@/lib/build", () => ({
+vi.mock("@/lib/app/build", () => ({
   get BUILD() {
     return BUILD.value;
   },

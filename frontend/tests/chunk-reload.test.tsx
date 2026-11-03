@@ -1,6 +1,6 @@
 import { lazyRouteComponent } from "@tanstack/react-router";
 import { render, screen } from "@testing-library/react";
-import { forgetSpentReloads, RouteError } from "@/lib/chunk-reload";
+import { forgetSpentReloads, RouteError } from "@/lib/app/chunk-reload";
 
 const CSS = "Unable to preload CSS for /assets/x.css";
 

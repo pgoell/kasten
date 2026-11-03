@@ -1,4 +1,4 @@
-import { POLICY } from "@/lib/csp";
+import { POLICY } from "@/lib/app/csp";
 import { blocks } from "./nginx-conf";
 
 const HOST_GATE = /\bif\s*\(\s*\$host\s*!=\s*liste\.pgoell\.com\s*\)\s*\{\s*return\s+404\s*;\s*\}/;

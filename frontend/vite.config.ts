@@ -17,7 +17,7 @@ import { playwright } from "@vitest/browser-playwright";
 import type { Plugin } from "vite";
 import { defineConfig } from "vitest/config";
 import { buildId } from "./build-id.ts";
-import { devPolicy } from "./src/lib/csp.ts";
+import { devPolicy } from "./src/lib/app/csp.ts";
 import { serviceWorker } from "./sw/plugin.ts";
 import { emulateMedia } from "./tests/frame/emulate-media.ts";
 import {
