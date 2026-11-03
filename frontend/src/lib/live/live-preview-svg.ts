@@ -14,6 +14,7 @@ const REACH = 2000;
 const STARTS = ["<svg", "<?xml", "<!--", "<!doc"];
 const OPENS = /<svg[\s>/]/gi;
 const CLOSES = /<\/svg\s*>/gi;
+const NUMBER = /^\s*(?:\d+\.?\d*|\.\d+)\s*$/;
 
 /**
  * A raw `<svg>` pasted into a note, drawn as its picture (#952). It is sanitised
@@ -42,7 +43,7 @@ class SvgBlock extends WidgetType {
     block.className = "cm-svg-block";
     const svg = sanitizeSvg(this.source);
     if (svg !== null) {
-      block.appendChild(svg);
+      block.appendChild(scalable(svg));
       return block;
     }
     // Null when the sanitiser keeps nothing to draw, or keeps more than the one
@@ -56,6 +57,20 @@ class SvgBlock extends WidgetType {
     code.textContent = this.source;
     return block;
   }
+}
+
+/**
+ * The drawn copy with the viewBox its plain numeric width and height imply, so it scales
+ * down to the note as one with a viewBox does (#1538). A unit or percent is left as it is.
+ */
+function scalable(svg: SVGSVGElement): SVGSVGElement {
+  const [width, height] = [svg.getAttribute("width"), svg.getAttribute("height")];
+  if (svg.hasAttribute("viewBox") || !NUMBER.test(width ?? "") || !NUMBER.test(height ?? "")) {
+    return svg;
+  }
+  const [w, h] = [Number(width), Number(height)];
+  if (w > 0 && h > 0) svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+  return svg;
 }
 
 /** How many more svgs `text` opens than it closes, so a nested `</svg>` does not end the block. */
