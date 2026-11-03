@@ -359,3 +359,72 @@ it("#1183 I2 an unclosed svg does not swallow the prose and the svg below it", a
   expect(at.contentDOM.textContent).toContain("prose");
   expect(at.contentDOM.textContent).toContain('<svg viewBox="0 0 20 20">');
 });
+
+// A draw.io label: html in a foreignObject, plain text for a renderer without it (#1184).
+const LABEL =
+  '<switch><foreignObject requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" width="20" height="20"><div onclick="alert(1)">Plan</div></foreignObject><text x="2" y="12">Plan</text></switch>';
+
+it("#1184 A1 keeps a switch's text fallback and drops its foreignObject", async () => {
+  const picture = await drawn(`<svg viewBox="0 0 20 20">${LABEL}</svg>`);
+
+  expect(picture.querySelector("switch > text")?.textContent).toBe("Plan");
+  expect(picture.querySelector("switch")?.children).toHaveLength(1);
+  expect(picture.querySelector("div")).toBeNull();
+  expectSafe(picture);
+});
+
+it("#1184 A2 keeps a quoted font-family in an attribute and in a style", async () => {
+  const picture = await drawn(
+    `<svg viewBox="0 0 20 20"><text font-family="'Segoe UI', sans-serif">a</text><text style='font-family: "Segoe UI", Helvetica; fill: red'>b</text></svg>`,
+  );
+
+  const [attr, style] = Array.from(picture.querySelectorAll("text"));
+  expect(attr?.getAttribute("font-family")).toBe("'Segoe UI', sans-serif");
+  expect(style?.getAttribute("style")).toBe('font-family: "Segoe UI", Helvetica; fill: red');
+});
+
+it.each([
+  ["an unclosed quote", "'Segoe UI, sans-serif"],
+  ["a quoted name and more css", "'Segoe UI' } * { fill: red"],
+  ["a stray quote", "'Segoe UI'', sans-serif"],
+  ["an escape", "'Segoe\\27 UI'"],
+  ["a url outside the quotes", "'Segoe UI', url(https://x.test/f)"],
+  ["a url inside the quotes", "'url(https://x.test/f)'"],
+  ["an expression", "'Segoe UI' expression(alert(1))"],
+  ["a script address", "'javascript:alert(1)'"],
+])("#1184 I1 drops a font-family with %s", async (_, value) => {
+  const picture = await drawn(
+    `<svg viewBox="0 0 20 20">${PATH}<text font-family="${value.replace(/"/g, "&quot;")}">a</text></svg>`,
+  );
+
+  expect(picture.querySelector("text")?.hasAttribute("font-family")).toBe(false);
+  expectSafe(picture);
+});
+
+it("#1184 I1 a quote in a style cannot carry a url past the semicolon", async () => {
+  const picture = await drawn(
+    `<svg viewBox="0 0 20 20"><text style="font-family: 'a; fill: url(https://x.test/f)'">a</text>${PATH}</svg>`,
+  );
+
+  expect(picture.querySelector("text")?.hasAttribute("style")).toBe(false);
+  expectSafe(picture);
+});
+
+it("#1184 I2 drops a script and handlers inside a switch and keeps the rest", async () => {
+  const picture = await drawn(
+    `<svg viewBox="0 0 20 20"><switch onload="alert(1)" systemLanguage="en"><script>alert(2)</script><text onclick="alert(3)" x="2" y="12">Plan</text></switch></svg>`,
+  );
+
+  expect(picture.querySelector("switch")?.attributes).toHaveLength(0);
+  expect(picture.querySelector("switch > text")?.textContent).toBe("Plan");
+  expectSafe(picture);
+});
+
+it("#1184 I3 a quote in any other attribute still drops it", async () => {
+  const picture = await drawn(
+    `<svg viewBox="0 0 20 20"><path d="M0 0 L10 10" fill="'red'" stroke="'Segoe UI'"/></svg>`,
+  );
+
+  expect(picture.querySelector("path")?.hasAttribute("fill")).toBe(false);
+  expect(picture.querySelector("path")?.hasAttribute("stroke")).toBe(false);
+});
