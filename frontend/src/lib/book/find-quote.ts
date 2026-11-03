@@ -4,8 +4,8 @@
  */
 
 import { textWalker } from "foliate-js/text-walker.js";
-import { collapse } from "@/lib/highlight";
-import { unescapeParagraph } from "@/lib/html-take";
+import { collapse } from "@/lib/takes/highlight";
+import { unescapeParagraph } from "@/lib/takes/html-take";
 
 /** Positions in the walker's own strings, back into a `Range`. */
 type MakeRange = (

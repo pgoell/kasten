@@ -1,4 +1,4 @@
-import { quoteParagraphs, unescapeParagraph } from "@/lib/html-take";
+import { quoteParagraphs, unescapeParagraph } from "@/lib/takes/html-take";
 
 /** Passages that would open a heading, a fence, a list, a link, a tag or frontmatter if written bare. */
 const HOSTILE = [

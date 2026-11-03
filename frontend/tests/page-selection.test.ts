@@ -1,4 +1,4 @@
-import { type Anchor, low } from "@/lib/page-selection";
+import { type Anchor, low } from "@/lib/takes/page-selection";
 
 /** A place whose passage's middle is `middle` px down a wrapper 800 px tall. `low` reads only that. */
 function at(middle: number): Anchor {

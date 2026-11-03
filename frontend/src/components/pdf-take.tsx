@@ -11,9 +11,9 @@ import {
 import { TakeButton } from "@/components/take-button-view";
 import { useDumpTake } from "@/components/use-dump-take";
 import { offsetsIn, oneLine, pdfLink, rangeIn, takenHighlight } from "@/lib/book/pdf-take";
-import { fileOf } from "@/lib/html-take";
-import { type Anchor, low, placeFor } from "@/lib/page-selection";
-import { usePressGuard } from "@/lib/take-button";
+import { fileOf } from "@/lib/takes/html-take";
+import { type Anchor, low, placeFor } from "@/lib/takes/page-selection";
+import { usePressGuard } from "@/lib/takes/take-button";
 import { useViewport } from "@/lib/use-viewport";
 
 /** The selection held for a take: its words, the page its start is on, and where its button goes. */

@@ -1,4 +1,4 @@
-import { highlightBlocks } from "@/lib/highlight";
+import { highlightBlocks } from "@/lib/takes/highlight";
 
 /** The picture `addHighlight` writes above a quote: `![](<path>)` alone on its line. */
 const PICTURE = /^!\[\]\([^)]*\)$/;

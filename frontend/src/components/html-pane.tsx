@@ -7,10 +7,13 @@ import { readClock } from "@/lib/clock";
 import { type Story, shareLine, storyOf } from "@/lib/html/html-share";
 import { postLook } from "@/lib/html/page-look";
 import { pageData, pageText } from "@/lib/html/page-messages";
-import { fileOf, type PagePassage, pageLink } from "@/lib/html-take";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { encodePath } from "@/lib/note-path";
+import { findQuote } from "@/lib/rsvp/rsvp";
+import { textWords } from "@/lib/rsvp/rsvp-sources";
+import { type RsvpAsk, useRsvpAsk } from "@/lib/rsvp/use-rsvp";
+import { fileOf, type PagePassage, pageLink } from "@/lib/takes/html-take";
 import {
   type Anchor,
   low,
@@ -18,11 +21,8 @@ import {
   type Rect,
   samePassage,
   selectionOf,
-} from "@/lib/page-selection";
-import { findQuote } from "@/lib/rsvp/rsvp";
-import { textWords } from "@/lib/rsvp/rsvp-sources";
-import { type RsvpAsk, useRsvpAsk } from "@/lib/rsvp/use-rsvp";
-import { usePressGuard } from "@/lib/take-button";
+} from "@/lib/takes/page-selection";
+import { usePressGuard } from "@/lib/takes/take-button";
 import { currentPalette, currentTheme, onThemeChange } from "@/lib/theme";
 import { useViewport } from "@/lib/use-viewport";
 import { spendActivation } from "@/lib/user-activation";

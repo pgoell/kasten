@@ -3,10 +3,10 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { type Taking, useDumpTake } from "@/components/use-dump-take";
 import { pdfLink } from "@/lib/book/pdf-take";
 import { readClock } from "@/lib/clock";
-import { quoteBlock } from "@/lib/html-take";
 import { noteBase } from "@/lib/note-base";
 import { reset, waiting } from "@/lib/outbox";
 import { periodicNote } from "@/lib/periodic";
+import { quoteBlock } from "@/lib/takes/html-take";
 
 const { fetchNote, saveNote, updateNote, searchNotes } = vi.hoisted(() => ({
   fetchNote: vi.fn(),

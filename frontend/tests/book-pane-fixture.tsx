@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, render, screen } from "@testing-library/react";
 import { StrictMode } from "react";
 import { BookPane } from "@/components/book-pane";
-import { addHighlight } from "@/lib/highlight";
+import { addHighlight } from "@/lib/takes/highlight";
 import { lastView, selectIn } from "./foliate-fake";
 import { stubCommands } from "./stub-commands";
 

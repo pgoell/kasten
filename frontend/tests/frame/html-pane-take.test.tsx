@@ -9,9 +9,9 @@
 import "./html-take-api";
 import { vi } from "vitest";
 import { commands as browser, page, userEvent } from "vitest/browser";
-import { takenQuote } from "@/lib/html-take";
 import { noteName } from "@/lib/note-path";
 import { periodicNote } from "@/lib/periodic";
+import { takenQuote } from "@/lib/takes/html-take";
 import { toggleTheme } from "@/lib/theme";
 import {
   api,

@@ -1,5 +1,5 @@
-import { highlightBlocks } from "@/lib/highlight";
-import { quoteParagraphs } from "@/lib/html-take";
+import { highlightBlocks } from "@/lib/takes/highlight";
+import { quoteParagraphs } from "@/lib/takes/html-take";
 
 describe("highlightBlocks on a quote the take escaped", () => {
   it("reads the quote back as the book's words, not as the escaped line", () => {

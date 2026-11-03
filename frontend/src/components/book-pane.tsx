@@ -14,10 +14,10 @@ import { useBookSeek } from "@/lib/book/use-book-seek";
 import { useBookTake } from "@/lib/book/use-book-take";
 import { useBookTurns } from "@/lib/book/use-book-turns";
 import { useBookView } from "@/lib/book/use-book-view";
-import type { Passage } from "@/lib/highlight";
 import type { EditorCommands } from "@/lib/key-bindings";
 import { BOOK_SUFFIXES, noteName } from "@/lib/note-path";
 import { type RsvpAsk, useRsvpAsk } from "@/lib/rsvp/use-rsvp";
+import type { Passage } from "@/lib/takes/highlight";
 import { useViewport } from "@/lib/use-viewport";
 
 /** The reading measure the text is set at, in px (`--k-measure`). */

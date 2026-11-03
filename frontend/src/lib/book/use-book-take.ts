@@ -1,8 +1,8 @@
 import { type RefObject, useCallback, useLayoutEffect, useRef, useState } from "react";
 import { uploadAsset } from "@/lib/api";
-import type { Passage } from "@/lib/highlight";
 import { filedName, IMAGE_FOLDER } from "@/lib/image";
-import { clampInside, type PressHandlers, usePressGuard } from "@/lib/take-button";
+import type { Passage } from "@/lib/takes/highlight";
+import { clampInside, type PressHandlers, usePressGuard } from "@/lib/takes/take-button";
 
 /**
  * Whether the selection runs backwards, as foliate reads it. A `Range` is always

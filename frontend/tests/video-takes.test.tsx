@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { VideoTakes } from "@/components/video-takes";
-import { addHighlight } from "@/lib/highlight";
+import { addHighlight } from "@/lib/takes/highlight";
 
 const ID = "dQw4w9WgXcQ";
 const OTHER = "aaaaaaaaaaa";

@@ -3,7 +3,7 @@
  * The page is not trusted, so the headline is escaped and the source must be http or https.
  */
 
-import { aliasOf, fileOf, pageLink } from "@/lib/html-take";
+import { aliasOf, fileOf, pageLink } from "@/lib/takes/html-take";
 
 /** What the page script sends for a story. */
 export interface Story {

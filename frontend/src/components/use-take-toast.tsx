@@ -1,8 +1,8 @@
 import { type ReactNode, useCallback, useLayoutEffect, useRef, useState } from "react";
 import { TakeToast } from "@/components/take-toast";
 import { noteName } from "@/lib/note-path";
-import { writePassage } from "@/lib/page-highlight";
-import { type Undo, undoPassage } from "@/lib/page-undo";
+import { writePassage } from "@/lib/takes/page-highlight";
+import { type Undo, undoPassage } from "@/lib/takes/page-undo";
 
 /** A passage held for a take, as the toast shows it. */
 export interface ToastTaking {

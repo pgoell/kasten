@@ -1,6 +1,6 @@
 import { findWritten, holdsWritten } from "@/lib/book/find-quote";
-import { highlightBlocks } from "@/lib/highlight";
-import { quoteParagraphs } from "@/lib/html-take";
+import { highlightBlocks } from "@/lib/takes/highlight";
+import { quoteParagraphs } from "@/lib/takes/html-take";
 import { documentOf } from "./foliate-fake";
 
 /** The one block a note holds, as the draw and the seek see it. */

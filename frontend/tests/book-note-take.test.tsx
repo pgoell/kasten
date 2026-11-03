@@ -2,9 +2,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { useBookNoteTake } from "@/components/use-book-note-take";
-import { addHighlight, type Passage } from "@/lib/highlight";
 import { noteBase } from "@/lib/note-base";
-import { BOOK_REFUSED } from "@/lib/page-undo";
+import { addHighlight, type Passage } from "@/lib/takes/highlight";
+import { BOOK_REFUSED } from "@/lib/takes/page-undo";
 
 const { fetchNote, saveNote, updateNote, searchNotes } = vi.hoisted(() => ({
   fetchNote: vi.fn(),

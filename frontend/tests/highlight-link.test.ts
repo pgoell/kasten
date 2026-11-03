@@ -2,7 +2,7 @@
  * A passage that carries a link of Kasten's own, written onto its anchor line.
  */
 
-import { addHighlight } from "@/lib/highlight";
+import { addHighlight } from "@/lib/takes/highlight";
 
 const NOTE = "# DDIA\n\n## Highlights\n";
 const QUOTE = "A quote of the book.";

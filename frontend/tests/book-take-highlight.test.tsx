@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
-import type { Passage } from "@/lib/highlight";
+import type { Passage } from "@/lib/takes/highlight";
 import { useGuardedWrites } from "@/lib/use-guarded-writes";
 
 const { updateNote } = vi.hoisted(() => ({ updateNote: vi.fn() }));
