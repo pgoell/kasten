@@ -45,12 +45,28 @@ async def test_import_refuses_media_already_in_the_vault(client: AsyncClient, va
     assert not (vault / "03 Flashcards" / "Cats media").exists()
 
 
-@pytest.mark.parametrize("name", [f"{'x' * 246}.png", ".hidden.png"], ids=["long", "hidden"])
+async def test_import_writes_media_named_near_the_limit(client: AsyncClient, vault: Path) -> None:
+    # Its temp, 14 bytes longer, once ran past the filesystem's 255 bytes (#1278).
+    name = f"{'x' * 251}.png"
+    export = apkg(
+        notes=((1, BASIC, f'<img src="{name}"> which cat?\x1fthe tabby'),),
+        cards=((1, 1, 10, 0),),
+        decks=((10, "Cats"),),
+        media=((name, PNG),),
+    )
+
+    response = await client.post("/api/anki", content=export)
+
+    assert response.status_code == 201
+    assert response.json()["media"] == 1
+    assert (vault / "03 Flashcards" / "Cats media" / name).read_bytes() == PNG
+
+
+@pytest.mark.parametrize("name", [f"{'x' * 252}.png", ".hidden.png"], ids=["long", "hidden"])
 async def test_import_skips_a_media_name_the_write_would_refuse(
     client: AsyncClient, vault: Path, name: str
 ) -> None:
-    # A name that fits 255 bytes but whose temp beside it, `.{name}.{8 hex}.tmp`,
-    # does not; and a hidden name, which no vault path may hold.
+    # A name over the filesystem's 255 bytes, and a hidden name, which no vault path may hold.
     export = apkg(
         notes=((1, BASIC, f'<img src="{name}"> which cat?\x1fthe tabby'),),
         cards=((1, 1, 10, 0),),

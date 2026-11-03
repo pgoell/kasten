@@ -19,7 +19,7 @@ from urllib.parse import quote, unquote
 from kasten_backend.anki_collection import media_map, rendered
 from kasten_backend.anki_deck import Card, Deck
 from kasten_backend.anki_html import media_names, plain
-from kasten_backend.files import ASSET_LIMIT_BYTES, temporary_name
+from kasten_backend.files import ASSET_LIMIT_BYTES
 from kasten_backend.vault import AUDIO_SUFFIXES, IMAGE_SUFFIXES, fits, legal_name
 
 COLLECTION_MEMBERS = ("collection.anki21b", "collection.anki21", "collection.anki2")
@@ -70,9 +70,6 @@ _LINK_SAFE = "/;,@&=+$!*'"
 That is `encodePath` in `note-path.ts` less `:` and the parens. A `::` would split the card
 line, and a lone paren would end the link early.
 """
-
-_NAME_LIMIT_BYTES = 255
-"""The longest file name a filesystem takes, which `vault.py` holds to as well."""
 
 
 def media_path(folder: str, deck: str, name: str) -> str:
@@ -303,8 +300,6 @@ def _media_file(
         or not name
         or any(char in name for char in "/\\\x00")
         or not legal_name(name)
-        # The temp `store` streams into is longer than the name and has to fit too.
-        or len(temporary_name(name).encode()) > _NAME_LIMIT_BYTES
         or Path(name).suffix.lower() not in MEDIA_SUFFIXES
         or member not in bundle.namelist()
         or bundle.getinfo(member).file_size > ASSET_LIMIT_BYTES

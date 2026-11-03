@@ -233,10 +233,11 @@ async def open_public(client: httpx.AsyncClient, url: str) -> httpx.Response:
 def temporary_name(name: str) -> str:
     """The hidden name `store` streams `name` into before linking it into place.
 
-    Fourteen bytes longer than `name`, so a name near the filesystem's limit still fits as itself.
-    The Anki reader asks this to skip one.
+    `name` is cut to keep the temp within the filesystem's 255 bytes (#1278); the random part
+    alone keeps two temps apart, and nothing reads the name back.
     """
-    return f".{name}.{secrets.token_hex(4)}.tmp"
+    kept = name.encode()[:241].decode(errors="ignore")
+    return f".{kept}.{secrets.token_hex(4)}.tmp"
 
 
 async def store(

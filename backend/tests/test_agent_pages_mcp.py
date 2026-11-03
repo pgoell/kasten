@@ -201,3 +201,19 @@ def test_the_instructions_name_the_html_way_in() -> None:
 
 def test_the_instructions_name_the_search_by_meaning() -> None:
     assert "search_meaning ranks notes by meaning, or finds notes like one" in instructions()
+
+
+async def test_the_mcp_tool_writes_an_html_page_near_the_limit(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    # Its temp once ran 14 bytes over the filesystem's 255-byte limit (#1278).
+    name = "r" * 250 + ".html"
+
+    response = await client.post(
+        ENDPOINT,
+        json=call("save_file", {"path": name, "content": PAGE}),
+        headers={**bearer, **RPC},
+    )
+
+    assert payload(response.text)["result"]["structuredContent"] == {"path": name}
+    assert (agent_vault / name).read_bytes() == PAGE.encode()
