@@ -110,6 +110,8 @@ function enterBlock(
     // A paragraph that is not an svg has nothing of its own to decorate, so it
     // is left to its children as it was before this check.
     case "HTMLBlock":
+    case "CommentBlock":
+    case "ProcessingInstructionBlock":
     case "Paragraph":
       return drawSvg(walk, node.node);
     case "Table":

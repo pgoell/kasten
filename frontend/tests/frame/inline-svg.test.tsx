@@ -65,6 +65,39 @@ const TWO_LINES = [
 ].join("\n");
 /** A line of prose, the chart between blank lines, the cursor starting on the prose. */
 const NOTE = ["before", "", CHART, "", "after"].join("\n");
+// Whole files as a drawing app saves them (#1183): a prelude, comments, a doctype, blank lines inside.
+const PRELUDED = [
+  '<?xml version="1.0" encoding="UTF-8"?>',
+  '<svg viewBox="0 0 40 40" width="40" height="40">',
+  '  <circle cx="20" cy="20" r="11" fill="currentColor" />',
+  "</svg>",
+].join("\n");
+const COMMENTED = [
+  "<!-- Created with a drawing app -->",
+  "<!-- a second comment -->",
+  '<svg viewBox="0 0 40 40" width="40" height="40">',
+  '  <rect x="8" y="8" width="24" height="24" fill="currentColor" />',
+  "</svg>",
+].join("\n");
+const FULL_FILE = [
+  '<?xml version="1.0"?>',
+  "<!-- Generator: a drawing app -->",
+  '<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">',
+  '<svg viewBox="0 0 40 40" width="40" height="40">',
+  '  <circle cx="20" cy="20" r="13" fill="currentColor" />',
+  "</svg>",
+].join("\n");
+const SPACED = [
+  '<svg viewBox="0 0 40 40" width="40" height="40">',
+  '  <circle cx="10" cy="20" r="7" fill="currentColor" />',
+  "",
+  '    <circle cx="30" cy="20" r="9" fill="currentColor" />',
+  "",
+  "</svg>",
+].join("\n");
+const FILES = ["before", "", PRELUDED, "", COMMENTED, "", FULL_FILE, "", SPACED, "", "after"].join(
+  "\n",
+);
 
 function mount(doc: string, vimOn: boolean, anchor = 0, extra: Extension[] = []): EditorView {
   const parent = document.body.appendChild(document.createElement("div"));
@@ -266,6 +299,102 @@ it("#952 A5 no alert fires from an attack svg in a real browser", async () => {
     alert.mockRestore();
   }
 });
+
+it.each([
+  ["off", false],
+  ["on", true],
+] as const)(
+  "#1183 A1 draws an svg behind a prelude, comments and a doctype, vim %s",
+  async (_, vimOn) => {
+    const at = mount(FILES, vimOn);
+
+    await expect.poll(() => at.dom.querySelectorAll(".cm-svg-block svg").length).toBe(4);
+    for (const hidden of ["<?xml", "<!--", "<!DOCTYPE", 'r="11"', 'width="24"', 'r="13"']) {
+      expect(text(at)).not.toContain(hidden);
+    }
+    expect(at.state.doc.toString()).toBe(FILES);
+  },
+);
+
+it.each([
+  ["off", false],
+  ["on", true],
+] as const)("#1183 A3 draws an svg with blank lines inside, vim %s", async (_, vimOn) => {
+  const at = mount(["before", "", SPACED, "", "after"].join("\n"), vimOn);
+
+  await expect.poll(() => picture(at.dom)?.querySelectorAll("circle").length).toBe(2);
+  expect(text(at)).not.toContain('r="9"');
+  expect(text(at)).not.toContain("</svg>");
+});
+
+it.each([
+  ["off", false],
+  ["on", true],
+] as const)(
+  "#1183 I4 the cursor on the prelude or past a blank line shows the source, vim %s",
+  async (_, vimOn) => {
+    const doc = ["before", "", PRELUDED, "", SPACED].join("\n");
+    const at = mount(doc, vimOn);
+    await expect.poll(() => at.dom.querySelectorAll(".cm-svg-block").length).toBe(2);
+
+    at.dispatch({ selection: { anchor: doc.indexOf("<?xml") } });
+    await expect.poll(() => text(at)).toContain('r="11"');
+    at.dispatch({ selection: { anchor: doc.indexOf('cx="30"') } });
+    await expect.poll(() => text(at)).toContain('r="7"');
+    expect(text(at)).not.toContain('r="11"');
+
+    at.dispatch({ selection: { anchor: 0 } });
+    await expect.poll(() => at.dom.querySelectorAll(".cm-svg-block").length).toBe(2);
+    await userEvent.click(picture(at.dom) as SVGSVGElement);
+    await expect
+      .poll(() => at.state.selection.main.head)
+      .toBeGreaterThanOrEqual(doc.indexOf("<?xml"));
+    expect(at.state.selection.main.head).toBeLessThanOrEqual(doc.indexOf(SPACED));
+    expect(text(at)).toContain("<?xml");
+  },
+);
+
+it("#1183 I7 a read-only preview pane draws a whole file and a spaced svg", async () => {
+  host = document.body.appendChild(document.createElement("div"));
+  root = createRoot(host);
+  root.render(<NotePreview text={FILES} />);
+
+  await expect.poll(() => host?.querySelectorAll(".cm-svg-block svg").length).toBe(4);
+});
+
+it("#1183 I8 a whole file fits the note at phone width", async () => {
+  await page.viewport(414, 896);
+  const at = mount(["before", "", FULL_FILE, "", "after"].join("\n"), false, 0, [
+    EditorView.lineWrapping,
+  ]);
+  await expect.poll(() => picture(at.dom)).not.toBeNull();
+
+  const svg = picture(at.dom) as SVGSVGElement;
+  const block = svg.closest(".cm-svg-block") as HTMLElement;
+  expect(svg.getBoundingClientRect().width).toBeGreaterThan(0);
+  expect(svg.getBoundingClientRect().width).toBeLessThanOrEqual(
+    block.getBoundingClientRect().width,
+  );
+});
+
+it.runIf(import.meta.env.VITE_KASTEN_SHOTS)(
+  "#1183 takes pictures of whole svg files at 414 and 1440",
+  async () => {
+    try {
+      for (const width of [1440, 414]) {
+        await page.viewport(width, 900);
+        const at = mount(FILES, false, 0, [EditorView.lineWrapping]);
+        await expect.poll(() => at.dom.querySelectorAll(".cm-svg-block svg").length).toBe(4);
+        expect(await shot(at.dom, `inline-svg-files-${width}`)).toBe(width);
+        at.dom.parentElement?.remove();
+        at.destroy();
+        view = undefined;
+      }
+    } finally {
+      await page.viewport(414, 896);
+    }
+  },
+);
 
 it.runIf(import.meta.env.VITE_KASTEN_SHOTS)(
   "#952 A7 takes pictures of the svg in Read mode in light and dark at 414 and 1440",

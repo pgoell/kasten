@@ -81,12 +81,24 @@ starts a line to a `</svg>` that ends one. It draws in any of three shapes:
   it.
 * With the open tag spread over several lines.
 
+A whole `.svg` file pasted as it was saved draws too. An `<?xml ...?>` prelude,
+`<!-- ... -->` comments and a `<!DOCTYPE ...>` above the `<svg` are part of the
+block and hide with it. The svg after them starts its own line or follows them
+on theirs; an indented one stays source.
+
+A blank line between two elements of the svg does not end the block. Past a
+blank line the block reads on only while the next line that is not blank opens
+with `<`, after any spaces; a line of prose there ends it, and an svg left open
+stays source. A head or a run of blank lines longer than 2000 characters stays
+source too.
+
 ```markdown
 <svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" fill="currentColor"/></svg>
 ```
 
 Inside a list item, a `>` quote or the middle of a paragraph, the block stays
-source. A blank line inside the block splits it, and it stays source.
+source. A `</svg>` that does not end its line, or text after it on the lines
+of the block, keeps it source too.
 
 Before it draws, kasten rebuilds the svg from an allow list. Only these elements
 survive: svg, g, defs, symbol, use, path, rect, circle, ellipse, line, polyline,
