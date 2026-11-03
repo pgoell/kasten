@@ -1,4 +1,4 @@
-import { type RefObject, useCallback, useEffect, useRef } from "react";
+import { type RefObject, useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { nameAt } from "@/lib/todo/todo";
 
 /**
@@ -36,8 +36,9 @@ export function useTodoFocus(o: {
 
   // Only while the keys are ours and no input holds them, so the focus stays put mid-word.
   // `dropped`: `x` removes the cursor's row, and the focus falls to the body.
+  // A layout effect, so the focus is back in the commit that dropped the row, not a task later (#1368).
   // biome-ignore lint/correctness/useExhaustiveDependencies: `rows` is the trigger and not a value this reads. That the list redrew is exactly what says the row holding the focus may be gone.
-  useEffect(() => {
+  useLayoutEffect(() => {
     const element = panel.current;
     // The board keeps its own cursor, and its own copy of this.
     if (!element || board) return;
