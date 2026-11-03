@@ -19,8 +19,8 @@
 
 import { bench, describe } from "vitest";
 import { buildTree } from "@/components/file-explorer";
-import { folderCandidates, noteCandidates, rankCandidates, rankFolders } from "@/lib/fuzzy";
 import { describeNotePath } from "@/lib/note-path";
+import { folderCandidates, noteCandidates, rankCandidates, rankFolders } from "@/lib/search/fuzzy";
 import { syntheticVault, VAULT_SIZES } from "./fixtures";
 
 /** A query about a quarter of the folders match at every size: 10 of 50, 40 of

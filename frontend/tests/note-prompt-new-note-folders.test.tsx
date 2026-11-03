@@ -1,5 +1,5 @@
 import { fireEvent } from "@testing-library/react";
-import { folderCandidates, rankCandidates, rankFolders } from "@/lib/fuzzy";
+import { folderCandidates, rankCandidates, rankFolders } from "@/lib/search/fuzzy";
 import { MANY_PATHS, renderPrompt } from "./note-prompt-fixture";
 
 const { createNote, renameNote, moveFolder } = vi.hoisted(() => ({
@@ -16,7 +16,7 @@ vi.mock("@/lib/move-api", () => ({ renameNote, moveFolder }));
 // behaviour here, not an implementation detail: deriving the folder set is the
 // larger half and follows the vault, so a keystroke that walks every path again
 // is the regression the memo exists to prevent.
-vi.mock("@/lib/fuzzy", { spy: true });
+vi.mock("@/lib/search/fuzzy", { spy: true });
 
 describe("the new note prompt", () => {
   beforeEach(() => {

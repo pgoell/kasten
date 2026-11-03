@@ -3,6 +3,7 @@ import { ContentSearch } from "@/components/content-search";
 import { SearchPreview } from "@/components/search-preview";
 import { SearchRow } from "@/components/search-row";
 import type { Mention, SearchHit } from "@/lib/api";
+import { isMention, type SearchMode, useSearchHits } from "@/lib/search/use-search-hits";
 import {
   BACKDROP,
   BODY,
@@ -15,7 +16,6 @@ import {
   PANEL_WIDE,
   STATUS,
 } from "@/lib/ui/overlay-styles";
-import { isMention, type SearchMode, useSearchHits } from "@/lib/use-search-hits";
 
 interface NoteSearchProps {
   /** Called with the note to open and the line the match sits on. */

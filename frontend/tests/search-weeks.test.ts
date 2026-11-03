@@ -5,7 +5,7 @@ import {
   weekNumber,
   weekOf,
   weekRange,
-} from "@/lib/search-weeks";
+} from "@/lib/search/search-weeks";
 
 // Dates in the tests are read as calendar days, so the expected weeks hold on a
 // machine in any time zone.

@@ -1,5 +1,5 @@
 import type { SearchHit } from "@/lib/api";
-import { facets, filterHits, termRuns, topFolder } from "@/lib/search-facets";
+import { facets, filterHits, termRuns, topFolder } from "@/lib/search/search-facets";
 
 function hit(path: string, tags?: string[]): SearchHit {
   return { path, line: 1, text: "line", tags };

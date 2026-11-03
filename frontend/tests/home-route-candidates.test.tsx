@@ -3,8 +3,8 @@ import { useMemo } from "react";
 import { buildTree } from "@/components/file-explorer";
 import type { TodoHit } from "@/lib/api";
 import type { PdfRenderer } from "@/lib/book/pdf-view";
-import { folderCandidates, noteCandidates } from "@/lib/fuzzy";
 import { noteBase } from "@/lib/note-base";
+import { folderCandidates, noteCandidates } from "@/lib/search/fuzzy";
 import type { TodoState } from "@/lib/todo/todo";
 import { hashed } from "./digests";
 import { defineFoliateFake, resetFoliateFake } from "./foliate-fake";
@@ -145,8 +145,8 @@ const outbox = vi.hoisted(() => ({
   subscribe: vi.fn(() => () => {}),
 }));
 vi.mock("@/lib/outbox", () => outbox);
-vi.mock("@/lib/fuzzy", async (importOriginal) => {
-  const real = await importOriginal<typeof import("@/lib/fuzzy")>();
+vi.mock("@/lib/search/fuzzy", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/search/fuzzy")>();
   return {
     ...real,
     noteCandidates: vi.fn(real.noteCandidates),

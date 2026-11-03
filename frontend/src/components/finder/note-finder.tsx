@@ -3,8 +3,8 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { NotePreview } from "@/components/note-preview";
 import { fetchNote } from "@/lib/api";
 import { bookNoteOf, type FileKind, fileKind } from "@/lib/file-kind";
-import { noteCandidates, rankCandidates } from "@/lib/fuzzy";
 import { noteName } from "@/lib/note-path";
+import { noteCandidates, rankCandidates } from "@/lib/search/fuzzy";
 import { useViewport } from "@/lib/ui/input/use-viewport";
 import {
   BACKDROP,

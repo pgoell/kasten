@@ -9,8 +9,8 @@ import {
   fetchTags,
   fetchVersion,
 } from "@/lib/api";
-import { visible } from "@/lib/archive";
 import { ONTOLOGY_NOTE, relationNames } from "@/lib/ontology";
+import { visible } from "@/lib/search/archive";
 import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
 
 /** What a list prop gets while its query loads: one array, so the memo built over it holds. */

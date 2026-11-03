@@ -97,7 +97,7 @@ describe("syntheticVault", () => {
 
   it("names folders as long as a real vault's at every size", () => {
     // The folder count above is only half of what a ranking benchmark costs.
-    // `score` in src/lib/fuzzy.ts walks the whole candidate, so the length of
+    // `score` in src/lib/search/fuzzy.ts walks the whole candidate, so the length of
     // these names is the other half. An earlier generator wrote `t3/s2/`,
     // averaging 8.6 characters, and held every recorded number well under what
     // a real vault pays. Shortening the word pools would do that again with

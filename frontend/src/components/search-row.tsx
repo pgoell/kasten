@@ -1,7 +1,7 @@
 import type { Mention, SearchHit } from "@/lib/api";
+import { isMention } from "@/lib/search/use-search-hits";
 import { parseTodo, STATE_SYMBOL } from "@/lib/todo/todo";
 import { ROW, TAP } from "@/lib/ui/overlay-styles";
-import { isMention } from "@/lib/use-search-hits";
 
 /** One row of the list, and beside it a `link` button for an unlinked mention. */
 export function SearchRow({

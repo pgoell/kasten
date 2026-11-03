@@ -1,5 +1,5 @@
 import { type MouseEvent, useState } from "react";
-import { type WeekKey, weekNumber } from "@/lib/search-weeks";
+import { type WeekKey, weekNumber } from "@/lib/search/search-weeks";
 
 interface SearchHistogramProps {
   /** The weeks drawn, oldest first, the current week last. */

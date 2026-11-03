@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { noteName } from "@/lib/note-path";
-import { useRecentNotes } from "@/lib/use-recent-notes";
+import { useRecentNotes } from "@/lib/search/use-recent-notes";
 
 /** How long the toast stays up before it starts to fade. */
 const SHOWN_MS = 5000;

@@ -1,9 +1,9 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createNote } from "@/lib/api";
-import { folderCandidates, rankCandidates } from "@/lib/fuzzy";
 import { moveAndCache } from "@/lib/move";
 import { describeFolderPath, describeNotePath, type NotePathVerdict } from "@/lib/note-path";
+import { folderCandidates, rankCandidates } from "@/lib/search/fuzzy";
 import {
   BACKDROP,
   closeOnBackdrop,

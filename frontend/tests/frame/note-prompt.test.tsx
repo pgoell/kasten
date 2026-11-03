@@ -15,12 +15,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRoot } from "react-dom/client";
 import { NotePrompt } from "@/components/note-prompt";
-import type * as Fuzzy from "@/lib/fuzzy";
+import type * as Fuzzy from "@/lib/search/fuzzy";
 import { syntheticVault } from "../../bench/fixtures";
 
 // Counted, not timed: a keystroke that ranks twice is caught with no clock.
 const ranks = vi.hoisted(() => ({ calls: 0 }));
-vi.mock("@/lib/fuzzy", async (importOriginal) => {
+vi.mock("@/lib/search/fuzzy", async (importOriginal) => {
   const actual = await importOriginal<typeof Fuzzy>();
   return {
     ...actual,

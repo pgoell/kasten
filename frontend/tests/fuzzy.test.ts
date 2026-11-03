@@ -1,4 +1,10 @@
-import { folderCandidates, rankCandidates, rankFolders, rankLines, rankNotes } from "@/lib/fuzzy";
+import {
+  folderCandidates,
+  rankCandidates,
+  rankFolders,
+  rankLines,
+  rankNotes,
+} from "@/lib/search/fuzzy";
 
 // The list the file tree's tests run on, so the folders ranked here are the
 // ones a real vault listing yields.

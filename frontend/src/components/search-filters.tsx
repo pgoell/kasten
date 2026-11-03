@@ -1,5 +1,5 @@
 import type { MouseEvent } from "react";
-import type { Facet, Filters } from "@/lib/search-facets";
+import type { Facet, Filters } from "@/lib/search/search-facets";
 import { LABEL, TAP } from "@/lib/ui/overlay-styles";
 
 interface SearchFiltersProps {
