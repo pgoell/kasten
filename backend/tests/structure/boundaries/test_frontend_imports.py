@@ -135,7 +135,7 @@ def test_a_component_importing_a_route_fails(tmp_path: Path) -> None:
 def test_the_lists_app_importing_lib_fails(tmp_path: Path) -> None:
     result = probe(
         tmp_path,
-        {"src/lists/zz-probe.ts": 'import "@/lib/fuzzy";\nexport const probe = 1;\n'},
+        {"src/lists/zz-probe.ts": 'import "@/lib/search/fuzzy";\nexport const probe = 1;\n'},
     )
     assert_fails(result, "lists-apart", "src/lists/zz-probe.ts")
 
@@ -151,9 +151,9 @@ def test_the_notebook_importing_the_lists_app_fails(tmp_path: Path) -> None:
 def test_a_new_dynamic_import_fails(tmp_path: Path) -> None:
     result = probe(
         tmp_path,
-        {"src/lib/zz-probe.ts": 'export const x = () => import("@/lib/fuzzy");\n'},
+        {"src/lib/zz-probe.ts": 'export const x = () => import("@/lib/search/fuzzy");\n'},
     )
-    assert_fails(result, "no-dynamic-import", "src/lib/zz-probe.ts → src/lib/fuzzy.ts")
+    assert_fails(result, "no-dynamic-import", "src/lib/zz-probe.ts → src/lib/search/fuzzy.ts")
 
 
 def test_a_new_dynamic_import_beside_an_accepted_one_fails(tmp_path: Path) -> None:
@@ -163,18 +163,18 @@ def test_a_new_dynamic_import_beside_an_accepted_one_fails(tmp_path: Path) -> No
         tmp_path,
         {
             "src/lib/markdown/math.ts": math
-            + '\nexport const later = () => import("@/lib/fuzzy");\n'
+            + '\nexport const later = () => import("@/lib/search/fuzzy");\n'
         },
     )
-    assert_fails(result, "no-dynamic-import", "src/lib/markdown/math.ts → src/lib/fuzzy.ts")
+    assert_fails(result, "no-dynamic-import", "src/lib/markdown/math.ts → src/lib/search/fuzzy.ts")
 
 
 def test_a_dynamic_import_in_the_service_worker_fails(tmp_path: Path) -> None:
     result = probe(
         tmp_path,
-        {"sw/zz-probe.ts": 'export const x = () => import("@/lib/fuzzy");\n'},
+        {"sw/zz-probe.ts": 'export const x = () => import("@/lib/search/fuzzy");\n'},
     )
-    assert_fails(result, "no-dynamic-import", "sw/zz-probe.ts → src/lib/fuzzy.ts")
+    assert_fails(result, "no-dynamic-import", "sw/zz-probe.ts → src/lib/search/fuzzy.ts")
 
 
 @pytest.mark.parametrize(

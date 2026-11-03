@@ -1,4 +1,4 @@
-import { ARCHIVE, inArchive, visible } from "@/lib/archive";
+import { ARCHIVE, inArchive, visible } from "@/lib/search/archive";
 
 describe("inArchive", () => {
   it("reads a note under the archive as archived", () => {

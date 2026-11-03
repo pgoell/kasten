@@ -15,7 +15,7 @@ import {
   rankFolders,
   resetWork,
   work,
-} from "@/lib/fuzzy";
+} from "@/lib/search/fuzzy";
 import { syntheticVault } from "../../bench/fixtures";
 
 /** The size the bar is set at. 842 folders, which is what the cost tracks. */

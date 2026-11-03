@@ -62,7 +62,7 @@ export { focusedPaneOf } from "./home-route-panes";
  * - `pdfPaneRenderer`: the fake the pdf pane draws with, since it takes pdf.js directly.
  * - `paneProps`: the props the route last gave the todo pane.
  * - `outbox`: faked, since fake-indexeddb waits on the frozen timers.
- * - `@/lib/fuzzy`: counted, not replaced.
+ * - `@/lib/search/fuzzy`: counted, not replaced.
  * - `file-explorer`: a memo over a counted `buildTree`.
  * - `fetchWeather`: the weather card, with no forecast.
  * - `UPLOAD_LIMIT_BYTES`: left out it is undefined and the size check never fires.

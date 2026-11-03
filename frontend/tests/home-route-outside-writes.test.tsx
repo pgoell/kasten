@@ -146,8 +146,8 @@ const outbox = vi.hoisted(() => ({
   subscribe: vi.fn(() => () => {}),
 }));
 vi.mock("@/lib/outbox", () => outbox);
-vi.mock("@/lib/fuzzy", async (importOriginal) => {
-  const real = await importOriginal<typeof import("@/lib/fuzzy")>();
+vi.mock("@/lib/search/fuzzy", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/search/fuzzy")>();
   return {
     ...real,
     noteCandidates: vi.fn(real.noteCandidates),

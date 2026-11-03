@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { noteCandidates, rankCandidates } from "@/lib/fuzzy";
+import { noteCandidates, rankCandidates } from "@/lib/search/fuzzy";
 import {
   BACKDROP,
   closeOnBackdrop,

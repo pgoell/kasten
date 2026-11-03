@@ -11,7 +11,7 @@ status: stable
 
 Two surfaces rank the vault as you type. The note prompt ranks every folder in
 it, and the note finder ranks every note. Both rebuild a list under an input on
-every keystroke, and both go through one scorer in `frontend/src/lib/fuzzy.ts`.
+every keystroke, and both go through one scorer in `frontend/src/lib/search/fuzzy.ts`.
 This page states the bar that work is held to, the three harnesses that measure
 it, and the numbers each one recorded.
 

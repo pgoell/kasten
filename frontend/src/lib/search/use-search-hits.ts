@@ -1,10 +1,10 @@
 import { keepPreviousData, skipToken, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { fetchMentions, fetchTodos, type Mention, type SearchHit, searchNotes } from "@/lib/api";
-import { inArchive } from "@/lib/archive";
-import { lineCandidates, rankIndexes } from "@/lib/fuzzy";
 import { noteName } from "@/lib/note-path";
 import { readRelation } from "@/lib/relation";
+import { inArchive } from "@/lib/search/archive";
+import { lineCandidates, rankIndexes } from "@/lib/search/fuzzy";
 import { isOpen, parseTodo } from "@/lib/todo/todo";
 import { wikiLinkPath, wikiLinkTargets } from "@/lib/wikilink";
 

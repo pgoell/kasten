@@ -2,7 +2,7 @@
 type: Explanation
 title: The archive
 description: Why finished work goes in a folder rather than a field, why one key rather than a filter on every list, and why the listing is the one thing the toggle never touches.
-resource: frontend/src/lib/archive.ts
+resource: frontend/src/lib/search/archive.ts
 tags: [vault, archive, search]
 status: stable
 ---

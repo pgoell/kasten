@@ -36,7 +36,7 @@ import {
 } from "@/lib/panes/panes";
 import { usePaneCommands } from "@/lib/panes/use-pane-commands";
 import { loadWorkspace } from "@/lib/panes/workspace";
-import { parseWeek } from "@/lib/search-weeks";
+import { parseWeek } from "@/lib/search/search-weeks";
 import { useTodoActions } from "@/lib/todo/use-todo-actions";
 import { useKeyboardInset } from "@/lib/ui/input/use-keyboard-inset";
 import { useViewport } from "@/lib/ui/input/use-viewport";

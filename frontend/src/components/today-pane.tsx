@@ -6,9 +6,9 @@ import { readClock } from "@/lib/clock";
 import { noteName } from "@/lib/note-path";
 import { useReviewLimits } from "@/lib/review/use-review-limits";
 import { useReviewWaiting } from "@/lib/review/use-review-waiting";
+import { useRecentNotes } from "@/lib/search/use-recent-notes";
 import { isOpen, parseTodo, STATE_SYMBOL, type Todo, type TodoState } from "@/lib/todo/todo";
 import { sectionOf } from "@/lib/todo/todo-view";
-import { useRecentNotes } from "@/lib/use-recent-notes";
 
 /** The states that are work somebody has started and not finished, and not due today. */
 const LOOP_STATES: ReadonlySet<TodoState> = new Set(["doing", "waiting", "blocked"]);
