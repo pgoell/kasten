@@ -393,6 +393,13 @@ async def test_the_agent_host_is_accepted_as_the_origin(
         {"sec-fetch-site": "cross-site", "origin": "http://test"},
         {"origin": "https://attacker.example"},
         {"origin": "null"},
+        # Malformed origins whose host alone matches (#1232).
+        pytest.param({"origin": "//test"}, id="no-scheme"),
+        pytest.param({"origin": "ftp://test"}, id="ftp"),
+        pytest.param({"origin": "file://test"}, id="file"),
+        pytest.param({"origin": "http://test/x"}, id="path"),
+        pytest.param({"origin": "http://test?x"}, id="query"),
+        pytest.param({"origin": "http://test#x"}, id="fragment"),
     ],
 )
 async def test_a_cross_site_consent_is_refused_without_redirecting(
@@ -406,6 +413,34 @@ async def test_a_cross_site_consent_is_refused_without_redirecting(
 
     assert response.status_code == 403
     assert "location" not in response.headers
+
+
+async def test_a_null_origin_beside_an_empty_host_is_refused(
+    client: AsyncClient, agent_vault: Path
+) -> None:
+    # An empty Host must match no Origin (#1232).
+    response = await client.post(
+        "/api/oauth/authorize",
+        data=consent(),
+        headers=[(b"host", b""), (b"origin", b"null")],
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 403
+
+
+async def test_an_https_origin_reaching_uvicorn_as_http_is_accepted(
+    client: AsyncClient, agent_vault: Path
+) -> None:
+    # Prod's shape: the browser is on https, Caddy forwards the Host and plain http.
+    response = await client.post(
+        "/api/oauth/authorize",
+        data=consent(),
+        headers={"origin": "https://test"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 302
 
 
 @pytest.mark.parametrize("redirect_uri", ["http://[", "http://\uff03x/", "https://a:b@[::1"])
