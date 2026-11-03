@@ -9,7 +9,7 @@ const { fetchNote, createNote } = vi.hoisted(() => ({
   fetchNote: vi.fn(),
   createNote: vi.fn(),
 }));
-vi.mock("@/lib/api", () => ({ fetchNote, createNote }));
+vi.mock("@/lib/core/api", () => ({ fetchNote, createNote }));
 
 const EXAM = `# Terraform drills
 

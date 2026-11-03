@@ -27,7 +27,7 @@ const { fetchNote, saveNote, updateNote, searchNotes } = vi.hoisted(() => ({
   updateNote: vi.fn(),
   searchNotes: vi.fn(),
 }));
-vi.mock("@/lib/api", () => {
+vi.mock("@/lib/core/api", () => {
   // A class of its own, as the real one is, so `instanceof` in the pane answers the same.
   class ChangedOnDisk extends Error {}
   return { fetchNote, saveNote, updateNote, searchNotes, ChangedOnDisk };

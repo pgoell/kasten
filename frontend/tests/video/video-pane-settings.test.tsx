@@ -5,7 +5,7 @@ import { stubCommands } from "../stub-commands";
 
 // Standing in for the module rather than for `fetch`, as video-pane.test.tsx does.
 const { fetchNote } = vi.hoisted(() => ({ fetchNote: vi.fn() }));
-vi.mock("@/lib/api", () => ({ fetchNote }));
+vi.mock("@/lib/core/api", () => ({ fetchNote }));
 
 const NOTE = "lit/attention is all you need.md";
 const ID = "dQw4w9WgXcQ";

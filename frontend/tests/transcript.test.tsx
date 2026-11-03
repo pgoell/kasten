@@ -1,6 +1,6 @@
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { Editor } from "@/components/editor";
-import type { Transcript } from "@/lib/api";
+import type { Transcript } from "@/lib/core/api";
 import {
   captionText,
   paragraphs,
@@ -13,7 +13,7 @@ import {
 // The fetch is the one thing here that leaves the browser, and YouTube behind
 // it. What these tests own is what the note ends up holding, not the HTTP.
 const { fetchTranscript } = vi.hoisted(() => ({ fetchTranscript: vi.fn() }));
-vi.mock("@/lib/api", () => ({ fetchTranscript }));
+vi.mock("@/lib/core/api", () => ({ fetchTranscript }));
 
 const VIDEO = "dQw4w9WgXcQ";
 const LINK = `https://www.youtube.com/watch?v=${VIDEO}`;

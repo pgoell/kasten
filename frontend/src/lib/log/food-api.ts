@@ -3,8 +3,8 @@
  * Kept apart from `api.ts`, which is past the size a reader can take in one go.
  */
 
-import { client, reason } from "@/lib/api-client";
 import type { components } from "@/lib/api-types";
+import { client, reason } from "@/lib/core/api-client";
 
 /** One food Open Food Facts has, with one serving of it and its nutrients. */
 export type Food = components["schemas"]["kasten_backend__food__Food"];

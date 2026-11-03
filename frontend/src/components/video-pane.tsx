@@ -4,7 +4,7 @@ import { VideoDetails } from "@/components/video-details";
 import { VideoShield } from "@/components/video-shield";
 import { VideoTakes } from "@/components/video-takes";
 import { type TranscriptHandle, VideoTranscript } from "@/components/video-transcript";
-import { fetchNote } from "@/lib/api";
+import { fetchNote } from "@/lib/core/api";
 import { noteName } from "@/lib/notes/links/note-path";
 import { readField } from "@/lib/notes/text/note-frontmatter";
 import { useFullScreen } from "@/lib/panes/video/use-full-screen";

@@ -7,7 +7,7 @@
  */
 
 import { waitFor } from "@testing-library/react";
-import { fetchNote, NoteMissing } from "@/lib/api";
+import { fetchNote, NoteMissing } from "@/lib/core/api";
 import { noteName } from "@/lib/notes/links/note-path";
 import { openInFocused } from "@/lib/panes/layout/pane-contents";
 import { addTab, emptyLayout, goToTab, type Layout } from "@/lib/panes/layout/panes";

@@ -20,8 +20,8 @@ const NOTE =
 
 // The sitting's reads and writes, answered here and not by a server. The rest
 // kept, as the browser checks every named import the graph holds.
-vi.mock("@/lib/api", async (original) => ({
-  ...(await original<typeof import("@/lib/api")>()),
+vi.mock("@/lib/core/api", async (original) => ({
+  ...(await original<typeof import("@/lib/core/api")>()),
   fetchNote: (path: string) =>
     path === "decks/aws.md"
       ? Promise.resolve(NOTE)

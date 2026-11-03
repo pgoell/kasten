@@ -1,8 +1,8 @@
 import { type RefObject, useCallback, useEffect, useLayoutEffect, useRef } from "react";
-import type { BookBeside } from "@/lib/api";
 import { findWritten, holdsWritten } from "@/lib/book/find-quote";
 import { type FoliateView, pdfLayer } from "@/lib/book/foliate-view";
 import { PDFJS_BASE } from "@/lib/book/pdf-view";
+import type { BookBeside } from "@/lib/core/api";
 
 /**
  * The little of pdf.js the seek uses: a page's words, reachable without drawing the page. Read off

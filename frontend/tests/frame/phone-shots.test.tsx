@@ -15,7 +15,7 @@ import type { ReactElement } from "react";
 import { createRoot } from "react-dom/client";
 import { commands, page } from "vitest/browser";
 import { ReviewSession } from "@/components/review-session";
-import { fetchNote } from "@/lib/api";
+import { fetchNote } from "@/lib/core/api";
 import { openInFocused } from "@/lib/panes/layout/pane-contents";
 import { addTab, emptyLayout, goToTab, type Layout, splitFocused } from "@/lib/panes/layout/panes";
 import type { Deck } from "@/lib/review/review";
@@ -38,8 +38,8 @@ const SHOTS = Boolean(import.meta.env.VITE_KASTEN_SHOTS);
 // The notes the review screens read, set per picture. The mocks read them lazily.
 const vault = vi.hoisted(() => ({ notes: {} as Record<string, string> }));
 
-vi.mock("@/lib/api", async (importOriginal) => {
-  const real = await importOriginal<typeof import("@/lib/api")>();
+vi.mock("@/lib/core/api", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/core/api")>();
   return {
     ...real,
     fetchFiles: vi.fn(),

@@ -3,8 +3,8 @@
  * The figures are per 100 g. The serving (100 g when left out) and the barcode are optional.
  */
 
-import { createNote, fetchNote, NoteMissing, updateNote } from "@/lib/api";
-import { FOODS_NOTE } from "@/lib/layout";
+import { createNote, fetchNote, NoteMissing, updateNote } from "@/lib/core/api";
+import { FOODS_NOTE } from "@/lib/core/layout";
 import type { Choice } from "@/lib/log/food-search";
 import type { BrokenLine } from "@/lib/log/log-kinds";
 import { parseFood, tenth } from "@/lib/log/log-lines";

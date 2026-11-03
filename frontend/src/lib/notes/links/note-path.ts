@@ -3,7 +3,7 @@
  * obeys it, so the table of cases is unit-tested without a DOM.
  */
 
-import { INBOX } from "@/lib/layout";
+import { INBOX } from "@/lib/core/layout";
 
 export type NotePathVerdict =
   | { kind: "empty" }

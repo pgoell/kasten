@@ -3,12 +3,12 @@ import { renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { expect, it, vi } from "vitest";
 import { useReadingBook } from "@/components/finder/use-reading-book";
-import { READING_NOTE } from "@/lib/layout";
+import { READING_NOTE } from "@/lib/core/layout";
 import { emptyLayout, focusedPane } from "@/lib/panes/layout/panes";
 
 const api = vi.hoisted(() => ({ fetchNote: vi.fn() }));
-vi.mock("@/lib/api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/api")>()),
+vi.mock("@/lib/core/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/core/api")>()),
   fetchNote: api.fetchNote,
 }));
 

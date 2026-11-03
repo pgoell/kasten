@@ -3,7 +3,7 @@
  * outbox sends, and the daily note the take reads back for its Undo (#787).
  *
  * The API client takes `fetch` when it is made, so this installs when the module
- * loads, which must be before `@/lib/api-client` does. Each take test file imports
+ * loads, which must be before `@/lib/core/api-client` does. Each take test file imports
  * it first. Anything else goes to the real fetch.
  */
 

@@ -1,4 +1,4 @@
-import { shiftDay } from "@/lib/clock";
+import { shiftDay } from "@/lib/core/clock";
 import { readField, setField } from "@/lib/notes/text/note-frontmatter";
 import type { Rating, Schedule } from "@/lib/review/srs";
 

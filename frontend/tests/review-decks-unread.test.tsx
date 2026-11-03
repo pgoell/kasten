@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, render, screen } from "@testing-library/react";
 import { ReviewDecks } from "@/components/review-decks";
-import * as api from "@/lib/api";
+import * as api from "@/lib/core/api";
 
 const BETA = "#flashcards/beta\n\nc::d\n";
 const HITS = [

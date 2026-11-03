@@ -1,7 +1,7 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ReviewPane } from "@/components/review-pane";
-import * as api from "@/lib/api";
+import * as api from "@/lib/core/api";
 import { shownCard } from "./review-card";
 import { renderPane, seededClient } from "./review-pane-fixture";
 import { stubCommands } from "./stub-commands";

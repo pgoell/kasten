@@ -1,5 +1,5 @@
 import { type RefObject, useCallback, useLayoutEffect, useRef, useState } from "react";
-import { uploadAsset } from "@/lib/api";
+import { uploadAsset } from "@/lib/core/api";
 import { filedName, IMAGE_FOLDER } from "@/lib/notes/embeds/image";
 import type { Passage } from "@/lib/takes/highlight";
 import { clampInside, type PressHandlers, usePressGuard } from "@/lib/takes/take-button";

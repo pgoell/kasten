@@ -1,6 +1,6 @@
 import { ChangeSet, Facet, type Line } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
-import { readClock } from "@/lib/clock";
+import { readClock } from "@/lib/core/clock";
 import { noticeHandler } from "@/lib/notes/embeds/image";
 import { appendUnderEdit, type Edit } from "@/lib/notes/text/note-section";
 import { periodicNote } from "@/lib/notes/text/periodic";

@@ -4,8 +4,8 @@
  * the order a booking paid comes with the booking's drilldown.
  */
 
-import { client, reason } from "@/lib/api-client";
 import type { components } from "@/lib/api-types";
+import { client, reason } from "@/lib/core/api-client";
 
 export type Order = components["schemas"]["OrderOut"];
 export type Charge = components["schemas"]["ChargeOut"];

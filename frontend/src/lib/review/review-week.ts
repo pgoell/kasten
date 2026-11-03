@@ -4,8 +4,8 @@
  * passes in what the reads answered.
  */
 
-import type { LineHit, TodoHit } from "@/lib/api";
-import { shiftDay } from "@/lib/clock";
+import type { LineHit, TodoHit } from "@/lib/core/api";
+import { shiftDay } from "@/lib/core/clock";
 import type { LogDay } from "@/lib/log/food-api";
 import type { LogConfig, LogKind } from "@/lib/log/log-kinds";
 import { tenth } from "@/lib/log/log-lines";

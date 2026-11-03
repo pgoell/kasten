@@ -82,7 +82,7 @@ const {
     fetchHistoryText: vi.fn(),
   };
 });
-vi.mock("@/lib/api", () => ({
+vi.mock("@/lib/core/api", () => ({
   fetchFiles,
   fetchNote,
   saveNote,

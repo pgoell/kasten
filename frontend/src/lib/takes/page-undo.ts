@@ -1,4 +1,4 @@
-import { ChangedOnDisk, fetchNote, saveNote } from "@/lib/api";
+import { ChangedOnDisk, fetchNote, saveNote } from "@/lib/core/api";
 import { noteBase } from "@/lib/notes/note-base";
 import { withoutTaken } from "@/lib/takes/html-take";
 

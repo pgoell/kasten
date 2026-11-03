@@ -7,7 +7,7 @@ import type { CompletionContext, CompletionResult } from "@codemirror/autocomple
 import { Facet } from "@codemirror/state";
 
 /** Where the vocabulary lives, inside `KASTEN_CONFIG_PATH`. */
-export { ONTOLOGY_NOTE } from "@/lib/layout";
+export { ONTOLOGY_NOTE } from "@/lib/core/layout";
 
 /** A section of the note. Only `Relations` is read; the types are offered nowhere. */
 const SECTION = /^## +(.+?)[ \t\r]*$/;

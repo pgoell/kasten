@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { SearchHit } from "@/lib/api";
+import type { SearchHit } from "@/lib/core/api";
 import { isOpen, parseTodo } from "@/lib/todo/todo";
 import { rowKey } from "@/lib/todo/use-todo-rows";
 

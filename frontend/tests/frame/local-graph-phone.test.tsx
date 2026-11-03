@@ -7,7 +7,7 @@
 import { waitFor } from "@testing-library/react";
 import { act } from "react";
 import { page, userEvent } from "vitest/browser";
-import { fetchSimilar } from "@/lib/api";
+import { fetchSimilar } from "@/lib/core/api";
 import { COARSE, NARROW, stubMatchMedia } from "../match-media";
 import {
   graphButton,
@@ -18,8 +18,8 @@ import {
 } from "./local-graph-fixture";
 import { need, PATIENCE, visibleEditor } from "./reader-fixture";
 
-vi.mock("@/lib/api", async (importOriginal) => {
-  const real = await importOriginal<typeof import("@/lib/api")>();
+vi.mock("@/lib/core/api", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/core/api")>();
   return {
     ...real,
     fetchFiles: vi.fn(),

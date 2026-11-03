@@ -4,8 +4,8 @@
  * `routes/finance_drill.py` gives; sorting goes through `finance-api.ts`.
  */
 
-import { client, reason } from "@/lib/api-client";
 import type { components } from "@/lib/api-types";
+import { client, reason } from "@/lib/core/api-client";
 import type { Span } from "@/lib/finance/finance-span";
 
 export type ScopeDrill = components["schemas"]["ScopeDrillOut"];

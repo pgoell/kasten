@@ -39,7 +39,7 @@ vi.mock("@/lib/search/fuzzy", async (importOriginal) => {
 // inside the timed window would be measuring the network. It never fires during
 // a run, the delay outlasting the gap between keystrokes, but a stub is what
 // makes that a fact rather than a hope.
-vi.mock("@/lib/api", () => ({
+vi.mock("@/lib/core/api", () => ({
   fetchNote: () => Promise.resolve(""),
   // Named because the module is replaced whole: the editor behind the preview
   // imports these, and a factory short of a name breaks the import itself.

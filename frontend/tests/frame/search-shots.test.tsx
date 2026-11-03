@@ -20,7 +20,7 @@ import { act, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { commands, page } from "vitest/browser";
 import { NoteSearch } from "@/components/note-search";
-import type { SearchHit } from "@/lib/api";
+import type { SearchHit } from "@/lib/core/api";
 import { applyTheme, PALETTE_KEY, THEME_KEY, type Theme } from "@/lib/ui/theme";
 import { COARSE, NARROW, stubMatchMedia } from "../match-media";
 import { shot } from "./shots";
@@ -117,8 +117,8 @@ const { searchNotes, fetchMentions, fetchTodos, fetchNote } = vi.hoisted(() => (
   fetchTodos: vi.fn(),
   fetchNote: vi.fn(),
 }));
-vi.mock("@/lib/api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/api")>()),
+vi.mock("@/lib/core/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/core/api")>()),
   searchNotes,
   fetchMentions,
   fetchTodos,

@@ -10,9 +10,10 @@ import {
   type LineHit,
   NoteMissing,
   type TodoHit,
-} from "@/lib/api";
-import { shiftDay } from "@/lib/clock";
-import { LOG_NOTE } from "@/lib/layout";
+} from "@/lib/core/api";
+import { shiftDay } from "@/lib/core/clock";
+import { LOG_NOTE } from "@/lib/core/layout";
+import { readRetry } from "@/lib/core/read-retry";
 import { fetchLog, type LogDay } from "@/lib/log/food-api";
 import { overMax } from "@/lib/log/log-day";
 import { DEFAULT_CONFIG, type LogConfig, parseConfig } from "@/lib/log/log-kinds";
@@ -40,7 +41,6 @@ import {
   weightLabel,
   weightWords,
 } from "@/lib/overview/overview-words";
-import { readRetry } from "@/lib/read-retry";
 import { deckNotes } from "@/lib/review/review";
 import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
 import { useLeader } from "@/lib/ui/keys/use-leader";

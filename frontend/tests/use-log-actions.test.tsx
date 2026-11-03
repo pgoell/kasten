@@ -16,8 +16,8 @@ const vault = vi.hoisted(() => ({
   beforePut: undefined as undefined | ((path: string) => Promise<void> | void),
 }));
 
-vi.mock("@/lib/api-client", async (importOriginal) => {
-  const real = await importOriginal<typeof import("@/lib/api-client")>();
+vi.mock("@/lib/core/api-client", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/core/api-client")>();
   return {
     ...real,
     client: {

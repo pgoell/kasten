@@ -1,6 +1,6 @@
 import { Text } from "@codemirror/state";
 import { describe, expect, it } from "vitest";
-import type { Forecast } from "@/lib/api";
+import type { Forecast } from "@/lib/core/api";
 import { cardLine, drawTown, sky } from "@/lib/note/weather-card";
 
 const doc = (text: string) => Text.of(text.split("\n"));

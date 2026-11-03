@@ -2,9 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 // Drawing half of the seam: `Overlayer.highlight` paints a range, handed to the overlay.
 import { Overlayer } from "foliate-js/overlayer.js";
 import { type RefObject, useCallback, useEffect, useMemo, useRef } from "react";
-import { fetchNote } from "@/lib/api";
 import { findWritten } from "@/lib/book/find-quote";
 import { type FoliateOverlayer, type FoliateView, pdfLayer } from "@/lib/book/foliate-view";
+import { fetchNote } from "@/lib/core/api";
 import { type HighlightBlock, highlightBlocks } from "@/lib/takes/highlight";
 import { onThemeChange } from "@/lib/ui/theme";
 

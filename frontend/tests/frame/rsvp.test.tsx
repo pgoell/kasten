@@ -32,8 +32,8 @@ const { fetchBook, fetchNote, fetchRsvp, saveRsvp } = vi.hoisted(() => ({
   fetchRsvp: vi.fn(),
   saveRsvp: vi.fn(),
 }));
-vi.mock("@/lib/api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/api")>()),
+vi.mock("@/lib/core/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/core/api")>()),
   fetchBook,
   fetchNote,
 }));

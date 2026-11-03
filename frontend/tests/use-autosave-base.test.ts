@@ -1,5 +1,5 @@
 import { act } from "@testing-library/react";
-import { ChangedOnDisk } from "@/lib/api";
+import { ChangedOnDisk } from "@/lib/core/api";
 import { noteBase } from "@/lib/notes/note-base";
 import { heldText } from "@/lib/saving/held-text";
 import {
@@ -14,10 +14,10 @@ import {
 
 const { saveNote, fetchNote } = vi.hoisted(() => ({ saveNote: vi.fn(), fetchNote: vi.fn() }));
 // The real refusal, which the hook tells apart from every other failure.
-vi.mock("@/lib/api", async (importOriginal) => ({
+vi.mock("@/lib/core/api", async (importOriginal) => ({
   saveNote,
   fetchNote,
-  ChangedOnDisk: (await importOriginal<typeof import("@/lib/api")>()).ChangedOnDisk,
+  ChangedOnDisk: (await importOriginal<typeof import("@/lib/core/api")>()).ChangedOnDisk,
 }));
 
 describe("useAutosave", () => {

@@ -4,8 +4,8 @@
  * `routes/finance_tax.py` and `routes/finance_receipts.py` give.
  */
 
-import { client, reason, refused } from "@/lib/api-client";
 import type { components } from "@/lib/api-types";
+import { client, reason, refused } from "@/lib/core/api-client";
 import { answer } from "@/lib/finance/finance-drill-api";
 
 export type TaxYear = components["schemas"]["YearOut"];

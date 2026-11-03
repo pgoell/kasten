@@ -19,7 +19,7 @@ import {
   WidgetType,
 } from "@codemirror/view";
 import { foodSheetCleanup } from "@/components/food-sheet";
-import { shiftDay } from "@/lib/clock";
+import { shiftDay } from "@/lib/core/clock";
 import { type SheetHooks, stopFoodSheet, syncFoodSheet } from "@/lib/log/log-card-food";
 import {
   askLatest,

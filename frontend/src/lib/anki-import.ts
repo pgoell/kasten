@@ -1,5 +1,5 @@
-import { postFile, refused } from "@/lib/api-client";
 import type { components } from "@/lib/api-types";
+import { postFile, refused } from "@/lib/core/api-client";
 
 /** What one imported `.apkg` turned into, and what the merge did to the deck notes. */
 export type AnkiImport = components["schemas"]["AnkiImport"];

@@ -6,7 +6,7 @@ import { MANY_PATHS, PATHS, renderFinder } from "./note-finder-fixture";
 // module is also the right level: what this component owns is which note it
 // asks for and how often, not the HTTP.
 const { fetchNote } = vi.hoisted(() => ({ fetchNote: vi.fn() }));
-vi.mock("@/lib/api", () => ({ fetchNote }));
+vi.mock("@/lib/core/api", () => ({ fetchNote }));
 
 describe("the note finder", () => {
   beforeEach(() => {

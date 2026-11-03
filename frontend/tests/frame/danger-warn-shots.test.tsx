@@ -243,8 +243,8 @@ class SilentEventSource {
 
 // The api mocks read NOTES and GRAPH lazily, inside their functions, because vi.mock is
 // hoisted above the constants.
-vi.mock("@/lib/api", async (importOriginal) => {
-  const real = await importOriginal<typeof import("@/lib/api")>();
+vi.mock("@/lib/core/api", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/core/api")>();
   return {
     ...real,
     fetchFiles: async () => Object.keys(NOTES),

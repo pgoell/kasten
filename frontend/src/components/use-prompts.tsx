@@ -7,11 +7,11 @@ import { NotePrompt, noteAfterPrompt, type PromptMode } from "@/components/note-
 import { TerminalPrompt } from "@/components/terminal-prompt";
 import { TodoPrompt } from "@/components/todo-prompt";
 import type { PaneMoves } from "@/components/use-pane-moves";
-import { fetchTerminals, type SearchHit } from "@/lib/api";
 import { importPage } from "@/lib/capture/clip";
 // Renamed because the route that calls this already has a `flush`, the bookmark's.
 import { flush as flushOutbox, keep } from "@/lib/capture/outbox";
-import { readClock } from "@/lib/clock";
+import { fetchTerminals, type SearchHit } from "@/lib/core/api";
+import { readClock } from "@/lib/core/clock";
 import { mapPanes, openInFocused } from "@/lib/panes/layout/pane-contents";
 import type { Layout } from "@/lib/panes/layout/panes";
 import { paneOpeners } from "@/lib/panes/layout/use-pane-commands";

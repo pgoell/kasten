@@ -1,4 +1,4 @@
-import { loadOnce } from "@/lib/load-once";
+import { loadOnce } from "@/lib/core/load-once";
 
 it("#647 A3 forgets a failed load and keeps a good one, not asking again", async () => {
   const load = vi

@@ -36,8 +36,8 @@ const HITS = Object.entries(NOTES).flatMap(([path, text]) =>
 // The overview's reads, answered here and not by a server. `decks.md` and the
 // default limits answer as a vault without them would, which is a refusal.
 // The rest kept, as the browser checks every named import the graph holds.
-vi.mock("@/lib/api", async (original) => ({
-  ...(await original<typeof import("@/lib/api")>()),
+vi.mock("@/lib/core/api", async (original) => ({
+  ...(await original<typeof import("@/lib/core/api")>()),
   fetchCards: () => Promise.resolve(HITS),
   fetchNote: (path: string) =>
     path in NOTES

@@ -29,8 +29,8 @@ const doubles = vi.hoisted(() => ({
   fetchFiles: vi.fn(),
   createNote: vi.fn(),
 }));
-vi.mock("@/lib/api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/api")>()),
+vi.mock("@/lib/core/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/core/api")>()),
   ...doubles,
 }));
 

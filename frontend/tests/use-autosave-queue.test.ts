@@ -14,10 +14,10 @@ import {
 
 const { saveNote, fetchNote } = vi.hoisted(() => ({ saveNote: vi.fn(), fetchNote: vi.fn() }));
 // The real refusal, which the hook tells apart from every other failure.
-vi.mock("@/lib/api", async (importOriginal) => ({
+vi.mock("@/lib/core/api", async (importOriginal) => ({
   saveNote,
   fetchNote,
-  ChangedOnDisk: (await importOriginal<typeof import("@/lib/api")>()).ChangedOnDisk,
+  ChangedOnDisk: (await importOriginal<typeof import("@/lib/core/api")>()).ChangedOnDisk,
 }));
 
 describe("useAutosave", () => {

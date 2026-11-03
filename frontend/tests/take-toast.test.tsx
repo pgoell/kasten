@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { TakeToast } from "@/components/take-toast";
 
 const { searchNotes } = vi.hoisted(() => ({ searchNotes: vi.fn() }));
-vi.mock("@/lib/api", () => ({ searchNotes }));
+vi.mock("@/lib/core/api", () => ({ searchNotes }));
 
 /** The toast alone, with the query client its note list makes its searches through. */
 function renderToast(top?: boolean) {

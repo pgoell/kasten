@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { NoteSearch } from "@/components/note-search";
-import { fetchMentions, fetchNote, fetchTodos, searchNotes } from "@/lib/api";
+import { fetchMentions, fetchNote, fetchTodos, searchNotes } from "@/lib/core/api";
 
 // The test files beside this one mock the api module at this level:
 // Standing in for the module rather than for `fetch`, the way the finder's

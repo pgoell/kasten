@@ -3,7 +3,7 @@ import { act, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { ReviewParked } from "@/components/review-parked";
 import { ReviewSession } from "@/components/review-session";
-import * as api from "@/lib/api";
+import * as api from "@/lib/core/api";
 import type { Deck } from "@/lib/review/review";
 
 const SR = "<!--SR:!2026-08-20,4,270-->";

@@ -1,8 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import { ReviewSession } from "@/components/review-session";
-import * as api from "@/lib/api";
-import { readClock, shiftDay } from "@/lib/clock";
+import * as api from "@/lib/core/api";
+import { readClock, shiftDay } from "@/lib/core/clock";
 import type { Deck } from "@/lib/review/review";
 
 // The day the sitting reads as today, so the due dates below fall on it.

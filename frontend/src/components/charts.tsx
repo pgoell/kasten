@@ -4,7 +4,7 @@
  * words that say what it shows, and passes the svg's name for a screen reader as `label`.
  */
 
-import { shiftDay } from "@/lib/clock";
+import { shiftDay } from "@/lib/core/clock";
 import { overMax, share } from "@/lib/log/log-day";
 import type { Goal } from "@/lib/log/log-kinds";
 

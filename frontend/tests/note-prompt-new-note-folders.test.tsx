@@ -7,7 +7,7 @@ const { createNote, renameNote, moveFolder } = vi.hoisted(() => ({
   renameNote: vi.fn(),
   moveFolder: vi.fn(),
 }));
-vi.mock("@/lib/api", () => ({ createNote }));
+vi.mock("@/lib/core/api", () => ({ createNote }));
 vi.mock("@/lib/vault/move/move-api", () => ({ renameNote, moveFolder }));
 
 // Call counters for the two halves of the ranking. `spy: true` keeps the real

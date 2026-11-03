@@ -1,4 +1,4 @@
-import { updateNote } from "@/lib/api";
+import { updateNote } from "@/lib/core/api";
 import { addHighlight } from "@/lib/takes/highlight";
 import { quoteParagraphs } from "@/lib/takes/html-take";
 import { newId } from "@/lib/todo/todo";

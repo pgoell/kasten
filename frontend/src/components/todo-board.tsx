@@ -2,7 +2,7 @@ import { useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useSt
 import { BoardCard, SET } from "@/components/board-card";
 import { HEADING, LaneHeading } from "@/components/board-lane-heading";
 import { BoardPicker } from "@/components/board-picker";
-import type { SearchHit, TodoHit } from "@/lib/api";
+import type { SearchHit, TodoHit } from "@/lib/core/api";
 import type { Todo, TodoState } from "@/lib/todo/todo";
 import type { Closed } from "@/lib/todo/todo-blocked";
 import {

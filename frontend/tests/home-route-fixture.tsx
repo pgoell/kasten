@@ -12,7 +12,7 @@ import {
   fetchTodos,
   NoteMissing,
   saveNote,
-} from "@/lib/api";
+} from "@/lib/core/api";
 import { forgetQueues } from "@/lib/note/use-autosave";
 import { noteBase } from "@/lib/notes/note-base";
 import { resetHeld, unstamped } from "@/lib/saving/held-text";

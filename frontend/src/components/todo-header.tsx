@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import type { SearchHit } from "@/lib/api";
+import type { SearchHit } from "@/lib/core/api";
 import { parseTodo } from "@/lib/todo/todo";
 import { KINDS } from "@/lib/todo/todo-board";
 import type { Mode } from "@/lib/todo/use-todo-rows";

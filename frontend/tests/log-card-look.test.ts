@@ -2,14 +2,14 @@ import { history } from "@codemirror/commands";
 import { EditorState, type Extension } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { type Forecast, fetchNote, fetchWeather, NoteMissing } from "@/lib/api";
+import { type Forecast, fetchNote, fetchWeather, NoteMissing } from "@/lib/core/api";
 import { fetchLog, type LogDay } from "@/lib/log/food-api";
 import { logCard, reloadLogConfig } from "@/lib/log/log-card";
 import { weatherCard } from "@/lib/note/weather-card";
 import { notePath } from "@/lib/todo/todo-commands";
 
-vi.mock("@/lib/api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/api")>()),
+vi.mock("@/lib/core/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/core/api")>()),
   fetchNote: vi.fn(),
   fetchWeather: vi.fn(),
 }));

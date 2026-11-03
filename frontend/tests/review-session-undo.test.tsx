@@ -1,8 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ReviewSession } from "@/components/review-session";
-import * as api from "@/lib/api";
-import { readClock } from "@/lib/clock";
+import * as api from "@/lib/core/api";
+import { readClock } from "@/lib/core/clock";
 import { noteBase } from "@/lib/notes/note-base";
 import { type Deck, decksFrom } from "@/lib/review/review";
 import { shownCard } from "./review-card";

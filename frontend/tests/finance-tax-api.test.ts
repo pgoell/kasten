@@ -3,8 +3,8 @@ import { confirmReceipt, MarkHeldError } from "@/lib/finance/finance-tax-api";
 const { POST } = vi.hoisted(() => ({ POST: vi.fn() }));
 
 // The typed client keeps the `fetch` it was made with, so its answer is stubbed here instead.
-vi.mock("@/lib/api-client", async (original) => ({
-  ...(await original<typeof import("@/lib/api-client")>()),
+vi.mock("@/lib/core/api-client", async (original) => ({
+  ...(await original<typeof import("@/lib/core/api-client")>()),
   client: { POST },
 }));
 

@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, screen } from "@testing-library/react";
-import { NoteExists } from "@/lib/api";
 import type { PdfRenderer } from "@/lib/book/pdf-view";
+import { NoteExists } from "@/lib/core/api";
 import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
 import { FakeEventSource, pageHooks, renderApp, settle, VAULT } from "./home-route-fixture";
@@ -31,8 +31,8 @@ const {
     fetchAssets: vi.fn().mockResolvedValue([]),
   };
 });
-vi.mock("@/lib/api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/api")>()),
+vi.mock("@/lib/core/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/core/api")>()),
   fetchFiles,
   fetchNote,
   saveNote,

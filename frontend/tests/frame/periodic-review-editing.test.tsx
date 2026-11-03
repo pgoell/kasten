@@ -24,8 +24,8 @@ import {
 } from "./periodic-review-fixture";
 import { DESKTOP, need, unmount, visibleEditor } from "./reader-fixture";
 
-vi.mock("@/lib/api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/api")>()),
+vi.mock("@/lib/core/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/core/api")>()),
   fetchFiles: mocks.fetchFiles,
   fetchNote: mocks.fetchNote,
   saveNote: mocks.saveNote,

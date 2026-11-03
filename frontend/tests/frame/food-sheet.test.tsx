@@ -14,8 +14,8 @@ import { notePath } from "@/lib/todo/todo-commands";
 import "@/styles/app.css";
 import { centreOf, nextFrame, pointer, wait } from "./sheet-fixture";
 
-vi.mock("@/lib/api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/api")>()),
+vi.mock("@/lib/core/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/core/api")>()),
   fetchNote: vi.fn(() => Promise.reject(new Error("no config in this frame"))),
 }));
 vi.mock("@/lib/log/food-api", () => ({

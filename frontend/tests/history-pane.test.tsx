@@ -11,7 +11,7 @@ const { fetchNote, fetchHistory, fetchHistoryText } = vi.hoisted(() => ({
   fetchHistory: vi.fn(),
   fetchHistoryText: vi.fn(),
 }));
-vi.mock("@/lib/api", () => ({ fetchNote }));
+vi.mock("@/lib/core/api", () => ({ fetchNote }));
 vi.mock("@/lib/history/history-api", () => ({ fetchHistory, fetchHistoryText }));
 
 const NOTE = "notes/plan.md";

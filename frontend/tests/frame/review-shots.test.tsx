@@ -34,8 +34,8 @@ const vault = vi.hoisted(() => ({ notes: {} as Record<string, string> }));
 
 // The reads the screens make, answered from `vault` and no server. The rest
 // kept, as the browser checks every named import the graph holds.
-vi.mock("@/lib/api", async (original) => ({
-  ...(await original<typeof import("@/lib/api")>()),
+vi.mock("@/lib/core/api", async (original) => ({
+  ...(await original<typeof import("@/lib/core/api")>()),
   fetchCards: () =>
     Promise.resolve(
       Object.entries(vault.notes).flatMap(([path, text]) =>

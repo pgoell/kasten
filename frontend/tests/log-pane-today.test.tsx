@@ -25,7 +25,7 @@ vi.mock("@/lib/log/my-foods", async (importOriginal) => ({
   fetchMyFoods: async () => ({ foods: [], broken: [] }),
   addMyFood: vi.fn(),
 }));
-vi.mock("@/lib/api", () => ({
+vi.mock("@/lib/core/api", () => ({
   fetchNote,
   NoteMissing: class NoteMissing extends Error {},
 }));

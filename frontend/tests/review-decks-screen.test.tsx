@@ -1,7 +1,7 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { ReviewDecks } from "@/components/review-decks";
-import * as api from "@/lib/api";
+import * as api from "@/lib/core/api";
 import { seededClient, serveNotes } from "./review-pane-fixture";
 
 const FOLDS = "kasten.review.folds.1";

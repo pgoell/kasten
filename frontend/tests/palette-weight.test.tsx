@@ -2,15 +2,15 @@ import { history } from "@codemirror/commands";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchNote } from "@/lib/api";
+import { fetchNote } from "@/lib/core/api";
 import { logCard } from "@/lib/log/log-card";
 import { parseConfig } from "@/lib/log/log-kinds";
 import { notePath } from "@/lib/todo/todo-commands";
 import { paletteEntries } from "@/lib/ui/palette";
 import { stubCommands } from "./stub-commands";
 
-vi.mock("@/lib/api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/api")>()),
+vi.mock("@/lib/core/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/core/api")>()),
   fetchNote: vi.fn(),
 }));
 vi.mock("@/lib/log/food-api", () => ({

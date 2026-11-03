@@ -1,7 +1,7 @@
 import { cleanup, waitFor } from "@testing-library/react";
 import { Editor } from "@/components/editor";
 import { StatusBar } from "@/components/status-bar";
-import { ChangedOnDisk } from "@/lib/api";
+import { ChangedOnDisk } from "@/lib/core/api";
 import { forgetQueues } from "@/lib/note/use-autosave";
 import { resetHeld, unstamped } from "@/lib/saving/held-text";
 import { digestOf } from "@/lib/vault/events/vault-events";
@@ -19,11 +19,11 @@ const { fetchNote, saveNote, fetchImages } = vi.hoisted(() => ({
   fetchImages: vi.fn().mockResolvedValue([]),
 }));
 // The real refusal, which the autosave tells apart from every other failure.
-vi.mock("@/lib/api", async (importOriginal) => ({
+vi.mock("@/lib/core/api", async (importOriginal) => ({
   fetchNote,
   saveNote,
   fetchImages,
-  ChangedOnDisk: (await importOriginal<typeof import("@/lib/api")>()).ChangedOnDisk,
+  ChangedOnDisk: (await importOriginal<typeof import("@/lib/core/api")>()).ChangedOnDisk,
 }));
 
 // Render counters for the two components below. `spy: true` keeps the real

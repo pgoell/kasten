@@ -1,5 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query";
-import { ChangedOnDisk, fetchNote, type Note, saveNote } from "@/lib/api";
+import { ChangedOnDisk, fetchNote, type Note, saveNote } from "@/lib/core/api";
 import { heldOf, type InAir, sentUnder } from "@/lib/note/in-air";
 import { noteBase } from "@/lib/notes/note-base";
 import { dropText, type Held, holdText, landedAs, movesMade } from "@/lib/saving/held-text";

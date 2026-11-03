@@ -3,7 +3,7 @@
  * three matching lines under `#reading` count three in its tag.
  */
 
-import type { SearchHit } from "@/lib/api";
+import type { SearchHit } from "@/lib/core/api";
 
 /** The top folder a path sits in, "" for a note at the vault's root. */
 export function topFolder(path: string): string {

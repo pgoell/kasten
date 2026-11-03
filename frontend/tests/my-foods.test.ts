@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createNote, fetchNote, NoteMissing, updateNote } from "@/lib/api";
+import { createNote, fetchNote, NoteMissing, updateNote } from "@/lib/core/api";
 import {
   addMyFood,
   fetchMyFoods,
@@ -9,8 +9,8 @@ import {
   parseMyFoods,
 } from "@/lib/log/my-foods";
 
-vi.mock("@/lib/api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/api")>()),
+vi.mock("@/lib/core/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/core/api")>()),
   fetchNote: vi.fn(),
   updateNote: vi.fn(),
   createNote: vi.fn(),

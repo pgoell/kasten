@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client";
 import { PaneLayout } from "@/components/pane-layout";
 import { ReviewDecks } from "@/components/review-decks";
 import { TabStrip } from "@/components/tab-strip";
-import * as api from "@/lib/api";
+import * as api from "@/lib/core/api";
 import {
   activeTab,
   addTab,

@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { memo, type ReactNode, useContext, useRef } from "react";
 import { Editor } from "@/components/editor";
-import { fetchNote, type TodoHit } from "@/lib/api";
+import { fetchNote, type TodoHit } from "@/lib/core/api";
 import type { FileTarget } from "@/lib/editor/editor-follow";
 import type { Outline } from "@/lib/note/note-head";
 import type { EmbedSource } from "@/lib/notes/embeds/embed";

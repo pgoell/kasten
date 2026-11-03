@@ -1,8 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ExamQuestion, ExamScore } from "@/components/exam-sheet";
-import { createNote, fetchNote } from "@/lib/api";
-import { readClock } from "@/lib/clock";
+import { createNote, fetchNote } from "@/lib/core/api";
+import { readClock } from "@/lib/core/clock";
 import {
   type Answers,
   type Exam,

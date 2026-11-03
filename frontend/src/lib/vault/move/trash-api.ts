@@ -1,5 +1,5 @@
-import { client } from "@/lib/api-client";
 import type { components } from "@/lib/api-types";
+import { client } from "@/lib/core/api-client";
 
 /** One deleted note or folder waiting in the trash, and the way back to it. */
 export type TrashEntry = components["schemas"]["TrashEntry"];

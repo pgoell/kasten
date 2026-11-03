@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { fetchNote } from "@/lib/api";
+import { fetchNote } from "@/lib/core/api";
 import { lineDiff } from "@/lib/history/diff";
 import { fetchHistory, fetchHistoryText, type HistoryChange } from "@/lib/history/history-api";
 import { noteName } from "@/lib/notes/links/note-path";

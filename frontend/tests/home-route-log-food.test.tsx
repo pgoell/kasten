@@ -1,6 +1,6 @@
 import { EditorView } from "@codemirror/view";
 import { cleanup, fireEvent, screen } from "@testing-library/react";
-import { NoteMissing } from "@/lib/api";
+import { NoteMissing } from "@/lib/core/api";
 import { noteBase } from "@/lib/notes/note-base";
 import { periodicNote } from "@/lib/notes/text/periodic";
 import { hashed } from "./digests";
@@ -85,7 +85,7 @@ const {
     fetchHistoryText: vi.fn(),
   };
 });
-vi.mock("@/lib/api", () => ({
+vi.mock("@/lib/core/api", () => ({
   fetchFiles,
   fetchNote,
   saveNote,

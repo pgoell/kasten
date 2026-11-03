@@ -4,15 +4,15 @@ import { EditorState, type Extension } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { fireEvent } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { fetchNote, NoteMissing } from "@/lib/api";
+import { fetchNote, NoteMissing } from "@/lib/core/api";
 import { type Food, fetchLog, type LogDay, readBarcode, searchFood } from "@/lib/log/food-api";
 import { logCard, reloadLogConfig } from "@/lib/log/log-card";
 import { parseFood } from "@/lib/log/log-lines";
 import { fetchMyFoods, type MyFood } from "@/lib/log/my-foods";
 import { notePath } from "@/lib/todo/todo-commands";
 
-vi.mock("@/lib/api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/api")>()),
+vi.mock("@/lib/core/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/core/api")>()),
   fetchNote: vi.fn(),
 }));
 vi.mock("@/lib/log/food-api", () => ({

@@ -8,7 +8,7 @@ import {
   fetchNote,
   fetchTags,
   fetchVersion,
-} from "@/lib/api";
+} from "@/lib/core/api";
 import { ONTOLOGY_NOTE, relationNames } from "@/lib/notes/links/ontology";
 import { visible } from "@/lib/search/archive";
 import type { TreeCommands } from "@/lib/ui/keys/key-bindings";

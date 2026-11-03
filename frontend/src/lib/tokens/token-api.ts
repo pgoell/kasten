@@ -1,5 +1,5 @@
-import { client, reason } from "@/lib/api-client";
 import type { components } from "@/lib/api-types";
+import { client, reason } from "@/lib/core/api-client";
 
 /** An agent token as the vault lists it: its name, creation time and last use. */
 export type TokenUse = components["schemas"]["TokenUse"];

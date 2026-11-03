@@ -2,7 +2,7 @@
  * The year review's numbers over one stretch of days. Pure, as `overview.ts` is, so each rule is checked on plain input.
  */
 
-import type { LineHit, TodoHit } from "@/lib/api";
+import type { LineHit, TodoHit } from "@/lib/core/api";
 import type { LogDay } from "@/lib/log/food-api";
 import { dayOf, reviewCounts, writtenCounts } from "@/lib/overview/overview";
 import { parseTodo, type Todo } from "@/lib/todo/todo";

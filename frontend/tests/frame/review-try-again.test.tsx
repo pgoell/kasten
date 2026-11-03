@@ -18,7 +18,7 @@ import type { ReactElement } from "react";
 import { createRoot } from "react-dom/client";
 import { commands, page } from "vitest/browser";
 import { ReviewSession } from "@/components/review-session";
-import { readRetry } from "@/lib/read-retry";
+import { readRetry } from "@/lib/core/read-retry";
 import type { Deck } from "@/lib/review/review";
 import { shot } from "./shots";
 import "@/styles/app.css";
@@ -41,8 +41,8 @@ const DECK: Deck = {
 
 const limits = vi.hoisted(() => ({ down: false }));
 
-vi.mock("@/lib/api", async (original) => ({
-  ...(await original<typeof import("@/lib/api")>()),
+vi.mock("@/lib/core/api", async (original) => ({
+  ...(await original<typeof import("@/lib/core/api")>()),
   fetchReviewLimits: () =>
     limits.down
       ? Promise.reject(new Error("GET /api/review/limits failed with 502", { cause: 502 }))

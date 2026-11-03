@@ -4,8 +4,8 @@
  * the note says, and a late answer cannot reach one reader and not the other.
  */
 
-import { fetchNote, NoteMissing } from "@/lib/api";
-import { LOG_NOTE } from "@/lib/layout";
+import { fetchNote, NoteMissing } from "@/lib/core/api";
+import { LOG_NOTE } from "@/lib/core/layout";
 import { type LogConfig, parseConfig } from "@/lib/log/log-kinds";
 
 /** The last good config, or null before the first answer. */

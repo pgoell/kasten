@@ -3,7 +3,7 @@
  * Pure, and shared with the editor so both read the same rules.
  */
 
-import { shiftDay } from "@/lib/clock";
+import { shiftDay } from "@/lib/core/clock";
 import { plainLinks } from "@/lib/notes/links/wikilink";
 import { bodyFences } from "@/lib/notes/text/note-section";
 import { isOpen, parseTodo, type Todo } from "@/lib/todo/todo";
@@ -195,7 +195,7 @@ export function nextActionOf(node: Node, today: string): Node | null {
 }
 
 /** Where the vault keeps its named filters, inside `KASTEN_CONFIG_PATH`. */
-export { VIEWS_NOTE } from "@/lib/layout";
+export { VIEWS_NOTE } from "@/lib/core/layout";
 
 /**
  * What the first `v` writes into a vault with no views note. One view per family of term, so the note teaches

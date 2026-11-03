@@ -4,7 +4,7 @@
  */
 
 import type { CompletionContext, CompletionResult } from "@codemirror/autocomplete";
-import { readClock } from "@/lib/clock";
+import { readClock } from "@/lib/core/clock";
 import { PRIORITY_SYMBOL, parseTodo, type Todo } from "@/lib/todo/todo";
 import type { TodoPriority } from "@/lib/todo/todo-fields";
 import { offeredRules, parseRecurrence } from "@/lib/todo/todo-recur";

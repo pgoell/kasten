@@ -13,7 +13,7 @@ import {
   saveNote,
   searchNotes,
   updateNote,
-} from "@/lib/api";
+} from "@/lib/core/api";
 import { noteBase } from "@/lib/notes/note-base";
 import { periodicNote } from "@/lib/notes/text/periodic";
 import { isOpen, newId, parseTodo, type Todo, type TodoState } from "@/lib/todo/todo";

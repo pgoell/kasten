@@ -8,7 +8,7 @@
 import { waitFor } from "@testing-library/react";
 import { act } from "react";
 import { page, userEvent } from "vitest/browser";
-import { fetchMentions } from "@/lib/api";
+import { fetchMentions } from "@/lib/core/api";
 import { fetchGraph } from "@/lib/graph/graph-api";
 import { stubMatchMedia } from "../match-media";
 import {
@@ -21,8 +21,8 @@ import {
 } from "./local-graph-fixture";
 import { closeTree, leader, need, nextFrame, PATIENCE, visibleEditor } from "./reader-fixture";
 
-vi.mock("@/lib/api", async (importOriginal) => {
-  const real = await importOriginal<typeof import("@/lib/api")>();
+vi.mock("@/lib/core/api", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/core/api")>();
   return {
     ...real,
     fetchFiles: vi.fn(),

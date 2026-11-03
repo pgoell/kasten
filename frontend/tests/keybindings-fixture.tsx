@@ -1,6 +1,6 @@
 import { render } from "@testing-library/react";
 import { Editor } from "@/components/editor";
-import { readClock } from "@/lib/clock";
+import { readClock } from "@/lib/core/clock";
 import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
 
 /** Noon on a fixed day, where `pinClock` holds the clock. */

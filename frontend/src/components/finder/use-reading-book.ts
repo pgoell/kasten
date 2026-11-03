@@ -1,8 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { type Dispatch, type SetStateAction, useCallback } from "react";
 import type { PaneMoves } from "@/components/use-pane-moves";
-import { fetchAssets, fetchFiles, fetchNote, NoteMissing } from "@/lib/api";
-import { READING_NOTE } from "@/lib/layout";
+import { fetchAssets, fetchFiles, fetchNote, NoteMissing } from "@/lib/core/api";
+import { READING_NOTE } from "@/lib/core/layout";
 import { noteName } from "@/lib/notes/links/note-path";
 import { splitTarget, wikiLinkPath, wikiLinkTargets } from "@/lib/notes/links/wikilink";
 import { openBookInFocused } from "@/lib/panes/layout/pane-contents";

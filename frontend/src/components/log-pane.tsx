@@ -9,9 +9,9 @@ import {
 import { capital, type Editing, EntryList, mealGroups, Reading } from "@/components/log-pane-rows";
 import { type Day, foodTotal, type Line, LogTrends, totalOf } from "@/components/log-trends";
 import { hintOf, WeightRows, weightButton } from "@/components/log-weight";
-import { fetchNote, NoteMissing } from "@/lib/api";
-import { shiftDay } from "@/lib/clock";
-import { LOG_NOTE } from "@/lib/layout";
+import { fetchNote, NoteMissing } from "@/lib/core/api";
+import { shiftDay } from "@/lib/core/clock";
+import { LOG_NOTE } from "@/lib/core/layout";
 import { fetchLog } from "@/lib/log/food-api";
 import { type FoodPanel, foodPanel } from "@/lib/log/food-search";
 import { foodButton, quickButton } from "@/lib/log/log-card-view";

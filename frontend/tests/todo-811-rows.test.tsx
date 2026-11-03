@@ -3,7 +3,7 @@ import { TodoLegend } from "@/components/todo-legend";
 import { TodoList } from "@/components/todo-list";
 import { TodoRow } from "@/components/todo-row";
 import { STATE_ORDER, TodoStateBox } from "@/components/todo-state-box";
-import type { TodoHit } from "@/lib/api";
+import type { TodoHit } from "@/lib/core/api";
 import { parseTodo, type Todo } from "@/lib/todo/todo";
 import { namedTodos } from "@/lib/todo/todo-view";
 import { type Row, type RowFacts, rowKey } from "@/lib/todo/use-todo-rows";

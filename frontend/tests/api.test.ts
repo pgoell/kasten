@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { fetchBook, UPLOAD_LIMIT_BYTES, uploadAsset } from "@/lib/api";
+import { fetchBook, UPLOAD_LIMIT_BYTES, uploadAsset } from "@/lib/core/api";
 import { PIECE, uploads } from "./upload-backend-fixture";
 
 const FILES = readFileSync(

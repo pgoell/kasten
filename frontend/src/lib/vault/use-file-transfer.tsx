@@ -7,7 +7,7 @@ import {
   useMemo,
   useRef,
 } from "react";
-import { type BookBeside, createNote, UPLOAD_LIMIT_BYTES, uploadAsset } from "@/lib/api";
+import { type BookBeside, createNote, UPLOAD_LIMIT_BYTES, uploadAsset } from "@/lib/core/api";
 import { bookNote, encodePath, importedNote, noteName } from "@/lib/notes/links/note-path";
 import type { Pane } from "@/lib/panes/layout/panes";
 import { whenKeysUp } from "@/lib/ui/input/last-input";

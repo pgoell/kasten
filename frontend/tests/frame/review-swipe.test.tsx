@@ -12,7 +12,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRoot, type Root } from "react-dom/client";
 import { commands, page } from "vitest/browser";
 import { ReviewSession } from "@/components/review-session";
-import { readClock } from "@/lib/clock";
+import { readClock } from "@/lib/core/clock";
 import type { Deck } from "@/lib/review/review";
 import { nextSchedule } from "@/lib/review/srs-schedule";
 import "@/styles/app.css";
@@ -36,8 +36,8 @@ const DECK: Deck = {
 
 // The sitting's reads and writes, answered here and not by a server. The rest
 // kept, as the browser checks every named import the graph holds.
-vi.mock("@/lib/api", async (original) => ({
-  ...(await original<typeof import("@/lib/api")>()),
+vi.mock("@/lib/core/api", async (original) => ({
+  ...(await original<typeof import("@/lib/core/api")>()),
   fetchNote: (path: string) =>
     path === "decks/aws.md"
       ? Promise.resolve(NOTE)

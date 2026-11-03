@@ -7,7 +7,7 @@ import {
   type Layout,
   PERIODIC,
   READING_NOTE,
-} from "@/lib/layout";
+} from "@/lib/core/layout";
 import { IMAGE_FOLDER } from "@/lib/notes/embeds/image";
 import { bookNote, importedNote } from "@/lib/notes/links/note-path";
 import { ONTOLOGY_NOTE } from "@/lib/notes/links/ontology";

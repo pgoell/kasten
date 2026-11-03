@@ -4,7 +4,7 @@
  * and a guessed match would put their work on this card.
  */
 
-import type { SearchHit } from "@/lib/api";
+import type { SearchHit } from "@/lib/core/api";
 import { wikiLinkPath, wikiLinkTargets } from "@/lib/notes/links/wikilink";
 import { readField } from "@/lib/notes/text/note-frontmatter";
 import { isOpen, parseTodo, type Todo } from "@/lib/todo/todo";

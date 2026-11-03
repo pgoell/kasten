@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MeaningFinder } from "@/components/finder/meaning-finder";
-import type { RankedAnswer } from "@/lib/api";
+import type { RankedAnswer } from "@/lib/core/api";
 import { LEADER_COLUMNS } from "@/lib/ui/keys/leader-keys";
 import { paletteEntries } from "@/lib/ui/palette";
 import { open } from "../keybindings-fixture";
@@ -10,7 +10,7 @@ import { stubCommands } from "../stub-commands";
 // The api module builds its client at import time; standing in for the module
 // is the level this component owns: what it asks and what it shows.
 const { rankedSearch } = vi.hoisted(() => ({ rankedSearch: vi.fn() }));
-vi.mock("@/lib/api", () => ({ rankedSearch }));
+vi.mock("@/lib/core/api", () => ({ rankedSearch }));
 
 function answer(over: Partial<RankedAnswer> = {}): RankedAnswer {
   return { hits: [], meaning: true, indexed: 3, notes: 3, ...over };

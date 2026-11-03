@@ -1,6 +1,13 @@
 import { cleanup, fireEvent, screen, within } from "@testing-library/react";
-import { NoteMissing } from "@/lib/api";
-import { ARCHIVE, applyLayout, IMAGE_FOLDER, INBOX, type Layout, PERIODIC } from "@/lib/layout";
+import { NoteMissing } from "@/lib/core/api";
+import {
+  ARCHIVE,
+  applyLayout,
+  IMAGE_FOLDER,
+  INBOX,
+  type Layout,
+  PERIODIC,
+} from "@/lib/core/layout";
 import type { LogDay } from "@/lib/log/food-api";
 import { noteBase } from "@/lib/notes/note-base";
 import { periodicNote } from "@/lib/notes/text/periodic";
@@ -87,7 +94,7 @@ const {
     fetchLog: vi.fn(),
   };
 });
-vi.mock("@/lib/api", () => ({
+vi.mock("@/lib/core/api", () => ({
   fetchFiles,
   fetchNote,
   saveNote,

@@ -14,7 +14,7 @@ import { fireEvent, waitFor } from "@testing-library/react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { page } from "vitest/browser";
-import { fetchNote, NoteMissing } from "@/lib/api";
+import { fetchNote, NoteMissing } from "@/lib/core/api";
 import { startPress } from "@/lib/ui/input/press";
 import { routeTree } from "@/routeTree.gen";
 import { COARSE, NARROW, stubMatchMedia } from "../match-media";
@@ -28,8 +28,8 @@ import {
   visibleEditor,
 } from "./reader-fixture";
 
-vi.mock("@/lib/api", async (importOriginal) => {
-  const real = await importOriginal<typeof import("@/lib/api")>();
+vi.mock("@/lib/core/api", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/core/api")>();
   return {
     ...real,
     fetchFiles: vi.fn(),

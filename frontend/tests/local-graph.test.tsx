@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { LocalGraph } from "@/components/local-graph";
-import { fetchMentions, fetchSimilar } from "@/lib/api";
+import { fetchMentions, fetchSimilar } from "@/lib/core/api";
 import type { DrawnNode } from "@/lib/graph/graph";
 import { fetchGraph } from "@/lib/graph/graph-api";
 import { drawGraph, type GraphCanvasHandlers } from "@/lib/graph/graph-canvas";
@@ -19,7 +19,7 @@ const canvas = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/graph/graph-canvas", () => ({ drawGraph: vi.fn() }));
 vi.mock("@/lib/graph/graph-api", () => ({ fetchGraph: vi.fn() }));
-vi.mock("@/lib/api", () => ({ fetchMentions: vi.fn(), fetchSimilar: vi.fn() }));
+vi.mock("@/lib/core/api", () => ({ fetchMentions: vi.fn(), fetchSimilar: vi.fn() }));
 
 const NOTE = "index.md";
 const node = (path: string, name: string, missing = false) => ({

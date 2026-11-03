@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render } from "@testing-library/react";
 import { LogPane } from "@/components/log-pane";
-import { shiftDay } from "@/lib/clock";
+import { shiftDay } from "@/lib/core/clock";
 import type { LogDay } from "@/lib/log/food-api";
 import type { LogActions } from "@/lib/log/use-log-actions";
 import { stubCommands } from "./stub-commands";

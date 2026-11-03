@@ -99,8 +99,8 @@ const YESTERDAY_DAY: LogDay = {
 
 // The mocks read these lazily, inside their bodies, because `vi.mock` is hoisted
 // above the constants and a factory that reads one at load meets its temporal dead zone.
-vi.mock("@/lib/api", async (importOriginal) => {
-  const real = await importOriginal<typeof import("@/lib/api")>();
+vi.mock("@/lib/core/api", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/core/api")>();
   return {
     ...real,
     fetchNote: async (path: string) => {

@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { HtmlPane } from "@/components/html-pane";
 import { reset } from "@/lib/capture/outbox";
-import { readClock } from "@/lib/clock";
+import { readClock } from "@/lib/core/clock";
 import { noteBase } from "@/lib/notes/note-base";
 import { periodicNote } from "@/lib/notes/text/periodic";
 import { pageLink, takenQuote } from "@/lib/takes/html-take";
@@ -33,7 +33,7 @@ const { fetchNote, saveNote, updateNote, searchNotes } = vi.hoisted(() => ({
   updateNote: vi.fn(),
   searchNotes: vi.fn(),
 }));
-vi.mock("@/lib/api", () => {
+vi.mock("@/lib/core/api", () => {
   // A class of its own, as the real one is, so `instanceof` in the pane answers the same.
   class ChangedOnDisk extends Error {}
   return { fetchNote, saveNote, updateNote, searchNotes, ChangedOnDisk };

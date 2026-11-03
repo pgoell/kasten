@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { createNote } from "@/lib/api";
+import { createNote } from "@/lib/core/api";
 import {
   describeFolderPath,
   describeNotePath,

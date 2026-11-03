@@ -3,7 +3,7 @@
  * to what kasten writes back. An unreadable rule stays as text, so a typo shows.
  */
 
-import { shiftDay } from "@/lib/clock";
+import { shiftDay } from "@/lib/core/clock";
 import type { Todo } from "@/lib/todo/todo";
 
 /**

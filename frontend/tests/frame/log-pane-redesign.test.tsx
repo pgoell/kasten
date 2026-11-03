@@ -11,7 +11,7 @@ import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/rea
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { commands, page } from "vitest/browser";
-import { shiftDay } from "@/lib/clock";
+import { shiftDay } from "@/lib/core/clock";
 import type { LogDay } from "@/lib/log/food-api";
 import { periodicNote } from "@/lib/notes/text/periodic";
 import { routeTree } from "@/routeTree.gen";
@@ -36,8 +36,8 @@ const CONFIG = [
   "- 🍽 food: kcal max 2200, protein min 120",
 ].join("\n");
 
-vi.mock("@/lib/api", async (importOriginal) => {
-  const real = await importOriginal<typeof import("@/lib/api")>();
+vi.mock("@/lib/core/api", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/core/api")>();
   const fetchNote = async (path: string) => {
     if (path === LOG_CONFIG) return CONFIG;
     if (path === DAILY) return DAILY_TEXT;

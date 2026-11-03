@@ -3,7 +3,7 @@
  * Pure, so the pane's rows, line, tile and column read the same numbers. A day's value is null where `GET /api/log` has no line.
  */
 
-import { shiftDay } from "@/lib/clock";
+import { shiftDay } from "@/lib/core/clock";
 import type { LogDay } from "@/lib/log/food-api";
 import type { LogKind } from "@/lib/log/log-kinds";
 import { tenth } from "@/lib/log/log-lines";

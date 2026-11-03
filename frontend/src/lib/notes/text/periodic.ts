@@ -4,8 +4,8 @@
  * a missing one dotted and `gf` creates it, so one key walks the chain it made.
  */
 
-import { isoWeek, readClock, shiftDay } from "@/lib/clock";
-import { PERIODIC } from "@/lib/layout";
+import { isoWeek, readClock, shiftDay } from "@/lib/core/clock";
+import { PERIODIC } from "@/lib/core/layout";
 
 export type Period = "daily" | "weekly" | "monthly" | "quarterly" | "yearly";
 

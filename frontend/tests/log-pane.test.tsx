@@ -1,6 +1,6 @@
 import { QueryClient } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { LOG_NOTE } from "@/lib/layout";
+import { LOG_NOTE } from "@/lib/core/layout";
 import {
   CONFIG_NOTE,
   logDays,
@@ -26,7 +26,7 @@ vi.mock("@/lib/log/my-foods", async (importOriginal) => ({
   fetchMyFoods: async () => ({ foods: [], broken: [] }),
   addMyFood: vi.fn(),
 }));
-vi.mock("@/lib/api", () => ({
+vi.mock("@/lib/core/api", () => ({
   fetchNote,
   NoteMissing: class NoteMissing extends Error {},
 }));

@@ -3,7 +3,7 @@
  * A word that is not a term stays in the text, so a typo shows.
  */
 
-import { shiftDay } from "@/lib/clock";
+import { shiftDay } from "@/lib/core/clock";
 import { type Todo, type TodoState, wordTags } from "@/lib/todo/todo";
 import type { TodoPriority } from "@/lib/todo/todo-fields";
 import { formatRecurrence, parseRecurrence } from "@/lib/todo/todo-recur";

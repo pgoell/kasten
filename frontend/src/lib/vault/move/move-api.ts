@@ -1,6 +1,6 @@
-import type { Note } from "@/lib/api";
-import { client } from "@/lib/api-client";
 import type { components } from "@/lib/api-types";
+import type { Note } from "@/lib/core/api";
+import { client } from "@/lib/core/api-client";
 
 /** One folder as the vault spells it. A folder is a path and nothing else. */
 export type Folder = components["schemas"]["Folder"];

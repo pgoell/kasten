@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { ReviewDecks } from "@/components/review-decks";
 import * as anki from "@/lib/anki-import";
-import * as api from "@/lib/api";
+import * as api from "@/lib/core/api";
 import { HITS, seededClient, serveNotes } from "./review-pane-fixture";
 
 // The polled import runs on fake timers; every test after it gets the real ones back.

@@ -1,4 +1,4 @@
-import { ChangedOnDisk, type Note } from "@/lib/api";
+import { ChangedOnDisk, type Note } from "@/lib/core/api";
 import type { Buffer } from "@/lib/note/held-buffer";
 import { type Queueing, Skipped, saveQueue, type Write } from "@/lib/note/save-queue";
 import {

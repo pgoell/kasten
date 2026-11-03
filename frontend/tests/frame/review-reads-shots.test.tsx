@@ -35,8 +35,8 @@ const vault = vi.hoisted(() => ({
 // A status in `cause`, as the API puts it, and a 500, which no read retries.
 const failed = (what: string) => new Error(`GET ${what} failed with 500`, { cause: 500 });
 
-vi.mock("@/lib/api", async (original) => ({
-  ...(await original<typeof import("@/lib/api")>()),
+vi.mock("@/lib/core/api", async (original) => ({
+  ...(await original<typeof import("@/lib/core/api")>()),
   fetchCards: () =>
     vault.scan === "out"
       ? new Promise(() => {})

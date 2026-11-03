@@ -1,4 +1,4 @@
-import { ARCHIVE, IMAGE_FOLDER, INBOX, type Layout, PERIODIC } from "@/lib/layout";
+import { ARCHIVE, IMAGE_FOLDER, INBOX, type Layout, PERIODIC } from "@/lib/core/layout";
 import type { LogDay } from "@/lib/log/food-api";
 import { periodicNote } from "@/lib/notes/text/periodic";
 import { renderApp, settle } from "./home-route-fixture";

@@ -7,7 +7,7 @@
  * here: a name in prose is not a link, and a card must not read it as one.
  */
 
-import type { SearchHit } from "@/lib/api";
+import type { SearchHit } from "@/lib/core/api";
 import { isPerson, meetings, personDone, personTodos } from "@/lib/notes/links/person";
 
 const MAX = "03 Areas/08 People/Max Bosch.md";

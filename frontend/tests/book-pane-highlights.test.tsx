@@ -15,7 +15,7 @@ const { fetchBook, fetchNote, uploadAsset } = vi.hoisted(() => ({
   fetchNote: vi.fn(),
   uploadAsset: vi.fn(),
 }));
-vi.mock("@/lib/api", () => ({ fetchBook, fetchNote, uploadAsset }));
+vi.mock("@/lib/core/api", () => ({ fetchBook, fetchNote, uploadAsset }));
 
 // The factory is not optional. A bare `vi.mock(path)` automocks, and vitest's
 // automock keeps the module body and replaces only its exports, so the real

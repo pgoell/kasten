@@ -38,8 +38,8 @@ import {
 const { fetchBook } = vi.hoisted(() => ({ fetchBook: vi.fn() }));
 // `fetchBook` is the one call the book reads from the vault that a plain fetch cannot answer.
 // Every other name is the real module's, so the take writes to the stub the way it does live.
-vi.mock("@/lib/api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/api")>()),
+vi.mock("@/lib/core/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/core/api")>()),
   fetchBook,
 }));
 

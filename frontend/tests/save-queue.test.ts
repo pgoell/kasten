@@ -1,16 +1,16 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { QueryClient } from "@tanstack/react-query";
-import type { Note } from "@/lib/api";
+import type { Note } from "@/lib/core/api";
 import * as queueModule from "@/lib/note/save-queue";
 import { type Asked, SaveQueue, Skipped } from "@/lib/note/save-queue";
 import { heldTexts, resetHeld } from "@/lib/saving/held-text";
 
 const { saveNote, fetchNote } = vi.hoisted(() => ({ saveNote: vi.fn(), fetchNote: vi.fn() }));
-vi.mock("@/lib/api", async (importOriginal) => ({
+vi.mock("@/lib/core/api", async (importOriginal) => ({
   saveNote,
   fetchNote,
-  ChangedOnDisk: (await importOriginal<typeof import("@/lib/api")>()).ChangedOnDisk,
+  ChangedOnDisk: (await importOriginal<typeof import("@/lib/core/api")>()).ChangedOnDisk,
 }));
 
 /** A save the test answers by hand. */

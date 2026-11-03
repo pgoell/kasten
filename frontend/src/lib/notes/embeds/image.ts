@@ -11,9 +11,9 @@ import {
 import { syntaxTree } from "@codemirror/language";
 import { EditorSelection, type EditorState, Facet } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { uploadAsset } from "@/lib/api";
-import { readClock } from "@/lib/clock";
-import { IMAGE_FOLDER } from "@/lib/layout";
+import { uploadAsset } from "@/lib/core/api";
+import { readClock } from "@/lib/core/clock";
+import { IMAGE_FOLDER } from "@/lib/core/layout";
 import { encodePath } from "@/lib/notes/links/note-path";
 
 /**

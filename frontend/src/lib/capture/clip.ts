@@ -7,8 +7,8 @@
 // `/full` adds the markdown conversion the note needs. It doubles the route chunk (203 to
 // 407 kB gzipped); a dynamic import would avoid that, but this repo bans them for this.
 import Defuddle from "defuddle/full";
-import { createNote, fetchPage, type Note } from "@/lib/api";
-import { INBOX } from "@/lib/layout";
+import { createNote, fetchPage, type Note } from "@/lib/core/api";
+import { INBOX } from "@/lib/core/layout";
 import { safeName } from "@/lib/notes/links/note-path";
 
 /** What the note is called, off the page's title, with the site as the fallback. */

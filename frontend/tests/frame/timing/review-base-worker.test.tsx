@@ -34,8 +34,8 @@ const vault = vi.hoisted(() => ({
   hold: null as Promise<void> | null,
 }));
 
-vi.mock("@/lib/api", async (original) => {
-  const api = await original<typeof import("@/lib/api")>();
+vi.mock("@/lib/core/api", async (original) => {
+  const api = await original<typeof import("@/lib/core/api")>();
   return {
     ...api,
     fetchNote: (path: string) =>

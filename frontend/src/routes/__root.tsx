@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { createRootRoute, Outlet } from "@tanstack/react-router";
-import { fetchLayout } from "@/lib/api";
+import { fetchLayout } from "@/lib/core/api";
 
 export const Route = createRootRoute({
   component: Root,

@@ -5,7 +5,7 @@ import { useGuardedWrites } from "@/lib/saving/use-guarded-writes";
 import type { Passage } from "@/lib/takes/highlight";
 
 const { updateNote } = vi.hoisted(() => ({ updateNote: vi.fn() }));
-vi.mock("@/lib/api", () => {
+vi.mock("@/lib/core/api", () => {
   class ChangedOnDisk extends Error {}
   return { updateNote, saveNote: vi.fn(), ChangedOnDisk };
 });

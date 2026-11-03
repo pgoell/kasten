@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { fetchNote, fetchTodos, searchNotes } from "@/lib/api";
+import { fetchNote, fetchTodos, searchNotes } from "@/lib/core/api";
 import { noteName } from "@/lib/notes/links/note-path";
 import {
   type Done,

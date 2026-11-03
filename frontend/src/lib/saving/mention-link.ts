@@ -1,4 +1,4 @@
-import type { Mention } from "@/lib/api";
+import type { Mention } from "@/lib/core/api";
 import { noteName } from "@/lib/notes/links/note-path";
 import { wikiLinkPath } from "@/lib/notes/links/wikilink";
 

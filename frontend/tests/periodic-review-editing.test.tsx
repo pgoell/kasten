@@ -2,8 +2,8 @@ import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { QueryClient } from "@tanstack/react-query";
 import { cleanup } from "@testing-library/react";
-import { NoteMissing } from "@/lib/api";
-import { applyLayout } from "@/lib/layout";
+import { NoteMissing } from "@/lib/core/api";
+import { applyLayout } from "@/lib/core/layout";
 import { periodicReview, reviewSource } from "@/lib/review/periodic-review";
 import { notePath } from "@/lib/todo/todo-commands";
 import { hashed } from "./digests";
@@ -121,7 +121,7 @@ const {
     fetchReviewLimits: vi.fn(),
   };
 });
-vi.mock("@/lib/api", () => ({
+vi.mock("@/lib/core/api", () => ({
   fetchFiles,
   fetchNote,
   saveNote,

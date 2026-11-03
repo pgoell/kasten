@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { SearchHit, TodoHit } from "@/lib/api";
+import type { SearchHit, TodoHit } from "@/lib/core/api";
 import type { Todo } from "@/lib/todo/todo";
 import { COLUMNS, columnOf, KINDS, kindOf, laneName } from "@/lib/todo/todo-board";
 import type { Placed } from "@/lib/todo/todo-view";

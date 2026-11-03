@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { NotePreview } from "@/components/note-preview";
 import { BUTTON, ReviewAnswer, ReviewSource, TryAgain } from "@/components/review-answer";
 import { SwipeCard } from "@/components/review-swipe";
-import { shiftDay } from "@/lib/clock";
+import { shiftDay } from "@/lib/core/clock";
 import { noteName } from "@/lib/notes/links/note-path";
 import { unescaped } from "@/lib/review/card-line";
 import { sameAnswer } from "@/lib/review/card-text";

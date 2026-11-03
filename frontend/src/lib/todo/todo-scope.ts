@@ -1,4 +1,4 @@
-import type { TodoHit } from "@/lib/api";
+import type { TodoHit } from "@/lib/core/api";
 import { parseTodo } from "@/lib/todo/todo";
 import type { HeldRow } from "@/lib/todo/todo-hold";
 import { type Row, rowKey } from "@/lib/todo/use-todo-rows";

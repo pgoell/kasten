@@ -12,8 +12,8 @@ import { api, type Mounted, setUp, tearDown } from "./html-take-fixture";
 
 const { fetchBook } = vi.hoisted(() => ({ fetchBook: vi.fn() }));
 // Only the book's bytes are faked. The note and the rest go through the stubbed vault.
-vi.mock("@/lib/api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/api")>()),
+vi.mock("@/lib/core/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/core/api")>()),
   fetchBook,
 }));
 

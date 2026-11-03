@@ -1,6 +1,6 @@
 import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { type Dispatch, type RefObject, type SetStateAction, useCallback, useState } from "react";
-import { createNote, NoteExists, updateNote } from "@/lib/api";
+import { createNote, NoteExists, updateNote } from "@/lib/core/api";
 import {
   dayNote,
   type LineAt,

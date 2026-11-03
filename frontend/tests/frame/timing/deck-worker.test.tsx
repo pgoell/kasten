@@ -60,8 +60,8 @@ const DECK: Deck = {
 
 const saved = vi.hoisted(() => [] as string[]);
 
-vi.mock("@/lib/api", async (original) => ({
-  ...(await original<typeof import("@/lib/api")>()),
+vi.mock("@/lib/core/api", async (original) => ({
+  ...(await original<typeof import("@/lib/core/api")>()),
   fetchNote: (path: string) =>
     path === "decks/big.md"
       ? Promise.resolve(BIG)

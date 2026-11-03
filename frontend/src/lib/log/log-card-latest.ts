@@ -5,7 +5,7 @@
 
 import { StateEffect } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
-import { shiftDay } from "@/lib/clock";
+import { shiftDay } from "@/lib/core/clock";
 import { fetchLog, type LogDay } from "@/lib/log/food-api";
 import type { LogKind } from "@/lib/log/log-kinds";
 
