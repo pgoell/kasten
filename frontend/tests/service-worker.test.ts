@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import type { Mock } from "vitest";
-import { registerServiceWorker } from "@/lib/service-worker";
+import { registerServiceWorker } from "@/lib/app/service-worker";
 import { renderServiceWorker, serviceWorker } from "../sw/plugin";
 
 const ORIGIN = "https://kasten.test";

@@ -1,4 +1,4 @@
-import { registerServiceWorker } from "@/lib/service-worker";
+import { registerServiceWorker } from "@/lib/app/service-worker";
 
 function registration(path: string, unregister: () => Promise<boolean> = async () => true) {
   return {

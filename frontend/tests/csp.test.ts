@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { devPolicy, POLICY } from "@/lib/csp";
+import { devPolicy, POLICY } from "@/lib/app/csp";
 
 const NGINX = readFileSync(path.join(import.meta.dirname, "../nginx.conf"), "utf8");
 

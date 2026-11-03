@@ -223,7 +223,7 @@ release. A missing script reloads through TanStack Router's own
 open in the editor holds its unsaved text at `pagehide`, as for any reload,
 and shows it again after. A missing stylesheet, which Vite reports as `Unable
 to preload CSS` and the router does not reload for, reloads through kasten's
-error screen, `src/lib/chunk-reload.tsx`. That screen renders after the old
+error screen, `src/lib/app/chunk-reload.tsx`. That screen renders after the old
 route has gone; the editor held the text of its writes still in the air as it
 unmounted (#382), and only `/`, the editor's own route, has a chunk with a
 stylesheet, so no editor is being left when it fires. Each reloads once per

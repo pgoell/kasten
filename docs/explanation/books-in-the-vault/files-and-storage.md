@@ -203,7 +203,7 @@ SHA precisely so it would not have to read it. The sandbox was never the
 defence in any case: a blocked script is blocked whether or not the frame could
 have run one.
 
-The directives live in one place, `frontend/src/lib/csp.ts`, because nginx and
+The directives live in one place, `frontend/src/lib/app/csp.ts`, because nginx and
 the dev server both serve them and `nginx.conf` cannot import from TypeScript.
 A test reads both copies and fails when they disagree. Development differs in
 exactly one directive: Vite injects its react-refresh preamble as an inline

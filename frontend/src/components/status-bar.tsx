@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { SaveSign } from "@/components/save-sign";
 import { Clock } from "@/components/status-clock";
 import { StatusDetail } from "@/components/status-detail";
-import { BUILD } from "@/lib/build";
+import { BUILD } from "@/lib/app/build";
 import { lineDiff } from "@/lib/diff";
 import type { SaveStatus } from "@/lib/note/use-autosave";
 
