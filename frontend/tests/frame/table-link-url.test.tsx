@@ -21,6 +21,7 @@ import {
   phone,
   picture,
   press,
+  roomToScroll,
   SITE,
   settled,
   stubOpen,
@@ -290,22 +291,7 @@ describe("a tap or a press on a link in a table cell", () => {
     const at = mount(NOTE, false, 896);
     const block = await table(at.dom);
     const open = stubOpen();
-    if (room) {
-      // Above as well as below, so the first line is still in view after the scroll.
-      const above = document.body.insertBefore(
-        document.createElement("div"),
-        document.body.firstChild,
-      );
-      const below = document.body.appendChild(document.createElement("div"));
-      above.style.height = "200px";
-      below.style.height = "2000px";
-      onTestFinished(() => {
-        above.remove();
-        below.remove();
-        scrollTo(0, 0);
-      });
-      scrollTo(0, 100);
-    }
+    if (room) roomToScroll();
 
     await drag(parts(block)["linked picture"]);
     if (room) expect.soft(scrollY, "the drag scrolled the page").toBeGreaterThan(100);

@@ -166,6 +166,24 @@ export async function drag(element: Element): Promise<void> {
   await touch("touchEnd", 81, 0.5);
 }
 
+/**
+ * Room for the frame's page to scroll, scrolled 100px down, so a fling a drag left
+ * would outlive the lift. Gone when the test ends.
+ */
+export function roomToScroll(): void {
+  // Above as well as below, so the first line is still in view after the scroll.
+  const above = document.body.insertBefore(document.createElement("div"), document.body.firstChild);
+  const below = document.body.appendChild(document.createElement("div"));
+  above.style.height = "200px";
+  below.style.height = "2000px";
+  onTestFinished(() => {
+    above.remove();
+    below.remove();
+    scrollTo(0, 0);
+  });
+  scrollTo(0, 100);
+}
+
 /** A left button pressed and let go on `element`, with ctrl as 2 and meta as 4. */
 export async function press(element: Element, modifiers: number): Promise<void> {
   const [x, y] = on(element);

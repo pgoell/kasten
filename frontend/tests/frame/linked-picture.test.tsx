@@ -25,7 +25,7 @@ import { livePreview } from "@/lib/live/live-preview";
 import { noteLanguage } from "@/lib/note-language";
 import { vaultPaths } from "@/lib/wikilink";
 import "@/styles/app.css";
-import { drag } from "./table-link-fixture";
+import { drag, roomToScroll } from "./table-link-fixture";
 
 const CAT = "https://example.com/cat.png";
 const SITE = "https://example.com";
@@ -302,22 +302,7 @@ describe("a tap or a press on a picture inside a link (#558)", () => {
     const at = mount(NOTE, false, 896);
     const image = await loaded(at.dom);
     const open = stubOpen();
-    if (room) {
-      // Above as well as below, so the first line is still in view after the scroll.
-      const above = document.body.insertBefore(
-        document.createElement("div"),
-        document.body.firstChild,
-      );
-      const below = document.body.appendChild(document.createElement("div"));
-      above.style.height = "200px";
-      below.style.height = "2000px";
-      onTestFinished(() => {
-        above.remove();
-        below.remove();
-        scrollTo(0, 0);
-      });
-      scrollTo(0, 100);
-    }
+    if (room) roomToScroll();
 
     await drag(image);
     if (room) expect.soft(scrollY, "the drag scrolled the page").toBeGreaterThan(100);
