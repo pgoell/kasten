@@ -4,22 +4,16 @@
  * goes into the note's `watching:` field, and only what its own frame reports.
  */
 
-import { history, undo } from "@codemirror/commands";
-import { EditorState, type Extension } from "@codemirror/state";
-import { EditorView } from "@codemirror/view";
-import { vim } from "@replit/codemirror-vim";
+import { undo } from "@codemirror/commands";
+import { EditorState } from "@codemirror/state";
+import type { EditorView } from "@codemirror/view";
 import type { MockInstance } from "vitest";
 import { page, userEvent } from "vitest/browser";
-import { kastenTheme } from "@/lib/editor/editor-theme";
-import { vimKeys } from "@/lib/editor/vim-mode";
-import { livePreview } from "@/lib/live/live-preview";
-import { noteLanguage } from "@/lib/markdown/note-language";
-import { imagePaths } from "@/lib/notes/embeds/image";
-import { vaultPaths } from "@/lib/notes/links/wikilink";
 import { readField } from "@/lib/notes/text/note-frontmatter";
 import { PLAYER, watchedAt } from "@/lib/panes/video/video";
 import "@/styles/app.css";
 import { shot } from "./shots";
+import { mountEditor, unmountEditor } from "./video-pane-fixture";
 
 vi.mock("@/lib/panes/video/video", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/panes/video/video")>()),
@@ -31,64 +25,19 @@ const LINK = `![](https://www.youtube.com/watch?v=${ID})`;
 const SHOTS = import.meta.env.VITE_KASTEN_SHOTS === "1";
 const KEY = "kasten.video.1";
 
-/** A note with the video near the top and enough text below to scroll it out. */
-const LONG = [
-  "---",
-  "title: Talk",
-  "---",
-  "",
-  LINK,
-  "",
-  ...Array.from({ length: 200 }, (_, index) => `filler line ${index}`),
-].join("\n");
+/** A note with these lines near the top and enough text below to scroll them out. */
+const long = (...top: string[]) =>
+  [...top, "", ...Array.from({ length: 200 }, (_, index) => `filler line ${index}`)].join("\n");
+const LONG = long("---", "title: Talk", "---", "", LINK);
 const NOTE = ["---", "title: Talk", "---", "", LINK, "", "after"].join("\n");
 const WATCHED = ["---", "title: Talk", `watching: {${ID}: 30}`, "---", "", LINK, "", "after"].join(
   "\n",
 );
 
-let view: EditorView | undefined;
-
 afterEach(() => {
-  view?.dom.parentElement?.remove();
-  view?.destroy();
-  view = undefined;
+  unmountEditor();
   localStorage.removeItem(KEY);
 });
-
-function mount(
-  doc: string,
-  options: { vimOn?: boolean; anchor?: number; extra?: Extension[] } = {},
-): EditorView {
-  // A box of its own height, so the editor scrolls inside it as a pane does.
-  const parent = document.body.appendChild(document.createElement("div"));
-  parent.style.height = "300px";
-  view = new EditorView({
-    state: EditorState.create({
-      doc,
-      selection: { anchor: options.anchor ?? 0 },
-      extensions: [
-        noteLanguage(),
-        kastenTheme,
-        history(),
-        options.vimOn ? vim() : vimKeys.of(false),
-        livePreview(),
-        vaultPaths.of([]),
-        imagePaths.of([]),
-        EditorView.theme({ "&": { height: "100%" } }),
-        options.extra ?? [],
-      ],
-    }),
-    parent,
-  });
-  return view;
-}
-
-/** Takes the mounted view down, as leaving the note does. */
-function unmount(): void {
-  view?.dom.parentElement?.remove();
-  view?.destroy();
-  view = undefined;
-}
 
 /** The note's player frame, which the layer holds once the link is drawn. */
 async function frameIn(at: EditorView): Promise<HTMLIFrameElement> {
@@ -136,7 +85,7 @@ it.each([
 ] as const)(
   "#953 %s a %s video scrolled out and back is the same frame, no reload",
   async (_line, _name, state, forbidden) => {
-    const at = mount(LONG);
+    const at = mountEditor(LONG);
     const frame = await frameIn(at);
     const url = frame.src;
     const sent = await spied(frame);
@@ -163,14 +112,14 @@ it.each([
 );
 
 it("#953 A3 a speed the note's player reports is kept and sent to the next player", async () => {
-  const at = mount(NOTE);
+  const at = mountEditor(NOTE);
   const frame = await frameIn(at);
   send(frame.contentWindow, { event: "onReady" });
   send(frame.contentWindow, { event: "onPlaybackRateChange", info: 1.5 });
   expect(JSON.parse(localStorage.getItem(KEY) ?? "{}").rate).toBe(1.5);
 
-  unmount();
-  const next = mount(NOTE);
+  unmountEditor();
+  const next = mountEditor(NOTE);
   const again = await frameIn(next);
   const sent = await spied(again);
   send(again.contentWindow, { event: "onReady" });
@@ -185,7 +134,7 @@ it.each([
   "#1395 A3 the note's player opens at the kept volume and mute, vim %s",
   async (_name, vimOn) => {
     localStorage.setItem(KEY, JSON.stringify({ volume: 30, muted: true }));
-    const at = mount(NOTE, { vimOn });
+    const at = mountEditor(NOTE, { vimOn });
     const frame = await frameIn(at);
     const sent = await spied(frame);
     send(frame.contentWindow, { event: "onReady" });
@@ -196,7 +145,7 @@ it.each([
 );
 
 it("#953 A5 the note's player writes where it paused, and reopening starts there at the kept speed", async () => {
-  const at = mount(NOTE);
+  const at = mountEditor(NOTE);
   const frame = await frameIn(at);
   send(frame.contentWindow, { event: "onReady" });
   send(frame.contentWindow, { event: "infoDelivery", info: { playerState: 1, currentTime: 90 } });
@@ -204,9 +153,9 @@ it("#953 A5 the note's player writes where it paused, and reopening starts there
   expect(watchedAt(at.state.doc.toString(), ID)).toBe(95);
 
   const doc = at.state.doc.toString();
-  unmount();
+  unmountEditor();
   localStorage.setItem(KEY, JSON.stringify({ rate: 1.5 }));
-  const next = mount(doc);
+  const next = mountEditor(doc);
   const again = await frameIn(next);
   expect(again.src.endsWith("@95")).toBe(true);
   const sent = await spied(again);
@@ -215,7 +164,7 @@ it("#953 A5 the note's player writes where it paused, and reopening starts there
 });
 
 it("#953 A5 a pause on another video the frame moved to writes nothing under the link's id", async () => {
-  const at = mount(NOTE);
+  const at = mountEditor(NOTE);
   const frame = await frameIn(at);
   send(frame.contentWindow, { event: "infoDelivery", info: { playerState: 1, currentTime: 30 } });
   send(frame.contentWindow, { event: "infoDelivery", info: { playerState: 2, currentTime: 40 } });
@@ -231,7 +180,7 @@ it("#953 A5 a pause on another video the frame moved to writes nothing under the
 });
 
 it("#1188 I6 the note's player counts an empty video_id as no name and still writes its pause", async () => {
-  const at = mount(NOTE);
+  const at = mountEditor(NOTE);
   const frame = await frameIn(at);
   send(frame.contentWindow, { event: "infoDelivery", info: { videoData: { video_id: "" } } });
   send(frame.contentWindow, { event: "infoDelivery", info: { playerState: 1, currentTime: 50 } });
@@ -240,7 +189,7 @@ it("#1188 I6 the note's player counts an empty video_id as no name and still wri
 });
 
 it("#953 A6 the note's player writes the second the pane reads back from the note", async () => {
-  const at = mount(NOTE);
+  const at = mountEditor(NOTE);
   const frame = await frameIn(at);
   send(frame.contentWindow, { event: "infoDelivery", info: { playerState: 1, currentTime: 60 } });
   send(frame.contentWindow, { event: "infoDelivery", info: { playerState: 2, currentTime: 61 } });
@@ -248,7 +197,7 @@ it("#953 A6 the note's player writes the second the pane reads back from the not
 });
 
 it("#953 I1 a delivery from another frame does not move the note's player", async () => {
-  const at = mount(NOTE);
+  const at = mountEditor(NOTE);
   const frame = await frameIn(at);
   send(frame.contentWindow, { event: "infoDelivery", info: { playerState: 1, currentTime: 10 } });
   send(frame.contentWindow, { event: "infoDelivery", info: { playerState: 2, currentTime: 40 } });
@@ -263,7 +212,7 @@ it("#953 I1 a delivery from another frame does not move the note's player", asyn
 });
 
 it("#953 I2 a video played to its end drops its watching entry", async () => {
-  const at = mount(WATCHED);
+  const at = mountEditor(WATCHED);
   const frame = await frameIn(at);
   send(frame.contentWindow, { event: "infoDelivery", info: { playerState: 1, currentTime: 31 } });
   send(frame.contentWindow, { event: "infoDelivery", info: { playerState: 0, currentTime: 0 } });
@@ -277,7 +226,7 @@ it.each([
 ] as const)(
   "#953 I3 the position write leaves the cursor and is no undo step, vim %s",
   async (_, vimOn) => {
-    const at = mount(NOTE, { vimOn, anchor: NOTE.length });
+    const at = mountEditor(NOTE, { vimOn, anchor: NOTE.length });
     at.dispatch({
       changes: { from: NOTE.length, insert: "x" },
       selection: { anchor: NOTE.length + 1 },
@@ -308,7 +257,7 @@ it.each([
 );
 
 it("#953 I4 the cursor on the link's line hides the player without ending it", async () => {
-  const at = mount(NOTE);
+  const at = mountEditor(NOTE);
   const frame = await frameIn(at);
   const sent = await spied(frame);
   send(frame.contentWindow, { event: "onReady" });
@@ -325,7 +274,7 @@ it("#953 I4 the cursor on the link's line hides the player without ending it", a
 });
 
 it("#953 I5 deleting the link from the note ends its player", async () => {
-  const at = mount(LONG);
+  const at = mountEditor(LONG);
   const frame = await frameIn(at);
   scrollTo(at, "bottom");
   await expect.poll(() => at.contentDOM.querySelector(".cm-video")).toBeNull();
@@ -339,16 +288,8 @@ it("#953 I5 deleting the link from the note ends its player", async () => {
 });
 
 it("#953 I5 a spaced embed keeps its player through an edit elsewhere in the note", async () => {
-  const doc = [
-    "---",
-    "title: Talk",
-    "---",
-    "",
-    `![talk](https://youtu.be/${ID} x)`,
-    "",
-    ...Array.from({ length: 200 }, (_, index) => `filler line ${index}`),
-  ].join("\n");
-  const at = mount(doc);
+  const doc = long("---", "title: Talk", "---", "", `![talk](https://youtu.be/${ID} x)`);
+  const at = mountEditor(doc);
   const frame = await frameIn(at);
   scrollTo(at, "bottom");
   await expect.poll(() => at.contentDOM.querySelector(".cm-video")).toBeNull();
@@ -362,19 +303,16 @@ it("#953 I5 a spaced embed keeps its player through an edit elsewhere in the not
 });
 
 it("#953 I5 deleting the embed ends its player while a plain link to the same video stays", async () => {
-  const doc = [
+  const doc = long(
     "---",
-    "title: Talk",
     `source: https://youtu.be/${ID}`,
     "---",
     "",
     LINK,
     "",
     `[rec](https://youtu.be/${ID})`,
-    "",
-    ...Array.from({ length: 200 }, (_, index) => `filler line ${index}`),
-  ].join("\n");
-  const at = mount(doc);
+  );
+  const at = mountEditor(doc);
   const frame = await frameIn(at);
   scrollTo(at, "bottom");
   await expect.poll(() => at.contentDOM.querySelector(".cm-video")).toBeNull();
@@ -387,14 +325,14 @@ it("#953 I5 deleting the embed ends its player while a plain link to the same vi
 
 it("#953 I7 a read-only view of the note never writes it", async () => {
   // The positive control: a writable view of the same note does write.
-  const writable = mount(NOTE);
+  const writable = mountEditor(NOTE);
   const playing = await frameIn(writable);
   send(playing.contentWindow, { event: "infoDelivery", info: { playerState: 1, currentTime: 10 } });
   send(playing.contentWindow, { event: "infoDelivery", info: { playerState: 2, currentTime: 40 } });
   expect(watchedAt(writable.state.doc.toString(), ID)).toBe(40);
 
-  unmount();
-  const at = mount(NOTE, { extra: [EditorState.readOnly.of(true)] });
+  unmountEditor();
+  const at = mountEditor(NOTE, { extra: [EditorState.readOnly.of(true)] });
   const frame = await frameIn(at);
   send(frame.contentWindow, { event: "infoDelivery", info: { playerState: 1, currentTime: 10 } });
   send(frame.contentWindow, { event: "infoDelivery", info: { playerState: 2, currentTime: 60 } });
@@ -403,7 +341,7 @@ it("#953 I7 a read-only view of the note never writes it", async () => {
 
 it("#953 I6 at 414 px the held player takes a tap over its placeholder after a scroll", async () => {
   await page.viewport(414, 844);
-  const at = mount(LONG);
+  const at = mountEditor(LONG);
   const frame = await frameIn(at);
   scrollTo(at, "bottom");
   await expect.poll(() => at.contentDOM.querySelector(".cm-video")).toBeNull();
@@ -429,7 +367,7 @@ it.skipIf(!SHOTS)(
   "#953 I6 shot the player over its placeholder at 414 px",
   async () => {
     await page.viewport(414, 844);
-    const at = mount(NOTE);
+    const at = mountEditor(NOTE);
     const frame = await frameIn(at);
     expect(await shot(frame, "video-953-phone")).toBeGreaterThan(0);
   },
@@ -440,7 +378,7 @@ const TWICE = ["---", `watching: {${ID}: 30}`, "---", LINK, ..."x".repeat(30), L
 const frames = (at: EditorView) => [...at.dom.querySelectorAll(".cm-video-frame")];
 
 async function two(vimOn = false): Promise<[EditorView, ...Element[]]> {
-  const at = mount(TWICE, { vimOn });
+  const at = mountEditor(TWICE, { vimOn });
   scrollTo(at, "bottom");
   await expect.poll(() => frames(at).length).toBe(2);
   return [at, ...frames(at)];
@@ -481,9 +419,37 @@ it("#1187 I3 I6 either player's pause writes the one entry; vim insert hides onl
 });
 
 it("#1187 I5 deleting a link ends its frame while the other link is undrawn", async () => {
-  const at = mount(["#", LINK, ..."x".repeat(99), LINK].join("\n"));
+  const at = mountEditor(["#", LINK, ..."x".repeat(99), LINK].join("\n"));
   await expect.poll(() => frames(at).length).toBe(1);
   const [first] = frames(at);
   at.dispatch({ changes: { from: 2, to: 2 + LINK.length } });
   expect(first?.isConnected).toBe(false);
 });
+
+it.each([
+  ["plain words", "words"],
+  ["another video", LINK.replace(ID, "BBBBBBBBBBB")],
+  ["an image embed", "![[pic.png]]"],
+  ["an image link", "![](x.png)"],
+])(
+  "#1541 A2 I5 a line of %s written above a playing link keeps its frame, undone too",
+  async (_, line) => {
+    const at = mountEditor(`intro\n${LINK}`);
+    const [first] = await expect
+      .poll(() => frames(at))
+      .toHaveLength(1)
+      .then(() => frames(at));
+    send((first as HTMLIFrameElement).contentWindow, {
+      event: "infoDelivery",
+      info: { playerState: 1 },
+    });
+    // Where the vault's write trims the common prefix, so it can start inside the link.
+    let n = 0;
+    while (line[n] === LINK[n]) n += 1;
+    at.dispatch({ changes: { from: 6 + n, insert: `${line.slice(n)}\n${LINK.slice(0, n)}` } });
+    expect.soft(at.state.doc.toString()).toBe(`intro\n${line}\n${LINK}`);
+    expect.soft(first?.isConnected).toBe(true);
+    undo(at);
+    expect(first?.isConnected).toBe(true);
+  },
+);

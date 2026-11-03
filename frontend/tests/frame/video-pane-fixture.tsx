@@ -1,6 +1,7 @@
 /**
  * The video pane's frame rig (#791): a talk note with chapters, a transcript and
- * (when asked) a take, the pane mounted alone, and the reads the pane tests share.
+ * (when asked) a take, the pane mounted alone, the reads the pane tests share, and
+ * a note's editor for the player drawn in its text.
  *
  * The stand-in for the player: YouTube cannot load offline, so each test file
  * mocks `playerUrl` to `about:blank`. The frame is then a blank page on this
@@ -10,6 +11,10 @@
  * The `vi.mock` calls stay in each test file, because vitest hoists them there.
  */
 
+import { history } from "@codemirror/commands";
+import { EditorState, type Extension } from "@codemirror/state";
+import { EditorView } from "@codemirror/view";
+import { vim } from "@replit/codemirror-vim";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
 import { flushSync } from "react-dom";
@@ -17,6 +22,12 @@ import { vi } from "vitest";
 import { VideoPane } from "@/components/video-pane";
 import { WhichKey } from "@/components/which-key";
 import { fetchNote, NoteMissing } from "@/lib/core/api";
+import { kastenTheme } from "@/lib/editor/editor-theme";
+import { vimKeys } from "@/lib/editor/vim-mode";
+import { livePreview } from "@/lib/live/live-preview";
+import { noteLanguage } from "@/lib/markdown/note-language";
+import { imagePaths } from "@/lib/notes/embeds/image";
+import { vaultPaths } from "@/lib/notes/links/wikilink";
 import { PLAYER } from "@/lib/panes/video/video";
 import type { Passage } from "@/lib/takes/highlight";
 import type { Mounted } from "./html-take-fixture";
@@ -196,4 +207,42 @@ export function deliver(info: Record<string, unknown>) {
       }),
     );
   });
+}
+
+let view: EditorView | undefined;
+
+/** A note's editor in live preview, for a video link's player in the text (#953). */
+export function mountEditor(
+  doc: string,
+  options: { vimOn?: boolean; anchor?: number; extra?: Extension[] } = {},
+): EditorView {
+  // A box of its own height, so the editor scrolls inside it as a pane does.
+  const parent = document.body.appendChild(document.createElement("div"));
+  parent.style.height = "300px";
+  view = new EditorView({
+    state: EditorState.create({
+      doc,
+      selection: { anchor: options.anchor ?? 0 },
+      extensions: [
+        noteLanguage(),
+        kastenTheme,
+        history(),
+        options.vimOn ? vim() : vimKeys.of(false),
+        livePreview(),
+        vaultPaths.of([]),
+        imagePaths.of([]),
+        EditorView.theme({ "&": { height: "100%" } }),
+        options.extra ?? [],
+      ],
+    }),
+    parent,
+  });
+  return view;
+}
+
+/** Takes the mounted editor down, as leaving the note does. */
+export function unmountEditor(): void {
+  view?.dom.parentElement?.remove();
+  view?.destroy();
+  view = undefined;
 }

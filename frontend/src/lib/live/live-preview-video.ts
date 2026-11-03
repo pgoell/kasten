@@ -34,32 +34,33 @@ interface Box {
 }
 
 /**
- * The video links the note draws as an image, as `id@from`, read off the syntax tree.
+ * The video links the note draws as an image, `id@from` to where each ends, read off the syntax tree.
  * A link only named in frontmatter or as plain text is not drawn (I5). Null while parsing.
  */
-function embeddedVideos(state: EditorState): Set<string> | null {
+function embeddedVideos(state: EditorState): Map<string, number> | null {
   const tree = ensureSyntaxTree(state, state.doc.length, 1000);
   if (tree === null) return null;
-  const links = new Set<string>();
+  const links = new Map<string, number>();
   tree.iterate({
     enter: (node) => {
       if (node.name !== "Image") return;
       // What the note draws, read the way the drawing reads it, so a spaced
       // address (`![t](https://youtu.be/<id> x)`) keeps its player too.
       const drawn = drawnImage(state, node.node);
-      if (drawn?.kind === "video") links.add(`${drawn.id}@${node.from}`);
+      if (drawn?.kind === "video") links.set(`${drawn.id}@${node.from}`, node.to);
     },
   });
   return links;
 }
 
-/** The span of the new text a change wrote over `at`, or null when no change covered it. */
-function rewritten(changes: ChangeSet, at: number): [number, number] | null {
-  let span = null as [number, number] | null;
-  changes.iterChangedRanges((fromA, toA, fromB, toB) => {
-    if (fromA <= at && at < toA) span = [fromB, toB];
-  });
-  return span;
+/**
+ * What a change left of the old link `[from, to)`, mapped outward so text the
+ * change wrote inside it counts, or null when it left nothing, as a deletion does.
+ */
+function remains(changes: ChangeSet, from: number, to: number): [number, number] | null {
+  const start = changes.mapPos(from, -1);
+  const end = changes.mapPos(to, 1);
+  return start < end ? [start, end] : null;
 }
 
 /** A message's JSON, or null for one that is not JSON. */
@@ -114,21 +115,25 @@ class VideoLayer {
       if (from !== null && free.delete(`${player.id}@${from}`)) player.from = from;
       else lost.push(player);
     }
-    // A change that rewrote a link and wrote it back, such as a whole-text swap
-    // from the vault or an embed, keeps its player on it (#1540 review). A link
-    // the change did not write is another link, so a deleted one ends.
+    // A link that overlaps what the change left of the player's old link is
+    // that link rewritten: a whole-text swap, a vault write across it, or an
+    // insertion that starts inside it (#1541). Any other link is another link.
+    const before = lost.length > 0 ? embeddedVideos(update.startState) : null;
     for (const player of lost) {
-      const [start, end] = rewritten(update.changes, player.from) ?? [0, -1];
-      const link = [...free].find((key) => {
-        const at = Number(key.slice(player.id.length + 1));
-        return key.startsWith(`${player.id}@`) && start <= at && at < end;
-      });
+      const to = before?.get(`${player.id}@${player.from}`);
+      const [start, end] = (to !== undefined && remains(update.changes, player.from, to)) || [0, 0];
+      const link = [...free].find(
+        ([key, linkEnd]) =>
+          key.startsWith(`${player.id}@`) &&
+          Number(key.slice(player.id.length + 1)) < end &&
+          linkEnd > start,
+      );
       if (link === undefined) {
         this.end(player);
         continue;
       }
-      free.delete(link);
-      player.from = Number(link.slice(player.id.length + 1));
+      free.delete(link[0]);
+      player.from = Number(link[0].slice(player.id.length + 1));
     }
   }
 
