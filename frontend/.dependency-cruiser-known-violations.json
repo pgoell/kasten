@@ -429,7 +429,7 @@
   },
   {
     "type": "dependency",
-    "from": "src/lib/math.ts",
+    "from": "src/lib/markdown/math.ts",
     "to": "node_modules/katex/dist/katex.js",
     "unresolvedTo": "katex",
     "dependencyTypes": ["npm", "dynamic-import"],
@@ -440,7 +440,7 @@
   },
   {
     "type": "dependency",
-    "from": "src/lib/math.ts",
+    "from": "src/lib/markdown/math.ts",
     "to": "node_modules/katex/dist/katex.min.css",
     "unresolvedTo": "katex/dist/katex.min.css",
     "dependencyTypes": ["npm", "dynamic-import"],

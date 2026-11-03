@@ -1,7 +1,7 @@
 import { GFM, parser } from "@lezer/markdown";
-import { Highlight } from "@/lib/markdown-highlight";
-import { MathSyntax } from "@/lib/math";
-import { Tag } from "@/lib/tag";
+import { Highlight } from "@/lib/markdown/markdown-highlight";
+import { MathSyntax } from "@/lib/markdown/math";
+import { Tag } from "@/lib/markdown/tag";
 import { WikiLink } from "@/lib/wikilink";
 
 const notes = parser.configure([GFM, Highlight, MathSyntax, Tag, WikiLink]);

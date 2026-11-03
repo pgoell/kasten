@@ -1,6 +1,6 @@
 import type { Extension, Text } from "@codemirror/state";
 import { EditorView, ViewPlugin, type ViewUpdate } from "@codemirror/view";
-import { noteLanguage } from "@/lib/note-language";
+import { noteLanguage } from "@/lib/markdown/note-language";
 
 /** One heading of the note: its level, its words, where it starts and the line it is on. */
 export interface OutlineHeading {

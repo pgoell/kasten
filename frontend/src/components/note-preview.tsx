@@ -12,7 +12,7 @@ import { useEffect, useRef } from "react";
 import { kastenTheme } from "@/lib/editor/editor-theme";
 import { renderedMarkdown } from "@/lib/live/live-preview";
 import { opensFor } from "@/lib/live/live-preview-callouts";
-import { noteLanguage } from "@/lib/note-language";
+import { noteLanguage } from "@/lib/markdown/note-language";
 
 interface NotePreviewProps {
   /** The text to show. Read on mount; pass a `key` to show another note. */

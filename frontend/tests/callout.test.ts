@@ -1,4 +1,4 @@
-import { parseCallout } from "@/lib/callout";
+import { parseCallout } from "@/lib/markdown/callout";
 
 describe("parseCallout", () => {
   const NAMES = [

@@ -16,7 +16,7 @@ import { vimKeys } from "@/lib/editor/vim-mode";
 import { imagePaths } from "@/lib/image";
 import { livePreview } from "@/lib/live/live-preview";
 import { drawMermaid } from "@/lib/live/mermaid";
-import { noteLanguage } from "@/lib/note-language";
+import { noteLanguage } from "@/lib/markdown/note-language";
 import { startTheme, toggleTheme } from "@/lib/theme";
 import { vaultPaths } from "@/lib/wikilink";
 import { stubMatchMedia } from "./match-media";

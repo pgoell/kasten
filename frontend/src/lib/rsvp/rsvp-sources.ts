@@ -5,12 +5,12 @@
 
 import type { SyntaxNode } from "@lezer/common";
 import { GFM, parser } from "@lezer/markdown";
-import { parseCallout } from "@/lib/callout";
-import { Highlight } from "@/lib/markdown-highlight";
-import { MathSyntax } from "@/lib/math";
+import { parseCallout } from "@/lib/markdown/callout";
+import { Highlight } from "@/lib/markdown/markdown-highlight";
+import { MathSyntax } from "@/lib/markdown/math";
+import { Tag } from "@/lib/markdown/tag";
 import { noteBody } from "@/lib/note-frontmatter";
 import { type Run, type Word, wordsOf } from "@/lib/rsvp/rsvp";
-import { Tag } from "@/lib/tag";
 import { WikiLink } from "@/lib/wikilink";
 
 /** The note's own parse, as `copy-as.ts` configures it, so the two read a note alike. */

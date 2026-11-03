@@ -8,7 +8,7 @@ import { vimKeys } from "@/lib/editor/vim-mode";
 import { type EmbedSource, embedSource } from "@/lib/embed";
 import { imagePaths } from "@/lib/image";
 import { livePreview } from "@/lib/live/live-preview";
-import { noteLanguage } from "@/lib/note-language";
+import { noteLanguage } from "@/lib/markdown/note-language";
 import { vaultPaths } from "@/lib/wikilink";
 
 /**

@@ -16,7 +16,7 @@ docs/reference/save-path-orderings 16
 frontend 21
 frontend/src 8
 frontend/src/components 133
-frontend/src/lib 107
+frontend/src/lib 101
 frontend/src/lib/book 18
 frontend/src/lib/editor 17
 frontend/src/lib/finance 11

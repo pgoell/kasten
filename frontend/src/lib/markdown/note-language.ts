@@ -1,10 +1,10 @@
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import type { LanguageSupport } from "@codemirror/language";
 import { languages } from "@codemirror/language-data";
-import { frontmatter } from "@/lib/frontmatter-language";
-import { Highlight } from "@/lib/markdown-highlight";
-import { MathSyntax } from "@/lib/math";
-import { Tag } from "@/lib/tag";
+import { frontmatter } from "@/lib/markdown/frontmatter-language";
+import { Highlight } from "@/lib/markdown/markdown-highlight";
+import { MathSyntax } from "@/lib/markdown/math";
+import { Tag } from "@/lib/markdown/tag";
 import { WikiLink } from "@/lib/wikilink";
 
 /**

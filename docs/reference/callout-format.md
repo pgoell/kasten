@@ -2,7 +2,7 @@
 type: Reference
 title: Callout format
 description: The line a callout opens with, the thirteen types and their aliases, the title, the fold sign, nesting, where a callout is drawn as a box, and when its source shows.
-resource: frontend/src/lib/callout.ts
+resource: frontend/src/lib/markdown/callout.ts
 tags: [vault, format, frontend, editor]
 status: stable
 ---

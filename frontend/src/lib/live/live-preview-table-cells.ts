@@ -1,6 +1,5 @@
 import type { EditorState } from "@codemirror/state";
 import type { SyntaxNode } from "@lezer/common";
-import { linkAddress, urlLinkAt } from "@/lib/link-reference";
 import {
   drawnImage,
   embeddedPicture,
@@ -8,6 +7,7 @@ import {
   spacedAddress,
 } from "@/lib/live/live-preview-images";
 import { INLINE } from "@/lib/live/live-preview-inline";
+import { linkAddress, urlLinkAt } from "@/lib/markdown/link-reference";
 import { splitTarget, vaultPaths, wikiLinkLands } from "@/lib/wikilink";
 
 /** A run of a cell's text drawn as one element. */

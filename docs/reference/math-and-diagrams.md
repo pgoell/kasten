@@ -2,7 +2,7 @@
 type: Reference
 title: Math and diagrams
 description: The math, mermaid and inline svg syntax live preview draws, the dollar rules, what ends a math block, when the source shows, what an error looks like, where they draw and where they stay source, the limits on a diagram, and what an inline svg keeps.
-resource: frontend/src/lib/math.ts
+resource: frontend/src/lib/markdown/math.ts
 tags: [vault, format, frontend, editor]
 status: stable
 ---

@@ -10,12 +10,12 @@ import { Editor } from "@/components/editor";
 import { NotePreview } from "@/components/note-preview";
 import { kastenTheme } from "@/lib/editor/editor-theme";
 import { renderedMarkdown } from "@/lib/live/live-preview";
-import { loadKatex } from "@/lib/math";
-import { noteLanguage } from "@/lib/note-language";
+import { loadKatex } from "@/lib/markdown/math";
+import { noteLanguage } from "@/lib/markdown/note-language";
 
 // Spied rather than replaced, so KaTeX still draws and a test can also ask
 // whether it was loaded at all.
-vi.mock("@/lib/math", { spy: true });
+vi.mock("@/lib/markdown/math", { spy: true });
 
 function content(container: HTMLElement): string {
   return (container.querySelector(".cm-content") as HTMLElement).textContent ?? "";

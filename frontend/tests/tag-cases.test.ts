@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { noteLanguage } from "@/lib/note-language";
+import { noteLanguage } from "@/lib/markdown/note-language";
 import { cardTags, deckName, deckTags, withoutTags } from "@/lib/review/deck-tag";
 import { parseCards } from "@/lib/review/srs";
 import cases from "@/lib/tag-cases.json";

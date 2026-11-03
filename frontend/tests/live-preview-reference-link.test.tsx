@@ -6,7 +6,7 @@ import { vim } from "@replit/codemirror-vim";
 import { act, fireEvent, waitFor } from "@testing-library/react";
 import { imagePaths } from "@/lib/image";
 import { livePreview } from "@/lib/live/live-preview";
-import { noteLanguage } from "@/lib/note-language";
+import { noteLanguage } from "@/lib/markdown/note-language";
 import { vaultPaths } from "@/lib/wikilink";
 import { liveHooks, mount, mounted, plain } from "./live-preview-fixture";
 

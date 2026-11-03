@@ -3,7 +3,7 @@ import type { ChangeSpec, EditorState, Line, SelectionRange, Text } from "@codem
 import type { EditorView } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
 import { alignTable, tableAt } from "@/lib/editor/table";
-import { belowFrontmatter } from "@/lib/frontmatter-language";
+import { belowFrontmatter } from "@/lib/markdown/frontmatter-language";
 
 export interface MarkSpec {
   open: string;

@@ -10,7 +10,7 @@ import {
   resolveFrom,
   type UrlLink,
   urlLinkAt,
-} from "@/lib/link-reference";
+} from "@/lib/markdown/link-reference";
 import { noteSectionOf } from "@/lib/note-section";
 import { NOTE, repeats, watchPresses } from "@/lib/presses";
 import { notePath } from "@/lib/todo/todo-commands";

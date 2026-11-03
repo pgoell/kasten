@@ -14,7 +14,7 @@ import {
   type ViewUpdate,
 } from "@codemirror/view";
 import { followHandler } from "@/lib/editor/editor-follow";
-import { belowFrontmatter } from "@/lib/frontmatter-language";
+import { belowFrontmatter } from "@/lib/markdown/frontmatter-language";
 import { type Outline, outlinePlugin, proseLines, tagText } from "@/lib/note/note-outline";
 import { noteBody, readField } from "@/lib/note-frontmatter";
 import { noteName } from "@/lib/note-path";

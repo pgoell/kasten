@@ -1,8 +1,8 @@
 import { type EditorState, Facet } from "@codemirror/state";
 import { Decoration, type EditorView, WidgetType } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
-import { linkAddress } from "@/lib/link-reference";
 import { HIDDEN, type Walk } from "@/lib/live/live-preview-hidden";
+import { linkAddress } from "@/lib/markdown/link-reference";
 import { noteVideos, videoId } from "@/lib/video/video";
 import { parseTime } from "@/lib/video/video-notes";
 

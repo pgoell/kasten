@@ -7,8 +7,8 @@ import { EMBED_DEPTH, type EmbedSource, embedDepth, embedSource } from "@/lib/em
 import { imagePaths } from "@/lib/image";
 import { HIDDEN, type Walk } from "@/lib/live/live-preview-hidden";
 import { embeddedPicture, Picture } from "@/lib/live/live-preview-images";
+import { noteLanguage } from "@/lib/markdown/note-language";
 import { noteBody } from "@/lib/note-frontmatter";
-import { noteLanguage } from "@/lib/note-language";
 import { encodePath } from "@/lib/note-path";
 import { noteSectionOf } from "@/lib/note-section";
 import { pdfPage, resolveIn, splitTarget, vaultPaths, wikiLinkPath } from "@/lib/wikilink";
