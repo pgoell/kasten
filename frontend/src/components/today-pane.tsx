@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { TryAgain } from "@/components/review-answer";
 import { fetchTodos, type TodoHit } from "@/lib/api";
 import { readClock } from "@/lib/clock";
-import { noteName } from "@/lib/note-path";
+import { noteName } from "@/lib/notes/links/note-path";
 import { useReviewLimits } from "@/lib/review/use-review-limits";
 import { useReviewWaiting } from "@/lib/review/use-review-waiting";
 import { useRecentNotes } from "@/lib/search/use-recent-notes";

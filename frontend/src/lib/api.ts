@@ -1,7 +1,7 @@
 import { client, postFile, reason, refused } from "@/lib/api-client";
 import type { components } from "@/lib/api-types";
 import { applyLayout, type Layout } from "@/lib/layout";
-import { noteBase } from "@/lib/note-base";
+import { noteBase } from "@/lib/notes/note-base";
 import { pressWrote } from "@/lib/todo/todo-press-echo";
 
 /** One note as the vault holds it: where it lives, and what is in it. */

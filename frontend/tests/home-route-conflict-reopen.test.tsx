@@ -3,7 +3,7 @@ import { fireEvent, screen } from "@testing-library/react";
 import { useMemo } from "react";
 import type { TodoHit } from "@/lib/api";
 import type { PdfRenderer } from "@/lib/book/pdf-view";
-import { noteBase } from "@/lib/note-base";
+import { noteBase } from "@/lib/notes/note-base";
 import { heldText, holdText } from "@/lib/saving/held-text";
 import type { TodoState } from "@/lib/todo/todo";
 import { defineFoliateFake } from "./foliate-fake";

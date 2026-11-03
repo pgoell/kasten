@@ -1,5 +1,5 @@
-import { noteBase } from "@/lib/note-base";
-import { dailyDate, periodicNote } from "@/lib/periodic";
+import { noteBase } from "@/lib/notes/note-base";
+import { dailyDate, periodicNote } from "@/lib/notes/text/periodic";
 import { toggleTimerInVault } from "@/lib/todo/todo-api";
 import { todoApiHooks } from "./todo-api-fixture";
 

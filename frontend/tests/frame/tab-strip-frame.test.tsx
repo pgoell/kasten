@@ -12,7 +12,7 @@ import { fireEvent, waitFor } from "@testing-library/react";
 import type {} from "@vitest/browser-playwright";
 import { cdp } from "vitest/browser";
 import { resetStripEntrance } from "@/components/tab-strip";
-import { noteName } from "@/lib/note-path";
+import { noteName } from "@/lib/notes/links/note-path";
 import { openInFocused } from "@/lib/panes/pane-contents";
 import { addTab, emptyLayout, goToTab, type Layout, splitFocused } from "@/lib/panes/panes";
 import { resetHeld } from "@/lib/saving/held-text";
@@ -124,7 +124,7 @@ it("A1 the strip is 40 px and sticky right under the top bar at 1440", async () 
       const bar = need(host.querySelector<HTMLElement>("header[data-top-bar]"), "top bar");
       const under = bar.getBoundingClientRect().bottom;
       if (size === DESKTOP) expect(under).toBe(56);
-      // The entrance slides the strip up from 6 px for 240 ms, so it is measured once that is done.
+      // The entrance slides the strip up from 6 px for 240 ms, so it is measured once done.
       await expect.poll(() => strip.getBoundingClientRect().top, PATIENCE).toBe(under);
 
       // The note scrolls under the strip, and the strip stays where it was.

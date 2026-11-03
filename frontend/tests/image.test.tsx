@@ -4,8 +4,8 @@ import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { Editor } from "@/components/editor";
-import { IMAGE_FOLDER, imageCompletions, imagePaths } from "@/lib/image";
 import { ARCHIVE, applyLayout, INBOX, type Layout, PERIODIC } from "@/lib/layout";
+import { IMAGE_FOLDER, imageCompletions, imagePaths } from "@/lib/notes/embeds/image";
 
 // The upload is the one thing here that leaves the browser. Standing in for the
 // module is the right level: what these tests own is which path the paste writes

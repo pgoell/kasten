@@ -18,7 +18,7 @@ import {
   wikiLinkLands,
   wikiLinkPath,
   wikiLinkTargets,
-} from "@/lib/wikilink";
+} from "@/lib/notes/links/wikilink";
 
 // The real parse, watched, so a test can see how long following may parse for.
 vi.mock("@codemirror/language", async (importOriginal) => {

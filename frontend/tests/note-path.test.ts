@@ -5,7 +5,7 @@ import {
   describeNotePath,
   importedNote,
   safeName,
-} from "@/lib/note-path";
+} from "@/lib/notes/links/note-path";
 
 const PATHS = ["daily/2026-08-05.md", "index.md", "projects/kasten/api-design.md"];
 

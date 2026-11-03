@@ -2,7 +2,7 @@ import { EditorView } from "@codemirror/view";
 import { act, render } from "@testing-library/react";
 import { Editor } from "@/components/editor";
 import { toggleVim } from "@/lib/editor/vim-setting";
-import { type EmbedSource, embedSource } from "@/lib/embed";
+import { type EmbedSource, embedSource } from "@/lib/notes/embeds/embed";
 
 describe("Editor embeds", () => {
   function source(container: HTMLElement) {

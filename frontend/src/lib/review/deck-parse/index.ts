@@ -4,7 +4,7 @@ import { frontmatter } from "@/lib/markdown/frontmatter-language";
 import { Highlight } from "@/lib/markdown/markdown-highlight";
 import { MathSyntax } from "@/lib/markdown/math";
 import { Tag } from "@/lib/markdown/tag";
-import { WikiLink } from "@/lib/wikilink";
+import { WikiLink } from "@/lib/notes/links/wikilink";
 
 /**
  * No inline parse of a paragraph lacking a deck tag or a `<!--`, which is most of a deck note (#669).

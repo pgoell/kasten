@@ -14,8 +14,8 @@ import {
   searchNotes,
   updateNote,
 } from "@/lib/api";
-import { noteBase } from "@/lib/note-base";
-import { periodicNote } from "@/lib/periodic";
+import { noteBase } from "@/lib/notes/note-base";
+import { periodicNote } from "@/lib/notes/text/periodic";
 import { isOpen, newId, parseTodo, type Todo, type TodoState } from "@/lib/todo/todo";
 import { agentPress } from "@/lib/todo/todo-agent";
 import { applyBlocked, type Closed, closedAmong } from "@/lib/todo/todo-blocked";

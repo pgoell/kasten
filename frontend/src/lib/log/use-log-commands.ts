@@ -10,9 +10,9 @@ import {
 } from "react";
 import { askOnCard, openFoodSearch } from "@/lib/log/log-card";
 import { drinkTarget, logDrinkInVault, logDrinkInView } from "@/lib/log/log-write";
+import { type Period, periodicNote } from "@/lib/notes/text/periodic";
 import { paneView } from "@/lib/pane-doc";
 import type { Pane } from "@/lib/panes/panes";
-import { type Period, periodicNote } from "@/lib/periodic";
 import { heldText } from "@/lib/saving/held-text";
 import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
 

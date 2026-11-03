@@ -3,15 +3,21 @@ import { Decoration, EditorView, WidgetType } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
 import { type PdfRenderer, pdfRenderer, showPdf } from "@/lib/book/pdf-view";
 import { kastenTheme } from "@/lib/editor/editor-theme";
-import { EMBED_DEPTH, type EmbedSource, embedDepth, embedSource } from "@/lib/embed";
-import { imagePaths } from "@/lib/image";
 import { HIDDEN, type Walk } from "@/lib/live/live-preview-hidden";
 import { embeddedPicture, Picture } from "@/lib/live/live-preview-images";
 import { noteLanguage } from "@/lib/markdown/note-language";
-import { noteBody } from "@/lib/note-frontmatter";
-import { encodePath } from "@/lib/note-path";
-import { noteSectionOf } from "@/lib/note-section";
-import { pdfPage, resolveIn, splitTarget, vaultPaths, wikiLinkPath } from "@/lib/wikilink";
+import { EMBED_DEPTH, type EmbedSource, embedDepth, embedSource } from "@/lib/notes/embeds/embed";
+import { imagePaths } from "@/lib/notes/embeds/image";
+import { encodePath } from "@/lib/notes/links/note-path";
+import {
+  pdfPage,
+  resolveIn,
+  splitTarget,
+  vaultPaths,
+  wikiLinkPath,
+} from "@/lib/notes/links/wikilink";
+import { noteBody } from "@/lib/notes/text/note-frontmatter";
+import { noteSectionOf } from "@/lib/notes/text/note-section";
 
 /** What a mounted embed has to let go of, keyed by its box. */
 interface Held {

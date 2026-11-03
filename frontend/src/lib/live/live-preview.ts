@@ -10,8 +10,6 @@ import {
 import { Decoration, type DecorationSet, EditorView } from "@codemirror/view";
 import type { SyntaxNode, SyntaxNodeRef } from "@lezer/common";
 import { setVimMode, vimKeys, vimModeField, vimModeState } from "@/lib/editor/vim-mode";
-import { embedSource } from "@/lib/embed";
-import { imagePaths } from "@/lib/image";
 import { Callouts, foldClicks, folds, toggleFold } from "@/lib/live/live-preview-callouts";
 import { drawEmbed } from "@/lib/live/live-preview-embeds";
 import { drawFence, retheme, rethemes } from "@/lib/live/live-preview-fences";
@@ -36,8 +34,10 @@ import { drawSvg } from "@/lib/live/live-preview-svg";
 import { drawTable } from "@/lib/live/live-preview-tables";
 import { drawTime, linkedVideos } from "@/lib/live/live-preview-times";
 import { videoLayer } from "@/lib/live/live-preview-video";
+import { embedSource } from "@/lib/notes/embeds/embed";
+import { imagePaths } from "@/lib/notes/embeds/image";
+import { vaultPaths } from "@/lib/notes/links/wikilink";
 import { watchPresses } from "@/lib/ui/input/presses";
-import { vaultPaths } from "@/lib/wikilink";
 
 const HEADING = /^ATXHeading([1-6])$/;
 

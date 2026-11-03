@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchCards } from "@/lib/api";
-import { noteName } from "@/lib/note-path";
+import { noteName } from "@/lib/notes/links/note-path";
 import { readNotes, readRetry } from "@/lib/read-retry";
 import { clozePlain, unescaped } from "@/lib/review/card-line";
 import { setSuspended } from "@/lib/review/card-write";

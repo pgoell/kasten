@@ -2,13 +2,13 @@
  * What the vault says about one person, read off the lines that link them.
  *
  * No DOM and no queries: every promise the card makes is a rule about strings,
- * which is the reason the reading sits in `lib/person.ts` rather than in the
+ * which is the reason the reading sits in `lib/notes/links/person.ts` rather than in the
  * component drawing it. The one rule worth the whole module is the last group
  * here: a name in prose is not a link, and a card must not read it as one.
  */
 
 import type { SearchHit } from "@/lib/api";
-import { isPerson, meetings, personDone, personTodos } from "@/lib/person";
+import { isPerson, meetings, personDone, personTodos } from "@/lib/notes/links/person";
 
 const MAX = "03 Areas/08 People/Max Bosch.md";
 const OTHER = "03 Areas/08 People/Max Degenkolbe.md";

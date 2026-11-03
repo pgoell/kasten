@@ -4,11 +4,11 @@
  */
 
 import { shiftDay } from "@/lib/clock";
-import { bodyFences } from "@/lib/note-section";
+import { plainLinks } from "@/lib/notes/links/wikilink";
+import { bodyFences } from "@/lib/notes/text/note-section";
 import { isOpen, parseTodo, type Todo } from "@/lib/todo/todo";
 // The type alone, so this module loads nothing from todo-blocked.
 import type { Closed } from "@/lib/todo/todo-blocked";
-import { plainLinks } from "@/lib/wikilink";
 
 export type Section = "overdue" | "today" | "week" | "later" | "none";
 

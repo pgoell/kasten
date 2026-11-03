@@ -3,9 +3,9 @@
  * The open buffer is read, so a tap shows in the totals at once. `log-cases.json` holds it to the backend parser in `log.py`.
  */
 
-import { closing } from "@/lib/note-frontmatter";
-import { fencedLines } from "@/lib/note-section";
-import { masked } from "@/lib/tag-rule";
+import { closing } from "@/lib/notes/text/note-frontmatter";
+import { fencedLines } from "@/lib/notes/text/note-section";
+import { masked } from "@/lib/notes/text/tag-rule";
 
 export type DrinkKind = "water" | "coffee" | "alcohol";
 

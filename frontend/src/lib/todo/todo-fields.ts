@@ -3,7 +3,7 @@
  * `todo.ts` owns the line and its state; this owns what the words after the box say.
  */
 
-import { masked, SPANS, wordTags } from "@/lib/tag-rule";
+import { masked, SPANS, wordTags } from "@/lib/notes/text/tag-rule";
 
 export type TodoPriority = "highest" | "high" | "medium" | "low" | "lowest";
 

@@ -2,7 +2,7 @@ import { fireEvent } from "@testing-library/react";
 import { useMemo } from "react";
 import type { TodoHit } from "@/lib/api";
 import type { PdfRenderer } from "@/lib/book/pdf-view";
-import { noteBase } from "@/lib/note-base";
+import { noteBase } from "@/lib/notes/note-base";
 import type { TodoState } from "@/lib/todo/todo";
 import { defineFoliateFake, lastView } from "./foliate-fake";
 import { act, clicked, pageHooks, renderApp, settle, theRoute } from "./home-route-fixture";

@@ -1,4 +1,4 @@
-import { periodicNote, weeklyWeek, yearlyYear } from "@/lib/periodic";
+import { periodicNote, weeklyWeek, yearlyYear } from "@/lib/notes/text/periodic";
 
 const YEARLY = "01 Periodic/04 Yearly";
 const WEEKLY = "01 Periodic/01 Weekly";

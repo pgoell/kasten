@@ -1,4 +1,4 @@
-import { plainLinks, wikiLinkPath, wikiLinkTargets } from "@/lib/wikilink";
+import { plainLinks, wikiLinkPath, wikiLinkTargets } from "@/lib/notes/links/wikilink";
 
 /**
  * The person note an assignee names, or null where it names none.

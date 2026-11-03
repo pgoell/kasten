@@ -21,10 +21,10 @@ import { createRoot, type Root } from "react-dom/client";
 import { cdp, page } from "vitest/browser";
 import { Editor } from "@/components/editor";
 import { vimKeys } from "@/lib/editor/vim-mode";
-import { imagePaths } from "@/lib/image";
 import { livePreview } from "@/lib/live/live-preview";
 import { noteLanguage } from "@/lib/markdown/note-language";
-import { vaultPaths } from "@/lib/wikilink";
+import { imagePaths } from "@/lib/notes/embeds/image";
+import { vaultPaths } from "@/lib/notes/links/wikilink";
 import "@/styles/app.css";
 
 const CAT = "https://example.com/cat.png";

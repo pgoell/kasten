@@ -17,7 +17,7 @@
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { noteName } from "@/lib/note-path";
+import { noteName } from "@/lib/notes/links/note-path";
 import { decksFrom } from "@/lib/review/review";
 import { parseCards } from "@/lib/review/srs";
 

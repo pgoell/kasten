@@ -4,8 +4,8 @@ import { useRef } from "react";
 import { usePdfTake } from "@/components/pdf-take";
 import { pdfQuote } from "@/lib/book/pdf-take";
 import { reset, waiting } from "@/lib/capture/outbox";
-import { noteBase } from "@/lib/note-base";
-import { periodicNote } from "@/lib/periodic";
+import { noteBase } from "@/lib/notes/note-base";
+import { periodicNote } from "@/lib/notes/text/periodic";
 import { stubMatchMedia } from "./match-media";
 
 const { fetchNote, saveNote, updateNote, searchNotes } = vi.hoisted(() => ({

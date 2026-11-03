@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
-import { soundsIn } from "@/lib/audio";
+import { soundsIn } from "@/lib/notes/embeds/audio";
 import type { Card } from "@/lib/review/srs";
 
 /**

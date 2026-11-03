@@ -2,16 +2,16 @@ import { syntaxTree } from "@codemirror/language";
 import type { EditorState, Text } from "@codemirror/state";
 import { Decoration, type EditorView, WidgetType } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
-import { isAudio } from "@/lib/audio";
-import { imagePaths, imageSource } from "@/lib/image";
 import { HIDDEN, type Walk } from "@/lib/live/live-preview-hidden";
 import { plainBrackets } from "@/lib/live/live-preview-inline";
 import { hidePlaceholder, showPlaceholder } from "@/lib/live/live-preview-video";
 import { linkAddress, unescaped, urlLinkAt } from "@/lib/markdown/link-reference";
-import { encodePath } from "@/lib/note-path";
+import { isAudio } from "@/lib/notes/embeds/audio";
+import { imagePaths, imageSource } from "@/lib/notes/embeds/image";
+import { encodePath } from "@/lib/notes/links/note-path";
+import { resolveIn } from "@/lib/notes/links/wikilink";
 import { repeats } from "@/lib/ui/input/presses";
 import { playerUrl, videoId, watchedAt } from "@/lib/video/video";
-import { resolveIn } from "@/lib/wikilink";
 
 /**
  * The picture an `![](path)` names, drawn in place of the text naming it.

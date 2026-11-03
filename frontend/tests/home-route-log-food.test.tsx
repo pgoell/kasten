@@ -1,8 +1,8 @@
 import { EditorView } from "@codemirror/view";
 import { cleanup, fireEvent, screen } from "@testing-library/react";
 import { NoteMissing } from "@/lib/api";
-import { noteBase } from "@/lib/note-base";
-import { periodicNote } from "@/lib/periodic";
+import { noteBase } from "@/lib/notes/note-base";
+import { periodicNote } from "@/lib/notes/text/periodic";
 import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
 import {

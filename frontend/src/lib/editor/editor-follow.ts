@@ -10,11 +10,11 @@ import {
   type UrlLink,
   urlLinkAt,
 } from "@/lib/markdown/link-reference";
-import { noteSectionOf } from "@/lib/note-section";
+import { splitTarget, wikiLinkAt } from "@/lib/notes/links/wikilink";
+import { noteSectionOf } from "@/lib/notes/text/note-section";
 import { highlightAt, mayBeHighlightLine } from "@/lib/takes/highlight";
 import { notePath } from "@/lib/todo/todo-commands";
 import { NOTE, repeats, watchPresses } from "@/lib/ui/input/presses";
-import { splitTarget, wikiLinkAt } from "@/lib/wikilink";
 
 /**
  * A file a markdown link names, its path decoded and its `#` part as written.

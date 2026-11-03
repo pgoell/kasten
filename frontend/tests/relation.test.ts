@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readRelation } from "@/lib/relation";
+import { readRelation } from "@/lib/notes/links/relation";
 
 describe("readRelation", () => {
   it("reads a relation at the left margin", () => {

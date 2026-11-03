@@ -29,7 +29,7 @@ against what has been typed, which is the same fuzzy match [the note
 finder](/reference/editor-keys/finding.md#the-note-finder) does by hand and one this does not have to repeat.
 
 `[[wikilinks]]` are not part of any markdown flavour kasten loads, so
-`frontend/src/lib/wikilink.ts` adds them to the parser, the way
+`frontend/src/lib/notes/links/wikilink.ts` adds them to the parser, the way
 `markdown-highlight.ts` adds `==highlight==`. What sits between the brackets is
 a note's name rather than prose, so nothing in it is parsed as markdown, and a
 link that runs past the end of its line is not a link.

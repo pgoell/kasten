@@ -12,11 +12,11 @@ import { page, userEvent } from "vitest/browser";
 import { NotePreview } from "@/components/note-preview";
 import { kastenTheme } from "@/lib/editor/editor-theme";
 import { vimKeys } from "@/lib/editor/vim-mode";
-import { imagePaths } from "@/lib/image";
 import { livePreview, renderedMarkdown } from "@/lib/live/live-preview";
 import { noteLanguage } from "@/lib/markdown/note-language";
+import { imagePaths } from "@/lib/notes/embeds/image";
+import { vaultPaths } from "@/lib/notes/links/wikilink";
 import { applyTheme, THEME_KEY } from "@/lib/ui/theme";
-import { vaultPaths } from "@/lib/wikilink";
 import "@/styles/app.css";
 import { shot } from "./shots";
 

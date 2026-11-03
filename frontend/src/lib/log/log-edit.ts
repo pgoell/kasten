@@ -6,7 +6,7 @@
 import { GRAMS_END } from "@/lib/log/food-search";
 import { kindLine, type LogKind } from "@/lib/log/log-kinds";
 import { amountLine, foodLine, parseFood, tenth } from "@/lib/log/log-lines";
-import { periodicNote } from "@/lib/periodic";
+import { periodicNote } from "@/lib/notes/text/periodic";
 
 /** A line of a note, counted from one as `GET /api/log` counts it. */
 export interface LineAt {

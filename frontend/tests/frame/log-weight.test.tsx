@@ -16,7 +16,7 @@ import { commands, page } from "vitest/browser";
 import { shiftDay } from "@/lib/clock";
 import type { LogDay } from "@/lib/log/food-api";
 import { logCard } from "@/lib/log/log-card";
-import { periodicNote } from "@/lib/periodic";
+import { periodicNote } from "@/lib/notes/text/periodic";
 import { notePath } from "@/lib/todo/todo-commands";
 import { routeTree } from "@/routeTree.gen";
 import { COARSE, NARROW, stubMatchMedia } from "../match-media";

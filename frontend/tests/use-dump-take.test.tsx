@@ -4,8 +4,8 @@ import { type Taking, useDumpTake } from "@/components/use-dump-take";
 import { pdfLink } from "@/lib/book/pdf-take";
 import { reset, waiting } from "@/lib/capture/outbox";
 import { readClock } from "@/lib/clock";
-import { noteBase } from "@/lib/note-base";
-import { periodicNote } from "@/lib/periodic";
+import { noteBase } from "@/lib/notes/note-base";
+import { periodicNote } from "@/lib/notes/text/periodic";
 import { quoteBlock } from "@/lib/takes/html-take";
 
 const { fetchNote, saveNote, updateNote, searchNotes } = vi.hoisted(() => ({

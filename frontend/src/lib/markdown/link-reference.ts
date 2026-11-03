@@ -4,7 +4,7 @@
  */
 
 import type { SyntaxNode, Tree } from "@lezer/common";
-import { namesAFile } from "@/lib/wikilink";
+import { namesAFile } from "@/lib/notes/links/wikilink";
 
 /** The text a tree was parsed from: a CodeMirror `Text`, or `sourceOf` a string. */
 export interface Source {

@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import type { SearchHit, TodoHit } from "@/lib/api";
 import { shiftDay } from "@/lib/clock";
-import { dailyDate } from "@/lib/periodic";
+import { dailyDate } from "@/lib/notes/text/periodic";
 import { rankLines } from "@/lib/search/fuzzy";
 import { isOpen, parseTodo, type Todo, type TodoState } from "@/lib/todo/todo";
 import { type Closed, closedAmong } from "@/lib/todo/todo-blocked";

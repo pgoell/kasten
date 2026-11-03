@@ -1,4 +1,4 @@
-import { noteBase } from "@/lib/note-base";
+import { noteBase } from "@/lib/notes/note-base";
 import { heldText } from "@/lib/saving/held-text";
 import { eachPage, heldRows, idle, pendingSave, renderAutosave } from "./autosave-fixture";
 

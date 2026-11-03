@@ -1,4 +1,4 @@
-import { readField, setField } from "@/lib/note-frontmatter";
+import { readField, setField } from "@/lib/notes/text/note-frontmatter";
 import { readVideoSettings } from "@/lib/video/video-settings";
 
 /**

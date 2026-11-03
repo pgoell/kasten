@@ -1,4 +1,4 @@
-import { noteBase } from "@/lib/note-base";
+import { noteBase } from "@/lib/notes/note-base";
 import { heldText, heldTexts, landedAs } from "@/lib/saving/held-text";
 import {
   eachPage,

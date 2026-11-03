@@ -1,5 +1,5 @@
 import { ChangedOnDisk, fetchNote, saveNote, updateNote } from "@/lib/api";
-import { noteBase } from "@/lib/note-base";
+import { noteBase } from "@/lib/notes/note-base";
 import { updateWithTries } from "./stand-in";
 
 // Stubbed before `api.ts` loads, because `openapi-fetch` takes `fetch` and

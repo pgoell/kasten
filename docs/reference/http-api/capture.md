@@ -392,10 +392,11 @@ is why this is a route rather than a read and a `PUT` from the client: a phone
 and an editor autosaving the same note could otherwise interleave, and one of
 the two paragraphs would vanish.
 
-The daily template has two copies. `frontend/src/lib/periodic.ts` builds it for
-the periodic keys and the todo prompt, and `backend/src/kasten_backend/periodic.py`
-builds it here. Both suites read `frontend/tests/fixtures/daily-notes.json`, so
-editing one copy and not the other fails a test.
+The daily template has two copies: `frontend/src/lib/notes/text/periodic.ts`
+builds it for the periodic keys and the todo prompt, and
+`backend/src/kasten_backend/periodic.py` here. Both suites read
+`frontend/tests/fixtures/daily-notes.json`, so editing one copy and not the
+other fails a test.
 
 ### What a capture refuses
 

@@ -8,7 +8,7 @@
 import "./html-take-api";
 import { vi } from "vitest";
 import { commands as browser, page, userEvent } from "vitest/browser";
-import { periodicNote } from "@/lib/periodic";
+import { periodicNote } from "@/lib/notes/text/periodic";
 import { takenQuote } from "@/lib/takes/html-take";
 import {
   api,

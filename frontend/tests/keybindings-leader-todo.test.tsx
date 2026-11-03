@@ -1,7 +1,7 @@
 import { undoDepth } from "@codemirror/commands";
 import { EditorView } from "@codemirror/view";
 import { fireEvent } from "@testing-library/react";
-import { periodicNote } from "@/lib/periodic";
+import { periodicNote } from "@/lib/notes/text/periodic";
 import { NOW, open, pinClock, stubCommands, TODAY } from "./keybindings-fixture";
 
 describe("the leader key", () => {

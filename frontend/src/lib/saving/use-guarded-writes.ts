@@ -8,9 +8,9 @@ import {
   useState,
 } from "react";
 import { type BookBeside, ChangedOnDisk, type Mention, saveNote, updateNote } from "@/lib/api";
-import { noteBase } from "@/lib/note-base";
-import { readField, setField } from "@/lib/note-frontmatter";
-import { bookType } from "@/lib/note-path";
+import { bookType } from "@/lib/notes/links/note-path";
+import { noteBase } from "@/lib/notes/note-base";
+import { readField, setField } from "@/lib/notes/text/note-frontmatter";
 import { heldText } from "@/lib/saving/held-text";
 import { linkMention, mentionLinkText } from "@/lib/saving/mention-link";
 import { useBookmark } from "@/lib/saving/use-bookmark";

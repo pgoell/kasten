@@ -3,8 +3,8 @@
  * The log lines are read and written by `todo-time.ts`.
  */
 
-import { appendUnder } from "@/lib/note-section";
-import { dailyDate } from "@/lib/periodic";
+import { appendUnder } from "@/lib/notes/text/note-section";
+import { dailyDate } from "@/lib/notes/text/periodic";
 import { parseTodo, patchLine, type Todo } from "@/lib/todo/todo";
 import { withoutBlockId } from "@/lib/todo/todo-fields";
 import {

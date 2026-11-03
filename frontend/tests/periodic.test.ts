@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { dailyDate, periodicNote } from "@/lib/periodic";
+import { dailyDate, periodicNote } from "@/lib/notes/text/periodic";
 
 // Built from local parts rather than parsed from a string, because a bare ISO
 // date parses as UTC and a note is named for the day the reader is having.

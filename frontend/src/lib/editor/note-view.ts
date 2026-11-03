@@ -23,8 +23,6 @@ import { moveCell } from "@/lib/editor/table";
 import { tableLineup } from "@/lib/editor/table-lineup";
 import { tableSource } from "@/lib/editor/table-source";
 import { vimKeys } from "@/lib/editor/vim-mode";
-import { type EmbedSource, embedSource } from "@/lib/embed";
-import { imageCompletions, imagePaste, imagePaths, noticeHandler } from "@/lib/image";
 import { livePreview } from "@/lib/live/live-preview";
 import { timeSeek } from "@/lib/live/live-preview-times";
 import { logCard } from "@/lib/log/log-card";
@@ -32,14 +30,16 @@ import { noteLanguage } from "@/lib/markdown/note-language";
 import { tagCompletions, vaultTags } from "@/lib/markdown/tag";
 import { graphHandler, noteHead, type Outline, readMode } from "@/lib/note/note-head";
 import { weatherCard } from "@/lib/note/weather-card";
-import { relationCompletions, vaultRelations } from "@/lib/ontology";
+import { type EmbedSource, embedSource } from "@/lib/notes/embeds/embed";
+import { imageCompletions, imagePaste, imagePaths, noticeHandler } from "@/lib/notes/embeds/image";
+import { relationCompletions, vaultRelations } from "@/lib/notes/links/ontology";
+import { vaultPaths, wikiLinkCompletions } from "@/lib/notes/links/wikilink";
 import { periodicReview, type ReviewSource, reviewSource } from "@/lib/review/periodic-review";
 import { type CycleHandler, idElsewhere, notePath, todoCycled } from "@/lib/todo/todo-commands";
 import { todoCompletions } from "@/lib/todo/todo-suggest";
 import { keyboardUnasked } from "@/lib/ui/input/last-input";
 import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
 import { slashCompletions } from "@/lib/ui/palette";
-import { vaultPaths, wikiLinkCompletions } from "@/lib/wikilink";
 
 /**
  * The callbacks a view calls, held where the view reads them at the moment it calls one.

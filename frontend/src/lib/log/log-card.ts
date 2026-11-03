@@ -70,8 +70,8 @@ import {
 } from "@/lib/log/log-kinds";
 import { type DrinkTotals, drinkTotals, LOG_HEADING, logLines } from "@/lib/log/log-lines";
 import { cardLine } from "@/lib/note/weather-card";
-import { appendUnderEdit } from "@/lib/note-section";
-import { dailyDate } from "@/lib/periodic";
+import { appendUnderEdit } from "@/lib/notes/text/note-section";
+import { dailyDate } from "@/lib/notes/text/periodic";
 import { notePath } from "@/lib/todo/todo-commands";
 
 /**

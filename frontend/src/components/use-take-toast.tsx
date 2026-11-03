@@ -1,6 +1,6 @@
 import { type ReactNode, useCallback, useLayoutEffect, useRef, useState } from "react";
 import { TakeToast } from "@/components/take-toast";
-import { noteName } from "@/lib/note-path";
+import { noteName } from "@/lib/notes/links/note-path";
 import { writePassage } from "@/lib/takes/page-highlight";
 import { type Undo, undoPassage } from "@/lib/takes/page-undo";
 

@@ -2,7 +2,7 @@ import { undo } from "@codemirror/commands";
 import { EditorView } from "@codemirror/view";
 import { act, fireEvent, render } from "@testing-library/react";
 import { Editor } from "@/components/editor";
-import cases from "@/lib/tag-cases.json";
+import cases from "@/lib/notes/text/tag-cases.json";
 import { stubCommands } from "./stub-commands";
 
 const PATH = "02 Projects/Kasten/Reader.md";

@@ -3,7 +3,7 @@
  * Nothing marks a note as an exam: one with no question headings reads as no exam at all.
  */
 
-import { noteBody } from "@/lib/note-frontmatter";
+import { noteBody } from "@/lib/notes/text/note-frontmatter";
 
 /** One option of one question: the letter you press, and what it says. */
 export interface Option {

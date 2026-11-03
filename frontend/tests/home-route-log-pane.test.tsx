@@ -2,8 +2,8 @@ import { cleanup, fireEvent, screen, within } from "@testing-library/react";
 import { NoteMissing } from "@/lib/api";
 import { ARCHIVE, applyLayout, IMAGE_FOLDER, INBOX, type Layout, PERIODIC } from "@/lib/layout";
 import type { LogDay } from "@/lib/log/food-api";
-import { noteBase } from "@/lib/note-base";
-import { periodicNote } from "@/lib/periodic";
+import { noteBase } from "@/lib/notes/note-base";
+import { periodicNote } from "@/lib/notes/text/periodic";
 import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
 import {

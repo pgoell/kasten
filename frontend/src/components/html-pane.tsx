@@ -7,7 +7,7 @@ import { readClock } from "@/lib/clock";
 import { type Story, shareLine, storyOf } from "@/lib/html/html-share";
 import { postLook } from "@/lib/html/page-look";
 import { pageData, pageText } from "@/lib/html/page-messages";
-import { encodePath } from "@/lib/note-path";
+import { encodePath } from "@/lib/notes/links/note-path";
 import { findQuote } from "@/lib/rsvp/rsvp";
 import { textWords } from "@/lib/rsvp/rsvp-sources";
 import { type RsvpAsk, useRsvpAsk } from "@/lib/rsvp/use-rsvp";

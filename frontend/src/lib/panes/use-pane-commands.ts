@@ -2,6 +2,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { type Dispatch, type RefObject, type SetStateAction, useCallback, useMemo } from "react";
 import type { PaneMoves } from "@/components/use-pane-moves";
 import { useLogCommands } from "@/lib/log/use-log-commands";
+import { isPerson } from "@/lib/notes/links/person";
+import type { Period } from "@/lib/notes/text/periodic";
 import { openBeside } from "@/lib/panes/pane-contents";
 import { heldKind, type KindField, PANE_KINDS } from "@/lib/panes/pane-kinds";
 import {
@@ -17,8 +19,6 @@ import {
   stepTab,
   toggleZoom,
 } from "@/lib/panes/panes";
-import type { Period } from "@/lib/periodic";
-import { isPerson } from "@/lib/person";
 import { askRsvp } from "@/lib/rsvp/use-rsvp";
 import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
 import { usePlayAsk } from "@/lib/video/use-video-player";

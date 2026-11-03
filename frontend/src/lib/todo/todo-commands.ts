@@ -1,9 +1,9 @@
 import { ChangeSet, Facet, type Line } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { readClock } from "@/lib/clock";
-import { noticeHandler } from "@/lib/image";
-import { appendUnderEdit, type Edit } from "@/lib/note-section";
-import { periodicNote } from "@/lib/periodic";
+import { noticeHandler } from "@/lib/notes/embeds/image";
+import { appendUnderEdit, type Edit } from "@/lib/notes/text/note-section";
+import { periodicNote } from "@/lib/notes/text/periodic";
 import { nameAt, newId, parseTodo, patchLine, type TodoState } from "@/lib/todo/todo";
 import { agentPress } from "@/lib/todo/todo-agent";
 import { type Closed, closedAmong } from "@/lib/todo/todo-blocked";

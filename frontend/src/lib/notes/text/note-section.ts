@@ -3,7 +3,7 @@
  * since where a section ends has nothing to do with what the line is.
  */
 
-import { noteBody } from "@/lib/note-frontmatter";
+import { noteBody } from "@/lib/notes/text/note-frontmatter";
 
 /** Any heading outside a fence, which is what ends the section above it. */
 const HEADING = /^#{1,6} /;

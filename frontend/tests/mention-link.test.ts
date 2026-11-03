@@ -1,6 +1,6 @@
 import type { Mention } from "@/lib/api";
+import { wikiLinkPath } from "@/lib/notes/links/wikilink";
 import { linkMention, mentionLinkText } from "@/lib/saving/mention-link";
-import { wikiLinkPath } from "@/lib/wikilink";
 
 /** A mention of `words` on `text`, at the `nth` place they occur. */
 function mention(text: string, words: string, line = 1, name = words, nth = 0): Mention {

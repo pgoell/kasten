@@ -1,4 +1,4 @@
-import { appendUnder, noteSectionOf, sectionOf } from "@/lib/note-section";
+import { appendUnder, noteSectionOf, sectionOf } from "@/lib/notes/text/note-section";
 
 /** Today's daily note as the vault holds it, log line and all. */
 const DAILY = [

@@ -3,9 +3,9 @@ import { Decoration, WidgetType } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
 import { HIDDEN, type Walk } from "@/lib/live/live-preview-hidden";
 import { linkAddress, unescaped } from "@/lib/markdown/link-reference";
-import { readRelation } from "@/lib/relation";
+import { readRelation } from "@/lib/notes/links/relation";
+import { splitTarget, vaultPaths, wikiLinkLands } from "@/lib/notes/links/wikilink";
 import { parseTodo } from "@/lib/todo/todo";
-import { splitTarget, vaultPaths, wikiLinkLands } from "@/lib/wikilink";
 
 /**
  * Inline constructs, by the node that wraps them.

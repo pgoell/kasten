@@ -1,6 +1,6 @@
 import type { Mention } from "@/lib/api";
-import { noteName } from "@/lib/note-path";
-import { wikiLinkPath } from "@/lib/wikilink";
+import { noteName } from "@/lib/notes/links/note-path";
+import { wikiLinkPath } from "@/lib/notes/links/wikilink";
 
 /**
  * The note with one unlinked mention turned into `linkText`, or null if its line has changed.

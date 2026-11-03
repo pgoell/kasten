@@ -7,8 +7,8 @@ import { followOnClick, followOnTap } from "@/lib/editor/editor-follow";
 import { vimKeys } from "@/lib/editor/vim-mode";
 import { livePreview } from "@/lib/live/live-preview";
 import { timeSeek } from "@/lib/live/live-preview-times";
+import { vaultPaths } from "@/lib/notes/links/wikilink";
 import { noteVideos } from "@/lib/video/video";
-import { vaultPaths } from "@/lib/wikilink";
 import { liveHooks, mount, parsed, plain } from "./live-preview-fixture";
 
 // The real reader, counted, so a test can say how often a rebuild reads the note.

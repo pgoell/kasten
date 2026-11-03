@@ -1,5 +1,5 @@
 import { createNote, fetchNote, fetchTodos, saveNote, searchNotes, updateNote } from "@/lib/api";
-import { noteBase } from "@/lib/note-base";
+import { noteBase } from "@/lib/notes/note-base";
 
 export function todoApiHooks() {
   beforeEach(() => {

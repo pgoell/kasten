@@ -20,7 +20,7 @@ import { commands, page } from "vitest/browser";
 import { shiftDay } from "@/lib/clock";
 import type { LogDay } from "@/lib/log/food-api";
 import { logCard } from "@/lib/log/log-card";
-import { periodicNote } from "@/lib/periodic";
+import { periodicNote } from "@/lib/notes/text/periodic";
 import { notePath } from "@/lib/todo/todo-commands";
 import { applyTheme, PALETTE_KEY, THEME_KEY, type Theme } from "@/lib/ui/theme";
 import { routeTree } from "@/routeTree.gen";

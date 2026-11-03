@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { fetchNote } from "@/lib/api";
 import { lineDiff } from "@/lib/history/diff";
 import { fetchHistory, fetchHistoryText, type HistoryChange } from "@/lib/history/history-api";
-import { noteName } from "@/lib/note-path";
+import { noteName } from "@/lib/notes/links/note-path";
 import { unstamped } from "@/lib/saving/held-text";
 import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
 import { useLeader } from "@/lib/ui/keys/use-leader";

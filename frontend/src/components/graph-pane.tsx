@@ -7,7 +7,7 @@ import { fetchGraph, type Graph } from "@/lib/graph/graph-api";
 import { drawGraph, type GraphCanvas } from "@/lib/graph/graph-canvas";
 import { type GraphMode, readGraphMode, writeGraphMode } from "@/lib/graph/graph-mode";
 import { tagCounts, withoutTags } from "@/lib/graph/graph-tags";
-import { noteName } from "@/lib/note-path";
+import { noteName } from "@/lib/notes/links/note-path";
 import { useViewport } from "@/lib/ui/input/use-viewport";
 import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
 import { heldModifier, leaderAction, leaderPrefix } from "@/lib/ui/keys/leader-keys";

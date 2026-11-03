@@ -2,7 +2,7 @@
 type: Reference
 title: Relation format
 description: The line a typed relation is written on, the nine rules of its grammar, how the backlinks panel groups by it, and the one thing it reads that it should not.
-resource: frontend/src/lib/relation.ts
+resource: frontend/src/lib/notes/links/relation.ts
 tags: [vault, links, format, frontend]
 status: stable
 ---

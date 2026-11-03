@@ -3,7 +3,7 @@
  * the one markdown form that loads a file in place. The editor plays it, and so does the review.
  */
 
-import { imageSource } from "@/lib/image";
+import { imageSource } from "@/lib/notes/embeds/image";
 
 /** The suffixes that make an `![](path)` a sound, held here for both readers. */
 export const AUDIO_SUFFIXES = [".mp3", ".ogg", ".m4a", ".wav"];

@@ -1,7 +1,7 @@
 import { EditorView } from "@codemirror/view";
 import type { LineHit, TodoHit } from "@/lib/api";
 import type { LogDay } from "@/lib/log/food-api";
-import { periodicNote } from "@/lib/periodic";
+import { periodicNote } from "@/lib/notes/text/periodic";
 import type { ModelUseLine } from "@/lib/review/review-api";
 import type { WrittenNote } from "@/lib/review/review-year";
 import { renderApp, settle } from "./home-route-fixture";

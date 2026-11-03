@@ -2,7 +2,7 @@
 type: Reference
 title: Editor keys, links and people
 description: The person card, wikilinks and the link panels, with the keys that follow them and how a link is read.
-resource: frontend/src/lib/wikilink.ts
+resource: frontend/src/lib/notes/links/wikilink.ts
 tags: [editor, keyboard, links, wikilinks, frontend]
 status: stable
 ---
@@ -186,7 +186,7 @@ marked dead where the vault listing has not arrived, so the finder's and
 search's preview panes draw every link as one that lands.
 
 `[[wikilinks]]` are not part of any markdown flavour kasten loads, so
-`frontend/src/lib/wikilink.ts` adds them to the parser, the way
+`frontend/src/lib/notes/links/wikilink.ts` adds them to the parser, the way
 `markdown-highlight.ts` adds `==highlight==`. What sits between the brackets is
 a note's name rather than prose, so nothing in it is parsed as markdown, and a
 link that runs past the end of its line is not a link.

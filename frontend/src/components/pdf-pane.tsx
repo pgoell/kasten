@@ -10,7 +10,7 @@ import {
   pdfjsRenderer,
   showPdf,
 } from "@/lib/book/pdf-view";
-import { encodePath } from "@/lib/note-path";
+import { encodePath } from "@/lib/notes/links/note-path";
 import { findQuote, firstOf, type Word } from "@/lib/rsvp/rsvp";
 import { pdfWords } from "@/lib/rsvp/rsvp-sources";
 import { type RsvpAsk, useRsvpAsk } from "@/lib/rsvp/use-rsvp";

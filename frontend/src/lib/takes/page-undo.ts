@@ -1,5 +1,5 @@
 import { ChangedOnDisk, fetchNote, saveNote } from "@/lib/api";
-import { noteBase } from "@/lib/note-base";
+import { noteBase } from "@/lib/notes/note-base";
 import { withoutTaken } from "@/lib/takes/html-take";
 
 /** What a take left in the daily note, which its Undo takes back. */

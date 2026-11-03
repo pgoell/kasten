@@ -3,10 +3,10 @@ import type { EditorView } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
 import { act } from "@testing-library/react";
 import { vimKeys } from "@/lib/editor/vim-mode";
-import { imagePaths } from "@/lib/image";
 import { livePreview } from "@/lib/live/live-preview";
+import { imagePaths } from "@/lib/notes/embeds/image";
+import { vaultPaths } from "@/lib/notes/links/wikilink";
 import { notePath } from "@/lib/todo/todo-commands";
-import { vaultPaths } from "@/lib/wikilink";
 import { ABOVE, liveHooks, mount, plain } from "./live-preview-fixture";
 
 liveHooks();

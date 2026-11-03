@@ -11,8 +11,8 @@ import {
   type QueryObserverResult,
 } from "@tanstack/react-query";
 import { fetchNote } from "@/lib/api";
-import { encodePath } from "@/lib/note-path";
-import { namesAFile } from "@/lib/wikilink";
+import { encodePath } from "@/lib/notes/links/note-path";
+import { namesAFile } from "@/lib/notes/links/wikilink";
 
 /** Hands an embed the text of its note, now and on every later change. */
 export interface EmbedSource {

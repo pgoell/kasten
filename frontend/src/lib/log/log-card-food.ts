@@ -9,7 +9,7 @@ import { hideFoodSheet, showFoodSheet } from "@/components/food-sheet";
 import { type FoodPanel, foodPanel } from "@/lib/log/food-search";
 import type { FoodGoals } from "@/lib/log/log-kinds";
 import type { DrinkTotals } from "@/lib/log/log-lines";
-import { dailyDate } from "@/lib/periodic";
+import { dailyDate } from "@/lib/notes/text/periodic";
 import { notePath } from "@/lib/todo/todo-commands";
 
 /** What the sheet asks of the card: a line to write, a close, and today's food for the preview. */

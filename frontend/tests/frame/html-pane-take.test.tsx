@@ -9,8 +9,8 @@
 import "./html-take-api";
 import { vi } from "vitest";
 import { commands as browser, page, userEvent } from "vitest/browser";
-import { noteName } from "@/lib/note-path";
-import { periodicNote } from "@/lib/periodic";
+import { noteName } from "@/lib/notes/links/note-path";
+import { periodicNote } from "@/lib/notes/text/periodic";
 import { takenQuote } from "@/lib/takes/html-take";
 import { toggleTheme } from "@/lib/ui/theme";
 import {
@@ -59,7 +59,7 @@ afterEach(async () => {
   vi.useRealTimers();
 });
 
-/** Drags from the second story's heading onto its first paragraph, as a reader does. */
+/** Drags from the second story's heading onto its first paragraph. */
 async function dragIntoSecondStory(frame: HTMLIFrameElement) {
   await userEvent.dragAndDrop(
     inFrame(frame).getByRole("heading", { name: "Second story" }),

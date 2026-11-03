@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { dayNote } from "@/lib/log/log-edit";
 import { useLogActions } from "@/lib/log/use-log-actions";
-import { noteBase } from "@/lib/note-base";
+import { noteBase } from "@/lib/notes/note-base";
 import { dropText, holdText, resetHeld } from "@/lib/saving/held-text";
 import { useNoteWrites } from "@/lib/saving/use-note-writes";
 

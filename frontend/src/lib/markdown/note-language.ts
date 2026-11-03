@@ -5,7 +5,7 @@ import { frontmatter } from "@/lib/markdown/frontmatter-language";
 import { Highlight } from "@/lib/markdown/markdown-highlight";
 import { MathSyntax } from "@/lib/markdown/math";
 import { Tag } from "@/lib/markdown/tag";
-import { WikiLink } from "@/lib/wikilink";
+import { WikiLink } from "@/lib/notes/links/wikilink";
 
 /**
  * Markdown under the vault's frontmatter. Shared with the finder's preview, so both parse alike.

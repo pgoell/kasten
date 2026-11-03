@@ -14,11 +14,11 @@ import { EditorView } from "@codemirror/view";
 import type {} from "@vitest/browser-playwright";
 import { cdp, page } from "vitest/browser";
 import { vimKeys } from "@/lib/editor/vim-mode";
-import { imagePaths } from "@/lib/image";
 import { livePreview } from "@/lib/live/live-preview";
 import { noteLanguage } from "@/lib/markdown/note-language";
+import { imagePaths } from "@/lib/notes/embeds/image";
+import { vaultPaths } from "@/lib/notes/links/wikilink";
 import { notePath } from "@/lib/todo/todo-commands";
-import { vaultPaths } from "@/lib/wikilink";
 import "@/styles/app.css";
 import { shot } from "./shots";
 

@@ -3,8 +3,8 @@
  * is an argument, since random text cannot be tested exactly.
  */
 
-import { encodePath } from "@/lib/note-path";
-import { appendUnder } from "@/lib/note-section";
+import { encodePath } from "@/lib/notes/links/note-path";
+import { appendUnder } from "@/lib/notes/text/note-section";
 import { unescapeParagraph } from "@/lib/takes/html-take";
 
 /** The heading a highlight lands under, made on first write. */

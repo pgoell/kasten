@@ -10,8 +10,8 @@ import { isScript, lendDefinitions, linkAddress, sourceOf } from "@/lib/markdown
 import { Highlight } from "@/lib/markdown/markdown-highlight";
 import { MathSyntax } from "@/lib/markdown/math";
 import { Tag } from "@/lib/markdown/tag";
-import { noteBody } from "@/lib/note-frontmatter";
-import { splitTarget, WikiLink } from "@/lib/wikilink";
+import { splitTarget, WikiLink } from "@/lib/notes/links/wikilink";
+import { noteBody } from "@/lib/notes/text/note-frontmatter";
 
 type Format = "slack" | "html";
 

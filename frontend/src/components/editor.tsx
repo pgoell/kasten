@@ -12,8 +12,8 @@ import {
   setVim,
 } from "@/lib/editor/note-view";
 import { useVim } from "@/lib/editor/vim-setting";
-import type { EmbedSource } from "@/lib/embed";
 import type { Outline } from "@/lib/note/note-head";
+import type { EmbedSource } from "@/lib/notes/embeds/embed";
 import type { ReviewSource } from "@/lib/review/periodic-review";
 import type { CycleHandler } from "@/lib/todo/todo-commands";
 import { keyboardUnasked } from "@/lib/ui/input/last-input";

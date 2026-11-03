@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from httpx import AsyncClient
 
 CASES = json.loads(
-    (Path(__file__).parents[2] / "frontend/src/lib/person-field-cases.json").read_text(
+    (Path(__file__).parents[2] / "frontend/src/lib/notes/links/person-field-cases.json").read_text(
         encoding="utf-8"
     )
 )

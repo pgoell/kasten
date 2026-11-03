@@ -4,7 +4,7 @@ import { pageWritten } from "@/lib/html/page-written";
 import { LOG_NOTE, MODEL_USE_FOLDER } from "@/lib/layout";
 import { reloadLogConfig } from "@/lib/log/log-card";
 import type { useAutosave } from "@/lib/note/use-autosave";
-import { dailyDate, weeklyWeek, yearlyYear } from "@/lib/periodic";
+import { dailyDate, weeklyWeek, yearlyYear } from "@/lib/notes/text/periodic";
 import { pressEcho } from "@/lib/todo/todo-press-echo";
 import { parseVaultEvent, type VaultEvent } from "@/lib/vault/events/vault-events";
 

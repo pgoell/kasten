@@ -10,9 +10,11 @@ import {
 } from "react";
 import { createNote, fetchNote, NoteExists, type SearchHit } from "@/lib/api";
 import type { FileTarget } from "@/lib/editor/editor-follow";
-import { queryEmbedSource } from "@/lib/embed";
-import { encodePath } from "@/lib/note-path";
-import { noteSectionOf } from "@/lib/note-section";
+import { queryEmbedSource } from "@/lib/notes/embeds/embed";
+import { encodePath } from "@/lib/notes/links/note-path";
+import { namesAFile, pdfPage, splitTarget, wikiLinkPath } from "@/lib/notes/links/wikilink";
+import { noteSectionOf } from "@/lib/notes/text/note-section";
+import { type Period, periodicNote } from "@/lib/notes/text/periodic";
 import {
   openBeside,
   openBookInFocused,
@@ -21,10 +23,8 @@ import {
   openPdfInFocused,
 } from "@/lib/panes/pane-contents";
 import { fillFocused, type Layout, tabPanes } from "@/lib/panes/panes";
-import { type Period, periodicNote } from "@/lib/periodic";
 import { bookNoteOf, fileKind } from "@/lib/vault/file-kind";
 import type { Listings } from "@/lib/vault/use-listings";
-import { namesAFile, pdfPage, splitTarget, wikiLinkPath } from "@/lib/wikilink";
 
 export type NoteOpening = ReturnType<typeof useNoteOpening>;
 

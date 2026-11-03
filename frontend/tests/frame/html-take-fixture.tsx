@@ -13,7 +13,7 @@ import { HtmlPane } from "@/components/html-pane";
 import { Toolbar } from "@/components/toolbar";
 import { WhichKey } from "@/components/which-key";
 import { reset } from "@/lib/capture/outbox";
-import { periodicNote } from "@/lib/periodic";
+import { periodicNote } from "@/lib/notes/text/periodic";
 import { PALETTE_KEY, THEME_KEY } from "@/lib/ui/theme";
 import "@/styles/app.css";
 import { stubCommands } from "../stub-commands";

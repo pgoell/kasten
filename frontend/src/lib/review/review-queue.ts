@@ -1,5 +1,5 @@
-import { noteBody } from "@/lib/note-frontmatter";
-import { noteName } from "@/lib/note-path";
+import { noteName } from "@/lib/notes/links/note-path";
+import { noteBody } from "@/lib/notes/text/note-frontmatter";
 import { clozeComment, SR } from "@/lib/review/card-line";
 import { inDeck } from "@/lib/review/deck-tag";
 import { type Deck, decksFrom, type Limits } from "@/lib/review/review";
