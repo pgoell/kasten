@@ -113,21 +113,24 @@
     };
   };
 
+  const holds = (range) =>
+    held !== null &&
+    held.compareBoundaryPoints(START_TO_START, range) === 0 &&
+    held.compareBoundaryPoints(END_TO_END, range) === 0;
+
   // An empty message is how the pane learns the selection went.
   const post = () => {
     const selection = getSelection();
     const text = selection.toString();
     if (text === "") {
+      // So the same passage selected again by keys posts again.
+      held = null;
       up.postMessage({ kasten: "selection", text: "", heading: "", anchor: "", rect: null }, "*");
       return;
     }
     const range = selection.getRangeAt(0);
     // A scroll posts the same passage again; it keeps its range, so a take of it still clears it.
-    const same =
-      held !== null &&
-      held.compareBoundaryPoints(START_TO_START, range) === 0 &&
-      held.compareBoundaryPoints(END_TO_END, range) === 0;
-    if (!same) held = range.cloneRange();
+    if (!holds(range)) held = range.cloneRange();
     count += 1;
     posted.set(count, held);
     posted.delete(count - KEPT);
@@ -146,9 +149,13 @@
   };
 
   window.addEventListener("mouseup", post);
-  // A keyboard-grown selection says it changed only on keyup.
+  // A keyboard-grown selection says it changed only on keyup, Shift perhaps let go
+  // first. A Mac drops the keyup of `a` held with Cmd, so Meta's own counts (#1298).
+  const KEYED = [...MOVES, "Shift", "Control", "Meta"];
   window.addEventListener("keyup", (event) => {
-    if (event.shiftKey && MOVES.includes(event.key)) post();
+    const all = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "a";
+    if (!all && !KEYED.includes(event.key)) return;
+    if (hasSelection() && !holds(getSelection().getRangeAt(0))) post();
   });
   // A touch selection has no mouseup; only pointerdown says it was touch.
   let touch = false;

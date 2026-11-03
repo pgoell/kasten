@@ -25,6 +25,14 @@ addEventListener("message", (event) => {
     document.body.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
     reply("selected");
   }
+  if (data.probe === "keySelect") {
+    select(data.range);
+    reply("selected");
+  }
+  if (data.probe === "shareMany") {
+    for (const anchor of data.anchors) parent.postMessage({ kasten: "share", heading: anchor, anchor, source: "" }, "*");
+    reply("sharedMany");
+  }
   if (data.probe === "touchSelect") {
     document.body.dispatchEvent(new PointerEvent("pointerdown", { pointerType: "touch", bubbles: true }));
     select(data.range);

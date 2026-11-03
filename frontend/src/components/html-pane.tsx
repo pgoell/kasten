@@ -167,8 +167,8 @@ export function HtmlPane({
     dumpForget();
   }, [hold, dumpForget]);
   // Read against the path last shown, so a pane that starts on the same page
-  // keeps what it holds. A new page is a new document, which `onLoad` hears of
-  // as well where a browser loads it.
+  // keeps what it holds. A new page is a new document, which its script's hello
+  // reports as well.
   const shown = useRef(path);
   useEffect(() => {
     if (shown.current === path) return;
@@ -191,6 +191,8 @@ export function HtmlPane({
   });
 
   const reload = usePageReload(path, frame, relayedTaken, forget);
+  /** The page's script said hello since the frame's last load. */
+  const greeted = useRef(false);
 
   useEffect(() => {
     if (focusSignal) panel.current?.focus();
@@ -293,8 +295,11 @@ export function HtmlPane({
       const focused = document.activeElement === frame.current;
       switch (data.kasten) {
         // The page cannot read the theme itself, its origin being opaque, so it
-        // asks as it loads. Answered whatever has the focus.
+        // asks as it loads. Answered whatever has the focus. A new document, such
+        // as a link followed in the page, drops what the old one held (#1295).
         case "hello":
+          greeted.current = true;
+          forget();
           postLook(frame.current);
           return;
         // The answer to `pageText`, whatever has the focus: the reader asked for it.
@@ -304,8 +309,7 @@ export function HtmlPane({
         case "selection":
           return onSelection(data);
         // A press on a story's Share later button. The page can post this itself,
-        // so it counts only while the reader has just pressed something, and the
-        // toast's Undo takes a forged one back.
+        // so it spends the reader's press (#1297), and the toast's Undo takes a forged one back.
         case "share":
           return onShare(data, focused);
         case "key":
@@ -338,6 +342,7 @@ export function HtmlPane({
       const story = storyOf(data);
       if (story === null || !focused) return;
       if (navigator.userActivation?.isActive === false) return;
+      spendActivation();
       void shareRef.current(story);
     }
 
@@ -359,7 +364,7 @@ export function HtmlPane({
 
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [startLeader, hold, pressing]);
+  }, [startLeader, hold, pressing, forget]);
 
   // A click into a frame moves the focus out of this document, which tells the
   // window it lost it and tells no element anything. By the time `blur` fires
@@ -448,9 +453,11 @@ export function HtmlPane({
           src={framed}
           title={path}
           // The page's script asks as it parses, which a listener set late in the page
-          // can miss, so the load posts the look too. Both are idempotent.
+          // can miss, so the load posts the look too. Both are idempotent. A page
+          // with no script of kasten's, such as a blocked link's, said no hello.
           onLoad={() => {
-            forget();
+            if (!greeted.current) forget();
+            greeted.current = false;
             postLook(frame.current);
             reload.loaded();
           }}
