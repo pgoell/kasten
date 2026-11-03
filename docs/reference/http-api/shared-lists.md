@@ -107,7 +107,7 @@ Takes `{"line": 4, "done": true, "sha": "3f9c1a0", "day": "2026-11-03"}` and
 answers the `List`. `day` is the date on the ticking device, which the lists app
 sends, and `<today>` below is that date: the server runs in UTC, so its own date
 is yesterday's for the first hour or two after midnight in Berlin. A tick without
-`day` takes the server's date. A `day` that is not `YYYY-MM-DD` answers `422`.
+`day` takes the server's date. A `day` that is no date answers `422`.
 
 Ticking to done writes `- [x] <text> ✅ <today>`, and a `🆔 kt-<6 hex>` after it
 unless the line reads an id already. The `✅` goes before the id it reads. A

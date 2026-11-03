@@ -12,7 +12,7 @@ const MAX_SUGGESTIONS = 5;
 
 export const listPath = (name: string) => `/lists/${encodeURIComponent(name)}`;
 
-/** The date on this device's clock, which a tick stamps: the server's runs in UTC (#1300). */
+/** The date on this device's clock, as a tick sends it (#1300). */
 export function localDay(now: Date): string {
   const pad = (value: number) => String(value).padStart(2, "0");
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;

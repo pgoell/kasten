@@ -370,8 +370,7 @@ async def tick(  # noqa: PLR0913  the route's body, field by field, and the tick
         if twin is not None:
             raise TickInKastenError(twin)
 
-    # One day for the stamp on the line and the daily note the log line goes in. The
-    # server runs in UTC, so its date is yesterday's after midnight in Berlin (#1300).
+    # One day for the stamp and the daily note: the ticker's, else the server's (#1300).
     today = day or date.today()
     if done:
         rest = _ticked(rest, today)
