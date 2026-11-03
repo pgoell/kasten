@@ -1,10 +1,10 @@
 import { waitFor } from "@testing-library/react";
 import { Editor } from "@/components/editor";
-import { loadKatex } from "@/lib/math";
+import { loadKatex } from "@/lib/markdown/math";
 import { finishParsing, renderStarved } from "./parsing";
 
 // Spied, so a test can wait on the load the formula asked for.
-vi.mock("@/lib/math", { spy: true });
+vi.mock("@/lib/markdown/math", { spy: true });
 
 /** Whether the next fetch of KaTeX fails, the way a chunk does while offline. */
 const network = vi.hoisted(() => ({ down: false }));

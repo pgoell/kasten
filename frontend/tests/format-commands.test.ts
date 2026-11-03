@@ -9,7 +9,7 @@ import {
   STRIKE,
   toggleMark,
 } from "@/lib/editor/format-commands";
-import { Highlight } from "@/lib/markdown-highlight";
+import { Highlight } from "@/lib/markdown/markdown-highlight";
 
 /** A view with the same markdown parser the editor uses, and nothing else. */
 function open(doc: string, anchor: number, head = anchor) {

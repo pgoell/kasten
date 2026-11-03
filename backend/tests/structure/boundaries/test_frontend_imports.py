@@ -158,12 +158,15 @@ def test_a_new_dynamic_import_fails(tmp_path: Path) -> None:
 
 def test_a_new_dynamic_import_beside_an_accepted_one_fails(tmp_path: Path) -> None:
     # math.ts already holds an accepted dynamic import (KaTeX), so only the new line can fail.
-    math = (FRONTEND / "src/lib/math.ts").read_text(encoding="utf-8")
+    math = (FRONTEND / "src/lib/markdown/math.ts").read_text(encoding="utf-8")
     result = probe(
         tmp_path,
-        {"src/lib/math.ts": math + '\nexport const later = () => import("@/lib/fuzzy");\n'},
+        {
+            "src/lib/markdown/math.ts": math
+            + '\nexport const later = () => import("@/lib/fuzzy");\n'
+        },
     )
-    assert_fails(result, "no-dynamic-import", "src/lib/math.ts → src/lib/fuzzy.ts")
+    assert_fails(result, "no-dynamic-import", "src/lib/markdown/math.ts → src/lib/fuzzy.ts")
 
 
 def test_a_dynamic_import_in_the_service_worker_fails(tmp_path: Path) -> None:

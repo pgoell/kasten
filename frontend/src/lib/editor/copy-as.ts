@@ -5,12 +5,12 @@
 
 import type { SyntaxNode } from "@lezer/common";
 import { GFM, parser } from "@lezer/markdown";
-import { parseCallout } from "@/lib/callout";
-import { isScript, lendDefinitions, linkAddress, sourceOf } from "@/lib/link-reference";
-import { Highlight } from "@/lib/markdown-highlight";
-import { MathSyntax } from "@/lib/math";
+import { parseCallout } from "@/lib/markdown/callout";
+import { isScript, lendDefinitions, linkAddress, sourceOf } from "@/lib/markdown/link-reference";
+import { Highlight } from "@/lib/markdown/markdown-highlight";
+import { MathSyntax } from "@/lib/markdown/math";
+import { Tag } from "@/lib/markdown/tag";
 import { noteBody } from "@/lib/note-frontmatter";
-import { Tag } from "@/lib/tag";
 import { splitTarget, WikiLink } from "@/lib/wikilink";
 
 type Format = "slack" | "html";

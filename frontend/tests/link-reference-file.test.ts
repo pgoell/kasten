@@ -1,7 +1,7 @@
 import { ensureSyntaxTree, syntaxTree } from "@codemirror/language";
 import { EditorState } from "@codemirror/state";
-import { fileLinkAt } from "@/lib/link-reference";
-import { noteLanguage } from "@/lib/note-language";
+import { fileLinkAt } from "@/lib/markdown/link-reference";
+import { noteLanguage } from "@/lib/markdown/note-language";
 
 /** The file link the note's first character sits in, read the way the editor reads one. */
 function fileLinkOf(doc: string) {

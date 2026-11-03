@@ -16,7 +16,7 @@ import { cdp, page } from "vitest/browser";
 import { vimKeys } from "@/lib/editor/vim-mode";
 import { imagePaths } from "@/lib/image";
 import { livePreview } from "@/lib/live/live-preview";
-import { noteLanguage } from "@/lib/note-language";
+import { noteLanguage } from "@/lib/markdown/note-language";
 import { notePath } from "@/lib/todo/todo-commands";
 import { vaultPaths } from "@/lib/wikilink";
 import "@/styles/app.css";

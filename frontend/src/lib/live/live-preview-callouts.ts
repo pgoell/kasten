@@ -1,8 +1,8 @@
 import { Facet, type Line, MapMode, StateEffect, StateField } from "@codemirror/state";
 import { Decoration, EditorView, WidgetType } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
-import { type Callout, parseCallout } from "@/lib/callout";
 import { FOLDED, HIDDEN, isNodeRevealed, type Walk } from "@/lib/live/live-preview-hidden";
+import { type Callout, parseCallout } from "@/lib/markdown/callout";
 
 /** Flips the fold of the callout whose `>` sits at this position. */
 export const toggleFold = StateEffect.define<number>();

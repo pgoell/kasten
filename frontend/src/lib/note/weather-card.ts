@@ -8,7 +8,7 @@ import { StateEffect, StateField } from "@codemirror/state";
 import { Decoration, type DecorationSet, EditorView, WidgetType } from "@codemirror/view";
 import { type Forecast, fetchWeather } from "@/lib/api";
 import { readClock } from "@/lib/clock";
-import { belowFrontmatter } from "@/lib/frontmatter-language";
+import { belowFrontmatter } from "@/lib/markdown/frontmatter-language";
 import { dailyDate } from "@/lib/periodic";
 import { notePath } from "@/lib/todo/todo-commands";
 

@@ -1,7 +1,7 @@
 import { Decoration, type EditorView, WidgetType } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
 import { HIDDEN, isBlockRevealed, type Walk } from "@/lib/live/live-preview-hidden";
-import { loadKatex } from "@/lib/math";
+import { loadKatex } from "@/lib/markdown/math";
 
 /**
  * A formula, `$x$` inline or `$$x$$` as a block, drawn by KaTeX.

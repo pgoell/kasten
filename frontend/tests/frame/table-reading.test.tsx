@@ -15,7 +15,7 @@ import { kastenTheme } from "@/lib/editor/editor-theme";
 import { vimKeys } from "@/lib/editor/vim-mode";
 import { imagePaths } from "@/lib/image";
 import { livePreview } from "@/lib/live/live-preview";
-import { noteLanguage } from "@/lib/note-language";
+import { noteLanguage } from "@/lib/markdown/note-language";
 import { notePath } from "@/lib/todo/todo-commands";
 import { vaultPaths } from "@/lib/wikilink";
 import { mountApp, SITE, settled, stubOpen, tableLinkCleanup, tap } from "./table-link-fixture";

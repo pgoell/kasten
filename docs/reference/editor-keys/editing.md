@@ -51,7 +51,7 @@ own key for putting the formatting right; the other one, `gq`, is spent on the
 quarter's note.
 
 `==highlight==` is not part of any markdown flavour kasten loads, so
-`frontend/src/lib/markdown-highlight.ts` adds it to the parser. A delimiter
+`frontend/src/lib/markdown/markdown-highlight.ts` adds it to the parser. A delimiter
 opens only when a non-space follows it and closes only when a non-space
 precedes it, which keeps `a == b` out of it.
 

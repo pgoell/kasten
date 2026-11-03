@@ -2,7 +2,7 @@ import { CompletionContext } from "@codemirror/autocomplete";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { EditorState } from "@codemirror/state";
 import { describe, expect, it } from "vitest";
-import { Tag, tagCompletions, vaultTags } from "@/lib/tag";
+import { Tag, tagCompletions, vaultTags } from "@/lib/markdown/tag";
 
 const TAGS = ["#databases", "#dbt", "#flashcards/databases"];
 

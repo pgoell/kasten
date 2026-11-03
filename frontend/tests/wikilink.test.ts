@@ -4,7 +4,7 @@ import { CompletionContext } from "@codemirror/autocomplete";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { ensureSyntaxTree, syntaxTree } from "@codemirror/language";
 import { EditorState } from "@codemirror/state";
-import { noteLanguage } from "@/lib/note-language";
+import { noteLanguage } from "@/lib/markdown/note-language";
 import {
   FILE_SUFFIXES,
   outgoingLinks,
