@@ -1,4 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
+import { toggleVim } from "@/lib/editor/vim-setting";
+import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 import {
   BOARD,
   boardHooks,
@@ -124,6 +126,49 @@ describe("the todo board", () => {
 
     await waitFor(() => expect(pane.cursor()).toContain("write the deck"));
     expect(document.activeElement?.textContent).toContain("write the deck");
+  });
+
+  /** The focus in the first pass that sees the invoice gone: any later and a refocus a task behind the commit passes, or not, by luck. */
+  async function focusWhenDone(pane: Awaited<ReturnType<typeof boardPane>>) {
+    let focused: Element | null = null;
+    pane.answer(
+      BOARD.map((hit) =>
+        hit === INVOICE ? { ...hit, text: `${hit.text.replace("[ ]", "[x]")} ✅ 2026-08-10` } : hit,
+      ),
+    );
+    await waitFor(() => {
+      expect(pane.cursor()).toContain("write the deck");
+      focused = document.activeElement;
+    });
+    return focused;
+  }
+
+  for (const vim of ["on", "off"]) {
+    it(`#1515 has the focus on the next card in the commit that drops the moved one, vim ${vim}`, async () => {
+      toggleVim();
+      if (localStorage.getItem("kasten.vim") !== vim) toggleVim();
+      expect(localStorage.getItem("kasten.vim")).toBe(vim);
+      const pane = await boardPane({ focusSignal: 1 });
+      await waitFor(() =>
+        expect(document.activeElement?.textContent).toContain("send the invoice"),
+      );
+
+      pane.press("X");
+
+      // `toBe`, not the text: the body holds every card's text too.
+      expect(await focusWhenDone(pane)).toBe(pane.card("write the deck"));
+    });
+  }
+
+  it("#1515 has the focus on the next card in the commit that drops one a phone's strip moved", async () => {
+    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+    const pane = await boardPane({ focusSignal: 1 });
+    await waitFor(() => expect(document.activeElement?.textContent).toContain("send the invoice"));
+
+    fireEvent.click(screen.getByLabelText(/^more for send the invoice/));
+    fireEvent.click(screen.getByLabelText(/^done send the invoice/));
+
+    expect(await focusWhenDone(pane)).toBe(pane.card("write the deck"));
   });
 
   it("I3 an empty board and an empty column draw, and keys on them do nothing", async () => {

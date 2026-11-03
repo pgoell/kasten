@@ -1,4 +1,4 @@
-import { useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { BoardCard, SET } from "@/components/board-card";
 import { HEADING, LaneHeading } from "@/components/board-lane-heading";
 import { BoardPicker } from "@/components/board-picker";
@@ -148,14 +148,15 @@ export function TodoBoard({
 
   // The pane's `dropped` effect, said of the board. A move takes the card off
   // its column, the browser hands the focus to the body, and without this the
-  // first card moved leaves the pane deaf.
+  // first card moved leaves the pane deaf. A layout effect, so the focus is
+  // back in the commit that dropped the card, not a task later (#1515).
   //
   // `settled` is the same case for a tapped button: `cancel` unmounts under
   // the finger, and `lanes` keeps the focus on itself, so a keyboard attached
   // to the phone would go on typing into nothing the board hears.
   //
   // biome-ignore lint/correctness/useExhaustiveDependencies: `cards` and `settled` are triggers and not values this reads. A redraw or a tap is what says the focused card may be gone.
-  useEffect(() => {
+  useLayoutEffect(() => {
     const element = root.current;
     if (!element) return;
     const dropped = held.current && document.activeElement === document.body;

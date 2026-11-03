@@ -1,4 +1,5 @@
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { toggleVim } from "@/lib/editor/vim-setting";
 import { paneHooks, renderPane, TODOS } from "./todo-pane-fixture";
 
 // The doubles, the same in every todo-pane file: see todo-pane-fixture.tsx.
@@ -89,6 +90,39 @@ describe("the todo pane", () => {
     pane.press("x");
     expect(pane.onCycle).toHaveBeenCalledWith(TODOS[1]);
   });
+
+  // Passes on main too: a keydown is a discrete event, whose effects React runs
+  // before the event's task ends. It fails once the end leaves that event.
+  for (const [key, vim] of [
+    ["Escape", "on"],
+    ["Escape", "off"],
+    ["Enter", "on"],
+    ["Enter", "off"],
+  ]) {
+    it(`#1515 has the keys on the row in the commit that drops the edit line, ${key}, vim ${vim}`, async () => {
+      toggleVim();
+      if (localStorage.getItem("kasten.vim") !== vim) toggleVim();
+      expect(localStorage.getItem("kasten.vim")).toBe(vim);
+      const pane = renderPane();
+      await pane.loaded();
+      (pane.cursor() as HTMLElement).focus();
+      pane.press("i");
+      const draft = pane.draft() as HTMLElement;
+
+      // Outside `act`, which would run every effect before the first look: the
+      // focus is read in the observer pass that first sees the line gone.
+      let focused: Element | null = null;
+      const seen = new MutationObserver(() => {
+        if (focused === null && !draft.isConnected) focused = document.activeElement;
+      });
+      seen.observe(document.body, { childList: true, subtree: true });
+      draft.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
+      await waitFor(() => expect(focused).not.toBeNull());
+      seen.disconnect();
+
+      expect(focused).toBe(pane.cursor());
+    });
+  }
 
   it("keeps the list's keys off the line being edited", async () => {
     const pane = renderPane();
