@@ -64,15 +64,44 @@ describe("the todo pane", () => {
     expect(pane.rows()).toHaveLength(6);
     expect(pane.cursor()).toHaveFocus();
 
+    // The focus as it stood when the five rows were first drawn (#1368): read
+    // any later and a refocus a task behind the commit passes, or not, by luck.
+    let focused: Element | null = null;
     pane.answer(TODOS.filter((hit) => !hit.text.includes("call the dentist")));
-    await waitFor(() => expect(pane.rows()).toHaveLength(5));
+    await waitFor(() => {
+      expect(pane.rows()).toHaveLength(5);
+      focused = document.activeElement;
+    });
 
     // Where the focus is, not whether a key fired at the section works: this
     // test's own `press` dispatches straight at the element and would pass with
     // the focus anywhere at all.
-    expect(screen.getByRole("region", { name: "Todos" })).toContainElement(
-      document.activeElement as HTMLElement,
-    );
+    expect(screen.getByRole("region", { name: "Todos" })).toContainElement(focused);
+  });
+
+  it("#1368 leaves the focus in the filter line when a write redraws the rows", async () => {
+    const pane = renderPane(TODOS, 1);
+    await pane.loaded();
+    pane.press("/");
+    expect(pane.filter()).toHaveFocus();
+
+    pane.answer(TODOS.filter((hit) => !hit.text.includes("call the dentist")));
+    await waitFor(() => expect(pane.rows()).toHaveLength(5));
+
+    expect(pane.filter()).toHaveFocus();
+  });
+
+  it("#1368 leaves the focus outside the pane when a write redraws the rows", async () => {
+    const outside = document.body.appendChild(document.createElement("input"));
+    const pane = renderPane();
+    await pane.loaded();
+    outside.focus();
+
+    pane.answer(TODOS.filter((hit) => !hit.text.includes("call the dentist")));
+    await waitFor(() => expect(pane.rows()).toHaveLength(5));
+
+    expect(outside).toHaveFocus();
+    outside.remove();
   });
 
   it("moves the focus to the filter line on /", async () => {
