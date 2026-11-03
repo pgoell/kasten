@@ -2,7 +2,7 @@ import {
   applyVideoSettings,
   keepVideoSettings,
   readVideoSettings,
-} from "@/lib/video/video-settings";
+} from "@/lib/panes/video/video-settings";
 
 const denied = () => {
   throw new DOMException("denied", "SecurityError");

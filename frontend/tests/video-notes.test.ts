@@ -11,7 +11,7 @@ import {
   transcriptParagraphs,
   videoTakes,
   watchUrl,
-} from "@/lib/video/video-notes";
+} from "@/lib/panes/video/video-notes";
 
 const ID = "dQw4w9WgXcQ";
 const OTHER = "aaaaaaaaaaa";

@@ -2,8 +2,8 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { TabStrip } from "@/components/tab-strip";
 import { TopBar } from "@/components/top-bar";
-import { openInFocused } from "@/lib/panes/pane-contents";
-import { addTab, emptyLayout, goToTab, type Layout } from "@/lib/panes/panes";
+import { openInFocused } from "@/lib/panes/layout/pane-contents";
+import { addTab, emptyLayout, goToTab, type Layout } from "@/lib/panes/layout/panes";
 import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 

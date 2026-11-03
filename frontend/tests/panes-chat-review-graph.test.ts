@@ -1,4 +1,4 @@
-import { openBeside, openInFocused } from "@/lib/panes/pane-contents";
+import { openBeside, openInFocused } from "@/lib/panes/layout/pane-contents";
 import {
   emptyLayout,
   fillFocused,
@@ -6,7 +6,7 @@ import {
   nextPane,
   splitFocused,
   tabPanes,
-} from "@/lib/panes/panes";
+} from "@/lib/panes/layout/panes";
 
 describe("the chat over the focused pane", () => {
   it("puts the chat over the focused pane, the note and its line gone", () => {

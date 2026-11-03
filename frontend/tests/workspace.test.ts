@@ -1,5 +1,5 @@
-import { openPdfBeside } from "@/lib/panes/pane-contents";
-import { PANE_KINDS, paneKind, panePath, paneTitle } from "@/lib/panes/pane-kinds";
+import { openPdfBeside } from "@/lib/panes/layout/pane-contents";
+import { PANE_KINDS, paneKind, panePath, paneTitle } from "@/lib/panes/layout/pane-kinds";
 import {
   addTab,
   emptyLayout,
@@ -9,8 +9,8 @@ import {
   panesOf,
   splitFocused,
   toggleZoom,
-} from "@/lib/panes/panes";
-import { loadWorkspace, saveWorkspace } from "@/lib/panes/workspace";
+} from "@/lib/panes/layout/panes";
+import { loadWorkspace, saveWorkspace } from "@/lib/panes/layout/workspace";
 
 const FINE = "kasten.workspace.1";
 const COARSE = "kasten.workspace.coarse.1";

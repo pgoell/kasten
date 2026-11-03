@@ -3,9 +3,9 @@
  * so the note's text is the only input. Times are read as the note writes them, so links and highlights agree.
  */
 
+import { TRANSCRIPT_HEADING, timestamp } from "@/lib/panes/video/transcript";
+import { PLAYER } from "@/lib/panes/video/video";
 import { highlightBlocks } from "@/lib/takes/highlight";
-import { TRANSCRIPT_HEADING, timestamp } from "@/lib/video/transcript";
-import { PLAYER } from "@/lib/video/video";
 
 /** A time in a video and the words at it: a chapter, or a transcript paragraph. */
 export interface Timed {

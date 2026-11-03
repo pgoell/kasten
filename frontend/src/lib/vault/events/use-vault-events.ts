@@ -1,10 +1,10 @@
 import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { type RefObject, useEffect } from "react";
-import { pageWritten } from "@/lib/html/page-written";
 import { LOG_NOTE, MODEL_USE_FOLDER } from "@/lib/layout";
 import { reloadLogConfig } from "@/lib/log/log-card";
 import type { useAutosave } from "@/lib/note/use-autosave";
 import { dailyDate, weeklyWeek, yearlyYear } from "@/lib/notes/text/periodic";
+import { pageWritten } from "@/lib/panes/html/page-written";
 import { pressEcho } from "@/lib/todo/todo-press-echo";
 import { parseVaultEvent, type VaultEvent } from "@/lib/vault/events/vault-events";
 

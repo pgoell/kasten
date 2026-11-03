@@ -18,7 +18,7 @@ import { ReviewPane } from "@/components/review-pane";
 import { TerminalPane } from "@/components/terminal-pane";
 import { TodoPane } from "@/components/todo-pane";
 import { VideoPane } from "@/components/video-pane";
-import { type KindField, PANE_KINDS, type Pane } from "@/lib/panes/pane-kinds";
+import { type KindField, PANE_KINDS, type Pane } from "@/lib/panes/layout/pane-kinds";
 import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
 import { stubCommands } from "./stub-commands";
 

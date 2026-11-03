@@ -13,7 +13,7 @@ import {
   type Split,
   splitFocused,
   tabPanes,
-} from "@/lib/panes/panes";
+} from "@/lib/panes/layout/panes";
 
 /**
  * Open a note in the focused pane. The pane is written whole, so no line from the last search hit

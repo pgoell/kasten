@@ -1,5 +1,5 @@
-import { paneTitle } from "@/lib/panes/pane-kinds";
-import { type Pane, panesOf, type Tab } from "@/lib/panes/panes";
+import { paneTitle } from "@/lib/panes/layout/pane-kinds";
+import { type Pane, panesOf, type Tab } from "@/lib/panes/layout/panes";
 
 /** The pane a tab left focused: the one it is named and drawn by. */
 export function focusedOf(tab: Tab): Pane | undefined {

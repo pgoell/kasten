@@ -15,10 +15,10 @@ listed here still does what vim does. [Vim on or off](#vim-on-or-off) says what
 the editor does without it.
 
 Six files in `frontend/src/lib` hold these bindings as tables: the leader in
-`leader-keys.ts`, the keys that act inside the buffer in `editor/buffer-keys.ts`, the
-terminal, tree and pane keys in `key-bindings.ts`, the readers' keys in `reader-keys.ts`,
-the video pane's in `video/video-keys.ts` and the finance pane's in
-`finance/finance-keys.ts`. The registrations, the which-key panel and the key help are
+`ui/keys/leader-keys.ts`, the keys that act inside the buffer in
+`editor/buffer-keys.ts`, the terminal, tree and pane keys in `ui/keys/key-bindings.ts`,
+the readers' keys in `ui/keys/reader-keys.ts`, the video pane's in
+`panes/video/video-keys.ts` and the finance pane's in `finance/finance-keys.ts`. The registrations, the which-key panel and the key help are
 built from them. A test fails if the leader or terminal table names a command the app
 does not provide.
 

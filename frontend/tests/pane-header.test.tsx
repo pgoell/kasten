@@ -1,6 +1,6 @@
 import { render } from "@testing-library/react";
 import { PaneLayout } from "@/components/pane-layout";
-import { openInFocused, openPdfBeside } from "@/lib/panes/pane-contents";
+import { openInFocused, openPdfBeside } from "@/lib/panes/layout/pane-contents";
 import {
   activeTab,
   emptyLayout,
@@ -9,7 +9,7 @@ import {
   splitFocused,
   tabPanes,
   toggleZoom,
-} from "@/lib/panes/panes";
+} from "@/lib/panes/layout/panes";
 
 /** One tab drawn the way the route draws it, with the children a fixed button. */
 function tree(layout: Layout) {

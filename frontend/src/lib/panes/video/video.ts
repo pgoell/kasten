@@ -1,5 +1,5 @@
 import { readField, setField } from "@/lib/notes/text/note-frontmatter";
-import { readVideoSettings } from "@/lib/video/video-settings";
+import { readVideoSettings } from "@/lib/panes/video/video-settings";
 
 /**
  * The video a note is written about, found in the note. YouTube only, since each other host needs its own

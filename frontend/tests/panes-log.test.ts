@@ -1,5 +1,5 @@
-import { emptyLayout, fillFocused, focusedPane, tabPanes } from "@/lib/panes/panes";
-import { loadWorkspace, saveWorkspace } from "@/lib/panes/workspace";
+import { emptyLayout, fillFocused, focusedPane, tabPanes } from "@/lib/panes/layout/panes";
+import { loadWorkspace, saveWorkspace } from "@/lib/panes/layout/workspace";
 
 const FINE = "kasten.workspace.1";
 

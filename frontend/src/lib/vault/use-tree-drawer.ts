@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Layout } from "@/lib/panes/panes";
-import { type loadWorkspace, saveWorkspace } from "@/lib/panes/workspace";
+import type { Layout } from "@/lib/panes/layout/panes";
+import { type loadWorkspace, saveWorkspace } from "@/lib/panes/layout/workspace";
 import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
 
 export type TreeDrawer = ReturnType<typeof useTreeDrawer>;

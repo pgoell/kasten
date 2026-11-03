@@ -8,12 +8,12 @@ import { vimKeys } from "@/lib/editor/vim-mode";
 import { livePreview } from "@/lib/live/live-preview";
 import { timeSeek } from "@/lib/live/live-preview-times";
 import { vaultPaths } from "@/lib/notes/links/wikilink";
-import { noteVideos } from "@/lib/video/video";
+import { noteVideos } from "@/lib/panes/video/video";
 import { liveHooks, mount, parsed, plain } from "./live-preview-fixture";
 
 // The real reader, counted, so a test can say how often a rebuild reads the note.
-vi.mock("@/lib/video/video", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/video/video")>();
+vi.mock("@/lib/panes/video/video", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/panes/video/video")>();
   return { ...actual, noteVideos: vi.fn(actual.noteVideos) };
 });
 

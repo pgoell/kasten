@@ -10,13 +10,13 @@ import {
 } from "react";
 import { TAKE_HOST, TakeButton } from "@/components/take-button-view";
 import { useBookNoteTake } from "@/components/use-book-note-take";
+import { timestamp } from "@/lib/panes/video/transcript";
+import { currentAt, timeLink, transcriptParagraphs } from "@/lib/panes/video/video-notes";
 import type { Passage } from "@/lib/takes/highlight";
 import { type Anchor, low, placeFor } from "@/lib/takes/page-selection";
 import { VIDEO_REFUSED } from "@/lib/takes/page-undo";
 import { usePressGuard } from "@/lib/takes/take-button";
 import { useViewport } from "@/lib/ui/input/use-viewport";
-import { timestamp } from "@/lib/video/transcript";
-import { currentAt, timeLink, transcriptParagraphs } from "@/lib/video/video-notes";
 
 /** The time at the start of a paragraph, the way the note writes it, bar the brackets. */
 export function clockOf(seconds: number): string {

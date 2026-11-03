@@ -7,7 +7,7 @@ import { NoteSearch } from "@/components/note-search";
 import type { PaneMoves } from "@/components/use-pane-moves";
 import type { NoteOpening } from "@/lib/note/use-note-opening";
 import { outgoingLinks } from "@/lib/notes/links/wikilink";
-import { openBookInFocused } from "@/lib/panes/pane-contents";
+import { openBookInFocused } from "@/lib/panes/layout/pane-contents";
 import type { GuardedWrites } from "@/lib/saving/use-guarded-writes";
 import { visible } from "@/lib/search/archive";
 import type { TreeCommands } from "@/lib/ui/keys/key-bindings";

@@ -10,8 +10,8 @@ import { isAudio } from "@/lib/notes/embeds/audio";
 import { imagePaths, imageSource } from "@/lib/notes/embeds/image";
 import { encodePath } from "@/lib/notes/links/note-path";
 import { resolveIn } from "@/lib/notes/links/wikilink";
+import { playerUrl, videoId, watchedAt } from "@/lib/panes/video/video";
 import { repeats } from "@/lib/ui/input/presses";
-import { playerUrl, videoId, watchedAt } from "@/lib/video/video";
 
 /**
  * The picture an `![](path)` names, drawn in place of the text naming it.

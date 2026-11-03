@@ -11,7 +11,7 @@ import { MathSyntax } from "@/lib/markdown/math";
 import { Tag } from "@/lib/markdown/tag";
 import { WikiLink } from "@/lib/notes/links/wikilink";
 import { noteBody } from "@/lib/notes/text/note-frontmatter";
-import { type Run, type Word, wordsOf } from "@/lib/rsvp/rsvp";
+import { type Run, type Word, wordsOf } from "@/lib/panes/rsvp/rsvp";
 
 /** The note's own parse, as `copy-as.ts` configures it, so the two read a note alike. */
 const notes = parser.configure([GFM, Highlight, MathSyntax, Tag, WikiLink]);

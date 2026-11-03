@@ -12,9 +12,9 @@ import { importPage } from "@/lib/capture/clip";
 // Renamed because the route that calls this already has a `flush`, the bookmark's.
 import { flush as flushOutbox, keep } from "@/lib/capture/outbox";
 import { readClock } from "@/lib/clock";
-import { mapPanes, openInFocused } from "@/lib/panes/pane-contents";
-import type { Layout } from "@/lib/panes/panes";
-import { paneOpeners } from "@/lib/panes/use-pane-commands";
+import { mapPanes, openInFocused } from "@/lib/panes/layout/pane-contents";
+import type { Layout } from "@/lib/panes/layout/panes";
+import { paneOpeners } from "@/lib/panes/layout/use-pane-commands";
 import { moveHeld } from "@/lib/saving/held-text";
 import { parseTodo } from "@/lib/todo/todo";
 import { addTodoInVault } from "@/lib/todo/todo-api";

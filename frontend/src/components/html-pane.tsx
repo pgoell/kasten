@@ -4,13 +4,14 @@ import { TAKE_HOST, TakeButton } from "@/components/take-button-view";
 import { useDumpTake } from "@/components/use-dump-take";
 import { usePageReload } from "@/components/use-page-reload";
 import { readClock } from "@/lib/clock";
-import { type Story, shareLine, storyOf } from "@/lib/html/html-share";
-import { postLook } from "@/lib/html/page-look";
-import { pageData, pageText } from "@/lib/html/page-messages";
 import { encodePath } from "@/lib/notes/links/note-path";
-import { findQuote } from "@/lib/rsvp/rsvp";
-import { textWords } from "@/lib/rsvp/rsvp-sources";
-import { type RsvpAsk, useRsvpAsk } from "@/lib/rsvp/use-rsvp";
+import { type Story, shareLine, storyOf } from "@/lib/panes/html/html-share";
+import { postLook } from "@/lib/panes/html/page-look";
+import { pageData, pageText } from "@/lib/panes/html/page-messages";
+import { spendActivation } from "@/lib/panes/html/user-activation";
+import { findQuote } from "@/lib/panes/rsvp/rsvp";
+import { textWords } from "@/lib/panes/rsvp/rsvp-sources";
+import { type RsvpAsk, useRsvpAsk } from "@/lib/panes/rsvp/use-rsvp";
 import { fileOf, type PagePassage, pageLink } from "@/lib/takes/html-take";
 import {
   type Anchor,
@@ -26,7 +27,6 @@ import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
 import { heldModifier, leaderAction, leaderPrefix } from "@/lib/ui/keys/leader-keys";
 import { beginLeader, paneOpener } from "@/lib/ui/keys/which-key";
 import { currentPalette, currentTheme, onThemeChange } from "@/lib/ui/theme";
-import { spendActivation } from "@/lib/user-activation";
 
 /** The passage held, and where its button goes, or null where it has no place. */
 interface Held {

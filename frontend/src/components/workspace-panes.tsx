@@ -6,7 +6,7 @@ import { isUnsaved, TabStrip } from "@/components/tab-strip";
 import type { PaneMoves } from "@/components/use-pane-moves";
 import type { SaveStatus } from "@/lib/note/use-autosave";
 import { makeNote } from "@/lib/note/use-note-opening";
-import { openBeside } from "@/lib/panes/pane-contents";
+import { openBeside } from "@/lib/panes/layout/pane-contents";
 import {
   activeTab,
   closeTab,
@@ -15,10 +15,10 @@ import {
   homeTab,
   type Layout,
   tabPanes,
-} from "@/lib/panes/panes";
-import { useRsvpAsked } from "@/lib/rsvp/use-rsvp";
+} from "@/lib/panes/layout/panes";
+import { useRsvpAsked } from "@/lib/panes/rsvp/use-rsvp";
+import { useVideoAsks } from "@/lib/panes/video/use-video-player";
 import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
-import { useVideoAsks } from "@/lib/video/use-video-player";
 
 /**
  * The panes of the active tab: the tab strip over the split panes, and the

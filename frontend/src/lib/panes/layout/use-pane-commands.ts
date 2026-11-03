@@ -4,8 +4,8 @@ import type { PaneMoves } from "@/components/use-pane-moves";
 import { useLogCommands } from "@/lib/log/use-log-commands";
 import { isPerson } from "@/lib/notes/links/person";
 import type { Period } from "@/lib/notes/text/periodic";
-import { openBeside } from "@/lib/panes/pane-contents";
-import { heldKind, type KindField, PANE_KINDS } from "@/lib/panes/pane-kinds";
+import { openBeside } from "@/lib/panes/layout/pane-contents";
+import { heldKind, type KindField, PANE_KINDS } from "@/lib/panes/layout/pane-kinds";
 import {
   addTab,
   fillFocused,
@@ -18,10 +18,10 @@ import {
   splitFocused,
   stepTab,
   toggleZoom,
-} from "@/lib/panes/panes";
-import { askRsvp } from "@/lib/rsvp/use-rsvp";
+} from "@/lib/panes/layout/panes";
+import { askRsvp } from "@/lib/panes/rsvp/use-rsvp";
+import { usePlayAsk } from "@/lib/panes/video/use-video-player";
 import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
-import { usePlayAsk } from "@/lib/video/use-video-player";
 
 export type PaneCommands = ReturnType<typeof usePaneCommands>;
 

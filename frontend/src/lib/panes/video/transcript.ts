@@ -7,7 +7,7 @@ import type { EditorView } from "@codemirror/view";
 import { fetchTranscript, type Transcript } from "@/lib/api";
 import { noticeHandler } from "@/lib/notes/embeds/image";
 import type { Edit } from "@/lib/notes/text/note-section";
-import { noteVideos } from "@/lib/video/video";
+import { noteVideos } from "@/lib/panes/video/video";
 
 /** The heading the transcript lives under, and the one a second press finds. */
 export const TRANSCRIPT_HEADING = "## Transcript";

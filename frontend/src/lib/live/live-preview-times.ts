@@ -3,8 +3,8 @@ import { Decoration, type EditorView, WidgetType } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
 import { HIDDEN, type Walk } from "@/lib/live/live-preview-hidden";
 import { linkAddress } from "@/lib/markdown/link-reference";
-import { noteVideos, videoId } from "@/lib/video/video";
-import { parseTime } from "@/lib/video/video-notes";
+import { noteVideos, videoId } from "@/lib/panes/video/video";
+import { parseTime } from "@/lib/panes/video/video-notes";
 
 /**
  * The seek a time asks for: its second, and the video a take's link names.

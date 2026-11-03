@@ -17,7 +17,7 @@ import { page } from "vitest/browser";
 import { Editor } from "@/components/editor";
 import { PaneLayout } from "@/components/pane-layout";
 import { noteName } from "@/lib/notes/links/note-path";
-import { openInFocused } from "@/lib/panes/pane-contents";
+import { openInFocused } from "@/lib/panes/layout/pane-contents";
 import {
   activeTab,
   emptyLayout,
@@ -25,8 +25,8 @@ import {
   type Layout,
   splitFocused,
   tabPanes,
-} from "@/lib/panes/panes";
-import { loadWorkspace, saveWorkspace } from "@/lib/panes/workspace";
+} from "@/lib/panes/layout/panes";
+import { loadWorkspace, saveWorkspace } from "@/lib/panes/layout/workspace";
 import { useViewport } from "@/lib/ui/input/use-viewport";
 import { COARSE, NARROW, stubMatchMedia } from "../match-media";
 import { stubCommands } from "../stub-commands";

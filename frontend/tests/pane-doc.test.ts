@@ -1,5 +1,5 @@
 import { EditorView } from "@codemirror/view";
-import { docIn, paneView } from "@/lib/pane-doc";
+import { docIn, paneView } from "@/lib/panes/layout/pane-doc";
 
 it("#983 a pane's editor lookup skips the editor on its way out", () => {
   const pane = document.body.appendChild(document.createElement("div"));

@@ -11,7 +11,7 @@ import { commands as browser } from "vitest/browser";
 import { HtmlPane } from "@/components/html-pane";
 import { Toolbar } from "@/components/toolbar";
 import { WhichKey } from "@/components/which-key";
-import { pageWritten } from "@/lib/html/page-written";
+import { pageWritten } from "@/lib/panes/html/page-written";
 import { ask, frameOf, type Mounted, ready } from "./html-take-fixture";
 import { page as pageOf } from "./html-take-pages";
 

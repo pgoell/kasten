@@ -13,8 +13,8 @@ import type {} from "@vitest/browser-playwright";
 import { cdp } from "vitest/browser";
 import { resetStripEntrance } from "@/components/tab-strip";
 import { noteName } from "@/lib/notes/links/note-path";
-import { openInFocused } from "@/lib/panes/pane-contents";
-import { addTab, emptyLayout, goToTab, type Layout, splitFocused } from "@/lib/panes/panes";
+import { openInFocused } from "@/lib/panes/layout/pane-contents";
+import { addTab, emptyLayout, goToTab, type Layout, splitFocused } from "@/lib/panes/layout/panes";
 import { resetHeld } from "@/lib/saving/held-text";
 import {
   DESKTOP,
@@ -100,7 +100,7 @@ function transitioned(element: HTMLElement): string[] {
     .map((property) => property.trim());
 }
 
-/** A finger put down and lifted on the middle of `element`, which is a tap. */
+/** A tap: a finger put down and lifted on the middle of `element`. */
 async function tapOn(element: Element): Promise<void> {
   const box = element.getBoundingClientRect();
   const point = { x: box.left + box.width / 2, y: box.top + box.height / 2 };
@@ -127,7 +127,7 @@ it("A1 the strip is 40 px and sticky right under the top bar at 1440", async () 
       // The entrance slides the strip up from 6 px for 240 ms, so it is measured once done.
       await expect.poll(() => strip.getBoundingClientRect().top, PATIENCE).toBe(under);
 
-      // The note scrolls under the strip, and the strip stays where it was.
+      // The note scrolls under the strip, which stays where it was.
       scrollerOf(host).scrollTop = 300;
       await nextFrame();
       await nextFrame();

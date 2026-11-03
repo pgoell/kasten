@@ -22,9 +22,9 @@ import { useLogActions } from "@/lib/log/use-log-actions";
 import { useAutosave } from "@/lib/note/use-autosave";
 import { useBufferSync } from "@/lib/note/use-buffer-sync";
 import { useNoteOpening } from "@/lib/note/use-note-opening";
-import { docIn } from "@/lib/pane-doc";
-import { openOnTop } from "@/lib/panes/pane-contents";
-import { panePath } from "@/lib/panes/pane-kinds";
+import { openOnTop } from "@/lib/panes/layout/pane-contents";
+import { docIn } from "@/lib/panes/layout/pane-doc";
+import { panePath } from "@/lib/panes/layout/pane-kinds";
 import {
   activeTab,
   emptyLayout,
@@ -32,9 +32,9 @@ import {
   type Layout,
   panesOf,
   tabPanes,
-} from "@/lib/panes/panes";
-import { usePaneCommands } from "@/lib/panes/use-pane-commands";
-import { loadWorkspace } from "@/lib/panes/workspace";
+} from "@/lib/panes/layout/panes";
+import { usePaneCommands } from "@/lib/panes/layout/use-pane-commands";
+import { loadWorkspace } from "@/lib/panes/layout/workspace";
 import { heldText } from "@/lib/saving/held-text";
 import { useGuardedWrites } from "@/lib/saving/use-guarded-writes";
 import { parseWeek } from "@/lib/search/search-weeks";
@@ -94,7 +94,7 @@ function Home() {
   const { narrow, coarse } = useViewport();
   // What this device had open when it last drew, read once (#495). Its own
   // state so the layout and the tree start from the one read: a second read
-  // would re-id every pane again for nothing.
+  // would re-id every pane.
   const [saved] = useState(() => loadWorkspace(coarse));
   // The key it came from, which every save goes back to: a pointer that
   // changes mid-session (a mouse plugged into a tablet) would otherwise write
@@ -105,7 +105,7 @@ function Home() {
   // a link that names a note wins, and a plain reload, whose URL names the
   // focused pane's note, finds it already there and changes nothing.
   //
-  // In the initializer and not an effect, so the first render already draws
+  // In the initializer, not an effect, so the first render already draws
   // the restored panes and no editor mounts on a pane about to be replaced.
   const [layout, setLayout] = useState<Layout>(() => {
     const start =
@@ -128,15 +128,15 @@ function Home() {
     return start;
   });
   // Raised by every key that moves the focus, so the editor in the pane arrived
-  // at takes it. A click raises nothing, having already moved the focus itself.
+  // at takes it. A click raises nothing; it moved the focus itself.
   const [focusSignal, setFocusSignal] = useState(0);
   const pane = focusedPane(layout);
   const tab = activeTab(layout);
   const panes = tabPanes(layout);
   // One autosave, following the focused pane, because the focused pane is the
   // only one that can be typed into. Moving to another note flushes the text
-  // still waiting for the one left behind, the mechanism that also covers
-  // opening a second note in a single window.
+  // still waiting for the one left behind, which also covers
+  // opening a second note in one window.
   //
   // The focused pane's document as it stands on screen, which the autosave
   // checks before it takes held text into a pane that was already open, and

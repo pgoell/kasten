@@ -11,6 +11,7 @@ import { type BookBeside, ChangedOnDisk, type Mention, saveNote, updateNote } fr
 import { bookType } from "@/lib/notes/links/note-path";
 import { noteBase } from "@/lib/notes/note-base";
 import { readField, setField } from "@/lib/notes/text/note-frontmatter";
+import { setWatched } from "@/lib/panes/video/video";
 import { heldText } from "@/lib/saving/held-text";
 import { linkMention, mentionLinkText } from "@/lib/saving/mention-link";
 import { useBookmark } from "@/lib/saving/use-bookmark";
@@ -18,7 +19,6 @@ import { useNoteWrites } from "@/lib/saving/use-note-writes";
 import { addHighlight, type Passage } from "@/lib/takes/highlight";
 import { escapedParagraphs } from "@/lib/takes/html-take";
 import { newId } from "@/lib/todo/todo";
-import { setWatched } from "@/lib/video/video";
 
 export type GuardedWrites = ReturnType<typeof useGuardedWrites>;
 
