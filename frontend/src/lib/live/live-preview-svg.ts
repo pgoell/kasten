@@ -10,6 +10,7 @@ const SVG_BLOCK = /^<svg[\s>][\s\S]*<\/svg>\s*$/i;
 const HEAD = /(?:\s*(?:<\?xml[\s\S]*?\?>|<!--[\s\S]*?-->|<!doctype[^>]*>))*\s*/iy;
 // How far a head or a run of blank lines is read: a note of cards has a comment on every card.
 const REACH = 2000;
+// What a node that may start an svg opens with: the svg itself or one of HEAD's parts.
 const STARTS = ["<svg", "<?xml", "<!--", "<!doc"];
 const OPENS = /<svg[\s>/]/gi;
 const CLOSES = /<\/svg\s*>/gi;
@@ -70,6 +71,8 @@ function spannedSvg(doc: Text, from: number): { svg: number; to: number } | null
   HEAD.lastIndex = 0;
   const svg = from + (HEAD.exec(doc.sliceString(from, from + REACH))?.[0].length ?? 0);
   if (!/^<svg[\s>]/i.test(doc.sliceString(svg, svg + 5))) return null;
+  // An svg indented on its own line is code or a list's, not a file's body.
+  if (/^[ \t]+$/.test(doc.sliceString(doc.lineAt(svg).from, svg))) return null;
   let depth = 0;
   for (let line = doc.lineAt(svg); ; line = doc.line(line.number + 1)) {
     depth += nesting(doc.sliceString(Math.max(svg, line.from), line.to));

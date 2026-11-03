@@ -342,6 +342,7 @@ it.each([
   ["a blank line", `<svg viewBox="0 0 20 20">\n${PATH}\n\n${PATH}`],
   ["a comment alone", "<!-- only a comment -->"],
   ["a prelude and prose", '<?xml version="1.0"?>\nsome prose'],
+  ["an indented svg after a comment", `<!-- x -->\n\n    <svg viewBox="0 0 20 20">${PATH}</svg>`],
 ])("#1183 I1 %s with no closed svg stays source", async (_, source) => {
   const at = mount(source);
 
