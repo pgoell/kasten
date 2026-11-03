@@ -4,7 +4,7 @@ import type { TodoHit } from "@/lib/api";
 import type { PdfRenderer } from "@/lib/book/pdf-view";
 import { noteBase } from "@/lib/note-base";
 import type { TodoState } from "@/lib/todo/todo";
-import { digestOf } from "@/lib/vault-events";
+import { digestOf } from "@/lib/vault/events/vault-events";
 import { hashed } from "./digests";
 import { defineFoliateFake, FakeView, lastView, resetFoliateFake } from "./foliate-fake";
 import { act, FakeEventSource, pageHooks, renderApp, settle, stream } from "./home-route-fixture";
@@ -102,8 +102,13 @@ vi.mock("@/lib/api", () => ({
   NoteExists: class NoteExists extends Error {},
   NoteMissing: class NoteMissing extends Error {},
 }));
-vi.mock("@/lib/move-api", () => ({ renameNote, moveFolder }));
-vi.mock("@/lib/trash-api", () => ({ deleteNote, fetchTrash, restoreEntry, deleteImage }));
+vi.mock("@/lib/vault/move/move-api", () => ({ renameNote, moveFolder }));
+vi.mock("@/lib/vault/move/trash-api", () => ({
+  deleteNote,
+  fetchTrash,
+  restoreEntry,
+  deleteImage,
+}));
 vi.mock("@/lib/history-api", () => ({ fetchHistory, fetchHistoryText }));
 vi.mock("foliate-js/view.js", () => ({}));
 const pdfPaneRenderer = vi.hoisted(() => ({ current: null as PdfRenderer | null }));

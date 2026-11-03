@@ -11,7 +11,6 @@ import { fetchTerminals, type SearchHit } from "@/lib/api";
 import { importPage } from "@/lib/clip";
 import { readClock } from "@/lib/clock";
 import { moveHeld } from "@/lib/held-text";
-import type { MoveMode } from "@/lib/move";
 // Renamed because the route that calls this already has a `flush`, the bookmark's.
 import { flush as flushOutbox, keep } from "@/lib/outbox";
 import { mapPanes, openInFocused } from "@/lib/panes/pane-contents";
@@ -21,6 +20,7 @@ import { parseTodo } from "@/lib/todo/todo";
 import { addTodoInVault } from "@/lib/todo/todo-api";
 import { addSubtaskInVault } from "@/lib/todo/todo-line-edits";
 import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
+import type { MoveMode } from "@/lib/vault/move/move";
 
 export type Prompts = ReturnType<typeof usePrompts>;
 

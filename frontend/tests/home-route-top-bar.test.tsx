@@ -84,8 +84,13 @@ vi.mock("@/lib/api", () => ({
   NoteExists: class NoteExists extends Error {},
   NoteMissing: class NoteMissing extends Error {},
 }));
-vi.mock("@/lib/move-api", () => ({ renameNote, moveFolder }));
-vi.mock("@/lib/trash-api", () => ({ deleteNote, fetchTrash, restoreEntry, deleteImage }));
+vi.mock("@/lib/vault/move/move-api", () => ({ renameNote, moveFolder }));
+vi.mock("@/lib/vault/move/trash-api", () => ({
+  deleteNote,
+  fetchTrash,
+  restoreEntry,
+  deleteImage,
+}));
 vi.mock("@/lib/history-api", () => ({ fetchHistory, fetchHistoryText }));
 vi.mock("foliate-js/view.js", () => ({}));
 // jsdom has no canvas to draw the graph on, so the pane gets a canvas that draws nothing.

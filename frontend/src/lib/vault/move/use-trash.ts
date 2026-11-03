@@ -2,8 +2,14 @@ import { useQueryClient } from "@tanstack/react-query";
 import { type Dispatch, type SetStateAction, useCallback, useMemo } from "react";
 import { mapPanes } from "@/lib/panes/pane-contents";
 import type { Layout } from "@/lib/panes/panes";
-import { deleteFolder, deleteImage, deleteNote, fetchTrash, restoreEntry } from "@/lib/trash-api";
 import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
+import {
+  deleteFolder,
+  deleteImage,
+  deleteNote,
+  fetchTrash,
+  restoreEntry,
+} from "@/lib/vault/move/trash-api";
 
 export type Trash = ReturnType<typeof useTrash>;
 

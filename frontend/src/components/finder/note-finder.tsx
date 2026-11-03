@@ -2,7 +2,6 @@ import { skipToken, useQuery } from "@tanstack/react-query";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { NotePreview } from "@/components/note-preview";
 import { fetchNote } from "@/lib/api";
-import { bookNoteOf, type FileKind, fileKind } from "@/lib/file-kind";
 import { noteName } from "@/lib/note-path";
 import { noteCandidates, rankCandidates } from "@/lib/search/fuzzy";
 import { useViewport } from "@/lib/ui/input/use-viewport";
@@ -23,6 +22,7 @@ import {
   STATUS,
   TAP,
 } from "@/lib/ui/overlay-styles";
+import { bookNoteOf, type FileKind, fileKind } from "@/lib/vault/file-kind";
 
 interface NoteFinderProps {
   /** The notes to rank against what has been typed. Usually the whole vault. */

@@ -43,12 +43,12 @@ import { useViewport } from "@/lib/ui/input/use-viewport";
 import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
 import { useKeyHelp } from "@/lib/ui/keys/use-key-help-key";
 import { paletteEntries } from "@/lib/ui/palette";
-import { useFileTransfer } from "@/lib/use-file-transfer";
 import { useGuardedWrites } from "@/lib/use-guarded-writes";
-import { useListings } from "@/lib/use-listings";
-import { useTrash } from "@/lib/use-trash";
-import { useTreeDrawer } from "@/lib/use-tree-drawer";
-import { useVaultEvents } from "@/lib/use-vault-events";
+import { useVaultEvents } from "@/lib/vault/events/use-vault-events";
+import { useTrash } from "@/lib/vault/move/use-trash";
+import { useFileTransfer } from "@/lib/vault/use-file-transfer";
+import { useListings } from "@/lib/vault/use-listings";
+import { useTreeDrawer } from "@/lib/vault/use-tree-drawer";
 
 interface HomeSearch {
   /** Vault-relative path of the note in the focused pane, absent while it holds none. */
@@ -135,8 +135,8 @@ function Home() {
   const panes = tabPanes(layout);
   // One autosave, following the focused pane, because the focused pane is the
   // only one that can be typed into. Moving to another note flushes the text
-  // still waiting for the one left behind, which is the same mechanism that
-  // has always covered opening a second note in a single window.
+  // still waiting for the one left behind, the mechanism that also covers
+  // opening a second note in a single window.
   //
   // The focused pane's document as it stands on screen, which the autosave
   // checks before it takes held text into a pane that was already open, and

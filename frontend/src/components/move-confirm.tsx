@@ -1,7 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { type MoveMode, moveAndCache } from "@/lib/move";
-import { previewMove } from "@/lib/move-api";
 import {
   BACKDROP,
   closeOnBackdrop,
@@ -12,6 +10,8 @@ import {
   STATUS,
   TAP,
 } from "@/lib/ui/overlay-styles";
+import { type MoveMode, moveAndCache } from "@/lib/vault/move/move";
+import { previewMove } from "@/lib/vault/move/move-api";
 
 interface MoveConfirmProps {
   mode: MoveMode;

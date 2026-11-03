@@ -148,8 +148,13 @@ vi.mock("@/lib/log/food-api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/log/food-api")>()),
   fetchLog,
 }));
-vi.mock("@/lib/move-api", () => ({ renameNote, moveFolder }));
-vi.mock("@/lib/trash-api", () => ({ deleteNote, fetchTrash, restoreEntry, deleteImage }));
+vi.mock("@/lib/vault/move/move-api", () => ({ renameNote, moveFolder }));
+vi.mock("@/lib/vault/move/trash-api", () => ({
+  deleteNote,
+  fetchTrash,
+  restoreEntry,
+  deleteImage,
+}));
 vi.mock("@/lib/history-api", () => ({ fetchHistory, fetchHistoryText }));
 vi.mock("@/lib/review/review-api", () => ({ fetchWrittenNotes, fetchGithub, fetchModelUse }));
 vi.mock("foliate-js/view.js", () => ({}));

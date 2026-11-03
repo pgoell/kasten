@@ -1,4 +1,4 @@
-import { digestOf, parseVaultEvent } from "@/lib/vault-events";
+import { digestOf, parseVaultEvent } from "@/lib/vault/events/vault-events";
 
 describe("parseVaultEvent", () => {
   it("reads a note that was written", () => {

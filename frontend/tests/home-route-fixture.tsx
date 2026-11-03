@@ -16,7 +16,7 @@ import {
 import { resetHeld, unstamped } from "@/lib/held-text";
 import { forgetQueues } from "@/lib/note/use-autosave";
 import { noteBase } from "@/lib/note-base";
-import { digestOf, type VaultEvent } from "@/lib/vault-events";
+import { digestOf, type VaultEvent } from "@/lib/vault/events/vault-events";
 import { routeTree } from "@/routeTree.gen";
 import { act, hashed, scopeEachTest } from "./digests";
 import { resetFoliateFake } from "./foliate-fake";

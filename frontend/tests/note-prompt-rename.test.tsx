@@ -7,7 +7,7 @@ const { createNote, renameNote, moveFolder } = vi.hoisted(() => ({
   moveFolder: vi.fn(),
 }));
 vi.mock("@/lib/api", () => ({ createNote }));
-vi.mock("@/lib/move-api", () => ({ renameNote, moveFolder }));
+vi.mock("@/lib/vault/move/move-api", () => ({ renameNote, moveFolder }));
 
 describe("the rename prompt", () => {
   beforeEach(() => {

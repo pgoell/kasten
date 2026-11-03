@@ -11,7 +11,6 @@ import {
 import { createNote, fetchNote, NoteExists, type SearchHit } from "@/lib/api";
 import type { FileTarget } from "@/lib/editor/editor-follow";
 import { queryEmbedSource } from "@/lib/embed";
-import { bookNoteOf, fileKind } from "@/lib/file-kind";
 import { encodePath } from "@/lib/note-path";
 import { noteSectionOf } from "@/lib/note-section";
 import {
@@ -23,7 +22,8 @@ import {
 } from "@/lib/panes/pane-contents";
 import { fillFocused, type Layout, tabPanes } from "@/lib/panes/panes";
 import { type Period, periodicNote } from "@/lib/periodic";
-import type { Listings } from "@/lib/use-listings";
+import { bookNoteOf, fileKind } from "@/lib/vault/file-kind";
+import type { Listings } from "@/lib/vault/use-listings";
 import { namesAFile, pdfPage, splitTarget, wikiLinkPath } from "@/lib/wikilink";
 
 export type NoteOpening = ReturnType<typeof useNoteOpening>;

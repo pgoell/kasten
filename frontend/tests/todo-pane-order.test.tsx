@@ -6,8 +6,8 @@ import { fetchFiles } from "@/lib/api";
 import { periodicNote } from "@/lib/periodic";
 import { useTodoActions } from "@/lib/todo/use-todo-actions";
 import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
-import { useVaultEvents } from "@/lib/use-vault-events";
-import { digestOf, type VaultEvent } from "@/lib/vault-events";
+import { useVaultEvents } from "@/lib/vault/events/use-vault-events";
+import { digestOf, type VaultEvent } from "@/lib/vault/events/vault-events";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 
 /** The notes the fake backend holds. Only the HTTP client is faked, so `api.ts` runs. */
