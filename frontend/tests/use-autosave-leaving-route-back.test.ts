@@ -224,11 +224,52 @@ describe("useAutosave", () => {
         show("outside");
         await vault.answer(0);
 
+        expect(again.taken()).toBeNull();
         expect(again.status()).toBe("saved");
         expect(heldTexts("index.md")).toEqual([]);
         retype("outside x");
         await idle();
         expect(vault.request(1)).toMatchObject({ content: "outside x", base: noteBase("outside") });
+      });
+
+      it("holds text typed back to the leave flush's text after a reload took other text, when a phone backgrounds the page (#1434)", async () => {
+        const vault = server("start");
+        const { note, type } = withEditor("start");
+
+        type("T1");
+        note.unmount();
+        const { again, type: retype, show } = cameBack(note);
+        await vault.arrive(0);
+        vault.write("outside");
+        again.seed("index.md", "outside");
+        expect(again.allowReload("outside")).toBe(true);
+        show("outside");
+        await vault.answer(0);
+        retype("T1");
+        await background();
+
+        expect(heldText("index.md")?.content).toBe("T1");
+      });
+
+      it("keeps the leave flush's failed entry beside text typed after a reload took other text (#1434)", async () => {
+        const vault = server("start");
+        const { note, type } = withEditor("start");
+
+        type("T1");
+        note.unmount();
+        const { again, type: retype, show } = cameBack(note);
+        vault.write("outside");
+        again.seed("index.md", "outside");
+        expect(again.allowReload("outside")).toBe(true);
+        show("outside");
+        await vault.fail(0);
+
+        // The buffer shows other text, so the bar lists the failed flush.
+        expect(again.taken()).toBeNull();
+        expect(heldTexts("index.md").map((entry) => entry.content)).toEqual(["T1"]);
+        retype("outside x");
+        await background();
+        expect(heldTexts("index.md").map((entry) => entry.content)).toEqual(["T1", "outside x"]);
       });
 
       it("holds both texts when the leave flush is refused after the route came back and text was typed", async () => {
