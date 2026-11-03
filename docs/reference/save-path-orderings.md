@@ -63,7 +63,7 @@ The table splits by theme. Rows keep their numbers on every page, so "As 82" poi
 * [Leaving a note and switching panes](/reference/save-path-orderings/leaving-and-switching-panes.md): rows 50 to 65, and T1 to T3.
 * [Rename, delete and :e](/reference/save-path-orderings/rename-delete-and-colon-e.md): rows 66 to 81.
 * [Reopened buffers and held text](/reference/save-path-orderings/reopened-buffers-and-held-text.md): rows 82 to 91.
-* [Live conflicts and leaving the route](/reference/save-path-orderings/conflicts-and-leaving-the-route.md): rows 92 to 106.
+* [Live conflicts and leaving the route](/reference/save-path-orderings/conflicts-and-leaving-the-route.md): rows 92 to 106, and 136.
 * [Panels, history restores and CRLF notes](/reference/save-path-orderings/panels-history-and-crlf.md): rows 107 to 116.
 * [Moving a todo between notes](/reference/save-path-orderings/todo-pane-moves.md): rows 117 to 123.
 * [Presses on a todo row](/reference/save-path-orderings/todo-row-presses.md): rows 124 to 129, and 135.

@@ -106,8 +106,7 @@ function heldFor(path: string | undefined, cached: string | undefined): Held | u
 function takeClean(
   path: string | undefined,
   text: string,
-  onDisk: Buffer["onDisk"],
-  shownRef: Buffer["shownRef"],
+  { onDisk, shownRef, taken, take }: Pick<Buffer, "onDisk" | "shownRef" | "taken" | "take">,
 ): boolean {
   // While a write to the note is in the air, a read of the text under it is a step behind the screen (#304): declined,
   // and the note reloads once the write answers. A buffer that takes the sent text was typed on it (#303).
@@ -118,6 +117,8 @@ function takeClean(
   }
   // Taken into the buffer, so the vault under it is this text, and the next write names it as its base.
   onDisk.current = text;
+  // The buffer no longer shows the entry it took, so the bar lists it and `holdOwn` holds that text again (#1434).
+  if (taken.current !== null && !landedAs(taken.current.content, text)) take(null);
   // Only text the screen lacks: a reload asks with the text it shows, and that replaces nothing.
   if (path !== undefined && showsOther(shownRef.current?.(), text)) saveQueue.reload(path);
   return true;
@@ -196,7 +197,7 @@ export function useVaultReads(
     (text: string): boolean => {
       const restored = path === undefined ? undefined : restore(path, text);
       if (restored !== undefined) return restored;
-      if (pending.current === null) return takeClean(path, text, onDisk, shownRef);
+      if (pending.current === null) return takeClean(path, text, { onDisk, shownRef, taken, take });
       // The vault holds what the buffer holds, so a conflict over it, and a held copy, is over.
       // Only that entry goes: one a failed flush held after a reopen holds text the buffer never showed.
       if (!landedAs(pending.current, text)) return false;
