@@ -417,3 +417,14 @@ it("a reload does not take the focus from where the reader went while it loaded"
 
   expect(document.activeElement).toBe(field);
 });
+
+// Stands in for another test file serving the same name (#1425, #1519): the `..` puts
+// its page where this route's would be on disk, and its own route matches no request.
+it("a page another test file writes under the same name does not change the page this test serves", async () => {
+  await browser.servePage(PATH, report("mine"));
+  await browser.servePage(`elsewhere/../${PATH}`, report("theirs"));
+  render([PATH], {});
+  await ready(frameOf(mounted, 0));
+
+  expect(await titleOf(frameOf(mounted, 0))).toBe("mine");
+});
