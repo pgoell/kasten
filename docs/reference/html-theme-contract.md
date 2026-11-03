@@ -42,7 +42,7 @@ The pane loads the page at `/api/html/<path>?theme=<light|dark>&palette=<poel|ru
 
 Selecting and taking use four more messages:
 
-- The page script posts `{kasten: 'selection', seq, text, heading, anchor, rect}` when the selection changes: after a mouse up, after Shift with an arrow, Home or End, while a touch selection moves, and on a scroll. `heading` is the nearest `h1` to `h6` above the selection's start, in the same article, section or card. `anchor` is the story id the page prints as `a.sid` in that article, or else the nearest `id`. `rect` is the selection's box in the frame's own pixels. `seq` numbers each selection posted. A cleared selection posts `text: ''` and `rect: null`, with no `seq`.
+- The page script posts `{kasten: 'selection', seq, text, heading, anchor, rect}` when the selection changes: after a mouse up, after the keyup of Shift, an arrow, Home, End, Control, Meta or `a` with Ctrl or Cmd when the selection is not the one last posted (so a select all counts), while a touch selection moves, and on a scroll. `heading` is the nearest `h1` to `h6` above the selection's start, in the same article, section or card. `anchor` is the story id the page prints as `a.sid` in that article, or else the nearest `id`. `rect` is the selection's box in the frame's own pixels. `seq` numbers each selection posted. A cleared selection posts `text: ''` and `rect: null`, with no `seq`.
 - The page script posts `{kasten: 'key', key: 'y'}` only while text is selected. With no selection, `y` is the page's own letter.
 - The pane posts `{kasten: 'take', id, seq}` once the passage is safe in today's dump, with the `seq` of the selection it took. The page script marks that selection with `kasten-taken`, even when the reader has selected another passage since, and clears the page's selection only when it is still the one taken. A `seq` the page did not post marks nothing.
 - The pane posts `{kasten: 'untake', id}` when Undo takes the dump line out of the daily note. The page script removes the mark of that take.
@@ -51,7 +51,7 @@ The pane acts on a selection only while the frame holds the focus, and on a `y` 
 
 Sharing a story uses three:
 
-- The page script posts `{kasten: 'share', heading, anchor, source}` when the reader presses a story's Share later button. `heading` is the story's first `h1` to `h6`, `anchor` its `a.sid` id and `source` the address it links to, or `''` where it links nowhere.
+- The page script posts `{kasten: 'share', heading, anchor, source}` when the reader presses a story's Share later button. The pane saves at most one share per press: each one spends the reader's user activation. `heading` is the story's first `h1` to `h6`, `anchor` its `a.sid` id and `source` the address it links to, or `''` where it links nowhere.
 - The pane posts `{kasten: 'shared', anchor}` once the todo is safe in today's dump. The page script greys that story's button out and labels it Saved to share.
 - The pane posts `{kasten: 'unshared', anchor}` when Undo takes the todo back out. The button goes back to Share later.
 
@@ -62,7 +62,7 @@ A rewrite of the page reloads it (#1277), and two more messages keep its place:
 - The page script posts `{kasten: 'scroll', top}` once a frame while the window scrolls. `top` is the document's scroll in the frame's own pixels. A scroller inside the page posts nothing.
 - When the vault sends a `page` event for the pane's own path, the pane loads the page again in a new frame and, once it has loaded, posts `{kasten: 'scroll', top}` with the last `top` it heard. The page script scrolls there at once and, while the page is too short for it, again each time the page's `html` or `body` box resizes. Content that overflows a box held to the window's height, as on a page with `html, body { height: 100% }`, resizes neither, so such a page lands where it can at load. It posts no scroll of its own meanwhile. It stops when the scroll lands, when the reader wheels, touches, presses a key or a pointer, or 1.5 seconds after the message, and then posts where the page stands. A browser without `ResizeObserver` scrolls once and waits out the same time. A page that never scrolled gets no such message, so a link to a heading opens at the heading again.
 
-The reload adds no entry to the browser's history, a selection and its take button go with the old page's frame, before the new page loads, and a frame that held the focus holds it again. A rewrite of another page leaves this one as it is.
+The reload adds no entry to the browser's history, a selection and its take button go with the old page's frame, before the new page loads, and a frame that held the focus holds it again. A selection or a share made before a page's own load survives that load; a link followed inside the page starts a new document, which drops them. A rewrite of another page leaves this one as it is.
 
 ## Fallback layer
 
@@ -115,7 +115,7 @@ The backend serves its copy at `GET /api/kasten-theme.css`, and a test holds tha
 ## The rules
 
 - May: any layout, any token anywhere, `color-mix(in srgb, var(--k-warn) 14%, transparent)` for tints, SVG with `currentColor` or `var(--k-*)`, page-local variables that point to tokens, `prefers-reduced-motion`.
-- May not: hex, rgb or named colours outside the fallback layer. Loading fonts or naming font families. Setting `data-theme` or reading the system theme inside Kasten. Redefining `--k-*` outside the fallback layer. Fixing the page height or catching Space, `?` or Escape. Fixed bars over the top of the page. Styling `::highlight(kasten-taken)` or `::selection`, or stopping `mouseup`, `selectionchange`, `keyup` (Shift with arrows), `pointerdown` and `scroll`, which the page script listens to. Using `y` as a shortcut while text is selected. Hiding the element right after a story's `a.sid`, which is its Share later button. `localStorage`, cookies or calls to the vault.
+- May not: hex, rgb or named colours outside the fallback layer. Loading fonts or naming font families. Setting `data-theme` or reading the system theme inside Kasten. Redefining `--k-*` outside the fallback layer. Fixing the page height or catching Space, `?` or Escape. Fixed bars over the top of the page. Styling `::highlight(kasten-taken)` or `::selection`, or stopping `mouseup`, `selectionchange`, `keyup` (Shift, arrows, Home, End, Control, Meta, `a`), `pointerdown` and `scroll`, which the page script listens to. Using `y` as a shortcut while text is selected. Hiding the element right after a story's `a.sid`, which is its Share later button. `localStorage`, cookies or calls to the vault.
 - Should: a newspaper prints each story as an `article` with its id as `a.sid`, and marks the link to the story's source `a.src`, so Share later saves the right address and not the first link it finds.
 - How to check a page: switch the theme half way down, scroll stays. Open the file directly in light and dark system mode. Grep the CSS for `#`, `rgb(` and quoted `font-family` outside the layer.
 
