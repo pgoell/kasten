@@ -4,6 +4,7 @@ What a list is and how an edit lands is in `kasten_backend/share.py`.
 """
 
 import asyncio
+from datetime import date  # noqa: TC003  pydantic reads the annotation at runtime
 from typing import TYPE_CHECKING, Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -76,6 +77,12 @@ class Tick(BaseModel):
     line: int
     done: bool
     sha: str
+
+    day: date | None = None
+    """The ticker's own date, which the done stamp and log take, as `Dump.date` (#1300).
+
+    Optional so a tab open from before it came still ticks, on the server's date.
+    """
 
 
 class Clear(BaseModel):
@@ -150,7 +157,7 @@ async def tick_item(
     does more on its own tick than this path does. Unticking has no such limit.
     """
     try:
-        found = await share.tick(settings, name, body.line, body.done, body.sha)
+        found = await share.tick(settings, name, body.line, body.done, body.sha, day=body.day)
     except share.TickInKastenError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
 

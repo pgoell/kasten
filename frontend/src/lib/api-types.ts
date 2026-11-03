@@ -5927,6 +5927,8 @@ export interface components {
             done: boolean;
             /** Sha */
             sha: string;
+            /** Day */
+            day?: string | null;
         };
         /**
          * ToSort

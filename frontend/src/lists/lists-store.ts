@@ -4,7 +4,7 @@
  * The screen holds none of it. It draws what the view module (`lists-view.ts`) gives.
  */
 
-import { listPath, openCount, requestFor } from "./lists-view";
+import { listPath, localDay, openCount, requestFor } from "./lists-view";
 
 export const LISTS = ["Einkauf", "Todo"];
 
@@ -326,7 +326,7 @@ export function createListsStore(): ListsStore {
       op = counted(op, list);
       // Checked on every try, so a read that failed once does not leave the add to be posted again.
       if (alreadyIn(op, list)) return;
-      const request = requestFor(op, list);
+      const request = requestFor(op, list, localDay(new Date()));
       if (!request) return;
       try {
         put(await send<ListData>("POST", request.path, request.body));
