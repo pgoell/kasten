@@ -120,7 +120,8 @@ most, or the line leaves it out. `#share` in the todo pane's [filter line](/refe
 still to send.
 
 The button then reads Saved to share until Undo takes the todo back out. A story
-is saved once while its page is open; a second press does nothing. The toast
+is saved once while its page is open, even across a slow page's load; a second
+press does nothing, and one press saves at most one story. The toast
 offers no Put it in a note, since there is no passage to put. Where the button
 goes and which link counts as the source is in the
 [HTML theme contract](/reference/html-theme-contract.md#what-kasten-adds).
