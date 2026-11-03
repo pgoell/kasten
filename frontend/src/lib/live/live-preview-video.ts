@@ -85,21 +85,37 @@ class VideoLayer {
   update(update: ViewUpdate): void {
     // Only a change to the text can remove a link, and a removed link ends its
     // player (I5). A player whose placeholder is merely off screen keeps going.
-    if (update.docChanged && this.players.size > 0) {
-      for (const player of this.players) {
-        // Null once the link's first character is deleted.
-        const from = update.changes.mapPos(player.from, 1, MapMode.TrackAfter);
-        if (from === null) this.end(player);
-        else player.from = from;
-      }
-      const videos = embeddedVideos(update.state);
-      // A tree still parsing names no video it has not read yet, so nothing is
-      // ended on its word.
-      for (const player of videos === null ? [] : this.players) {
-        if (!videos?.has(`${player.id}@${player.from}`)) this.end(player);
-      }
-    }
+    if (update.docChanged && this.players.size > 0) this.follow(update);
     this.measure();
+  }
+
+  /** Moves each player along with its link, and ends those whose video has fewer links left than players. */
+  private follow(update: ViewUpdate): void {
+    const free = embeddedVideos(update.state);
+    // A tree still parsing names no video it has not read yet, so nothing is
+    // ended on its word.
+    if (free === null) {
+      for (const player of this.players) player.from = update.changes.mapPos(player.from);
+      return;
+    }
+    const lost: Player[] = [];
+    for (const player of [...this.players].sort((a, b) => a.from - b.from)) {
+      // Null once a change covers the link's first character.
+      const from = update.changes.mapPos(player.from, 1, MapMode.TrackAfter);
+      if (from !== null && free.delete(`${player.id}@${from}`)) player.from = from;
+      else lost.push(player);
+    }
+    // A change across a link that puts it back, such as a whole-text swap from
+    // the vault or an embed, keeps its player on the link (#1540 review).
+    for (const player of lost) {
+      const link = [...free].find((key) => key.startsWith(`${player.id}@`));
+      if (link === undefined) {
+        this.end(player);
+        continue;
+      }
+      free.delete(link);
+      player.from = Number(link.slice(player.id.length + 1));
+    }
   }
 
   private end(player: Player): void {
