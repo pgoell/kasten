@@ -319,3 +319,42 @@ it("#952 A5 keeps an oklch fill", async () => {
 
   expect(picture.querySelector("rect")?.getAttribute("fill")).toBe("oklch(70% 0.1 200)");
 });
+
+it("#1183 I3 drops an attack behind a prelude and after a blank line", async () => {
+  const picture = await drawn(
+    [
+      '<?xml version="1.0"?>',
+      '<svg viewBox="0 0 20 20" onload="alert(1)">',
+      `  ${PATH}`,
+      "",
+      "  <script>alert(2)</script>",
+      '  <use href="javascript:alert(3)"/>',
+      "</svg>",
+    ].join("\n"),
+  );
+
+  expectSafe(picture);
+  expect(picture.querySelector("path")).not.toBeNull();
+});
+
+it.each([
+  ["a prelude", `<?xml version="1.0"?>\n<svg viewBox="0 0 20 20">\n${PATH}`],
+  ["a blank line", `<svg viewBox="0 0 20 20">\n${PATH}\n\n${PATH}`],
+  ["a comment alone", "<!-- only a comment -->"],
+  ["a prelude and prose", '<?xml version="1.0"?>\nsome prose'],
+])("#1183 I1 %s with no closed svg stays source", async (_, source) => {
+  const at = mount(source);
+
+  await vi.waitFor(() => expect(at.contentDOM.textContent).toContain("before"));
+  expect(at.dom.querySelector(".cm-svg-block")).toBeNull();
+  expect(at.state.doc.toString()).toBe(`before\n\n${source}`);
+});
+
+it("#1183 I2 an unclosed svg does not swallow the prose and the svg below it", async () => {
+  const later = `<svg viewBox="0 0 20 20">${PATH}</svg>`;
+  const at = mount([`<svg viewBox="0 0 20 20">`, PATH, "", "prose", "", later].join("\n"));
+
+  await vi.waitFor(() => expect(at.dom.querySelectorAll(".cm-svg-block svg")).toHaveLength(1));
+  expect(at.contentDOM.textContent).toContain("prose");
+  expect(at.contentDOM.textContent).toContain('<svg viewBox="0 0 20 20">');
+});
