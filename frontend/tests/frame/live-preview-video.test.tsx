@@ -436,19 +436,18 @@ it.skipIf(!SHOTS)(
   300_000,
 );
 
-/** One video linked twice (#1187). */
 const TWICE = ["---", `watching: {${ID}: 30}`, "---", LINK, ..."x".repeat(30), LINK].join("\n");
-const frames = (at: EditorView) => [...at.dom.querySelectorAll('iframe[title="video"]')];
+const frames = (at: EditorView) => [...at.dom.querySelectorAll(".cm-video-frame")];
 
-async function two(options: { vimOn?: boolean } = {}): Promise<[EditorView, ...Element[]]> {
-  const at = mount(TWICE, options);
+async function two(vimOn = false): Promise<[EditorView, ...Element[]]> {
+  const at = mount(TWICE, { vimOn });
   scrollTo(at, "bottom");
   await expect.poll(() => frames(at).length).toBe(2);
   return [at, ...frames(at)];
 }
 
 it.each([1000, 414])(
-  "#1187 A1 I1 I4 at %i px each link to one video has its own player",
+  "#1187 A1 I1 I4 I5 at %i px each link to one video has its own player, through a text swap",
   async (width) => {
     await page.viewport(width, 844);
     const [at, first, second] = await two();
@@ -458,14 +457,15 @@ it.each([1000, 414])(
         return document.elementFromPoint(r.left + r.width / 2, Math.min(r.bottom - 9, 290));
       });
     await expect.poll(() => hit().at(-1)).toBe(second);
+    at.dispatch({ changes: { from: 0, to: TWICE.length, insert: TWICE } });
     scrollTo(at, 0);
     await expect.poll(() => hit()[0]).toBe(first);
     expect.soft(second?.getAttribute("src")).toBe(`about:blank#${ID}@30`);
   },
 );
 
-it("#1187 I3 I6 either player's pause writes the one entry; vim on the second line hides only it", async () => {
-  const [at, first, second] = await two({ vimOn: true });
+it("#1187 I3 I6 either player's pause writes the one entry; vim insert hides only the second", async () => {
+  const [at, first, second] = await two(true);
   at.focus();
   await userEvent.keyboard("G2li");
   await expect.poll(() => at.contentDOM.querySelectorAll(".cm-video").length).toBe(1);
@@ -480,10 +480,10 @@ it("#1187 I3 I6 either player's pause writes the one entry; vim on the second li
   }
 });
 
-it("#1187 I5 deleting the first link ends its frame; the second outlives a whole-text swap", async () => {
-  const [at, first, second] = await two();
-  const from = TWICE.indexOf(LINK);
-  at.dispatch({ changes: { from, to: from + LINK.length } });
-  at.dispatch({ changes: { from: 0, to: at.state.doc.length, insert: at.state.doc } });
-  expect.soft([first?.isConnected, second?.isConnected]).toEqual([false, true]);
+it("#1187 I5 deleting a link ends its frame while the other link is undrawn", async () => {
+  const at = mount(["#", LINK, ..."x".repeat(99), LINK].join("\n"));
+  await expect.poll(() => frames(at).length).toBe(1);
+  const [first] = frames(at);
+  at.dispatch({ changes: { from: 2, to: 2 + LINK.length } });
+  expect(first?.isConnected).toBe(false);
 });

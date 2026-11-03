@@ -1,5 +1,5 @@
 import { ensureSyntaxTree } from "@codemirror/language";
-import { EditorState, MapMode } from "@codemirror/state";
+import { type ChangeSet, EditorState, MapMode } from "@codemirror/state";
 import { type EditorView, ViewPlugin, type ViewUpdate } from "@codemirror/view";
 import { writeWatched } from "@/lib/editor/buffer-writes";
 import { drawnImage } from "@/lib/live/live-preview-images";
@@ -51,6 +51,15 @@ function embeddedVideos(state: EditorState): Set<string> | null {
     },
   });
   return links;
+}
+
+/** The span of the new text a change wrote over `at`, or null when no change covered it. */
+function rewritten(changes: ChangeSet, at: number): [number, number] | null {
+  let span = null as [number, number] | null;
+  changes.iterChangedRanges((fromA, toA, fromB, toB) => {
+    if (fromA <= at && at < toA) span = [fromB, toB];
+  });
+  return span;
 }
 
 /** A message's JSON, or null for one that is not JSON. */
@@ -105,10 +114,15 @@ class VideoLayer {
       if (from !== null && free.delete(`${player.id}@${from}`)) player.from = from;
       else lost.push(player);
     }
-    // A change across a link that puts it back, such as a whole-text swap from
-    // the vault or an embed, keeps its player on the link (#1540 review).
+    // A change that rewrote a link and wrote it back, such as a whole-text swap
+    // from the vault or an embed, keeps its player on it (#1540 review). A link
+    // the change did not write is another link, so a deleted one ends.
     for (const player of lost) {
-      const link = [...free].find((key) => key.startsWith(`${player.id}@`));
+      const [start, end] = rewritten(update.changes, player.from) ?? [0, -1];
+      const link = [...free].find((key) => {
+        const at = Number(key.slice(player.id.length + 1));
+        return key.startsWith(`${player.id}@`) && start <= at && at < end;
+      });
       if (link === undefined) {
         this.end(player);
         continue;
