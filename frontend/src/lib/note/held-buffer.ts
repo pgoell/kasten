@@ -1,9 +1,9 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { type Dispatch, type RefObject, type SetStateAction, useCallback, useEffect } from "react";
-import { type Held, heldTexts, holdText, sameText } from "@/lib/held-text";
 import { heldOf, type InAir, sentUnder, unseenOf } from "@/lib/note/in-air";
 import { saveQueue } from "@/lib/note/save-queue";
 import type { SaveStatus } from "@/lib/note/use-autosave";
+import { type Held, heldTexts, holdText, sameText } from "@/lib/saving/held-text";
 
 /** The per-visit refs and stable functions of one `useAutosave` hook, shared by its sub-hooks. */
 export interface Buffer {

@@ -1,4 +1,6 @@
 import { ChangedOnDisk, type Note } from "@/lib/api";
+import type { Buffer } from "@/lib/note/held-buffer";
+import { type Queueing, Skipped, saveQueue, type Write } from "@/lib/note/save-queue";
 import {
   dropText,
   type Held,
@@ -7,9 +9,7 @@ import {
   landedAs,
   movedTo,
   sameText,
-} from "@/lib/held-text";
-import type { Buffer } from "@/lib/note/held-buffer";
-import { type Queueing, Skipped, saveQueue, type Write } from "@/lib/note/save-queue";
+} from "@/lib/saving/held-text";
 
 /** The queue's reads a write's answer makes, each as it is called and not as the write went out. */
 function readsOf({ write, mine }: Queueing) {

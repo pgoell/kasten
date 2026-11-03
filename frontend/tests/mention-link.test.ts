@@ -1,5 +1,5 @@
 import type { Mention } from "@/lib/api";
-import { linkMention, mentionLinkText } from "@/lib/mention-link";
+import { linkMention, mentionLinkText } from "@/lib/saving/mention-link";
 import { wikiLinkPath } from "@/lib/wikilink";
 
 /** A mention of `words` on `text`, at the `nth` place they occur. */

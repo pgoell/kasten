@@ -8,16 +8,16 @@ import {
   useState,
 } from "react";
 import { type BookBeside, ChangedOnDisk, type Mention, saveNote, updateNote } from "@/lib/api";
-import { heldText } from "@/lib/held-text";
-import { linkMention, mentionLinkText } from "@/lib/mention-link";
 import { noteBase } from "@/lib/note-base";
 import { readField, setField } from "@/lib/note-frontmatter";
 import { bookType } from "@/lib/note-path";
+import { heldText } from "@/lib/saving/held-text";
+import { linkMention, mentionLinkText } from "@/lib/saving/mention-link";
+import { useBookmark } from "@/lib/saving/use-bookmark";
+import { useNoteWrites } from "@/lib/saving/use-note-writes";
 import { addHighlight, type Passage } from "@/lib/takes/highlight";
 import { escapedParagraphs } from "@/lib/takes/html-take";
 import { newId } from "@/lib/todo/todo";
-import { useBookmark } from "@/lib/use-bookmark";
-import { useNoteWrites } from "@/lib/use-note-writes";
 import { setWatched } from "@/lib/video/video";
 
 export type GuardedWrites = ReturnType<typeof useGuardedWrites>;

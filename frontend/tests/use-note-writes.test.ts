@@ -7,7 +7,7 @@
  */
 
 import { act, cleanup, renderHook } from "@testing-library/react";
-import { useNoteWrites } from "@/lib/use-note-writes";
+import { useNoteWrites } from "@/lib/saving/use-note-writes";
 
 const NOTE = "20 Literature/DDIA.md";
 const OTHER = "20 Literature/TAOCP.md";

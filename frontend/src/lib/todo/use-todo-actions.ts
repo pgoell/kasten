@@ -2,7 +2,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { type Dispatch, type RefObject, type SetStateAction, useCallback, useRef } from "react";
 import { createNote, fetchNote, type SearchHit, type TodoHit, updateNote } from "@/lib/api";
 import { readClock } from "@/lib/clock";
-import { heldText } from "@/lib/held-text";
+import { heldText } from "@/lib/saving/held-text";
+import type { GuardedWrites } from "@/lib/saving/use-guarded-writes";
 import type { TodoState } from "@/lib/todo/todo";
 import {
   agentTodoIn,
@@ -14,7 +15,6 @@ import type { TodoCycle } from "@/lib/todo/todo-commands";
 import { blockTodoInVault, editTodoInVault } from "@/lib/todo/todo-line-edits";
 import { beginPress, endPress } from "@/lib/todo/todo-press-echo";
 import { fileUnderTodos, lineOf, projectNote, refileOf } from "@/lib/todo/todo-refile";
-import type { GuardedWrites } from "@/lib/use-guarded-writes";
 
 export type TodoActions = ReturnType<typeof useTodoActions>;
 

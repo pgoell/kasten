@@ -1,5 +1,5 @@
-import { heldText } from "@/lib/held-text";
 import { noteBase } from "@/lib/note-base";
+import { heldText } from "@/lib/saving/held-text";
 import { eachPage, heldRows, idle, pendingSave, renderAutosave } from "./autosave-fixture";
 
 const { saveNote, fetchNote } = vi.hoisted(() => ({ saveNote: vi.fn(), fetchNote: vi.fn() }));

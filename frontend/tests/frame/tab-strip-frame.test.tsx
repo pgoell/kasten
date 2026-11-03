@@ -12,10 +12,10 @@ import { fireEvent, waitFor } from "@testing-library/react";
 import type {} from "@vitest/browser-playwright";
 import { cdp } from "vitest/browser";
 import { resetStripEntrance } from "@/components/tab-strip";
-import { resetHeld } from "@/lib/held-text";
 import { noteName } from "@/lib/note-path";
 import { openInFocused } from "@/lib/panes/pane-contents";
 import { addTab, emptyLayout, goToTab, type Layout, splitFocused } from "@/lib/panes/panes";
+import { resetHeld } from "@/lib/saving/held-text";
 import {
   DESKTOP,
   leader,

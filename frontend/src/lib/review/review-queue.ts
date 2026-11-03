@@ -1,4 +1,3 @@
-import { unstamped } from "@/lib/held-text";
 import { noteBody } from "@/lib/note-frontmatter";
 import { noteName } from "@/lib/note-path";
 import { clozeComment, SR } from "@/lib/review/card-line";
@@ -6,6 +5,7 @@ import { inDeck } from "@/lib/review/deck-tag";
 import { type Deck, decksFrom, type Limits } from "@/lib/review/review";
 import { type Card, parseCards, readSchedule } from "@/lib/review/srs";
 import { learning, readNoteSchedule, readNoteSuspended } from "@/lib/review/srs-schedule";
+import { unstamped } from "@/lib/saving/held-text";
 
 /** One card in the sitting: which note holds it, and which of that note's cards. */
 export interface Seat {

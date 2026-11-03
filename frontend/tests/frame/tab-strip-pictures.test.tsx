@@ -8,9 +8,9 @@
  */
 
 import { fireEvent } from "@testing-library/react";
-import { holdText, resetHeld } from "@/lib/held-text";
 import { openInFocused } from "@/lib/panes/pane-contents";
 import { addTab, emptyLayout, goToTab, splitFocused } from "@/lib/panes/panes";
+import { holdText, resetHeld } from "@/lib/saving/held-text";
 import {
   DESKTOP,
   need,

@@ -10,12 +10,12 @@ import type { PaneMoves } from "@/components/use-pane-moves";
 import { fetchTerminals, type SearchHit } from "@/lib/api";
 import { importPage } from "@/lib/clip";
 import { readClock } from "@/lib/clock";
-import { moveHeld } from "@/lib/held-text";
 // Renamed because the route that calls this already has a `flush`, the bookmark's.
 import { flush as flushOutbox, keep } from "@/lib/outbox";
 import { mapPanes, openInFocused } from "@/lib/panes/pane-contents";
 import type { Layout } from "@/lib/panes/panes";
 import { paneOpeners } from "@/lib/panes/use-pane-commands";
+import { moveHeld } from "@/lib/saving/held-text";
 import { parseTodo } from "@/lib/todo/todo";
 import { addTodoInVault } from "@/lib/todo/todo-api";
 import { addSubtaskInVault } from "@/lib/todo/todo-line-edits";

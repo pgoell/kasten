@@ -221,7 +221,7 @@ def unstamped(content: str) -> str:
 
     What a save's base hashes. A client that has not heard back cannot know the restamped
     `modified` line, so leaving it out lets it still name the note. A copy lives in
-    frontend/src/lib/held-text.ts, byte for byte, and must cut the fence as this does.
+    frontend/src/lib/saving/held-text.ts, byte for byte, and must cut the fence as this does.
     """
     lines = content.split("\n")
     end = closing(lines)

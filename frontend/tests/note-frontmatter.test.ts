@@ -9,12 +9,12 @@
 
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { landedAs, unstamped } from "@/lib/held-text";
 import { parseConfig } from "@/lib/log/log-kinds";
 import { logLines } from "@/lib/log/log-lines";
 import { parseMyFoods } from "@/lib/log/my-foods";
 import { belowFrontmatter } from "@/lib/markdown/frontmatter-language";
 import { noteBody, readField, setField } from "@/lib/note-frontmatter";
+import { landedAs, unstamped } from "@/lib/saving/held-text";
 
 const CFI = "epubcfi(/6/14!/4/2/2/1:0)";
 

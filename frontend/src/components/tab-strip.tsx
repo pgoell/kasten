@@ -1,10 +1,10 @@
 import { type KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { KindIcon, paneKind } from "@/components/kind-icons";
 import { focusedOf, tabLabel } from "@/components/tab-label";
-import type { HeldRow } from "@/lib/held-text";
 import type { SaveStatus } from "@/lib/note/use-autosave";
 import { activeTab, isEmptyTab, type Layout, panesOf, type Tab } from "@/lib/panes/panes";
 import { TAB_MAX_WIDTH, useTabGeometry } from "@/lib/panes/tabs/use-tab-geometry";
+import type { HeldRow } from "@/lib/saving/held-text";
 import { useViewport } from "@/lib/ui/input/use-viewport";
 import { Spring } from "@/lib/ui/motion/spring";
 

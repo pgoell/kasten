@@ -8,12 +8,12 @@ import {
   useMemo,
   useRef,
 } from "react";
-import { heldText } from "@/lib/held-text";
 import { askOnCard, openFoodSearch } from "@/lib/log/log-card";
 import { drinkTarget, logDrinkInVault, logDrinkInView } from "@/lib/log/log-write";
 import { paneView } from "@/lib/pane-doc";
 import type { Pane } from "@/lib/panes/panes";
 import { type Period, periodicNote } from "@/lib/periodic";
+import { heldText } from "@/lib/saving/held-text";
 import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
 
 /**

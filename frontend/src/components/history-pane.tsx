@@ -2,9 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { fetchNote } from "@/lib/api";
 import { lineDiff } from "@/lib/diff";
-import { unstamped } from "@/lib/held-text";
 import { fetchHistory, fetchHistoryText, type HistoryChange } from "@/lib/history-api";
 import { noteName } from "@/lib/note-path";
+import { unstamped } from "@/lib/saving/held-text";
 import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
 import { useLeader } from "@/lib/ui/keys/use-leader";
 
