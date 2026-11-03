@@ -190,16 +190,18 @@ class Sound extends WidgetType {
 class Player extends WidgetType {
   private readonly id: string;
   private readonly url: string;
+  private readonly from: number;
 
-  constructor(id: string, start: number) {
+  constructor(id: string, start: number, from: number) {
     super();
     this.id = id;
     this.url = playerUrl(id, start);
+    this.from = from;
   }
 
   /**
    * The id alone, not the URL, since `start=` changes while the video plays.
-   * Comparing the URL would rebuild the placeholder under a playing video.
+   * Comparing the URL would rebuild the placeholder under a playing video, and `from` moves with each edit above.
    */
   override eq(other: Player): boolean {
     return other.id === this.id;
@@ -209,7 +211,7 @@ class Player extends WidgetType {
     const placeholder = document.createElement("div");
     placeholder.className = "cm-video";
     placeholder.dataset.videoId = this.id;
-    showPlaceholder(view, placeholder, this.id, this.url);
+    showPlaceholder(view, placeholder, { id: this.id, url: this.url, from: this.from });
     return placeholder;
   }
 
@@ -244,7 +246,7 @@ export function drawImage(walk: Walk, node: SyntaxNode, revealed: boolean): void
   // changes nothing on screen: the widget's `eq` ignores it.
   const widget: WidgetType =
     media.kind === "video"
-      ? new Player(media.id, watchedAt(state.doc.toString(), media.id))
+      ? new Player(media.id, watchedAt(state.doc.toString(), media.id), node.from)
       : media.kind === "sound"
         ? new Sound(media.source)
         : new Picture(media);

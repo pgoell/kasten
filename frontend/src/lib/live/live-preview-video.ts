@@ -1,5 +1,5 @@
 import { ensureSyntaxTree } from "@codemirror/language";
-import { EditorState } from "@codemirror/state";
+import { type ChangeSet, EditorState, MapMode } from "@codemirror/state";
 import { type EditorView, ViewPlugin, type ViewUpdate } from "@codemirror/view";
 import { writeWatched } from "@/lib/editor/buffer-writes";
 import { drawnImage } from "@/lib/live/live-preview-images";
@@ -11,9 +11,11 @@ import { applyVideoSettings, learnVideoSettings } from "@/lib/panes/video/video-
  * A frame built in the widget would reload each time its line scrolled away, so it lives in a layer on the scroller.
  */
 
-/** One video in the note: its frame, and what the frame last said. */
+/** One video link in the note: its frame, and what the frame last said. */
 interface Player {
   id: string;
+  /** Where the link starts, mapped through each edit, so two links to one video keep their own frames (#1187). */
+  from: number;
   frame: HTMLIFrameElement;
   /** Playing or buffering, by the player's own state. */
   running: boolean;
@@ -32,23 +34,33 @@ interface Box {
 }
 
 /**
- * The videos the note draws as an image, read off the syntax tree.
+ * The video links the note draws as an image, `id@from` to where each ends, read off the syntax tree.
  * A link only named in frontmatter or as plain text is not drawn (I5). Null while parsing.
  */
-function embeddedVideos(state: EditorState): Set<string> | null {
+function embeddedVideos(state: EditorState): Map<string, number> | null {
   const tree = ensureSyntaxTree(state, state.doc.length, 1000);
   if (tree === null) return null;
-  const ids = new Set<string>();
+  const links = new Map<string, number>();
   tree.iterate({
     enter: (node) => {
       if (node.name !== "Image") return;
       // What the note draws, read the way the drawing reads it, so a spaced
       // address (`![t](https://youtu.be/<id> x)`) keeps its player too.
       const drawn = drawnImage(state, node.node);
-      if (drawn?.kind === "video") ids.add(drawn.id);
+      if (drawn?.kind === "video") links.set(`${drawn.id}@${node.from}`, node.to);
     },
   });
-  return ids;
+  return links;
+}
+
+/**
+ * What a change left of the old link `[from, to)`, mapped outward so text the
+ * change wrote inside it counts, or null when it left nothing, as a deletion does.
+ */
+function remains(changes: ChangeSet, from: number, to: number): [number, number] | null {
+  const start = changes.mapPos(from, -1);
+  const end = changes.mapPos(to, 1);
+  return start < end ? [start, end] : null;
 }
 
 /** A message's JSON, or null for one that is not JSON. */
@@ -65,9 +77,9 @@ function parse(data: unknown): unknown {
 class VideoLayer {
   private readonly view: EditorView;
   private readonly layer: HTMLDivElement;
-  private readonly players = new Map<string, Player>();
-  /** Each placeholder in the text and the video it stands for. */
-  private readonly placeholders = new Map<HTMLElement, string>();
+  private readonly players = new Set<Player>();
+  /** Each placeholder in the text and the player it stands for. */
+  private readonly placeholders = new Map<HTMLElement, Player>();
   private destroyed = false;
 
   constructor(view: EditorView) {
@@ -83,34 +95,66 @@ class VideoLayer {
   update(update: ViewUpdate): void {
     // Only a change to the text can remove a link, and a removed link ends its
     // player (I5). A player whose placeholder is merely off screen keeps going.
-    if (update.docChanged && this.players.size > 0) {
-      const videos = embeddedVideos(update.state);
-      // A tree still parsing names no video it has not read yet, so nothing is
-      // ended on its word.
-      if (videos !== null) {
-        for (const [id, player] of this.players) {
-          if (videos.has(id)) continue;
-          player.frame.remove();
-          this.players.delete(id);
-        }
-      }
-    }
+    if (update.docChanged && this.players.size > 0) this.follow(update);
     this.measure();
+  }
+
+  /** Moves each player along with its link, and ends those whose video has fewer links left than players. */
+  private follow(update: ViewUpdate): void {
+    const free = embeddedVideos(update.state);
+    // A tree still parsing names no video it has not read yet, so nothing is
+    // ended on its word.
+    if (free === null) {
+      for (const player of this.players) player.from = update.changes.mapPos(player.from);
+      return;
+    }
+    const lost: Player[] = [];
+    for (const player of [...this.players].sort((a, b) => a.from - b.from)) {
+      // Null once a change covers the link's first character.
+      const from = update.changes.mapPos(player.from, 1, MapMode.TrackAfter);
+      if (from !== null && free.delete(`${player.id}@${from}`)) player.from = from;
+      else lost.push(player);
+    }
+    // A link that overlaps what the change left of the player's old link is
+    // that link rewritten: a whole-text swap, a vault write across it, or an
+    // insertion that starts inside it (#1541). Any other link is another link.
+    const before = lost.length > 0 ? embeddedVideos(update.startState) : null;
+    for (const player of lost) {
+      const to = before?.get(`${player.id}@${player.from}`);
+      const [start, end] = (to !== undefined && remains(update.changes, player.from, to)) || [0, 0];
+      const link = [...free].find(
+        ([key, linkEnd]) =>
+          key.startsWith(`${player.id}@`) &&
+          Number(key.slice(player.id.length + 1)) < end &&
+          linkEnd > start,
+      );
+      if (link === undefined) {
+        this.end(player);
+        continue;
+      }
+      free.delete(link[0]);
+      player.from = Number(link[0].slice(player.id.length + 1));
+    }
+  }
+
+  private end(player: Player): void {
+    player.frame.remove();
+    this.players.delete(player);
   }
 
   destroy(): void {
     this.destroyed = true;
     window.removeEventListener("message", this.onMessage);
-    for (const player of this.players.values()) player.frame.remove();
+    for (const player of this.players) player.frame.remove();
     this.players.clear();
     this.placeholders.clear();
     this.layer.remove();
   }
 
-  /** A placeholder came into the text. The first one for a video opens its frame. */
-  register(placeholder: HTMLElement, id: string, url: string): void {
-    this.placeholders.set(placeholder, id);
-    if (!this.players.has(id)) this.open(id, url);
+  /** A placeholder came into the text. The first one for a link opens its frame. */
+  register(placeholder: HTMLElement, id: string, url: string, from: number): void {
+    const held = [...this.players].find((player) => player.id === id && player.from === from);
+    this.placeholders.set(placeholder, held ?? this.open(id, url, from));
     this.measure();
   }
 
@@ -119,7 +163,7 @@ class VideoLayer {
     if (!this.destroyed) this.measure();
   }
 
-  private open(id: string, url: string): void {
+  private open(id: string, url: string, from: number): Player {
     const frame = document.createElement("iframe");
     frame.className = "cm-video-frame";
     frame.src = url;
@@ -138,24 +182,26 @@ class VideoLayer {
       );
     });
     this.layer.appendChild(frame);
-    this.players.set(id, { id, frame, running: false, seconds: 0 });
+    const player = { id, from, frame, running: false, seconds: 0 };
+    this.players.add(player);
+    return player;
   }
 
   /**
-   * Places each frame over the first connected placeholder of its video.
+   * Places each frame over the connected placeholder of its link.
    * Frames with no placeholder on screen are hidden. Reads run before writes, to avoid layout thrash.
    */
   private measure(): void {
     if (this.destroyed) return;
     this.view.requestMeasure({
-      read: (): Map<string, Box> => {
+      read: (): Map<Player, Box> => {
         const layer = this.layer.getBoundingClientRect();
-        const boxes = new Map<string, Box>();
-        for (const [placeholder, id] of this.placeholders) {
-          if (boxes.has(id) || !placeholder.isConnected) continue;
+        const boxes = new Map<Player, Box>();
+        for (const [placeholder, player] of this.placeholders) {
+          if (boxes.has(player) || !placeholder.isConnected) continue;
           const rect = placeholder.getBoundingClientRect();
           if (rect.width === 0 || rect.height === 0) continue;
-          boxes.set(id, {
+          boxes.set(player, {
             left: rect.left - layer.left,
             top: rect.top - layer.top,
             width: rect.width,
@@ -164,9 +210,9 @@ class VideoLayer {
         }
         return boxes;
       },
-      write: (boxes: Map<string, Box>) => {
-        for (const [id, player] of this.players) {
-          const box = boxes.get(id);
+      write: (boxes: Map<Player, Box>) => {
+        for (const player of this.players) {
+          const box = boxes.get(player);
           const { style } = player.frame;
           if (box === undefined) {
             style.visibility = "hidden";
@@ -195,9 +241,7 @@ class VideoLayer {
    */
   private readonly onMessage = (event: MessageEvent): void => {
     if (event.origin !== PLAYER) return;
-    const found = [...this.players.values()].find(
-      (player) => player.frame.contentWindow === event.source,
-    );
+    const found = [...this.players].find((player) => player.frame.contentWindow === event.source);
     if (found === undefined) return;
     const message = parse(event.data);
     learnVideoSettings(message);
@@ -254,17 +298,16 @@ export const videoLayer = ViewPlugin.fromClass(VideoLayer);
 /** The layer each placeholder was registered with, so its destroy can find it. */
 const owners = new WeakMap<HTMLElement, VideoLayer>();
 
-/** Registers a placeholder for a video, opening its frame on the first one. */
+/** Registers a placeholder for the video link at `from`, opening its frame on the first one. */
 export function showPlaceholder(
   view: EditorView,
   placeholder: HTMLElement,
-  id: string,
-  url: string,
+  link: { id: string; url: string; from: number },
 ): void {
   const layer = view.plugin(videoLayer);
   if (layer === null) return;
   owners.set(placeholder, layer);
-  layer.register(placeholder, id, url);
+  layer.register(placeholder, link.id, link.url, link.from);
 }
 
 /** Forgets a placeholder that has left the text. Its frame keeps playing, hidden. */

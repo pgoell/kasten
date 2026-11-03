@@ -59,6 +59,13 @@ player's size, and the frame lives in a layer of its own over the note, laid ove
 that box whenever it is drawn and hidden, still playing, while it is not. Only
 the link leaving the note ends the frame.
 
+The layer holds one frame per link, not per video. It knows each frame by
+where its link starts, moved along with every edit above it, so two links to
+the same video are two players, and deleting one ends only its own. A change
+that writes across a link but leaves some of it, as a vault write adding a line
+above it or swapping the whole text does, keeps the frame on the link it wrote
+back.
+
 A fenced code block needs none of that. Every line of it takes a line
 decoration, which paints the block's surface and sets it in the monospaced
 face, and the highlighting inside comes from whichever parser the language
