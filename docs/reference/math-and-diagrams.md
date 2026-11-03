@@ -96,6 +96,12 @@ source too.
 <svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" fill="currentColor"/></svg>
 ```
 
+A picture wider than the note scales down to fit it. An svg with plain numeric
+`width` and `height` but no `viewBox`, such as `width="800" height="100"`, draws
+as if it had `viewBox="0 0 800 100"`, so it scales too; the note's text keeps
+no `viewBox`. With a unit or a percent (`800px`, `50%`), or without one of the
+two, it gets none and is cut at the note's edge.
+
 Inside a list item, a `>` quote or the middle of a paragraph, the block stays
 source. A `</svg>` that does not end its line, or text after it on the lines
 of the block, keeps it source too.
