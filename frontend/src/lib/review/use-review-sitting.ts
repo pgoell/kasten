@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChangedOnDisk } from "@/lib/api";
-import { soundsIn } from "@/lib/audio";
 import { readClock } from "@/lib/clock";
+import { soundsIn } from "@/lib/notes/embeds/audio";
 import { readNotes } from "@/lib/read-retry";
 import { appendStub, setSuspended, writeSchedule } from "@/lib/review/card-write";
 import type { Deck, Limits } from "@/lib/review/review";

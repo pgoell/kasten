@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { type Dispatch, type SetStateAction, useCallback, useRef } from "react";
 import { fetchNote, type Note, saveNote } from "@/lib/api";
-import { noteBaseAside } from "@/lib/note-base";
+import { noteBaseAside } from "@/lib/notes/note-base";
 import { BACKOFF, retryable } from "@/lib/read-retry";
 import { answered } from "@/lib/review/review-queue";
 

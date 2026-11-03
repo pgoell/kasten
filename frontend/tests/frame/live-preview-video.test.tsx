@@ -12,12 +12,12 @@ import type { MockInstance } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { kastenTheme } from "@/lib/editor/editor-theme";
 import { vimKeys } from "@/lib/editor/vim-mode";
-import { imagePaths } from "@/lib/image";
 import { livePreview } from "@/lib/live/live-preview";
 import { noteLanguage } from "@/lib/markdown/note-language";
-import { readField } from "@/lib/note-frontmatter";
+import { imagePaths } from "@/lib/notes/embeds/image";
+import { vaultPaths } from "@/lib/notes/links/wikilink";
+import { readField } from "@/lib/notes/text/note-frontmatter";
 import { PLAYER, watchedAt } from "@/lib/video/video";
-import { vaultPaths } from "@/lib/wikilink";
 import "@/styles/app.css";
 import { shot } from "./shots";
 

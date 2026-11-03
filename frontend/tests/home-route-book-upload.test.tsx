@@ -2,7 +2,7 @@ import { cleanup, fireEvent } from "@testing-library/react";
 import { useMemo } from "react";
 import { type TodoHit, UPLOAD_LIMIT_BYTES } from "@/lib/api";
 import type { PdfRenderer } from "@/lib/book/pdf-view";
-import { noteBase } from "@/lib/note-base";
+import { noteBase } from "@/lib/notes/note-base";
 import type { TodoState } from "@/lib/todo/todo";
 import { hashed } from "./digests";
 import { defineFoliateFake, resetFoliateFake } from "./foliate-fake";

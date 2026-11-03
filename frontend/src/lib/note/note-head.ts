@@ -16,10 +16,10 @@ import {
 import { followHandler } from "@/lib/editor/editor-follow";
 import { belowFrontmatter } from "@/lib/markdown/frontmatter-language";
 import { type Outline, outlinePlugin, proseLines, tagText } from "@/lib/note/note-outline";
-import { noteBody, readField } from "@/lib/note-frontmatter";
-import { noteName } from "@/lib/note-path";
-import { type Relation, readRelation } from "@/lib/relation";
-import { tagsOf } from "@/lib/tag-rule";
+import { noteName } from "@/lib/notes/links/note-path";
+import { type Relation, readRelation } from "@/lib/notes/links/relation";
+import { noteBody, readField } from "@/lib/notes/text/note-frontmatter";
+import { tagsOf } from "@/lib/notes/text/tag-rule";
 import { notePath } from "@/lib/todo/todo-commands";
 
 export type { Outline, OutlineHeading } from "@/lib/note/note-outline";

@@ -23,7 +23,9 @@ if TYPE_CHECKING:
     from httpx import AsyncClient
 
 CASES = json.loads(
-    (Path(__file__).parents[2] / "frontend/src/lib/tag-cases.json").read_text(encoding="utf-8")
+    (Path(__file__).parents[2] / "frontend/src/lib/notes/text/tag-cases.json").read_text(
+        encoding="utf-8"
+    )
 )
 LINES = [case for case in CASES if "\n" not in case["text"]]
 
@@ -242,7 +244,7 @@ async def test_1238_a3_search_answers_the_tags_of_the_table_cold_and_warm(
 
 def test_656_the_block_patterns_match_tag_rule_ts() -> None:
     # Written out on both sides; a name no table row uses would drift apart unseen.
-    source = (Path(__file__).parents[2] / "frontend/src/lib/tag-rule.ts").read_text(
+    source = (Path(__file__).parents[2] / "frontend/src/lib/notes/text/tag-rule.ts").read_text(
         encoding="utf-8"
     )
     opener = re.search(r"const HTML_OPENER = String\.raw`([^`]*)`", source)
@@ -260,7 +262,7 @@ def test_656_the_block_patterns_match_tag_rule_ts() -> None:
 
 
 def test_657_the_comment_patterns_match_tag_rule_ts() -> None:
-    source = (Path(__file__).parents[2] / "frontend/src/lib/tag-rule.ts").read_text(
+    source = (Path(__file__).parents[2] / "frontend/src/lib/notes/text/tag-rule.ts").read_text(
         encoding="utf-8"
     )
     spans = re.search(r"export const SPANS = /(.*)/g;", source)

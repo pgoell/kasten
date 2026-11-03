@@ -4,7 +4,7 @@
  */
 
 import type { ReviewLimits, SearchHit } from "@/lib/api";
-import { noteName } from "@/lib/note-path";
+import { noteName } from "@/lib/notes/links/note-path";
 import { type Divided, divide, parks, suspended } from "@/lib/review/card-line";
 import { deckPath, withoutTags } from "@/lib/review/deck-tag";
 import { type Card, parseCards } from "@/lib/review/srs";

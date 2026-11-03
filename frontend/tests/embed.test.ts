@@ -5,7 +5,7 @@ const { fetchNote } = vi.hoisted(() => ({ fetchNote: vi.fn() }));
 
 vi.mock("@/lib/api", () => ({ fetchNote }));
 
-import { queryEmbedSource } from "@/lib/embed";
+import { queryEmbedSource } from "@/lib/notes/embeds/embed";
 
 afterEach(() => {
   fetchNote.mockReset();

@@ -16,7 +16,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { page } from "vitest/browser";
 import { Editor } from "@/components/editor";
 import { PaneLayout } from "@/components/pane-layout";
-import { noteName } from "@/lib/note-path";
+import { noteName } from "@/lib/notes/links/note-path";
 import { openInFocused } from "@/lib/panes/pane-contents";
 import {
   activeTab,

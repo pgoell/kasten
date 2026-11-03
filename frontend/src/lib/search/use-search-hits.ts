@@ -1,12 +1,12 @@
 import { keepPreviousData, skipToken, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { fetchMentions, fetchTodos, type Mention, type SearchHit, searchNotes } from "@/lib/api";
-import { noteName } from "@/lib/note-path";
-import { readRelation } from "@/lib/relation";
+import { noteName } from "@/lib/notes/links/note-path";
+import { readRelation } from "@/lib/notes/links/relation";
+import { wikiLinkPath, wikiLinkTargets } from "@/lib/notes/links/wikilink";
 import { inArchive } from "@/lib/search/archive";
 import { lineCandidates, rankIndexes } from "@/lib/search/fuzzy";
 import { isOpen, parseTodo } from "@/lib/todo/todo";
-import { wikiLinkPath, wikiLinkTargets } from "@/lib/wikilink";
 
 /** Which of the three lists the panel is drawing, and where its lines come from. */
 export type SearchMode = "search" | "backlinks" | "todos";

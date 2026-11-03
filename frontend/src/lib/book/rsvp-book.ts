@@ -8,8 +8,8 @@ import type { BookBeside } from "@/lib/api";
 import { fetchNote } from "@/lib/api";
 import { type FoliateView, pdfLayer } from "@/lib/book/foliate-view";
 import { readPdf } from "@/lib/book/use-book-seek";
-import { readField } from "@/lib/note-frontmatter";
-import { noteName } from "@/lib/note-path";
+import { noteName } from "@/lib/notes/links/note-path";
+import { readField } from "@/lib/notes/text/note-frontmatter";
 import { findQuote, firstOf, indexAt, type RsvpSource, type Word } from "@/lib/rsvp/rsvp";
 import { offsetOf, pdfWords, rangeAt, sectionWords } from "@/lib/rsvp/rsvp-sources";
 

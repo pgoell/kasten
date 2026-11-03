@@ -5,11 +5,11 @@ import { act, type RenderResult, render, waitFor } from "@testing-library/react"
 import type { ReactElement } from "react";
 import { type PdfFile, type PdfRenderer, pdfRenderer } from "@/lib/book/pdf-view";
 import { vimKeys } from "@/lib/editor/vim-mode";
-import { type EmbedSource, embedSource } from "@/lib/embed";
-import { imagePaths } from "@/lib/image";
 import { livePreview } from "@/lib/live/live-preview";
 import { noteLanguage } from "@/lib/markdown/note-language";
-import { vaultPaths } from "@/lib/wikilink";
+import { type EmbedSource, embedSource } from "@/lib/notes/embeds/embed";
+import { imagePaths } from "@/lib/notes/embeds/image";
+import { vaultPaths } from "@/lib/notes/links/wikilink";
 
 /**
  * Helpers the live-preview test files share. Each of those files calls

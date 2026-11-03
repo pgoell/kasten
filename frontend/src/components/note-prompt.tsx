@@ -1,7 +1,11 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createNote } from "@/lib/api";
-import { describeFolderPath, describeNotePath, type NotePathVerdict } from "@/lib/note-path";
+import {
+  describeFolderPath,
+  describeNotePath,
+  type NotePathVerdict,
+} from "@/lib/notes/links/note-path";
 import { folderCandidates, rankCandidates } from "@/lib/search/fuzzy";
 import {
   BACKDROP,

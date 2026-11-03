@@ -3,7 +3,7 @@
  * The line is the whole record, so every field is spelled on it, and a patched line keeps every other byte.
  */
 
-import { masked, SPANS, tagsOf, wordTags } from "@/lib/tag-rule";
+import { masked, SPANS, tagsOf, wordTags } from "@/lib/notes/text/tag-rule";
 import {
   endsOfWords,
   type Fields,

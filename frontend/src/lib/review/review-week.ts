@@ -11,7 +11,7 @@ import type { LogConfig, LogKind } from "@/lib/log/log-kinds";
 import { tenth } from "@/lib/log/log-lines";
 import { hasFood, within } from "@/lib/log/log-streak";
 import { valueOn } from "@/lib/log/log-weight";
-import { noteSectionOf } from "@/lib/note-section";
+import { noteSectionOf } from "@/lib/notes/text/note-section";
 import { type Bar, barsOf, doneCounts, reviewCounts } from "@/lib/overview/overview";
 import { byText, doneTodos, inRange } from "@/lib/review/review-year";
 import { isOpen, parseTodo } from "@/lib/todo/todo";

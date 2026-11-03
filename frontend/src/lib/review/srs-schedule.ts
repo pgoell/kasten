@@ -1,5 +1,5 @@
 import { shiftDay } from "@/lib/clock";
-import { readField, setField } from "@/lib/note-frontmatter";
+import { readField, setField } from "@/lib/notes/text/note-frontmatter";
 import type { Rating, Schedule } from "@/lib/review/srs";
 
 /** What a card starts life at, which is SM-2's 2.5 and Anki's default. */

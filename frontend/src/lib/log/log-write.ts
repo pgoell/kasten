@@ -7,8 +7,8 @@ import { isolateHistory } from "@codemirror/commands";
 import type { EditorView } from "@codemirror/view";
 import { createNote, NoteExists, updateNote } from "@/lib/api";
 import { LOG_HEADING } from "@/lib/log/log-lines";
-import { appendUnder, appendUnderEdit } from "@/lib/note-section";
-import { periodicNote } from "@/lib/periodic";
+import { appendUnder, appendUnderEdit } from "@/lib/notes/text/note-section";
+import { periodicNote } from "@/lib/notes/text/periodic";
 import { notePath } from "@/lib/todo/todo-commands";
 
 /**

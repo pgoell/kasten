@@ -1,6 +1,6 @@
 import { ChangedOnDisk, NoteExists, NoteMissing } from "@/lib/api";
-import { noteBase } from "@/lib/note-base";
-import { periodicNote } from "@/lib/periodic";
+import { noteBase } from "@/lib/notes/note-base";
+import { periodicNote } from "@/lib/notes/text/periodic";
 import { cycleTodoAside } from "@/lib/todo/todo-api";
 import { todoApiHooks } from "./todo-api-fixture";
 import { updateWithTries } from "./update-note/stand-in";

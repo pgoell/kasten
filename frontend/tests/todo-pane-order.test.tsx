@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { useRef, useState } from "react";
 import { TodoPane } from "@/components/todo-pane";
 import { fetchFiles } from "@/lib/api";
-import { periodicNote } from "@/lib/periodic";
+import { periodicNote } from "@/lib/notes/text/periodic";
 import { useTodoActions } from "@/lib/todo/use-todo-actions";
 import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
 import { useVaultEvents } from "@/lib/vault/events/use-vault-events";

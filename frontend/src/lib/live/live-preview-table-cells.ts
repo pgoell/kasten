@@ -8,7 +8,7 @@ import {
 } from "@/lib/live/live-preview-images";
 import { INLINE } from "@/lib/live/live-preview-inline";
 import { linkAddress, urlLinkAt } from "@/lib/markdown/link-reference";
-import { splitTarget, vaultPaths, wikiLinkLands } from "@/lib/wikilink";
+import { splitTarget, vaultPaths, wikiLinkLands } from "@/lib/notes/links/wikilink";
 
 /** A run of a cell's text drawn as one element. */
 export interface Span {

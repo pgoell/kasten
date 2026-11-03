@@ -1,7 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { ChangedOnDisk, fetchNote, type Note, saveNote } from "@/lib/api";
 import { heldOf, type InAir, sentUnder } from "@/lib/note/in-air";
-import { noteBase } from "@/lib/note-base";
+import { noteBase } from "@/lib/notes/note-base";
 import { dropText, type Held, holdText, landedAs, movesMade } from "@/lib/saving/held-text";
 
 /** One fewer write in the air for `note`, taking the entry when it reaches none. */

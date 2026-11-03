@@ -1,4 +1,4 @@
-import { noteBase } from "@/lib/note-base";
+import { noteBase } from "@/lib/notes/note-base";
 import { cycleTodoInVault } from "@/lib/todo/todo-api";
 import { todoApiHooks } from "./todo-api-fixture";
 

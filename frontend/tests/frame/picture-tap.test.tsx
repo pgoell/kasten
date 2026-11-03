@@ -15,10 +15,10 @@ import { vim as vimKeymap } from "@replit/codemirror-vim";
 import type {} from "@vitest/browser-playwright";
 import { cdp, page, userEvent } from "vitest/browser";
 import { vimKeys } from "@/lib/editor/vim-mode";
-import { imagePaths } from "@/lib/image";
 import { livePreview } from "@/lib/live/live-preview";
 import { noteLanguage } from "@/lib/markdown/note-language";
-import { vaultPaths } from "@/lib/wikilink";
+import { imagePaths } from "@/lib/notes/embeds/image";
+import { vaultPaths } from "@/lib/notes/links/wikilink";
 import "@/styles/app.css";
 
 const CAT = "https://example.com/cat.png";

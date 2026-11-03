@@ -5,7 +5,7 @@ import { fetchMentions, fetchSimilar, type SimilarAnswer } from "@/lib/api";
 import type { DrawnNode } from "@/lib/graph/graph";
 import { fetchGraph } from "@/lib/graph/graph-api";
 import { drawGraph, type GraphCanvas } from "@/lib/graph/graph-canvas";
-import { noteName } from "@/lib/note-path";
+import { noteName } from "@/lib/notes/links/note-path";
 import { useViewport } from "@/lib/ui/input/use-viewport";
 
 interface LocalGraphProps {

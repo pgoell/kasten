@@ -9,7 +9,7 @@ import {
   fetchTags,
   fetchVersion,
 } from "@/lib/api";
-import { ONTOLOGY_NOTE, relationNames } from "@/lib/ontology";
+import { ONTOLOGY_NOTE, relationNames } from "@/lib/notes/links/ontology";
 import { visible } from "@/lib/search/archive";
 import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
 

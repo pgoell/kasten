@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { encodePath } from "@/lib/note-path";
+import { encodePath } from "@/lib/notes/links/note-path";
 import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
 import { useLeader } from "@/lib/ui/keys/use-leader";
 

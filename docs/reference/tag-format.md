@@ -2,7 +2,7 @@
 type: Reference
 title: Tag format
 description: The one rule every part of kasten reads a #tag by, the characters a tag holds, what ends one, where a hash is no tag, and the table of cases each reader is tested against.
-resource: frontend/src/lib/tag-cases.json
+resource: frontend/src/lib/notes/text/tag-cases.json
 tags: [vault, tags, format, frontend, backend]
 status: stable
 ---
@@ -96,7 +96,7 @@ frontmatter or on a line under an HTML block such as `<img>`. See
 
 ## The cases
 
-`frontend/src/lib/tag-cases.json` holds the cases above, each a text and the
+`frontend/src/lib/notes/text/tag-cases.json` holds the cases above, each a text and the
 tags it carries in order. Every reader runs the whole table in its own tests,
 frontend and backend both. A reader that reads one line at a time runs the cases
 of one line; a reader that reads a whole note runs them all. A change to the

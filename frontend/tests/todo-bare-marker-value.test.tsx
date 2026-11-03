@@ -2,7 +2,7 @@ import { EditorView } from "@codemirror/view";
 import { fireEvent, screen } from "@testing-library/react";
 import { afterEach } from "vitest";
 import { NoteMissing, type TodoHit } from "@/lib/api";
-import { noteBase } from "@/lib/note-base";
+import { noteBase } from "@/lib/notes/note-base";
 import { formatTodo, parseTodo, patchLine, type Todo } from "@/lib/todo/todo";
 import { cycleTodoAtCursor } from "@/lib/todo/todo-commands";
 import { readFields } from "@/lib/todo/todo-fields";

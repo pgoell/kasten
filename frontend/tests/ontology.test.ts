@@ -5,7 +5,7 @@ import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { EditorState } from "@codemirror/state";
 import { describe, expect, it } from "vitest";
 
-import { relationCompletions, relationNames, vaultRelations } from "@/lib/ontology";
+import { relationCompletions, relationNames, vaultRelations } from "@/lib/notes/links/ontology";
 
 /**
  * The note the backend writes, read off the asset itself rather than copied.

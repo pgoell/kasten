@@ -4,8 +4,8 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { HtmlPane } from "@/components/html-pane";
 import { reset } from "@/lib/capture/outbox";
 import { readClock } from "@/lib/clock";
-import { noteBase } from "@/lib/note-base";
-import { periodicNote } from "@/lib/periodic";
+import { noteBase } from "@/lib/notes/note-base";
+import { periodicNote } from "@/lib/notes/text/periodic";
 import { pageLink, takenQuote } from "@/lib/takes/html-take";
 import { hostLeader } from "@/lib/ui/keys/which-key";
 import {

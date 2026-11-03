@@ -2,7 +2,7 @@ import { skipToken, useQuery } from "@tanstack/react-query";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { NotePreview } from "@/components/note-preview";
 import { fetchNote } from "@/lib/api";
-import { noteName } from "@/lib/note-path";
+import { noteName } from "@/lib/notes/links/note-path";
 import { noteCandidates, rankCandidates } from "@/lib/search/fuzzy";
 import { useViewport } from "@/lib/ui/input/use-viewport";
 import {

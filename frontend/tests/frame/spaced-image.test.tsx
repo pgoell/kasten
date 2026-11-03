@@ -16,10 +16,10 @@ import type {} from "@vitest/browser-playwright";
 import { cdp, page } from "vitest/browser";
 import { kastenTheme } from "@/lib/editor/editor-theme";
 import { vimKeys } from "@/lib/editor/vim-mode";
-import { imagePaths } from "@/lib/image";
 import { livePreview } from "@/lib/live/live-preview";
 import { noteLanguage } from "@/lib/markdown/note-language";
-import { vaultPaths } from "@/lib/wikilink";
+import { imagePaths } from "@/lib/notes/embeds/image";
+import { vaultPaths } from "@/lib/notes/links/wikilink";
 import "@/styles/app.css";
 import { shot } from "./shots";
 

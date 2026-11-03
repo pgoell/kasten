@@ -19,7 +19,7 @@
 
 import { bench, describe } from "vitest";
 import { buildTree } from "@/components/file-explorer";
-import { describeNotePath } from "@/lib/note-path";
+import { describeNotePath } from "@/lib/notes/links/note-path";
 import { folderCandidates, noteCandidates, rankCandidates, rankFolders } from "@/lib/search/fuzzy";
 import { syntheticVault, VAULT_SIZES } from "./fixtures";
 

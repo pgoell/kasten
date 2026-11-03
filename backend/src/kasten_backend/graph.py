@@ -36,7 +36,7 @@ WIKILINK = re.compile(r"\[\[([^\[\]\n]+)\]\]")
 """One `[[link]]`, spelled the way `code_spans.py` and the editor's parser spell it."""
 
 RELATION = re.compile(r"^ {0,3}(?:- )?([a-z][a-z-]*):: [ \t]*\[\[([^\[\]\n]+)\]\]")
-"""`name:: [[target]]`, the rule `frontend/src/lib/relation.ts` reads.
+"""`name:: [[target]]`, the rule `frontend/src/lib/notes/links/relation.ts` reads.
 
 A copy, since the editor draws a relation without asking the server, and the graph is built
 without asking the editor. `docs/reference/relation-format.md` is what both answer to.

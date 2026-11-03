@@ -10,7 +10,7 @@ import {
   restoreLine,
 } from "@/lib/log/log-edit";
 import { LOG_HEADING } from "@/lib/log/log-lines";
-import { appendUnder } from "@/lib/note-section";
+import { appendUnder } from "@/lib/notes/text/note-section";
 import { heldText } from "@/lib/saving/held-text";
 import type { GuardedWrites } from "@/lib/saving/use-guarded-writes";
 

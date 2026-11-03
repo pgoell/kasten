@@ -7,7 +7,7 @@ import { closeView, type FoliateView, isError, pdfLayer } from "@/lib/book/folia
 import type { BookHighlights } from "@/lib/book/use-book-highlights";
 import type { BookTake } from "@/lib/book/use-book-take";
 import type { BookTurns } from "@/lib/book/use-book-turns";
-import { readField } from "@/lib/note-frontmatter";
+import { readField } from "@/lib/notes/text/note-frontmatter";
 import { onThemeChange } from "@/lib/ui/theme";
 
 /**

@@ -8,11 +8,11 @@
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { vimKeys } from "@/lib/editor/vim-mode";
-import { imagePaths } from "@/lib/image";
 import { livePreview } from "@/lib/live/live-preview";
 import { drawMermaid, drawnMermaid } from "@/lib/live/mermaid";
 import { noteLanguage } from "@/lib/markdown/note-language";
-import { vaultPaths } from "@/lib/wikilink";
+import { imagePaths } from "@/lib/notes/embeds/image";
+import { vaultPaths } from "@/lib/notes/links/wikilink";
 
 // Spied, so a test can wait on the drawing a widget asked for.
 vi.mock("@/lib/live/mermaid", { spy: true });

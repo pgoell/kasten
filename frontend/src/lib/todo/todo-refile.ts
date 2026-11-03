@@ -3,7 +3,7 @@
  * as `todo-write.ts` is. The route reads the notes and owns the order the two writes go in.
  */
 
-import { appendUnder } from "@/lib/note-section";
+import { appendUnder } from "@/lib/notes/text/note-section";
 import { parseTodo } from "@/lib/todo/todo";
 import { laneName } from "@/lib/todo/todo-board";
 

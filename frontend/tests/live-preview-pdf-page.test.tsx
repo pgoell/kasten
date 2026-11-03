@@ -3,10 +3,10 @@ import type { EditorView } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
 import { fireEvent, waitFor } from "@testing-library/react";
 import { pdfRenderer } from "@/lib/book/pdf-view";
-import { type EmbedSource, embedSource } from "@/lib/embed";
-import { imagePaths } from "@/lib/image";
 import { livePreview } from "@/lib/live/live-preview";
-import { vaultPaths } from "@/lib/wikilink";
+import { type EmbedSource, embedSource } from "@/lib/notes/embeds/embed";
+import { imagePaths } from "@/lib/notes/embeds/image";
+import { vaultPaths } from "@/lib/notes/links/wikilink";
 import {
   ABOVE,
   FakeObserver,

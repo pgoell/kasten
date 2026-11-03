@@ -4,9 +4,9 @@
  */
 
 import { shiftDay } from "@/lib/clock";
+import { wikiLinkPath, wikiLinkTargets } from "@/lib/notes/links/wikilink";
 import { parseTodo, type Todo } from "@/lib/todo/todo";
 import { endsOfWords } from "@/lib/todo/todo-fields";
-import { wikiLinkPath, wikiLinkTargets } from "@/lib/wikilink";
 
 export type Column = "open" | "doing" | "review" | "waiting" | "blocked" | "done" | "rejected";
 

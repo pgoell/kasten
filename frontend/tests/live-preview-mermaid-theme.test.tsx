@@ -13,12 +13,12 @@ import { act } from "@testing-library/react";
 import { createRoot, type Root } from "react-dom/client";
 import { NotePreview } from "@/components/note-preview";
 import { vimKeys } from "@/lib/editor/vim-mode";
-import { imagePaths } from "@/lib/image";
 import { livePreview } from "@/lib/live/live-preview";
 import { drawMermaid } from "@/lib/live/mermaid";
 import { noteLanguage } from "@/lib/markdown/note-language";
+import { imagePaths } from "@/lib/notes/embeds/image";
+import { vaultPaths } from "@/lib/notes/links/wikilink";
 import { startTheme, toggleTheme } from "@/lib/ui/theme";
-import { vaultPaths } from "@/lib/wikilink";
 import { stubMatchMedia } from "./match-media";
 
 const DARK = "(prefers-color-scheme: dark)";

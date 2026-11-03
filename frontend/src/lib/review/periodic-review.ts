@@ -9,8 +9,8 @@ import type { QueryClient } from "@tanstack/react-query";
 import type { Root } from "react-dom/client";
 import { mountReview } from "@/components/review-block";
 import { cardLine } from "@/lib/note/weather-card";
-import { closing } from "@/lib/note-frontmatter";
-import { weeklyWeek, yearlyYear } from "@/lib/periodic";
+import { closing } from "@/lib/notes/text/note-frontmatter";
+import { weeklyWeek, yearlyYear } from "@/lib/notes/text/periodic";
 import { notePath } from "@/lib/todo/todo-commands";
 
 /** What the review reads with and opens notes with, handed in where the editor is built. */

@@ -8,7 +8,7 @@
  */
 
 import { expect, it } from "vitest";
-import { tagsOf } from "@/lib/tag-rule";
+import { tagsOf } from "@/lib/notes/text/tag-rule";
 import {
   HEADING_CAP,
   PASSAGE_CAP,

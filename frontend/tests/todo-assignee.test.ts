@@ -1,7 +1,7 @@
 import { EditorView } from "@codemirror/view";
 import { fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, vi } from "vitest";
-import cases from "@/lib/person-field-cases.json";
+import cases from "@/lib/notes/links/person-field-cases.json";
 import {
   cycleLine,
   formatTodo,

@@ -7,7 +7,7 @@ import {
   type MarkSpec,
   STRIKE,
 } from "@/lib/editor/format-commands";
-import { toggleImageAtCursor } from "@/lib/image";
+import { toggleImageAtCursor } from "@/lib/notes/embeds/image";
 import { agentTodoAtCursor, cycleTodoAtCursor, stampIdAtCursor } from "@/lib/todo/todo-commands";
 import { writeTranscript } from "@/lib/video/transcript";
 

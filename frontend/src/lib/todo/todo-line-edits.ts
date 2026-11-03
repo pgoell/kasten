@@ -4,7 +4,7 @@
  */
 
 import { fetchNote, fetchTodos, type SearchHit, saveNote, updateNote } from "@/lib/api";
-import { noteBase } from "@/lib/note-base";
+import { noteBase } from "@/lib/notes/note-base";
 import { isOpen, newId, parseTodo, patchLine } from "@/lib/todo/todo";
 import { blockLine, type Closed, closedAmong, unblockedEdit } from "@/lib/todo/todo-blocked";
 import { expandShorthand } from "@/lib/todo/todo-shorthand";

@@ -1,5 +1,5 @@
 import { ChangedOnDisk } from "@/lib/api";
-import { noteBase } from "@/lib/note-base";
+import { noteBase } from "@/lib/notes/note-base";
 
 type Read = (path: string) => Promise<string>;
 type Save = (path: string, content: string, keepalive: boolean, base: string) => Promise<unknown>;

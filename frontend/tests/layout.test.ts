@@ -1,5 +1,4 @@
 import { clipPage } from "@/lib/capture/clip";
-import { IMAGE_FOLDER } from "@/lib/image";
 import {
   applyLayout,
   INBOX,
@@ -9,12 +8,13 @@ import {
   PERIODIC,
   READING_NOTE,
 } from "@/lib/layout";
-import { bookNote, importedNote } from "@/lib/note-path";
-import { ONTOLOGY_NOTE } from "@/lib/ontology";
-import { dailyDate, periodicNote } from "@/lib/periodic";
+import { IMAGE_FOLDER } from "@/lib/notes/embeds/image";
+import { bookNote, importedNote } from "@/lib/notes/links/note-path";
+import { ONTOLOGY_NOTE } from "@/lib/notes/links/ontology";
+import { wikiLinkPath } from "@/lib/notes/links/wikilink";
+import { dailyDate, periodicNote } from "@/lib/notes/text/periodic";
 import { ARCHIVE, inArchive } from "@/lib/search/archive";
 import { VIEWS_NOTE } from "@/lib/todo/todo-view";
-import { wikiLinkPath } from "@/lib/wikilink";
 
 /**
  * A vault laid out by somebody else, as `GET /api/layout` would name it.

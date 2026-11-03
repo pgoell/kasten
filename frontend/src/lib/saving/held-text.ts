@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { closing } from "@/lib/note-frontmatter";
+import { closing } from "@/lib/notes/text/note-frontmatter";
 
 /**
  * A new key, not the old shape under the same one: a tab of the build before still reads it as

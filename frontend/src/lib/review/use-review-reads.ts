@@ -18,7 +18,7 @@ import { shiftDay } from "@/lib/clock";
 import { LOG_NOTE } from "@/lib/layout";
 import { fetchLog, type LogDay } from "@/lib/log/food-api";
 import { DEFAULT_CONFIG, type LogConfig, parseConfig } from "@/lib/log/log-kinds";
-import { periodicNote } from "@/lib/periodic";
+import { periodicNote } from "@/lib/notes/text/periodic";
 import { readRetry } from "@/lib/read-retry";
 import {
   fetchGithub,

@@ -3,9 +3,9 @@ import { type Dispatch, type SetStateAction, useCallback } from "react";
 import type { PaneMoves } from "@/components/use-pane-moves";
 import { fetchAssets, fetchFiles, fetchNote, NoteMissing } from "@/lib/api";
 import { READING_NOTE } from "@/lib/layout";
-import { noteName } from "@/lib/note-path";
+import { noteName } from "@/lib/notes/links/note-path";
+import { splitTarget, wikiLinkPath, wikiLinkTargets } from "@/lib/notes/links/wikilink";
 import { openBookInFocused } from "@/lib/panes/pane-contents";
-import { splitTarget, wikiLinkPath, wikiLinkTargets } from "@/lib/wikilink";
 
 /**
  * Opens the book `READING_NOTE` links. The note is read fresh on each press: it is

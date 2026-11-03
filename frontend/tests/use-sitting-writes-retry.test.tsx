@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { noteBase } from "@/lib/note-base";
+import { noteBase } from "@/lib/notes/note-base";
 import { useSittingWrites } from "@/lib/review/use-sitting-writes";
 
 // Stubbed before `api.ts` loads, because `openapi-fetch` takes `fetch` and

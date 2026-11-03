@@ -3,7 +3,7 @@
  * A card's head tag adds a deck to the note's. Obsidian-spaced-repetition replaces them, the only place kasten parts from it.
  */
 
-import { TAG_CHARS, TAG_SOURCE, tagsOf } from "@/lib/tag-rule";
+import { TAG_CHARS, TAG_SOURCE, tagsOf } from "@/lib/notes/text/tag-rule";
 
 /**
  * `#flashcards`, and the deck it names after the slash, by `tag-rule.ts`'s rule only.

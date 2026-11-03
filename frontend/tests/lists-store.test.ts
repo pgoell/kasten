@@ -1,4 +1,4 @@
-import cases from "@/lib/person-field-cases.json";
+import cases from "@/lib/notes/links/person-field-cases.json";
 import type { ListData } from "@/lists/lists-store";
 import { createListsStore } from "@/lists/lists-store";
 import { localDay, openCount, requestFor } from "@/lists/lists-view";

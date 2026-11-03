@@ -4,7 +4,7 @@ import { shiftDay } from "@/lib/clock";
 import { applyLayout } from "@/lib/layout";
 import type { LogDay } from "@/lib/log/food-api";
 import { parseConfig } from "@/lib/log/log-kinds";
-import { noteBase } from "@/lib/note-base";
+import { noteBase } from "@/lib/notes/note-base";
 import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
 import { FakeEventSource, pageHooks, VAULT } from "./home-route-fixture";

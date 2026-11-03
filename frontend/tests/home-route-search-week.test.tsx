@@ -1,7 +1,7 @@
 import { EditorView } from "@codemirror/view";
 import { cleanup, fireEvent, screen } from "@testing-library/react";
 import type { SearchHit } from "@/lib/api";
-import { noteBase } from "@/lib/note-base";
+import { noteBase } from "@/lib/notes/note-base";
 import { hashed } from "./digests";
 import { act, FakeEventSource, pageHooks, renderApp, settle, VAULT } from "./home-route-fixture";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";

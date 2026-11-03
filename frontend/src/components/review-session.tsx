@@ -3,7 +3,7 @@ import { NotePreview } from "@/components/note-preview";
 import { BUTTON, ReviewAnswer, ReviewSource, TryAgain } from "@/components/review-answer";
 import { SwipeCard } from "@/components/review-swipe";
 import { shiftDay } from "@/lib/clock";
-import { noteName } from "@/lib/note-path";
+import { noteName } from "@/lib/notes/links/note-path";
 import { unescaped } from "@/lib/review/card-line";
 import { sameAnswer } from "@/lib/review/card-text";
 import type { Deck } from "@/lib/review/review";

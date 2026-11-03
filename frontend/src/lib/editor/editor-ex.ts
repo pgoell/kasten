@@ -5,7 +5,7 @@ import { takeVaultText } from "@/lib/editor/buffer-writes";
 import { toHtml, toSlack } from "@/lib/editor/copy-as";
 import { follow } from "@/lib/editor/editor-follow";
 import { lineUpEdited } from "@/lib/editor/table-lineup";
-import { noticeHandler } from "@/lib/image";
+import { noticeHandler } from "@/lib/notes/embeds/image";
 import { type CopyFormat, viewCommands } from "@/lib/ui/palette";
 
 type SaveHandler = (doc: string) => void;

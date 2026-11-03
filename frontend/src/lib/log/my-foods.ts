@@ -8,7 +8,7 @@ import { FOODS_NOTE } from "@/lib/layout";
 import type { Choice } from "@/lib/log/food-search";
 import type { BrokenLine } from "@/lib/log/log-kinds";
 import { parseFood, tenth } from "@/lib/log/log-lines";
-import { closing } from "@/lib/note-frontmatter";
+import { closing } from "@/lib/notes/text/note-frontmatter";
 
 /** The four nutrients, null where the line gives none. */
 export interface Nutrients {

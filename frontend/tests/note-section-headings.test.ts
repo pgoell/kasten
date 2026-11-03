@@ -1,5 +1,5 @@
 import { drinkTotals } from "@/lib/log/log-lines";
-import { appendUnder } from "@/lib/note-section";
+import { appendUnder } from "@/lib/notes/text/note-section";
 
 const HEADINGS = ["## Log", "## Done", "## Time", "## TODOs"];
 const LINE = "- new line";

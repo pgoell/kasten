@@ -3,7 +3,7 @@
  * that draws it; the type below fails to compile while a field has no row (#978).
  */
 
-import { noteName } from "@/lib/note-path";
+import { noteName } from "@/lib/notes/links/note-path";
 
 /** One pane, and whichever note is open in it. */
 export interface Pane {

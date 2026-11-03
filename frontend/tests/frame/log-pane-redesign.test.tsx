@@ -13,7 +13,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { commands, page } from "vitest/browser";
 import { shiftDay } from "@/lib/clock";
 import type { LogDay } from "@/lib/log/food-api";
-import { periodicNote } from "@/lib/periodic";
+import { periodicNote } from "@/lib/notes/text/periodic";
 import { routeTree } from "@/routeTree.gen";
 import { COARSE, NARROW, stubMatchMedia } from "../match-media";
 import { centreOf, pointer } from "./sheet-fixture";

@@ -3,7 +3,7 @@ import { syntaxTree } from "@codemirror/language";
 import { Facet } from "@codemirror/state";
 import type { SyntaxNode } from "@lezer/common";
 import type { MarkdownConfig } from "@lezer/markdown";
-import { GLUED, LEADING_TAG, TAG_CHARS } from "@/lib/tag-rule";
+import { GLUED, LEADING_TAG, TAG_CHARS } from "@/lib/notes/text/tag-rule";
 
 /** `#`, which the parser sees as a code point rather than a string. */
 const HASH = 35;

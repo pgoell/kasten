@@ -1,6 +1,6 @@
 import { EditorView } from "@codemirror/view";
 import { act, fireEvent, screen, within } from "@testing-library/react";
-import { noteBase } from "@/lib/note-base";
+import { noteBase } from "@/lib/notes/note-base";
 import { defineFoliateFake } from "./foliate-fake";
 import {
   baseOf,

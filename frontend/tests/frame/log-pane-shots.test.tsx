@@ -18,7 +18,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { commands, page } from "vitest/browser";
 import { shiftDay } from "@/lib/clock";
 import type { LogDay } from "@/lib/log/food-api";
-import { periodicNote } from "@/lib/periodic";
+import { periodicNote } from "@/lib/notes/text/periodic";
 import { applyTheme, PALETTE_KEY, THEME_KEY, type Theme } from "@/lib/ui/theme";
 import { routeTree } from "@/routeTree.gen";
 import { COARSE, NARROW, stubMatchMedia } from "../match-media";

@@ -1,6 +1,6 @@
 """Today's daily note, and the section of it the day's loose thoughts collect in.
 
-The note is the one `<leader>gd` makes, built by `frontend/src/lib/periodic.ts`. The
+The note is the one `<leader>gd` makes, built by `frontend/src/lib/notes/text/periodic.ts`. The
 server needs its own copy of the day's template for the capture route, so
 `frontend/tests/fixtures/daily-notes.json` holds the text both copies must produce.
 """

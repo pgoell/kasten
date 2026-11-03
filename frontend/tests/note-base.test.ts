@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { noteBase } from "@/lib/note-base";
+import { noteBase } from "@/lib/notes/note-base";
 
 // Each hash computed by the backend: sha256 of `frontmatter.unstamped(text)`
 // encoded as UTF-8. The two sides only agree while they cut and encode alike.

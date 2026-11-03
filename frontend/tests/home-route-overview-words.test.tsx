@@ -1,6 +1,6 @@
 import { NoteMissing } from "@/lib/api";
 import { applyLayout } from "@/lib/layout";
-import { noteBase } from "@/lib/note-base";
+import { noteBase } from "@/lib/notes/note-base";
 import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
 import { FakeEventSource, pageHooks, VAULT } from "./home-route-fixture";

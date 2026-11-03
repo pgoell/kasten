@@ -2,7 +2,7 @@
 type: Explanation
 title: People in the vault
 description: Why a person is a note with a type rather than a record, why their card counts links and never names, what that costs the vault as it stands, and why nothing was indexed to build it.
-resource: frontend/src/lib/person.ts
+resource: frontend/src/lib/notes/links/person.ts
 tags: [vault, people, links, frontend]
 status: stable
 ---

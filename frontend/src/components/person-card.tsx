@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { fetchNote, fetchTodos, searchNotes } from "@/lib/api";
-import { noteName } from "@/lib/note-path";
+import { noteName } from "@/lib/notes/links/note-path";
 import {
   type Done,
   isPerson,
@@ -10,10 +10,10 @@ import {
   type PersonTodo,
   personDone,
   personTodos,
-} from "@/lib/person";
+} from "@/lib/notes/links/person";
+import { plainLinks } from "@/lib/notes/links/wikilink";
 import { PRIORITY_SYMBOL, STATE_SYMBOL } from "@/lib/todo/todo";
 import { LABEL, ROW } from "@/lib/ui/overlay-styles";
-import { plainLinks } from "@/lib/wikilink";
 
 interface PersonCardProps {
   /** Vault path of the person note this is about. */

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { PersonCard } from "@/components/person-card";
-import { noteName } from "@/lib/note-path";
+import { noteName } from "@/lib/notes/links/note-path";
 import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
 import { useLeader } from "@/lib/ui/keys/use-leader";
 

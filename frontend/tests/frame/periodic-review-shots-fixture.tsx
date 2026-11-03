@@ -18,7 +18,7 @@ import { commands, page } from "vitest/browser";
 import { type LineHit, NoteMissing, type TodoHit } from "@/lib/api";
 import { readClock, shiftDay } from "@/lib/clock";
 import type { LogDay } from "@/lib/log/food-api";
-import { periodicNote } from "@/lib/periodic";
+import { periodicNote } from "@/lib/notes/text/periodic";
 import type { ModelUseLine } from "@/lib/review/review-api";
 import type { WrittenNote } from "@/lib/review/review-year";
 import { startPress } from "@/lib/ui/input/press";

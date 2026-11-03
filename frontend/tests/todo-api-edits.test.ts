@@ -1,5 +1,5 @@
-import { noteBase } from "@/lib/note-base";
-import { periodicNote } from "@/lib/periodic";
+import { noteBase } from "@/lib/notes/note-base";
+import { periodicNote } from "@/lib/notes/text/periodic";
 import { addTodoInVault } from "@/lib/todo/todo-api";
 import { addSubtaskInVault, editTodoInVault } from "@/lib/todo/todo-line-edits";
 import { todoApiHooks } from "./todo-api-fixture";

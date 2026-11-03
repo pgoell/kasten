@@ -3,7 +3,7 @@ import { act, cleanup, renderHook } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { ChangedOnDisk } from "@/lib/api";
 import { forgetQueues, useAutosave } from "@/lib/note/use-autosave";
-import { noteBase } from "@/lib/note-base";
+import { noteBase } from "@/lib/notes/note-base";
 import { resetHeld } from "@/lib/saving/held-text";
 
 // The orderings of docs/reference/save-path-orderings/ (the pages of the table,

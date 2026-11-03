@@ -4,8 +4,8 @@ import { renderHook } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { drinkTarget, logDrinkInVault } from "@/lib/log/log-write";
 import { useLogCommands } from "@/lib/log/use-log-commands";
-import { noteBase } from "@/lib/note-base";
-import { periodicNote } from "@/lib/periodic";
+import { noteBase } from "@/lib/notes/note-base";
+import { periodicNote } from "@/lib/notes/text/periodic";
 import { notePath } from "@/lib/todo/todo-commands";
 
 // The vault sits behind the api client, not behind the api module's own

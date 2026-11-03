@@ -14,7 +14,7 @@ import { EditorView } from "@codemirror/view";
 import { uploadAsset } from "@/lib/api";
 import { readClock } from "@/lib/clock";
 import { IMAGE_FOLDER } from "@/lib/layout";
-import { encodePath } from "@/lib/note-path";
+import { encodePath } from "@/lib/notes/links/note-path";
 
 /**
  * One folder for all pasted images, not one beside each note: a moved note would strand its

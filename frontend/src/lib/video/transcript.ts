@@ -5,8 +5,8 @@
 
 import type { EditorView } from "@codemirror/view";
 import { fetchTranscript, type Transcript } from "@/lib/api";
-import { noticeHandler } from "@/lib/image";
-import type { Edit } from "@/lib/note-section";
+import { noticeHandler } from "@/lib/notes/embeds/image";
+import type { Edit } from "@/lib/notes/text/note-section";
 import { noteVideos } from "@/lib/video/video";
 
 /** The heading the transcript lives under, and the one a second press finds. */

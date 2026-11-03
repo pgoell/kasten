@@ -1,4 +1,4 @@
-import { isAudio, soundsIn } from "@/lib/audio";
+import { isAudio, soundsIn } from "@/lib/notes/embeds/audio";
 
 describe("isAudio", () => {
   it("knows the four suffixes an Anki deck carries, in any case", () => {

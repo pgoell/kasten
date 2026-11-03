@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { buildTree } from "@/components/file-explorer";
 import type { TodoHit } from "@/lib/api";
 import type { PdfRenderer } from "@/lib/book/pdf-view";
-import { noteBase } from "@/lib/note-base";
+import { noteBase } from "@/lib/notes/note-base";
 import { folderCandidates, noteCandidates } from "@/lib/search/fuzzy";
 import type { TodoState } from "@/lib/todo/todo";
 import { hashed } from "./digests";

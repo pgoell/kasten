@@ -2,7 +2,7 @@
 type: Reference
 title: Embed format
 description: The forms an embed is written in, how each part is read, how the target resolves, what is drawn for a note, a section, an image, a pdf, a missing target and the depth stub, how to open one, and what it does not do.
-resource: frontend/src/lib/embed.ts
+resource: frontend/src/lib/notes/embeds/embed.ts
 tags: [vault, links, format, frontend, editor]
 status: stable
 ---

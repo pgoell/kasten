@@ -1,7 +1,7 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useEffect, useId, useRef, useState } from "react";
 import { type RankedAnswer, rankedSearch } from "@/lib/api";
-import { noteName } from "@/lib/note-path";
+import { noteName } from "@/lib/notes/links/note-path";
 import {
   BACKDROP,
   closeOnBackdrop,
