@@ -1,4 +1,4 @@
-import type { DiffLine } from "@/lib/diff";
+import type { DiffLine } from "@/lib/history/diff";
 
 /**
  * The changed lines and one either side, with each other run folded into a count. A whole

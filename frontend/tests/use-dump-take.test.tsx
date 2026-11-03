@@ -2,9 +2,9 @@ import "fake-indexeddb/auto";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type Taking, useDumpTake } from "@/components/use-dump-take";
 import { pdfLink } from "@/lib/book/pdf-take";
+import { reset, waiting } from "@/lib/capture/outbox";
 import { readClock } from "@/lib/clock";
 import { noteBase } from "@/lib/note-base";
-import { reset, waiting } from "@/lib/outbox";
 import { periodicNote } from "@/lib/periodic";
 import { quoteBlock } from "@/lib/takes/html-take";
 

@@ -91,13 +91,13 @@ vi.mock("@/lib/vault/move/trash-api", () => ({
   restoreEntry,
   deleteImage,
 }));
-vi.mock("@/lib/history-api", () => ({ fetchHistory, fetchHistoryText }));
+vi.mock("@/lib/history/history-api", () => ({ fetchHistory, fetchHistoryText }));
 vi.mock("foliate-js/view.js", () => ({}));
 // jsdom has no canvas to draw the graph on, so the pane gets a canvas that draws nothing.
 vi.mock("@/lib/graph/graph-canvas", () => ({
   drawGraph: () => ({ update() {}, resize() {}, fit() {}, cluster() {}, destroy() {} }),
 }));
-vi.mock("@/lib/outbox", () => ({
+vi.mock("@/lib/capture/outbox", () => ({
   keep: vi.fn(),
   flush: vi.fn(),
   start: vi.fn(),

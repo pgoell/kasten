@@ -3,7 +3,7 @@ import { SaveSign } from "@/components/save-sign";
 import { Clock } from "@/components/status-clock";
 import { StatusDetail } from "@/components/status-detail";
 import { BUILD } from "@/lib/app/build";
-import { lineDiff } from "@/lib/diff";
+import { lineDiff } from "@/lib/history/diff";
 import type { SaveStatus } from "@/lib/note/use-autosave";
 
 /** How long the refusal flash lasts. The same 400ms `--animate-flash` names. */

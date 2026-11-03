@@ -6,7 +6,7 @@ import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { forgetSpentReloads, RouteError } from "@/lib/app/chunk-reload";
-import { start as startOutbox } from "./lib/outbox";
+import { start as startOutbox } from "@/lib/capture/outbox";
 import "@/lib/app/service-worker";
 import { startPress } from "@/lib/ui/input/press";
 import { startTheme } from "@/lib/ui/theme";

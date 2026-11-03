@@ -3,8 +3,8 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { useRef } from "react";
 import { usePdfTake } from "@/components/pdf-take";
 import { pdfQuote } from "@/lib/book/pdf-take";
+import { reset, waiting } from "@/lib/capture/outbox";
 import { noteBase } from "@/lib/note-base";
-import { reset, waiting } from "@/lib/outbox";
 import { periodicNote } from "@/lib/periodic";
 import { stubMatchMedia } from "./match-media";
 
@@ -27,8 +27,8 @@ vi.mock("@/lib/api", () => {
 const { gate } = vi.hoisted(() => ({
   gate: { hold: null as Promise<void> | null, refuse: null as Error | null },
 }));
-vi.mock("@/lib/outbox", async (importOriginal) => {
-  const real = await importOriginal<typeof import("@/lib/outbox")>();
+vi.mock("@/lib/capture/outbox", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/capture/outbox")>();
   return {
     ...real,
     keep: async (text: string, date: string) => {

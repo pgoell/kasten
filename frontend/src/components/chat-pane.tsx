@@ -8,7 +8,7 @@ import {
   postChat,
   reduce,
   toolLine,
-} from "@/lib/chat";
+} from "@/lib/terminal/chat";
 import { useViewport } from "@/lib/ui/input/use-viewport";
 import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
 import { useLeader } from "@/lib/ui/keys/use-leader";

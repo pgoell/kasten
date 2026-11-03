@@ -158,10 +158,10 @@ vi.mock("@/lib/vault/move/trash-api", () => ({
   restoreEntry,
   deleteImage,
 }));
-vi.mock("@/lib/history-api", () => ({ fetchHistory, fetchHistoryText }));
+vi.mock("@/lib/history/history-api", () => ({ fetchHistory, fetchHistoryText }));
 vi.mock("@/lib/review/review-api", () => ({ fetchWrittenNotes, fetchGithub, fetchModelUse }));
 vi.mock("foliate-js/view.js", () => ({}));
-vi.mock("@/lib/outbox", () => ({
+vi.mock("@/lib/capture/outbox", () => ({
   keep: vi.fn(),
   flush: vi.fn(),
   start: vi.fn(),

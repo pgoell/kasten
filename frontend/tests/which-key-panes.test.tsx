@@ -41,8 +41,8 @@ vi.mock("@/lib/graph/graph-api", async (importOriginal) => ({
 }));
 
 const history = vi.hoisted(() => ({ fetchHistory: vi.fn(), fetchHistoryText: vi.fn() }));
-vi.mock("@/lib/history-api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/history-api")>()),
+vi.mock("@/lib/history/history-api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/history/history-api")>()),
   ...history,
 }));
 

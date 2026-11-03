@@ -12,7 +12,7 @@ const { fetchNote, fetchHistory, fetchHistoryText } = vi.hoisted(() => ({
   fetchHistoryText: vi.fn(),
 }));
 vi.mock("@/lib/api", () => ({ fetchNote }));
-vi.mock("@/lib/history-api", () => ({ fetchHistory, fetchHistoryText }));
+vi.mock("@/lib/history/history-api", () => ({ fetchHistory, fetchHistoryText }));
 
 const NOTE = "notes/plan.md";
 const NOW = "---\nid: 1\nmodified: 2026-10-17T10:00:00+02:00\n---\nline one\nline two, now\n";

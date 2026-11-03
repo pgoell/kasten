@@ -13,7 +13,7 @@ import {
   encodeResize,
   TTYD_SUBPROTOCOL,
   terminalUrl,
-} from "@/lib/ttyd";
+} from "@/lib/terminal/ttyd";
 import { useViewport } from "@/lib/ui/input/use-viewport";
 
 /**

@@ -2,7 +2,7 @@ import "fake-indexeddb/auto";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { HtmlPane } from "@/components/html-pane";
-import { reset } from "@/lib/outbox";
+import { reset } from "@/lib/capture/outbox";
 import {
   answering,
   answeringLate,
@@ -40,8 +40,8 @@ vi.mock("@/lib/api", () => {
 const { gate } = vi.hoisted(() => ({
   gate: { hold: null as Promise<void> | null, refuse: null as Error | null },
 }));
-vi.mock("@/lib/outbox", async (importOriginal) => {
-  const real = await importOriginal<typeof import("@/lib/outbox")>();
+vi.mock("@/lib/capture/outbox", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/capture/outbox")>();
   return {
     ...real,
     keep: async (text: string, date: string) => {

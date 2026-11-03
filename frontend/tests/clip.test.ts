@@ -1,4 +1,4 @@
-import { clipPage } from "@/lib/clip";
+import { clipPage } from "@/lib/capture/clip";
 
 const URL = "https://example.com/posts/worry";
 

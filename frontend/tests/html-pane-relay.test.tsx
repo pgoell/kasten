@@ -7,7 +7,7 @@
 
 import "fake-indexeddb/auto";
 import { cleanup, fireEvent, screen } from "@testing-library/react";
-import { reset } from "@/lib/outbox";
+import { reset } from "@/lib/capture/outbox";
 import {
   answering,
   dropped,

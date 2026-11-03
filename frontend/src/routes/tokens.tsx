@@ -8,8 +8,8 @@ import {
   type Minted,
   revokeToken,
   type TokenUse,
-} from "@/lib/token-api";
-import { lastUse, UNUSED_DAYS, unused } from "@/lib/token-use";
+} from "@/lib/tokens/token-api";
+import { lastUse, UNUSED_DAYS, unused } from "@/lib/tokens/token-use";
 
 export const Route = createFileRoute("/tokens")({
   component: Tokens,

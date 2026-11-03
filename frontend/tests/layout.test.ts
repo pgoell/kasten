@@ -1,4 +1,4 @@
-import { clipPage } from "@/lib/clip";
+import { clipPage } from "@/lib/capture/clip";
 import { IMAGE_FOLDER } from "@/lib/image";
 import {
   applyLayout,
