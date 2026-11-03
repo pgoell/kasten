@@ -15,6 +15,11 @@ const BACKEND = path.resolve(import.meta.dirname, "../../../backend");
 
 /** Where `servePage` writes a page's html, under `node_modules` and so out of git. */
 const PAGES = path.resolve(import.meta.dirname, "../../node_modules/.cache/kasten-pages");
+/**
+ * Numbers each `servePage` call's own folder: test files run side by side and share
+ * `PAGES`, and a name two of them serve handed one's page to the other's frame (#1425, #1519).
+ */
+let served = 0;
 
 /**
  * Routes `/api/html/<pagePath>` to the backend's own page writer, so the page a
@@ -70,7 +75,8 @@ export const servePage: BrowserCommand<[string, string, Utf16?]> = async (
   html,
   encoding,
 ) => {
-  const file = path.join(PAGES, pagePath);
+  served += 1;
+  const file = path.join(PAGES, String(served), pagePath);
   mkdirSync(path.dirname(file), { recursive: true });
   writeFileSync(file, encoding ? utf16(html, encoding) : html);
   await routePage(command, pagePath, file);
