@@ -38,7 +38,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRoot } from "react-dom/client";
 import { Editor } from "@/components/editor";
 import { FileExplorer } from "@/components/file-explorer";
-import type { TreeCommands } from "@/lib/key-bindings";
+import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
 import { syntheticVault } from "../../bench/fixtures";
 
 /** The size the whole performance round is measured at. */

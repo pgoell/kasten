@@ -5,7 +5,7 @@
 
 import type { Mermaid } from "mermaid";
 import { loadOnce } from "@/lib/load-once";
-import { currentTheme, type Theme } from "@/lib/theme";
+import { currentTheme, type Theme } from "@/lib/ui/theme";
 
 /** A diagram as svg markup, or why it could not be drawn. */
 export type Drawing = { svg: string } | { error: string };

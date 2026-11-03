@@ -2,8 +2,8 @@ import { skipToken, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { NotePreview } from "@/components/note-preview";
 import { fetchNote, type SearchHit } from "@/lib/api";
-import { PANE, PANE_MESSAGE } from "@/lib/overlay-styles";
-import { useViewport } from "@/lib/use-viewport";
+import { useViewport } from "@/lib/ui/input/use-viewport";
+import { PANE, PANE_MESSAGE } from "@/lib/ui/overlay-styles";
 
 /**
  * How long the highlight holds still before its note is read.

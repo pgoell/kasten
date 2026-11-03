@@ -19,7 +19,7 @@ import { imagePaths } from "@/lib/image";
 import { livePreview, renderedMarkdown } from "@/lib/live/live-preview";
 import { drawMermaid } from "@/lib/live/mermaid";
 import { noteLanguage } from "@/lib/markdown/note-language";
-import { applyTheme, THEME_KEY, toggleTheme } from "@/lib/theme";
+import { applyTheme, THEME_KEY, toggleTheme } from "@/lib/ui/theme";
 import { vaultPaths } from "@/lib/wikilink";
 import "@/styles/app.css";
 import { shot } from "./shots";

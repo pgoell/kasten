@@ -2,8 +2,8 @@ import { type RefObject, useCallback, useEffect, useLayoutEffect, useRef } from 
 import type { FoliateView } from "@/lib/book/foliate-view";
 import type { BookTake } from "@/lib/book/use-book-take";
 import type { BookTurns } from "@/lib/book/use-book-turns";
-import { type EditorCommands, TERMINAL, TERMINAL_CHORD } from "@/lib/key-bindings";
-import { beginLeader, paneOpener } from "@/lib/which-key";
+import { type EditorCommands, TERMINAL, TERMINAL_CHORD } from "@/lib/ui/keys/key-bindings";
+import { beginLeader, paneOpener } from "@/lib/ui/keys/which-key";
 
 /**
  * The keys the book pane answers, attached to its wrapper. Returns the handler, which the view's

@@ -11,7 +11,7 @@ import {
   PANEL_NARROW,
   STATUS,
   TAP,
-} from "@/lib/overlay-styles";
+} from "@/lib/ui/overlay-styles";
 
 interface MoveConfirmProps {
   mode: MoveMode;

@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { type FileNode, type FolderNode, rowKey, type TreeNode } from "@/lib/file-tree";
-import type { TreeCommands } from "@/lib/key-bindings";
 import { dropTarget, type MoveMode } from "@/lib/move";
+import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
 
 /** Indent one step per level, on top of the row's own padding. */
 function indent(depth: number) {

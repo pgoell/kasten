@@ -17,7 +17,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { flushSync } from "react-dom";
 import { page as browserPage, commands, userEvent } from "vitest/browser";
 import { PdfPane } from "@/components/pdf-pane";
-import { applyTheme, PALETTE_KEY, THEME_KEY, type Theme } from "@/lib/theme";
+import { applyTheme, PALETTE_KEY, THEME_KEY, type Theme } from "@/lib/ui/theme";
 import "@/styles/app.css";
 import { type Mounted, setUp, takeButton, tearDown } from "./html-take-fixture";
 import { PAGE_ONE } from "./pdf-fixture";

@@ -5,7 +5,7 @@
  * The names come off the token file, so a token added there is checked too.
  */
 
-import { applyTheme } from "@/lib/theme";
+import { applyTheme } from "@/lib/ui/theme";
 import tokenFile from "@/styles/kasten-theme.css?raw";
 import "@/styles/app.css";
 

@@ -1,5 +1,5 @@
-import type { TreeCommands } from "@/lib/key-bindings";
-import { useViewport } from "@/lib/use-viewport";
+import { useViewport } from "@/lib/ui/input/use-viewport";
+import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
 
 /**
  * The strip across the top: every control runs a command the keys already run.

@@ -2,7 +2,7 @@
 type: Reference
 title: Editor keys, terminal and chat
 description: The terminal pane and the chat pane, their keys, their sessions and what the shell can reach.
-resource: frontend/src/lib/key-bindings.ts
+resource: frontend/src/lib/ui/keys/key-bindings.ts
 tags: [editor, keyboard, terminal, chat, frontend]
 status: stable
 ---
@@ -118,7 +118,7 @@ a leader sequence. Every other key, the space bar included, goes to the shell.
 They are `Ctrl+Shift` because a terminal cannot transmit most of those chords,
 so claiming them costs the shell nothing. That is a reason to expect them to
 work, not evidence that they are comfortable, and they are expected to change.
-`TERMINAL` and `TERMINAL_CHORD` in `frontend/src/lib/key-bindings.ts` are the one
+`TERMINAL` and `TERMINAL_CHORD` in `frontend/src/lib/ui/keys/key-bindings.ts` are the one
 place to change them; the component, key help and its test all derive from
 those two. This table does not, and has to be edited by hand.
 

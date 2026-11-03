@@ -8,7 +8,7 @@ import {
   rubberBand,
   type Sample,
   speed,
-} from "@/lib/sheet-math";
+} from "@/lib/ui/motion/sheet-math";
 
 it("project turns a release speed into the px the sheet would coast", () => {
   // v / 1000 * 0.99 / 0.01 = 99 px for 1000 px/s, and 0.4 * 99 = 39.6 for 400.

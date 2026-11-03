@@ -14,7 +14,7 @@ import {
   PANEL,
   PANEL_WIDE,
   STATUS,
-} from "@/lib/overlay-styles";
+} from "@/lib/ui/overlay-styles";
 import { isMention, type SearchMode, useSearchHits } from "@/lib/use-search-hits";
 
 interface NoteSearchProps {

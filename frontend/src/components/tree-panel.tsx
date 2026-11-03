@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useViewport } from "@/lib/use-viewport";
+import { useViewport } from "@/lib/ui/input/use-viewport";
 
 const ICON_BUTTON =
   "cursor-pointer rounded-sm p-1 text-k-muted hover:bg-k-surface hover:text-k-accent pointer-coarse:p-3.5";

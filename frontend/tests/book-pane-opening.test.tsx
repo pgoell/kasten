@@ -10,7 +10,7 @@ const { fetchBook, fetchNote, uploadAsset } = vi.hoisted(() => ({
 vi.mock("@/lib/api", () => ({ fetchBook, fetchNote, uploadAsset }));
 
 const { listeners } = vi.hoisted(() => ({ listeners: [] as Array<() => void> }));
-vi.mock("@/lib/theme", () => ({
+vi.mock("@/lib/ui/theme", () => ({
   currentTheme: () => "light",
   onThemeChange: (listener: () => void) => {
     listeners.push(listener);

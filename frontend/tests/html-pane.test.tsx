@@ -2,8 +2,8 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { useLayoutEffect } from "react";
 import { HtmlPane } from "@/components/html-pane";
 import { encodePath } from "@/lib/note-path";
-import { applyTheme } from "@/lib/theme";
-import { hostLeader, type LeaderOpener } from "@/lib/which-key";
+import { hostLeader, type LeaderOpener } from "@/lib/ui/keys/which-key";
+import { applyTheme } from "@/lib/ui/theme";
 import { stubMatchMedia } from "./match-media";
 import { stubCommands } from "./stub-commands";
 

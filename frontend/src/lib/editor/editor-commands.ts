@@ -3,9 +3,9 @@ import { ViewPlugin } from "@codemirror/view";
 import { type CodeMirrorV, getCM, Vim } from "@replit/codemirror-vim";
 import { FORMAT, LEADER_EDITS } from "@/lib/editor/buffer-keys";
 import { toggleMark } from "@/lib/editor/format-commands";
-import type { EditorCommands } from "@/lib/key-bindings";
-import { LEADER, TAB_KEYS } from "@/lib/leader-keys";
-import { beginLeader, editorOpener } from "@/lib/which-key";
+import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
+import { LEADER, TAB_KEYS } from "@/lib/ui/keys/leader-keys";
+import { beginLeader, editorOpener } from "@/lib/ui/keys/which-key";
 
 /**
  * Vim maps once per module, so the commands ride the editor state instead.

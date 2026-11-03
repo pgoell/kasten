@@ -3,7 +3,13 @@
 import { readFileSync } from "node:fs";
 import { renderHook } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import { ENTRANCE_MS, STAGGER_CAP, STAGGER_MS, staggerDelay, useEntrance } from "@/lib/stagger";
+import {
+  ENTRANCE_MS,
+  STAGGER_CAP,
+  STAGGER_MS,
+  staggerDelay,
+  useEntrance,
+} from "@/lib/ui/motion/stagger";
 
 // A fake clock must not outlive its test, or the next test's timers never fire.
 afterEach(() => {

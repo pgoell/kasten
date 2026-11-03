@@ -9,10 +9,10 @@ import {
   reduce,
   toolLine,
 } from "@/lib/chat";
-import type { EditorCommands } from "@/lib/key-bindings";
-import { LABEL } from "@/lib/overlay-styles";
-import { useLeader } from "@/lib/use-leader";
-import { useViewport } from "@/lib/use-viewport";
+import { useViewport } from "@/lib/ui/input/use-viewport";
+import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
+import { useLeader } from "@/lib/ui/keys/use-leader";
+import { LABEL } from "@/lib/ui/overlay-styles";
 
 /** The two skills this pane exists to start, each one press away. */
 const SKILLS = ["/close-day", "/process-meeting"];

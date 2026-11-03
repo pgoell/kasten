@@ -5,6 +5,7 @@ import { fetchNote } from "@/lib/api";
 import { bookNoteOf, type FileKind, fileKind } from "@/lib/file-kind";
 import { noteCandidates, rankCandidates } from "@/lib/fuzzy";
 import { noteName } from "@/lib/note-path";
+import { useViewport } from "@/lib/ui/input/use-viewport";
 import {
   BACKDROP,
   BODY,
@@ -21,8 +22,7 @@ import {
   ROW,
   STATUS,
   TAP,
-} from "@/lib/overlay-styles";
-import { useViewport } from "@/lib/use-viewport";
+} from "@/lib/ui/overlay-styles";
 
 interface NoteFinderProps {
   /** The notes to rank against what has been typed. Usually the whole vault. */

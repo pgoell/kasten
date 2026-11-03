@@ -38,7 +38,7 @@ import {
   radialHitRadius,
 } from "@/lib/graph/graph-touch";
 import { FIT_PADDING, type GraphView, NAMES_FULL, zoomsOf } from "@/lib/graph/graph-zoom";
-import { onThemeChange } from "@/lib/theme";
+import { onThemeChange } from "@/lib/ui/theme";
 
 export interface GraphCanvasHandlers {
   /** A note was clicked, or tapped. */

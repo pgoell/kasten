@@ -1,7 +1,7 @@
 import { render } from "@testing-library/react";
 import { Editor } from "@/components/editor";
 import { readClock } from "@/lib/clock";
-import type { EditorCommands } from "@/lib/key-bindings";
+import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
 
 /** Noon on a fixed day, where `pinClock` holds the clock. */
 export const NOW = new Date(2026, 7, 10, 12);

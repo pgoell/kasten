@@ -1,4 +1,4 @@
-import { currentPalette, currentTheme } from "@/lib/theme";
+import { currentPalette, currentTheme } from "@/lib/ui/theme";
 
 /**
  * Tells the page the theme and the palette on screen, so a switch reaches it

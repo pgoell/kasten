@@ -11,10 +11,10 @@ import {
   startFolder,
   type TreeNode,
 } from "@/lib/file-tree";
-import type { TreeCommands } from "@/lib/key-bindings";
-import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
-import { useViewport } from "@/lib/use-viewport";
-import { beginLeader, paneOpener } from "@/lib/which-key";
+import { useViewport } from "@/lib/ui/input/use-viewport";
+import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
+import { heldModifier, leaderAction, leaderPrefix } from "@/lib/ui/keys/leader-keys";
+import { beginLeader, paneOpener } from "@/lib/ui/keys/which-key";
 
 interface FileExplorerProps {
   /** Vault-relative paths of every note, as served by `GET /api/files`. */

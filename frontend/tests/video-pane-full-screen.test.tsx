@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { VideoPane } from "@/components/video-pane";
-import { hostLeader } from "@/lib/which-key";
+import { hostLeader } from "@/lib/ui/keys/which-key";
 import { stubCommands } from "./stub-commands";
 
 // Standing in for the module rather than for `fetch`, as the shield's tests do.

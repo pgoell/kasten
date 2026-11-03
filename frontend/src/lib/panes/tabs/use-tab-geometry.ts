@@ -8,7 +8,7 @@ import {
 } from "react";
 import { flushSync } from "react-dom";
 import { foldTabs } from "@/lib/panes/tabs/tab-fold";
-import { SPRINGS, type Spring } from "@/lib/spring";
+import { SPRINGS, type Spring } from "@/lib/ui/motion/spring";
 
 /**
  * The widest a tab draws, in px. Tailwind needs literal classes, so the 200s in tab-strip.tsx

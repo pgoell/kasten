@@ -11,9 +11,9 @@ import {
   urlLinkAt,
 } from "@/lib/markdown/link-reference";
 import { noteSectionOf } from "@/lib/note-section";
-import { NOTE, repeats, watchPresses } from "@/lib/presses";
 import { highlightAt, mayBeHighlightLine } from "@/lib/takes/highlight";
 import { notePath } from "@/lib/todo/todo-commands";
+import { NOTE, repeats, watchPresses } from "@/lib/ui/input/presses";
 import { splitTarget, wikiLinkAt } from "@/lib/wikilink";
 
 /**

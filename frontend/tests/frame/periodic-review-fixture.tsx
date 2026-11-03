@@ -17,9 +17,9 @@ import { type LineHit, NoteMissing, type TodoHit } from "@/lib/api";
 import { readClock, shiftDay } from "@/lib/clock";
 import type { LogDay } from "@/lib/log/food-api";
 import { periodicNote } from "@/lib/periodic";
-import { startPress } from "@/lib/press";
 import type { ModelUseLine } from "@/lib/review/review-api";
 import type { WrittenNote } from "@/lib/review/review-year";
+import { startPress } from "@/lib/ui/input/press";
 import { routeTree } from "@/routeTree.gen";
 import { COARSE, NARROW, stubMatchMedia } from "../match-media";
 import {

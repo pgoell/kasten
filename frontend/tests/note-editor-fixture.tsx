@@ -4,8 +4,8 @@ import { useMemo } from "react";
 import { NoteEditor } from "@/components/note-editor";
 import { StatusBar } from "@/components/status-bar";
 import { fetchNote } from "@/lib/api";
-import type { EditorCommands } from "@/lib/key-bindings";
 import { useAutosave } from "@/lib/note/use-autosave";
+import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
 
 // Single-line notes on purpose: CodeMirror's text content runs the lines
 // together, so anything longer makes the assertions unreadable. No markdown

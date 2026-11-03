@@ -15,7 +15,7 @@ import {
   ROW,
   STATUS,
   TAP,
-} from "@/lib/overlay-styles";
+} from "@/lib/ui/overlay-styles";
 
 /**
  * What the prompt is naming.

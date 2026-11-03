@@ -2,7 +2,7 @@
 
 import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
-import { afterRelease, FLICK_DAMPING, SPRINGS, Spring, springAt } from "@/lib/spring";
+import { afterRelease, FLICK_DAMPING, SPRINGS, Spring, springAt } from "@/lib/ui/motion/spring";
 
 const css = readFileSync("src/styles/kasten-theme.css", "utf8");
 

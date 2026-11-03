@@ -6,7 +6,7 @@
  */
 
 import { commands } from "vitest/browser";
-import { rubberBand } from "@/lib/sheet-math";
+import { rubberBand } from "@/lib/ui/motion/sheet-math";
 import {
   centreOf,
   grabberOf,

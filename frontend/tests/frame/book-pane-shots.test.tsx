@@ -13,7 +13,7 @@ import "@fontsource-variable/instrument-sans/index.css";
 import "@fontsource-variable/jetbrains-mono/index.css";
 import "@fontsource-variable/newsreader/opsz.css";
 import { page as browserPage, commands, userEvent } from "vitest/browser";
-import type { Palette, Theme } from "@/lib/theme";
+import type { Palette, Theme } from "@/lib/ui/theme";
 import coverUrl from "../fixtures/cover.epub?url";
 import plainUrl from "../fixtures/plain.epub?url";
 import { chooseTheme, clickInside, located, sections } from "./book-pane-fixture";

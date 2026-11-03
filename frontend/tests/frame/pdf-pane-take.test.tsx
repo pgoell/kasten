@@ -14,7 +14,7 @@ import { flushSync } from "react-dom";
 import { commands as browser, page, userEvent } from "vitest/browser";
 import { PdfPane } from "@/components/pdf-pane";
 import { useVim } from "@/lib/editor/vim-setting";
-import { applyTheme, THEME_KEY, toggleTheme } from "@/lib/theme";
+import { applyTheme, THEME_KEY, toggleTheme } from "@/lib/ui/theme";
 import "@/styles/app.css";
 import { api, inside, type Mounted, setUp, takeButton, tearDown } from "./html-take-fixture";
 import { PAGE_ONE } from "./pdf-fixture";

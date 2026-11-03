@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { HEADER_ROW, LABEL, PANEL, ROW, STATUS } from "@/lib/overlay-styles";
+import { HEADER_ROW, LABEL, PANEL, ROW, STATUS } from "@/lib/ui/overlay-styles";
 
 /**
  * The dark sheet, over the pane rather than the window. `absolute` and `p-4` stand in

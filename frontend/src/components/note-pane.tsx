@@ -16,7 +16,6 @@ import { Rsvp } from "@/components/rsvp";
 import { Sheet } from "@/components/sheet";
 import { TodayPane } from "@/components/today-pane";
 import { heldText } from "@/lib/held-text";
-import type { TreeCommands } from "@/lib/key-bindings";
 import type { Outline as OutlineState } from "@/lib/note/note-head";
 import type { useAutosave } from "@/lib/note/use-autosave";
 import type { BufferSync } from "@/lib/note/use-buffer-sync";
@@ -27,9 +26,10 @@ import { indexAt } from "@/lib/rsvp/rsvp";
 import { markdownWords } from "@/lib/rsvp/rsvp-sources";
 import { type RsvpAsk, useRsvpAsk } from "@/lib/rsvp/use-rsvp";
 import type { TodoActions } from "@/lib/todo/use-todo-actions";
+import { usePaneWide } from "@/lib/ui/input/use-pane-wide";
+import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
 import type { GuardedWrites } from "@/lib/use-guarded-writes";
 import type { Listings } from "@/lib/use-listings";
-import { usePaneWide } from "@/lib/use-pane-wide";
 
 type Autosave = ReturnType<typeof useAutosave>;
 

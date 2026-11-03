@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { isError } from "@/lib/book/foliate-view";
-import { trapTab } from "@/lib/focus-trap";
-import { LABEL, PANEL, STATUS } from "@/lib/overlay-styles";
 import {
   back,
   chunkEnd,
@@ -19,6 +17,8 @@ import {
   type Word,
 } from "@/lib/rsvp/rsvp";
 import { fetchRsvp, saveRsvp } from "@/lib/rsvp/rsvp-api";
+import { trapTab } from "@/lib/ui/focus-trap";
+import { LABEL, PANEL, STATUS } from "@/lib/ui/overlay-styles";
 
 /** Where the settings live, one set per device: a phone reads slower than a desk. */
 const SETTINGS_KEY = "kasten.rsvp";

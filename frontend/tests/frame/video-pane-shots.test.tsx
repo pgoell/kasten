@@ -8,7 +8,7 @@
 import "./html-take-api";
 import { act } from "react";
 import { commands as browser, page, userEvent } from "vitest/browser";
-import { applyTheme, PALETTE_KEY, THEME_KEY } from "@/lib/theme";
+import { applyTheme, PALETTE_KEY, THEME_KEY } from "@/lib/ui/theme";
 import { type Mounted, setUp, tearDown } from "./html-take-fixture";
 import { DESKTOP, leader, mount, registerReaderFixture, unmount } from "./reader-fixture";
 import { shot } from "./shots";

@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { KeyHelp } from "@/components/key-help";
 import { WhichKey } from "@/components/which-key";
-import { beginLeader, paneOpener } from "@/lib/which-key";
+import { beginLeader, paneOpener } from "@/lib/ui/keys/which-key";
 import { stubCommands } from "./keybindings-fixture";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 

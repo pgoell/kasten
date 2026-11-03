@@ -6,7 +6,7 @@ import type { DrawnNode } from "@/lib/graph/graph";
 import { fetchGraph } from "@/lib/graph/graph-api";
 import { drawGraph, type GraphCanvas } from "@/lib/graph/graph-canvas";
 import { noteName } from "@/lib/note-path";
-import { useViewport } from "@/lib/use-viewport";
+import { useViewport } from "@/lib/ui/input/use-viewport";
 
 interface LocalGraphProps {
   /** The note in the middle of the drawing, and the one the lists are about. */

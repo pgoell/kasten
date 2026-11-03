@@ -12,7 +12,6 @@ import {
   type TodoHit,
 } from "@/lib/api";
 import { shiftDay } from "@/lib/clock";
-import type { EditorCommands } from "@/lib/key-bindings";
 import { LOG_NOTE } from "@/lib/layout";
 import { fetchLog, type LogDay } from "@/lib/log/food-api";
 import { overMax } from "@/lib/log/log-day";
@@ -43,8 +42,9 @@ import {
 } from "@/lib/overview/overview-words";
 import { readRetry } from "@/lib/read-retry";
 import { deckNotes } from "@/lib/review/review";
-import { useEntrance } from "@/lib/stagger";
-import { useLeader } from "@/lib/use-leader";
+import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
+import { useLeader } from "@/lib/ui/keys/use-leader";
+import { useEntrance } from "@/lib/ui/motion/stagger";
 
 /** The eight cards, in the order the pane draws them. */
 const KEYS = ["food", "today", "weight", "water", "flashcards", "todos", "writing", "year"];

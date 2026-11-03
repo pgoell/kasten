@@ -11,8 +11,8 @@ import {
   ROW,
   STATUS,
   TAP,
-} from "@/lib/overlay-styles";
-import type { PaletteEntry } from "@/lib/palette";
+} from "@/lib/ui/overlay-styles";
+import type { PaletteEntry } from "@/lib/ui/palette";
 
 interface CommandPaletteProps {
   entries: PaletteEntry[];

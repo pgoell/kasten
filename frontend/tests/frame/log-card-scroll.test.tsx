@@ -11,8 +11,8 @@ import { vim } from "@replit/codemirror-vim";
 import { page } from "vitest/browser";
 import { fetchNote, NoteMissing } from "@/lib/api";
 import { logCard } from "@/lib/log/log-card";
-import { paletteEntries } from "@/lib/palette";
 import { notePath } from "@/lib/todo/todo-commands";
+import { paletteEntries } from "@/lib/ui/palette";
 import { stubCommands } from "../stub-commands";
 import "@/styles/app.css";
 

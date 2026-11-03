@@ -75,7 +75,7 @@ vi.mock("force-graph", () => {
     },
   };
 });
-vi.mock("@/lib/theme", () => ({
+vi.mock("@/lib/ui/theme", () => ({
   onThemeChange: (listener: () => void) => {
     listeners.push(listener);
     return () => {};

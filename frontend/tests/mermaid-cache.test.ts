@@ -11,7 +11,7 @@ const { render, pause } = vi.hoisted(() => {
   });
   return { render, pause };
 });
-vi.mock("@/lib/theme", () => ({ currentTheme: () => "light" }));
+vi.mock("@/lib/ui/theme", () => ({ currentTheme: () => "light" }));
 vi.mock("mermaid", () => ({
   default: {
     initialize: vi.fn(),

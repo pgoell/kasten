@@ -4,11 +4,11 @@ import { Editor } from "@/components/editor";
 import { fetchNote, type TodoHit } from "@/lib/api";
 import type { FileTarget } from "@/lib/editor/editor-follow";
 import type { EmbedSource } from "@/lib/embed";
-import type { EditorCommands } from "@/lib/key-bindings";
-import { Leaving, useBlurWhenLeaving, useLeaving } from "@/lib/leaving";
 import type { Outline } from "@/lib/note/note-head";
 import { parseTodo } from "@/lib/todo/todo";
 import type { TodoCycle } from "@/lib/todo/todo-commands";
+import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
+import { Leaving, useBlurWhenLeaving, useLeaving } from "@/lib/ui/motion/leaving";
 
 interface NoteEditorProps {
   /** Vault-relative path of the note to open. */

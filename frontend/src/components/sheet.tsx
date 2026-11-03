@@ -13,9 +13,9 @@ import {
   useRef,
   useState,
 } from "react";
-import { trapTab } from "@/lib/focus-trap";
-import { axis, backdrop, closes, follow, type Sample, speed } from "@/lib/sheet-math";
-import { afterRelease, SPRINGS, Spring, type SpringConfig } from "@/lib/spring";
+import { trapTab } from "@/lib/ui/focus-trap";
+import { axis, backdrop, closes, follow, type Sample, speed } from "@/lib/ui/motion/sheet-math";
+import { afterRelease, SPRINGS, Spring, type SpringConfig } from "@/lib/ui/motion/spring";
 
 interface SheetProps {
   /** Whether the sheet is wanted. Going false takes it down the way a drag does. */

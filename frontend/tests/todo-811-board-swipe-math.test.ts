@@ -1,5 +1,5 @@
-import { rubberBand } from "@/lib/sheet-math";
 import { swipeOffset, swipeTarget } from "@/lib/todo/column-swipe";
+import { rubberBand } from "@/lib/ui/motion/sheet-math";
 
 // Seven states on a 390 px phone, the column width the board measures.
 const WIDTH = 390;

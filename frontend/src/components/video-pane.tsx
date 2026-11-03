@@ -5,16 +5,16 @@ import { VideoShield } from "@/components/video-shield";
 import { VideoTakes } from "@/components/video-takes";
 import { type TranscriptHandle, VideoTranscript } from "@/components/video-transcript";
 import { fetchNote } from "@/lib/api";
-import type { EditorCommands } from "@/lib/key-bindings";
-import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { readField } from "@/lib/note-frontmatter";
 import { noteName } from "@/lib/note-path";
 import type { Passage } from "@/lib/takes/highlight";
+import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
+import { heldModifier, leaderAction, leaderPrefix } from "@/lib/ui/keys/leader-keys";
+import { beginLeader, paneOpener } from "@/lib/ui/keys/which-key";
 import { useFullScreen } from "@/lib/video/use-full-screen";
 import { useVideoPlayer } from "@/lib/video/use-video-player";
 import { noteVideos, PLAYER, playerUrl, watchedAt } from "@/lib/video/video";
 import { noteChapters, watchUrl } from "@/lib/video/video-notes";
-import { beginLeader, paneOpener } from "@/lib/which-key";
 
 interface VideoPaneProps {
   /** The note holding the link. The pane reads it and never writes to it. */

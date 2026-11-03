@@ -310,7 +310,7 @@ describe("the reader layout of a note", () => {
     expect(block).toMatch(/\.k-reader \.cm-note-graph\s*{\s*display:\s*none;/);
 
     // The same number on both sides: the margin and the button change at one width.
-    const hook = readFileSync("src/lib/use-pane-wide.ts", "utf8");
+    const hook = readFileSync("src/lib/ui/input/use-pane-wide.ts", "utf8");
     expect(hook).toContain("RIGHT_MARGIN_FROM = 1320;");
   });
 

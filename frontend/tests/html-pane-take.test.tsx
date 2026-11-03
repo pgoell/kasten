@@ -7,7 +7,7 @@ import { noteBase } from "@/lib/note-base";
 import { reset } from "@/lib/outbox";
 import { periodicNote } from "@/lib/periodic";
 import { pageLink, takenQuote } from "@/lib/takes/html-take";
-import { hostLeader } from "@/lib/which-key";
+import { hostLeader } from "@/lib/ui/keys/which-key";
 import {
   answering,
   dropped,

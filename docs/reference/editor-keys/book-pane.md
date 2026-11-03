@@ -99,7 +99,7 @@ is.
 
 The bare keys answer an unmodified press only, so `Ctrl+H` is left to the
 browser's history window. The chords are the terminal's own, read from
-`TERMINAL` and `TERMINAL_CHORD` in `frontend/src/lib/key-bindings.ts`, so
+`TERMINAL` and `TERMINAL_CHORD` in `frontend/src/lib/ui/keys/key-bindings.ts`, so
 retuning one retunes both panes.
 
 They work after a click into a paragraph, which is worth stating because it is

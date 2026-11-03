@@ -16,7 +16,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { commands, page, userEvent } from "vitest/browser";
 import { HtmlPane } from "@/components/html-pane";
 import { WhichKey } from "@/components/which-key";
-import { applyTheme, PALETTE_KEY, THEME_KEY, type Theme } from "@/lib/theme";
+import { applyTheme, PALETTE_KEY, THEME_KEY, type Theme } from "@/lib/ui/theme";
 import "@/styles/app.css";
 import { stubCommands } from "../stub-commands";
 import { shot } from "./shots";

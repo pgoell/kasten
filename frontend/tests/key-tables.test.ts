@@ -1,6 +1,6 @@
 import { FORMAT, LEADER_EDITS } from "@/lib/editor/buffer-keys";
-import { type EditorCommands, TERMINAL } from "@/lib/key-bindings";
-import { LEADER } from "@/lib/leader-keys";
+import { type EditorCommands, TERMINAL } from "@/lib/ui/keys/key-bindings";
+import { LEADER } from "@/lib/ui/keys/leader-keys";
 
 describe("the key tables", () => {
   it("names a command for every leader key that the editor can run", () => {

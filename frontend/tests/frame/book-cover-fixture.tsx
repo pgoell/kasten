@@ -4,7 +4,7 @@ import { page } from "vitest/browser";
 import { BookPane } from "@/components/book-pane";
 import { fetchBook, fetchNote } from "@/lib/api";
 import { backImages, treatmentFor } from "@/lib/book/book-backing";
-import { THEME_KEY } from "@/lib/theme";
+import { THEME_KEY } from "@/lib/ui/theme";
 // A book written for a white page, `body { color: #000; background: #fff }`,
 // with a cover page first and two chapters after it. The cover page holds only
 // `#cover`, `cover.png`, an opaque 300x450 portrait gradient fitted to the page

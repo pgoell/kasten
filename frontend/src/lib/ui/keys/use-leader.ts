@@ -1,7 +1,7 @@
 import { useState } from "react";
-import type { EditorCommands } from "@/lib/key-bindings";
-import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
-import { beginLeader, paneOpener } from "@/lib/which-key";
+import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
+import { heldModifier, leaderAction, leaderPrefix } from "@/lib/ui/keys/leader-keys";
+import { beginLeader, paneOpener } from "@/lib/ui/keys/which-key";
 
 /** A leader sequence a pane reads off its own keys, as the editor does. */
 export function useLeader(commands: EditorCommands) {

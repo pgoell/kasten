@@ -1,8 +1,8 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { KeyHelp } from "@/components/key-help";
 import { FOLLOW, FORMAT, INDENT, LEADER_EDITS } from "@/lib/editor/buffer-keys";
-import { SCREENS, TERMINAL, TERMINAL_CHORD, TODO_PANE, TREE } from "@/lib/key-bindings";
-import { LEADER } from "@/lib/leader-keys";
+import { SCREENS, TERMINAL, TERMINAL_CHORD, TODO_PANE, TREE } from "@/lib/ui/keys/key-bindings";
+import { LEADER } from "@/lib/ui/keys/leader-keys";
 
 /**
  * One group's table, so a key spelled the same in two groups reads as two rows.

@@ -1,5 +1,5 @@
-import { LABEL } from "@/lib/overlay-styles";
 import type { Grade, Question } from "@/lib/review/exam";
+import { LABEL } from "@/lib/ui/overlay-styles";
 
 /** The score of a graded sitting, and where its result note was written. */
 export function ExamScore({

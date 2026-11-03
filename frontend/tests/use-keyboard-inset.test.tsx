@@ -1,6 +1,6 @@
 import { render } from "@testing-library/react";
 import { useRef } from "react";
-import { useKeyboardInset } from "@/lib/use-keyboard-inset";
+import { useKeyboardInset } from "@/lib/ui/input/use-keyboard-inset";
 
 function Frame({ on }: { on: boolean }) {
   const box = useRef<HTMLDivElement>(null);

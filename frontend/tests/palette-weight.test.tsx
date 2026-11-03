@@ -5,8 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { fetchNote } from "@/lib/api";
 import { logCard } from "@/lib/log/log-card";
 import { parseConfig } from "@/lib/log/log-kinds";
-import { paletteEntries } from "@/lib/palette";
 import { notePath } from "@/lib/todo/todo-commands";
+import { paletteEntries } from "@/lib/ui/palette";
 import { stubCommands } from "./stub-commands";
 
 vi.mock("@/lib/api", async (importOriginal) => ({

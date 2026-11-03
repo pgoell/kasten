@@ -2,8 +2,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { TodoPane } from "@/components/todo-pane";
 import { createNote, fetchFiles, fetchNote, fetchTodos, type TodoHit } from "@/lib/api";
-import type { EditorCommands } from "@/lib/key-bindings";
 import { DEFAULT_VIEWS, VIEWS_NOTE } from "@/lib/todo/todo-view";
+import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
 
 const TODAY = "2026-08-10";
 export const DAILY = "01 Periodic/00 Daily/2026-08-10.md";

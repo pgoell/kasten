@@ -15,7 +15,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { page } from "vitest/browser";
 import { fetchNote, NoteMissing } from "@/lib/api";
-import { startPress } from "@/lib/press";
+import { startPress } from "@/lib/ui/input/press";
 import { routeTree } from "@/routeTree.gen";
 import { COARSE, NARROW, stubMatchMedia } from "../match-media";
 import {

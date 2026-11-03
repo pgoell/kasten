@@ -1,10 +1,16 @@
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Sheet } from "@/components/sheet";
-import { trapTab } from "@/lib/focus-trap";
-import { heldModifier, LEADER, LEADER_COLUMNS, TAB_DIGITS, TAB_KEYS } from "@/lib/leader-keys";
-import { LABEL } from "@/lib/overlay-styles";
-import { SPRINGS, Spring } from "@/lib/spring";
-import { hostLeader, type LeaderOpener } from "@/lib/which-key";
+import { trapTab } from "@/lib/ui/focus-trap";
+import {
+  heldModifier,
+  LEADER,
+  LEADER_COLUMNS,
+  TAB_DIGITS,
+  TAB_KEYS,
+} from "@/lib/ui/keys/leader-keys";
+import { hostLeader, type LeaderOpener } from "@/lib/ui/keys/which-key";
+import { SPRINGS, Spring } from "@/lib/ui/motion/spring";
+import { LABEL } from "@/lib/ui/overlay-styles";
 
 /**
  * The which-key panel: what Space leads to, shown at once and narrowed by each

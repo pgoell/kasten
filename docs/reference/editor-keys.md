@@ -2,7 +2,7 @@
 type: Reference
 title: Editor keys
 description: Every keyboard binding kasten adds, the mode each one applies in, and what a touch screen reaches without one.
-resource: frontend/src/lib/key-bindings.ts
+resource: frontend/src/lib/ui/keys/key-bindings.ts
 tags: [editor, keyboard, vim, touch, frontend]
 status: stable
 ---

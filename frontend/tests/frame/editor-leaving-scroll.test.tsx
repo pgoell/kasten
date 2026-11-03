@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { Editor } from "@/components/editor";
-import { Leaving } from "@/lib/leaving";
+import { Leaving } from "@/lib/ui/motion/leaving";
 
 const frame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 

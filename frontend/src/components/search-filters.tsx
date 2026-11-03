@@ -1,6 +1,6 @@
 import type { MouseEvent } from "react";
-import { LABEL, TAP } from "@/lib/overlay-styles";
 import type { Facet, Filters } from "@/lib/search-facets";
+import { LABEL, TAP } from "@/lib/ui/overlay-styles";
 
 interface SearchFiltersProps {
   /** Counts over the whole answer, so they do not move as a choice narrows it. */

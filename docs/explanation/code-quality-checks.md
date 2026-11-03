@@ -100,7 +100,7 @@ the diff it explains, and `docs/` keeps the reasons that outlive one commit.
 The two counts measure different things. Comments inside a function are noise
 in proportion to the code around them, so the first check counts their share.
 A docstring or a JSDoc block is what an editor shows a caller, so the second
-counts its length. `frontend/src/lib/overlay-styles.ts` shows why both are
+counts its length. `frontend/src/lib/ui/overlay-styles.ts` shows why both are
 needed: 2% of its lines are comments, and it holds six JSDoc blocks over six
 lines, one of them an 18-line story of the file.
 

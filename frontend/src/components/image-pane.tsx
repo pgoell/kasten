@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import type { EditorCommands } from "@/lib/key-bindings";
 import { encodePath } from "@/lib/note-path";
-import { useLeader } from "@/lib/use-leader";
+import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
+import { useLeader } from "@/lib/ui/keys/use-leader";
 
 interface ImagePaneProps {
   /** Vault-relative path of the image to show. */

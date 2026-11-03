@@ -6,7 +6,6 @@ import { TodoHeader } from "@/components/todo-header";
 import { TodoLegend } from "@/components/todo-legend";
 import { TodoList } from "@/components/todo-list";
 import { fetchTodos, type SearchHit, type TodoHit } from "@/lib/api";
-import type { EditorCommands } from "@/lib/key-bindings";
 import type { TodoState } from "@/lib/todo/todo";
 import { useArmed } from "@/lib/todo/use-armed";
 import { useBlockerPick } from "@/lib/todo/use-blocker-pick";
@@ -15,9 +14,9 @@ import { useTodoFocus } from "@/lib/todo/use-todo-focus";
 import { useTodoHold } from "@/lib/todo/use-todo-hold";
 import { SET, type TodoKeyActions, useTodoKeys } from "@/lib/todo/use-todo-keys";
 import { type Mode, rowKey, useTodoRows } from "@/lib/todo/use-todo-rows";
-
 import { useTodoTwins } from "@/lib/todo/use-todo-twins";
-import { useViewport } from "@/lib/use-viewport";
+import { useViewport } from "@/lib/ui/input/use-viewport";
+import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
 
 /** The row the pane's `@` acts on, with its twins where it has any. */
 export interface AgentRow {

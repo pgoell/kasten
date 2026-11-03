@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { fetchNote, fetchTodos, searchNotes } from "@/lib/api";
 import { noteName } from "@/lib/note-path";
-import { LABEL, ROW } from "@/lib/overlay-styles";
 import {
   type Done,
   isPerson,
@@ -13,6 +12,7 @@ import {
   personTodos,
 } from "@/lib/person";
 import { PRIORITY_SYMBOL, STATE_SYMBOL } from "@/lib/todo/todo";
+import { LABEL, ROW } from "@/lib/ui/overlay-styles";
 import { plainLinks } from "@/lib/wikilink";
 
 interface PersonCardProps {

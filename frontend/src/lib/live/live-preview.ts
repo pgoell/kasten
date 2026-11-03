@@ -36,7 +36,7 @@ import { drawSvg } from "@/lib/live/live-preview-svg";
 import { drawTable } from "@/lib/live/live-preview-tables";
 import { drawTime, linkedVideos } from "@/lib/live/live-preview-times";
 import { videoLayer } from "@/lib/live/live-preview-video";
-import { watchPresses } from "@/lib/presses";
+import { watchPresses } from "@/lib/ui/input/presses";
 import { vaultPaths } from "@/lib/wikilink";
 
 const HEADING = /^ATXHeading([1-6])$/;

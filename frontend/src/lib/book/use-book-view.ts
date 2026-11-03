@@ -8,7 +8,7 @@ import type { BookHighlights } from "@/lib/book/use-book-highlights";
 import type { BookTake } from "@/lib/book/use-book-take";
 import type { BookTurns } from "@/lib/book/use-book-turns";
 import { readField } from "@/lib/note-frontmatter";
-import { onThemeChange } from "@/lib/theme";
+import { onThemeChange } from "@/lib/ui/theme";
 
 /**
  * Opens a book in foliate and keeps the reader's place in step with the view.

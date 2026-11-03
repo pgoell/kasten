@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { COARSE, useViewport } from "@/lib/use-viewport";
+import { COARSE, useViewport } from "@/lib/ui/input/use-viewport";
 
 const VIM_KEY = "kasten.vim";
 

@@ -7,12 +7,12 @@ import { fetchGraph, type Graph } from "@/lib/graph/graph-api";
 import { drawGraph, type GraphCanvas } from "@/lib/graph/graph-canvas";
 import { type GraphMode, readGraphMode, writeGraphMode } from "@/lib/graph/graph-mode";
 import { tagCounts, withoutTags } from "@/lib/graph/graph-tags";
-import type { EditorCommands } from "@/lib/key-bindings";
-import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { noteName } from "@/lib/note-path";
-import { INPUT, LABEL } from "@/lib/overlay-styles";
-import { useViewport } from "@/lib/use-viewport";
-import { beginLeader, paneOpener } from "@/lib/which-key";
+import { useViewport } from "@/lib/ui/input/use-viewport";
+import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
+import { heldModifier, leaderAction, leaderPrefix } from "@/lib/ui/keys/leader-keys";
+import { beginLeader, paneOpener } from "@/lib/ui/keys/which-key";
+import { INPUT, LABEL } from "@/lib/ui/overlay-styles";
 
 interface GraphPaneProps {
   /** The note a local graph is drawn around, absent for the whole vault. */

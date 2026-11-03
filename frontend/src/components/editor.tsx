@@ -13,12 +13,12 @@ import {
 } from "@/lib/editor/note-view";
 import { useVim } from "@/lib/editor/vim-setting";
 import type { EmbedSource } from "@/lib/embed";
-import type { EditorCommands } from "@/lib/key-bindings";
-import { keyboardUnasked } from "@/lib/last-input";
-import { Leaving } from "@/lib/leaving";
 import type { Outline } from "@/lib/note/note-head";
 import type { ReviewSource } from "@/lib/review/periodic-review";
 import type { CycleHandler } from "@/lib/todo/todo-commands";
+import { keyboardUnasked } from "@/lib/ui/input/last-input";
+import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
+import { Leaving } from "@/lib/ui/motion/leaving";
 
 /**
  * Whether nobody on the page holds the focus. The editor takes it only then:

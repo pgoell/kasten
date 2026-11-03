@@ -14,7 +14,7 @@ import { Toolbar } from "@/components/toolbar";
 import { WhichKey } from "@/components/which-key";
 import { reset } from "@/lib/outbox";
 import { periodicNote } from "@/lib/periodic";
-import { PALETTE_KEY, THEME_KEY } from "@/lib/theme";
+import { PALETTE_KEY, THEME_KEY } from "@/lib/ui/theme";
 import "@/styles/app.css";
 import { stubCommands } from "../stub-commands";
 import { api, resetApi } from "./html-take-api";

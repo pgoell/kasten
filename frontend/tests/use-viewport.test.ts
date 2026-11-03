@@ -6,7 +6,7 @@
  */
 
 import { renderHook } from "@testing-library/react";
-import { useViewport } from "@/lib/use-viewport";
+import { useViewport } from "@/lib/ui/input/use-viewport";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 
 afterEach(() => {

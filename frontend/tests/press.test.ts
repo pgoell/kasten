@@ -1,4 +1,4 @@
-import { startPress } from "@/lib/press";
+import { startPress } from "@/lib/ui/input/press";
 
 const at = (id: string) => document.getElementById(id) as HTMLElement;
 

@@ -1,5 +1,5 @@
 // Sets data-theme and data-palette before the first paint, so a reader on dark
-// never sees a light flash on load. src/lib/theme.ts does the same once the app
+// never sees a light flash on load. src/lib/ui/theme.ts does the same once the app
 // is up, and must agree with this on the keys, on the system's answer and on
 // the palette ids.
 //

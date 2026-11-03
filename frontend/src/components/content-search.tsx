@@ -14,12 +14,12 @@ import { SearchFilters } from "@/components/search-filters";
 import { SearchHistogram } from "@/components/search-histogram";
 import type { Mention, SearchHit } from "@/lib/api";
 import { noteName } from "@/lib/note-path";
-import { BACKDROP, closeOnBackdrop, TAP } from "@/lib/overlay-styles";
 import { type Filters, facets, filterHits, termRuns } from "@/lib/search-facets";
 import { lastWeeks, linesPerWeek, type WeekKey, weekOf, weekRange } from "@/lib/search-weeks";
-import { useEntrance } from "@/lib/stagger";
+import { useViewport } from "@/lib/ui/input/use-viewport";
+import { useEntrance } from "@/lib/ui/motion/stagger";
+import { BACKDROP, closeOnBackdrop, TAP } from "@/lib/ui/overlay-styles";
 import { isMention, useSearchHits } from "@/lib/use-search-hits";
-import { useViewport } from "@/lib/use-viewport";
 
 /** Rows the list keeps. More than the lists beside it, because a search is read rather than scanned. */
 const ROWS = 60;

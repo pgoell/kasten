@@ -4,9 +4,9 @@ import { fetchNote } from "@/lib/api";
 import { lineDiff } from "@/lib/diff";
 import { unstamped } from "@/lib/held-text";
 import { fetchHistory, fetchHistoryText, type HistoryChange } from "@/lib/history-api";
-import type { EditorCommands } from "@/lib/key-bindings";
 import { noteName } from "@/lib/note-path";
-import { useLeader } from "@/lib/use-leader";
+import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
+import { useLeader } from "@/lib/ui/keys/use-leader";
 
 interface HistoryPaneProps {
   /** Vault path of the note whose changes this lists. */

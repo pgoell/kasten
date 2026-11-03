@@ -1,6 +1,6 @@
 import { render, waitFor } from "@testing-library/react";
 import { Editor } from "@/components/editor";
-import { Leaving } from "@/lib/leaving";
+import { Leaving } from "@/lib/ui/motion/leaving";
 
 // Red on main is not possible: `Leaving` is new with #983, so main cannot import it.
 // What this pins is the rule the editor follows once it has the context.

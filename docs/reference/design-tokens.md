@@ -163,7 +163,7 @@ sheet on them.
 | `--k-slide` | 240 ms | The side sheet's slide, on `--k-ease-out`: nobody drags it, so it needs no spring |
 
 A press marks the control under the pointer with `data-pressed`, which
-`lib/press.ts` sets and clears, and `app.css` gives a marked control the press
+`lib/ui/input/press.ts` sets and clears, and `app.css` gives a marked control the press
 scale. A row with the `k-row` class tints instead, because a full-width row
 scaled down looks broken. `k-enter` brings a list's rows in one after another,
 by their `--i` index, and stops the delay at the sixth row.
@@ -172,12 +172,12 @@ by their `--i` index, and stops the delay at the sixth row.
 `--k-bg` over an 18 px blur, with one `k-hairline` under it. Sheets, panels and
 cards stay solid.
 
-One spring, `lib/spring.ts`, moves the sheet, the tab underline and a new
+One spring, `lib/ui/motion/spring.ts`, moves the sheet, the tab underline and a new
 split pane. It takes a response in seconds and a damping, with the angular
 frequency 2π over the response, as Apple's `Spring(response:dampingRatio:)`
 states one. A new target starts from where the spring is and how fast it moves,
 so a finger can catch anything mid-flight, and nothing waits for a spring to
-settle. It moves only `transform` and `opacity`. `lib/sheet-math.ts` holds the
+settle. It moves only `transform` and `opacity`. `lib/ui/motion/sheet-math.ts` holds the
 sheet's rules: 10 px before a drag starts, speed over the last 100 ms (0 after
 a 90 ms stop), a close on a flick over 400 px/s or a coast past half the
 height, and the rubber band above the top.
