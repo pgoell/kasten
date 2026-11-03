@@ -123,7 +123,7 @@ vi.mock("@/lib/vault/move/trash-api", () => ({
   restoreEntry,
   deleteImage,
 }));
-vi.mock("@/lib/history-api", () => ({ fetchHistory, fetchHistoryText }));
+vi.mock("@/lib/history/history-api", () => ({ fetchHistory, fetchHistoryText }));
 vi.mock("foliate-js/view.js", () => ({}));
 const pdfPaneRenderer = vi.hoisted(() => ({ current: null as PdfRenderer | null }));
 vi.mock("@/lib/book/pdf-view", async (importOriginal) => {
@@ -155,7 +155,7 @@ const outbox = vi.hoisted(() => ({
   start: vi.fn(),
   subscribe: vi.fn(() => () => {}),
 }));
-vi.mock("@/lib/outbox", () => outbox);
+vi.mock("@/lib/capture/outbox", () => outbox);
 vi.mock("@/lib/search/fuzzy", async (importOriginal) => {
   const real = await importOriginal<typeof import("@/lib/search/fuzzy")>();
   return {

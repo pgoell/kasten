@@ -6,7 +6,7 @@ import {
   postChat,
   reduce,
   toolLine,
-} from "@/lib/chat";
+} from "@/lib/terminal/chat";
 
 const QUESTIONS: ChatQuestion[] = [
   {

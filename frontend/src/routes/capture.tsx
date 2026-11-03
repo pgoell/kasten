@@ -1,10 +1,10 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { fetchFiles } from "@/lib/api";
-import { importPage } from "@/lib/clip";
+import { importPage } from "@/lib/capture/clip";
+import { type Dump, flush, keep, type State, start, subscribe } from "@/lib/capture/outbox";
+import { firstAddress, type Shared, sharedDraft } from "@/lib/capture/share";
 import { readClock } from "@/lib/clock";
-import { type Dump, flush, keep, type State, start, subscribe } from "@/lib/outbox";
-import { firstAddress, type Shared, sharedDraft } from "@/lib/share";
 
 export const Route = createFileRoute("/capture")({
   component: Capture,

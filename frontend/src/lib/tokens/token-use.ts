@@ -1,4 +1,4 @@
-import type { TokenUse } from "@/lib/token-api";
+import type { TokenUse } from "@/lib/tokens/token-api";
 
 /** How many days a token may sit unused before the page marks it. */
 export const UNUSED_DAYS = 30;

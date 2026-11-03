@@ -1,4 +1,10 @@
-import { closedMessage, decodeServer, encodeAuth, encodeInput, encodeResize } from "@/lib/ttyd";
+import {
+  closedMessage,
+  decodeServer,
+  encodeAuth,
+  encodeInput,
+  encodeResize,
+} from "@/lib/terminal/ttyd";
 
 /** The payload after the command byte, as text. */
 function payload(frame: Uint8Array): string {

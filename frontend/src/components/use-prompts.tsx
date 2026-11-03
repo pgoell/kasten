@@ -8,10 +8,10 @@ import { TerminalPrompt } from "@/components/terminal-prompt";
 import { TodoPrompt } from "@/components/todo-prompt";
 import type { PaneMoves } from "@/components/use-pane-moves";
 import { fetchTerminals, type SearchHit } from "@/lib/api";
-import { importPage } from "@/lib/clip";
-import { readClock } from "@/lib/clock";
+import { importPage } from "@/lib/capture/clip";
 // Renamed because the route that calls this already has a `flush`, the bookmark's.
-import { flush as flushOutbox, keep } from "@/lib/outbox";
+import { flush as flushOutbox, keep } from "@/lib/capture/outbox";
+import { readClock } from "@/lib/clock";
 import { mapPanes, openInFocused } from "@/lib/panes/pane-contents";
 import type { Layout } from "@/lib/panes/panes";
 import { paneOpeners } from "@/lib/panes/use-pane-commands";

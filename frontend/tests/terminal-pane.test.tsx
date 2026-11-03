@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { useLayoutEffect } from "react";
 import { keyBytes, withCtrl } from "@/components/terminal-keys";
 import { TerminalPane } from "@/components/terminal-pane";
-import { encodeInput } from "@/lib/ttyd";
+import { encodeInput } from "@/lib/terminal/ttyd";
 import { type EditorCommands, TERMINAL_CHORD } from "@/lib/ui/keys/key-bindings";
 import { COARSE, stubMatchMedia } from "./match-media";
 import { stubCommands } from "./stub-commands";

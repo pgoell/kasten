@@ -54,7 +54,7 @@ vi.mock("@/lib/vault/move/trash-api", () => ({
   restoreEntry: vi.fn(),
   deleteImage: vi.fn(),
 }));
-vi.mock("@/lib/history-api", () => ({ fetchHistory: vi.fn(), fetchHistoryText: vi.fn() }));
+vi.mock("@/lib/history/history-api", () => ({ fetchHistory: vi.fn(), fetchHistoryText: vi.fn() }));
 vi.mock("foliate-js/view.js", () => ({}));
 const outbox = vi.hoisted(() => ({
   keep: vi.fn(),
@@ -62,7 +62,7 @@ const outbox = vi.hoisted(() => ({
   start: vi.fn(),
   subscribe: vi.fn(() => () => {}),
 }));
-vi.mock("@/lib/outbox", () => outbox);
+vi.mock("@/lib/capture/outbox", () => outbox);
 
 // A pdf of one page that draws nothing: the pane's look is no concern here.
 const pdfPaneRenderer = vi.hoisted(() => ({ current: null as PdfRenderer | null }));

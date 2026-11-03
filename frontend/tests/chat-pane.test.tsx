@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { ChatPane } from "@/components/chat-pane";
-import type { ChatEvent } from "@/lib/chat";
+import type { ChatEvent } from "@/lib/terminal/chat";
 import { stubCommands } from "./stub-commands";
 
 /** The runner's stream, which the test speaks through by hand. */

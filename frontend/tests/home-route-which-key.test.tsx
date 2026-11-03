@@ -112,7 +112,7 @@ vi.mock("@/lib/vault/move/trash-api", () => ({
   restoreEntry,
   deleteImage,
 }));
-vi.mock("@/lib/history-api", () => ({ fetchHistory, fetchHistoryText }));
+vi.mock("@/lib/history/history-api", () => ({ fetchHistory, fetchHistoryText }));
 vi.mock("foliate-js/view.js", () => ({}));
 const outbox = vi.hoisted(() => ({
   keep: vi.fn(),
@@ -120,7 +120,7 @@ const outbox = vi.hoisted(() => ({
   start: vi.fn(),
   subscribe: vi.fn(() => () => {}),
 }));
-vi.mock("@/lib/outbox", () => outbox);
+vi.mock("@/lib/capture/outbox", () => outbox);
 // xterm needs a canvas jsdom lacks; which session the pane holds is all these tests read.
 vi.mock("@/components/terminal-pane", () => ({
   TerminalPane: ({ session }: { session: string }) => <div data-terminal={session} />,

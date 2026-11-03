@@ -1,4 +1,4 @@
-import { lineDiff } from "@/lib/diff";
+import { lineDiff } from "@/lib/history/diff";
 
 describe("lineDiff", () => {
   it("marks lines only the vault has and lines only mine has", () => {

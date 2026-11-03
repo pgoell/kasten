@@ -1,6 +1,6 @@
 import "fake-indexeddb/auto";
+import { flush, keep, reset, type State, subscribe, waiting } from "@/lib/capture/outbox";
 import { readClock } from "@/lib/clock";
-import { flush, keep, reset, type State, subscribe, waiting } from "@/lib/outbox";
 
 /**
  * The outbox a dump waits in until the vault has it.

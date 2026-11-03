@@ -1,9 +1,9 @@
 import { type ReactNode, useLayoutEffect, useRef } from "react";
 import { type ToastTaking, useTakeToast } from "@/components/use-take-toast";
-import { readClock } from "@/lib/clock";
 // Renamed for the reason `use-prompts.tsx` renames it: the take is a dump, and
 // the page has no other `flush` to confuse it with.
-import { type Dump, type Failure, flush as flushOutbox, keep } from "@/lib/outbox";
+import { type Dump, type Failure, flush as flushOutbox, keep } from "@/lib/capture/outbox";
+import { readClock } from "@/lib/clock";
 import { periodicNote } from "@/lib/periodic";
 import { quoteBlock } from "@/lib/takes/html-take";
 import { REFUSED, undoFor } from "@/lib/takes/page-undo";

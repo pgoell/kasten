@@ -26,8 +26,8 @@ import { NEWS, page as pageOf } from "./html-take-pages";
 
 /** Holds each take's keep until the test lets it go, and counts the keeps asked for. */
 const { gate } = vi.hoisted(() => ({ gate: { hold: null as Promise<void> | null, asked: 0 } }));
-vi.mock("@/lib/outbox", async (importOriginal) => {
-  const real = await importOriginal<typeof import("@/lib/outbox")>();
+vi.mock("@/lib/capture/outbox", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/capture/outbox")>();
   return {
     ...real,
     keep: async (text: string, date: string) => {

@@ -76,7 +76,7 @@ vi.mock("@/lib/vault/move/trash-api", () => ({
   restoreEntry: vi.fn(),
   deleteImage: vi.fn(),
 }));
-vi.mock("@/lib/history-api", () => ({ fetchHistory: vi.fn(), fetchHistoryText: vi.fn() }));
+vi.mock("@/lib/history/history-api", () => ({ fetchHistory: vi.fn(), fetchHistoryText: vi.fn() }));
 vi.mock("foliate-js/view.js", () => ({}));
 const pdfPaneRenderer = vi.hoisted(() => ({ current: null as PdfRenderer | null }));
 vi.mock("@/lib/book/pdf-view", async (importOriginal) => {
@@ -94,7 +94,7 @@ const outbox = vi.hoisted(() => ({
   start: vi.fn(),
   subscribe: vi.fn(() => () => {}),
 }));
-vi.mock("@/lib/outbox", () => outbox);
+vi.mock("@/lib/capture/outbox", () => outbox);
 
 pageHooks();
 

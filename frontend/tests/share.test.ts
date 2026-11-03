@@ -1,4 +1,4 @@
-import { firstAddress, sharedDraft } from "@/lib/share";
+import { firstAddress, sharedDraft } from "@/lib/capture/share";
 
 describe("sharedDraft", () => {
   it("puts each field that says something on a line of its own", () => {
