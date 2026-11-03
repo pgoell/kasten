@@ -3,6 +3,7 @@ import { Sheet } from "@/components/sheet";
 import { FOLLOW, FORMAT, INDENT, LEADER_EDITS, readable } from "@/lib/editor/buffer-keys";
 import { useVim } from "@/lib/editor/vim-setting";
 import { FINANCE_PANE } from "@/lib/finance/finance-keys";
+import { VIDEO_PANE } from "@/lib/panes/video/video-keys";
 import { trapTab } from "@/lib/ui/focus-trap";
 import { useViewport } from "@/lib/ui/input/use-viewport";
 import {
@@ -18,7 +19,6 @@ import {
 import { LEADER, LEADER_COLUMNS, spelled, TAB_DIGITS, TAB_KEYS } from "@/lib/ui/keys/leader-keys";
 import { READER, RSVP_KEYS } from "@/lib/ui/keys/reader-keys";
 import { closeOnBackdrop, HEADER_ROW, INPUT, LABEL, PANEL, STATUS } from "@/lib/ui/overlay-styles";
-import { VIDEO_PANE } from "@/lib/video/video-keys";
 
 interface Group {
   title: string;

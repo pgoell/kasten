@@ -1,4 +1,4 @@
-import { emptyLayout, fillFocused, focusedPane, tabPanes } from "@/lib/panes/panes";
+import { emptyLayout, fillFocused, focusedPane, tabPanes } from "@/lib/panes/layout/panes";
 
 describe("the todo list in a pane", () => {
   it("takes the note out of the pane it replaces, keeping its id", () => {

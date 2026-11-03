@@ -15,8 +15,8 @@ import {
   resume,
   settingsOf,
   type Word,
-} from "@/lib/rsvp/rsvp";
-import { fetchRsvp, saveRsvp } from "@/lib/rsvp/rsvp-api";
+} from "@/lib/panes/rsvp/rsvp";
+import { fetchRsvp, saveRsvp } from "@/lib/panes/rsvp/rsvp-api";
 import { trapTab } from "@/lib/ui/focus-trap";
 import { LABEL, PANEL, STATUS } from "@/lib/ui/overlay-styles";
 

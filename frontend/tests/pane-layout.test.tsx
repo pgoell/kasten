@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { PaneLayout } from "@/components/pane-layout";
-import { openInFocused } from "@/lib/panes/pane-contents";
+import { openInFocused } from "@/lib/panes/layout/pane-contents";
 import {
   activeTab,
   addTab,
@@ -14,7 +14,7 @@ import {
   swapPanes,
   tabPanes,
   toggleZoom,
-} from "@/lib/panes/panes";
+} from "@/lib/panes/layout/panes";
 
 /** One tab's panes the way the route draws them, with a button to focus in each. */
 function tree(layout: Layout, onFocus = vi.fn()) {

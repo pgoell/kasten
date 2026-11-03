@@ -23,15 +23,15 @@ import type { LogActions } from "@/lib/log/use-log-actions";
 import type { useAutosave } from "@/lib/note/use-autosave";
 import type { BufferSync } from "@/lib/note/use-buffer-sync";
 import type { NoteOpening } from "@/lib/note/use-note-opening";
-import { openBeside } from "@/lib/panes/pane-contents";
-import { heldKind, type KindField, type Pane } from "@/lib/panes/pane-kinds";
-import { focusPane, type Layout } from "@/lib/panes/panes";
-import type { useRsvpAsked } from "@/lib/rsvp/use-rsvp";
+import { openBeside } from "@/lib/panes/layout/pane-contents";
+import { heldKind, type KindField, type Pane } from "@/lib/panes/layout/pane-kinds";
+import { focusPane, type Layout } from "@/lib/panes/layout/panes";
+import type { useRsvpAsked } from "@/lib/panes/rsvp/use-rsvp";
+import type { VideoAsks } from "@/lib/panes/video/use-video-player";
 import type { GuardedWrites } from "@/lib/saving/use-guarded-writes";
 import type { TodoActions } from "@/lib/todo/use-todo-actions";
 import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
 import type { Listings } from "@/lib/vault/use-listings";
-import type { VideoAsks } from "@/lib/video/use-video-player";
 
 /** What every pane is handed, whatever it holds. */
 export interface PaneShared {

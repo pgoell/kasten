@@ -1,5 +1,5 @@
-import { timestamp } from "@/lib/video/transcript";
-import { currentAt, type Timed } from "@/lib/video/video-notes";
+import { timestamp } from "@/lib/panes/video/transcript";
+import { currentAt, type Timed } from "@/lib/panes/video/video-notes";
 
 interface VideoDetailsProps {
   /** The player's title, or the note's name until the player has said one. */

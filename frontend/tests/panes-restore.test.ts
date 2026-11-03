@@ -1,4 +1,4 @@
-import { openInFocused, openOnTop } from "@/lib/panes/pane-contents";
+import { openInFocused, openOnTop } from "@/lib/panes/layout/pane-contents";
 import {
   addTab,
   emptyLayout,
@@ -10,7 +10,7 @@ import {
   panesOf,
   reidLayout,
   splitFocused,
-} from "@/lib/panes/panes";
+} from "@/lib/panes/layout/panes";
 import { notes, open } from "./panes-fixture";
 
 describe("a restored layout", () => {

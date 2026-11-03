@@ -1,4 +1,4 @@
-import { openInFocused } from "@/lib/panes/pane-contents";
+import { openInFocused } from "@/lib/panes/layout/pane-contents";
 import {
   addTab,
   emptyLayout,
@@ -9,7 +9,7 @@ import {
   removeFocused,
   splitFocused,
   tabPanes,
-} from "@/lib/panes/panes";
+} from "@/lib/panes/layout/panes";
 import { at, notes, open } from "./panes-fixture";
 
 describe("closing", () => {

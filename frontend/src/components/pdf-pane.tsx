@@ -11,9 +11,9 @@ import {
   showPdf,
 } from "@/lib/book/pdf-view";
 import { encodePath } from "@/lib/notes/links/note-path";
-import { findQuote, firstOf, type Word } from "@/lib/rsvp/rsvp";
-import { pdfWords } from "@/lib/rsvp/rsvp-sources";
-import { type RsvpAsk, useRsvpAsk } from "@/lib/rsvp/use-rsvp";
+import { findQuote, firstOf, type Word } from "@/lib/panes/rsvp/rsvp";
+import { pdfWords } from "@/lib/panes/rsvp/rsvp-sources";
+import { type RsvpAsk, useRsvpAsk } from "@/lib/panes/rsvp/use-rsvp";
 import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
 import { heldModifier, leaderAction, leaderPrefix } from "@/lib/ui/keys/leader-keys";
 import { beginLeader, paneOpener } from "@/lib/ui/keys/which-key";

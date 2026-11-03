@@ -17,12 +17,12 @@ import { noteLanguage } from "@/lib/markdown/note-language";
 import { imagePaths } from "@/lib/notes/embeds/image";
 import { vaultPaths } from "@/lib/notes/links/wikilink";
 import { readField } from "@/lib/notes/text/note-frontmatter";
-import { PLAYER, watchedAt } from "@/lib/video/video";
+import { PLAYER, watchedAt } from "@/lib/panes/video/video";
 import "@/styles/app.css";
 import { shot } from "./shots";
 
-vi.mock("@/lib/video/video", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/video/video")>()),
+vi.mock("@/lib/panes/video/video", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/panes/video/video")>()),
   playerUrl: (id: string, start = 0) => `about:blank#${id}@${Math.floor(start)}`,
 }));
 

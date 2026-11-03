@@ -8,9 +8,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render } from "@testing-library/react";
 import { useRef } from "react";
-import { onPageWritten } from "@/lib/html/page-written";
 import { LOG_NOTE, MODEL_USE_FOLDER } from "@/lib/layout";
 import { periodicNote } from "@/lib/notes/text/periodic";
+import { onPageWritten } from "@/lib/panes/html/page-written";
 import { useVaultEvents } from "@/lib/vault/events/use-vault-events";
 import type { VaultEvent } from "@/lib/vault/events/vault-events";
 

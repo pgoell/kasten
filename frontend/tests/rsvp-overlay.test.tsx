@@ -1,12 +1,12 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { Rsvp } from "@/components/rsvp";
-import type { RsvpSource } from "@/lib/rsvp/rsvp";
-import { textWords } from "@/lib/rsvp/rsvp-sources";
+import type { RsvpSource } from "@/lib/panes/rsvp/rsvp";
+import { textWords } from "@/lib/panes/rsvp/rsvp-sources";
 
 const fetchRsvp = vi.fn();
 const saveRsvp = vi.fn();
 
-vi.mock("@/lib/rsvp/rsvp-api", () => ({
+vi.mock("@/lib/panes/rsvp/rsvp-api", () => ({
   fetchRsvp: (...args: unknown[]) => fetchRsvp(...args),
   saveRsvp: (...args: unknown[]) => saveRsvp(...args),
 }));

@@ -1,13 +1,13 @@
 import { type RefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { focusedPane, type Layout, tabPanes } from "@/lib/panes/panes";
-import { namedVideo, nonEmpty, PLAYER } from "@/lib/video/video";
+import { focusedPane, type Layout, tabPanes } from "@/lib/panes/layout/panes";
+import { namedVideo, nonEmpty, PLAYER } from "@/lib/panes/video/video";
 import {
   applyVideoSettings,
   keepVideoSettings,
   keptVolume,
   learnVideoSettings,
   readVideoSettings,
-} from "@/lib/video/video-settings";
+} from "@/lib/panes/video/video-settings";
 
 /**
  * What the player reports while playing or about to be. YouTube's 1 is playing and 3 is buffering,

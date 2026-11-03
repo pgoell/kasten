@@ -10,8 +10,8 @@ import { type FoliateView, pdfLayer } from "@/lib/book/foliate-view";
 import { readPdf } from "@/lib/book/use-book-seek";
 import { noteName } from "@/lib/notes/links/note-path";
 import { readField } from "@/lib/notes/text/note-frontmatter";
-import { findQuote, firstOf, indexAt, type RsvpSource, type Word } from "@/lib/rsvp/rsvp";
-import { offsetOf, pdfWords, rangeAt, sectionWords } from "@/lib/rsvp/rsvp-sources";
+import { findQuote, firstOf, indexAt, type RsvpSource, type Word } from "@/lib/panes/rsvp/rsvp";
+import { offsetOf, pdfWords, rangeAt, sectionWords } from "@/lib/panes/rsvp/rsvp-sources";
 
 /** What foliate answers for a cfi: the section, and how to find the place in its document. */
 interface Resolved {

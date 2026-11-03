@@ -7,14 +7,14 @@ import { type TranscriptHandle, VideoTranscript } from "@/components/video-trans
 import { fetchNote } from "@/lib/api";
 import { noteName } from "@/lib/notes/links/note-path";
 import { readField } from "@/lib/notes/text/note-frontmatter";
+import { useFullScreen } from "@/lib/panes/video/use-full-screen";
+import { useVideoPlayer } from "@/lib/panes/video/use-video-player";
+import { noteVideos, PLAYER, playerUrl, watchedAt } from "@/lib/panes/video/video";
+import { noteChapters, watchUrl } from "@/lib/panes/video/video-notes";
 import type { Passage } from "@/lib/takes/highlight";
 import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
 import { heldModifier, leaderAction, leaderPrefix } from "@/lib/ui/keys/leader-keys";
 import { beginLeader, paneOpener } from "@/lib/ui/keys/which-key";
-import { useFullScreen } from "@/lib/video/use-full-screen";
-import { useVideoPlayer } from "@/lib/video/use-video-player";
-import { noteVideos, PLAYER, playerUrl, watchedAt } from "@/lib/video/video";
-import { noteChapters, watchUrl } from "@/lib/video/video-notes";
 
 interface VideoPaneProps {
   /** The note holding the link. The pane reads it and never writes to it. */

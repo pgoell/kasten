@@ -1,4 +1,4 @@
-import { type PaneRect, paneToward } from "@/lib/panes/pane-direction";
+import { type PaneRect, paneToward } from "@/lib/panes/layout/pane-direction";
 
 /** A pane's box, written the way the tests read: `[left, top, right, bottom]`. */
 function box(id: string, left: number, top: number, right: number, bottom: number): PaneRect {

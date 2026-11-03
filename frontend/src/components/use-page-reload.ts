@@ -1,5 +1,5 @@
 import { type RefObject, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { onPageWritten } from "@/lib/html/page-written";
+import { onPageWritten } from "@/lib/panes/html/page-written";
 
 /** A scroll the page reported, with the page it belongs to. */
 interface Place {

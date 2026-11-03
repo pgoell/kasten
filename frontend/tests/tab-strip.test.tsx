@@ -1,8 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { isUnsaved, resetStripEntrance, TabStrip } from "@/components/tab-strip";
-import { openBeside, openInFocused, openPdfBeside } from "@/lib/panes/pane-contents";
-import { addTab, emptyLayout, fillFocused, goToTab, type Layout } from "@/lib/panes/panes";
+import { openBeside, openInFocused, openPdfBeside } from "@/lib/panes/layout/pane-contents";
+import { addTab, emptyLayout, fillFocused, goToTab, type Layout } from "@/lib/panes/layout/panes";
 import { foldTabs } from "@/lib/panes/tabs/tab-fold";
 
 type Props = Partial<ComponentProps<typeof TabStrip>>;

@@ -2,8 +2,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { expect, it, vi } from "vitest";
-import { emptyLayout, focusedPane, type Layout, tabPanes } from "@/lib/panes/panes";
-import { type PaneCommands, paneOpeners, usePaneCommands } from "@/lib/panes/use-pane-commands";
+import { emptyLayout, focusedPane, type Layout, tabPanes } from "@/lib/panes/layout/panes";
+import {
+  type PaneCommands,
+  paneOpeners,
+  usePaneCommands,
+} from "@/lib/panes/layout/use-pane-commands";
 
 const NOTE = "ideas/rag.md";
 const client = new QueryClient();

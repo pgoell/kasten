@@ -21,8 +21,8 @@ import {
   openInFocused,
   openPdfBeside,
   openPdfInFocused,
-} from "@/lib/panes/pane-contents";
-import { fillFocused, type Layout, tabPanes } from "@/lib/panes/panes";
+} from "@/lib/panes/layout/pane-contents";
+import { fillFocused, type Layout, tabPanes } from "@/lib/panes/layout/panes";
 import { bookNoteOf, fileKind } from "@/lib/vault/file-kind";
 import type { Listings } from "@/lib/vault/use-listings";
 

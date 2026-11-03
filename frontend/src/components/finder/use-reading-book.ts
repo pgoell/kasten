@@ -5,7 +5,7 @@ import { fetchAssets, fetchFiles, fetchNote, NoteMissing } from "@/lib/api";
 import { READING_NOTE } from "@/lib/layout";
 import { noteName } from "@/lib/notes/links/note-path";
 import { splitTarget, wikiLinkPath, wikiLinkTargets } from "@/lib/notes/links/wikilink";
-import { openBookInFocused } from "@/lib/panes/pane-contents";
+import { openBookInFocused } from "@/lib/panes/layout/pane-contents";
 
 /**
  * Opens the book `READING_NOTE` links. The note is read fresh on each press: it is

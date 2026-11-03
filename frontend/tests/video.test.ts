@@ -1,4 +1,4 @@
-import { noteVideos, playerUrl, setWatched, watchedAt } from "@/lib/video/video";
+import { noteVideos, playerUrl, setWatched, watchedAt } from "@/lib/panes/video/video";
 
 const ONE = "dQw4w9WgXcQ";
 const TWO = "iDulhoQ2pro";

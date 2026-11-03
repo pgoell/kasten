@@ -8,8 +8,8 @@ import {
   STRIKE,
 } from "@/lib/editor/format-commands";
 import { toggleImageAtCursor } from "@/lib/notes/embeds/image";
+import { writeTranscript } from "@/lib/panes/video/transcript";
 import { agentTodoAtCursor, cycleTodoAtCursor, stampIdAtCursor } from "@/lib/todo/todo-commands";
-import { writeTranscript } from "@/lib/video/transcript";
 
 /**
  * Keys that act inside the buffer, each carrying its own work, since the route has no view to write into.

@@ -1,4 +1,4 @@
-import { openBeside } from "@/lib/panes/pane-contents";
+import { openBeside } from "@/lib/panes/layout/pane-contents";
 import {
   emptyLayout,
   fillFocused,
@@ -6,8 +6,8 @@ import {
   type Layout,
   type Pane,
   tabPanes,
-} from "@/lib/panes/panes";
-import { nextSeek, pressTarget, seekTarget, videoTarget } from "@/lib/video/use-video-player";
+} from "@/lib/panes/layout/panes";
+import { nextSeek, pressTarget, seekTarget, videoTarget } from "@/lib/panes/video/use-video-player";
 
 const NOTE = "lit/talk.md";
 const OTHER = "lit/other.md";

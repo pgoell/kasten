@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { type Dispatch, type SetStateAction, useCallback, useMemo } from "react";
-import { mapPanes } from "@/lib/panes/pane-contents";
-import type { Layout } from "@/lib/panes/panes";
+import { mapPanes } from "@/lib/panes/layout/pane-contents";
+import type { Layout } from "@/lib/panes/layout/panes";
 import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
 import {
   deleteFolder,
