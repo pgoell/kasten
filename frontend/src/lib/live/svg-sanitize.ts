@@ -29,7 +29,7 @@ const ATTRIBUTES = new Set([...GEOMETRY, ...PRESENTATION]);
 /** Markup, a quote or a script hook in a value; the value is dropped. */
 const UNSAFE = /[\\<>@&"']|\/\*|expression|javascript:/i;
 /** A font name, bare or in quotes (#1184); no parenthesis, so no url( or expression(. */
-const FAMILY = String.raw`(?:"[^"'\\<>@&():;]*"|'[^"'\\<>@&():;]*'|[\w .-]+)`;
+const FAMILY = String.raw`(?:"[^"'\\<>@&():;\n\r\f]*"|'[^"'\\<>@&():;\n\r\f]*'|[\w .-]+)`;
 const FONT_FAMILY = new RegExp(String.raw`^\s*${FAMILY}(?:\s*,\s*${FAMILY})*\s*$`);
 // CSS white space only: `\s` also matches a no-break space, which a browser does not read as one.
 const URL_REF = /^url\([ \t\n\r\f]*#([A-Za-z_][\w.-]*)[ \t\n\r\f]*\)$/i;
@@ -207,10 +207,21 @@ function addNamed(value: string, byId: Map<string, Element>, targets: Set<Elemen
   }
 }
 
+/** Whether each switch above `el` draws it: a switch draws only its first element child. */
+function chosen(el: Element): boolean {
+  for (let s = el.closest("switch"); s; s = s.parentElement?.closest("switch") ?? null) {
+    if (!s.firstElementChild?.contains(el)) return false;
+  }
+  return true;
+}
+
 /** Whether something outside the hidden parts draws: a shape, or a use still pointing at one. */
 function drawsSomething(root: Element): boolean {
   return Array.from(root.querySelectorAll(DRAWN)).some(
-    (el) => (el.localName !== "use" || el.hasAttribute("href")) && el.closest(HIDDEN) === null,
+    (el) =>
+      (el.localName !== "use" || el.hasAttribute("href")) &&
+      el.closest(HIDDEN) === null &&
+      chosen(el),
   );
 }
 

@@ -101,11 +101,14 @@ source. A `</svg>` that does not end its line, or text after it on the lines
 of the block, keeps it source too.
 
 Before it draws, kasten rebuilds the svg from an allow list. Only these elements
-survive: svg, g, defs, symbol, use, path, rect, circle, ellipse, line, polyline,
+survive: svg, g, switch, defs, symbol, use, path, rect, circle, ellipse, line, polyline,
 polygon, text, tspan, textPath, title, desc, marker, linearGradient,
 radialGradient, stop, clipPath, mask and pattern. Any other element goes, with
 everything inside it. That drops script, style, foreignObject, a, image, the
-animation elements and filters.
+animation elements and filters. Inside a `switch`, as draw.io saves a label,
+the `foreignObject` goes, so the plain `<text>` beside it draws. A switch loses
+`systemLanguage`, `requiredFeatures` and `requiredExtensions`, and draws its
+first kept child.
 
 A kept element keeps its geometry and presentation attributes. `class` and any
 `on…` event handler go. `href` stays only as `#id`, and `url(...)` only as
@@ -124,7 +127,10 @@ A `style` attribute keeps only presentation properties, such as fill, stroke and
 font. A value may call only `url(#id)`, `translate`, `rotate`, `scale`, `skew`,
 `matrix`, `rgb`, `rgba`, `hsl`, `hsla`, `oklch`, `oklab`, `lab`, `lch`, `hwb`,
 `color-mix`, `calc` and `light-dark`. Any other function, such as `var()` or
-`element()`, drops its value.
+`element()`, drops its value. A quote drops a value too, except in
+`font-family`: there a name may sit in matched quotes, such as
+`'Segoe UI', sans-serif`, if none of `" ' \ < > @ & ( ) : ;` or a line break
+sits inside.
 
 `currentColor` takes the theme's ink colour, so a picture drawn in it follows
 light and dark. Other colours stay as written.

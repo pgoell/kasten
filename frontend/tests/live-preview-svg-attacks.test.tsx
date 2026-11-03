@@ -392,6 +392,7 @@ it.each([
   ["a url inside the quotes", "'url(https://x.test/f)'"],
   ["an expression", "'Segoe UI' expression(alert(1))"],
   ["a script address", "'javascript:alert(1)'"],
+  ["a line break inside the quotes", "'a\n/*'"],
 ])("#1184 I1 drops a font-family with %s", async (_, value) => {
   const picture = await drawn(
     `<svg viewBox="0 0 20 20">${PATH}<text font-family="${value.replace(/"/g, "&quot;")}">a</text></svg>`,
@@ -427,4 +428,12 @@ it("#1184 I3 a quote in any other attribute still drops it", async () => {
 
   expect(picture.querySelector("path")?.hasAttribute("fill")).toBe(false);
   expect(picture.querySelector("path")?.hasAttribute("stroke")).toBe(false);
+});
+
+it("#1184 I4 a switch whose first child draws nothing shows its source", async () => {
+  const source = '<svg viewBox="0 0 10 10"><switch><g/><text>x</text></switch></svg>';
+  const at = mount(source);
+
+  await vi.waitFor(() => expect(at.contentDOM.textContent).toContain("<switch>"));
+  expect(at.dom.querySelector(".cm-svg-block svg")).toBeNull();
 });
