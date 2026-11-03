@@ -244,3 +244,17 @@ async def test_a_replaced_page_keeps_its_old_version_in_history(
     assert f"+{PAGE.decode()}" in evolution
     assert f"-{PAGE.decode()}" in evolution
     assert (versioned_agent_vault / "edition.html").read_bytes() == AGAIN
+
+
+async def test_an_html_page_near_the_limit_lands_and_replaces_itself(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    # Its temp once ran 14 bytes over the filesystem's 255-byte limit (#1278).
+    name = "e" * 250 + ".html"
+    await client.post(f"/agent/files/{name}", content=PAGE, headers=bearer)
+
+    response = await client.post(f"/agent/files/{name}", content=AGAIN, headers=bearer)
+
+    assert response.status_code == 201
+    assert (agent_vault / name).read_bytes() == AGAIN
+    assert temps(agent_vault) == []

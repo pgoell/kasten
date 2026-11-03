@@ -6,6 +6,7 @@ These cover what is new here: the bearer in front, the download and its address
 check, and the MCP tool's refusals arriving as tool errors.
 """
 
+import re
 from typing import TYPE_CHECKING
 
 import httpx
@@ -275,3 +276,67 @@ async def test_an_mcp_refusal_is_a_tool_error(
     assert payload(response.text)["result"]["isError"] is True
     assert "That file is not what its name says" in response.text
     assert empty(agent_vault)
+
+
+# At the filesystem's 255-byte limit: the temp `store` streams into ran 14 bytes over (#1278).
+LONG = "a" * 251 + ".pdf"
+
+
+async def test_an_upload_takes_a_name_near_the_limit(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    response = await client.post(f"/agent/files/{LONG}", content=PDF, headers=bearer)
+
+    assert response.status_code == 201
+    assert (agent_vault / LONG).read_bytes() == PDF
+
+
+async def test_a_refused_upload_near_the_limit_leaves_no_temp(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    response = await client.post(f"/agent/files/{LONG}", content=b"<html>", headers=bearer)
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "That file is not what its name says"
+    assert empty(agent_vault)
+
+
+async def test_an_upload_over_the_limit_is_refused(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    response = await client.post(f"/agent/files/a{LONG}", content=PDF, headers=bearer)
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "The vault will not take that path"
+    assert empty(agent_vault)
+
+
+async def test_the_mcp_tool_files_a_url_near_the_limit(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str], answer: Callable
+) -> None:
+    answer(lambda request: httpx.Response(200, content=PDF, request=request))
+
+    response = await client.post(
+        ENDPOINT,
+        json=call("save_file", {"path": LONG, "url": "https://example.com/ddia.pdf"}),
+        headers={**bearer, **RPC},
+    )
+
+    assert payload(response.text)["result"]["structuredContent"] == {"path": LONG}
+    assert (agent_vault / LONG).read_bytes() == PDF
+
+
+def test_a_temp_fits_a_name_cut_inside_a_character() -> None:
+    # 85 three-byte characters are 255 bytes, so the cut lands inside one.
+    name = "€" * 85
+
+    temporary = files.temporary_name(name)
+
+    assert len(temporary.encode()) <= 255
+    assert temporary.startswith(".€")
+    assert temporary.endswith(".tmp")
+    assert temporary != files.temporary_name(name)
+
+
+def test_a_temp_for_a_short_name_keeps_the_whole_name() -> None:
+    assert re.fullmatch(r"\.DDIA\.pdf\.[0-9a-f]{8}\.tmp", files.temporary_name("DDIA.pdf"))
