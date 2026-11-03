@@ -39,7 +39,7 @@ class TickInKastenError(Exception):
     """A tick the share path refuses, because kasten has more to write than a tick does.
 
     The route answers 422, so the lists app shows the item still open and tells the person to
-    tick it in kasten. An untick of an id another todo carries is refused the same way.
+    tick it in kasten. A tick or untick of an id another todo carries is refused the same way.
     """
 
 
@@ -341,11 +341,14 @@ async def add(settings: Settings, name: str, text: str, sha: str | None) -> Chec
     return await _save(settings, name, "\n".join(lines), sha)
 
 
-async def tick(settings: Settings, name: str, line: int, done: bool, sha: str) -> Checklist | None:
+async def tick(  # noqa: PLR0913  the route's body, field by field, and the ticker's day
+    settings: Settings, name: str, line: int, done: bool, sha: str, *, day: date | None = None
+) -> Checklist | None:
     """Tick or untick the task on `line`, or change nothing when it is not that state already.
 
     A line that is no task, or is out of range, answers the list as it is and
-    writes nothing, the same as a tick already in the asked state.
+    writes nothing, the same as a tick already in the asked state. `day` is the
+    ticker's own date; without it the server's stands in.
     """
     note = resolve_list(settings, name)
     if note is None:
@@ -362,13 +365,14 @@ async def tick(settings: Settings, name: str, line: int, done: bool, sha: str) -
     if done and _kasten_owns(lines, line, rest):
         raise TickInKastenError(TICK_IN_KASTEN)
     path = f"{settings.share_folder}/{name}.md"
-    if not done and settings.share_logs_done:
+    if settings.share_logs_done:
         twin = await done_log.other_todo_with_id(settings, path, lines, line, rest)
         if twin is not None:
             raise TickInKastenError(twin)
 
-    # One day for the stamp on the line and the daily note the log line goes in.
-    today = date.today()
+    # One day for the stamp on the line and the daily note the log line goes in. The
+    # server runs in UTC, so its date is yesterday's after midnight in Berlin (#1300).
+    today = day or date.today()
     if done:
         rest = _ticked(rest, today)
         lines[line] = f"- [x] {rest}{eol}"

@@ -172,8 +172,8 @@ async def other_todo_with_id(
 ) -> str | None:
     """What the pane's `otherTodoWithId` answers for the item on `line`, or None.
 
-    An untick drops log lines by id, and a pasted copy carries the same id, so the share untick
-    refuses as the pane does. `lines` is the list as the untick read it.
+    A tick and an untick find log lines by id, and a pasted copy carries the same id, so the
+    share tick refuses either as the pane does (#1303). `lines` is the list as the tick read it.
     """
     id_ = todo_fields.id_of(rest)
     if id_ is None:

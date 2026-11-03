@@ -1,7 +1,7 @@
 import cases from "@/lib/person-field-cases.json";
 import type { ListData } from "@/lists/lists-store";
 import { createListsStore } from "@/lists/lists-store";
-import { openCount } from "@/lists/lists-view";
+import { localDay, openCount, requestFor } from "@/lists/lists-view";
 import { fakeShare, setOnline } from "./lists-fixture";
 
 class FakeEventSource {
@@ -77,6 +77,45 @@ describe("the lists store", () => {
     expect(share.posts.map((post) => post.body.text)).toEqual(["Milch", "Brot"]);
     expect(reloaded.snapshot().queue).toEqual([]);
     reloaded.close();
+  });
+
+  it("#1300 a tick sends the device's own date, so the server stamps the person's day", async () => {
+    const share = fakeShare({ Einkauf: [{ text: "Milch", done: false }], Todo: [] });
+    vi.stubGlobal("fetch", share.fetch);
+    const store = createListsStore();
+    await vi.waitFor(() => expect(store.snapshot().lists.Einkauf).toBeDefined());
+
+    store.tick("Einkauf", "Milch", true);
+
+    await vi.waitFor(() => expect(share.posts).toHaveLength(1));
+    expect(share.posts[0]?.body.day).toBe(localDay(new Date()));
+    store.close();
+  });
+
+  it("#1300 localDay reads the local date, not the UTC one", () => {
+    // Half past midnight local time is still the day before in UTC east of Greenwich.
+    expect(localDay(new Date(2026, 10, 3, 0, 30))).toBe("2026-11-03");
+    expect(localDay(new Date(2026, 0, 9, 23, 59))).toBe("2026-01-09");
+  });
+
+  it("#1300 requestFor puts the day on a tick, not on an add", () => {
+    const list: ListData = {
+      name: "Einkauf",
+      sha: "s",
+      items: [
+        { line: 3, text: "Milch", done: false, assignee: null, ticked_by: null, ticked_at: null },
+      ],
+    };
+    const tick = { id: "1", kind: "tick", list: "Einkauf", text: "Milch", done: true } as const;
+    const add = { id: "2", kind: "add", list: "Einkauf", text: "Brot" } as const;
+
+    expect(requestFor(tick, list, "2026-11-03")?.body).toEqual({
+      line: 3,
+      done: true,
+      sha: "s",
+      day: "2026-11-03",
+    });
+    expect(requestFor(add, list, "2026-11-03")?.body).toEqual({ text: "Brot", sha: "s" });
   });
 
   it("a tick resolves its line by the item's text after the list changed under it", async () => {

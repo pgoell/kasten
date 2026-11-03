@@ -13970,6 +13970,18 @@
           "sha": {
             "type": "string",
             "title": "Sha"
+          },
+          "day": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Day"
           }
         },
         "type": "object",

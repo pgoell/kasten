@@ -12,12 +12,22 @@ const MAX_SUGGESTIONS = 5;
 
 export const listPath = (name: string) => `/lists/${encodeURIComponent(name)}`;
 
+/** The date on this device's clock, which a tick stamps: the server's runs in UTC (#1300). */
+export function localDay(now: Date): string {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
 /**
  * The write one op makes against the list as it reads now, or none when the
  * list already says what the op asks for. A tick names its line from this read,
  * so a line that moved since the op was queued is found by its text instead.
  */
-export function requestFor(op: Op, list: ListData): { path: string; body: object } | null {
+export function requestFor(
+  op: Op,
+  list: ListData,
+  day: string,
+): { path: string; body: object } | null {
   const path = listPath(op.list);
   if (op.kind === "add") return { path: `${path}/items`, body: { text: op.text, sha: list.sha } };
   if (list.sha === null) return null;
@@ -33,7 +43,7 @@ export function requestFor(op: Op, list: ListData): { path: string; body: object
   }
   const item = list.items.find((found) => found.text === op.text && found.done !== op.done);
   if (!item) return null;
-  return { path: `${path}/tick`, body: { line: item.line, done: op.done, sha: list.sha } };
+  return { path: `${path}/tick`, body: { line: item.line, done: op.done, sha: list.sha, day } };
 }
 
 /**

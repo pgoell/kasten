@@ -50,13 +50,14 @@ def put(folder: Path, text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-async def tick(
+async def tick(  # noqa: PLR0913  each part of the request is its own argument
     client: AsyncClient,
     folder: Path,
     item: str,
     *,
     done: bool = True,
     headers: dict[str, str] | None = None,
+    day: str | None = None,
 ):
     """Tick or untick the item whose line starts with `item`, as the list stands on disk.
 
@@ -65,10 +66,10 @@ async def tick(
     raw = (folder / "Einkauf.md").read_bytes()
     lines = raw.decode("utf-8").split("\n")
     line = next(at for at, held in enumerate(lines) if held[6:].startswith(item))
-    sha = hashlib.sha256(raw).hexdigest()
-    return await client.post(
-        "/share/lists/Einkauf/tick", json={"line": line, "done": done, "sha": sha}, headers=headers
-    )
+    body = {"line": line, "done": done, "sha": hashlib.sha256(raw).hexdigest()}
+    if day is not None:
+        body["day"] = day
+    return await client.post("/share/lists/Einkauf/tick", json=body, headers=headers)
 
 
 @pytest.fixture
@@ -340,6 +341,84 @@ async def test_1301_untick_refuses_an_id_two_todos_carry_and_writes_nothing(
     assert response.json()["detail"] == f"🆔 kt-000001 is on another todo too: {where}"
     assert (folder / "Einkauf.md").read_text(encoding="utf-8") == text
     assert note.read_text(encoding="utf-8") == log
+
+
+@pytest.mark.parametrize(
+    ("twin", "where"),
+    [
+        (None, "05 Shared/Einkauf.md line 2"),
+        ("02 Projects/Other.md", "02 Projects/Other.md line 1"),
+    ],
+    ids=["in the list", "in another note"],
+)
+async def test_1303_tick_refuses_an_id_two_todos_carry_and_writes_nothing(
+    client: AsyncClient, folder: Path, twin: str | None, where: str, pinned_day: date
+) -> None:
+    copy = "- [ ] Brot 🆔 kt-000001\n"
+    text = copy + copy if twin is None else copy
+    if twin is not None:
+        (folder.parent / twin).parent.mkdir(parents=True)
+        (folder.parent / twin).write_text(copy, encoding="utf-8")
+    put(folder, text)
+
+    response = await tick(client, folder, "Brot")
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == f"🆔 kt-000001 is on another todo too: {where}"
+    assert (folder / "Einkauf.md").read_text(encoding="utf-8") == text
+    assert not daily(folder.parent, pinned_day).is_file()
+
+
+async def test_1303_logs_done_off_ticks_an_id_two_todos_carry(
+    client: AsyncClient, folder: Path, monkeypatch: pytest.MonkeyPatch, pinned_day: date
+) -> None:
+    put(folder, "- [ ] Brot 🆔 kt-000001\n- [ ] Brot 🆔 kt-000001\n")
+    monkeypatch.setenv("KASTEN_SHARE_LOGS_DONE", "false")
+    get_settings.cache_clear()
+
+    response = await tick(client, folder, "Brot")
+
+    assert response.status_code == 200
+    assert response.json()["items"][0]["done"]
+
+
+async def test_1300_a_tick_stamps_and_logs_the_day_the_lists_app_sends(
+    client: AsyncClient, folder: Path, pinned_day: date
+) -> None:
+    put(folder, "- [ ] Milch\n")
+
+    response = await tick(client, folder, "Milch", day="2020-01-15")
+
+    assert response.status_code == 200
+    assert "✅ 2020-01-15 🆔 kt-" in (folder / "Einkauf.md").read_text(encoding="utf-8")
+    assert len(logged(folder.parent, date(2020, 1, 15))) == 1
+    assert not daily(folder.parent, pinned_day).is_file()
+
+
+async def test_1300_an_untick_with_a_day_drops_its_stamp_and_log_line(
+    client: AsyncClient, folder: Path
+) -> None:
+    put(folder, "- [ ] Milch\n")
+    await tick(client, folder, "Milch", day="2020-01-15")
+
+    response = await tick(client, folder, "Milch", done=False, day="2020-01-16")
+
+    assert response.status_code == 200
+    assert "- [ ] Milch 🆔 kt-" in (folder / "Einkauf.md").read_text(encoding="utf-8")
+    assert logged(folder.parent, date(2020, 1, 15)) == []
+
+
+@pytest.mark.parametrize("day", ["15.01.2020", "2020-13-01", "today"])
+async def test_1300_a_day_that_is_no_date_is_refused_and_writes_nothing(
+    client: AsyncClient, folder: Path, day: str
+) -> None:
+    text = "- [ ] Milch\n"
+    put(folder, text)
+
+    response = await tick(client, folder, "Milch", day=day)
+
+    assert response.status_code == 422
+    assert (folder / "Einkauf.md").read_text(encoding="utf-8") == text
 
 
 async def test_1059_tick_reads_no_id_glued_to_an_estimate(

@@ -103,7 +103,11 @@ last item line, or at the end of the note. Answers the `List` after the add.
 
 ## POST /share/lists/{name}/tick
 
-Takes `{"line": 4, "done": true, "sha": "3f9c1a0"}` and answers the `List`.
+Takes `{"line": 4, "done": true, "sha": "3f9c1a0", "day": "2026-11-03"}` and
+answers the `List`. `day` is the date on the ticking device, which the lists app
+sends, and `<today>` below is that date: the server runs in UTC, so its own date
+is yesterday's for the first hour or two after midnight in Berlin. A tick without
+`day` takes the server's date. A `day` that is not `YYYY-MM-DD` answers `422`.
 
 Ticking to done writes `- [x] <text> ✅ <today>`, and a `🆔 kt-<6 hex>` after it
 unless the line reads an id already. The `✅` goes before the id it reads. A
@@ -134,12 +138,12 @@ anywhere outside the archive gets no second line. An untick drops every `- ✅`
 line naming the item's id, wherever it stands. A line names the id when the id
 is its last `kt-` word, or its last word where it has none, and the line stands
 outside a code fence, so a log line of another todo whose words mention the id
-stays. An untick of an id another todo line carries too, in the list or in
-another note, answers `422` `{"detail": "🆔 <id> is on another todo too: <note>
+stays. A tick or untick of an id another todo line carries too, in the list or
+in another note, answers `422` `{"detail": "🆔 <id> is on another todo too: <note>
 line <n>"}` and writes nothing, as the todo pane refuses it. The list is written first and the
 daily note after it; [the share tick orderings](/reference/save-path-orderings/share-tick.md)
 say what a failure between them leaves. `KASTEN_SHARE_LOGS_DONE=false` turns the
-log write off.
+log write off, and with it that refusal.
 
 ## POST /share/lists/{name}/assign
 
