@@ -360,12 +360,18 @@ def landing(path: Path, content: str) -> str:
     return LONE_LF.sub("\r\n", content) if crlf else content
 
 
+def temporary_name(name: str) -> str:
+    """The hidden name `write_note` writes `name` through, cut so it fits one segment (#1510)."""
+    room = _NAME_LIMIT_BYTES - len(".") - len(".tmp")
+    return f".{name.encode()[:room].decode(errors='ignore')}.tmp"
+
+
 def write_note(path: Path, content: str) -> None:
     """Write `content` over a note `resolve_note` returned, through a hidden temp file.
 
     The rename is atomic, so a crash leaves the old note whole. `newline=""` keeps the bytes
     that arrived, bar the CRLF `landing` adds.
     """
-    temporary = path.with_name(f".{path.name}.tmp")
+    temporary = path.with_name(temporary_name(path.name))
     temporary.write_text(landing(path, content), encoding="utf-8", newline="")
     temporary.replace(path)

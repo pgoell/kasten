@@ -2,7 +2,8 @@ import hashlib
 import os
 from typing import TYPE_CHECKING
 
-from kasten_backend.vault import resolve_folder, resolve_path
+from backend.tests.test_mcp import ENDPOINT, RPC, call, payload
+from kasten_backend.vault import resolve_folder, resolve_path, temporary_name
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -295,3 +296,55 @@ async def test_stamps_a_body_that_carries_its_own_block(client: AsyncClient, vau
     assert "tags: [a]" in written
     assert written.startswith("---\nid: ")
     assert written.endswith("---\n# borges\n")
+
+
+# The longest note name the vault takes: 255 bytes, which its old temp passed by 5 (#1510).
+LONGEST = "a" * 252 + ".md"
+
+
+async def test_creates_and_saves_a_note_whose_name_is_255_bytes(
+    client: AsyncClient, vault: Path
+) -> None:
+    created = await client.post(f"/api/files/{LONGEST}")
+    saved = await client.put(f"/api/files/{LONGEST}", json={"content": "# edited\n"})
+
+    assert (created.status_code, saved.status_code) == (201, 200)
+    assert (vault / LONGEST).read_text().endswith("# edited\n")
+    assert sorted(p.name for p in vault.iterdir()) == [LONGEST]  # noqa: ASYNC240
+
+
+async def test_an_agent_saves_and_appends_to_a_note_whose_name_is_255_bytes(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    note = agent_vault / LONGEST
+    note.write_text("# old\n")
+    sha = hashlib.sha256(note.read_bytes()).hexdigest()
+
+    for name, arguments in [
+        ("save_note", {"path": LONGEST, "content": "# saved\n", "sha": sha}),
+        ("append_note", {"path": LONGEST, "text": "appended"}),
+    ]:
+        response = await client.post(
+            ENDPOINT, json=call(name, arguments), headers={**bearer, **RPC}
+        )
+        assert payload(response.text)["result"].get("isError") is not True, response.text
+
+    assert note.read_text().endswith("# saved\n\nappended\n")
+    assert sorted(p.name for p in agent_vault.iterdir()) == [LONGEST]  # noqa: ASYNC240
+
+
+def test_a_name_that_fits_keeps_its_temp_and_a_longer_one_is_cut_to_fit() -> None:
+    fits = "a" * 247 + ".md"
+
+    assert temporary_name(fits) == f".{fits}.tmp"
+    assert len(temporary_name(fits).encode()) == 255
+    assert temporary_name(LONGEST) == f".{LONGEST[:250]}.tmp"
+
+
+def test_a_multibyte_name_is_cut_on_a_character_boundary() -> None:
+    name = "€" * 84 + ".md"  # 255 bytes, and a cut at 250 lands inside a `€`
+
+    temp = temporary_name(name).encode()
+
+    assert len(temp) <= 255
+    assert temp.decode() == f".{'€' * 83}.tmp"
