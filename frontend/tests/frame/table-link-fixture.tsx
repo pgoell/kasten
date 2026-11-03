@@ -145,6 +145,27 @@ export async function tap(element: Element): Promise<void> {
   await tapAt(on(element));
 }
 
+/**
+ * A finger put down on `element`, moved 80px up and held still before it lifts. A lift
+ * at speed starts a fling, and Chrome swallows the tap that stops one (#1451).
+ */
+export async function drag(element: Element): Promise<void> {
+  const [x, y] = on(element);
+  // Stamped a second back, so the hold costs no wait.
+  const start = Date.now() / 1000 - 1;
+  const touch = (type: "touchStart" | "touchMove" | "touchEnd", up: number, after: number) =>
+    cdp().send("Input.dispatchTouchEvent", {
+      type,
+      touchPoints: type === "touchEnd" ? [] : [{ x, y: y - up }],
+      timestamp: start + after,
+    });
+  await touch("touchStart", 0, 0);
+  for (const step of [1, 2, 3, 4]) await touch("touchMove", step * 20, step / 60);
+  // A pixel on, as a move that goes nowhere may be dropped.
+  await touch("touchMove", 81, 0.5);
+  await touch("touchEnd", 81, 0.5);
+}
+
 /** A left button pressed and let go on `element`, with ctrl as 2 and meta as 4. */
 export async function press(element: Element, modifiers: number): Promise<void> {
   const [x, y] = on(element);
