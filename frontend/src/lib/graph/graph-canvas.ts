@@ -219,6 +219,10 @@ export function drawGraph(
   // The areas are worked out again each frame, as the notes move. The discs go
   // under the notes, so the dots sit on the wash; the names go over them.
   const underNotes = (ctx: CanvasRenderingContext2D) => {
+    if (hitsStale) {
+      hitsStale = false;
+      graph.nodePointerAreaPaint(paintArea);
+    }
     if (mode === null) return;
     paintDiscs(ctx, areasOf(spotList, groups), colour);
   };
@@ -228,9 +232,10 @@ export function drawGraph(
   };
 
   // The hit areas. force-graph paints them on a shadow canvas at most every
-  // 800 ms, so a tap soon after a pinch or a pan read the areas of the view
-  // before it and missed its note. Handing the painter over again paints them
-  // at once, which the end of every zoom does.
+  // 800 ms; handing the painter over again paints them at once, but only once
+  // per frame, and a fit's two tweens or a resize's two sides end two zooms in
+  // one. So a zoom's end hands it over now and again in the next frame (#1291).
+  let hitsStale = false;
   const paintArea = (
     node: DrawnNode,
     paint: string,
@@ -438,7 +443,10 @@ export function drawGraph(
   } else {
     graph
       .onZoom((transform) => handlers.onZoom?.(transform.k))
-      .onZoomEnd(() => graph.nodePointerAreaPaint(paintArea));
+      .onZoomEnd(() => {
+        hitsStale = true;
+        graph.nodePointerAreaPaint(paintArea);
+      });
     touch = pinchOverDrag(element, graph);
   }
 

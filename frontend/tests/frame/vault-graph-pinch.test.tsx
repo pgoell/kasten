@@ -424,6 +424,37 @@ describe("#1286 review: a pinch after a drag, and a thumb outside the graph", ()
   });
 });
 
+describe("#1291 a finger right after the view moves", () => {
+  const dragsFirst = async (host: HTMLElement) => {
+    const [one] = twoNotes(host);
+    const was = placeOf(host, one.path);
+    const dragged = [1, 2, 3].map((step) => [{ id: 0, x: one.at.x + step * 10, y: one.at.y }]);
+    await fingers(host, [[{ id: 0, ...one.at }], ...dragged]);
+    expect(placeOf(host, one.path).x - was.x).toBeGreaterThan(15 / view().k);
+  };
+
+  it("#1291 a finger right after a zoom whose last frame came late takes the note under it", async () => {
+    const { host } = await phone();
+    await still();
+    const { fit: refit } = canvasOf();
+    refit();
+    await new Promise((done) => setTimeout(done, 30));
+    // Held past the fit's end, so its last frame is one long step, as on a stalled runner.
+    const end = performance.now() + 330;
+    while (performance.now() < end);
+    await still();
+    await dragsFirst(host);
+  });
+
+  it("#1291 a finger right after a resize takes the note under it", async () => {
+    const { host } = await phone();
+    await still();
+    const { width, height } = boxIn(host).getBoundingClientRect();
+    canvasOf().resize(width, height);
+    await dragsFirst(host);
+  });
+});
+
 describe("#1286 the vault graph on a desktop", () => {
   for (const vim of ["on", "off"] as const) {
     it(`#1286 A4 with vim ${vim}, a mouse drag on a desktop still moves a note`, async () => {
