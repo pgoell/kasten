@@ -1,4 +1,4 @@
-import { digestOf } from "@/lib/vault-events";
+import { digestOf } from "@/lib/vault/events/vault-events";
 
 /**
  * The vault's echo of a todo press, which the pane need not hear twice. An event is an echo

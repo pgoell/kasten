@@ -11,8 +11,8 @@ import { useRef } from "react";
 import { onPageWritten } from "@/lib/html/page-written";
 import { LOG_NOTE, MODEL_USE_FOLDER } from "@/lib/layout";
 import { periodicNote } from "@/lib/periodic";
-import { useVaultEvents } from "@/lib/use-vault-events";
-import type { VaultEvent } from "@/lib/vault-events";
+import { useVaultEvents } from "@/lib/vault/events/use-vault-events";
+import type { VaultEvent } from "@/lib/vault/events/vault-events";
 
 // Every call the hook makes lands in one log, so a case reads as the order it happened in.
 const { log, echo } = vi.hoisted(() => ({ log: [] as string[], echo: { value: false } }));

@@ -69,8 +69,8 @@ vi.mock("@/lib/api", () => ({
   NoteExists: class NoteExists extends Error {},
   NoteMissing: class NoteMissing extends Error {},
 }));
-vi.mock("@/lib/move-api", () => ({ renameNote: vi.fn(), moveFolder: vi.fn() }));
-vi.mock("@/lib/trash-api", () => ({
+vi.mock("@/lib/vault/move/move-api", () => ({ renameNote: vi.fn(), moveFolder: vi.fn() }));
+vi.mock("@/lib/vault/move/trash-api", () => ({
   deleteNote: vi.fn(),
   fetchTrash: vi.fn(),
   restoreEntry: vi.fn(),

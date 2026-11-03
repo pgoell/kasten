@@ -30,7 +30,7 @@ import type { useRsvpAsked } from "@/lib/rsvp/use-rsvp";
 import type { TodoActions } from "@/lib/todo/use-todo-actions";
 import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
 import type { GuardedWrites } from "@/lib/use-guarded-writes";
-import type { Listings } from "@/lib/use-listings";
+import type { Listings } from "@/lib/vault/use-listings";
 import type { VideoAsks } from "@/lib/video/use-video-player";
 
 /** What every pane is handed, whatever it holds. */

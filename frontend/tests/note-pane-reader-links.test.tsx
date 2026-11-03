@@ -116,8 +116,13 @@ const canvas = vi.hoisted(() => ({
   destroy: vi.fn(),
 }));
 vi.mock("@/lib/graph/graph-canvas", () => ({ drawGraph: vi.fn() }));
-vi.mock("@/lib/move-api", () => ({ renameNote, moveFolder }));
-vi.mock("@/lib/trash-api", () => ({ deleteNote, fetchTrash, restoreEntry, deleteImage }));
+vi.mock("@/lib/vault/move/move-api", () => ({ renameNote, moveFolder }));
+vi.mock("@/lib/vault/move/trash-api", () => ({
+  deleteNote,
+  fetchTrash,
+  restoreEntry,
+  deleteImage,
+}));
 vi.mock("@/lib/history-api", () => ({ fetchHistory, fetchHistoryText }));
 vi.mock("foliate-js/view.js", () => ({}));
 const pdfPaneRenderer = vi.hoisted(() => ({ current: null as PdfRenderer | null }));

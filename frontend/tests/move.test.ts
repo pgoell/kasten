@@ -1,4 +1,4 @@
-import { dropTarget } from "@/lib/move";
+import { dropTarget } from "@/lib/vault/move/move";
 
 describe("dropTarget", () => {
   it("puts a note inside the folder it was dropped on", () => {

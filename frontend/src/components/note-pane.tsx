@@ -29,7 +29,7 @@ import type { TodoActions } from "@/lib/todo/use-todo-actions";
 import { usePaneWide } from "@/lib/ui/input/use-pane-wide";
 import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
 import type { GuardedWrites } from "@/lib/use-guarded-writes";
-import type { Listings } from "@/lib/use-listings";
+import type { Listings } from "@/lib/vault/use-listings";
 
 type Autosave = ReturnType<typeof useAutosave>;
 

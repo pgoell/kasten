@@ -48,8 +48,8 @@ vi.mock("@/lib/log/food-api", async (importOriginal) => ({
   fetchLog: mocks.fetchLog,
 }));
 
-vi.mock("@/lib/trash-api", async (original) => ({
-  ...(await original<typeof import("@/lib/trash-api")>()),
+vi.mock("@/lib/vault/move/trash-api", async (original) => ({
+  ...(await original<typeof import("@/lib/vault/move/trash-api")>()),
   fetchTrash: async () => [],
 }));
 

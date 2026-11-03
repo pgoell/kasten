@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { TreePanel } from "@/components/tree-panel";
 import { DROP, NodeList, useRowDrag } from "@/components/tree-rows";
+import { useViewport } from "@/lib/ui/input/use-viewport";
+import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
+import { heldModifier, leaderAction, leaderPrefix } from "@/lib/ui/keys/leader-keys";
+import { beginLeader, paneOpener } from "@/lib/ui/keys/which-key";
 import {
   ancestors,
   type FileNode,
@@ -10,11 +14,7 @@ import {
   type Shows,
   startFolder,
   type TreeNode,
-} from "@/lib/file-tree";
-import { useViewport } from "@/lib/ui/input/use-viewport";
-import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
-import { heldModifier, leaderAction, leaderPrefix } from "@/lib/ui/keys/leader-keys";
-import { beginLeader, paneOpener } from "@/lib/ui/keys/which-key";
+} from "@/lib/vault/file-tree";
 
 interface FileExplorerProps {
   /** Vault-relative paths of every note, as served by `GET /api/files`. */

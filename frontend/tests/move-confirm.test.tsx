@@ -9,7 +9,7 @@ const { previewMove, renameNote, moveFolder } = vi.hoisted(() => ({
   moveFolder: vi.fn(),
 }));
 vi.mock("@/lib/api", () => ({}));
-vi.mock("@/lib/move-api", () => ({ previewMove, renameNote, moveFolder }));
+vi.mock("@/lib/vault/move/move-api", () => ({ previewMove, renameNote, moveFolder }));
 
 function renderConfirm(mode: "rename" | "folder" = "rename") {
   const onMoved = vi.fn();

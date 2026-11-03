@@ -4,7 +4,7 @@ import { StatusBar } from "@/components/status-bar";
 import { ChangedOnDisk } from "@/lib/api";
 import { resetHeld, unstamped } from "@/lib/held-text";
 import { forgetQueues } from "@/lib/note/use-autosave";
-import { digestOf } from "@/lib/vault-events";
+import { digestOf } from "@/lib/vault/events/vault-events";
 import { renderNote, serveVault } from "./note-editor-fixture";
 
 // The api module builds its client at import time and captures `fetch` there,

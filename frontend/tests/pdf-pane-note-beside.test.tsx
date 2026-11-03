@@ -47,8 +47,8 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   fetchWeather: async () => [],
   UPLOAD_LIMIT_BYTES: 1024 * 1024 * 1024,
 }));
-vi.mock("@/lib/move-api", () => ({ renameNote: vi.fn(), moveFolder: vi.fn() }));
-vi.mock("@/lib/trash-api", () => ({
+vi.mock("@/lib/vault/move/move-api", () => ({ renameNote: vi.fn(), moveFolder: vi.fn() }));
+vi.mock("@/lib/vault/move/trash-api", () => ({
   deleteNote: vi.fn(),
   fetchTrash: vi.fn(),
   restoreEntry: vi.fn(),

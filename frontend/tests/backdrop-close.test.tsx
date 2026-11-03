@@ -17,7 +17,7 @@ vi.mock("@/lib/api", () => ({
   fetchTodos: vi.fn().mockResolvedValue([]),
   createNote: vi.fn(),
 }));
-vi.mock("@/lib/move-api", () => ({
+vi.mock("@/lib/vault/move/move-api", () => ({
   renameNote: vi.fn(),
   moveFolder: vi.fn(),
 }));

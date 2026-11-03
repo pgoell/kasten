@@ -5,13 +5,13 @@ import { NoteFinder } from "@/components/finder/note-finder";
 import { useReadingBook } from "@/components/finder/use-reading-book";
 import { NoteSearch } from "@/components/note-search";
 import type { PaneMoves } from "@/components/use-pane-moves";
-import { fileKind } from "@/lib/file-kind";
 import type { NoteOpening } from "@/lib/note/use-note-opening";
 import { openBookInFocused } from "@/lib/panes/pane-contents";
 import { visible } from "@/lib/search/archive";
 import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
 import type { GuardedWrites } from "@/lib/use-guarded-writes";
-import type { Listings } from "@/lib/use-listings";
+import { fileKind } from "@/lib/vault/file-kind";
+import type { Listings } from "@/lib/vault/use-listings";
 import { outgoingLinks } from "@/lib/wikilink";
 
 export type Finders = ReturnType<typeof useFinders>;

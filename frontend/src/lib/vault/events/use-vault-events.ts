@@ -6,7 +6,7 @@ import { reloadLogConfig } from "@/lib/log/log-card";
 import type { useAutosave } from "@/lib/note/use-autosave";
 import { dailyDate, weeklyWeek, yearlyYear } from "@/lib/periodic";
 import { pressEcho } from "@/lib/todo/todo-press-echo";
-import { parseVaultEvent, type VaultEvent } from "@/lib/vault-events";
+import { parseVaultEvent, type VaultEvent } from "@/lib/vault/events/vault-events";
 
 type Autosave = ReturnType<typeof useAutosave>;
 type FocusedNote = { path: string | undefined } & Pick<

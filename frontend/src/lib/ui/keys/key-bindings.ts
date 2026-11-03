@@ -1,4 +1,4 @@
-import type { MoveMode } from "@/lib/move";
+import type { MoveMode } from "@/lib/vault/move/move";
 
 /**
  * The commands the route supplies, and the keys outside the editor. The keys in
