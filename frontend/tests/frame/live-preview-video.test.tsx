@@ -435,3 +435,54 @@ it.skipIf(!SHOTS)(
   },
   300_000,
 );
+
+/** One video linked twice, one link off screen (#1187). */
+const TWICE = ["---", `watching: {${ID}: 30}`, "---", LINK, ..."x".repeat(30), LINK].join("\n");
+const frames = (at: EditorView) => [...at.dom.querySelectorAll('iframe[title="video"]')];
+
+async function twoFrames(options: { vimOn?: boolean } = {}): Promise<[EditorView, ...Element[]]> {
+  const at = mount(TWICE, options);
+  scrollTo(at, "bottom");
+  await expect.poll(() => frames(at).length).toBe(2);
+  return [at, ...frames(at)];
+}
+
+it.each([1000, 414])(
+  "#1187 A1 I1 I4 at %i px each link to one video has its own player",
+  async (width) => {
+    await page.viewport(width, 844);
+    const [at, first, second] = await twoFrames();
+    const hit = () =>
+      [...at.contentDOM.querySelectorAll(".cm-video")].map((box) => {
+        const r = box.getBoundingClientRect();
+        return document.elementFromPoint(r.left + r.width / 2, Math.min(r.bottom - 9, 290));
+      });
+    await expect.poll(() => hit().at(-1)).toBe(second);
+    scrollTo(at, 0);
+    await expect.poll(() => hit()[0]).toBe(first);
+    expect.soft(second?.getAttribute("src")).toBe(`about:blank#${ID}@30`);
+  },
+);
+
+it("#1187 I3 I6 either player's pause writes the one entry; vim on the second line hides only it", async () => {
+  const [at, first, second] = await twoFrames({ vimOn: true });
+  at.focus();
+  await userEvent.keyboard("G2li");
+  await expect.poll(() => at.contentDOM.querySelectorAll(".cm-video").length).toBe(1);
+  for (const [frame, seconds] of [
+    [second, 50],
+    [first, 70],
+  ] as const) {
+    const source = (frame as HTMLIFrameElement).contentWindow;
+    send(source, { event: "infoDelivery", info: { playerState: 1 } });
+    send(source, { event: "infoDelivery", info: { playerState: 2, currentTime: seconds } });
+    expect(readField(at.state.doc.toString(), "watching")).toBe(`{${ID}: ${seconds}}`);
+  }
+});
+
+it("#1187 I5 deleting the first link ends its frame and keeps the second's", async () => {
+  const [at, first, second] = await twoFrames();
+  const from = TWICE.indexOf(LINK);
+  at.dispatch({ changes: { from, to: from + LINK.length } });
+  expect.soft([first?.isConnected, second?.isConnected]).toEqual([false, true]);
+});

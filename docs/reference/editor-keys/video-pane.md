@@ -62,6 +62,9 @@ every rendered construct here follows. The player hides while the source shows
 and keeps playing; moving the cursor off brings the same player back. Deleting
 the link ends it.
 
+Each link is a player of its own, so a note that links one video twice shows
+two.
+
 ### Where you got to
 
 The note remembers it, one entry per video:
@@ -76,6 +79,9 @@ where the link sits, so reordering the note moves nothing and two lectures in
 one note cannot overwrite each other. A video wound back to the start, or played
 to its end, drops out of the mapping rather than storing a zero, so it opens at
 the start next time.
+
+Two links to one video share that one entry: both open at it, and whichever
+stops last writes it.
 
 Only the linked video writes its entry. A player that moves on to another video,
 such as a suggestion picked on YouTube's end screen, writes nothing while it
