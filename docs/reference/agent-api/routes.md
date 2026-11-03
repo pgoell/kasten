@@ -182,8 +182,7 @@ Writes one whole note, creating it when there is none there.
 { "content": "---\ntype: Note\n---\n\nThe whole note.\n", "sha": "3b1f...c7" }
 ```
 
-`sha` is the digest of the note the caller read, and it is required, not
-optional:
+`sha` is the digest of the note the caller read, and it is required:
 
 | The note on disk | `sha` | Answer |
 | --- | --- | --- |
@@ -192,9 +191,10 @@ optional:
 | present | omitted or `null` | `409`, with the current digest |
 | present | not the digest on disk | `409`, with the current digest |
 | present | the digest on disk | `200`, the note is written |
+| not UTF-8 | any | `404`, nothing written |
 
 The comparison happens inside the same lock as the write, so nothing can slip
-between them. What that closes, and what it deliberately does not, is in
+between them. What that closes, and what it does not, is in
 [The agent boundary](/explanation/the-agent-boundary.md#why-the-write-is-conditional-in-one-direction).
 
 The answer is the same shape a read gives: the path, the content that landed and

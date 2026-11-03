@@ -480,3 +480,26 @@ async def test_an_unreadable_note_answers_as_an_absent_one(
     assert answers[0] == answers[1]
     assert answers[0]["isError"] is True
     assert answers[0]["content"][0]["text"].endswith(": No such note")
+
+
+async def test_a_note_not_in_utf8_answers_as_an_absent_one(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    (agent_vault / "latin.md").write_bytes(b"caf\xe9\n")
+
+    over_mcp = [
+        payload(
+            (
+                await client.post(
+                    ENDPOINT, json=call("read_note", {"path": path}), headers={**bearer, **RPC}
+                )
+            ).text
+        )["result"]
+        for path in ("latin.md", "missing.md")
+    ]
+    over_rest = await client.get("/agent/notes/latin.md", headers=bearer)
+
+    assert over_mcp[0] == over_mcp[1]
+    assert over_mcp[0]["content"][0]["text"].endswith(": No such note")
+    assert over_rest.status_code == 404
+    assert over_rest.json() == {"detail": "No such note"}
