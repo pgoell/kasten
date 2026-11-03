@@ -1,9 +1,9 @@
 import { EditorView } from "@codemirror/view";
 import { cleanup, fireEvent, screen } from "@testing-library/react";
 import { NoteMissing } from "@/lib/api";
-import { holdText } from "@/lib/held-text";
 import { noteBase } from "@/lib/note-base";
 import { periodicNote } from "@/lib/periodic";
+import { holdText } from "@/lib/saving/held-text";
 import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
 import {

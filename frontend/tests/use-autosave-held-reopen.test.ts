@@ -1,7 +1,7 @@
 import { act } from "@testing-library/react";
 import { ChangedOnDisk } from "@/lib/api";
-import { heldText, holdText, moveHeld } from "@/lib/held-text";
 import { noteBase } from "@/lib/note-base";
+import { heldText, holdText, moveHeld } from "@/lib/saving/held-text";
 import {
   eachPage,
   heldRows,

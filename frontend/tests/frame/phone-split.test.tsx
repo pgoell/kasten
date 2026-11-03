@@ -1,6 +1,6 @@
-import { resetHeld } from "@/lib/held-text";
 import { openInFocused } from "@/lib/panes/pane-contents";
 import { emptyLayout, splitFocused } from "@/lib/panes/panes";
+import { resetHeld } from "@/lib/saving/held-text";
 import { need, nextFrame, READER, registerReaderFixture, TOUCH, unmount } from "./reader-fixture";
 import { DESIGN, mountTabs, registerTabNotes } from "./tab-strip-fixture";
 

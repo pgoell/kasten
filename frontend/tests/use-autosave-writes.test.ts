@@ -1,6 +1,6 @@
 import { act } from "@testing-library/react";
-import { heldText } from "@/lib/held-text";
 import { noteBase } from "@/lib/note-base";
+import { heldText } from "@/lib/saving/held-text";
 import {
   eachPage,
   idle,

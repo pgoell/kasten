@@ -1,6 +1,6 @@
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils.js";
-import { unstamped } from "@/lib/held-text";
+import { unstamped } from "@/lib/saving/held-text";
 
 /**
  * sha256 of `unstamped(text)`, the hash the backend makes of the note on disk.

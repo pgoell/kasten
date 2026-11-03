@@ -2,11 +2,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, expect, it, vi } from "vitest";
-import { dropText, holdText, resetHeld } from "@/lib/held-text";
 import { dayNote } from "@/lib/log/log-edit";
 import { useLogActions } from "@/lib/log/use-log-actions";
 import { noteBase } from "@/lib/note-base";
-import { useNoteWrites } from "@/lib/use-note-writes";
+import { dropText, holdText, resetHeld } from "@/lib/saving/held-text";
+import { useNoteWrites } from "@/lib/saving/use-note-writes";
 
 // The same wire-level fake as log-write.test.ts: the real api code runs, and only
 // the client's calls are answered from an in-memory vault.

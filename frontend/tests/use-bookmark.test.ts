@@ -7,7 +7,7 @@
  */
 
 import { act, cleanup, renderHook } from "@testing-library/react";
-import { useBookmark } from "@/lib/use-bookmark";
+import { useBookmark } from "@/lib/saving/use-bookmark";
 
 /** What the hook waits for, spelled here so a change to it fails loudly. */
 const WAIT = 60_000;

@@ -27,9 +27,9 @@ import { openBeside } from "@/lib/panes/pane-contents";
 import { heldKind, type KindField, type Pane } from "@/lib/panes/pane-kinds";
 import { focusPane, type Layout } from "@/lib/panes/panes";
 import type { useRsvpAsked } from "@/lib/rsvp/use-rsvp";
+import type { GuardedWrites } from "@/lib/saving/use-guarded-writes";
 import type { TodoActions } from "@/lib/todo/use-todo-actions";
 import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
-import type { GuardedWrites } from "@/lib/use-guarded-writes";
 import type { Listings } from "@/lib/vault/use-listings";
 import type { VideoAsks } from "@/lib/video/use-video-player";
 

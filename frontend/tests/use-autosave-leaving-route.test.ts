@@ -1,5 +1,5 @@
-import { heldText, heldTexts, resetHeld } from "@/lib/held-text";
 import { noteBase } from "@/lib/note-base";
+import { heldText, heldTexts, resetHeld } from "@/lib/saving/held-text";
 import {
   background,
   eachPage,

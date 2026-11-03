@@ -1,7 +1,6 @@
 import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { type Dispatch, type RefObject, type SetStateAction, useCallback, useState } from "react";
 import { createNote, NoteExists, updateNote } from "@/lib/api";
-import { heldText } from "@/lib/held-text";
 import {
   dayNote,
   type LineAt,
@@ -12,7 +11,8 @@ import {
 } from "@/lib/log/log-edit";
 import { LOG_HEADING } from "@/lib/log/log-lines";
 import { appendUnder } from "@/lib/note-section";
-import type { GuardedWrites } from "@/lib/use-guarded-writes";
+import { heldText } from "@/lib/saving/held-text";
+import type { GuardedWrites } from "@/lib/saving/use-guarded-writes";
 
 export type LogActions = ReturnType<typeof useLogActions>;
 

@@ -1,4 +1,4 @@
-import type { Held } from "@/lib/held-text";
+import type { Held } from "@/lib/saving/held-text";
 
 // The last text sent to each note while a write to it is in the air. A hide
 // holds and resends it from here, since a plain fetch dies with the page (#302).

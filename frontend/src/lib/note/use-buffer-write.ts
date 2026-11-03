@@ -1,9 +1,9 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
-import { dropText, type Held } from "@/lib/held-text";
 import type { Buffer } from "@/lib/note/held-buffer";
 import { saveQueue } from "@/lib/note/save-queue";
 import { answer } from "@/lib/note/write-answer";
+import { dropText, type Held } from "@/lib/saving/held-text";
 
 function cachedText(queryClient: QueryClient, path: string | undefined): string | null {
   return path === undefined ? null : (queryClient.getQueryData<string>(["note", path]) ?? null);

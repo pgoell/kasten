@@ -2,9 +2,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { ChangedOnDisk, saveNote } from "@/lib/api";
-import { landedAs, resetHeld, useHeld } from "@/lib/held-text";
 import { forgetQueues, useAutosave } from "@/lib/note/use-autosave";
 import { noteBase } from "@/lib/note-base";
+import { landedAs, resetHeld, useHeld } from "@/lib/saving/held-text";
 
 /**
  * The note as the vault holds it once `content` has been written to it.

@@ -1,8 +1,15 @@
 import { useCallback, useEffect } from "react";
-import { dropText, type Held, heldText, heldTexts, landedAs, sameText } from "@/lib/held-text";
 import { type Buffer, wasLeftAloft } from "@/lib/note/held-buffer";
 import type { InAir } from "@/lib/note/in-air";
 import { saveQueue } from "@/lib/note/save-queue";
+import {
+  dropText,
+  type Held,
+  heldText,
+  heldTexts,
+  landedAs,
+  sameText,
+} from "@/lib/saving/held-text";
 
 function shows(doc: string | undefined, content: string | undefined): boolean {
   return doc !== undefined && content !== undefined && sameText(doc, content);
