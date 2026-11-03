@@ -25,6 +25,7 @@ import { livePreview } from "@/lib/live/live-preview";
 import { noteLanguage } from "@/lib/note-language";
 import { vaultPaths } from "@/lib/wikilink";
 import "@/styles/app.css";
+import { drag, roomToScroll } from "./table-link-fixture";
 
 const CAT = "https://example.com/cat.png";
 const SITE = "https://example.com";
@@ -295,28 +296,29 @@ describe("a tap or a press on a picture inside a link (#558)", () => {
     await followed(at, open, SITE);
   });
 
-  it("I3 a finger that lands on a linked picture and scrolls opens nothing", async () => {
+  // With `room` the page scrolls too, so a fling the drag left would outlive the lift (#1521).
+  async function scrollOpensNothing(room: boolean) {
     await phone();
     const at = mount(NOTE, false, 896);
     const image = await loaded(at.dom);
     const open = stubOpen();
+    if (room) roomToScroll();
 
-    const [x, y] = on(image);
-    await cdp().send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
-    for (const step of [20, 40, 60, 80]) {
-      await cdp().send("Input.dispatchTouchEvent", {
-        type: "touchMove",
-        touchPoints: [{ x, y: y - step }],
-      });
-    }
-    await cdp().send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await drag(image);
+    if (room) expect.soft(scrollY, "the drag scrolled the page").toBeGreaterThan(100);
     // Nothing shows that a scroll was handled, so a tap on the first line goes
     // after it: input is handled in order, and the cursor moving there means
     // any click the scroll made has landed.
     await tap(at.contentDOM.querySelector(".cm-line") as Element);
     await cursorIn(at, [1, "A cat".length], "a tap on the first line");
     expect(open).not.toHaveBeenCalled();
-  });
+  }
+
+  it("I3 a finger that lands on a linked picture and scrolls opens nothing", () =>
+    scrollOpensNothing(false));
+
+  it("I3 a finger that lands on a linked picture and scrolls the page opens nothing", () =>
+    scrollOpensNothing(true));
 
   it("I4 a tap on a linked picture with vim on and the cursor in the link moves the cursor and opens nothing", async () => {
     await phone();

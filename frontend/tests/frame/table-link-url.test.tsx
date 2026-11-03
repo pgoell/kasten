@@ -13,6 +13,7 @@ import type { EditorView } from "@codemirror/view";
 import { cdp, page } from "vitest/browser";
 import { shot } from "./shots";
 import {
+  drag,
   framed,
   mount,
   mountApp,
@@ -20,6 +21,7 @@ import {
   phone,
   picture,
   press,
+  roomToScroll,
   SITE,
   settled,
   stubOpen,
@@ -282,22 +284,17 @@ describe("a tap or a press on a link in a table cell", () => {
     },
   );
 
-  // Guard: a scroll makes no click, inside a table or out.
-  it("I3 guard a finger that lands on a linked picture in a cell and drags opens nothing", async () => {
+  // Guard: a scroll makes no click, inside a table or out. With `room` the page
+  // scrolls too, so a fling the drag left would outlive the lift (#1521).
+  async function dragOpensNothing(room: boolean) {
     await phone();
     const at = mount(NOTE, false, 896);
     const block = await table(at.dom);
     const open = stubOpen();
+    if (room) roomToScroll();
 
-    const [x, y] = on(parts(block)["linked picture"]);
-    await cdp().send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
-    for (const step of [20, 40, 60, 80]) {
-      await cdp().send("Input.dispatchTouchEvent", {
-        type: "touchMove",
-        touchPoints: [{ x, y: y - step }],
-      });
-    }
-    await cdp().send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await drag(parts(block)["linked picture"]);
+    if (room) expect.soft(scrollY, "the drag scrolled the page").toBeGreaterThan(100);
     // Nothing shows that a scroll was handled, so a tap on the first line goes
     // after it: input is handled in order, and the cursor moving there means
     // any click the scroll made has landed.
@@ -308,7 +305,13 @@ describe("a tap or a press on a link in a table cell", () => {
       })
       .toSatisfy((head: number) => head >= 1 && head <= "A table".length);
     expect(open).not.toHaveBeenCalled();
-  });
+  }
+
+  it("I3 guard a finger that lands on a linked picture in a cell and drags opens nothing", () =>
+    dragOpensNothing(false));
+
+  it("I3 guard a finger that lands on a linked picture in a cell and drags on a page that scrolls opens nothing", () =>
+    dragOpensNothing(true));
 
   it("I4 a double-click on a linked picture in a cell on a desktop opens the link once", async () => {
     await page.viewport(1280, 900);
