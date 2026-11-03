@@ -1,15 +1,15 @@
-import { cdp, page } from "vitest/browser";
+import { page } from "vitest/browser";
 import { shot } from "./shots";
 import {
   act,
   appWith,
   BOTH,
+  drag,
   followedNote,
   framed,
   landed,
   linkedIn,
   mountApp,
-  on,
   openedOnly,
   PRESSES,
   phone,
@@ -213,37 +213,54 @@ describe("a tap or a press on a link in a table cell opens its own target", () =
     },
   );
 
-  // Guard: a scroll makes no click, inside a table or out.
+  // Guard: a scroll makes no click, inside a table or out. With `room` the page
+  // scrolls too, so a fling the drag left would outlive the lift (#1451).
+  async function dragOpensNothing(vim: string, room: boolean) {
+    const { doc } = linkedIn("[[Some note]]");
+    const follow = vi.fn();
+    const { at, element } = await appWith(doc, "tap", vim, "tbody .cm-wikilink", {
+      onFollow: follow,
+    });
+    const open = stubOpen();
+    if (room) {
+      // Above as well as below, so the first line is still in view after the scroll.
+      const above = document.body.insertBefore(
+        document.createElement("div"),
+        document.body.firstChild,
+      );
+      const below = document.body.appendChild(document.createElement("div"));
+      above.style.height = "200px";
+      below.style.height = "2000px";
+      onTestFinished(() => {
+        above.remove();
+        below.remove();
+        scrollTo(0, 0);
+      });
+      scrollTo(0, 100);
+    }
+
+    await drag(element);
+    if (room) expect.soft(scrollY, "the drag scrolled the page").toBeGreaterThan(100);
+    // A tap on the first line after it, as #563's I3 has it: input is handled
+    // in order, so the cursor moving there means the drag has landed.
+    await tap(at.contentDOM.querySelector(".cm-line") as Element);
+    await expect
+      .poll(() => at.state.selection.main.head, {
+        message: "the cursor after a tap on the first line",
+      })
+      .toSatisfy((head: number) => head >= 1 && head <= "A table".length);
+    expect.soft(follow, "no note followed").not.toHaveBeenCalled();
+    expect(open, "no tab opened").not.toHaveBeenCalled();
+  }
+
   it.each(VIMS)(
     "I5 guard a finger that lands on a wikilink in a cell and drags with vim %s opens nothing",
-    async (vim) => {
-      const { doc } = linkedIn("[[Some note]]");
-      const follow = vi.fn();
-      const { at, element } = await appWith(doc, "tap", vim, "tbody .cm-wikilink", {
-        onFollow: follow,
-      });
-      const open = stubOpen();
+    (vim) => dragOpensNothing(vim, false),
+  );
 
-      const [x, y] = on(element);
-      await cdp().send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
-      for (const step of [20, 40, 60, 80]) {
-        await cdp().send("Input.dispatchTouchEvent", {
-          type: "touchMove",
-          touchPoints: [{ x, y: y - step }],
-        });
-      }
-      await cdp().send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
-      // A tap on the first line after it, as #563's I3 has it: input is handled
-      // in order, so the cursor moving there means the drag has landed.
-      await tap(at.contentDOM.querySelector(".cm-line") as Element);
-      await expect
-        .poll(() => at.state.selection.main.head, {
-          message: "the cursor after a tap on the first line",
-        })
-        .toSatisfy((head: number) => head >= 1 && head <= "A table".length);
-      expect.soft(follow, "no note followed").not.toHaveBeenCalled();
-      expect(open, "no tab opened").not.toHaveBeenCalled();
-    },
+  it.each(VIMS)(
+    "I5 guard a finger that lands on a wikilink in a cell and drags with vim %s on a page that scrolls opens nothing",
+    (vim) => dragOpensNothing(vim, true),
   );
 
   // Guard: with the cursor in the table its source shows, and a tap on the
