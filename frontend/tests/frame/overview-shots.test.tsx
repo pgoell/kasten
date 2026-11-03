@@ -18,7 +18,7 @@ import { commands, page } from "vitest/browser";
 import type { LineHit, TodoHit } from "@/lib/api";
 import { readClock, shiftDay } from "@/lib/clock";
 import type { LogDay } from "@/lib/log/food-api";
-import { applyTheme, PALETTE_KEY, THEME_KEY, type Theme } from "@/lib/theme";
+import { applyTheme, PALETTE_KEY, THEME_KEY, type Theme } from "@/lib/ui/theme";
 import { routeTree } from "@/routeTree.gen";
 import { COARSE, NARROW, stubMatchMedia } from "../match-media";
 import { wait } from "./sheet-fixture";

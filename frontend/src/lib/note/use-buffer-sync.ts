@@ -4,9 +4,9 @@ import { type RefObject, useCallback, useEffect, useRef, useState } from "react"
 import { fetchNote } from "@/lib/api";
 import { heldText, sameText, useHeld } from "@/lib/held-text";
 import type { useAutosave } from "@/lib/note/use-autosave";
-import { viewCommands } from "@/lib/palette";
 import { docIn, paneView } from "@/lib/pane-doc";
 import { type Layout, tabPanes } from "@/lib/panes/panes";
+import { viewCommands } from "@/lib/ui/palette";
 
 type Autosave = ReturnType<typeof useAutosave>;
 

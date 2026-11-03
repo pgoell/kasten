@@ -6,8 +6,8 @@
  */
 
 import { commands, page } from "vitest/browser";
-import { applyTheme, PALETTE_KEY, PALETTES, THEME_KEY, type Theme } from "@/lib/theme";
 import { DEFAULT_VIEWS } from "@/lib/todo/todo-view";
+import { applyTheme, PALETTE_KEY, PALETTES, THEME_KEY, type Theme } from "@/lib/ui/theme";
 import {
   FILES,
   HITS,

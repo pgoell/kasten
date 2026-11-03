@@ -19,7 +19,7 @@ import { fetchNote } from "@/lib/api";
 import { openInFocused } from "@/lib/panes/pane-contents";
 import { addTab, emptyLayout, goToTab, type Layout, splitFocused } from "@/lib/panes/panes";
 import type { Deck } from "@/lib/review/review";
-import { applyTheme, PALETTE_KEY, THEME_KEY, type Theme } from "@/lib/theme";
+import { applyTheme, PALETTE_KEY, THEME_KEY, type Theme } from "@/lib/ui/theme";
 import {
   nextFrame,
   PATIENCE,

@@ -13,7 +13,7 @@ import {
   ROW,
   STATUS,
   TAP,
-} from "@/lib/overlay-styles";
+} from "@/lib/ui/overlay-styles";
 
 interface MeaningFinderProps {
   /** Also search the archive folder, as the tree's toggle does. */

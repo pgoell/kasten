@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { paletteEntries } from "@/lib/palette";
+import { paletteEntries } from "@/lib/ui/palette";
 import {
   applyTheme,
   onThemeChange,
@@ -8,7 +8,7 @@ import {
   startTheme,
   THEME_KEY,
   toggleTheme,
-} from "@/lib/theme";
+} from "@/lib/ui/theme";
 import { stubMatchMedia } from "./match-media";
 import { stubCommands } from "./stub-commands";
 

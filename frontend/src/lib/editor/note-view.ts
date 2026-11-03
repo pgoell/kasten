@@ -25,8 +25,6 @@ import { tableSource } from "@/lib/editor/table-source";
 import { vimKeys } from "@/lib/editor/vim-mode";
 import { type EmbedSource, embedSource } from "@/lib/embed";
 import { imageCompletions, imagePaste, imagePaths, noticeHandler } from "@/lib/image";
-import type { EditorCommands } from "@/lib/key-bindings";
-import { keyboardUnasked } from "@/lib/last-input";
 import { livePreview } from "@/lib/live/live-preview";
 import { timeSeek } from "@/lib/live/live-preview-times";
 import { logCard } from "@/lib/log/log-card";
@@ -35,10 +33,12 @@ import { tagCompletions, vaultTags } from "@/lib/markdown/tag";
 import { graphHandler, noteHead, type Outline, readMode } from "@/lib/note/note-head";
 import { weatherCard } from "@/lib/note/weather-card";
 import { relationCompletions, vaultRelations } from "@/lib/ontology";
-import { slashCompletions } from "@/lib/palette";
 import { periodicReview, type ReviewSource, reviewSource } from "@/lib/review/periodic-review";
 import { type CycleHandler, idElsewhere, notePath, todoCycled } from "@/lib/todo/todo-commands";
 import { todoCompletions } from "@/lib/todo/todo-suggest";
+import { keyboardUnasked } from "@/lib/ui/input/last-input";
+import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
+import { slashCompletions } from "@/lib/ui/palette";
 import { vaultPaths, wikiLinkCompletions } from "@/lib/wikilink";
 
 /**

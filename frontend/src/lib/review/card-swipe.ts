@@ -4,7 +4,7 @@
  * be tested without a screen.
  */
 
-import { project } from "@/lib/sheet-math";
+import { project } from "@/lib/ui/motion/sheet-math";
 
 /** Degrees a card tilts per px it is dragged, so it leans the way it is pulled. */
 export const TILT = 0.025;

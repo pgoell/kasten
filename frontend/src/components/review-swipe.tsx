@@ -13,8 +13,8 @@ import {
 } from "react";
 import { stampOf, swipeGrade, tiltOf } from "@/lib/review/card-swipe";
 import { gradeTick } from "@/lib/review/haptic";
-import { axis, type Sample, SLOP, speed } from "@/lib/sheet-math";
-import { afterRelease, SPRINGS, Spring } from "@/lib/spring";
+import { axis, type Sample, SLOP, speed } from "@/lib/ui/motion/sheet-math";
+import { afterRelease, SPRINGS, Spring } from "@/lib/ui/motion/spring";
 
 interface SwipeCardProps {
   /** Whether a swipe may grade the card. False makes the card still to a finger. */

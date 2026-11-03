@@ -7,8 +7,8 @@ import { pictureElement } from "@/lib/live/live-preview-images";
 import { INLINE } from "@/lib/live/live-preview-inline";
 import { rowSpans, type Span } from "@/lib/live/live-preview-table-cells";
 import { isCodeToken, isDashes, isNumericColumn } from "@/lib/live/table-kinds";
-import { repeats } from "@/lib/presses";
 import { notePath } from "@/lib/todo/todo-commands";
+import { repeats } from "@/lib/ui/input/presses";
 
 /**
  * The scroll place of each drawn table, kept per editor, note and table start.

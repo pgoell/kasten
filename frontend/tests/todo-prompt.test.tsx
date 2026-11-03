@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { TodoPrompt } from "@/components/todo-prompt";
-import { PANEL, PANEL_NARROW } from "@/lib/overlay-styles";
+import { PANEL, PANEL_NARROW } from "@/lib/ui/overlay-styles";
 
 /** The day every test below is written against, so no assertion expires. */
 const TODAY = "2026-08-10";

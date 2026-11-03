@@ -14,7 +14,7 @@ import "@fontsource-variable/newsreader/opsz.css";
 import "@fontsource-variable/instrument-sans/index.css";
 import "@fontsource-variable/jetbrains-mono/index.css";
 import { page as browserPage, commands, userEvent } from "vitest/browser";
-import { applyTheme, PALETTE_KEY, THEME_KEY, type Theme } from "@/lib/theme";
+import { applyTheme, PALETTE_KEY, THEME_KEY, type Theme } from "@/lib/ui/theme";
 import {
   api,
   buttonNamed,

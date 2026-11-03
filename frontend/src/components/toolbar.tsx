@@ -1,6 +1,6 @@
-import type { EditorCommands, LeaderCommand } from "@/lib/key-bindings";
-import { LABEL } from "@/lib/overlay-styles";
-import { leaderFromFocus } from "@/lib/use-key-help-key";
+import type { EditorCommands, LeaderCommand } from "@/lib/ui/keys/key-bindings";
+import { leaderFromFocus } from "@/lib/ui/keys/use-key-help-key";
+import { LABEL } from "@/lib/ui/overlay-styles";
 
 /**
  * The thumb row's commands. Each is a leader command with no behaviour of its own.

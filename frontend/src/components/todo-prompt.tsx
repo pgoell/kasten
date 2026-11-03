@@ -1,5 +1,8 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { TodoHints } from "@/components/todo-hints";
+import { formatTodo } from "@/lib/todo/todo";
+import { expandShorthand } from "@/lib/todo/todo-shorthand";
+import { shorthandSuggestions } from "@/lib/todo/todo-suggest";
 import {
   BACKDROP,
   closeOnBackdrop,
@@ -9,10 +12,7 @@ import {
   PANEL,
   PANEL_NARROW,
   STATUS,
-} from "@/lib/overlay-styles";
-import { formatTodo } from "@/lib/todo/todo";
-import { expandShorthand } from "@/lib/todo/todo-shorthand";
-import { shorthandSuggestions } from "@/lib/todo/todo-suggest";
+} from "@/lib/ui/overlay-styles";
 
 interface TodoPromptProps {
   /** Called with what was typed, once Enter takes it. */

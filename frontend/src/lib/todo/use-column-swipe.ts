@@ -11,9 +11,9 @@ import {
   useRef,
   useState,
 } from "react";
-import { axis, type Sample, speed } from "@/lib/sheet-math";
-import { afterRelease, SPRINGS, Spring } from "@/lib/spring";
 import { swipeOffset, swipeTarget } from "@/lib/todo/column-swipe";
+import { axis, type Sample, speed } from "@/lib/ui/motion/sheet-math";
+import { afterRelease, SPRINGS, Spring } from "@/lib/ui/motion/spring";
 
 /**
  * A touch this close to the window's left or right edge belongs to the system,

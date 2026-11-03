@@ -1,8 +1,8 @@
 import { useEffect, useRef } from "react";
 import { PersonCard } from "@/components/person-card";
-import type { EditorCommands } from "@/lib/key-bindings";
 import { noteName } from "@/lib/note-path";
-import { useLeader } from "@/lib/use-leader";
+import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
+import { useLeader } from "@/lib/ui/keys/use-leader";
 
 interface PersonPaneProps {
   /** Vault path of the person note this pane is about. */

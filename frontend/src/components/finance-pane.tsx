@@ -13,8 +13,8 @@ import type { DrillStep } from "@/lib/finance/finance-drill-api";
 import { FINANCE_TABS, type FinanceTab } from "@/lib/finance/finance-keys";
 import { monthName } from "@/lib/finance/finance-words";
 import { useCategorySort } from "@/lib/finance/use-category-sort";
-import type { EditorCommands } from "@/lib/key-bindings";
-import { useLeader } from "@/lib/use-leader";
+import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
+import { useLeader } from "@/lib/ui/keys/use-leader";
 
 export interface FinancePaneProps {
   /** Reached by a leader sequence typed here, so every leader key still works. */

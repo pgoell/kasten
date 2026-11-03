@@ -1,9 +1,9 @@
 import type { RefObject } from "react";
 import type { SearchHit } from "@/lib/api";
-import { INPUT, LABEL } from "@/lib/overlay-styles";
 import { parseTodo } from "@/lib/todo/todo";
 import { KINDS } from "@/lib/todo/todo-board";
 import type { Mode } from "@/lib/todo/use-todo-rows";
+import { INPUT, LABEL } from "@/lib/ui/overlay-styles";
 
 /**
  * A chip or the shared toggle: a pill with a rule around it, filled with the

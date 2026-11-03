@@ -4,7 +4,7 @@
  */
 
 import { fontFaces } from "@/lib/book/book-fonts";
-import { currentTheme } from "@/lib/theme";
+import { currentTheme } from "@/lib/ui/theme";
 
 /** The attribute the page's stylesheet reads to draw white behind an image. */
 export const BACKING = "data-kasten-backing";

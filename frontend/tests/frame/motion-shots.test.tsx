@@ -17,7 +17,7 @@ import { fireEvent, waitFor } from "@testing-library/react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { commands, page } from "vitest/browser";
-import { startPress } from "@/lib/press";
+import { startPress } from "@/lib/ui/input/press";
 import { routeTree } from "@/routeTree.gen";
 import { COARSE, NARROW, stubMatchMedia } from "../match-media";
 import { shot } from "./shots";

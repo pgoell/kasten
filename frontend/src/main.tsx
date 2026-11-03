@@ -8,8 +8,8 @@ import { createRoot } from "react-dom/client";
 import { forgetSpentReloads, RouteError } from "@/lib/app/chunk-reload";
 import { start as startOutbox } from "./lib/outbox";
 import "@/lib/app/service-worker";
-import { startPress } from "@/lib/press";
-import { startTheme } from "@/lib/theme";
+import { startPress } from "@/lib/ui/input/press";
+import { startTheme } from "@/lib/ui/theme";
 import { routeTree } from "./routeTree.gen";
 import "./styles/app.css";
 

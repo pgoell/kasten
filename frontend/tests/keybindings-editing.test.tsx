@@ -1,7 +1,7 @@
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { useMemo, useState } from "react";
 import { Editor } from "@/components/editor";
-import type { EditorCommands } from "@/lib/key-bindings";
+import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
 import { content, open, stubCommands } from "./keybindings-fixture";
 
 /** What the route does with `<leader>p`: hold the flag, hand down the toggle. */

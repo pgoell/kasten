@@ -2,8 +2,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MeaningFinder } from "@/components/finder/meaning-finder";
 import type { RankedAnswer } from "@/lib/api";
-import { LEADER_COLUMNS } from "@/lib/leader-keys";
-import { paletteEntries } from "@/lib/palette";
+import { LEADER_COLUMNS } from "@/lib/ui/keys/leader-keys";
+import { paletteEntries } from "@/lib/ui/palette";
 import { open } from "../keybindings-fixture";
 import { stubCommands } from "../stub-commands";
 

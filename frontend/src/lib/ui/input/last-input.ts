@@ -1,4 +1,4 @@
-import { NARROW } from "@/lib/use-viewport";
+import { NARROW } from "@/lib/ui/input/use-viewport";
 
 /**
  * Whether the last input was a finger on the screen. A focused editor raises the on-screen

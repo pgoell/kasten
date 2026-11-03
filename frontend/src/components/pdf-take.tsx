@@ -14,7 +14,7 @@ import { offsetsIn, oneLine, pdfLink, rangeIn, takenHighlight } from "@/lib/book
 import { fileOf } from "@/lib/takes/html-take";
 import { type Anchor, low, placeFor } from "@/lib/takes/page-selection";
 import { usePressGuard } from "@/lib/takes/take-button";
-import { useViewport } from "@/lib/use-viewport";
+import { useViewport } from "@/lib/ui/input/use-viewport";
 
 /** The selection held for a take: its words, the page its start is on, and where its button goes. */
 interface Held {

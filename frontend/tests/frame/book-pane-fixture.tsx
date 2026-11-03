@@ -3,7 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { userEvent } from "vitest/browser";
 import { BookPane } from "@/components/book-pane";
 import { fetchBook, fetchNote } from "@/lib/api";
-import { applyTheme, PALETTE_KEY, type Palette, THEME_KEY, type Theme } from "@/lib/theme";
+import { applyTheme, PALETTE_KEY, type Palette, THEME_KEY, type Theme } from "@/lib/ui/theme";
 // A book written for a white page (#467). Two chapters, `One` and `Two`, with
 // the same markup and one stylesheet: `body { color: #000; background: #fff }`,
 // `p { color: #000 }`, `h1 { color: #c00 }`, `.box { color: #222; background:

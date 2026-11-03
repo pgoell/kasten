@@ -14,7 +14,7 @@ import type { Passage } from "@/lib/takes/highlight";
 import { type Anchor, low, placeFor } from "@/lib/takes/page-selection";
 import { VIDEO_REFUSED } from "@/lib/takes/page-undo";
 import { usePressGuard } from "@/lib/takes/take-button";
-import { useViewport } from "@/lib/use-viewport";
+import { useViewport } from "@/lib/ui/input/use-viewport";
 import { timestamp } from "@/lib/video/transcript";
 import { currentAt, timeLink, transcriptParagraphs } from "@/lib/video/video-notes";
 

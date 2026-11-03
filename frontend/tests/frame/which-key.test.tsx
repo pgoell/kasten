@@ -10,7 +10,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { commands, page } from "vitest/browser";
 import { Toolbar } from "@/components/toolbar";
 import { WhichKey } from "@/components/which-key";
-import { beginLeader, paneOpener } from "@/lib/which-key";
+import { beginLeader, paneOpener } from "@/lib/ui/keys/which-key";
 import "@/styles/app.css";
 import { stubCommands } from "../stub-commands";
 

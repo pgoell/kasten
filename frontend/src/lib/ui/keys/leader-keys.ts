@@ -1,4 +1,4 @@
-import type { EditorCommands, LeaderCommand } from "@/lib/key-bindings";
+import type { EditorCommands, LeaderCommand } from "@/lib/ui/keys/key-bindings";
 
 /**
  * The leader table: every sequence typed after the space bar that names a

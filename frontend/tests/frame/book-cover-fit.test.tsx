@@ -10,7 +10,7 @@
 import "./html-take-api";
 import { page } from "vitest/browser";
 import type { FoliateView } from "@/lib/book/foliate-view";
-import { THEME_KEY } from "@/lib/theme";
+import { THEME_KEY } from "@/lib/ui/theme";
 import coverUrl from "../fixtures/cover.epub?url";
 import {
   chapterOne,

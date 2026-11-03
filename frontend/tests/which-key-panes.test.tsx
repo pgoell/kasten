@@ -11,7 +11,7 @@ import { ImagePane } from "@/components/image-pane";
 import { PdfPane } from "@/components/pdf-pane";
 import { PersonPane } from "@/components/person-pane";
 import { VideoPane } from "@/components/video-pane";
-import { hostLeader, type LeaderOpener } from "@/lib/which-key";
+import { hostLeader, type LeaderOpener } from "@/lib/ui/keys/which-key";
 import { draw } from "./book-pane-fixture";
 import { press, renderTree } from "./file-explorer-fixture";
 import { defineFoliateFake } from "./foliate-fake";

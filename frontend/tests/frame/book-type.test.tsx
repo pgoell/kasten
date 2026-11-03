@@ -4,7 +4,7 @@ import "@fontsource-variable/jetbrains-mono/index.css";
 // have them loaded here or there is nothing to copy.
 import "@fontsource-variable/newsreader/opsz.css";
 import type { Root } from "react-dom/client";
-import { applyTheme, PALETTE_KEY, THEME_KEY } from "@/lib/theme";
+import { applyTheme, PALETTE_KEY, THEME_KEY } from "@/lib/ui/theme";
 import {
   chooseTheme as choose,
   computed,

@@ -1,7 +1,7 @@
 import type { EditorView } from "@codemirror/view";
 import { LEADER_EDITS } from "@/lib/editor/buffer-keys";
-import type { EditorCommands } from "@/lib/key-bindings";
-import { leaderAction, leaderPrefix } from "@/lib/leader-keys";
+import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
+import { leaderAction, leaderPrefix } from "@/lib/ui/keys/leader-keys";
 
 /**
  * Where a pane hands Space once it has read it as the leader. Each pane knows what the panel

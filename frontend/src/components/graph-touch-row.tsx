@@ -1,4 +1,4 @@
-import { LABEL } from "@/lib/overlay-styles";
+import { LABEL } from "@/lib/ui/overlay-styles";
 
 interface GraphTouchRowProps {
   /** The zoom as a whole percent, or null before the first. */

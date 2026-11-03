@@ -15,7 +15,7 @@ import { vimKeys } from "@/lib/editor/vim-mode";
 import { imagePaths } from "@/lib/image";
 import { livePreview, renderedMarkdown } from "@/lib/live/live-preview";
 import { noteLanguage } from "@/lib/markdown/note-language";
-import { applyTheme, THEME_KEY } from "@/lib/theme";
+import { applyTheme, THEME_KEY } from "@/lib/ui/theme";
 import { vaultPaths } from "@/lib/wikilink";
 import "@/styles/app.css";
 import { shot } from "./shots";

@@ -20,7 +20,7 @@ import { commands, page } from "vitest/browser";
 import { ReviewDecks } from "@/components/review-decks";
 import { ReviewSession } from "@/components/review-session";
 import type { Deck } from "@/lib/review/review";
-import type { Palette, Theme } from "@/lib/theme";
+import type { Palette, Theme } from "@/lib/ui/theme";
 import { shot } from "./shots";
 import "@/styles/app.css";
 

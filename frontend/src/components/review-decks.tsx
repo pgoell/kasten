@@ -8,7 +8,7 @@ import { readRetry } from "@/lib/read-retry";
 import { type Deck, deckNotes, decksFrom } from "@/lib/review/review";
 import { dayWords } from "@/lib/review/review-days";
 import { useReviewLimits } from "@/lib/review/use-review-limits";
-import { useEntrance } from "@/lib/stagger";
+import { useEntrance } from "@/lib/ui/motion/stagger";
 
 /**
  * The decks the user unfolded by hand, per browser. Only the open ones are kept,

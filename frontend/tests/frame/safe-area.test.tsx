@@ -24,7 +24,7 @@ import { CommandPalette } from "@/components/command-palette";
 import { FileExplorer } from "@/components/file-explorer";
 import { StatusBar } from "@/components/status-bar";
 import { Toolbar } from "@/components/toolbar";
-import type { EditorCommands, TreeCommands } from "@/lib/key-bindings";
+import type { EditorCommands, TreeCommands } from "@/lib/ui/keys/key-bindings";
 import "@/styles/app.css";
 
 interface Insets {

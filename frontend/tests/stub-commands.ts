@@ -1,4 +1,4 @@
-import type { EditorCommands } from "@/lib/key-bindings";
+import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
 
 /**
  * An `EditorCommands` that records every call and does nothing.

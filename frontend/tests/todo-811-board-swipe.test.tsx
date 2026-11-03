@@ -1,5 +1,5 @@
 import { act, fireEvent, screen } from "@testing-library/react";
-import { rubberBand } from "@/lib/sheet-math";
+import { rubberBand } from "@/lib/ui/motion/sheet-math";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 import { boardHooks, boardPane } from "./todo-board-pane-fixture";
 

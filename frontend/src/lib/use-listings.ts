@@ -10,8 +10,8 @@ import {
   fetchVersion,
 } from "@/lib/api";
 import { visible } from "@/lib/archive";
-import type { TreeCommands } from "@/lib/key-bindings";
 import { ONTOLOGY_NOTE, relationNames } from "@/lib/ontology";
+import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
 
 /** What a list prop gets while its query loads: one array, so the memo built over it holds. */
 const LOADING: string[] = [];

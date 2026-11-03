@@ -13,7 +13,7 @@ import { commands as browser, page, userEvent } from "vitest/browser";
 import { HtmlPane } from "@/components/html-pane";
 import { Toolbar } from "@/components/toolbar";
 import { WhichKey } from "@/components/which-key";
-import { PALETTE_KEY, pickPalette, THEME_KEY, toggleTheme } from "@/lib/theme";
+import { PALETTE_KEY, pickPalette, THEME_KEY, toggleTheme } from "@/lib/ui/theme";
 import "@/styles/app.css";
 import { stubCommands } from "../stub-commands";
 

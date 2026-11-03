@@ -8,7 +8,7 @@ import {
   PANEL,
   PANEL_NARROW,
   STATUS,
-} from "@/lib/overlay-styles";
+} from "@/lib/ui/overlay-styles";
 
 interface DumpPromptProps {
   /** Called with what was typed, trimmed, once Enter takes it. */

@@ -4,10 +4,10 @@ import { TodoMore } from "@/components/todo-more";
 import { TodoRow } from "@/components/todo-row";
 import { TodoStateBox } from "@/components/todo-state-box";
 import type { SearchHit, TodoHit } from "@/lib/api";
-import { useEntrance } from "@/lib/stagger";
 import { cycleLine, parseTodo, type TodoState } from "@/lib/todo/todo";
 import { lineSuggestions } from "@/lib/todo/todo-suggest";
 import { type Row, type RowFacts, rowKey } from "@/lib/todo/use-todo-rows";
+import { useEntrance } from "@/lib/ui/motion/stagger";
 
 /** How far one step of nesting shifts a row, in `rem`, past the list's own padding. */
 const STEP = 1.1;

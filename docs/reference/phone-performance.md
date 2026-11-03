@@ -199,7 +199,7 @@ built in a later task.
 
 The fix keeps what leaves on the page for one frame, hidden with
 `display: none`, and removes it in a task of its own after the new one has
-painted (`frontend/src/lib/leaving.ts`, used by `pane-layout.tsx` for a tab's
+painted (`frontend/src/lib/ui/motion/leaving.ts`, used by `pane-layout.tsx` for a tab's
 panes and by `note-editor.tsx` for a note's editor). The frame's style pass
 takes the hidden subtree's boxes down cheaply, and the removal that follows
 costs 4 to 46 ms where it cost 140 to 180. While it waits, the part that

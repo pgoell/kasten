@@ -1,7 +1,7 @@
 import { BACKING, backImages, INK, pageStyles, treatmentFor } from "@/lib/book/book-backing";
 
 const { theme } = vi.hoisted(() => ({ theme: { current: "light" as "light" | "dark" } }));
-vi.mock("@/lib/theme", () => ({ currentTheme: () => theme.current }));
+vi.mock("@/lib/ui/theme", () => ({ currentTheme: () => theme.current }));
 
 interface Shape {
   /** The computed `object-fit`. jsdom's cssstyle does not know the property. */

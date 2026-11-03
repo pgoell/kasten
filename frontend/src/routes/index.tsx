@@ -17,14 +17,12 @@ import { usePrompts } from "@/components/use-prompts";
 import { WhichKey } from "@/components/which-key";
 import { WorkspacePanes } from "@/components/workspace-panes";
 import { heldText } from "@/lib/held-text";
-import type { TreeCommands } from "@/lib/key-bindings";
 import { askLogConfig, logConfig, subscribeLogConfig } from "@/lib/log/log-config";
 import { DEFAULT_CONFIG } from "@/lib/log/log-kinds";
 import { useLogActions } from "@/lib/log/use-log-actions";
 import { useAutosave } from "@/lib/note/use-autosave";
 import { useBufferSync } from "@/lib/note/use-buffer-sync";
 import { useNoteOpening } from "@/lib/note/use-note-opening";
-import { paletteEntries } from "@/lib/palette";
 import { docIn } from "@/lib/pane-doc";
 import { openOnTop } from "@/lib/panes/pane-contents";
 import { panePath } from "@/lib/panes/pane-kinds";
@@ -40,15 +38,17 @@ import { usePaneCommands } from "@/lib/panes/use-pane-commands";
 import { loadWorkspace } from "@/lib/panes/workspace";
 import { parseWeek } from "@/lib/search-weeks";
 import { useTodoActions } from "@/lib/todo/use-todo-actions";
+import { useKeyboardInset } from "@/lib/ui/input/use-keyboard-inset";
+import { useViewport } from "@/lib/ui/input/use-viewport";
+import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
+import { useKeyHelp } from "@/lib/ui/keys/use-key-help-key";
+import { paletteEntries } from "@/lib/ui/palette";
 import { useFileTransfer } from "@/lib/use-file-transfer";
 import { useGuardedWrites } from "@/lib/use-guarded-writes";
-import { useKeyHelp } from "@/lib/use-key-help-key";
-import { useKeyboardInset } from "@/lib/use-keyboard-inset";
 import { useListings } from "@/lib/use-listings";
 import { useTrash } from "@/lib/use-trash";
 import { useTreeDrawer } from "@/lib/use-tree-drawer";
 import { useVaultEvents } from "@/lib/use-vault-events";
-import { useViewport } from "@/lib/use-viewport";
 
 interface HomeSearch {
   /** Vault-relative path of the note in the focused pane, absent while it holds none. */
@@ -56,8 +56,7 @@ interface HomeSearch {
   /**
    * Line the editor opens on, which only a search hit names.
    *
-   * In the URL beside the note so a reload lands back on the match rather than
-   * at the top of the note, the way `note` itself survives one.
+   * In the URL so a reload lands back on the match, as `note` survives one.
    */
   line?: number;
   week?: string;

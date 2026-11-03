@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { PdfPane } from "@/components/pdf-pane";
 import type { PdfFile, ShowOptions } from "@/lib/book/pdf-view";
-import { pickPalette, toggleTheme } from "@/lib/theme";
+import { pickPalette, toggleTheme } from "@/lib/ui/theme";
 import { stubCommands } from "./keybindings-fixture";
 
 // What the pane asks of the pdf viewer and of the take: the view it is handed

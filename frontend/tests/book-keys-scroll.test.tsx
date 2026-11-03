@@ -4,7 +4,7 @@ import type { FoliateView } from "@/lib/book/foliate-view";
 import { useBookKeys } from "@/lib/book/use-book-keys";
 import type { BookTake } from "@/lib/book/use-book-take";
 import { useBookTurns } from "@/lib/book/use-book-turns";
-import { hostLeader } from "@/lib/which-key";
+import { hostLeader } from "@/lib/ui/keys/which-key";
 import { stubCommands } from "./stub-commands";
 
 /** A flowing book's view: a renderer that records each step, a page turn that counts. */

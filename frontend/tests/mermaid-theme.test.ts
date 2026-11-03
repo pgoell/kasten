@@ -11,7 +11,7 @@ const { initialize, theme } = vi.hoisted(() => ({
   initialize: vi.fn(),
   theme: { current: "light" as "light" | "dark" },
 }));
-vi.mock("@/lib/theme", () => ({ currentTheme: () => theme.current }));
+vi.mock("@/lib/ui/theme", () => ({ currentTheme: () => theme.current }));
 vi.mock("mermaid", () => ({
   default: {
     initialize,

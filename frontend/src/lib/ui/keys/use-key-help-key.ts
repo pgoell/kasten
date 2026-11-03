@@ -1,7 +1,7 @@
 import { EditorView } from "@codemirror/view";
 import { useEffect, useState } from "react";
-import type { EditorCommands } from "@/lib/key-bindings";
-import { beginLeader, editorOpener, paneOpener } from "@/lib/which-key";
+import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
+import { beginLeader, editorOpener, paneOpener } from "@/lib/ui/keys/which-key";
 
 /**
  * Whether a key typed here belongs to the text in front of it. In a note's editor `?` stays vim's

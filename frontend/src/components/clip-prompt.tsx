@@ -8,7 +8,7 @@ import {
   PANEL,
   PANEL_NARROW,
   STATUS,
-} from "@/lib/overlay-styles";
+} from "@/lib/ui/overlay-styles";
 
 /** The rule, spelled for a reader rather than for a parser. */
 const RULE = "paste an http or https address";

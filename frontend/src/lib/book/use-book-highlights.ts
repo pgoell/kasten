@@ -6,7 +6,7 @@ import { fetchNote } from "@/lib/api";
 import { findWritten } from "@/lib/book/find-quote";
 import { type FoliateOverlayer, type FoliateView, pdfLayer } from "@/lib/book/foliate-view";
 import { type HighlightBlock, highlightBlocks } from "@/lib/takes/highlight";
-import { onThemeChange } from "@/lib/theme";
+import { onThemeChange } from "@/lib/ui/theme";
 
 /**
  * Throw away every pdf text layer but the newest, marked by foliate's `endOfContent`. pdf.js appends

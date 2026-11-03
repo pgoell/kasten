@@ -9,7 +9,7 @@ import {
   movePaneToEdge,
   swapPanes,
 } from "@/lib/panes/panes";
-import { useViewport } from "@/lib/use-viewport";
+import { useViewport } from "@/lib/ui/input/use-viewport";
 
 export type PaneMoves = ReturnType<typeof usePaneMoves>;
 

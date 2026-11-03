@@ -10,14 +10,14 @@ import {
   pdfjsRenderer,
   showPdf,
 } from "@/lib/book/pdf-view";
-import type { EditorCommands } from "@/lib/key-bindings";
-import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { encodePath } from "@/lib/note-path";
 import { findQuote, firstOf, type Word } from "@/lib/rsvp/rsvp";
 import { pdfWords } from "@/lib/rsvp/rsvp-sources";
 import { type RsvpAsk, useRsvpAsk } from "@/lib/rsvp/use-rsvp";
-import { onThemeChange } from "@/lib/theme";
-import { beginLeader, paneOpener } from "@/lib/which-key";
+import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
+import { heldModifier, leaderAction, leaderPrefix } from "@/lib/ui/keys/leader-keys";
+import { beginLeader, paneOpener } from "@/lib/ui/keys/which-key";
+import { onThemeChange } from "@/lib/ui/theme";
 
 interface PdfPaneProps {
   /** Vault-relative path of the pdf to show. */

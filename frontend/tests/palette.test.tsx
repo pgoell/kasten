@@ -10,9 +10,9 @@ import { readClock } from "@/lib/clock";
 import { editorCommands } from "@/lib/editor/editor-commands";
 import { logCard } from "@/lib/log/log-card";
 import { parseConfig } from "@/lib/log/log-kinds";
-import { INSERTS, paletteEntries, slashCompletions, writeInsert } from "@/lib/palette";
 import { periodicNote } from "@/lib/periodic";
 import { notePath, todoCycled } from "@/lib/todo/todo-commands";
+import { INSERTS, paletteEntries, slashCompletions, writeInsert } from "@/lib/ui/palette";
 import { stubCommands } from "./stub-commands";
 
 vi.mock("@/lib/log/food-api", () => ({

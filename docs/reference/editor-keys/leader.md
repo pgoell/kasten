@@ -2,7 +2,7 @@
 type: Reference
 title: Editor keys, the leader
 description: Every leader key in the six columns of the which-key panel, the command palette and the pages you type into.
-resource: frontend/src/lib/leader-keys.ts
+resource: frontend/src/lib/ui/keys/leader-keys.ts
 tags: [editor, keyboard, vim, leader, frontend]
 status: stable
 ---
@@ -259,7 +259,7 @@ is written to the vault and the status bar says so, or says `Nothing logged:`
 while today's note holds unsaved text or is being saved. See
 [Log format](/reference/log-format.md#the-card).
 
-`frontend/src/lib/palette.ts` builds both lists from the tables in
+`frontend/src/lib/ui/palette.ts` builds both lists from the tables in
 `leader-keys.ts` and `editor/buffer-keys.ts`, so a new leader binding appears in the palette and in the
 `/` menu with no further edit.
 

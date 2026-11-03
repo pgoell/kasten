@@ -7,8 +7,6 @@ import { readClock } from "@/lib/clock";
 import { type Story, shareLine, storyOf } from "@/lib/html/html-share";
 import { postLook } from "@/lib/html/page-look";
 import { pageData, pageText } from "@/lib/html/page-messages";
-import type { EditorCommands } from "@/lib/key-bindings";
-import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import { encodePath } from "@/lib/note-path";
 import { findQuote } from "@/lib/rsvp/rsvp";
 import { textWords } from "@/lib/rsvp/rsvp-sources";
@@ -23,10 +21,12 @@ import {
   selectionOf,
 } from "@/lib/takes/page-selection";
 import { usePressGuard } from "@/lib/takes/take-button";
-import { currentPalette, currentTheme, onThemeChange } from "@/lib/theme";
-import { useViewport } from "@/lib/use-viewport";
+import { useViewport } from "@/lib/ui/input/use-viewport";
+import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
+import { heldModifier, leaderAction, leaderPrefix } from "@/lib/ui/keys/leader-keys";
+import { beginLeader, paneOpener } from "@/lib/ui/keys/which-key";
+import { currentPalette, currentTheme, onThemeChange } from "@/lib/ui/theme";
 import { spendActivation } from "@/lib/user-activation";
-import { beginLeader, paneOpener } from "@/lib/which-key";
 
 /** The passage held, and where its button goes, or null where it has no place. */
 interface Held {

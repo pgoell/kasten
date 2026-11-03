@@ -4,7 +4,7 @@
  * so the gesture can be tested without a screen.
  */
 
-import { project, rubberBand } from "@/lib/sheet-math";
+import { project, rubberBand } from "@/lib/ui/motion/sheet-math";
 
 /**
  * The share of the width a release must reach before the column changes. A

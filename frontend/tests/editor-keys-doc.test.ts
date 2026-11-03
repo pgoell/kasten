@@ -2,8 +2,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { LEADER_EDITS } from "@/lib/editor/buffer-keys";
-import { TODO_PANE } from "@/lib/key-bindings";
-import { LEADER } from "@/lib/leader-keys";
+import { TODO_PANE } from "@/lib/ui/keys/key-bindings";
+import { LEADER } from "@/lib/ui/keys/leader-keys";
 
 /**
  * The reference page and the topic pages in its folder, read off the files
@@ -85,7 +85,7 @@ describe("the todo pane on the reference page", () => {
 
 /**
  * The six columns of the which-key panel, `LEADER_COLUMNS` in
- * `frontend/src/lib/leader-keys.ts`, written out here so the page is held to
+ * `frontend/src/lib/ui/keys/leader-keys.ts`, written out here so the page is held to
  * them (#516). The tab row names `<leader>1` to `<leader>0`, so Tabs ends in
  * those two.
  */

@@ -14,7 +14,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRoot, type Root } from "react-dom/client";
 import { cdp, page } from "vitest/browser";
 import { Editor } from "@/components/editor";
-import { applyTheme, PALETTE_KEY, THEME_KEY } from "@/lib/theme";
+import { applyTheme, PALETTE_KEY, THEME_KEY } from "@/lib/ui/theme";
 import { shot } from "./shots";
 import { mountApp, settled, tableLinkCleanup } from "./table-link-fixture";
 

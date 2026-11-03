@@ -1,6 +1,6 @@
 import { fireEvent, render } from "@testing-library/react";
 import { Editor } from "@/components/editor";
-import { keyboardUnasked } from "@/lib/last-input";
+import { keyboardUnasked } from "@/lib/ui/input/last-input";
 import { NARROW, stubMatchMedia } from "./match-media";
 
 /** A press as the browser reports it, jsdom's own pointer event carrying no type. */

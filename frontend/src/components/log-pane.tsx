@@ -11,7 +11,6 @@ import { type Day, foodTotal, type Line, LogTrends, totalOf } from "@/components
 import { hintOf, WeightRows, weightButton } from "@/components/log-weight";
 import { fetchNote, NoteMissing } from "@/lib/api";
 import { shiftDay } from "@/lib/clock";
-import type { EditorCommands } from "@/lib/key-bindings";
 import { LOG_NOTE } from "@/lib/layout";
 import { fetchLog } from "@/lib/log/food-api";
 import { type FoodPanel, foodPanel } from "@/lib/log/food-search";
@@ -29,8 +28,9 @@ import {
 import type { DrinkTotals } from "@/lib/log/log-lines";
 import { rangeDates } from "@/lib/log/log-weight";
 import type { LogActions } from "@/lib/log/use-log-actions";
-import { useLeader } from "@/lib/use-leader";
-import { useViewport } from "@/lib/use-viewport";
+import { useViewport } from "@/lib/ui/input/use-viewport";
+import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
+import { useLeader } from "@/lib/ui/keys/use-leader";
 
 type Range = 7 | 30 | 90;
 

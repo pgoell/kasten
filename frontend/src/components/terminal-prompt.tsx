@@ -11,7 +11,7 @@ import {
   ROW,
   STATUS,
   TAP,
-} from "@/lib/overlay-styles";
+} from "@/lib/ui/overlay-styles";
 
 /**
  * The names a herdr session may take. Narrower than herdr needs: a name lands on a filesystem

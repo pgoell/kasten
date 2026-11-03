@@ -2,8 +2,8 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { useLayoutEffect } from "react";
 import { keyBytes, withCtrl } from "@/components/terminal-keys";
 import { TerminalPane } from "@/components/terminal-pane";
-import { type EditorCommands, TERMINAL_CHORD } from "@/lib/key-bindings";
 import { encodeInput } from "@/lib/ttyd";
+import { type EditorCommands, TERMINAL_CHORD } from "@/lib/ui/keys/key-bindings";
 import { COARSE, stubMatchMedia } from "./match-media";
 import { stubCommands } from "./stub-commands";
 
@@ -25,7 +25,7 @@ const { written, term, terminals, listeners } = vi.hoisted(() => ({
     modes: { applicationCursorKeysMode: false },
   },
 }));
-vi.mock("@/lib/theme", () => ({
+vi.mock("@/lib/ui/theme", () => ({
   onThemeChange: (listener: () => void) => {
     listeners.push(listener);
     return () => {};

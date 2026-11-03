@@ -2,11 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ReviewDecks } from "@/components/review-decks";
 import { ReviewParked } from "@/components/review-parked";
 import { ReviewSession } from "@/components/review-session";
-import type { EditorCommands } from "@/lib/key-bindings";
-import { heldModifier, leaderAction, leaderPrefix } from "@/lib/leader-keys";
 import type { Deck } from "@/lib/review/review";
 import type { Rating } from "@/lib/review/srs";
-import { beginLeader, paneOpener } from "@/lib/which-key";
+import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
+import { heldModifier, leaderAction, leaderPrefix } from "@/lib/ui/keys/leader-keys";
+import { beginLeader, paneOpener } from "@/lib/ui/keys/which-key";
 
 interface ReviewPaneProps {
   /** What a leader sequence reaches. The same object every other pane is given. */

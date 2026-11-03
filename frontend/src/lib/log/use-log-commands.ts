@@ -9,12 +9,12 @@ import {
   useRef,
 } from "react";
 import { heldText } from "@/lib/held-text";
-import type { TreeCommands } from "@/lib/key-bindings";
 import { askOnCard, openFoodSearch } from "@/lib/log/log-card";
 import { drinkTarget, logDrinkInVault, logDrinkInView } from "@/lib/log/log-write";
 import { paneView } from "@/lib/pane-doc";
 import type { Pane } from "@/lib/panes/panes";
 import { type Period, periodicNote } from "@/lib/periodic";
+import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
 
 /**
  * The palette's log wait for today's note: armed by a command that needs today's note

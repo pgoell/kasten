@@ -7,12 +7,12 @@ import { FORMAT, LEADER_EDITS, readable } from "@/lib/editor/buffer-keys";
 import { editorCommands } from "@/lib/editor/editor-commands";
 import { toggleMark } from "@/lib/editor/format-commands";
 import { toggleVim } from "@/lib/editor/vim-setting";
-import type { EditorCommands } from "@/lib/key-bindings";
-import { LEADER, spelled, TAB_KEYS } from "@/lib/leader-keys";
 import { askOnCard, openFoodSearch } from "@/lib/log/log-card";
 import { DEFAULT_CONFIG, type LogKind, tapLine } from "@/lib/log/log-kinds";
 import { logDrinkInView } from "@/lib/log/log-write";
-import { pickPalette, toggleTheme } from "@/lib/theme";
+import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
+import { LEADER, spelled, TAB_KEYS } from "@/lib/ui/keys/leader-keys";
+import { pickPalette, toggleTheme } from "@/lib/ui/theme";
 
 /**
  * The commands reached by name, not key: the `<leader>:` palette and the `/` menu. Rows come
