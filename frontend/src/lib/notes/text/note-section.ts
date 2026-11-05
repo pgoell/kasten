@@ -36,6 +36,17 @@ function contentColumn(marker: RegExpExecArray): number {
 /** How far a line is indented. */
 const indent = (line: string) => line.length - line.trimStart().length;
 
+/** How far a line is indented in columns, a tab running to the next multiple of four. */
+function width(line: string): number {
+  let column = 0;
+  for (const char of line) {
+    if (char === " ") column += 1;
+    else if (char === "\t") column += 4 - (column % 4);
+    else break;
+  }
+  return column;
+}
+
 /** A bare run as long as `open`, of its character, indented at most three past `column` (#1480). */
 function closes(line: string, open: string, column: number): boolean {
   const run = CLOSER.exec(line.trim())?.[1];
@@ -43,7 +54,7 @@ function closes(line: string, open: string, column: number): boolean {
     run !== undefined &&
     run[0] === open[0] &&
     run.length >= open.length &&
-    indent(line) <= column + 3
+    width(line) <= column + 3
   );
 }
 

@@ -148,6 +148,8 @@ describe("fencedLines closers in a list item", () => {
     ["ordered tilde", ["1. a", "   ~~~", "   code", "      ~~~", "   b"], [1, 2, 3], null],
     ["short or other run", ["- a", "  ````", "     ```", "     ~~~~"], [1, 2, 3], "````"],
     ["four from the margin outside a list", ["```", "x", "    ```"], [0, 1, 2], "```"],
+    ["a tab as four columns", ["```", "\t```", "## Log", "```"], [0, 1, 2, 3], null],
+    ["two tabs under an item", ["- a", "  ```", "\t\t```"], [1, 2], "```"],
   ])("%s", (_name, lines, coded, openRun) => {
     const read = fencedLines(lines);
     expect([...read.coded]).toEqual(coded);

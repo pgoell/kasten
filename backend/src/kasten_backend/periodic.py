@@ -8,7 +8,7 @@ server needs its own copy of the day's template for the capture route, so
 import re
 from datetime import date, timedelta
 
-from kasten_backend.code_spans import FENCES, code_spans, inside
+from kasten_backend.code_spans import code_spans, fence_closed, inside
 from kasten_backend.config import DEFAULTS
 from kasten_backend.frontmatter import body_start
 
@@ -92,20 +92,7 @@ def _open_fence(text: str, lines: list[str], *, frontmatter: bool = True) -> str
     marker = FENCE_LINE.match(lines[opener])
     if marker is None:
         return None
-    return None if _closed(text[body:], opener - text.count("\n", 0, body)) else marker[1]
-
-
-def _closed(body: str, opener: int) -> bool:
-    """Whether markdown-it closes the fence on line `opener`, measuring from a list item's content.
-
-    The token keeps no flag for it: a closed one spans a line more than it holds (#1480).
-    """
-    for token in FENCES.parse(body.replace("\r", " ")):
-        if token.type == "fence" and token.map is not None and token.map[0] == opener:
-            content = token.content
-            held = content.count("\n") + (1 if content and not content.endswith("\n") else 0)
-            return token.map[1] - opener - 1 > held
-    return False
+    return None if fence_closed(text[body:], opener - text.count("\n", 0, body)) else marker[1]
 
 
 def _close(text: str, fence: str, *, frontmatter: bool = True) -> str:
