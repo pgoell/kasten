@@ -1,7 +1,7 @@
 """What closes a page of HTML cut off mid-write, so the scripts appended after it run (#886).
 
 The page is read by the WHATWG tokenizer's states, and open `<svg>` and `<math>` by the tree
-builder's rules for foreign content (#1559).
+builder's rules for foreign content (#1559), with the html elements opened inside them (#1560).
 """
 
 import re
@@ -184,8 +184,32 @@ _BREAKOUT = frozenset(
 )
 """The start tags that end foreign content, `<font>` too when it has a color, face or size."""
 
+_VOID = frozenset(
+    (
+        "area",
+        "base",
+        "br",
+        "col",
+        "embed",
+        "hr",
+        "img",
+        "input",
+        "link",
+        "meta",
+        "source",
+        "track",
+        "wbr",
+        "html",
+        "head",
+        "body",
+    )
+)
+"""Html start tags that leave nothing open, `<body>` and its kin only adding attributes."""
+
 _Open = tuple[str, str, str]
-"""An open foreign element: its lowercased name, its namespace, and `html` or `text` at a point."""
+"""An open element inside `<svg>` or `<math>`: its lowercased name, its namespace (`html` for an
+html element), and `html` or `text` where it holds html; an html element holds html.
+"""
 
 
 def _point(namespace: str, name: str, attrs: dict[str, str]) -> str:
@@ -217,7 +241,10 @@ def _attrs(text: str) -> dict[str, str]:
 
 
 def _start(stack: list[_Open], name: str, attrs: dict[str, str], self_closing: bool) -> bool:
-    """Keep `stack` the open foreign elements after a start tag; True when it went as html."""
+    """Keep `stack` the open elements after a start tag; True when it went as html.
+
+    The spec ignores the `/` of an html start tag, so `<div/>` stays open.
+    """
     breakout = name in _BREAKOUT or (name == "font" and attrs.keys() & {"color", "face", "size"})
     if not _as_html(stack, name) and breakout:
         while stack and not stack[-1][2]:
@@ -225,6 +252,8 @@ def _start(stack: list[_Open], name: str, attrs: dict[str, str], self_closing: b
     if _as_html(stack, name):
         if name in _FOREIGN and not self_closing:
             stack.append((name, name, ""))
+        elif stack and name not in _VOID and name not in _RAW_TEXT:
+            stack.append((name, "html", "html"))
         return True
     if not self_closing:
         namespace = stack[-1][1]
@@ -233,13 +262,27 @@ def _start(stack: list[_Open], name: str, attrs: dict[str, str], self_closing: b
 
 
 def _end(stack: list[_Open], name: str) -> None:
-    """Keep `stack` the open foreign elements after an end tag; `</p>` and `</br>` break out."""
+    """Keep `stack` the open elements after an end tag; `</p>` and `</br>` break out.
+
+    Foreign elements match from the top down to the first html element. From there the html
+    rules take it, where a point stops the search, so `</svg>` cannot close past an open `<div>`.
+    """
     if name in ("p", "br"):
         while stack and not stack[-1][2]:
             stack.pop()
-    names = [entry[0] for entry in stack]
-    if name in names:
-        del stack[len(names) - 1 - names[::-1].index(name) :]
+    for at in range(len(stack) - 1, -1, -1):
+        if stack[at][1] == "html":
+            break
+        if stack[at][0] == name:
+            del stack[at:]
+            return
+    for at in range(len(stack) - 1, -1, -1):
+        entry, namespace, point = stack[at]
+        if namespace == "html" and entry == name:
+            del stack[at:]
+            return
+        if point and namespace != "html":
+            return
 
 
 def closer(page: str) -> tuple[int, str]:
@@ -247,13 +290,12 @@ def closer(page: str) -> tuple[int, str]:
 
     Appended scripts would land inside an open tag, comment, raw text, `<svg>` or `<math>` and not
     run. Nothing ends a `<plaintext>`, so they go ahead of it (#1489). A whole page needs nothing.
-    Html elements open inside a `<foreignObject>` are not tracked (#1560).
     """
     at, stack = 0, []
     while (found := _OPEN.search(page, at)) is not None:
         kind = found.group(1)
         if not kind[-1].isalpha():
-            end = _markup_end(page, found, bool(stack))
+            end = _markup_end(page, found, bool(stack) and stack[-1][1] != "html")
         else:
             name = page[found.end() - 1 : _past(_TAG_NAME, page, found.end())].lower()
             html = kind[0] != "/" and _as_html(stack, name)

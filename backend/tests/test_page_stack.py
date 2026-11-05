@@ -247,3 +247,34 @@ def test_1559_a_plaintext_in_foreign_object_takes_the_link_script_ahead_of_it() 
 
     head = DOCTYPE + PAGE_SCRIPT + b"<svg><foreignObject>"
     assert served == head + LINKS_OUT + b"<plaintext>b</svg>"
+
+
+@pytest.mark.parametrize(
+    ("end", "closer"),
+    [
+        pytest.param(
+            b"<svg><foreignObject><div>a</foreignObject></svg><svg><![CDATA[x",
+            b"]]></svg></svg>",
+            id="unclosed-div-keeps-svg-open",
+        ),
+        pytest.param(b"<svg><foreignObject><p><![CDATA[x", b"></svg>", id="cdata-in-html"),
+        pytest.param(
+            b"<svg><foreignObject><div></foreignObject></svg></div><![CDATA[x",
+            b"]]></svg>",
+            id="div-end-hands-the-point-back",
+        ),
+        pytest.param(
+            b"<svg><foreignObject><p><svg></svg><![CDATA[x", b"></svg>", id="svg-in-html-closed"
+        ),
+        pytest.param(b"<svg><foreignObject><br><![CDATA[x", b"]]></svg>", id="void-opens-nothing"),
+        pytest.param(
+            b"<svg><foreignObject><p><svg><g></p><![CDATA[x", b"]]></svg>", id="p-end-breaks-out"
+        ),
+    ],
+)
+def test_1560_the_closer_tracks_html_opened_inside_a_point(end: bytes, closer: bytes) -> None:
+    page = DOCTYPE + b"<p>a</p>" + end
+
+    served, _ = serve_page(page, None, None)
+
+    assert served == DOCTYPE + PAGE_SCRIPT + page[len(DOCTYPE) :] + closer + LINKS_OUT
