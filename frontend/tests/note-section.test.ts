@@ -217,6 +217,18 @@ describe("fencedLines closers in a list item", () => {
       "```",
     ],
     [
+      "1581 an opener left of a deeper item sits in the item above",
+      ["- b", "  - d", "   ```", "x", "y"],
+      [2],
+      null,
+    ],
+    [
+      "1581 an opener after a fence that ended a deeper item",
+      ["- a", "  1. a", "        ```", "    - a", "        ~~~", " ```"],
+      [2, 4, 5],
+      "```",
+    ],
+    [
       "1581 guard: a line after a quote in an item stays lazy",
       ["- a", "  > q", "x", "    ```"],
       [3],

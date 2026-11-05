@@ -192,7 +192,12 @@ function walkItemColumn(lines: string[], floor: number, opener: number, known: K
   while (index >= floor && (at(index).trim() === "" || width(at(index)) >= n)) index -= 1;
   if (index < floor || HEADING_LINE.test(at(index))) return 0;
   const first = markerAt(lines, floor, index, known);
-  if (first !== null) return contentColumn(first) <= n ? contentColumn(first) : 0;
+  // A deeper item has ended at this line, which sits in the item its marker sits in.
+  if (first !== null) {
+    return contentColumn(first) <= n
+      ? contentColumn(first)
+      : itemColumn(lines, floor, index, known);
+  }
   return lazyItemColumn(lines, floor, index, n, known);
 }
 
