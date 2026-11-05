@@ -11,7 +11,7 @@ from kasten_backend.code_spans import code_spans, inside
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.log import _log_lines
 from kasten_backend.main import app
-from kasten_backend.periodic import append_dump, daily_note
+from kasten_backend.periodic import _open_fence, append_dump, append_under, daily_note
 
 if TYPE_CHECKING:
     from httpx import AsyncClient
@@ -229,6 +229,30 @@ def test_a_four_backtick_inline_span_leaves_a_closed_fence_closed() -> None:
     assert append_dump(text, "new") == "# d\n````x```` y\n\n```\n## Dump\n```\n\n## Dump\nnew\n"
 
 
+# A closer under a list item is measured from the item's content column, as markdown-it does.
+ITEM_CLOSERS = [
+    ("- a\n  ```\n  code\n     ```", None),
+    ("- a\n  ```\n  code\n      ```", "```"),
+    ("1. a\n   ~~~\n   code\n      ~~~\n", None),
+    ("- a\n  ````\n     ```\n     ~~~~", "````"),
+    ("```\nx\n    ```", "```"),
+]
+
+
+@pytest.mark.parametrize(("note", "run"), ITEM_CLOSERS)
+def test_1480_a_closer_in_a_list_item_counts_from_its_content_column(
+    note: str, run: str | None
+) -> None:
+    assert _open_fence(note, note.split("\n")) == run
+
+
+def test_1480_the_writers_add_no_closer_after_a_list_item_closer() -> None:
+    note = "## Dump\n- a\n  ```\n  code\n     ```"
+
+    assert append_dump(note, "new") == f"{note}\n\nnew\n"
+    assert append_under(note, "## Log", "- x") == f"{note}\n\n## Log\n- x\n"
+
+
 async def test_writes_into_the_day_the_sender_named(client: AsyncClient, vault: Path) -> None:
     await client.post("/api/dump", json={"text": "late", "date": "2027-01-01"})
 
@@ -414,7 +438,8 @@ async def test_an_unreadable_receipts_file_reads_as_none(
 LOG = "\n\n## Log\n- 💧 250 ml"
 
 # The #754 shapes: (note, capture, note as written). A closer is the opener's own character,
-# three spaces in at most with nothing after; a quote or list item ends a fence.
+# three spaces in at most (from a list item's content column) with nothing after; a quote or
+# list item ends a fence.
 FENCE_SHAPES = [
     ("a\n> ```\n> code", "new", "a\n> ```\n> code\n\nnew"),
     (f"a{LOG}", "- ```", f"a\n\n- ```{LOG}"),

@@ -1,4 +1,4 @@
-import { appendUnder, noteSectionOf, sectionOf } from "@/lib/notes/text/note-section";
+import { appendUnder, fencedLines, noteSectionOf, sectionOf } from "@/lib/notes/text/note-section";
 
 /** Today's daily note as the vault holds it, log line and all. */
 const DAILY = [
@@ -132,5 +132,25 @@ describe("noteSectionOf", () => {
 
   it("answers null for a heading the note does not hold", () => {
     expect(noteSectionOf(FILED, "Labyrinths")).toBeNull();
+  });
+});
+
+// A closer under a list item is measured from the item's content column, as markdown-it does (#1480).
+describe("fencedLines closers in a list item", () => {
+  it.each([
+    [
+      "three past the content column",
+      ["- a", "  ```", "  code", "     ```", "  - b"],
+      [1, 2, 3],
+      null,
+    ],
+    ["four past it", ["- a", "  ```", "  code", "      ```", "  - b"], [1, 2, 3, 4], "```"],
+    ["ordered tilde", ["1. a", "   ~~~", "   code", "      ~~~", "   b"], [1, 2, 3], null],
+    ["short or other run", ["- a", "  ````", "     ```", "     ~~~~"], [1, 2, 3], "````"],
+    ["four from the margin outside a list", ["```", "x", "    ```"], [0, 1, 2], "```"],
+  ])("%s", (_name, lines, coded, openRun) => {
+    const read = fencedLines(lines);
+    expect([...read.coded]).toEqual(coded);
+    expect(read.openRun).toBe(openRun);
   });
 });
