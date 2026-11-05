@@ -234,6 +234,51 @@ describe("fencedLines closers in a list item", () => {
       [3],
       "```",
     ],
+    [
+      "1583 a heading one space in ends the item above",
+      ["- a", "    1. a", " # h", "   1. a", "     ```", "     > q", ""],
+      [],
+      null,
+    ],
+    [
+      "1583 a heading four in ends the paragraph of an item five in",
+      [
+        "      - a",
+        "      1. a",
+        "   - a",
+        "    # h",
+        "    ~~~",
+        "     1. a",
+        "      ```",
+        "        > q",
+      ],
+      [],
+      null,
+    ],
+    [
+      "1583 a line after indented code in an item is no lazy line",
+      [" 1. a", " > q", "- a", "", "  # h", "        - a", "x", "     ```"],
+      [],
+      null,
+    ],
+    [
+      "1583 a line after a blank line in an item is placed by its indent",
+      ["- a", "", "  x", "y", "     ```"],
+      [4],
+      "```",
+    ],
+    [
+      "1583 guard: indented code in an item ends at a line left of it",
+      ["- a", "", "      x", "y", "     ```"],
+      [],
+      null,
+    ],
+    [
+      "1583 a heading inside an item keeps the lines under it there",
+      ["- a", "    - b", "  # h", "   ```", "   x"],
+      [3, 4],
+      "```",
+    ],
   ])("%s", (_name, lines, coded, openRun) => {
     const read = fencedLines(lines);
     expect([...read.coded]).toEqual(coded);
@@ -269,6 +314,24 @@ describe("fencedLines closers in a list item", () => {
     expect(performance.now() - started).toBeLessThan(500);
     expect(read.coded.size).toBe(2802);
     expect(read.openRun).toBe("~~~");
+  });
+
+  it("1583 reads 12,000 lines of spaced headings and indented code in items in a blink", () => {
+    const code = ["- a", "", ...Array.from({ length: 3000 }, () => "      code"), "x", "     ```"];
+    const unit = ["   # h", "    y", "      code"];
+    const heads = [
+      "- a",
+      "  - b",
+      ...Array.from({ length: 3000 }, () => unit).flat(),
+      "x",
+      "   ```",
+    ];
+    const started = performance.now();
+    const coded = fencedLines(code);
+    const headed = fencedLines([...heads, "   z"]);
+    expect(performance.now() - started).toBeLessThan(500);
+    expect([coded.coded.size, coded.openRun]).toEqual([0, null]);
+    expect([...headed.coded]).toEqual([9003, 9004]);
   });
 
   it("1581 appendUnder closes a fence opened at the margin after a break ends the item", () => {
