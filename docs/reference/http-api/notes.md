@@ -89,9 +89,12 @@ it. The rename is atomic, so a crash halfway through leaves the old note whole
 rather than half a new one.
 
 A note that holds a CRLF on disk keeps CRLF: the client was served LF, so every
-LF in what it sends lands as a CRLF, the restamped `modified:` line included.
-The reply and the `base` stay on the LF text the client saw. A note with only
-LF on disk is written as sent.
+LF in a text with no carriage return lands as a CRLF, the restamped `modified:`
+line included. A text that holds a carriage return keeps its own line endings, and the lines
+`stamp` writes end in CRLF only when the text is CRLF throughout (#1470). The
+reply is the text as stamped, before any LF becomes a CRLF, and the next `base`
+may name either the LF text a read serves or the bytes on disk. A note with
+only LF on disk is written as sent.
 
 A body may also carry `base`, the hex SHA-256 of the text the client believes
 is on disk, with the frontmatter's `modified:` line set aside:
