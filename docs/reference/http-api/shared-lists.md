@@ -124,7 +124,9 @@ the whole item, stays last, so `- [ ] Brot ^abc` becomes
 `- [x] Brot ✅ <today> 🆔 kt-… ^abc`. That is the rule the read uses to drop it.
 Unticking writes `- [ ] <text>` and strips the `✅` date, keeping the blank
 before it where text is glued to the date: `Brot ✅ 2026-01-015` becomes
-`Brot 5`. Both take only the done field the line reads, a `✅` with a date
+`Brot 5`. With no blank on either side it writes one where the words would
+read differently without it: `Brot✅ 2026-01-01mehr` becomes `Brot mehr`, but
+`Brot✅ 2026-01-01📅 2026-02-02` becomes `Brot📅 2026-02-02`. Both take only the done field the line reads, a `✅` with a date
 outside a link or code span: a bare `✅` among the words, or one inside a code
 span, stays as it is.
 

@@ -445,6 +445,11 @@ async def test_1059_tick_reads_no_id_glued_to_an_estimate(
         ("Brot ✅ 2026-01-01 🆔 kt-1", "Brot 🆔 kt-1"),
         ("Brot ✅ 2026-01-01", "Brot"),
         ("✅ 2026-01-01x", "x"),
+        ("Brot✅ 2026-01-01 mehr", "Brot mehr"),
+        ("Brot✅ 2026-01-01📅 2026-02-02", "Brot📅 2026-02-02"),
+        ("Brot✅ 2026-01-01", "Brot"),
+        ("Brot\N{NO-BREAK SPACE}✅ 2026-01-01mehr", "Brot\N{NO-BREAK SPACE}mehr"),
+        ("Brot✅ 2026-01-01\N{NO-BREAK SPACE}mehr", "Brot\N{NO-BREAK SPACE}mehr"),
     ],
 )
 async def test_1066_untick_joins_no_words_where_the_done_date_was(
@@ -456,6 +461,41 @@ async def test_1066_untick_joins_no_words_where_the_done_date_was(
 
     assert response.status_code == 200
     assert (folder / "Einkauf.md").read_text(encoding="utf-8").endswith(f"\n- [ ] {undone}\n")
+
+
+@pytest.mark.parametrize(
+    ("rest", "undone", "text"),
+    [
+        ("Brot✅ 2026-01-01mehr\n", "Brot mehr\n", "Brot mehr"),
+        ("Brot✅ 2026-01-01mehr 🆔 kt-1 ^abc\n", "Brot mehr 🆔 kt-1 ^abc\n", "Brot mehr"),
+        ("Brot✅ 2026-01-01mehr\r\n", "Brot mehr\r\n", "Brot mehr"),
+        ("Brot✅ 2026-01-01^abc\n", "Brot ^abc\n", "Brot"),
+    ],
+)
+async def test_1491_untick_keeps_apart_the_words_a_glued_done_field_split(
+    client: AsyncClient, folder: Path, rest: str, undone: str, text: str
+) -> None:
+    put(folder, f"- [x] {rest}")
+
+    response = await tick(client, folder, "Brot", done=False)
+
+    written = (folder / "Einkauf.md").read_bytes().decode("utf-8")
+    assert response.status_code == 200
+    assert written.endswith(f"\n- [ ] {undone}")
+    assert [item["text"] for item in response.json()["items"]] == [text]
+
+
+async def test_1491_tick_after_the_untick_keeps_the_words_apart(
+    client: AsyncClient, folder: Path, pinned_day: date
+) -> None:
+    put(folder, "- [x] Brot✅ 2026-01-01mehr 🆔 kt-1\n")
+    await tick(client, folder, "Brot", done=False)
+
+    response = await tick(client, folder, "Brot")
+
+    written = (folder / "Einkauf.md").read_text(encoding="utf-8")
+    assert response.status_code == 200
+    assert written.endswith(f"\n- [x] Brot mehr ✅ {pinned_day.isoformat()} 🆔 kt-1\n")
 
 
 NBSP = "\N{NO-BREAK SPACE}"
