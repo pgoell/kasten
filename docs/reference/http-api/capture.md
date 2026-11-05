@@ -71,9 +71,9 @@ scroll the page. Opened in a tab of its own, with no parent to post to, it does
 nothing.
 
 The script also reports the page's text selection. It posts
-`{kasten: 'selection', text, heading, anchor, rect}` after a mouse up, after
-the keys that grow or select it (Shift, arrows, Home, End, Ctrl+A), while a
-touch selection moves, and on a scroll. `text` is cut to 10000 characters. `heading` is the nearest `h1` to
+`{kasten: 'selection', text, heading, anchor, rect}` after a mouse up, a key
+that grows or selects it, a touch's move, a scroll, or a change made with no
+button held (the menu's Select all). `text` is cut to 10000 characters. `heading` is the nearest `h1` to
 `h6` above the selection's start, in the same article, section or card, cut to
 300. `anchor` is the story id the page prints as `a.sid` in that article, or
 else the nearest `id`, cut to 200. A selection that goes posts `text` as `''`.

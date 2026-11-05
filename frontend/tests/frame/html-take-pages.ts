@@ -29,6 +29,20 @@ addEventListener("message", (event) => {
     select(data.range);
     reply("selected");
   }
+  if (data.probe === "selectAll") {
+    document.execCommand("selectAll");
+    reply("selected");
+  }
+  if (data.probe === "dragSelect") {
+    document.body.dispatchEvent(new PointerEvent("pointerdown", { pointerType: "mouse", buttons: 1, bubbles: true }));
+    select(data.range);
+    requestAnimationFrame(() => requestAnimationFrame(() => reply("dragging")));
+  }
+  if (data.probe === "drop") {
+    document.body.dispatchEvent(new PointerEvent("pointerup", { pointerType: "mouse", buttons: 0, bubbles: true }));
+    document.body.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+    reply("dropped");
+  }
   if (data.probe === "shareMany") {
     for (const anchor of data.anchors) parent.postMessage({ kasten: "share", heading: anchor, anchor, source: "" }, "*");
     reply("sharedMany");
