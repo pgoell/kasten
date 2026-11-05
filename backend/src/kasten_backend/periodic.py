@@ -56,8 +56,8 @@ def daily_note(day: date, periodic: str = DEFAULTS.periodic_path) -> str:
     )
 
 
-FENCE_LINE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
-"""A line that opens or closes a fenced block, read the way `note-section.ts` reads one."""
+FENCE_LINE = re.compile(r"^[ \t]*(`{3,}|~{3,})")
+"""The run of a line markdown-it opens a fence on, nested list items' four spaces too (#1550)."""
 
 
 def _live(text: str) -> list[bool]:

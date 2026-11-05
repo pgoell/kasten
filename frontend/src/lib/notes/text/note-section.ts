@@ -12,7 +12,7 @@ const HEADING = /^#{1,6} /;
 const TITLED = /^(#{1,6})[ \t]+(.*)$/;
 
 /** The backtick or tilde run that opens or closes a fence, and what follows it. */
-const FENCE = /^ {0,3}(`{3,}|~{3,})(.*)/;
+const FENCE = /^[ \t]*(`{3,}|~{3,})(.*)/;
 
 /** A closing run alone on its line, its indent measured apart from the margin. */
 const CLOSER = /^(`{3,}|~{3,})$/;
@@ -32,9 +32,6 @@ function contentColumn(marker: RegExpExecArray): number {
   const extra = gap.length === 0 || gap.length >= 5 ? 1 : gap.length;
   return lead.length + bullet.length + extra;
 }
-
-/** How far a line is indented. */
-const indent = (line: string) => line.length - line.trimStart().length;
 
 /** How far a line is indented in columns, a tab running to the next multiple of four. */
 function width(line: string): number {
@@ -59,6 +56,18 @@ function closes(line: string, open: string, column: number): boolean {
 }
 
 /**
+ * The run that opens a fence on line `index`, or undefined. It sits at most three past the margin
+ * or past the content column of its list item, nested ones too (#1550).
+ */
+function openingRun(lines: string[], index: number): string | undefined {
+  const line = lines[index] ?? "";
+  const match = FENCE.exec(line);
+  const fence = match?.[1];
+  if (fence === undefined || (fence[0] === "`" && match?.[2]?.includes("`"))) return undefined;
+  return width(line) <= itemColumn(lines, 0, index) + 3 ? fence : undefined;
+}
+
+/**
  * The indices of fenced code lines, fences included, and the run of a fence nobody closes. A
  * `# comment` in a shell block is code, not a heading. A fence closes on a run at least as long,
  * and a fence in a list item ends with the item, at a line indented less than its content.
@@ -73,14 +82,12 @@ export function fencedLines(lines: string[]): {
   let openFrom: number | null = null;
   let column = 0;
   lines.forEach((line, index) => {
-    if (open !== null && line.trim() !== "" && indent(line) < column) {
+    if (open !== null && line.trim() !== "" && width(line) < column) {
       open = null;
       openFrom = null;
     }
-    const match = FENCE.exec(line);
-    const fence = match?.[1];
-    const opens = fence !== undefined && (fence[0] === "~" || !match?.[2]?.includes("`"));
-    if (open === null && fence !== undefined && opens) {
+    const fence = open === null ? openingRun(lines, index) : undefined;
+    if (fence !== undefined) {
       open = fence;
       openFrom = index;
       column = itemColumn(lines, 0, index);
@@ -152,11 +159,11 @@ function sectionEnd(lines: string[], at: number, isFenced: (index: number) => bo
  * closer at column 0 would fall out of the item. Lines above `floor` (the frontmatter) are not read.
  */
 function itemColumn(lines: string[], floor: number, opener: number): number {
-  const n = indent(lines[opener] ?? "");
+  const n = width(lines[opener] ?? "");
   if (n === 0) return 0;
   const at = (index: number) => lines[index] ?? "";
   let index = opener - 1;
-  while (index >= floor && (at(index).trim() === "" || indent(at(index)) >= n)) index -= 1;
+  while (index >= floor && (at(index).trim() === "" || width(at(index)) >= n)) index -= 1;
   if (index < floor || HEADING_LINE.test(at(index))) return 0;
   const first = LIST_MARKER.exec(at(index));
   if (first !== null) return contentColumn(first) <= n ? contentColumn(first) : 0;

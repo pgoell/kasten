@@ -237,6 +237,14 @@ ITEM_CLOSERS = [
     ("- a\n  ````\n     ```\n     ~~~~", "````"),
     ("```\nx\n    ```", "```"),
     ("```\n\t```", "```"),
+    ("- a\n  ```\n\tx\n  ```", None),
+    ("- a\n\t```\n\tx", "```"),
+    ("- a\n  - b\n    ```\n    ## Log", "```"),
+    ("- a\n  - b\n    ```\n    ## Log\n    ```", None),
+    # Guards: indented code and a lazy line open no fence.
+    ("- a\n  - b\n        ```\n    x", None),
+    ("a\n    ```\n    x", None),
+    ("\t```\nx", None),
 ]
 
 
@@ -249,6 +257,13 @@ def test_1480_a_closer_in_a_list_item_counts_from_its_content_column(
 
 def test_1480_the_writers_add_no_closer_after_a_list_item_closer() -> None:
     note = "## Dump\n- a\n  ```\n  code\n     ```"
+
+    assert append_dump(note, "new") == f"{note}\n\nnew\n"
+    assert append_under(note, "## Log", "- x") == f"{note}\n\n## Log\n- x\n"
+
+
+def test_1550_the_writers_add_no_closer_at_the_margin_after_a_nested_fence() -> None:
+    note = "## Dump\n- a\n  - b\n    ```\n    code"
 
     assert append_dump(note, "new") == f"{note}\n\nnew\n"
     assert append_under(note, "## Log", "- x") == f"{note}\n\n## Log\n- x\n"
