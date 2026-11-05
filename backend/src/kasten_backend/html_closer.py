@@ -366,7 +366,16 @@ def _adopt(stack: list[_Open], name: str) -> None:
     if _find(stack, (name,), _SCOPE) != at:
         del stack[at]
         return
-    stack[at:] = [entry for entry in stack[at + 1 :] if entry[0] in _FORMATTING | _SPECIAL]
+    kept: list[_Open] = []
+    run: list[_Open] = []
+    for entry in stack[at + 1 :]:
+        if entry[0] not in _SPECIAL:
+            run.append(entry)
+            continue
+        # The inner loop keeps formatting only among the three nodes nearest each special one.
+        kept += [*(e for e in run[-3:] if e[0] in _FORMATTING), entry]
+        run = []
+    stack[at:] = kept + [entry for entry in run if entry[0] in _FORMATTING]
 
 
 def _html_start(stack: list[_Open], name: str) -> bool:

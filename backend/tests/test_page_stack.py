@@ -424,6 +424,24 @@ def test_1560_the_closer_tracks_html_opened_inside_a_point(end: bytes, closer: b
             id="object-marker-keeps-the-outer-a",
         ),
         pytest.param(
+            b"<svg><foreignObject><a><b><i><u><s><div><a></a></div></s></u></i>"
+            b"</foreignObject><![CDATA[x",
+            b"]]></svg>",
+            id="a-past-div-drops-the-fourth-formatting-up",
+        ),
+        pytest.param(
+            b"<svg><foreignObject><a><b><span><span><span><div><a></a></div></foreignObject>"
+            b"<![CDATA[x",
+            b"]]></svg>",
+            id="a-past-div-counts-every-element-up",
+        ),
+        pytest.param(
+            b"<svg><foreignObject><a><i><u><s><div><a></a></div></s></u></i>"
+            b"</foreignObject><![CDATA[x",
+            b"]]></svg>",
+            id="a-past-div-keeps-three-formatting",
+        ),
+        pytest.param(
             b"<svg><foreignObject><form><div></form></foreignObject></svg><svg><![CDATA[x",
             b"]]></svg></svg>",
             id="form-end-leaves-the-div",
