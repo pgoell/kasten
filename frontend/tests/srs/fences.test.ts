@@ -299,3 +299,49 @@ describe("#665 an html comment holds no card", () => {
     expect(fronts("#flashcards/x\n\nr::b\n\n<!--\nq::a\n\ns::c\n")).toEqual(["r"]);
   });
 });
+
+describe("#1477 a comment that opens mid-paragraph holds no card", () => {
+  const fronts = (text: string) => parseCards(text).map((card) => card.front);
+
+  it("#1477 a :: line inside a comment opened after text is no card", () => {
+    expect(fronts("#flashcards/x\n\ntext <!--\nq::a\n-->\n\nr::b\n")).toEqual(["r"]);
+  });
+
+  it("#1477 a ? card inside a comment opened after text is no card", () => {
+    expect(fronts("#flashcards/x\n\ntext <!--\nq\n?\na\n-->\n\nr::b\n")).toEqual(["r"]);
+  });
+
+  it("#1477 a card with its schedule on its line keeps both", () => {
+    expect(only("#flashcards/x\n\nq::a <!--SR:!2026-08-20,4,270-->\n").held).toEqual({
+      due: "2026-08-20",
+      interval: 4,
+      ease: 270,
+    });
+  });
+
+  it("#1477 the card under a closed comment is still asked", () => {
+    expect(fronts("#flashcards/x\n\ntext <!--\nhidden::no\n-->\nr::b\n")).toEqual(["r"]);
+  });
+
+  it("#1477 a <!-- nobody closes in its paragraph is text", () => {
+    expect(fronts("#flashcards/x\n\ntext <!--\nq::a\n\nr::b\n")).toEqual(["q", "r"]);
+  });
+});
+
+describe("#1479 a comment after a list or quote marker holds no card", () => {
+  const fronts = (text: string) => parseCards(text).map((card) => card.front);
+
+  it.each([
+    ["a list marker", "- <!-- q::a -->"],
+    ["a quote marker", "> <!-- q::a -->"],
+    ["an ordered list marker", "1. <!-- q::a -->"],
+    ["a quote and a list marker", "> - <!-- q::a -->"],
+  ])("#1479 a comment after %s holds no card", (_, comment) => {
+    expect(fronts(`#flashcards/x\n\n${comment}\n\nr::b\n`)).toEqual(["r"]);
+  });
+
+  it("#1479 a card before the comment in a list item is still a card with its schedule", () => {
+    const card = only("#flashcards/x\n\n- q::a <!--SR:!2026-08-20,4,270-->\n");
+    expect([card.front, card.held?.due]).toEqual(["- q", "2026-08-20"]);
+  });
+});

@@ -8,15 +8,20 @@ import { WikiLink } from "@/lib/notes/links/wikilink";
 
 /**
  * No inline parse of a paragraph lacking a deck tag or a `<!--`, which is most of a deck note (#669).
- * A paragraph with both is parsed as the editor parses it, code spans and all.
+ * One with both, or with a comment over several lines (#1477), is parsed as the editor parses it.
  */
+// A `<!--` with no `-->` before the line ends, unlike the schedule on a card's line.
+const OPEN_OVER_LINES = /<!--(?:(?!-->).)*\n/;
+
 const Untagged: MarkdownConfig = {
   parseInline: [
     {
       name: "Untagged",
       before: "Escape",
       parse: (cx, _next, pos) =>
-        pos === cx.offset && !(cx.text.includes("#flashcards") && cx.text.includes("<!--"))
+        pos === cx.offset &&
+        !(cx.text.includes("#flashcards") && cx.text.includes("<!--")) &&
+        !OPEN_OVER_LINES.test(cx.text)
           ? cx.end
           : -1,
     },
@@ -38,7 +43,7 @@ const notes = frontmatter(
 export interface CommentsAndCode {
   /**
    * The note with every HTML comment that could hide a deck tag blanked, each
-   * line where it was. A comment in a paragraph with no deck tag stays as text.
+   * line where it was. One on one line in a paragraph with no deck tag stays as text.
    */
   uncommented: string;
   /** Per line of the note, whether it is code, fence lines included. */
@@ -94,12 +99,19 @@ export function commentsAndCode(text: string): CommentsAndCode {
     const inside = from <= end && start < to;
     code.push(inside);
     unclosed.push(inside && open);
-    // From the first character, as a comment block may open after up to three spaces.
-    const first = start + line.length - line.trimStart().length;
+    const first = start + textStart(line);
     while ((comments[comment]?.[1] ?? Infinity) < end) comment++;
     const [opens, closes] = comments[comment] ?? [Infinity, Infinity];
     commented.push(opens <= first && end <= closes);
     start = end + 1;
   }
   return { uncommented, code, unclosed, commented };
+}
+
+/**
+ * Where a line's text starts: past its indent, as a comment block may open after
+ * three spaces, and past its list and quote marks (#1479).
+ */
+function textStart(line: string): number {
+  return /^(?:\s*(?:>|(?:[-+*]|\d{1,9}[.)])(?=\s|$)))*\s*/.exec(line)?.[0].length ?? 0;
 }
