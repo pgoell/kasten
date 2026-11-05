@@ -206,6 +206,71 @@ _VOID = frozenset(
 )
 """Html start tags that leave nothing open, `<body>` and its kin only adding attributes."""
 
+_CLOSES_P = frozenset(
+    (
+        "address",
+        "article",
+        "aside",
+        "blockquote",
+        "center",
+        "details",
+        "dialog",
+        "dir",
+        "div",
+        "dl",
+        "fieldset",
+        "figcaption",
+        "figure",
+        "footer",
+        "header",
+        "hgroup",
+        "main",
+        "menu",
+        "nav",
+        "ol",
+        "p",
+        "search",
+        "section",
+        "summary",
+        "ul",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "pre",
+        "listing",
+        "form",
+        "xmp",
+        "hr",
+        "table",
+        "li",
+        "dd",
+        "dt",
+    )
+)
+"""Html start tags that close an open `<p>`."""
+
+_SCOPE = frozenset(
+    (
+        "applet",
+        "button",
+        "caption",
+        "dl",
+        "marquee",
+        "menu",
+        "object",
+        "ol",
+        "table",
+        "td",
+        "template",
+        "th",
+        "ul",
+    )
+)
+"""Html elements that stop the search for an open `<p>` or `<li>` to close."""
+
 _Open = tuple[str, str, str]
 """An open element inside `<svg>` or `<math>`: its lowercased name, its namespace (`html` for an
 html element), and `html` or `text` where it holds html; an html element holds html.
@@ -240,6 +305,17 @@ def _attrs(text: str) -> dict[str, str]:
     return attrs
 
 
+def _close(stack: list[_Open], names: tuple[str, ...]) -> None:
+    """Pop through the nearest open html element in `names`; a point or a `_SCOPE` one hides it."""
+    for at in range(len(stack) - 1, -1, -1):
+        entry, namespace, point = stack[at]
+        if namespace == "html" and entry in names:
+            del stack[at:]
+            return
+        if (point and namespace != "html") or entry in _SCOPE:
+            return
+
+
 def _start(stack: list[_Open], name: str, attrs: dict[str, str], self_closing: bool) -> bool:
     """Keep `stack` the open elements after a start tag; True when it went as html.
 
@@ -250,6 +326,10 @@ def _start(stack: list[_Open], name: str, attrs: dict[str, str], self_closing: b
         while stack and not stack[-1][2]:
             stack.pop()
     if _as_html(stack, name):
+        if name in _CLOSES_P:
+            _close(stack, ("p",))
+        if name in ("li", "dd", "dt"):
+            _close(stack, ("li",) if name == "li" else ("dd", "dt"))
         if name in _FOREIGN and not self_closing:
             stack.append((name, name, ""))
         elif stack and name not in _VOID and name not in _RAW_TEXT:
