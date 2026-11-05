@@ -50,6 +50,21 @@
     "body": "body"
   },
   {
+    "name": "a carriage return then a tab after the opener still opens",
+    "note": "---\r\t\na: #b\n---\nbody",
+    "body": "body"
+  },
+  {
+    "name": "a carriage return then a space after the opener still opens",
+    "note": "---\r \na: b\n---\nbody",
+    "body": "body"
+  },
+  {
+    "name": "a carriage return then a tab after the closer still closes",
+    "note": "---\na: b\n---\r\t\nbody",
+    "body": "body"
+  },
+  {
     "name": "a plain block",
     "note": "---\na: b\n---\nbody",
     "body": "body"

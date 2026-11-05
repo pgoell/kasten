@@ -35,8 +35,8 @@ const DashLine = NodeType.define({
 const FrontmatterContent = NodeType.define({ id: 3, name: "FrontmatterContent" });
 const Body = NodeType.define({ id: 4, name: "Body" });
 
-/** A line that opens or closes a block: three dashes at column 0, then nothing but blanks (#654). */
-const FENCE = /^---[ \t]*\r?$/;
+/** A line that opens or closes a block: three dashes at column 0, then blanks or CRs (#654, #658). */
+const FENCE = /^---[ \t\r]*$/;
 
 /** How much of the note one read takes while looking for a line's end. */
 const CHUNK = 256;

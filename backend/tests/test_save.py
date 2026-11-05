@@ -1,5 +1,6 @@
 import hashlib
 from datetime import UTC, datetime
+from itertools import pairwise
 from typing import TYPE_CHECKING
 
 import pytest
@@ -466,3 +467,47 @@ async def test_1468_a_stale_base_over_a_spaced_closer_the_disk_holds_writes_noth
 
     assert response.status_code == 200
     assert (vault / "borges.md").read_text() == on_disk
+
+
+async def test_1470_a_closer_sent_with_a_carriage_return_is_the_next_saves_base(
+    client: AsyncClient, vault: Path
+) -> None:
+    (vault / "a.md").write_text("---\nid: a\n---\nbody\n")
+    texts = [f"---\nid: a\n---\r\nbody {n}" for n in range(3)]
+
+    first = await client.put("/api/files/a.md", json={"content": texts[0]})
+    later = [
+        await client.put("/api/files/a.md", json={"content": text, "base": _base(sent)})
+        for sent, text in pairwise(texts)
+    ]
+
+    assert [first.status_code, *(one.status_code for one in later)] == [200, 200, 200]
+    # Landed as sent: the one CR stays and no LF of the client's gains one.
+    assert (vault / "a.md").read_bytes().count(b"\r") == 1
+
+
+async def test_1470_a_crlf_text_gets_its_stamped_lines_in_crlf(
+    client: AsyncClient, vault: Path
+) -> None:
+    (vault / "a.md").write_text("---\nid: a\n---\nbody\n")
+
+    await client.put("/api/files/a.md", json={"content": "---\r\nmodified: x\r\n---\r\nbody\r\n"})
+
+    landed = (vault / "a.md").read_bytes()
+    assert landed.count(b"\n") == landed.count(b"\r\n") == 7
+
+
+async def test_1470_a_stale_base_over_a_carriage_return_text_the_disk_holds_writes_nothing(
+    client: AsyncClient, vault: Path
+) -> None:
+    (vault / "a.md").write_text("---\nid: a\n---\nbody\n")
+    sent = "---\nid: a\n---\r\nbody"
+    await client.put("/api/files/a.md", json={"content": sent})
+    on_disk = (vault / "a.md").read_bytes()
+
+    response = await client.put(
+        "/api/files/a.md", json={"content": sent, "base": _base("# a\n\nOlder.\n")}
+    )
+
+    assert response.status_code == 200
+    assert (vault / "a.md").read_bytes() == on_disk

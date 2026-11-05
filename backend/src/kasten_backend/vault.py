@@ -349,9 +349,11 @@ def landing(path: Path, content: str) -> str:
     """`content` as `write_note` would put it on disk at `path`.
 
     A note already holding a CRLF keeps CRLF. `read_note` hands out LF text, so without this
-    a save would rewrite every line of a Windows note. Its own function so a size bound can
-    measure it.
+    a save would rewrite every line of a Windows note. A text holding a CR is the client's own
+    endings and lands as sent (#1470). Its own function so a size bound can measure it.
     """
+    if "\r" in content:
+        return content
     try:
         crlf = b"\r\n" in path.read_bytes()
     except FileNotFoundError:

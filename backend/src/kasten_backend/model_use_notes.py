@@ -8,6 +8,7 @@ from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 from uuid import uuid7
 
+from kasten_backend.frontmatter import closing
 from kasten_backend.model_use_lines import Usage, format_line, parse_line
 
 if TYPE_CHECKING:
@@ -45,10 +46,7 @@ def note_path(vault: Path, config_path: str, month: str) -> Path:
 def _split(text: str) -> tuple[list[str], list[str]]:
     """The frontmatter's lines and the body's. No block means no frontmatter lines."""
     lines = text.split("\n")
-    if lines[0].rstrip() != FENCE:
-        return [], lines
-    # At column 0, as frontmatter.py closes a block (#654).
-    end = next((i for i, line in enumerate(lines[1:], 1) if line.rstrip() == FENCE), None)
+    end = closing(lines)
     if end is None:
         return [], lines
     return lines[1:end], lines[end + 1 :]
