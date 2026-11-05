@@ -13,6 +13,8 @@ import pytest
 
 from backend.tests.model_use_records import (
     CONFIG,
+    LONG_COUNT,
+    MARK,
     NOTE,
     PRICES,
     config,
@@ -500,6 +502,21 @@ def test_1174_i3_a_cache_write_past_a_float_reads_as_broken(world: tuple[Path, P
     split = {"ephemeral_5m_input_tokens": 10**400, "ephemeral_1h_input_tokens": 10**400}
     broken = usage(input=1_000_000, write=10**400, cache_creation=split)
     session(source, "a.jsonl", record("m1", broken))
+
+    run(source, vault, CONFIG, DAY, DAY, NOW)
+
+    assert usage_lines(vault) == [
+        "- 2026-10-25 claude-opus-5-5 kasten: in 1000000, out 0, cache write 0, "
+        "cache read 0, cost 4.0000 usd"
+    ]
+
+
+def test_1495_a1_a_count_of_over_4300_digits_reads_as_broken_and_the_note_is_written(
+    world: tuple[Path, Path],
+) -> None:
+    source, vault = world
+    long = record("m2", usage(output=MARK)).replace(str(MARK), LONG_COUNT)
+    session(source, "a.jsonl", record("m1", usage(input=1_000_000)), long)
 
     run(source, vault, CONFIG, DAY, DAY, NOW)
 

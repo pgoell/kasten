@@ -14,6 +14,10 @@ KASTEN = "/home/pascal/Code/kasten"
 CONFIG = "99 Misc/01 Config"
 NOTE = f"{CONFIG}/Model use/2026-10.md"
 STAMP = "2026-10-25T10:00:00Z"
+MARK = 424242
+"""A count a test swaps for LONG_COUNT in a dumped line: json.dumps refuses one that long."""
+LONG_COUNT = "1" + "0" * 5000
+"""A count of more than 4300 digits, which json.loads refuses with a bare ValueError."""
 PRICES = (
     "## Prices\n"
     "- claude-opus-5-5: input 4, output 20, cache write 5m 5, cache write 1h 8, cache read 0.2\n"

@@ -24,7 +24,8 @@ def _records(lines: list[str]) -> list[dict]:
     for raw in lines:
         try:
             record = json.loads(raw)
-        except json.JSONDecodeError:
+        # ValueError, not only JSONDecodeError: an integer of over 4300 digits raises it (#1495).
+        except ValueError:
             continue
         if isinstance(record, dict):
             found.append(record)

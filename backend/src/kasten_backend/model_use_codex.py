@@ -18,7 +18,8 @@ def _record(raw: str) -> dict | None:
     """The JSON object a line holds, or None when the line is no JSON object."""
     try:
         record = json.loads(raw)
-    except json.JSONDecodeError:
+    # ValueError, not only JSONDecodeError: an integer of over 4300 digits raises it (#1495).
+    except ValueError:
         return None
     return record if isinstance(record, dict) else None
 

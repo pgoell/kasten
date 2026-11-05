@@ -115,7 +115,8 @@ def _claude_messages(lines: list[str]) -> list[Message]:
     for raw in lines:
         try:
             record = json.loads(raw)
-        except json.JSONDecodeError:
+        # ValueError, not only JSONDecodeError: an integer of over 4300 digits raises it (#1495).
+        except ValueError:
             continue
         message = _message(record)
         if message is not None:
