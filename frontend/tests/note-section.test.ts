@@ -150,9 +150,32 @@ describe("fencedLines closers in a list item", () => {
     ["four from the margin outside a list", ["```", "x", "    ```"], [0, 1, 2], "```"],
     ["a tab as four columns", ["```", "\t```", "## Log", "```"], [0, 1, 2, 3], null],
     ["two tabs under an item", ["- a", "  ```", "\t\t```"], [1, 2], "```"],
+    ["1552 a tab line inside an item's fence", ["- a", "  ```", "\tx", "  ```"], [1, 2, 3], null],
+    ["1552 a tab opener under an item", ["- a", "\t```", "\tx", "\t```", "- b"], [1, 2, 3], null],
+    ["1550 a nested opener", ["- a", "  - b", "    ```", "    ## Log", "    ```"], [2, 3, 4], null],
+    ["1550 a nested opener left open", ["- a", "  - b", "    ```", "    ## Log"], [2, 3], "```"],
+    // Guards: indented code and lazy lines open no fence.
+    ["four past a nested item", ["- a", "  - b", "        ```", "    x"], [], null],
+    ["four from the margin after a paragraph", ["a", "    ```", "    x", "    ```"], [], null],
+    ["a tab opener at the margin", ["\t```", "x"], [], null],
+    ["four in after a break below an item", ["- a", "---", "    ```", "    x"], [], null],
+    ["four in after a quote below an item", ["- a", "> q", "    ```", "    x"], [], null],
+    ["four in after a quote inside an item", ["- a", "  > q", "    ```", "    x"], [2, 3], "```"],
+    [
+      "four in after an underline inside an item",
+      ["- a", "  ---", "    ```", "    x"],
+      [2, 3],
+      "```",
+    ],
+    ["four in after a quote one space in", ["- a", " > q", "    ```", "    x"], [], null],
   ])("%s", (_name, lines, coded, openRun) => {
     const read = fencedLines(lines);
     expect([...read.coded]).toEqual(coded);
     expect(read.openRun).toBe(openRun);
+  });
+
+  it("1550 appendUnder adds no closer at the margin after a nested fence left open", () => {
+    const text = "## Log\n- a\n  - b\n    ```\n    code";
+    expect(appendUnder(text, "## Log", "- x")).toBe(`${text}\n- x`);
   });
 });
