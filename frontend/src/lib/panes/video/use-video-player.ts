@@ -134,6 +134,8 @@ export function useVideoPlayer({
    * Until it runs again nothing is written for this video, or closing the pane would restore its duration over that start.
    */
   const ended = useRef(false);
+  /** The second the video ended at, which `j` and `l` count from but a close after a new play must not write (#1498). */
+  const endSecond = useRef(0);
   /** The video the player last named, and whether it is another one than `id`. */
   const named = useRef<string | undefined>(undefined);
   const elsewhere = useRef(false);
@@ -200,7 +202,7 @@ export function useVideoPlayer({
       named.current = which.named;
       elsewhere.current = which.elsewhere;
       hearPlace(info);
-      if (typeof info?.playerState === "number") hearState(info.playerState);
+      if (typeof info?.playerState === "number") hearState(info.playerState, info.currentTime);
     }
 
     function hearSound(info: Delivery["info"]) {
@@ -216,7 +218,8 @@ export function useVideoPlayer({
       // to be the one from before the stop rather than a zero the player sends
       // on its way somewhere else. An ended player saying its end again is no new place (#1498).
       const time = info?.currentTime;
-      const stale = ended.current && !RUNNING.has(info?.playerState as number);
+      const state = info?.playerState;
+      const stale = ended.current && !(typeof state === "number" && RUNNING.has(state));
       if (elsewhere.current && typeof time === "number")
         away.current = { id: named.current, at: time };
       if (!elsewhere.current && !stale && typeof time === "number" && time > 0) {
@@ -233,19 +236,25 @@ export function useVideoPlayer({
       }
     }
 
-    function hearState(state: number) {
+    // A play from the start, closed before a tick, would write the end back; a seek since keeps its second.
+    function playAgain(time: unknown) {
+      ended.current = false;
+      const moved = second.current !== endSecond.current || (typeof time === "number" && time > 0);
+      if (!moved) second.current = 0;
+    }
+
+    function hearState(state: number, time: unknown) {
       const was = runningNow.current;
       runningNow.current = RUNNING.has(state);
       setRunning(runningNow.current);
       // Another video running is not this one played again, so its dropped
       // entry stays dropped (#1193).
-      if (runningNow.current && !elsewhere.current) ended.current = false;
+      if (runningNow.current && !elsewhere.current && ended.current) playAgain(time);
       // An ended video starts from the beginning next time, so its entry goes
       // rather than its end. Written once: the player may say `ended` again.
       if (state === 0 && id !== undefined && !ended.current && !elsewhere.current) {
         ended.current = true;
-        // A play from the start, closed before a tick, would write the end back (#1498).
-        second.current = 0;
+        endSecond.current = second.current;
         onWatchedRef.current(id, 0);
       }
       // The edge and not the state: a player streams its state while it plays,

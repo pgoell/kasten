@@ -403,4 +403,21 @@ describe("the video pane shield and keys", () => {
     expect(commandsOf(sent).at(-1)).toEqual({ func: "seekTo", args: [210, true] });
     expect(onWatched).not.toHaveBeenCalled();
   });
+
+  it("#1498 I3 j and l on the ended linked video count from its end second", async () => {
+    const { pane } = renderPane();
+    const { sent } = await spyOnFrame();
+
+    act(() => reports(1, 200));
+    act(() => reports(0, 212));
+    fireEvent.keyDown(pane, { key: "j" });
+    fireEvent.keyDown(pane, { key: "l" });
+    fireEvent.keyDown(pane, { key: "l" });
+
+    expect(commandsOf(sent)).toEqual([
+      { func: "seekTo", args: [202, true] },
+      { func: "seekTo", args: [212, true] },
+      { func: "seekTo", args: [222, true] },
+    ]);
+  });
 });
