@@ -4,7 +4,6 @@ A session is `<sessions>/<folder>/<session>/updates.jsonl`, the folder percent-e
 Each prompt ends in a `turn_completed` update whose `usage.modelUsage` counts per model.
 """
 
-import json
 from datetime import datetime
 from typing import TYPE_CHECKING
 from urllib.parse import unquote
@@ -22,12 +21,8 @@ def _records(lines: list[str]) -> list[dict]:
     """The JSON objects the lines hold, a line that is no JSON object passed over."""
     found = []
     for raw in lines:
-        try:
-            record = json.loads(raw)
-        # ValueError, not only JSONDecodeError: an integer of over 4300 digits raises it (#1495).
-        except ValueError:
-            continue
-        if isinstance(record, dict):
+        record = model_use_sessions.record_of(raw)
+        if record is not None:
             found.append(record)
     return found
 

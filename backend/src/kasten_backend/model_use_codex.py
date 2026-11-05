@@ -5,23 +5,12 @@ folder, and a `token_count` event after each model call, with that call's counts
 `model_use_sessions` hands a file here when its first record is a `session_meta`.
 """
 
-import json
 from datetime import datetime
 
 from kasten_backend import model_use_sessions
 
 CODEX = "codex"
 """The tool a codex call is counted under, and the name its lines carry before a slash."""
-
-
-def _record(raw: str) -> dict | None:
-    """The JSON object a line holds, or None when the line is no JSON object."""
-    try:
-        record = json.loads(raw)
-    # ValueError, not only JSONDecodeError: an integer of over 4300 digits raises it (#1495).
-    except ValueError:
-        return None
-    return record if isinstance(record, dict) else None
 
 
 def _text(value: object) -> str:
@@ -32,7 +21,7 @@ def _text(value: object) -> str:
 def is_codex(lines: list[str]) -> bool:
     """Whether a file is codex's: its first record that parses is a `session_meta`."""
     for raw in lines:
-        record = _record(raw)
+        record = model_use_sessions.record_of(raw)
         if record is not None:
             return record.get("type") == "session_meta"
     return False
@@ -85,7 +74,7 @@ def codex_messages(lines: list[str]) -> list[model_use_sessions.Message]:
     last_total: int | None = None
     found = []
     for raw in lines:
-        record = _record(raw)
+        record = model_use_sessions.record_of(raw)
         if record is None or not isinstance(record.get("payload"), dict):
             continue
         payload, kind = record["payload"], record.get("type")
