@@ -217,7 +217,15 @@ def _undone(rest: str) -> str:
     Only the `✅ <date>` the reader takes goes, so a bare `✅` among the words stays.
     """
     found = todo_fields.place(rest, todo_fields.DONE)
-    return rest.rstrip() if found is None else _without(rest, *found).rstrip()
+    if found is None:
+        return rest.rstrip()
+
+    head, tail = rest[: found[0]], rest[found[1] :]
+    # Words the field kept apart stay apart where, glued, they would read differently (#1491).
+    if head and words(head + tail) != words(f"{head} {tail}"):
+        return f"{head} {tail}".rstrip()
+
+    return _without(rest, *found).rstrip()
 
 
 def _ticked(rest: str, today: date) -> str:
