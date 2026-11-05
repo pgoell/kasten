@@ -20,14 +20,23 @@ const CLOSER = /^(`{3,}|~{3,})$/;
 /** A list marker and the space after it, where the item's content starts. */
 const LIST_MARKER = /^([ \t]*)([-*+]|\d{1,9}[.)])( +|$)/;
 
-/** Each line's item column worked out so far in one read, so a deep marker is walked once. */
-type Known = Map<number, number>;
+/**
+ * One read's state: each line's item column worked out so far, so a deep marker is walked once,
+ * and the fenced lines above the line being read.
+ */
+interface Known {
+  columns: Map<number, number>;
+  coded: Set<number>;
+}
 
 /** An ATX heading line, which ends a list item's paragraph whatever is above it. */
 const HEADING_LINE = /^#{1,6}( |$)/;
 
 /** A quote or thematic break, unindented: it ends a list item when it sits left of the item's content. */
 const QUOTE_OR_BREAK = /^(>|([-*_])( *\2){2,}[ \t]*$)/;
+
+/** A thematic break, after which no line is lazy. */
+const BREAK = /^([-*_])( *\1){2,}[ \t]*$/;
 
 /**
  * The column a list item's content starts at. Five or more spaces after the marker is indented
@@ -82,12 +91,13 @@ export function fencedLines(lines: string[]): {
   coded: Set<number>;
   openFrom: number | null;
   openRun: string | null;
+  openColumn: number;
 } {
   const coded = new Set<number>();
   let open: string | null = null;
   let openFrom: number | null = null;
   let column = 0;
-  const known: Known = new Map();
+  const known: Known = { columns: new Map(), coded };
   lines.forEach((line, index) => {
     if (open !== null && line.trim() !== "" && width(line) < column) {
       open = null;
@@ -100,6 +110,7 @@ export function fencedLines(lines: string[]): {
       column = itemColumn(lines, 0, index, known);
       coded.add(index);
     } else if (open !== null) {
+      known.columns.set(index, column);
       if (closes(line, open, column)) {
         open = null;
         openFrom = null;
@@ -107,7 +118,7 @@ export function fencedLines(lines: string[]): {
       coded.add(index);
     }
   });
-  return { coded, openFrom, openRun: open };
+  return { coded, openFrom, openRun: open, openColumn: column };
 }
 
 /**
@@ -165,16 +176,11 @@ function sectionEnd(lines: string[], at: number, isFenced: (index: number) => bo
  * The content column of the list item the fence on line `opener` sits in, or 0 outside one. A
  * closer at column 0 would fall out of the item. Lines above `floor` (the frontmatter) are not read.
  */
-function itemColumn(
-  lines: string[],
-  floor: number,
-  opener: number,
-  known: Known = new Map(),
-): number {
-  const held = known.get(opener);
+function itemColumn(lines: string[], floor: number, opener: number, known: Known): number {
+  const held = known.columns.get(opener);
   if (held !== undefined) return held;
   const column = walkItemColumn(lines, floor, opener, known);
-  known.set(opener, column);
+  known.columns.set(opener, column);
   return column;
 }
 
@@ -221,15 +227,37 @@ function lazyItemColumn(
   let edge = n;
   for (let index = from; index >= floor; index -= 1) {
     const held = lines[index] ?? "";
-    if (held.trim() === "" || HEADING_LINE.test(held)) return 0;
     if (QUOTE_OR_BREAK.test(held.trimStart())) edge = Math.min(edge, width(held));
     const marker = index === from ? null : markerAt(lines, floor, index, known);
     // An item whose content sits past the edge has ended: go on up to one that holds it (#1557).
     if (marker !== null && contentColumn(marker) <= Math.min(n, edge)) return contentColumn(marker);
     // An outer item holds a passed marker only at or left of its lead.
     if (marker !== null) edge = Math.min(edge, width(held));
+    const placed = placedColumn(lines, floor, index, Math.min(n, edge), known);
+    if (placed !== null) return placed;
   }
   return 0;
+}
+
+/**
+ * A fence line, or a line after one or a break, is no lazy line: its indent places it, in an item
+ * at most `cap` (#1581). A blank line or a heading ends every item. Null for a line that may be lazy.
+ */
+function placedColumn(
+  lines: string[],
+  floor: number,
+  index: number,
+  cap: number,
+  known: Known,
+): number | null {
+  const held = lines[index] ?? "";
+  if (held.trim() === "" || HEADING_LINE.test(held)) return 0;
+  const { coded } = known;
+  const lazy =
+    !coded.has(index) && !coded.has(index - 1) && !BREAK.test((lines[index - 1] ?? "").trim());
+  if (lazy) return null;
+  const column = itemColumn(lines, floor, index, known);
+  return column <= cap ? column : 0;
 }
 
 /**
@@ -250,7 +278,7 @@ export function appendUnderEdit(text: string, heading: string, line: string): Ed
   const lines = text.split("\n");
   // Match the readers: trailing spaces are allowed, and a fence or frontmatter line never counts.
   const above = lines.length - noteBody(text).split("\n").length;
-  const { coded: fenced, openFrom, openRun } = fencedLines(lines.slice(above));
+  const { coded: fenced, openFrom, openRun, openColumn } = fencedLines(lines.slice(above));
   const isFenced = (index: number) => fenced.has(index - above);
   const at = lines.findIndex(
     (held, index) => index >= above && !isFenced(index) && held.trimEnd() === heading,
@@ -261,7 +289,7 @@ export function appendUnderEdit(text: string, heading: string, line: string): Ed
     openFrom !== null &&
     openRun !== null &&
     (at === -1 || sectionEnd(lines, at, isFenced) === lines.length) &&
-    itemColumn(lines, above, above + openFrom) === 0
+    openColumn === 0
   ) {
     const closed = text.endsWith("\n") ? `${text}${openRun}\n` : `${text}\n${openRun}`;
     const edit = appendUnderEdit(closed, heading, line);

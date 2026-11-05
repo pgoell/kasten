@@ -198,6 +198,30 @@ describe("fencedLines closers in a list item", () => {
       null,
     ],
     ["four in after a quote one space in", ["- a", " > q", "    ```", "    x"], [], null],
+    [
+      "1581 a line after a closer is no lazy line",
+      ["- b", "  - d", "   ```", "   ```", "      ```", "      x"],
+      [2, 3],
+      null,
+    ],
+    [
+      "1581 a line after a fence is no lazy line",
+      ["- a", "  - d", "  ```", "b", "  x", "    ```"],
+      [2],
+      null,
+    ],
+    [
+      "1581 a line after a break is no lazy line",
+      ["- a", "  - - -", "x", "    ```", "      - d", "  ```"],
+      [5],
+      "```",
+    ],
+    [
+      "1581 guard: a line after a quote in an item stays lazy",
+      ["- a", "  > q", "x", "    ```"],
+      [3],
+      "```",
+    ],
   ])("%s", (_name, lines, coded, openRun) => {
     const read = fencedLines(lines);
     expect([...read.coded]).toEqual(coded);
@@ -210,6 +234,39 @@ describe("fencedLines closers in a list item", () => {
     const read = fencedLines(["- a", "  - b", "    - c", ...pairs, "      ~~~", "      x"]);
     expect(performance.now() - started).toBeLessThan(500);
     expect(read.openRun).toBe("~~~");
+  });
+
+  it("1581 reads 8,000 lines of deep items, fences and breaks in a blink", () => {
+    const head = ["- a", "  - b", "    - c", "      - d", "        - e", "          - f"];
+    const unit = [
+      "          - g",
+      "            ```",
+      "            ```",
+      "            - - -",
+      "            y",
+      "lazy",
+    ];
+    const lines = [
+      ...head,
+      ...Array.from({ length: 1400 }, () => unit).flat(),
+      "            ~~~",
+      "            x",
+    ];
+    const started = performance.now();
+    const read = fencedLines(lines);
+    expect(performance.now() - started).toBeLessThan(500);
+    expect(read.coded.size).toBe(2802);
+    expect(read.openRun).toBe("~~~");
+  });
+
+  it("1581 appendUnder closes a fence opened at the margin after a break ends the item", () => {
+    const text = "## Log\n- a\n  - - -\nx\n    ```\n      - d\n  ```\n  code";
+    expect(appendUnder(text, "## Log", "- x")).toBe(`${text}\n\`\`\`\n- x`);
+  });
+
+  it("1581 guard: appendUnder adds no closer at the margin after a closer in an item", () => {
+    const text = "## Log\n- b\n  - d\n   ```\n   ```\n      ```\n      x";
+    expect(appendUnder(text, "## Log", "- x")).toBe(`${text}\n- x`);
   });
 
   it("1553 appendUnder adds no closer at the margin after a deep fence left open", () => {
