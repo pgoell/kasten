@@ -232,6 +232,8 @@ _FORMATTING = frozenset(
 )
 """Html elements the tree builder reopens after the adoption agency closes them."""
 
+_MARKERS = frozenset(("applet", "caption", "marquee", "object", "td", "template", "th"))
+
 _IMPLIED = ("dd", "dt", "li", "optgroup", "option", "p", "rb", "rp", "rt", "rtc")
 
 _CLOSES_P = frozenset(
@@ -332,13 +334,17 @@ def _attrs(text: str) -> dict[str, str]:
     return attrs
 
 
-def _find(stack: list[_Open], names: tuple[str, ...], stops: frozenset[str]) -> int | None:
+def _find(
+    stack: list[_Open], names: tuple[str, ...], stops: frozenset[str], *, past_points: bool = False
+) -> int | None:
     """The nearest open html element in `names`; a point or one in `stops` hides it."""
     for at in range(len(stack) - 1, -1, -1):
         entry, namespace, point = stack[at]
         if namespace == "html" and entry in names:
             return at
-        if (namespace != "html" and point) or (namespace == "html" and entry in stops):
+        if (namespace != "html" and point and not past_points) or (
+            namespace == "html" and entry in stops
+        ):
             return None
     return None
 
@@ -351,15 +357,16 @@ def _close(stack: list[_Open], names: tuple[str, ...], stops: frozenset[str]) ->
 def _adopt(stack: list[_Open], name: str) -> None:
     """The adoption agency for a new `<a>` or `<nobr>`, which closes the open one.
 
-    Past a special element only it goes; else what sits above goes too, bar the formatting reopened.
+    Out of scope only it goes; else so does each element above it neither special nor formatting.
+    An `<a>` is looked for back to the last marker, which no point sets.
     """
-    if (at := _find(stack, (name,), _SCOPE)) is None:
+    stops = _MARKERS if name == "a" else _SCOPE
+    if (at := _find(stack, (name,), stops, past_points=name == "a")) is None:
         return
-    above = stack[at + 1 :]
-    if any(namespace == "html" and entry in _SPECIAL for entry, namespace, _ in above):
+    if _find(stack, (name,), _SCOPE) != at:
         del stack[at]
-    else:
-        stack[at:] = [entry for entry in above if entry[0] in _FORMATTING]
+        return
+    stack[at:] = [entry for entry in stack[at + 1 :] if entry[0] in _FORMATTING | _SPECIAL]
 
 
 def _html_start(stack: list[_Open], name: str) -> bool:

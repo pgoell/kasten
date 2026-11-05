@@ -398,6 +398,32 @@ def test_1560_the_closer_tracks_html_opened_inside_a_point(end: bytes, closer: b
             id="a-closes-span",
         ),
         pytest.param(
+            b"<svg><foreignObject><a><span><div><a></a></div></foreignObject><![CDATA[x",
+            b"]]></svg>",
+            id="a-past-div-closes-the-span-below-it",
+        ),
+        pytest.param(
+            b"<svg><foreignObject><a><div><span><p><a></a></p></div></foreignObject><![CDATA[x",
+            b"]]></svg>",
+            id="a-past-div-closes-the-span-between-blocks",
+        ),
+        pytest.param(
+            b"<svg><foreignObject><nobr><span><div><nobr></nobr></div></foreignObject><![CDATA[x",
+            b"]]></svg>",
+            id="nobr-past-div-closes-the-span-below-it",
+        ),
+        pytest.param(
+            b"<svg><foreignObject><a><svg><foreignObject><a></a></foreignObject></svg>"
+            b"</foreignObject><![CDATA[x",
+            b"]]></svg>",
+            id="a-behind-a-point-goes",
+        ),
+        pytest.param(
+            b"<svg><foreignObject><a><object><a></a></object></foreignObject><![CDATA[x",
+            b"></svg>",
+            id="object-marker-keeps-the-outer-a",
+        ),
+        pytest.param(
             b"<svg><foreignObject><form><div></form></foreignObject></svg><svg><![CDATA[x",
             b"]]></svg></svg>",
             id="form-end-leaves-the-div",
