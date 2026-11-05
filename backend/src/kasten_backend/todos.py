@@ -245,7 +245,10 @@ def tags_in(text: str) -> list[tuple[int, int]]:
         hidden += code_spans(_blanked(text, hidden, " "), indented=True, html=html)
         # Looked for with the code blanked: a `<!--` in code opens no comment,
         # and paired with a real `-->` below it would hide the tags between.
-        hidden += [found.span() for found in COMMENT.finditer(_blanked(text, hidden, " "))]
+        # An inline span goes to no-break spaces, or its line would read as blank.
+        inline = [span for span in hidden if "\n" not in text[span[0] : span[1]]]
+        code = _blanked(_blanked(text, hidden, " "), inline, "\N{NO-BREAK SPACE}")
+        hidden += [found.span() for found in COMMENT.finditer(code)]
     if not hidden:
         return line_tags(text)
     return line_tags(_blanked(text, hidden, "\N{NO-BREAK SPACE}"))

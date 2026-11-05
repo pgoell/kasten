@@ -187,6 +187,11 @@
     "text": "a <!-- x\n#hidden -->\n#real",
     "tags": ["#real"]
   },
+  {
+    "id": "comment-over-a-code-span-line",
+    "text": "a <!-- x\n`c`\n#hidden -->\n#real",
+    "tags": ["#real"]
+  },
   { "id": "comment-past-blank-line", "text": "a <!-- y\n\n#t\n-->", "tags": ["#t"] },
   {
     "id": "comment-opening-at-line-end-past-blank-line",

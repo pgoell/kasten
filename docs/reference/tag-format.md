@@ -71,7 +71,7 @@ finder that leaves a name inside a tag alone.
    none opens a block. A reader of one line hides a line that opens a block,
    and the readers holding a note hand a note with a line opening on `<` to a
    parser for the lines under it. The block names are the editor's, where
-   `<search>` and `<textarea>` open no block and `<source>` does, in every
+   `<search>` and `<textarea>` open no block and `<source>` does, in every tag
    reader (#1472).
 
 `# Heading`, a hash and a space, opens a heading and is no tag.
