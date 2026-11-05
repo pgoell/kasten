@@ -316,44 +316,100 @@ def _tag_end(page: str, at: int) -> int | str:
     return ">"
 
 
-def _element_end(page: str, found: re.Match[str]) -> int | str:
-    """Where a tag, and the text of a raw text element it starts, ends, or what closes them."""
-    end_tag = found.group(1).startswith("/")
-    name_at = found.start() + (2 if end_tag else 1)
-    name_end = _past(_TAG_NAME, page, name_at)
-    name = page[name_at:name_end].lower()
-    end = _tag_end(page, name_end)
-    if end_tag or name not in _RAW_TEXT:
+_ESCAPE = re.compile(r"(<!--)|(-->)|<(/?)script(?=[\t\n\f\r />]|\Z)", re.IGNORECASE)
+_FOREIGN = ("svg", "math")
+
+
+def _script_end(page: str, at: int) -> int | None:
+    """Where the `</script` that ends a script's text ends, or None when the page ends first.
+
+    The tokenizer's script states: a `<script` after `<!--` starts a double escape, inside which a
+    `</script` ends only the double escape and `-->` ends both.
+    """
+    escaped = double = False
+    while (found := _ESCAPE.search(page, at)) is not None:
+        at = found.end()
+        if found.group(1):
+            # The `--` of `<!--` may close it again: `<!-->`.
+            escaped, at = True, found.start() + 2
+        elif found.group(2):
+            escaped = double = False
+        elif found.group(3):
+            if not double:
+                return at
+            double = False
+        else:
+            double = escaped
+    return None
+
+
+def _element_end(page: str, found: re.Match[str], name: str, foreign: list[str]) -> int | str:
+    """Where a tag, and the text of a raw text element it starts, ends, or what closes them.
+
+    Inside `<svg>` or `<math>` no element holds raw text.
+    """
+    end = _tag_end(page, found.end() + len(name) - 1)
+    if found.group(1).startswith("/") or name not in _RAW_TEXT or foreign:
         return end
     if isinstance(end, str):
         return end + f"</{name}>"
+    if name == "script":
+        closing = _script_end(page, end)
+        if closing is None:
+            # Only a double escape needs the `-->` first, and `</script>` alone keeps #886's bytes.
+            return "</script>" if _script_end(page + "</script>", end) else "--></script>"
+        return _tag_end(page, closing)
     closing = re.compile(rf"</{name}(?=[\t\n\f\r />]|\Z)", re.IGNORECASE).search(page, end)
     return f"</{name}>" if closing is None else _tag_end(page, closing.end())
 
 
-def _closer(page: str) -> str:
-    """What closes the tag, comment or raw text a page cut off mid-write leaves open (#886).
+def _markup_end(page: str, found: re.Match[str], foreign: list[str]) -> int | str:
+    """Where a comment, doctype or CDATA section ends, or what closes it."""
+    kind, at = found.group(1), found.end()
+    if kind == "!--" and page.startswith((">", "->"), at):
+        return page.index(">", at) + 1
+    if kind == "!--":
+        closing = _COMMENT_END.search(page, at)
+        return "-->" if closing is None else closing.end()
+    if kind == "!" and foreign and page.startswith("[CDATA[", at):
+        closing = page.find("]]>", at + 7)
+        return "]]>" if closing == -1 else closing + 3
+    # A doctype, a bogus comment, or a `</` with no name, each ended by the next `>`.
+    closing = page.find(">", at)
+    return ">" if closing == -1 else closing + 1
 
-    Appended scripts would land inside it and not run. A whole page needs nothing.
+
+def _closer(page: str) -> tuple[int, str]:
+    """Where the appended scripts go in a page cut off mid-write, and what closes it before them.
+
+    Appended scripts would land inside an open tag, comment, raw text, `<svg>` or `<math>` and not
+    run (#886). Nothing ends a `<plaintext>`, so they go ahead of it (#1489). A whole page needs
+    nothing. Open `<svg>` and `<math>` are only counted: a breakout tag or `<foreignObject>` is not.
     """
-    at = 0
+    at, foreign = 0, []
     while (found := _OPEN.search(page, at)) is not None:
         kind = found.group(1)
+        name = page[found.end() - 1 : _past(_TAG_NAME, page, found.end())].lower()
+        if kind[-1].isalpha() and name == "plaintext" and kind[0] != "/" and not foreign:
+            return found.start(), ""
         if kind[-1].isalpha():
-            end = _element_end(page, found)
-        elif kind == "!--" and page.startswith((">", "->"), found.end()):
-            end = page.index(">", found.end()) + 1
-        elif kind == "!--":
-            closing = _COMMENT_END.search(page, found.end())
-            end = "-->" if closing is None else closing.end()
+            end = _element_end(page, found, name, foreign)
         else:
-            # A doctype, a bogus comment, or a `</` with no name, each ended by the next `>`.
-            closing = page.find(">", found.end())
-            end = ">" if closing == -1 else closing + 1
+            end = _markup_end(page, found, foreign)
         if isinstance(end, str):
-            return end
+            return len(page), end + "".join(f"</{n}>" for n in reversed(foreign))
+        if kind[-1].isalpha() and name in _FOREIGN:
+            _count(foreign, name, kind[0] == "/", page[end - 2] == "/")
         at = end
-    return ""
+    return len(page), "".join(f"</{n}>" for n in reversed(foreign))
+
+
+def _count(foreign: list[str], name: str, end_tag: bool, self_closing: bool) -> None:
+    """Keep `foreign` the open `<svg>` and `<math>` elements, innermost last."""
+    if not end_tag and not self_closing:
+        foreign.append(name)
+    elif end_tag and name in foreign:
+        del foreign[len(foreign) - 1 - foreign[::-1].index(name) :]
 
 
 def _bytes(text: str) -> bytes:
@@ -372,12 +428,15 @@ def serve_page(raw: bytes, theme: str | None, palette: str | None) -> tuple[byte
         # UTF-16 is not the UTF-8 read below, so nothing can go in front of its bytes. The
         # scripts go at the end, in the page's byte order. An odd byte from a page read mid-write
         # gets a zero byte first. The byte order mark decides the encoding, so the header keeps
-        # utf-8.
+        # utf-8. A lone surrogate decodes as itself, so a char offset maps back to a byte one.
         encoding = "utf-16-le" if raw.startswith(b"\xff\xfe") else "utf-16-be"
         if len(raw) % 2:
             raw += b"\x00"
-        closer = _closer(raw[2:].decode(encoding, "replace"))
-        return raw + (closer + (LINKS_OUT + PAGE_SCRIPT).decode("ascii")).encode(encoding), "utf-8"
+        text = raw[2:].decode(encoding, "surrogatepass")
+        cut, closer = _closer(text)
+        at = 2 + len(text[:cut].encode(encoding, "surrogatepass"))
+        scripts = (closer + (LINKS_OUT + PAGE_SCRIPT).decode("ascii")).encode(encoding)
+        return raw[:at] + scripts + raw[at:], "utf-8"
 
     page = raw.decode("utf-8", "surrogateescape")
     tokens = _Tokens(page)
@@ -386,25 +445,30 @@ def serve_page(raw: bytes, theme: str | None, palette: str | None) -> tuple[byte
     doctype_end = page.find(">", tokens.first or 0) if tokens.first_is_doctype else -1
     bom = 1 if page.startswith("﻿") else 0
     script_at = doctype_end + 1 if doctype_end != -1 else bom
-    closer = _closer(page)
+    cut, closer = _closer(page)
 
     if tokens.meta_end is None or theme not in THEMES or palette not in PALETTES:
         return (
-            _bytes(page[:script_at]) + PAGE_SCRIPT + _bytes(page[script_at:] + closer) + LINKS_OUT,
+            _bytes(page[:script_at])
+            + PAGE_SCRIPT
+            + _bytes(page[script_at:cut] + closer)
+            + LINKS_OUT
+            + _bytes(page[cut:]),
             charset,
         )
 
     # The browser keeps the first value of each attribute, so this `<html>` is the one that counts:
     # the page's own `<html lang>` joins it, and a page cannot set `data-theme` itself.
-    head_at = tokens.head_at if tokens.head_at is not None else tokens.meta_end
+    head_at = min(tokens.head_at if tokens.head_at is not None else tokens.meta_end, cut)
     return (
         _bytes(page[:script_at])
         + _bytes(f'<html data-theme="{theme}" data-palette="{palette}">')
         + PAGE_SCRIPT
         + _bytes(page[script_at:head_at])
         + _bytes(STYLES)
-        + _bytes(page[head_at:] + closer)
-        + LINKS_OUT,
+        + _bytes(page[head_at:cut] + closer)
+        + LINKS_OUT
+        + _bytes(page[cut:]),
         charset,
     )
 
