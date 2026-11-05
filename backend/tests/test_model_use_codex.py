@@ -14,6 +14,7 @@ import pytest
 
 from backend.tests.model_use_records import (
     CONFIG,
+    DEEP,
     LONG_COUNT,
     MARK,
     NOTE,
@@ -330,6 +331,28 @@ def test_1495_i1_a_codex_file_opening_on_such_a_line_is_still_codex(
     source, vault = world
     long = meta().replace("{", f'{{"n": {LONG_COUNT}, ', 1)
     session(source, "rollout-a.jsonl", long, meta(), turn(), call())
+
+    run(source, vault, CONFIG, DAY, DAY, NOW)
+
+    assert usage_lines(vault) == [CODEX_LINE]
+
+
+def test_1563_a2_a_codex_line_nested_past_the_recursion_limit_reads_as_broken(
+    world: tuple[Path, Path],
+) -> None:
+    source, vault = world
+    session(source, "rollout-a.jsonl", meta(), turn(), DEEP, call())
+
+    run(source, vault, CONFIG, DAY, DAY, NOW)
+
+    assert usage_lines(vault) == [CODEX_LINE]
+
+
+def test_1563_i1_a_codex_file_opening_on_such_a_line_is_still_codex(
+    world: tuple[Path, Path],
+) -> None:
+    source, vault = world
+    session(source, "rollout-a.jsonl", DEEP, meta(), turn(), call())
 
     run(source, vault, CONFIG, DAY, DAY, NOW)
 

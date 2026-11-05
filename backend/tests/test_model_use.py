@@ -13,6 +13,7 @@ import pytest
 
 from backend.tests.model_use_records import (
     CONFIG,
+    DEEP,
     LONG_COUNT,
     MARK,
     NOTE,
@@ -517,6 +518,35 @@ def test_1495_a1_a_count_of_over_4300_digits_reads_as_broken_and_the_note_is_wri
     source, vault = world
     long = record("m2", usage(output=MARK)).replace(str(MARK), LONG_COUNT)
     session(source, "a.jsonl", record("m1", usage(input=1_000_000)), long)
+
+    run(source, vault, CONFIG, DAY, DAY, NOW)
+
+    assert usage_lines(vault) == [
+        "- 2026-10-25 claude-opus-5-5 kasten: in 1000000, out 0, cache write 0, "
+        "cache read 0, cost 4.0000 usd"
+    ]
+
+
+def test_1563_a1_a_line_nested_past_the_recursion_limit_reads_as_broken(
+    world: tuple[Path, Path],
+) -> None:
+    source, vault = world
+    session(source, "a.jsonl", DEEP, record("m1", usage(input=1_000_000)))
+
+    run(source, vault, CONFIG, DAY, DAY, NOW)
+
+    assert usage_lines(vault) == [
+        "- 2026-10-25 claude-opus-5-5 kasten: in 1000000, out 0, cache write 0, "
+        "cache read 0, cost 4.0000 usd"
+    ]
+
+
+def test_1563_i3_a_record_with_a_field_nested_past_the_limit_reads_as_broken(
+    world: tuple[Path, Path],
+) -> None:
+    source, vault = world
+    deep = record("m2", usage(output=MARK)).replace(str(MARK), DEEP)
+    session(source, "a.jsonl", record("m1", usage(input=1_000_000)), deep)
 
     run(source, vault, CONFIG, DAY, DAY, NOW)
 
