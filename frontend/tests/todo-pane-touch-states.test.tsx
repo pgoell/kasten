@@ -27,7 +27,7 @@ describe("the todo pane by touch", () => {
   it("asks on the first tap of the state and cycles on the second, opening nothing", async () => {
     stubMatchMedia({ [NARROW]: true, [COARSE]: true });
     const pane = renderPane();
-    await waitFor(() => expect(row("buy milk")).toBeDefined());
+    await pane.loaded();
     const state = screen.getByLabelText("cycle buy milk");
 
     fireEvent.click(state);

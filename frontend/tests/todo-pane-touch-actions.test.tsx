@@ -27,7 +27,7 @@ describe("the todo pane by touch", () => {
   it("opens the source line on a tap of the row", async () => {
     stubMatchMedia({ [NARROW]: true, [COARSE]: true });
     const pane = renderPane();
-    await waitFor(() => expect(row("buy milk")).toBeDefined());
+    await pane.loaded();
 
     fireEvent.click(row("buy milk") as HTMLElement);
 
