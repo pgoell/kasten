@@ -1,3 +1,4 @@
+import hashlib
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -117,3 +118,43 @@ async def test_still_lists_the_vault_at_the_bare_path(client: AsyncClient, vault
 
     assert response.status_code == 200
     assert response.json() == ["index.md"]
+
+
+def _sha(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+async def test_1570_a_lone_carriage_return_text_lands_with_carriage_returns_only(
+    client: AsyncClient, vault: Path
+) -> None:
+    (vault / "a.md").write_text("---\nid: a\n---\nbody\n")
+    texts = [f"---\rid: a\r---\rbody {n}\r" for n in range(2)]
+
+    first = await client.put("/api/files/a.md", json={"content": texts[0]})
+    second = await client.put("/api/files/a.md", json={"content": texts[1], "base": _sha(texts[0])})
+
+    landed = (vault / "a.md").read_bytes()
+    assert (first.status_code, second.status_code) == (200, 200)
+    assert (
+        b"\n" in landed,
+        landed.startswith(b"---\rcreated: "),
+        landed.endswith(b"\r---\rbody 1\r"),
+    ) == (
+        False,
+        True,
+        True,
+    )
+
+
+async def test_1570_a_stale_base_over_a_lone_carriage_return_note_writes_nothing(
+    client: AsyncClient, vault: Path
+) -> None:
+    on_disk = b"---\rid: a\rcreated: c\rtype: Note\rmodified: x\r---\rbody\r"
+    (vault / "a.md").write_bytes(on_disk)
+
+    response = await client.put(
+        "/api/files/a.md", json={"content": on_disk.decode(), "base": _sha("# a\n\nOlder.\n")}
+    )
+
+    assert response.status_code == 200
+    assert (vault / "a.md").read_bytes() == on_disk

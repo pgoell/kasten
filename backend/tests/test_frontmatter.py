@@ -248,3 +248,27 @@ def test_1468_a_save_keeps_a_closer_with_trailing_blanks(closer: str) -> None:
     note = f"---\nid: a\ncreated: x\ntype: Note\nmodified: y\n{closer}\nbody"
 
     assert unstamped(stamp(note, note)) == unstamped(note)
+
+
+def test_1570_a_note_whose_lines_end_in_a_lone_carriage_return_has_a_block() -> None:
+    note = "---\rid: a\rtags: [x]\r---\rbody\r"
+
+    assert (_split(note), note[body_start(note) :]) == (
+        (["id: a", "tags: [x]"], ["body", ""]),
+        "body\r",
+    )
+
+
+def test_1570_stamp_joins_a_lone_carriage_return_text_with_carriage_returns() -> None:
+    now = datetime(2026, 11, 5, tzinfo=UTC)
+
+    assert stamp("---\rid: a\r---\rbody\r", now=now) == (
+        "---\rcreated: 2026-11-05T00:00:00+00:00\rtype: Note\rid: a\r"
+        "modified: 2026-11-05T00:00:00+00:00\r---\rbody\r"
+    )
+    assert "\n" not in stamp("one\rtwo", now=now)
+    assert stamp("one\rtwo", now=now).endswith("\r---\rone\rtwo")
+
+
+def test_1570_with_type_joins_a_lone_carriage_return_text_with_carriage_returns() -> None:
+    assert with_type("---\rid: a\r---\rbody\r") == "---\rtype: Note\rid: a\r---\rbody\r"

@@ -188,3 +188,13 @@ async def test_658_a_block_opened_by_a_carriage_return_and_a_tab_hides_its_hash_
     response = await client.get("/api/tags")
 
     assert response.json() == ["#real"]
+
+
+async def test_1570_a_block_whose_lines_end_in_a_lone_carriage_return_hides_its_hash(
+    client: AsyncClient, vault: Path
+) -> None:
+    write(vault, "cr.md", "---\rid: a\rcolor: #inblock\r---\rbody #real\r")
+
+    response = await client.get("/api/tags")
+
+    assert response.json() == ["#real"]

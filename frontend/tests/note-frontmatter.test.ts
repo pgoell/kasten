@@ -9,6 +9,7 @@
 
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { EditorState } from "@codemirror/state";
 import { parseConfig } from "@/lib/log/log-kinds";
 import { logLines } from "@/lib/log/log-lines";
 import { parseMyFoods } from "@/lib/log/my-foods";
@@ -156,6 +157,13 @@ describe("#654 a block closes only on a fence at column 0, as frontmatter.py clo
       noteBody: noteBody(one.note),
       editor: one.note.slice(belowFrontmatter(one.note)),
     }).toEqual({ noteBody: one.body, editor: one.body });
+  });
+
+  it("#1570 reads the block of a note whose lines end in a lone carriage return", () => {
+    // CodeMirror cuts lines on a lone CR, so the editor's readers only see LF.
+    const doc = EditorState.create({ doc: "---\rid: a\r---\rbody" }).doc.toString();
+
+    expect(doc.slice(belowFrontmatter(doc))).toBe("body");
   });
 
   it("reads and writes no field above a spaced closer", () => {
