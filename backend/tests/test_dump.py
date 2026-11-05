@@ -245,6 +245,8 @@ ITEM_CLOSERS = [
     ("- a\n  - b\n        ```\n    x", None),
     ("a\n    ```\n    x", None),
     ("\t```\nx", None),
+    ("- a\n  > q\n    ```\n    x", "```"),
+    ("- a\n> q\n    ```\n    x", None),
 ]
 
 

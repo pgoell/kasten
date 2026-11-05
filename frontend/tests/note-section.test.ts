@@ -160,6 +160,14 @@ describe("fencedLines closers in a list item", () => {
     ["a tab opener at the margin", ["\t```", "x"], [], null],
     ["four in after a break below an item", ["- a", "---", "    ```", "    x"], [], null],
     ["four in after a quote below an item", ["- a", "> q", "    ```", "    x"], [], null],
+    ["four in after a quote inside an item", ["- a", "  > q", "    ```", "    x"], [2, 3], "```"],
+    [
+      "four in after an underline inside an item",
+      ["- a", "  ---", "    ```", "    x"],
+      [2, 3],
+      "```",
+    ],
+    ["four in after a quote one space in", ["- a", " > q", "    ```", "    x"], [], null],
   ])("%s", (_name, lines, coded, openRun) => {
     const read = fencedLines(lines);
     expect([...read.coded]).toEqual(coded);

@@ -20,8 +20,11 @@ const CLOSER = /^(`{3,}|~{3,})$/;
 /** A list marker and the space after it, where the item's content starts. */
 const LIST_MARKER = /^( {0,3})([-*+]|\d{1,9}[.)])( +|$)/;
 
-/** An ATX heading, thematic break or quote, which ends a list item's paragraph whatever is above it. */
-const PARAGRAPH_END = /^(#{1,6}( |$)| {0,3}(>|([-*_])( *\4){2,}[ \t]*$))/;
+/** An ATX heading line, which ends a list item's paragraph whatever is above it. */
+const HEADING_LINE = /^#{1,6}( |$)/;
+
+/** A quote or thematic break, unindented: it ends a list item when it sits left of the item's content. */
+const QUOTE_OR_BREAK = /^(>|([-*_])( *\2){2,}[ \t]*$)/;
 
 /**
  * The column a list item's content starts at. Five or more spaces after the marker is indented
@@ -164,19 +167,26 @@ function itemColumn(lines: string[], floor: number, opener: number): number {
   const at = (index: number) => lines[index] ?? "";
   let index = opener - 1;
   while (index >= floor && (at(index).trim() === "" || width(at(index)) >= n)) index -= 1;
-  if (index < floor || PARAGRAPH_END.test(at(index))) return 0;
-  const first = LIST_MARKER.exec(at(index));
+  if (index < floor || HEADING_LINE.test(at(index))) return 0;
+  const first = QUOTE_OR_BREAK.test(at(index).trimStart()) ? null : LIST_MARKER.exec(at(index));
   if (first !== null) return contentColumn(first) <= n ? contentColumn(first) : 0;
-  return lazyItemColumn(lines, floor, index - 1, n);
+  return lazyItemColumn(lines, floor, index, n);
 }
 
-/** A lazy continuation line's item: its marker may sit further up, with no blank line between. */
+/**
+ * A lazy continuation line's item: its marker may sit further up, with no blank line between. A
+ * quote or break left of the item's content ends the item.
+ */
 function lazyItemColumn(lines: string[], floor: number, from: number, n: number): number {
+  let edge = n;
   for (let index = from; index >= floor; index -= 1) {
     const held = lines[index] ?? "";
-    if (held.trim() === "" || PARAGRAPH_END.test(held)) return 0;
-    const marker = LIST_MARKER.exec(held);
-    if (marker !== null && contentColumn(marker) <= n) return contentColumn(marker);
+    if (held.trim() === "" || HEADING_LINE.test(held)) return 0;
+    if (QUOTE_OR_BREAK.test(held.trimStart())) edge = Math.min(edge, width(held));
+    const marker = index === from ? null : LIST_MARKER.exec(held);
+    if (marker !== null && contentColumn(marker) <= n) {
+      return contentColumn(marker) <= edge ? contentColumn(marker) : 0;
+    }
   }
   return 0;
 }
