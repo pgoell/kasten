@@ -81,7 +81,9 @@ block's `tags` field names tags instead: `tags: [agent, design]`, a list of
 `- agent` lines, or one value, each with a hash or without, and each a tag only
 when the rule above makes `#` and the value one. The frontmatter is the block
 `frontmatter.py` reads: three dashes at the start of line 1, with nothing after
-them but spaces or tabs, open it, and the next such line closes it. Both
+them but spaces, tabs or carriage returns, open it, and the next such line
+closes it. A lone carriage return ends a line in the text the editor is served,
+so `---` then a carriage return and a tab opens a block on every reader (#658). Both
 fences sit at column 0: ` ---`, a space or tab in front, neither opens nor
 closes a block, and a note whose block never closes has none. So in `---`,
 `ref: x #a`, ` ---`, `#real` both `#a` and `#real` are tags, as in Obsidian.

@@ -175,3 +175,16 @@ async def test_656_an_html_block_hides_its_tags(client: AsyncClient, vault: Path
 
     assert response.status_code == 200
     assert response.json() == ["#box", "#real"]
+
+
+async def test_658_a_block_opened_by_a_carriage_return_and_a_tab_hides_its_hash_on_both_passes(
+    client: AsyncClient, vault: Path
+) -> None:
+    # A lone CR ends the fence's line in the served text, so `---\r\t` opens a block on both passes.
+    write(vault, "line.md", "---\r\t\ncolor: #line\n---\n")
+    write(vault, "whole.md", "---\r\t\ncolor: #whole\n---\n```\ncode\n```\n")
+    write(vault, "block.md", "---\r\ncolor: #hidden\n---\r\n```\ncode\n```\n#real\n")
+
+    response = await client.get("/api/tags")
+
+    assert response.json() == ["#real"]

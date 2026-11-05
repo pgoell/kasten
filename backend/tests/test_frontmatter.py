@@ -83,7 +83,10 @@ def test_reads_an_unclosed_block_as_text() -> None:
 def test_leaves_the_body_alone_to_the_byte() -> None:
     content = "# Grüße\r\n\r\nNo trailing newline."
 
-    assert body(stamp(content, now=NOW)) == content
+    stamped = stamp(content, now=NOW)
+
+    # A CRLF text gets its block in CRLF too (#1470), so the cut is the closer's own.
+    assert stamped[body_start(stamped) :] == content
 
 
 def test_takes_the_id_and_the_creation_date_from_the_note_on_disk() -> None:

@@ -3,12 +3,13 @@
 import hashlib
 from typing import TYPE_CHECKING
 
+import pytest
+
 from kasten_backend.config import get_settings
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    import pytest
     from httpx import AsyncClient
 
 
@@ -308,17 +309,18 @@ async def test_save_of_lf_text_over_a_crlf_note_keeps_crlf(
     assert landed.endswith(b"\r\n---\r\n# one\r\n\r\n# two\r\n")
 
 
+@pytest.mark.parametrize("name", ["windows.md", "index.md"])
 async def test_append_to_a_crlf_note_keeps_crlf(
-    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str], name: str
 ) -> None:
-    (agent_vault / "windows.md").write_bytes(CRLF_NOTE)
+    (agent_vault / name).write_bytes(CRLF_NOTE)
 
     response = await client.post(
-        "/agent/notes/windows.md/append", json={"text": "# two\n"}, headers=bearer
+        f"/agent/notes/{name}/append", json={"text": "# two\n"}, headers=bearer
     )
 
     assert response.status_code == 200
-    landed = (agent_vault / "windows.md").read_bytes()
+    landed = (agent_vault / name).read_bytes()
     assert landed.count(b"\n") == landed.count(b"\r\n")
     assert landed.endswith(b"\r\n\r\n# one\r\n\r\n# two\r\n")
 

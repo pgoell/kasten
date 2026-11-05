@@ -82,7 +82,8 @@ def closing(lines: list[str]) -> int | None:
 def _fence(line: str) -> bool:
     """Whether `line` opens or closes a block.
 
-    The client reads the same cases, in backend/tests/fixtures/frontmatter_closers.json.
+    The client reads the same cases, in backend/tests/fixtures/frontmatter_closers.json. A lone CR
+    ends a line in the text a client is served, so a CR and blanks after a fence keep it one (#658).
     """
     return line.rstrip(" \t\r") == FENCE
 
@@ -199,20 +200,24 @@ def stamp(content: str, previous: str = "", *, now: datetime | None = None) -> s
     when = (now or datetime.now(UTC)).isoformat(timespec="seconds")
     block, body = _split(content)
     held = _split(previous)[0]
+    # A text that is CRLF throughout gets its written lines in CRLF too (#1470).
+    end = "\r" if "\r\n" in content and content.count("\n") == content.count("\r\n") else ""
+    opener, closer = _fences(content)
+    if not opener.endswith("\r"):
+        opener, closer = opener + end, closer + end
 
     opening = []
     if _line("id", block) is None:
-        opening.append(_line("id", held) or f"id: {uuid7()}")
+        opening.append((_line("id", held) or f"id: {uuid7()}") + end)
     if _line("created", block) is None:
-        opening.append(_line("created", held) or f"created: {when}")
+        opening.append((_line("created", held) or f"created: {when}") + end)
     if _line("type", block) is None:
-        opening.append(_line("type", held) or f"type: {DEFAULT_TYPE}")
+        opening.append((_line("type", held) or f"type: {DEFAULT_TYPE}") + end)
 
-    dated = [f"modified: {when}" if _key(line) == "modified" else line for line in block]
+    dated = [f"modified: {when}{end}" if _key(line) == "modified" else line for line in block]
     if _line("modified", block) is None:
-        dated.append(f"modified: {when}")
+        dated.append(f"modified: {when}{end}")
 
-    opener, closer = _fences(content)
     return "\n".join([opener, *opening, *dated, closer, *body])
 
 

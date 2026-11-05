@@ -76,7 +76,7 @@ one whole-note read, not a wrong tag.
 """
 
 BLOCK = (
-    r"\A---[ \t]*\r?\n"
+    r"\A---[ \t\r]*\n"
     r"(?:(?:[^-\n]|-[^-\n]|--[^-\n])[^\n]*\n|-{0,2}\r?\n)*?"
     r"(?:[^\n]*#|tags[ \t]*:)"
 )

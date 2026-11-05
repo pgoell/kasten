@@ -168,15 +168,22 @@ async def save_file(
             raise HTTPException(status_code=404, detail="No such note")
 
         current = note.read_text(encoding="utf-8")
+        # Served text has every CR turned to LF, but a client that sent CR names the bytes (#1470).
+        texts = {current, note.read_bytes().decode("utf-8")}
         relative = relative_path(settings.vault_path, note)
-        candidates = [unstamped(current)] if reserved(relative) else bases(current)
+        candidates = [
+            found
+            for text in texts
+            for found in ([unstamped(text)] if reserved(relative) else bases(text))
+        ]
         if edit.base is not None and edit.base not in {
             hashlib.sha256(text.encode("utf-8")).hexdigest() for text in candidates
         }:
-            held = (
-                edit.content == current
+            held = any(
+                edit.content == text
                 if reserved(relative)
-                else unstamped(stamp(edit.content, current)) == unstamped(current)
+                else unstamped(stamp(edit.content, current)) == unstamped(text)
+                for text in texts
             )
             if not held:
                 raise HTTPException(status_code=409, detail="Changed on disk")
@@ -191,7 +198,8 @@ async def save_file(
             label = f"{relative} (restored from {edit.restored_from})"
 
         async with vault_change(settings.vault_path, label):
-            write_note(note, content)
+            # A client that sent a CR chose its own endings; its next base names them (#1470).
+            write_note(note, content, as_sent="\r" in edit.content)
 
     return Note(path=path, content=content)
 

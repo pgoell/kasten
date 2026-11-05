@@ -366,12 +366,13 @@ def temporary_name(name: str) -> str:
     return f".{name.encode()[:room].decode(errors='ignore')}.tmp"
 
 
-def write_note(path: Path, content: str) -> None:
+def write_note(path: Path, content: str, *, as_sent: bool = False) -> None:
     """Write `content` over a note `resolve_note` returned, through a hidden temp file.
 
     The rename is atomic, so a crash leaves the old note whole. `newline=""` keeps the bytes
-    that arrived, bar the CRLF `landing` adds.
+    that arrived, bar the CRLF `landing` adds unless `as_sent` (#1470).
     """
     temporary = path.with_name(temporary_name(path.name))
-    temporary.write_text(landing(path, content), encoding="utf-8", newline="")
+    text = content if as_sent else landing(path, content)
+    temporary.write_text(text, encoding="utf-8", newline="")
     temporary.replace(path)
