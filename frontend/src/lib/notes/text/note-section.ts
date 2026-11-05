@@ -14,6 +14,9 @@ const TITLED = /^(#{1,6})[ \t]+(.*)$/;
 /** The backtick or tilde run that opens or closes a fence, and what follows it. */
 const FENCE = /^ {0,3}(`{3,}|~{3,})(.*)/;
 
+/** A closing run alone on its line, its indent measured apart from the margin. */
+const CLOSER = /^(`{3,}|~{3,})$/;
+
 /** A list marker and the space after it, where the item's content starts. */
 const LIST_MARKER = /^( {0,3})([-*+]|\d{1,9}[.)])( +|$)/;
 
@@ -32,6 +35,28 @@ function contentColumn(marker: RegExpExecArray): number {
 
 /** How far a line is indented. */
 const indent = (line: string) => line.length - line.trimStart().length;
+
+/** How far a line is indented in columns, a tab running to the next multiple of four. */
+function width(line: string): number {
+  let column = 0;
+  for (const char of line) {
+    if (char === " ") column += 1;
+    else if (char === "\t") column += 4 - (column % 4);
+    else break;
+  }
+  return column;
+}
+
+/** A bare run as long as `open`, of its character, indented at most three past `column` (#1480). */
+function closes(line: string, open: string, column: number): boolean {
+  const run = CLOSER.exec(line.trim())?.[1];
+  return (
+    run !== undefined &&
+    run[0] === open[0] &&
+    run.length >= open.length &&
+    width(line) <= column + 3
+  );
+}
 
 /**
  * The indices of fenced code lines, fences included, and the run of a fence nobody closes. A
@@ -61,12 +86,7 @@ export function fencedLines(lines: string[]): {
       column = itemColumn(lines, 0, index);
       coded.add(index);
     } else if (open !== null) {
-      const closes =
-        fence !== undefined &&
-        fence[0] === open[0] &&
-        fence.length >= open.length &&
-        line.trim() === fence;
-      if (closes) {
+      if (closes(line, open, column)) {
         open = null;
         openFrom = null;
       }

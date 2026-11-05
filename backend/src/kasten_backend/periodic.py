@@ -8,7 +8,7 @@ server needs its own copy of the day's template for the capture route, so
 import re
 from datetime import date, timedelta
 
-from kasten_backend.code_spans import code_spans, inside
+from kasten_backend.code_spans import code_spans, fence_closed, inside
 from kasten_backend.config import DEFAULTS
 from kasten_backend.frontmatter import body_start
 
@@ -92,11 +92,7 @@ def _open_fence(text: str, lines: list[str], *, frontmatter: bool = True) -> str
     marker = FENCE_LINE.match(lines[opener])
     if marker is None:
         return None
-    fence = marker[1]
-    # A CommonMark closer: three spaces at most before it, nothing but spaces after it.
-    closer = re.compile(rf" {{0,3}}{re.escape(fence[0])}{{{len(fence)},}}")
-    closed = any(closer.fullmatch(line.rstrip()) for line in lines[opener + 1 :])
-    return None if closed else fence
+    return None if fence_closed(text[body:], opener - text.count("\n", 0, body)) else marker[1]
 
 
 def _close(text: str, fence: str, *, frontmatter: bool = True) -> str:
