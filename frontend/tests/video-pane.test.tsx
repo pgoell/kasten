@@ -495,4 +495,44 @@ describe("the video pane", () => {
 
     expect(onWatched.mock.calls).toEqual([["dQw4w9WgXcQ", 40]]);
   });
+
+  it("#1498 A1 the linked video played again from 0 after its end, closed before a tick, writes no old end", async () => {
+    const { onWatched, unmount } = open();
+
+    await screen.findByTitle("video");
+    reports(1, 200);
+    reports(0, 212);
+    reports(1, 0);
+    unmount();
+
+    expect(onWatched.mock.calls).toEqual([["dQw4w9WgXcQ", 0]]);
+  });
+
+  it("#1498 I1 the player saying ended again with its end second, then a play from 0 and a close, writes no old end", async () => {
+    const { onWatched, unmount } = open();
+
+    await screen.findByTitle("video");
+    reports(1, 200);
+    reports(0, 212);
+    reports(0, 212);
+    reports(1, 0);
+    unmount();
+
+    expect(onWatched.mock.calls).toEqual([["dQw4w9WgXcQ", 0]]);
+  });
+
+  it("#1498 I2 after a play from 0 past the end, a pause writes its own second", async () => {
+    const { onWatched } = open();
+
+    await screen.findByTitle("video");
+    reports(1, 200);
+    reports(0, 212);
+    reports(1, 0);
+    reports(2, 15);
+
+    expect(onWatched.mock.calls).toEqual([
+      ["dQw4w9WgXcQ", 0],
+      ["dQw4w9WgXcQ", 15],
+    ]);
+  });
 });

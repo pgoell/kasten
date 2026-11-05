@@ -67,6 +67,8 @@ export interface VideoPlayer {
   togglePlayer: () => void;
   /** Seek to `seconds`, the one way the pane moves the video. */
   seek: (seconds: number) => void;
+  /** Seek `by` seconds on from where the player is, on whatever video it plays (#1497). */
+  skip: (by: number) => void;
   /** Whether the player is muted, as state, for the Mute button. */
   muted: boolean;
   /** Turn the volume up or down by `by`, within 0 to 100; unmutes, as YouTube does. */
@@ -135,6 +137,8 @@ export function useVideoPlayer({
   /** The video the player last named, and whether it is another one than `id`. */
   const named = useRef<string | undefined>(undefined);
   const elsewhere = useRef(false);
+  /** Where the other video the player moved on to is, by its id, so `skip` counts from its own second. */
+  const away = useRef<{ id?: string; at: number }>({ at: 0 });
   /** The player's volume as it last said or was told, for a browser that keeps none. */
   const level = useRef(100);
   // Read at mount: a kept mute is put back on ready, and the button says so from the start.
@@ -210,10 +214,14 @@ export function useVideoPlayer({
       // Every delivery carries the time and only some carry the state, so the
       // two are read apart. The time is what a stop is reported with, so it has
       // to be the one from before the stop rather than a zero the player sends
-      // on its way somewhere else.
-      if (!elsewhere.current && typeof info?.currentTime === "number" && info.currentTime > 0) {
-        second.current = info.currentTime;
-        setAt(info.currentTime);
+      // on its way somewhere else. An ended player saying its end again is no new place (#1498).
+      const time = info?.currentTime;
+      const stale = ended.current && !RUNNING.has(info?.playerState as number);
+      if (elsewhere.current && typeof time === "number")
+        away.current = { id: named.current, at: time };
+      if (!elsewhere.current && !stale && typeof time === "number" && time > 0) {
+        second.current = time;
+        setAt(time);
       }
       // The title and the author come in the same deliveries, and are kept by
       // the video they are about, so a `n` to another video shows its own. A
@@ -236,6 +244,8 @@ export function useVideoPlayer({
       // rather than its end. Written once: the player may say `ended` again.
       if (state === 0 && id !== undefined && !ended.current && !elsewhere.current) {
         ended.current = true;
+        // A play from the start, closed before a tick, would write the end back (#1498).
+        second.current = 0;
         onWatchedRef.current(id, 0);
       }
       // The edge and not the state: a player streams its state while it plays,
@@ -271,6 +281,17 @@ export function useVideoPlayer({
       setAt(to);
     },
     [frame],
+  );
+
+  // On another video only its own second moves: the linked one's place and marks stay, and nothing loads it (#1191).
+  const skip = useCallback(
+    (by: number) => {
+      if (!elsewhere.current) return seek(second.current + by);
+      const from = away.current.id === named.current ? away.current.at : 0;
+      away.current = { id: named.current, at: Math.max(0, from + by) };
+      command(frame.current, "seekTo", [away.current.at, true]);
+    },
+    [frame, seek],
   );
 
   // The browser's kept level comes first, so a second pane starts from the last one set in either.
@@ -341,6 +362,7 @@ export function useVideoPlayer({
     report,
     togglePlayer,
     seek,
+    skip,
     muted,
     volumeBy,
     toggleMute,

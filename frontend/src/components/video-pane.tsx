@@ -95,7 +95,7 @@ export function VideoPane({
   // you are three videos past, and landing on the last one beats landing on
   // nothing. `index` is only ever moved by `n` and `p`.
   const id = videos[Math.min(index, videos.length - 1)];
-  const { at, running, second, detail, report, seek, togglePlayer, muted, volumeBy, toggleMute } =
+  const { at, running, detail, report, seek, skip, togglePlayer, muted, volumeBy, toggleMute } =
     useVideoPlayer({
       id,
       frame,
@@ -198,7 +198,7 @@ export function VideoPane({
     ]);
     if (source === null) return keys;
     keys.set("k", togglePlayer).set("m", toggleMute);
-    keys.set("j", () => seek(second.current - 10)).set("l", () => seek(second.current + 10));
+    keys.set("j", () => skip(-10)).set("l", () => skip(10));
     keys.set("ArrowUp", () => volumeBy(5)).set("ArrowDown", () => volumeBy(-5));
     if (canFull) keys.set("f", toggleFull);
     return keys;
