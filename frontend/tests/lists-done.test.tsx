@@ -1,6 +1,8 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { ListsApp } from "@/lists/lists-app";
-import { fakeShare, type Seed } from "./lists-fixture";
+import { createListsStore, type ListData } from "@/lists/lists-store";
+import { localDay, requestFor } from "@/lists/lists-view";
+import { fakeShare, type Seed, setOnline } from "./lists-fixture";
 
 /** Stub `/share` with the seed and draw the app. */
 function open(seed: Record<string, Seed[]>) {
@@ -23,6 +25,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.useRealTimers();
+  Reflect.deleteProperty(navigator, "onLine");
 });
 
 describe("the done group", () => {
@@ -146,5 +149,126 @@ describe("the done group", () => {
     const composer = screen.getByRole("textbox", { name: "Eintrag" }).closest("footer");
     expect(composer).toContainElement(screen.getByRole("button", { name: "Hinzufügen" }));
     expect(composer?.parentElement?.lastElementChild).toBe(composer);
+  });
+});
+
+describe("a tick's day (#1513)", () => {
+  const PRESSED = new Date(2026, 10, 3, 23, 50);
+  const SENT = new Date(2026, 10, 4, 0, 10);
+
+  /** Stub `/share`, go offline at 23:50, and make a store there. */
+  function offlineBeforeMidnight(seed: Record<string, Seed[]>) {
+    const share = fakeShare(seed);
+    vi.stubGlobal("fetch", share.fetch);
+    setOnline(false);
+    vi.setSystemTime(PRESSED);
+    return { share, store: createListsStore() };
+  }
+
+  function onlineAfterMidnight(): void {
+    vi.setSystemTime(SENT);
+    setOnline(true);
+    window.dispatchEvent(new Event("online"));
+  }
+
+  it("a tick queued offline before midnight and sent after it, across a reload, sends the day it was pressed", async () => {
+    const { share, store } = offlineBeforeMidnight({
+      Einkauf: [{ text: "Milch", done: false }],
+      Todo: [],
+    });
+    store.tick("Einkauf", "Milch", true);
+    store.close();
+
+    const reloaded = createListsStore();
+    onlineAfterMidnight();
+
+    await vi.waitFor(() => expect(reloaded.snapshot().queue).toEqual([]));
+    expect(share.posts).toEqual([
+      {
+        path: "/share/lists/Einkauf/tick",
+        body: { line: 0, done: true, sha: "1", day: "2026-11-03" },
+      },
+    ]);
+    expect(share.items("Einkauf")[0]?.done).toBe(true);
+    reloaded.close();
+  });
+
+  it("a tick an older build queued with no day still goes up once, with the device's day", async () => {
+    const share = fakeShare({ Einkauf: [{ text: "Milch", done: false }], Todo: [] });
+    vi.stubGlobal("fetch", share.fetch);
+    localStorage.setItem(
+      "kasten.lists.queue",
+      JSON.stringify([{ kind: "tick", list: "Einkauf", text: "Milch", done: true, id: "old" }]),
+    );
+    const store = createListsStore();
+
+    await vi.waitFor(() => expect(store.snapshot().queue).toEqual([]));
+    expect(share.posts).toHaveLength(1);
+    expect(share.posts[0]?.body.day).toBe(localDay(new Date()));
+    expect(share.items("Einkauf")[0]?.done).toBe(true);
+    store.close();
+  });
+
+  it("a tick that meets a stale sha is sent again with the day it was pressed", async () => {
+    const { share, store } = offlineBeforeMidnight({
+      Einkauf: [{ text: "Milch", done: false }],
+      Todo: [],
+    });
+    store.tick("Einkauf", "Milch", true);
+    share.beforeWrite(() => share.external("Einkauf", "Brot"));
+    onlineAfterMidnight();
+
+    await vi.waitFor(() => expect(store.snapshot().queue).toEqual([]));
+    expect(share.posts.map((post) => post.body.day)).toEqual(["2026-11-03", "2026-11-03"]);
+    expect(share.items("Einkauf").find((item) => item.text === "Milch")?.done).toBe(true);
+    store.close();
+  });
+
+  it("an untick queued offline across midnight goes up once, to its own list", async () => {
+    const { share, store } = offlineBeforeMidnight({
+      Einkauf: [{ text: "Milch", done: true }],
+      Todo: [{ text: "Milch", done: true }],
+    });
+    store.tick("Todo", "Milch", false);
+    onlineAfterMidnight();
+
+    await vi.waitFor(() => expect(store.snapshot().queue).toEqual([]));
+    expect(share.posts.map((post) => post.path)).toEqual(["/share/lists/Todo/tick"]);
+    expect(share.items("Todo")[0]?.done).toBe(false);
+    expect(share.items("Einkauf")[0]?.done).toBe(true);
+    store.close();
+  });
+
+  it("requestFor sends a tick's own day over the send-time one, and no day on the other writes", () => {
+    const item = {
+      line: 3,
+      text: "Milch",
+      done: false,
+      assignee: null,
+      ticked_by: null,
+      ticked_at: null,
+    };
+    const list: ListData = { name: "Einkauf", sha: "s", items: [item] };
+    const tick = {
+      id: "1",
+      kind: "tick",
+      list: "Einkauf",
+      text: "Milch",
+      done: true,
+      day: "2026-11-03",
+    } as const;
+    const assign = {
+      id: "2",
+      kind: "assign",
+      list: "Einkauf",
+      text: "Milch",
+      assignee: "Anna",
+      from: null,
+    } as const;
+    const clear = { id: "3", kind: "clear", list: "Einkauf" } as const;
+
+    expect(requestFor(tick, list, "2026-11-04")?.body).toMatchObject({ day: "2026-11-03" });
+    expect(requestFor(assign, list, "2026-11-04")?.body).not.toHaveProperty("day");
+    expect(requestFor(clear, list, "2026-11-04")?.body).not.toHaveProperty("day");
   });
 });
