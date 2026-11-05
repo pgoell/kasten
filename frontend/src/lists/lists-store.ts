@@ -34,7 +34,7 @@ const NOBODY: Who = { me: null, people: [] };
  */
 type OpBody =
   | { kind: "add"; list: string; text: string; before?: number; kept?: string }
-  | { kind: "tick"; list: string; text: string; done: boolean }
+  | { kind: "tick"; list: string; text: string; done: boolean; day?: string }
   | { kind: "assign"; list: string; text: string; assignee: string | null; from: string | null }
   | { kind: "clear"; list: string };
 export type Op = OpBody & { id: string };
@@ -467,7 +467,9 @@ export function createListsStore(): ListsStore {
     },
     snapshot: () => snap,
     add: (list, text) => enqueue({ kind: "add", list, text }),
-    tick: (list, text, done) => enqueue({ kind: "tick", list, text, done }),
+    // The day of the press, so a tick sent after midnight stamps the day it was made (#1513).
+    tick: (list, text, done) =>
+      enqueue({ kind: "tick", list, text, done, day: localDay(new Date()) }),
     assign: (list, text, assignee, from) => enqueue({ kind: "assign", list, text, assignee, from }),
     clear: (list) => enqueue({ kind: "clear", list }),
     dismissErrors: () => update({ errors: [] }),

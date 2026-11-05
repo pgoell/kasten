@@ -22,6 +22,7 @@ export function localDay(now: Date): string {
  * The write one op makes against the list as it reads now, or none when the
  * list already says what the op asks for. A tick names its line from this read,
  * so a line that moved since the op was queued is found by its text instead.
+ * `day` stands in for a tick an older build queued with no day of its own.
  */
 export function requestFor(
   op: Op,
@@ -43,7 +44,10 @@ export function requestFor(
   }
   const item = list.items.find((found) => found.text === op.text && found.done !== op.done);
   if (!item) return null;
-  return { path: `${path}/tick`, body: { line: item.line, done: op.done, sha: list.sha, day } };
+  return {
+    path: `${path}/tick`,
+    body: { line: item.line, done: op.done, sha: list.sha, day: op.day ?? day },
+  };
 }
 
 /**
