@@ -52,6 +52,16 @@ def count_of(usage: dict, key: str) -> int:
     return value if 0 <= value <= COUNT_BOUND else 0
 
 
+def record_of(raw: str) -> dict | None:
+    """The JSON object a line holds, or None when it holds none; every reader parses here."""
+    try:
+        record = json.loads(raw)
+    # ValueError, not only JSONDecodeError: an integer of over 4300 digits raises it (#1495).
+    except ValueError:
+        return None
+    return record if isinstance(record, dict) else None
+
+
 def _message(record: object) -> Message | None:
     """The message a session record holds, or None when the record is not a countable one."""
     if not isinstance(record, dict) or record.get("type") != "assistant":
@@ -113,11 +123,7 @@ def _claude_messages(lines: list[str]) -> list[Message]:
     """The countable messages of a Claude Code file, one for each record that holds one."""
     found = []
     for raw in lines:
-        try:
-            record = json.loads(raw)
-        except json.JSONDecodeError:
-            continue
-        message = _message(record)
+        message = _message(record_of(raw))
         if message is not None:
             found.append(message)
     return found

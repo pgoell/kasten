@@ -12,7 +12,15 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from backend.tests.model_use_records import CONFIG, NOTE, record, session, usage
+from backend.tests.model_use_records import (
+    CONFIG,
+    LONG_COUNT,
+    MARK,
+    NOTE,
+    record,
+    session,
+    usage,
+)
 from kasten_backend.model_use import run
 from kasten_backend.model_use_sessions import COUNT_BOUND, count_of
 
@@ -302,3 +310,27 @@ def test_1174_a4_one_bound_for_every_source() -> None:
     counts = {"at": COUNT_BOUND, "past": COUNT_BOUND + 1, "zero": 0, "below": -1}
     read = tuple(count_of(counts, key) for key in counts)
     assert read == (COUNT_BOUND, 0, 0, 0)
+
+
+def test_1495_a2_a_codex_count_of_over_4300_digits_reads_as_broken(
+    world: tuple[Path, Path],
+) -> None:
+    source, vault = world
+    long = call(total=30000, out=MARK).replace(str(MARK), LONG_COUNT)
+    session(source, "rollout-a.jsonl", meta(), turn(), call(), long)
+
+    run(source, vault, CONFIG, DAY, DAY, NOW)
+
+    assert usage_lines(vault) == [CODEX_LINE]
+
+
+def test_1495_i1_a_codex_file_opening_on_such_a_line_is_still_codex(
+    world: tuple[Path, Path],
+) -> None:
+    source, vault = world
+    long = meta().replace("{", f'{{"n": {LONG_COUNT}, ', 1)
+    session(source, "rollout-a.jsonl", long, meta(), turn(), call())
+
+    run(source, vault, CONFIG, DAY, DAY, NOW)
+
+    assert usage_lines(vault) == [CODEX_LINE]

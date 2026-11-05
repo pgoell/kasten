@@ -14,6 +14,8 @@ import pytest
 
 from backend.tests.model_use_records import (
     CONFIG,
+    LONG_COUNT,
+    MARK,
     grok_counts,
     grok_session,
     grok_turn,
@@ -266,3 +268,31 @@ def test_1174_a3_a_negative_count_past_a_float_reads_as_broken(world: tuple[Path
     run(source, vault, CONFIG, DAY, DAY, NOW)
 
     assert usage_lines(vault) == [GROK_LINE.replace("out 193", "out 0").replace("0.0436", "0.0424")]
+
+
+def long_turn() -> str:
+    """A grok turn whose out count has more than 4300 digits."""
+    line = grok_turn("p9", {"grok-4.7": grok_counts(out=MARK)})
+    return line.replace(str(MARK), LONG_COUNT)
+
+
+def test_1495_a3_a_grok_count_of_over_4300_digits_reads_as_broken(
+    world: tuple[Path, Path],
+) -> None:
+    source, vault = world
+    grok_session(source, grok_turn(), long_turn())
+
+    run(source, vault, CONFIG, DAY, DAY, NOW)
+
+    assert usage_lines(vault) == [GROK_LINE]
+
+
+def test_1495_i2_a_grok_file_opening_on_such_a_line_is_still_grok(
+    world: tuple[Path, Path],
+) -> None:
+    source, vault = world
+    grok_session(source, long_turn(), grok_turn())
+
+    run(source, vault, CONFIG, DAY, DAY, NOW)
+
+    assert usage_lines(vault) == [GROK_LINE]
