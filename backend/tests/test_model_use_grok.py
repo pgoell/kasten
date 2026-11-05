@@ -14,6 +14,7 @@ import pytest
 
 from backend.tests.model_use_records import (
     CONFIG,
+    DEEP,
     LONG_COUNT,
     MARK,
     grok_counts,
@@ -292,6 +293,28 @@ def test_1495_i2_a_grok_file_opening_on_such_a_line_is_still_grok(
 ) -> None:
     source, vault = world
     grok_session(source, long_turn(), grok_turn())
+
+    run(source, vault, CONFIG, DAY, DAY, NOW)
+
+    assert usage_lines(vault) == [GROK_LINE]
+
+
+def test_1563_a3_a_grok_line_nested_past_the_recursion_limit_reads_as_broken(
+    world: tuple[Path, Path],
+) -> None:
+    source, vault = world
+    grok_session(source, grok_turn(), DEEP)
+
+    run(source, vault, CONFIG, DAY, DAY, NOW)
+
+    assert usage_lines(vault) == [GROK_LINE]
+
+
+def test_1563_i2_a_grok_file_opening_on_such_a_line_is_still_grok(
+    world: tuple[Path, Path],
+) -> None:
+    source, vault = world
+    grok_session(source, DEEP, grok_turn())
 
     run(source, vault, CONFIG, DAY, DAY, NOW)
 

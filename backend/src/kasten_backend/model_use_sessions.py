@@ -56,8 +56,8 @@ def record_of(raw: str) -> dict | None:
     """The JSON object a line holds, or None when it holds none; every reader parses here."""
     try:
         record = json.loads(raw)
-    # ValueError, not only JSONDecodeError: an integer of over 4300 digits raises it (#1495).
-    except ValueError:
+    # Over 4300 digits raise a bare ValueError (#1495), deep nesting RecursionError (#1563).
+    except ValueError, RecursionError:
         return None
     return record if isinstance(record, dict) else None
 

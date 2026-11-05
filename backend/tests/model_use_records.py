@@ -18,6 +18,8 @@ MARK = 424242
 """A count a test swaps for LONG_COUNT in a dumped line: json.dumps refuses one that long."""
 LONG_COUNT = "1" + "0" * 5000
 """A count of more than 4300 digits, which json.loads refuses with a bare ValueError."""
+DEEP = "[" * 100000 + "]" * 100000
+"""A line nested past the recursion limit, which json.loads refuses with RecursionError."""
 PRICES = (
     "## Prices\n"
     "- claude-opus-5-5: input 4, output 20, cache write 5m 5, cache write 1h 8, cache read 0.2\n"
