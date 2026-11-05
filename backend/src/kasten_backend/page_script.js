@@ -148,27 +148,41 @@
     });
   };
 
+  const fresh = () => {
+    if (hasSelection() && !holds(getSelection().getRangeAt(0))) post();
+  };
   window.addEventListener("mouseup", post);
-  // A keyboard-grown selection says it changed only on keyup, Shift perhaps let go
-  // first. A Mac drops the keyup of `a` held with Cmd, so Meta's own counts (#1298).
+  // Shift may be let go first. A Mac drops the keyup of `a` held with Cmd, so
+  // Meta's own counts (#1298).
   const KEYED = [...MOVES, "Shift", "Control", "Meta"];
   window.addEventListener("keyup", (event) => {
     const all = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "a";
-    if (!all && !KEYED.includes(event.key)) return;
-    if (hasSelection() && !holds(getSelection().getRangeAt(0))) post();
+    if (all || KEYED.includes(event.key)) fresh();
   });
-  // A touch selection has no mouseup; only pointerdown says it was touch.
+  // A touch selection has no mouseup; only pointerdown says it was touch. The
+  // buttons come from every pointer event, so a mouseup lost outside the frame heals.
   let touch = false;
-  window.addEventListener(
-    "pointerdown",
-    (event) => {
-      touch = event.pointerType === "touch";
-    },
-    true,
-  );
+  let pressed = 0;
+  const press = (event) => {
+    if (event.type === "pointerdown") touch = event.pointerType === "touch";
+    pressed = event.buttons;
+  };
+  for (const type of ["pointerdown", "pointerup", "pointermove"]) {
+    window.addEventListener(type, press, true);
+  }
+  // A selection the page sees no mouseup or key for, such as the menu's Select all
+  // (#1509), posts once settled; a drag waits for its mouseup.
+  let settling = false;
   document.addEventListener("selectionchange", () => {
     if (getSelection().toString() === "") post();
     else if (touch) later();
+    else if (!settling && (pressed & 1) === 0) {
+      settling = true;
+      requestFrame(() => {
+        settling = false;
+        if ((pressed & 1) === 0) fresh();
+      });
+    }
   });
   // Capture phase, so a scroller inside the page moves the rect too.
   window.addEventListener(

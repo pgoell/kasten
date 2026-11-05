@@ -3,7 +3,7 @@
  * #1293), across a keep that lands late (#897) and across a slow page's own load
  * (#1295), in a real browser. The page runs its script and draws long before its
  * load where `serveSlowly` holds an image of it back. Also the keyboard's
- * selections (#1298) and a share per press (#1297).
+ * selections (#1298), the menu's Select all (#1509) and a share per press (#1297).
  */
 
 import "./html-take-api";
@@ -192,6 +192,36 @@ describe.each(KINDS)("$name", ({ phone, vim }) => {
     expect(api.puts[0]?.content).not.toContain("bravo");
     await expect.poll(() => marksOf(frame)).toEqual([]);
   });
+  it("the right-click menu's Select all, with no mouseup or key, shows the take button and the take takes the page (#1509)", async () => {
+    await browser.servePage(PATH, report("old"));
+    renderPanes(mounted, [PATH], { phone });
+    const frame = frameOf(mounted, 0);
+    await ready(frame);
+    await userEvent.click(frame);
+    await ask(frame, { probe: "selectAll" }, "selected");
+
+    await expect.poll(() => takeButton(mounted)).not.toBeNull();
+    if (phone) await userEvent.click(takeButton(mounted) as HTMLElement);
+    else await userEvent.keyboard("y");
+    await expect.poll(() => api.dumps.length).toBe(1);
+    expect(api.dumps[0]).toContain("> Alpha bravo charlie delta echo.");
+  });
+
+  it("the menu's Select all after a posted passage takes the whole page, not the older passage (#1509)", async () => {
+    await browser.servePage(PATH, report("old"));
+    renderPanes(mounted, [PATH], { phone });
+    const frame = frameOf(mounted, 0);
+    await ready(frame);
+    await choose(frame, ["p1", 6, "p1", 11]);
+    await ask(frame, { probe: "selectAll" }, "selected");
+    // Two frames, so a post queued by the change has gone.
+    await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
+
+    if (phone) await userEvent.click(takeButton(mounted) as HTMLElement);
+    else await userEvent.keyboard("y");
+    await expect.poll(() => api.dumps.length).toBe(1);
+    expect(api.dumps[0]).toContain("> Alpha bravo charlie delta echo.");
+  });
 });
 
 describe.each(KINDS.filter((kind) => !kind.phone))("$name, keys", ({ vim }) => {
@@ -238,6 +268,19 @@ describe.each(KINDS.filter((kind) => !kind.phone))("$name, keys", ({ vim }) => {
     await userEvent.keyboard("y");
     await expect.poll(() => api.dumps.length).toBe(1);
     expect(api.dumps[0]).toMatch(/^> Alpha$/m);
+  });
+
+  it("a mouse drag posts no selection while the button is held, and posts it at the mouseup (#1509)", async () => {
+    await browser.servePage(PATH, report("old"));
+    renderPanes(mounted, [PATH], {});
+    const frame = frameOf(mounted, 0);
+    await ready(frame);
+    await userEvent.click(frame);
+    await ask(frame, { probe: "dragSelect", range: ["p1", 0, "p1", 5] }, "dragging");
+    expect(takeButton(mounted)).toBeNull();
+
+    await ask(frame, { probe: "drop" }, "dropped");
+    await expect.poll(() => takeButton(mounted)).not.toBeNull();
   });
 
   it("arrow keys with nothing selected show no take button", async () => {
