@@ -13,6 +13,8 @@ import sys
 from html.parser import HTMLParser
 from pathlib import Path
 
+from kasten_backend import html_closer
+
 LINKS_OUT = b"""
 <script>
 document.addEventListener("click", (event) => {
@@ -251,167 +253,6 @@ class _Tokens(HTMLParser):
             self.head_at = self._offset()
 
 
-_RAW_TEXT = (
-    "script",
-    "style",
-    "textarea",
-    "title",
-    "xmp",
-    "iframe",
-    "noembed",
-    "noframes",
-    "noscript",
-)
-"""Elements whose text runs to their own end tag, so a `<` inside one opens nothing."""
-
-_OPEN = re.compile(r"<(!--|[!?]|/[A-Za-z]|/|[A-Za-z])")
-_TAG_NAME = re.compile(r"[^\t\n\f\r />]*")
-_NAME = re.compile(r"=?[^\t\n\f\r />=]*")
-_UNQUOTED = re.compile(r"[^\t\n\f\r >]*")
-_COMMENT_END = re.compile(r"--!?>")
-_SPACE = " \t\n\f\r"
-"""HTML's whitespace, which the classes above spell out: `\\s` would take in a no-break space."""
-
-
-def _past(pattern: re.Pattern[str], page: str, at: int) -> int:
-    """Where a run of `pattern` from `at` ends. Each pattern here matches an empty run too."""
-    found = pattern.match(page, at)
-    return found.end() if found else at
-
-
-def _value_end(page: str, at: int) -> int | str:
-    """Where the value after an `=` at `at` ends, or what closes the tag if the page ends first."""
-    while at < len(page) and page[at] in _SPACE:
-        at += 1
-    if at == len(page):
-        return ">"
-    if page[at] in "\"'":
-        close = page.find(page[at], at + 1)
-        return page[at] + ">" if close == -1 else close + 1
-    # A `>` here ends the tag with no value, and the caller reads it.
-    return _past(_UNQUOTED, page, at) if page[at] != ">" else at
-
-
-def _tag_end(page: str, at: int) -> int | str:
-    """Where a tag ends, from just past its name, or what closes it when the page ends inside it.
-
-    The states are the WHATWG tokenizer's: an `=` starts a value only after a name.
-    """
-    named = False
-    while at < len(page):
-        char = page[at]
-        if char == ">":
-            return at + 1
-        if char in _SPACE or char == "/":
-            named = named and char != "/"
-            at += 1
-            continue
-        if char == "=" and named:
-            end = _value_end(page, at + 1)
-            if isinstance(end, str):
-                return end
-            at, named = end, False
-            continue
-        at, named = _past(_NAME, page, at), True
-    return ">"
-
-
-_ESCAPE = re.compile(r"(<!--)|(-->)|<(/?)script(?=[\t\n\f\r />]|\Z)", re.IGNORECASE)
-_FOREIGN = ("svg", "math")
-
-
-def _script_end(page: str, at: int) -> int | None:
-    """Where the `</script` that ends a script's text ends, or None when the page ends first.
-
-    The tokenizer's script states: a `<script` after `<!--` starts a double escape, inside which a
-    `</script` ends only the double escape and `-->` ends both.
-    """
-    escaped = double = False
-    while (found := _ESCAPE.search(page, at)) is not None:
-        at = found.end()
-        if found.group(1):
-            # The `--` of `<!--` may close it again: `<!-->`.
-            escaped, at = True, found.start() + 2
-        elif found.group(2):
-            escaped = double = False
-        elif found.group(3):
-            if not double:
-                return at
-            double = False
-        else:
-            double = escaped
-    return None
-
-
-def _element_end(page: str, found: re.Match[str], name: str, foreign: list[str]) -> int | str:
-    """Where a tag, and the text of a raw text element it starts, ends, or what closes them.
-
-    Inside `<svg>` or `<math>` no element holds raw text.
-    """
-    end = _tag_end(page, found.end() + len(name) - 1)
-    if found.group(1).startswith("/") or name not in _RAW_TEXT or foreign:
-        return end
-    if isinstance(end, str):
-        return end + f"</{name}>"
-    if name == "script":
-        closing = _script_end(page, end)
-        if closing is None:
-            # Only a double escape needs the `-->` first, and `</script>` alone keeps #886's bytes.
-            return "</script>" if _script_end(page + "</script>", end) else "--></script>"
-        return _tag_end(page, closing)
-    closing = re.compile(rf"</{name}(?=[\t\n\f\r />]|\Z)", re.IGNORECASE).search(page, end)
-    return f"</{name}>" if closing is None else _tag_end(page, closing.end())
-
-
-def _markup_end(page: str, found: re.Match[str], foreign: list[str]) -> int | str:
-    """Where a comment, doctype or CDATA section ends, or what closes it."""
-    kind, at = found.group(1), found.end()
-    if kind == "!--" and page.startswith((">", "->"), at):
-        return page.index(">", at) + 1
-    if kind == "!--":
-        closing = _COMMENT_END.search(page, at)
-        return "-->" if closing is None else closing.end()
-    if kind == "!" and foreign and page.startswith("[CDATA[", at):
-        closing = page.find("]]>", at + 7)
-        return "]]>" if closing == -1 else closing + 3
-    # A doctype, a bogus comment, or a `</` with no name, each ended by the next `>`.
-    closing = page.find(">", at)
-    return ">" if closing == -1 else closing + 1
-
-
-def _closer(page: str) -> tuple[int, str]:
-    """Where the appended scripts go in a page cut off mid-write, and what closes it before them.
-
-    Appended scripts would land inside an open tag, comment, raw text, `<svg>` or `<math>` and not
-    run (#886). Nothing ends a `<plaintext>`, so they go ahead of it (#1489). A whole page needs
-    nothing. Open `<svg>` and `<math>` are only counted: a breakout tag or `<foreignObject>` is not.
-    """
-    at, foreign = 0, []
-    while (found := _OPEN.search(page, at)) is not None:
-        kind = found.group(1)
-        name = page[found.end() - 1 : _past(_TAG_NAME, page, found.end())].lower()
-        if kind[-1].isalpha() and name == "plaintext" and kind[0] != "/" and not foreign:
-            return found.start(), ""
-        if kind[-1].isalpha():
-            end = _element_end(page, found, name, foreign)
-        else:
-            end = _markup_end(page, found, foreign)
-        if isinstance(end, str):
-            return len(page), end + "".join(f"</{n}>" for n in reversed(foreign))
-        if kind[-1].isalpha() and name in _FOREIGN:
-            _count(foreign, name, kind[0] == "/", page[end - 2] == "/")
-        at = end
-    return len(page), "".join(f"</{n}>" for n in reversed(foreign))
-
-
-def _count(foreign: list[str], name: str, end_tag: bool, self_closing: bool) -> None:
-    """Keep `foreign` the open `<svg>` and `<math>` elements, innermost last."""
-    if not end_tag and not self_closing:
-        foreign.append(name)
-    elif end_tag and name in foreign:
-        del foreign[len(foreign) - 1 - foreign[::-1].index(name) :]
-
-
 def _bytes(text: str) -> bytes:
     """Encode a piece of a page the way the page was decoded, so the bad bytes come back."""
     return text.encode("utf-8", "surrogateescape")
@@ -433,7 +274,7 @@ def serve_page(raw: bytes, theme: str | None, palette: str | None) -> tuple[byte
         if len(raw) % 2:
             raw += b"\x00"
         text = raw[2:].decode(encoding, "surrogatepass")
-        cut, closer = _closer(text)
+        cut, closer = html_closer.closer(text)
         at = 2 + len(text[:cut].encode(encoding, "surrogatepass"))
         scripts = (closer + (LINKS_OUT + PAGE_SCRIPT).decode("ascii")).encode(encoding)
         return raw[:at] + scripts + raw[at:], "utf-8"
@@ -445,7 +286,7 @@ def serve_page(raw: bytes, theme: str | None, palette: str | None) -> tuple[byte
     doctype_end = page.find(">", tokens.first or 0) if tokens.first_is_doctype else -1
     bom = 1 if page.startswith("﻿") else 0
     script_at = doctype_end + 1 if doctype_end != -1 else bom
-    cut, closer = _closer(page)
+    cut, closer = html_closer.closer(page)
 
     if tokens.meta_end is None or theme not in THEMES or palette not in PALETTES:
         return (

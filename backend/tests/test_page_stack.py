@@ -198,3 +198,52 @@ def test_1489_a_utf16_page_gets_both_scripts_ahead_of_a_plaintext_element(
 
     scripts = (LINKS_OUT + PAGE_SCRIPT).decode("ascii")
     assert served == head + scripts.encode(encoding) + "<plaintext>b".encode(encoding)
+
+
+SCRIPT = b'<script>s = "<!--";</script>'
+
+
+@pytest.mark.parametrize(
+    ("end", "closer"),
+    [
+        (b"<svg><foreignObject>" + SCRIPT + b"</foreignObject></svg>", b""),
+        (b"<svg><desc>" + SCRIPT + b"</desc></svg>", b""),
+        (b"<svg><title>" + SCRIPT + b"</title></svg>", b""),
+        (b"<math><mi>" + SCRIPT + b"</mi></math>", b""),
+        (b"<math><mtext>" + SCRIPT + b"</mtext></math>", b""),
+        (
+            b'<math><annotation-xml encoding="TEXT/HTML">' + SCRIPT + b"</annotation-xml>",
+            b"</math>",
+        ),
+        (b"<math><mi><script><!--a", b"</script></math>"),
+        (b"<math><mi><mglyph><script><!--a", b"--></math>"),
+        (b"<svg><p><script><!--a", b"</script>"),
+        (b"<svg><g><div><![CDATA[a", b">"),
+        (b"<svg><font color=red><![CDATA[a", b">"),
+        (b"<svg><font><![CDATA[a", b"]]></svg>"),
+        (b"<svg></p><![CDATA[a", b">"),
+        (b"<svg><foreignObject><p><svg><![CDATA[a", b"]]></svg></svg>"),
+        (b"<svg><foreignObject><div>x</div></foreignObject><p><![CDATA[a", b">"),
+        (b"<svg><svg></svg><![CDATA[a", b"]]></svg>"),
+        (b"<svg width=10/><![CDATA[x", b"]]></svg>"),
+        (b"<svg b=/><![CDATA[x", b"]]></svg>"),
+        (b'<svg width="10"/><![CDATA[x', b">"),
+        (b"<svg width=10 /><![CDATA[x", b">"),
+        (b"<svg//><![CDATA[x", b">"),
+    ],
+)
+def test_1559_the_closer_reads_svg_and_math_by_the_spec(end: bytes, closer: bytes) -> None:
+    page = DOCTYPE + b"<p>a</p>" + end
+
+    served, _ = serve_page(page, None, None)
+
+    assert served == DOCTYPE + PAGE_SCRIPT + page[len(DOCTYPE) :] + closer + LINKS_OUT
+
+
+def test_1559_a_plaintext_in_foreign_object_takes_the_link_script_ahead_of_it() -> None:
+    page = DOCTYPE + b"<svg><foreignObject><plaintext>b</svg>"
+
+    served, _ = serve_page(page, None, None)
+
+    head = DOCTYPE + PAGE_SCRIPT + b"<svg><foreignObject>"
+    assert served == head + LINKS_OUT + b"<plaintext>b</svg>"
