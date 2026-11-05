@@ -198,7 +198,8 @@ async def save_file(
             label = f"{relative} (restored from {edit.restored_from})"
 
         async with vault_change(settings.vault_path, label):
-            write_note(note, content)
+            # A client that sent a CR chose its own endings; its next base names them (#1470).
+            write_note(note, content, as_sent="\r" in edit.content)
 
     return Note(path=path, content=content)
 
