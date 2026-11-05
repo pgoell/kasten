@@ -34,8 +34,10 @@ finder that leaves a name inside a tag alone.
    the end of the note. An indented block is code as CommonMark reads it, four
    spaces or a tab after a blank line, or after a quote or list marker, so
    `>     #h` and `-     #h` open code; a line indented under a list item goes
-   on with the item and keeps its tags. A comment may run over several lines.
-   As in the editor, `<!-->` after other text opens no comment, so
+   on with the item and keeps its tags. A comment after other text may run over
+   the lines of its paragraph but not past a blank line, and holds no `--`, so
+   `a <!-- x -- #t -->` and `a <!-- y`, a blank line, `#t`, `-->` carry `#t`
+   (#1474, #1475). As in the editor, `<!-->` after other text opens no comment, so
    `a <!--> #x -->` carries `#x`, while `<!--->` opens one that runs to the
    next `-->`. A line opening with either is a block that ends on that line
    (#657).
@@ -69,8 +71,8 @@ finder that leaves a name inside a tag alone.
    none opens a block. A reader of one line hides a line that opens a block,
    and the readers holding a note hand a note with a line opening on `<` to a
    parser for the lines under it. The block names are the editor's, where
-   `<search>` and `<textarea>` open no block and `<source>` does; the
-   backend's parser reads those three the other way (#1472).
+   `<search>` and `<textarea>` open no block and `<source>` does, in every
+   reader (#1472).
 
 `# Heading`, a hash and a space, opens a heading and is no tag.
 
