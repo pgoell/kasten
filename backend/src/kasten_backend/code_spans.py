@@ -28,11 +28,9 @@ BLOCK_NAMES = (
     "|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup"
     "|option|p|param|section|source|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul"
 )
-"""The names that open an HTML block of kind 6, as the editor's parser lists them (#1472).
+"""The names that open an HTML block of kind 6, as the editor's parser and `tag-rule.ts` list them.
 
-A regex alternation, written as `tag-rule.ts` writes it.
-
-An older spec's list: `source` but no `search`, where markdown-it's own list swaps them.
+An older spec's list: `source` but no `search`, where markdown-it's own list swaps them (#1472).
 """
 
 _HTML_KINDS = [
@@ -84,11 +82,11 @@ def _html_block(state: StateBlock, first: int, end: int, silent: bool) -> bool:
 
 
 FENCES = MarkdownIt("commonmark").disable(["inline", "text_join"])
-FENCES.block.ruler.at("html_block", _html_block, {"alt": ["paragraph", "reference", "blockquote"]})
 """The parser that finds fenced code blocks, at any depth of quote or list.
 
 Blocks only: the inline pass would nearly double the time a long note holds the event loop.
 """
+FENCES.block.ruler.at("html_block", _html_block, {"alt": ["paragraph", "reference", "blockquote"]})
 
 BACKTICKS = re.compile(r"`+")
 """One run of backticks, which opens or closes an inline code span."""
