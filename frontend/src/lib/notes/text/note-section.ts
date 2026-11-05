@@ -20,6 +20,9 @@ const CLOSER = /^(`{3,}|~{3,})$/;
 /** A list marker and the space after it, where the item's content starts. */
 const LIST_MARKER = /^([ \t]*)([-*+]|\d{1,9}[.)])( +|$)/;
 
+/** Each line's item column worked out so far in one read, so a deep marker is walked once. */
+type Known = Map<number, number>;
+
 /** An ATX heading line, which ends a list item's paragraph whatever is above it. */
 const HEADING_LINE = /^#{1,6}( |$)/;
 
@@ -62,12 +65,12 @@ function closes(line: string, open: string, column: number): boolean {
  * The run that opens a fence on line `index`, or undefined. It sits at most three past the margin
  * or past the content column of its list item, nested ones too (#1550).
  */
-function openingRun(lines: string[], index: number): string | undefined {
+function openingRun(lines: string[], index: number, known: Known): string | undefined {
   const line = lines[index] ?? "";
   const match = FENCE.exec(line);
   const fence = match?.[1];
   if (fence === undefined || (fence[0] === "`" && match?.[2]?.includes("`"))) return undefined;
-  return width(line) <= itemColumn(lines, 0, index) + 3 ? fence : undefined;
+  return width(line) <= itemColumn(lines, 0, index, known) + 3 ? fence : undefined;
 }
 
 /**
@@ -84,16 +87,17 @@ export function fencedLines(lines: string[]): {
   let open: string | null = null;
   let openFrom: number | null = null;
   let column = 0;
+  const known: Known = new Map();
   lines.forEach((line, index) => {
     if (open !== null && line.trim() !== "" && width(line) < column) {
       open = null;
       openFrom = null;
     }
-    const fence = open === null ? openingRun(lines, index) : undefined;
+    const fence = open === null ? openingRun(lines, index, known) : undefined;
     if (fence !== undefined) {
       open = fence;
       openFrom = index;
-      column = itemColumn(lines, 0, index);
+      column = itemColumn(lines, 0, index, known);
       coded.add(index);
     } else if (open !== null) {
       if (closes(line, open, column)) {
@@ -161,41 +165,65 @@ function sectionEnd(lines: string[], at: number, isFenced: (index: number) => bo
  * The content column of the list item the fence on line `opener` sits in, or 0 outside one. A
  * closer at column 0 would fall out of the item. Lines above `floor` (the frontmatter) are not read.
  */
-function itemColumn(lines: string[], floor: number, opener: number): number {
+function itemColumn(
+  lines: string[],
+  floor: number,
+  opener: number,
+  known: Known = new Map(),
+): number {
+  const held = known.get(opener);
+  if (held !== undefined) return held;
+  const column = walkItemColumn(lines, floor, opener, known);
+  known.set(opener, column);
+  return column;
+}
+
+function walkItemColumn(lines: string[], floor: number, opener: number, known: Known): number {
   const n = width(lines[opener] ?? "");
   if (n === 0) return 0;
   const at = (index: number) => lines[index] ?? "";
   let index = opener - 1;
   while (index >= floor && (at(index).trim() === "" || width(at(index)) >= n)) index -= 1;
   if (index < floor || HEADING_LINE.test(at(index))) return 0;
-  const first = markerAt(lines, floor, index);
+  const first = markerAt(lines, floor, index, known);
   if (first !== null) return contentColumn(first) <= n ? contentColumn(first) : 0;
-  return lazyItemColumn(lines, floor, index, n);
+  return lazyItemColumn(lines, floor, index, n, known);
 }
 
 /**
  * The list marker line `index` opens an item with, or null. A break is no marker (#1557), and one
  * four or more columns in is an item only within three of its own item's content (#1553).
  */
-function markerAt(lines: string[], floor: number, index: number): RegExpExecArray | null {
+function markerAt(
+  lines: string[],
+  floor: number,
+  index: number,
+  known: Known,
+): RegExpExecArray | null {
   const line = lines[index] ?? "";
   if (QUOTE_OR_BREAK.test(line.trimStart())) return null;
   const marker = LIST_MARKER.exec(line);
   if (marker === null || width(line) <= 3) return marker;
-  return width(line) <= itemColumn(lines, floor, index) + 3 ? marker : null;
+  return width(line) <= itemColumn(lines, floor, index, known) + 3 ? marker : null;
 }
 
 /**
  * A lazy continuation line's item: its marker may sit further up, with no blank line between. A
  * quote or break left of the item's content ends the item.
  */
-function lazyItemColumn(lines: string[], floor: number, from: number, n: number): number {
+function lazyItemColumn(
+  lines: string[],
+  floor: number,
+  from: number,
+  n: number,
+  known: Known,
+): number {
   let edge = n;
   for (let index = from; index >= floor; index -= 1) {
     const held = lines[index] ?? "";
     if (held.trim() === "" || HEADING_LINE.test(held)) return 0;
     if (QUOTE_OR_BREAK.test(held.trimStart())) edge = Math.min(edge, width(held));
-    const marker = index === from ? null : markerAt(lines, floor, index);
+    const marker = index === from ? null : markerAt(lines, floor, index, known);
     // An item whose content sits past the edge has ended: go on up to one that holds it (#1557).
     if (marker !== null && contentColumn(marker) <= Math.min(n, edge)) return contentColumn(marker);
     // An outer item holds a passed marker only at or left of its lead.

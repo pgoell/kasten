@@ -204,6 +204,14 @@ describe("fencedLines closers in a list item", () => {
     expect(read.openRun).toBe(openRun);
   });
 
+  it("1553 reads deep items split by lazy lines without a blowup", () => {
+    const pairs = Array.from({ length: 40 }, () => ["  lazy", "    - d"]).flat();
+    const started = performance.now();
+    const read = fencedLines(["- a", "  - b", "    - c", ...pairs, "      ~~~", "      x"]);
+    expect(performance.now() - started).toBeLessThan(500);
+    expect(read.openRun).toBe("~~~");
+  });
+
   it("1553 appendUnder adds no closer at the margin after a deep fence left open", () => {
     const text = "## Log\n- a\n  - b\n    - c\n      - d\n        ```\n        code";
     expect(appendUnder(text, "## Log", "- x")).toBe(`${text}\n- x`);
