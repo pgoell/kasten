@@ -27,9 +27,11 @@ const LIST_MARKER = /^([ \t]*)([-*+]|\d{1,9}[.)])( +|$)/;
 interface Known {
   columns: Map<number, number>;
   coded: Set<number>;
+  text: Map<number, boolean>;
+  left: number[];
 }
 
-/** An ATX heading line, which ends a list item's paragraph whatever is above it. */
+/** An ATX heading's hashes, wherever the line is indented. */
 const HEADING_LINE = /^#{1,6}( |$)/;
 
 /** A thematic break, after which no line is lazy. */
@@ -99,7 +101,7 @@ export function fencedLines(lines: string[]): {
   let open: string | null = null;
   let openFrom: number | null = null;
   let column = 0;
-  const known: Known = { columns: new Map(), coded };
+  const known: Known = { columns: new Map(), coded, text: new Map(), left: leftOf(lines) };
   lines.forEach((line, index) => {
     if (open !== null && line.trim() !== "" && width(line) < column) {
       open = null;
@@ -189,16 +191,31 @@ function itemColumn(lines: string[], index: number, known: Known): number {
 function walkItemColumn(lines: string[], line: number, known: Known): number {
   const n = width(lines[line] ?? "");
   if (n === 0) return 0;
-  const at = (index: number) => lines[index] ?? "";
-  let index = line - 1;
-  while (index >= 0 && (at(index).trim() === "" || width(at(index)) >= n)) index -= 1;
-  if (index < 0 || HEADING_LINE.test(at(index))) return 0;
+  const index = known.left[line] ?? -1;
+  if (index < 0) return 0;
+  if (heading(lines, index, known)) return itemColumn(lines, index, known);
   const first = markerAt(lines, index, known);
   // A deeper item has ended at this line, which sits in the item its marker sits in.
   if (first !== null) {
     return contentColumn(first) <= n ? contentColumn(first) : itemColumn(lines, index, known);
   }
   return lazyItemColumn(lines, index, n, known);
+}
+
+/**
+ * For each line, the nearest non-blank line above it that is indented less, or -1. One pass, so a
+ * long run of deep lines is not walked once per line (#1583).
+ */
+function leftOf(lines: string[]): number[] {
+  const stack: number[] = [];
+  return lines.map((line, index) => {
+    if (line.trim() === "") return stack.at(-1) ?? -1;
+    const n = width(line);
+    while (stack.length > 0 && width(lines[stack.at(-1) ?? 0] ?? "") >= n) stack.pop();
+    const left = stack.at(-1) ?? -1;
+    stack.push(index);
+    return left;
+  });
 }
 
 /**
@@ -239,13 +256,48 @@ function lazyItemColumn(lines: string[], from: number, n: number, known: Known):
  */
 function placedColumn(lines: string[], index: number, cap: number, known: Known): number | null {
   const held = lines[index] ?? "";
-  if (held.trim() === "" || HEADING_LINE.test(held)) return 0;
-  const { coded } = known;
+  if (held.trim() === "") return 0;
   const lazy =
-    !coded.has(index) && !coded.has(index - 1) && !BREAK.test((lines[index - 1] ?? "").trim());
+    !known.coded.has(index) && !heading(lines, index, known) && paragraph(lines, index - 1, known);
   if (lazy) return null;
   const column = itemColumn(lines, index, known);
   return column <= cap ? column : 0;
+}
+
+/**
+ * Whether line `index` is paragraph text, which the line below may continue lazily. Filled upward
+ * from the nearest line already read, so a long run costs no deep recursion.
+ */
+function paragraph(lines: string[], index: number, known: Known): boolean {
+  let from = index;
+  while (from >= 0 && !known.text.has(from)) from -= 1;
+  for (let at = from + 1; at <= index; at += 1) known.text.set(at, isText(lines, at, known));
+  return known.text.get(index) ?? false;
+}
+
+/**
+ * Paragraph text, given the lines above. A line four past its item's content after anything else
+ * is indented code (#1583).
+ */
+function isText(lines: string[], index: number, known: Known): boolean {
+  const held = lines[index] ?? "";
+  if (held.trim() === "" || known.coded.has(index) || BREAK.test(held.trim())) return false;
+  if (heading(lines, index, known)) return false;
+  return width(held) < itemColumn(lines, index, known) + 4 || paragraph(lines, index - 1, known);
+}
+
+/**
+ * Whether line `index` is a heading. Under paragraph text its hashes sit at most three past the
+ * paragraph's content, else at most three past its own item's (#1583).
+ */
+function heading(lines: string[], index: number, known: Known): boolean {
+  const held = lines[index] ?? "";
+  if (!HEADING_LINE.test(held.trimStart())) return false;
+  const above = paragraph(lines, index - 1, known);
+  const marker = above ? markerAt(lines, index - 1, known) : null;
+  const column =
+    marker !== null ? contentColumn(marker) : itemColumn(lines, above ? index - 1 : index, known);
+  return width(held) <= column + 3;
 }
 
 /**
