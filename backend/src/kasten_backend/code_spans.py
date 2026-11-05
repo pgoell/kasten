@@ -126,17 +126,18 @@ def code_spans(text: str, *, indented: bool = False, html: bool = False) -> list
     return spans
 
 
-def fence_closed(text: str, opener: int) -> bool:
-    """Whether the fence on line `opener` of `text` has its closer, by markdown-it (#1480).
+def fence_open(text: str, opener: int) -> bool:
+    """Whether a fence opens on line `opener` of `text` and has no closer, by markdown-it (#1480).
 
-    In a list item a closer counts from the item's content. The token keeps no flag for it:
-    a closed one spans a line more than it holds.
+    False for an inline span that starts the line (#1554). In a list item a closer counts from
+    the item's content. The token keeps no flag for it: a closed one spans a line more than it
+    holds.
     """
     for token in FENCES.parse(text.replace("\r", " ")):
         if token.type == "fence" and token.map is not None and token.map[0] == opener:
             content = token.content
             held = content.count("\n") + (1 if content and not content.endswith("\n") else 0)
-            return token.map[1] - opener - 1 > held
+            return token.map[1] - opener - 1 <= held
     return False
 
 

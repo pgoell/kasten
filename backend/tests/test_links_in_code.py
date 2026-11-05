@@ -6,6 +6,7 @@ import pytest
 import kasten_backend.code_spans as spans_module
 from kasten_backend.code_spans import code_spans
 from kasten_backend.links import relink, relink_markdown
+from kasten_backend.periodic import _open_fence, append_dump, append_under
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -274,3 +275,38 @@ def test_relinks_a_long_note_full_of_code_in_time(monkeypatch: pytest.MonkeyPatc
         sys.settrace(None)
 
     assert lines <= 10 * runs
+
+
+@pytest.mark.parametrize("note", ["## Dump\n```x```", "## Dump\na\n    ```x```"])
+def test_1554_an_inline_span_that_ends_the_note_opens_no_fence(note: str) -> None:
+    assert _open_fence(note, note.split("\n")) is None
+    assert append_dump(note, "new") == f"{note}\n\nnew\n"
+    assert append_under(note, "## Log", "- x") == f"{note}\n\n## Log\n- x\n"
+
+
+# A closer under a list item is measured from the item's content column, as markdown-it does.
+ITEM_CLOSERS = [
+    ("- a\n  ```\n  code\n     ```", None),
+    ("- a\n  ```\n  code\n      ```", "```"),
+    ("1. a\n   ~~~\n   code\n      ~~~\n", None),
+    ("- a\n  ````\n     ```\n     ~~~~", "````"),
+    ("```\nx\n    ```", "```"),
+    ("```\n\t```", "```"),
+    ("- a\n  ```\n\tx\n  ```", None),
+    ("- a\n\t```\n\tx", "```"),
+    ("- a\n  - b\n    ```\n    ## Log", "```"),
+    ("- a\n  - b\n    ```\n    ## Log\n    ```", None),
+    # Guards: indented code and a lazy line open no fence.
+    ("- a\n  - b\n        ```\n    x", None),
+    ("a\n    ```\n    x", None),
+    ("\t```\nx", None),
+    ("- a\n  > q\n    ```\n    x", "```"),
+    ("- a\n> q\n    ```\n    x", None),
+]
+
+
+@pytest.mark.parametrize(("note", "run"), ITEM_CLOSERS)
+def test_1480_a_closer_in_a_list_item_counts_from_its_content_column(
+    note: str, run: str | None
+) -> None:
+    assert _open_fence(note, note.split("\n")) == run

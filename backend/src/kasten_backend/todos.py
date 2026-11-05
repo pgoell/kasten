@@ -10,7 +10,7 @@ import sys
 import unicodedata
 from typing import TYPE_CHECKING
 
-from kasten_backend.code_spans import BLOCK_NAMES, WIKILINK, code_spans
+from kasten_backend.code_spans import BLOCK_NAMES, FENCES, WIKILINK, code_spans
 from kasten_backend.frontmatter import body_start
 from kasten_backend.links import link_path
 from kasten_backend.search import Hit, scan_vault
@@ -42,33 +42,31 @@ Closed sessions are left out so a response refetched on each vault write stays s
 stop reads them through `GET /api/search` on the todo's id instead.
 """
 
-FENCE_LINE = r"^ {0,3}(```|~~~)"
-"""A line that may open or close a fence, asked for so a note holding one is read whole."""
+FENCE_LINE = r"^[ \t]*(```|~~~)"
+"""A line that may open or close a fence, asked for so a note holding one is read whole.
+
+Any indent, since a fence under a nested list item sits four or more spaces in (#1555).
+"""
 
 TODO_PATTERN = f"{TODO_LINE}|{SESSION_LINE}|{FENCE_LINE}"
 
-FENCE = re.compile(r" {0,3}(`{3,}|~{3,})(.*)")
+FENCE = re.compile(r"[ \t]*(`{3,}|~{3,})")
 HEADING = re.compile(r" {0,3}#{1,6}(?:[ \t]|$)")
 ITEM = re.compile(r"([ \t]*)(?:[-*+]|\d+[.)])(?:[ \t]|$)")
 
 
 def fenced_lines(lines: list[str]) -> set[int]:
-    """The indexes of the lines in a fence, its own lines too, as the editor's `fencedLines`."""
-    coded: set[int] = set()
-    opened: str | None = None
-    for index, line in enumerate(lines):
-        found = FENCE.match(line)
-        fence, info = (found[1], found[2]) if found else (None, "")
-        if opened is None and fence and (fence[0] == "~" or "`" not in info):
-            opened = fence
-        elif opened is not None:
-            closes = fence and fence[0] == opened[0] and len(fence) >= len(opened)
-            if closes and line.strip() == fence:
-                opened = None
-        else:
-            continue
-        coded.add(index)
-    return coded
+    """The indexes of the lines in a fence, its own lines too, by markdown-it (#1555).
+
+    The parser, not a line reader, so an opener under a nested list item counts.
+    """
+    tokens = FENCES.parse("\n".join(lines).replace("\r", " "))
+    return {
+        index
+        for token in tokens
+        if token.type == "fence" and token.map is not None
+        for index in range(*token.map)
+    }
 
 
 def stop_of(text: str) -> int | None:

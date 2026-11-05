@@ -119,12 +119,13 @@ sits where nothing written by hand reaches it.
 ### Fences and the lines that end parts
 
 `rg` matches a line rather than a parse tree, so the pass also asks for every
-line opening with three backticks or tildes. A note with such a line, or with an
-indented todo, is then read whole (#1445):
+line opening with three backticks or tildes at any indent. A note with such a
+line, or with an indented todo, is then read whole (#1445):
 
 * A line inside a fenced code block is dropped, a `- [ ]` in a note about
-  markdown among them. Fences are found in the body alone, as the editor finds
-  them, so a fence the frontmatter seems to open hides nothing.
+  markdown among them. markdown-it finds the fences, so one under a nested list
+  item counts and one in a list item ends with the item (#1555). Fences are found
+  in the body alone, so a fence the frontmatter seems to open hides nothing.
 * In a note with an indented todo, every heading and every list item that is no
   todo, between the first todo and the last indented one, comes back as a line
   of its own with `project: null`. Those are what can end a part, and the pane
