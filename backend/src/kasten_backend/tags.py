@@ -100,8 +100,11 @@ Under a paragraph a number past 1 starts no list, so the line goes on with the p
 A superset: a `1.` or a list going on costs one whole-note read, not a wrong tag.
 """
 
+LONE_CR = r"\r(?:[^\n]|\z)"
+"""A carriage return with no LF after it, which ends a line to `read_note` but not to rg (#1570)."""
+
 MARKS = (
-    rf"{BLOCK}|{FENCE}|{OPEN_COMMENT}|{ORDERED_COMMENT}|{todos.HTML_LINE}"
+    rf"{BLOCK}|{FENCE}|{OPEN_COMMENT}|{ORDERED_COMMENT}|{todos.HTML_LINE}|{LONE_CR}"
     rf"|{todos.INDENTED.pattern}"
 )
 """What says a note's lines cannot be read one at a time.

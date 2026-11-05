@@ -53,13 +53,21 @@ def _line(name: str, block: list[str]) -> str | None:
     return next((line for line in block if _key(line) == name), None)
 
 
+def _end(content: str) -> str:
+    """What ends a line of `content`: a lone CR in a text with no LF, as `read_note` reads (#1570).
+
+    A text that holds both is cut on LF only.
+    """
+    return "\r" if "\n" not in content and "\r" in content else "\n"
+
+
 def _split(content: str) -> tuple[list[str], list[str]]:
     """The block's lines and the note's, as two lists of lines.
 
     No block, or an opening fence with no partner, means every line is the note's. A lone `---`
     is a horizontal rule, and read as an open block it would swallow the note under it.
     """
-    lines = content.split("\n")
+    lines = content.split(_end(content))
     end = closing(lines)
     if end is None:
         return [], lines
@@ -93,7 +101,7 @@ def _fences(content: str) -> tuple[str, str]:
 
     Trailing blanks kept: the client names its next base from the text it sent (#1468).
     """
-    lines = content.split("\n")
+    lines = content.split(_end(content))
     end = closing(lines)
     return (FENCE, FENCE) if end is None else (lines[0], lines[end])
 
@@ -103,7 +111,7 @@ def body_start(content: str) -> int:
 
     Not from `_split`, which gives no lines both for a note with no block and for an empty one.
     """
-    lines = content.split("\n")
+    lines = content.split(_end(content))
     end = closing(lines)
     if end is None:
         return 0
@@ -187,7 +195,7 @@ def with_type(content: str) -> str:
     if _line("type", block) is not None:
         return content
 
-    return "\n".join([FENCE, f"type: {DEFAULT_TYPE}", *block, FENCE, *body])
+    return _end(content).join([FENCE, f"type: {DEFAULT_TYPE}", *block, FENCE, *body])
 
 
 def stamp(content: str, previous: str = "", *, now: datetime | None = None) -> str:
@@ -218,7 +226,7 @@ def stamp(content: str, previous: str = "", *, now: datetime | None = None) -> s
     if _line("modified", block) is None:
         dated.append(f"modified: {when}{end}")
 
-    return "\n".join([opener, *opening, *dated, closer, *body])
+    return _end(content).join([opener, *opening, *dated, closer, *body])
 
 
 def unstamped(content: str) -> str:
@@ -228,7 +236,7 @@ def unstamped(content: str) -> str:
     `modified` line, so leaving it out lets it still name the note. A copy lives in
     frontend/src/lib/saving/held-text.ts, byte for byte, and must cut the fence as this does.
     """
-    lines = content.split("\n")
+    lines = content.split(_end(content))
     end = closing(lines)
     if end is None:
         return content
@@ -236,7 +244,8 @@ def unstamped(content: str) -> str:
     # With no line dropped the text stands, so an empty block gains no blank line.
     if len(block) == end - 1:
         return content
-    return lines[0] + "\n" + "\n".join(block) + content[len("\n".join(lines[:end])) :]
+    eol = _end(content)
+    return lines[0] + eol + eol.join(block) + content[len(eol.join(lines[:end])) :]
 
 
 _OPENING = ("id", "created", "type")
@@ -251,6 +260,7 @@ def bases(content: str) -> list[str]:
     leading lines `stamp` could write is set aside, and the whole block when only `modified` is.
     """
     found = [unstamped(content)]
+    eol = _end(content)
     block, body = _split(content)
     opener, closer = _fences(content)
     left = list(_OPENING)
@@ -260,7 +270,7 @@ def bases(content: str) -> list[str]:
             break
         del left[: left.index(key) + 1]
         rest = block[count:]
-        found.append(unstamped("\n".join([opener, *rest, closer, *body])))
+        found.append(unstamped(eol.join([opener, *rest, closer, *body])))
         if count == len(_OPENING) and [_key(field) for field in rest] == ["modified"]:
-            found.append("\n".join(body))
+            found.append(eol.join(body))
     return found
