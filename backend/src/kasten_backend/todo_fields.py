@@ -68,10 +68,13 @@ ASSIGNEE = re.compile(
     + _ENDS
 )
 
-SPANS = re.compile(r"\[\[[^\[\]\n]+\]\]|\[[^\]\n]*\]\([^)\n]*\)|`[^`\n]*`|<!--[^>\n][^\n]*?-->")
+SPANS = re.compile(
+    r"\[\[[^\[\]\n]+\]\]|\[[^\]\n]*\]\([^)\n]*\)|`[^`\n]*`|<!--[^>\n](?:-?[^-\n])*?-->"
+)
 """A link, a markdown link, a code span and an HTML comment closed on its line, not on `<!-->`.
 
-A marker inside one is no field, nor a tag. The editor's copy is in `tag-rule.ts`.
+A comment holds no `--`, as in the editor (#1474). A marker inside one is no field, nor a tag.
+No lookaround, since rg runs it too. The editor's copy is in `tag-rule.ts`.
 """
 
 

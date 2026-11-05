@@ -27,8 +27,7 @@ describe("the todo pane by touch", () => {
 
   it("#541 A2 holds a row on an id two todos carry, the done twin listed last", async () => {
     stubMatchMedia({ [NARROW]: true, [COARSE]: true });
-    renderPane(TWINS);
-    await waitFor(() => expect(row("write the docs")).toBeDefined());
+    await renderPane(TWINS).loaded();
 
     expect(row("write the docs")?.textContent).toContain("⛔ kt-aaaaaa");
   });

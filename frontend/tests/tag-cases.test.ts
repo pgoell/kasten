@@ -108,6 +108,14 @@ describe("#653 a comment opening a todo's words is no block", () => {
   });
 });
 
+describe("#1474 a comment holding -- hides nothing", () => {
+  it("#1474 a todo whose words hold <!-- y -- #p --> carries #p and its due date", () => {
+    const todo = parseTodo("- [ ] a <!-- y -- #p --> 📅 2026-10-20");
+
+    expect({ tags: todo?.tags, due: todo?.due }).toEqual({ tags: ["#p"], due: "2026-10-20" });
+  });
+});
+
 describe("#640 a bracket that makes no link takes no tag", () => {
   it("#640 the parser and tagsOf both read a tag after a bracket that never becomes a link", () => {
     const texts = ["see [ #x", "[draft] #y", "- [ ] call #1on1", "[[a #z"];

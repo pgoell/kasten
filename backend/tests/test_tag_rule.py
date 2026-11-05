@@ -99,6 +99,12 @@ def test_b_todo_line_opening_with_backticks_is_no_fence() -> None:
     assert todos._tag_project("```x #p/x", folders) == "02 Projects/x"
 
 
+def test_1474_a_todo_comment_holding_dashes_hides_no_tag() -> None:
+    folders = {"x": "02 Projects/x"}
+
+    assert todos._tag_project("- [ ] a <!-- y -- #p/x -->", folders) == "02 Projects/x"
+
+
 async def test_b_note_gone_between_scan_and_read_is_skipped(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -265,10 +271,15 @@ def test_657_the_comment_patterns_match_tag_rule_ts() -> None:
     source = (Path(__file__).parents[2] / "frontend/src/lib/notes/text/tag-rule.ts").read_text(
         encoding="utf-8"
     )
-    spans = re.search(r"export const SPANS = /(.*)/g;", source)
+    spans = re.search(r"export const SPANS =\s*/(.*)/g;", source)
     comment = spans and spans[1].rsplit("|", 1)[1]
+    # The whole-note reader lets a line break that opens no blank line through (#1475).
+    goes_on = r"|\n(?![ \t]*\n))"
 
     assert (
         spans and spans[1].replace("[^[", "[^\\["),
-        comment and comment.replace("[^\\n]", ".").replace("\\n]", "]"),
+        comment
+        and comment.replace("[^>\\n]", "(?:[^>\\n]" + goes_on).replace(
+            "[^-\\n]", "(?:[^-\\n]" + goes_on
+        ),
     ) == (todo_fields.SPANS.pattern, todos.COMMENT.pattern)

@@ -10,7 +10,7 @@ import sys
 import unicodedata
 from typing import TYPE_CHECKING
 
-from kasten_backend.code_spans import WIKILINK, code_spans
+from kasten_backend.code_spans import BLOCK_NAMES, WIKILINK, code_spans
 from kasten_backend.frontmatter import body_start
 from kasten_backend.links import link_path
 from kasten_backend.search import Hit, scan_vault
@@ -161,11 +161,9 @@ so a line holding one is no todo here either. rg matches it all the same.
 """
 
 HTML_OPENER = (
-    r"(?i:<!--|<(?:script|pre|style)(?:\s|>|$)|<\?|<![a-z]|<!\[CDATA\[|</?(?:address|article"
-    r"|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div"
-    r"|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|html"
-    r"|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|section"
-    r"|source|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul)(?:\s|/?>|$))"
+    r"(?i:<!--|<(?:script|pre|style)(?:\s|>|$)|<\?|<![a-z]|<!\[CDATA\[|</?(?:"
+    + BLOCK_NAMES
+    + r")(?:\s|/?>|$))"
 )
 """What opens an HTML block that may break a paragraph, kinds 1 to 6, by the editor's names.
 
@@ -207,8 +205,12 @@ def line_tags(text: str) -> list[tuple[int, int]]:
 
 HTML_LINES = re.compile(HTML_LINE, re.MULTILINE)
 
-COMMENT = re.compile(r"<!--[^>].*?-->", re.DOTALL)
-"""An HTML comment, over as many lines as it runs; `<!-->` opens none, as in the editor (#657)."""
+_BREAK = r"\n(?![ \t]*\n)"
+COMMENT = re.compile(rf"<!--(?:[^>\n]|{_BREAK})(?:-?(?:[^-\n]|{_BREAK}))*?-->")
+"""An inline comment as the editor reads one: within its paragraph, no `--` inside.
+
+So no blank line (#1475) and no `--` (#1474) sits in it, and `<!-->` opens none (#657).
+"""
 
 
 INDENTED = re.compile(r"^(?:[ \t>]|(?:[-*+]|[0-9]{1,9}[.)])[ \t])*(?: {4}|\t).*#", re.MULTILINE)
@@ -243,7 +245,10 @@ def tags_in(text: str) -> list[tuple[int, int]]:
         hidden += code_spans(_blanked(text, hidden, " "), indented=True, html=html)
         # Looked for with the code blanked: a `<!--` in code opens no comment,
         # and paired with a real `-->` below it would hide the tags between.
-        hidden += [found.span() for found in COMMENT.finditer(_blanked(text, hidden, " "))]
+        # An inline span goes to no-break spaces, or its line would read as blank.
+        inline = [span for span in hidden if "\n" not in text[span[0] : span[1]]]
+        code = _blanked(_blanked(text, hidden, " "), inline, "\N{NO-BREAK SPACE}")
+        hidden += [found.span() for found in COMMENT.finditer(code)]
     if not hidden:
         return line_tags(text)
     return line_tags(_blanked(text, hidden, "\N{NO-BREAK SPACE}"))

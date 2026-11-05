@@ -175,5 +175,27 @@
   { "id": "empty-comment-dash-same-line", "text": "a <!---> #hidden -->", "tags": [] },
   { "id": "empty-comment-opens-line", "text": "<!--> #hidden\n#real", "tags": ["#real"] },
   { "id": "empty-comment-dash-opens-line", "text": "<!---> #hidden\n#real", "tags": ["#real"] },
-  { "id": "empty-comment-after-box", "text": "- [ ] go <!--> #real -->", "tags": ["#real"] }
+  { "id": "empty-comment-after-box", "text": "- [ ] go <!--> #real -->", "tags": ["#real"] },
+  { "id": "html-search-opens-no-block", "text": "<search> #real", "tags": ["#real"] },
+  { "id": "html-textarea-opens-no-block", "text": "<textarea> #real", "tags": ["#real"] },
+  { "id": "html-source-opens-a-block", "text": "text\n<source> #hidden", "tags": [] },
+  { "id": "comment-holding-dashes", "text": "a <!-- x -- #t -->", "tags": ["#t"] },
+  { "id": "comment-holding-dashes-opens-line", "text": "<!-- x -- #hidden -->", "tags": [] },
+  { "id": "comment-holding-dashes-over-lines", "text": "a <!-- x --\n#t -->", "tags": ["#t"] },
+  {
+    "id": "comment-over-lines-of-a-paragraph",
+    "text": "a <!-- x\n#hidden -->\n#real",
+    "tags": ["#real"]
+  },
+  {
+    "id": "comment-over-a-code-span-line",
+    "text": "a <!-- x\n`c`\n#hidden -->\n#real",
+    "tags": ["#real"]
+  },
+  { "id": "comment-past-blank-line", "text": "a <!-- y\n\n#t\n-->", "tags": ["#t"] },
+  {
+    "id": "comment-opening-at-line-end-past-blank-line",
+    "text": "a <!--\n\n#t\n-->",
+    "tags": ["#t"]
+  }
 ]
