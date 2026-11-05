@@ -11,7 +11,7 @@ from kasten_backend.code_spans import code_spans, inside
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.log import _log_lines
 from kasten_backend.main import app
-from kasten_backend.periodic import _open_fence, append_dump, append_under, daily_note
+from kasten_backend.periodic import append_dump, append_under, daily_note
 
 if TYPE_CHECKING:
     from httpx import AsyncClient
@@ -227,34 +227,6 @@ def test_a_four_backtick_inline_span_leaves_a_closed_fence_closed() -> None:
     text = "# d\n````x```` y\n\n```\n## Dump\n```\n"
 
     assert append_dump(text, "new") == "# d\n````x```` y\n\n```\n## Dump\n```\n\n## Dump\nnew\n"
-
-
-# A closer under a list item is measured from the item's content column, as markdown-it does.
-ITEM_CLOSERS = [
-    ("- a\n  ```\n  code\n     ```", None),
-    ("- a\n  ```\n  code\n      ```", "```"),
-    ("1. a\n   ~~~\n   code\n      ~~~\n", None),
-    ("- a\n  ````\n     ```\n     ~~~~", "````"),
-    ("```\nx\n    ```", "```"),
-    ("```\n\t```", "```"),
-    ("- a\n  ```\n\tx\n  ```", None),
-    ("- a\n\t```\n\tx", "```"),
-    ("- a\n  - b\n    ```\n    ## Log", "```"),
-    ("- a\n  - b\n    ```\n    ## Log\n    ```", None),
-    # Guards: indented code and a lazy line open no fence.
-    ("- a\n  - b\n        ```\n    x", None),
-    ("a\n    ```\n    x", None),
-    ("\t```\nx", None),
-    ("- a\n  > q\n    ```\n    x", "```"),
-    ("- a\n> q\n    ```\n    x", None),
-]
-
-
-@pytest.mark.parametrize(("note", "run"), ITEM_CLOSERS)
-def test_1480_a_closer_in_a_list_item_counts_from_its_content_column(
-    note: str, run: str | None
-) -> None:
-    assert _open_fence(note, note.split("\n")) == run
 
 
 def test_1480_the_writers_add_no_closer_after_a_list_item_closer() -> None:

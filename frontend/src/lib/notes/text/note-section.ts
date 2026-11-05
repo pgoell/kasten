@@ -18,7 +18,7 @@ const FENCE = /^[ \t]*(`{3,}|~{3,})(.*)/;
 const CLOSER = /^(`{3,}|~{3,})$/;
 
 /** A list marker and the space after it, where the item's content starts. */
-const LIST_MARKER = /^( {0,3})([-*+]|\d{1,9}[.)])( +|$)/;
+const LIST_MARKER = /^([ \t]*)([-*+]|\d{1,9}[.)])( +|$)/;
 
 /** An ATX heading line, which ends a list item's paragraph whatever is above it. */
 const HEADING_LINE = /^#{1,6}( |$)/;
@@ -33,7 +33,7 @@ const QUOTE_OR_BREAK = /^(>|([-*_])( *\2){2,}[ \t]*$)/;
 function contentColumn(marker: RegExpExecArray): number {
   const [, lead = "", bullet = "", gap = ""] = marker;
   const extra = gap.length === 0 || gap.length >= 5 ? 1 : gap.length;
-  return lead.length + bullet.length + extra;
+  return width(lead) + bullet.length + extra;
 }
 
 /** How far a line is indented in columns, a tab running to the next multiple of four. */
@@ -168,9 +168,21 @@ function itemColumn(lines: string[], floor: number, opener: number): number {
   let index = opener - 1;
   while (index >= floor && (at(index).trim() === "" || width(at(index)) >= n)) index -= 1;
   if (index < floor || HEADING_LINE.test(at(index))) return 0;
-  const first = QUOTE_OR_BREAK.test(at(index).trimStart()) ? null : LIST_MARKER.exec(at(index));
+  const first = markerAt(lines, floor, index);
   if (first !== null) return contentColumn(first) <= n ? contentColumn(first) : 0;
   return lazyItemColumn(lines, floor, index, n);
+}
+
+/**
+ * The list marker line `index` opens an item with, or null. A break is no marker (#1557), and one
+ * four or more columns in is an item only within three of its own item's content (#1553).
+ */
+function markerAt(lines: string[], floor: number, index: number): RegExpExecArray | null {
+  const line = lines[index] ?? "";
+  if (QUOTE_OR_BREAK.test(line.trimStart())) return null;
+  const marker = LIST_MARKER.exec(line);
+  if (marker === null || width(line) <= 3) return marker;
+  return width(line) <= itemColumn(lines, floor, index) + 3 ? marker : null;
 }
 
 /**
@@ -183,10 +195,11 @@ function lazyItemColumn(lines: string[], floor: number, from: number, n: number)
     const held = lines[index] ?? "";
     if (held.trim() === "" || HEADING_LINE.test(held)) return 0;
     if (QUOTE_OR_BREAK.test(held.trimStart())) edge = Math.min(edge, width(held));
-    const marker = index === from ? null : LIST_MARKER.exec(held);
-    if (marker !== null && contentColumn(marker) <= n) {
-      return contentColumn(marker) <= edge ? contentColumn(marker) : 0;
-    }
+    const marker = index === from ? null : markerAt(lines, floor, index);
+    // An item whose content sits past the edge has ended: go on up to one that holds it (#1557).
+    if (marker !== null && contentColumn(marker) <= Math.min(n, edge)) return contentColumn(marker);
+    // An outer item holds a passed marker only at or left of its lead.
+    if (marker !== null) edge = Math.min(edge, width(held));
   }
   return 0;
 }

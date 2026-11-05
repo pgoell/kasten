@@ -154,6 +154,30 @@ describe("fencedLines closers in a list item", () => {
     ["1552 a tab opener under an item", ["- a", "\t```", "\tx", "\t```", "- b"], [1, 2, 3], null],
     ["1550 a nested opener", ["- a", "  - b", "    ```", "    ## Log", "    ```"], [2, 3, 4], null],
     ["1550 a nested opener left open", ["- a", "  - b", "    ```", "    ## Log"], [2, 3], "```"],
+    [
+      "1553 an opener under a marker four in",
+      ["- a", "  - b", "    - c", "      - d", "        ```", "        x"],
+      [4, 5],
+      "```",
+    ],
+    [
+      "1553 a tab-led marker under an item",
+      ["- a", "  - b", "\t- c", "\t     ```", "\t     x"],
+      [3, 4],
+      "```",
+    ],
+    [
+      "1557 an opener after a quote that ends an inner item",
+      ["- a", "  - b", "  > q", "    ```", "    x"],
+      [3, 4],
+      "```",
+    ],
+    [
+      "1557 a break inside an item is no marker",
+      ["- a", "  b", "  - - -", "  c", "    ```", "    x"],
+      [4, 5],
+      "```",
+    ],
     // Guards: indented code and lazy lines open no fence.
     ["four past a nested item", ["- a", "  - b", "        ```", "    x"], [], null],
     ["four from the margin after a paragraph", ["a", "    ```", "    x", "    ```"], [], null],
@@ -167,11 +191,22 @@ describe("fencedLines closers in a list item", () => {
       [2, 3],
       "```",
     ],
+    [
+      "1553 a marker four in that no item holds",
+      ["a", "", "    - b", "      ```", "      x"],
+      [],
+      null,
+    ],
     ["four in after a quote one space in", ["- a", " > q", "    ```", "    x"], [], null],
   ])("%s", (_name, lines, coded, openRun) => {
     const read = fencedLines(lines);
     expect([...read.coded]).toEqual(coded);
     expect(read.openRun).toBe(openRun);
+  });
+
+  it("1553 appendUnder adds no closer at the margin after a deep fence left open", () => {
+    const text = "## Log\n- a\n  - b\n    - c\n      - d\n        ```\n        code";
+    expect(appendUnder(text, "## Log", "- x")).toBe(`${text}\n- x`);
   });
 
   it("1550 appendUnder adds no closer at the margin after a nested fence left open", () => {

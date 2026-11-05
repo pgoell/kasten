@@ -215,3 +215,27 @@ async def test_1445_sends_what_ends_a_part_and_no_fenced_line(
         ("flat.md", 1, "- [ ] one"),
         ("flat.md", 4, "- [ ] two"),
     ]
+
+
+async def test_1555_a_fence_under_a_nested_item_hides_its_todo(
+    client: AsyncClient, vault: Path
+) -> None:
+    write(vault, "deep.md", "- a\n  - b\n    ```\n    - [ ] not a todo\n    ```\n- [ ] after\n")
+    note = "---\r\nid: x\r\n---\r\n- a\r\n  - b\r\n    ~~~\r\n    - [ ] hid\r\n- [ ] kept\r\n"
+    write(vault, "crlf.md", note)
+    # Indented code at the margin is no fence, and its todo stays.
+    write(vault, "plain.md", "a\n    ```\n- [ ] shown\n")
+
+    response = await client.get("/api/todos")
+
+    assert sorted((hit["path"], hit["line"], hit["text"]) for hit in response.json()) == [
+        ("crlf.md", 8, "- [ ] kept\r"),
+        ("deep.md", 6, "- [ ] after"),
+        ("plain.md", 3, "- [ ] shown"),
+    ]
+
+
+def test_1555_fenced_lines_reads_an_opener_under_a_nested_item() -> None:
+    lines = ["- a", "  - b", "    ```", "    - [ ] not a todo", "    ```"]
+
+    assert kasten_backend.todos.fenced_lines(lines) == {2, 3, 4}
