@@ -390,6 +390,11 @@ const CUTS = [
   "</",
   "<!-",
   "<",
+  // #1489: a double escape, a plaintext element and a foreign CDATA section
+  "<script><!--<script>let note = 1",
+  "<plaintext>note",
+  "<svg><![CDATA[a > b",
+  "<math><![CDATA[a > b",
 ];
 
 it.each(
