@@ -73,7 +73,7 @@ def _vector(body: str) -> list[float]:
 
 async def _empty(factory: async_sessionmaker[AsyncSession]) -> None:
     async with factory() as session, session.begin():
-        await session.execute(text("DELETE FROM piece_notes"))
+        await session.execute(text("TRUNCATE piece_notes, pieces"))
 
 
 async def _rows(factory: async_sessionmaker[AsyncSession]) -> list[tuple]:

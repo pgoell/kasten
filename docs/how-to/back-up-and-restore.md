@@ -182,19 +182,22 @@ mise run db:migrate
 
 ### Empty the index
 
-Deleting the rows of `piece_notes` empties `pieces` too, since the two cascade.
+Truncate both tables in one command. Postgres refuses to truncate `piece_notes`
+alone, since `pieces` points at it. A `DELETE` would leave its rows in the HNSW
+index on `pieces.embedding` until a vacuum, and the nearest-pieces search would
+miss live pieces while the backend refills.
 
 On prod:
 
 ```sh
-docker exec postgres psql -U postgres -d kasten_prod -c "DELETE FROM piece_notes"
+docker exec postgres psql -U postgres -d kasten_prod -c "TRUNCATE piece_notes, pieces"
 docker restart kasten-backend-prod
 ```
 
 On dev:
 
 ```sh
-docker compose exec db psql -U kasten -d kasten_dev -c "DELETE FROM piece_notes"
+docker compose exec db psql -U kasten -d kasten_dev -c "TRUNCATE piece_notes, pieces"
 ```
 
 Then restart the dev backend with `mise run dev`.
