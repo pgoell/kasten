@@ -279,17 +279,19 @@ export function useVideoPlayer({
   }, [frame]);
 
   /**
-   * Does not play or pause: the player keeps its state. The `true` lets the seek go past what is buffered.
-   * The seeked time is set here too, so two presses of `j` add up before the player answers.
+   * A second of this video. On a suggestion it loads this video back there, as a time link does (#1192, #1566);
+   * otherwise it keeps the player's state, and `true` lets it go past what is buffered.
+   * The second is set here too, so two presses of `j` add up and a stop before the first tick reports it.
    */
   const seek = useCallback(
     (seconds: number) => {
       const to = Math.max(0, seconds);
-      command(frame.current, "seekTo", [to, true]);
+      if (elsewhere.current && id !== undefined) command(frame.current, "loadVideoById", [id, to]);
+      else command(frame.current, "seekTo", [to, true]);
       second.current = to;
       setAt(to);
     },
-    [frame],
+    [frame, id],
   );
 
   // On another video only its own second moves: the linked one's place and marks stay, and nothing loads it (#1191).
@@ -350,18 +352,8 @@ export function useVideoPlayer({
       onOtherVideo?.(seekId, seekTo);
       return;
     }
-    // The player moved on to a suggestion: a time for this video brings it back
-    // at that second, as a time for another linked video opens that one (#1192).
-    if (elsewhere.current && id !== undefined) {
-      // Kept here as `seek` keeps it, so a stop before the first tick reports the asked second.
-      const to = Math.max(0, seekTo);
-      command(frame.current, "loadVideoById", [id, to]);
-      second.current = to;
-      setAt(to);
-      return;
-    }
     seek(seekTo);
-  }, [seekCount, seekTo, seekId, id, seek, onOtherVideo, frame]);
+  }, [seekCount, seekTo, seekId, id, seek, onOtherVideo]);
 
   return {
     at,

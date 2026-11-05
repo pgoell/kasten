@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { VideoPane } from "@/components/video-pane";
+import { addHighlight } from "@/lib/takes/highlight";
 import { hostLeader } from "@/lib/ui/keys/which-key";
 import { stubCommands } from "./stub-commands";
 
@@ -420,4 +421,84 @@ describe("the video pane shield and keys", () => {
       { func: "seekTo", args: [222, true] },
     ]);
   });
+
+  it("#1566 A1 a chapter, a take and a paragraph clicked on a suggestion load the linked video at their second", async () => {
+    const { sent } = await marked();
+    act(() => reports(1, 200));
+    act(() => delivers({ videoData: { video_id: "iDulhoQ2pro" }, playerState: 1 }));
+    clickMarks();
+
+    const load = (at: number) => ({ func: "loadVideoById", args: ["dQw4w9WgXcQ", at] });
+    expect(commandsOf(sent)).toEqual([load(20), load(40), load(30)]);
+  });
+
+  it("#1566 I1 the same clicks on the linked video seek it and load nothing", async () => {
+    const { sent } = await marked();
+    act(() => reports(1, 200));
+    clickMarks();
+
+    const seek = (at: number) => ({ func: "seekTo", args: [at, true] });
+    expect(commandsOf(sent)).toEqual([seek(20), seek(40), seek(30)]);
+  });
+
+  it("#1566 I2 a click on a suggestion writes nothing until the linked video pauses under its own id", async () => {
+    const { onWatched, sent } = await marked();
+    act(() => delivers({ videoData: { video_id: "iDulhoQ2pro" }, playerState: 1, currentTime: 9 }));
+    fireEvent.click(screen.getByRole("button", { name: "Seek to 00:30" }));
+    act(() => reports(2, 12));
+    expect(commandsOf(sent)).toEqual([{ func: "loadVideoById", args: ["dQw4w9WgXcQ", 30] }]);
+    expect(onWatched).not.toHaveBeenCalled();
+
+    act(() =>
+      delivers({ videoData: { video_id: "dQw4w9WgXcQ" }, playerState: 1, currentTime: 31 }),
+    );
+    act(() => reports(2, 35));
+    expect(onWatched.mock.calls).toEqual([["dQw4w9WgXcQ", 35]]);
+  });
+
+  it("#1566 I3 an ended linked video loaded back by a click, closed while it buffers, writes the clicked second", async () => {
+    const { onWatched, unmount, sent } = await marked();
+    act(() => reports(1, 200));
+    act(() => reports(0, 212));
+    act(() => delivers({ videoData: { video_id: "iDulhoQ2pro" }, playerState: 1, currentTime: 3 }));
+    fireEvent.click(screen.getByRole("button", { name: /Part two/ }));
+    act(() => delivers({ videoData: { video_id: "dQw4w9WgXcQ" }, playerState: 3, currentTime: 0 }));
+    unmount();
+    expect(commandsOf(sent)).toEqual([{ func: "loadVideoById", args: ["dQw4w9WgXcQ", 20] }]);
+    expect(onWatched.mock.calls).toEqual([
+      ["dQw4w9WgXcQ", 0],
+      ["dQw4w9WgXcQ", 20],
+    ]);
+  });
+
+  it("#1566 I4 I6 a click on a suggestion loads the linked video and gives the pane the cursor, with vim on and off", async () => {
+    for (const vim of ["on", "off"]) {
+      localStorage.setItem("kasten.vim", vim);
+      const { pane, sent, unmount } = await marked();
+      act(() => delivers({ videoData: { video_id: "iDulhoQ2pro" }, playerState: 1 }));
+      fireEvent.click(screen.getByRole("button", { name: /Part two/ }));
+
+      expect(commandsOf(sent)).toEqual([{ func: "loadVideoById", args: ["dQw4w9WgXcQ", 20] }]);
+      expect(document.activeElement).toBe(pane);
+      unmount();
+    }
+  });
 });
+
+/** A take at 0:40, a chapter at 0:20 and a paragraph at 0:30: one of each control that seeks. */
+const MARKED = `${addHighlight(TEXT, { text: "Q.", chapter: "", link: "[00:40](https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=40s)" }, "hl-a1b2c3")}\n## Chapters\n\n[00:20] Part two\n\n## Transcript\n\n[00:30] Words.\n`;
+
+/** The pane in its video view on `MARKED`, where the takes and the transcript show. */
+async function marked() {
+  fetchNote.mockResolvedValue(MARKED);
+  const view = renderPane({}, true, MARKED);
+  fireEvent.click(screen.getByRole("button", { name: "Video view" }));
+  await screen.findByRole("list", { name: "Transcript" });
+  return { ...view, ...(await spyOnFrame()) };
+}
+
+function clickMarks() {
+  for (const name of [/Part two/, "Seek to 00:40", "Seek to 00:30"]) {
+    fireEvent.click(screen.getByRole("button", { name }));
+  }
+}
