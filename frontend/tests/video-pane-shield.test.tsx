@@ -355,4 +355,69 @@ describe("the video pane shield and keys", () => {
     );
     expect(onWatched).not.toHaveBeenCalled();
   });
+
+  it("#1497 A1 l and j on a suggestion seek it from its own second, down to 0, and never load the linked video", async () => {
+    const { pane } = renderPane();
+    const { sent } = await spyOnFrame();
+
+    act(() => reports(1, 200));
+    act(() =>
+      delivers({ videoData: { video_id: "iDulhoQ2pro" }, playerState: 1, currentTime: 12 }),
+    );
+    for (const key of ["l", "j", "j", "j"]) fireEvent.keyDown(pane, { key });
+
+    expect(commandsOf(sent)).toEqual([
+      { func: "seekTo", args: [22, true] },
+      { func: "seekTo", args: [12, true] },
+      { func: "seekTo", args: [2, true] },
+      { func: "seekTo", args: [0, true] },
+    ]);
+  });
+
+  it("#1497 I1 a second suggestion counts from its own second, not the first one's", async () => {
+    const { pane } = renderPane();
+    const { sent } = await spyOnFrame();
+
+    act(() => reports(1, 200));
+    act(() =>
+      delivers({ videoData: { video_id: "iDulhoQ2pro" }, playerState: 1, currentTime: 90 }),
+    );
+    act(() => delivers({ videoData: { video_id: "aBcDeFgHiJk" }, playerState: 1 }));
+    fireEvent.keyDown(pane, { key: "l" });
+
+    expect(commandsOf(sent)).toEqual([{ func: "seekTo", args: [10, true] }]);
+  });
+
+  it("#1497 I2 j and l on a suggestion leave the linked video's second and write nothing for it", async () => {
+    const { pane, onWatched } = renderPane();
+    const { sent } = await spyOnFrame();
+
+    act(() => reports(1, 200));
+    act(() =>
+      delivers({ videoData: { video_id: "iDulhoQ2pro" }, playerState: 1, currentTime: 30 }),
+    );
+    fireEvent.keyDown(pane, { key: "l" });
+    act(() => delivers({ videoData: { video_id: "dQw4w9WgXcQ" } }));
+    fireEvent.keyDown(pane, { key: "l" });
+
+    expect(commandsOf(sent).at(-1)).toEqual({ func: "seekTo", args: [210, true] });
+    expect(onWatched).not.toHaveBeenCalled();
+  });
+
+  it("#1498 I3 j and l on the ended linked video count from its end second", async () => {
+    const { pane } = renderPane();
+    const { sent } = await spyOnFrame();
+
+    act(() => reports(1, 200));
+    act(() => reports(0, 212));
+    fireEvent.keyDown(pane, { key: "j" });
+    fireEvent.keyDown(pane, { key: "l" });
+    fireEvent.keyDown(pane, { key: "l" });
+
+    expect(commandsOf(sent)).toEqual([
+      { func: "seekTo", args: [202, true] },
+      { func: "seekTo", args: [212, true] },
+      { func: "seekTo", args: [222, true] },
+    ]);
+  });
 });

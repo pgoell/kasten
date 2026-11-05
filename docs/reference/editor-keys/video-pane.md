@@ -338,7 +338,9 @@ With the leader closed, the pane answers these keys. They are bare letters, the
 way `n` and `p` are, because the pane has nothing else to type into:
 
 * `k` plays or pauses.
-* `j` and `l` seek ten seconds back and on, from the second the pane holds.
+* `j` and `l` seek ten seconds back and on, from the second the pane holds. On
+  a suggestion the player moved on to, they seek that video from its own
+  second and leave the linked video's second where it is.
 * `y` takes the selected transcript into the note. It works only in the video
   view and only with words selected. With no selection, the key goes to the
   browser.
