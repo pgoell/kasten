@@ -264,9 +264,9 @@ _SPECIAL |= {"button", "colgroup", "select", "tbody", "tfoot", "thead", "tr"}
 """The spec's special html elements that can stay open, which stop an end tag's search."""
 
 _STOPS = {
+    **dict.fromkeys(_CLOSES_P | {"applet", "button", "marquee", "object"}, _SCOPE),
     "p": _SCOPE | {"button"},
     "li": _SCOPE | {"ol", "ul"},
-    **dict.fromkeys(_CLOSES_P | {"applet", "button", "marquee", "object"}, _SCOPE),
 }
 """What stops the search for the element an end tag closes; `_SPECIAL` for the rest."""
 
@@ -359,7 +359,8 @@ def _end(stack: list[_Open], name: str) -> None:
         if stack[at][0] == name:
             del stack[at:]
             return
-    _close(stack, (name,), _STOPS.get(name, _SPECIAL))
+    # Any heading's end tag closes whichever heading is open.
+    _close(stack, _HEADINGS if name in _HEADINGS else (name,), _STOPS.get(name, _SPECIAL))
 
 
 def closer(page: str) -> tuple[int, str]:
