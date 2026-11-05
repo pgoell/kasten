@@ -8,10 +8,12 @@ import { WikiLink } from "@/lib/notes/links/wikilink";
 
 /**
  * No inline parse of a paragraph lacking a deck tag or a `<!--`, which is most of a deck note (#669).
- * One with both, or with a comment over several lines (#1477), is parsed as the editor parses it.
+ * One with both, a comment over several lines (#1477) or a `::` in a comment (#1547) is parsed as the editor parses it.
  */
 // A `<!--` with no `-->` before the line ends, unlike the schedule on a card's line.
 const OPEN_OVER_LINES = /<!--(?:(?!-->).)*\n/;
+// A schedule holds no `::`, so a card's own line stays unparsed.
+const HIDES_DIVIDER = /<!--(?:(?!-->).)*::/;
 
 const Untagged: MarkdownConfig = {
   parseInline: [
@@ -21,7 +23,8 @@ const Untagged: MarkdownConfig = {
       parse: (cx, _next, pos) =>
         pos === cx.offset &&
         !(cx.text.includes("#flashcards") && cx.text.includes("<!--")) &&
-        !OPEN_OVER_LINES.test(cx.text)
+        !OPEN_OVER_LINES.test(cx.text) &&
+        !HIDES_DIVIDER.test(cx.text)
           ? cx.end
           : -1,
     },
@@ -43,7 +46,7 @@ const notes = frontmatter(
 export interface CommentsAndCode {
   /**
    * The note with every HTML comment that could hide a deck tag blanked, each
-   * line where it was. One on one line in a paragraph with no deck tag stays as text.
+   * line where it was. One on one line in a paragraph with no deck tag and no `::` in it stays as text.
    */
   uncommented: string;
   /** Per line of the note, whether it is code, fence lines included. */

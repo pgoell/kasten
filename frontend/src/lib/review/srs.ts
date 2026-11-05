@@ -131,9 +131,9 @@ function clozeCards(
  * The halves of `line` where it reads as a one-line card, or null. The `::`
  * check runs first: the front walk asks this of every line, and big notes must stay quick.
  */
-function oneLine(line: string): Divided | null {
-  if (!line.includes("::")) return null;
-  const halves = divide(line);
+function oneLine(line: string, bare: string): Divided | null {
+  if (!bare.includes("::")) return null;
+  const halves = divide(line, bare);
   if (halves === null || withoutTags(halves.front).trim() === "") return null;
   return halves;
 }
@@ -163,6 +163,7 @@ export function parseCards(text: string, note = ""): Card[] {
   const { uncommented, code: fenced, unclosed, commented } = commentsAndCode(text);
   // A comment holds no card, and ends the one above as the editor's block does (#665).
   const code = fenced.map((inside, at) => inside || (commented[at] ?? false));
+  const bare = uncommented.split("\n");
   const walk: Walk = {
     lines,
     code,
@@ -175,7 +176,7 @@ export function parseCards(text: string, note = ""): Card[] {
     ends: (at) => commented[at] || ((!fenced[at] || unclosed[at]) && breaks(lines[at])),
     // A schedule ends a card in code too, so neither walk crosses it.
     schedules: (at) => SR.test(lines[at] ?? "") || CLOZE_SR.test(lines[at] ?? ""),
-    inline: (at) => !code[at] && oneLine(lines[at] ?? "") !== null,
+    inline: (at) => !code[at] && oneLine(lines[at] ?? "", bare[at] ?? "") !== null,
   };
   const { cards, owned, claimed } = walk;
 
@@ -186,13 +187,11 @@ export function parseCards(text: string, note = ""): Card[] {
   }
 
   for (const [at, line] of lines.entries()) {
-    if (!code[at] && !walk.taken[at]) lineCard(walk, at, line);
+    if (!code[at] && !walk.taken[at]) lineCard(walk, at, line, bare[at] ?? "");
   }
 
   // Tags no card claimed are the note's. The two add, so a card about two things is asked in both decks.
-  const noteDecks = uncommented
-    .split("\n")
-    .flatMap((line, at) => (code[at] || claimed.has(at) ? [] : deckTags(line)));
+  const noteDecks = bare.flatMap((line, at) => (code[at] || claimed.has(at) ? [] : deckTags(line)));
   for (const [at, card] of cards.entries()) {
     card.decks = [
       ...new Set([...noteDecks, ...(owned[at] ?? [])].map((tag) => deckName(tag, note))),
@@ -307,7 +306,7 @@ function questionCard(walk: Walk, at: number): void {
 }
 
 /** The card, or cloze cards, written on the one line at `at`, if it holds any. */
-function lineCard(walk: Walk, at: number, line: string): void {
+function lineCard(walk: Walk, at: number, line: string, bare: string): void {
   // A cloze's `::` divides nothing, so this runs before the divider.
   if (holdsCloze(line)) {
     const own = cardTags(line) ?? [];
@@ -319,7 +318,7 @@ function lineCard(walk: Walk, at: number, line: string): void {
     return;
   }
 
-  const halves = oneLine(line);
+  const halves = oneLine(line, bare);
   if (halves === null) return;
 
   const own = cardTags(line) ?? [];

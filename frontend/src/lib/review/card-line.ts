@@ -286,10 +286,13 @@ export interface Divided {
 /**
  * A card written on one line, split at its first `::`. The schedule, token and Anki id
  * come off the back first. An empty back stays empty, not null: a question with no answer is a card waiting.
+ * `bare` is the line with its comments blanked, so a `::` inside one divides nothing (#1547).
  */
-export function divide(line: string): Divided | null {
+export function divide(line: string, bare = line): Divided | null {
   const spans = codeSpans(line);
-  const at = [...line.matchAll(/::/g)].find((found) => !inCode(spans, found.index))?.index;
+  const at = [...line.matchAll(/::/g)].find(
+    (found) => !inCode(spans, found.index) && bare.startsWith("::", found.index),
+  )?.index;
   if (at === undefined) return null;
   return {
     front: withoutAnkiId(line.slice(0, at)).trim(),
