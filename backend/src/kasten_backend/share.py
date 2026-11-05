@@ -222,7 +222,9 @@ def _undone(rest: str) -> str:
 
     head, tail = rest[: found[0]], rest[found[1] :]
     # Words the field kept apart stay apart where, glued, they would read differently (#1491).
-    if head and words(head + tail) != words(f"{head} {tail}"):
+    # A no-break space keeps them apart too, though the reader does not squeeze it.
+    apart = head[-1:].isspace() or tail[:1].isspace()
+    if head and not apart and words(head + tail) != words(f"{head} {tail}"):
         return f"{head} {tail}".rstrip()
 
     return _without(rest, *found).rstrip()

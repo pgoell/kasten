@@ -448,6 +448,8 @@ async def test_1059_tick_reads_no_id_glued_to_an_estimate(
         ("Brot✅ 2026-01-01 mehr", "Brot mehr"),
         ("Brot✅ 2026-01-01📅 2026-02-02", "Brot📅 2026-02-02"),
         ("Brot✅ 2026-01-01", "Brot"),
+        ("Brot\N{NO-BREAK SPACE}✅ 2026-01-01mehr", "Brot\N{NO-BREAK SPACE}mehr"),
+        ("Brot✅ 2026-01-01\N{NO-BREAK SPACE}mehr", "Brot\N{NO-BREAK SPACE}mehr"),
     ],
 )
 async def test_1066_untick_joins_no_words_where_the_done_date_was(
