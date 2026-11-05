@@ -144,8 +144,10 @@ current sha and writes nothing.
 
 The app then reads the list again and sends the change against the new sha. An
 add is not sent twice when an answer is lost. Before a second send, the app
-reads the list: if one more open item with that text is there, the first send
-landed and the app drops the write. After three `409`s in a row the write waits
+reads the list: if one more open item shows the text the read says the server
+keeps for it, the first send landed and the app drops the write. The server says
+it, not the app, so the app needs no copy of the editor's field reader, and an
+add waits unsent while the read does not say. After three `409`s in a row the write waits
 in the queue until the next trigger, such as the phone coming back online. A
 tick names its line by
 number, and the number comes from the fresh read, so a tick lands on the line

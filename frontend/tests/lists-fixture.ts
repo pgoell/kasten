@@ -42,7 +42,10 @@ function opaqueRedirect(): Response {
   return res;
 }
 
-/** The text the server keeps for an added line: its words before the first field marker. */
+/**
+ * The text the fake keeps for an added line: its words before a `✅`. Not the real reader on
+ * purpose, so a test shows the app counts by what the read says is kept, not by a guess.
+ */
 const serverText = (text: string) =>
   (text.split("✅")[0] ?? "").split(/\s+/).filter(Boolean).join(" ");
 
@@ -94,6 +97,7 @@ export function fakeShare(seed: Record<string, Seed[]>) {
   let hang = false;
   let down = false;
   let refused = 0;
+  let old = false;
 
   function view(name: string): ListData {
     const note = notes.get(name);
@@ -110,6 +114,11 @@ export function fakeShare(seed: Record<string, Seed[]>) {
     };
   }
 
+  /** A read; one naming a text also says what an add of it keeps, unless the server is old. */
+  function read(name: string, text: string | null): ListData {
+    return text === null || old ? view(name) : { ...view(name), kept: serverText(text) };
+  }
+
   const fetch = vi.fn(async (url: string, init?: RequestInit) => {
     if (down) {
       refused += 1;
@@ -117,11 +126,12 @@ export function fakeShare(seed: Record<string, Seed[]>) {
     }
     if (expired) return expired === "opaque" ? opaqueRedirect() : signInPage();
     if (url === "/share/me") return reply(WHO);
-    const match = /^\/share\/lists\/([^/]+)(?:\/(items|tick|clear|assign))?$/.exec(url);
+    const [path = "", query = ""] = url.split("?");
+    const match = /^\/share\/lists\/([^/]+)(?:\/(items|tick|clear|assign))?$/.exec(path);
     if (!match) return reply({ detail: "No such list" }, 404);
     const name = decodeURIComponent(match[1] ?? "");
     const action = match[2];
-    if (!action) return reply(view(name));
+    if (!action) return reply(read(name, new URLSearchParams(query).get("text")));
     return write(url, name, action, init);
   });
 
@@ -178,6 +188,10 @@ export function fakeShare(seed: Record<string, Seed[]>) {
     /** The next write never answers. */
     hangNext: () => {
       hang = true;
+    },
+    /** Reads answer as a backend older than the app does: no `kept` for a named text. */
+    oldServer: () => {
+      old = true;
     },
     networkUp: () => {
       down = false;

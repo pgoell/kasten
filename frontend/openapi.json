@@ -6121,6 +6121,22 @@
               "type": "string",
               "title": "Name"
             }
+          },
+          {
+            "name": "text",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Text"
+            }
           }
         ],
         "responses": {
@@ -6129,7 +6145,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Checklist"
+                  "$ref": "#/components/schemas/Read"
                 }
               }
             }
@@ -12441,6 +12457,51 @@
         ],
         "title": "RankedHit",
         "description": "A note the ranked search found, with its best piece."
+      },
+      "Read": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "sha": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Item"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "kept": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kept"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "sha",
+          "items"
+        ],
+        "title": "Read",
+        "description": "A list read, with what an add of the `text` it names would show as."
       },
       "ReadingIn": {
         "properties": {

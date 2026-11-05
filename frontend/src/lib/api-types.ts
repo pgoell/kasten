@@ -5380,6 +5380,20 @@ export interface components {
             score: number;
         };
         /**
+         * Read
+         * @description A list read, with what an add of the `text` it names would show as.
+         */
+        Read: {
+            /** Name */
+            name: string;
+            /** Sha */
+            sha: string | null;
+            /** Items */
+            items: components["schemas"]["Item"][];
+            /** Kept */
+            kept?: string | null;
+        };
+        /**
          * ReadingIn
          * @description What the receipt reader found, or why it found nothing.
          */
@@ -10403,7 +10417,9 @@ export interface operations {
     };
     read_list_share_lists__name__get: {
         parameters: {
-            query?: never;
+            query?: {
+                text?: string | null;
+            };
             header?: never;
             path: {
                 name: string;
@@ -10418,7 +10434,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Checklist"];
+                    "application/json": components["schemas"]["Read"];
                 };
             };
             /** @description Validation Error */
