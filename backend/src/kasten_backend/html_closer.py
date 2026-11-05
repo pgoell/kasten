@@ -255,23 +255,20 @@ _CLOSES_P = frozenset(
 _HEADINGS = ("h1", "h2", "h3", "h4", "h5", "h6")
 
 _SCOPE = frozenset(
-    (
-        "applet",
-        "button",
-        "caption",
-        "dl",
-        "marquee",
-        "menu",
-        "object",
-        "ol",
-        "table",
-        "td",
-        "template",
-        "th",
-        "ul",
-    )
+    ("applet", "caption", "html", "marquee", "object", "table", "td", "template", "th")
 )
-"""Html elements that stop the search for an open `<p>` or `<li>` to close."""
+"""Html elements that end the scope an end tag such as `</div>` looks for its element in."""
+
+_SPECIAL = (_CLOSES_P - {"dialog"}) | _SCOPE
+_SPECIAL |= {"button", "colgroup", "select", "tbody", "tfoot", "thead", "tr"}
+"""The spec's special html elements that can stay open, which stop an end tag's search."""
+
+_STOPS = {
+    "p": _SCOPE | {"button"},
+    "li": _SCOPE | {"ol", "ul"},
+    **dict.fromkeys(_CLOSES_P | {"applet", "button", "marquee", "object"}, _SCOPE),
+}
+"""What stops the search for the element an end tag closes; `_SPECIAL` for the rest."""
 
 _Open = tuple[str, str, str]
 """An open element inside `<svg>` or `<math>`: its lowercased name, its namespace (`html` for an
@@ -307,14 +304,14 @@ def _attrs(text: str) -> dict[str, str]:
     return attrs
 
 
-def _close(stack: list[_Open], names: tuple[str, ...]) -> None:
-    """Pop through the nearest open html element in `names`; a point or a `_SCOPE` one hides it."""
+def _close(stack: list[_Open], names: tuple[str, ...], stops: frozenset[str]) -> None:
+    """Pop through the nearest open html element in `names`; a point or one in `stops` hides it."""
     for at in range(len(stack) - 1, -1, -1):
         entry, namespace, point = stack[at]
         if namespace == "html" and entry in names:
             del stack[at:]
             return
-        if (point and namespace != "html") or entry in _SCOPE:
+        if (namespace != "html" and point) or (namespace == "html" and entry in stops):
             return
 
 
@@ -329,9 +326,10 @@ def _start(stack: list[_Open], name: str, attrs: dict[str, str], self_closing: b
             stack.pop()
     if _as_html(stack, name):
         if name in _CLOSES_P:
-            _close(stack, ("p",))
+            _close(stack, ("p",), _STOPS["p"])
         if name in ("li", "dd", "dt"):
-            _close(stack, ("li",) if name == "li" else ("dd", "dt"))
+            items = ("li",) if name == "li" else ("dd", "dt")
+            _close(stack, items, _SPECIAL - {"address", "div", "p"})
         if name in _HEADINGS and stack and stack[-1][0] in _HEADINGS and stack[-1][1] == "html":
             stack.pop()
         if name in _FOREIGN and not self_closing:
@@ -349,7 +347,8 @@ def _end(stack: list[_Open], name: str) -> None:
     """Keep `stack` the open elements after an end tag; `</p>` and `</br>` break out.
 
     Foreign elements match from the top down to the first html element. From there the html
-    rules take it, where a point stops the search, so `</svg>` cannot close past an open `<div>`.
+    rules take it, where a point or a special element stops the search, so `</svg>` cannot close
+    past an open `<div>`.
     """
     if name in ("p", "br"):
         while stack and not stack[-1][2]:
@@ -360,13 +359,7 @@ def _end(stack: list[_Open], name: str) -> None:
         if stack[at][0] == name:
             del stack[at:]
             return
-    for at in range(len(stack) - 1, -1, -1):
-        entry, namespace, point = stack[at]
-        if namespace == "html" and entry == name:
-            del stack[at:]
-            return
-        if point and namespace != "html":
-            return
+    _close(stack, (name,), _STOPS.get(name, _SPECIAL))
 
 
 def closer(page: str) -> tuple[int, str]:
