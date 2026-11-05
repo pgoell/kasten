@@ -285,6 +285,11 @@ def test_1559_a_plaintext_in_foreign_object_takes_the_link_script_ahead_of_it() 
             b"></svg>",
             id="ul-hides-the-outer-li",
         ),
+        pytest.param(
+            b"<svg><foreignObject><h1><h2></h2></foreignObject><![CDATA[x",
+            b"]]></svg>",
+            id="h2-closes-h1",
+        ),
     ],
 )
 def test_1560_the_closer_tracks_html_opened_inside_a_point(end: bytes, closer: bytes) -> None:

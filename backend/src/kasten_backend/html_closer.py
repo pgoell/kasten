@@ -252,6 +252,8 @@ _CLOSES_P = frozenset(
 )
 """Html start tags that close an open `<p>`."""
 
+_HEADINGS = ("h1", "h2", "h3", "h4", "h5", "h6")
+
 _SCOPE = frozenset(
     (
         "applet",
@@ -330,6 +332,8 @@ def _start(stack: list[_Open], name: str, attrs: dict[str, str], self_closing: b
             _close(stack, ("p",))
         if name in ("li", "dd", "dt"):
             _close(stack, ("li",) if name == "li" else ("dd", "dt"))
+        if name in _HEADINGS and stack and stack[-1][0] in _HEADINGS and stack[-1][1] == "html":
+            stack.pop()
         if name in _FOREIGN and not self_closing:
             stack.append((name, name, ""))
         elif stack and name not in _VOID and name not in _RAW_TEXT:
