@@ -5,6 +5,8 @@ test. At this size the planner would rather scan the table, so the tests turn
 the scan off to make it take the index, as it does on the live index (#1340).
 """
 
+import re
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -20,6 +22,11 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 ARCHIVE = "98 Archive"
+
+ROOT = Path(__file__).parents[4]
+RUNBOOK = ROOT / "docs/how-to/back-up-and-restore.md"
+# The issue saw misses from about the 20th round of a DELETE and no rows by the 40th (#1408).
+ROUNDS = 40
 
 SETTING = text("SELECT current_setting('hnsw.ef_search', true)")
 
@@ -101,3 +108,51 @@ async def test_nearest_settings_end_with_the_transaction(
     assert inside == str(ranked.SEARCH)
     # Unset, or pgvector's default once the library has loaded on this connection.
     assert after in {None, "40"}
+
+
+def _empty_steps() -> list[str]:
+    section = RUNBOOK.read_text().split("### Empty the index")[1].split("\n### ")[0]
+    return re.findall(r'psql .*-c "([^"]+)"', section)
+
+
+async def test_the_runbook_empties_the_index_with_no_dead_entries(
+    sessions: async_sessionmaker[AsyncSession],
+) -> None:
+    steps = _empty_steps()
+    assert len(steps) == 2
+    query = _axis(0)
+    wrong = []
+    for step in steps:
+        for round_ in range(ROUNDS):
+            await _seed(sessions)
+            async with sessions() as session, session.begin():
+                await _forced(session, "seqscan")
+                found = await ranked._nearest(session, query, ARCHIVE)
+            async with sessions() as session, session.begin():
+                await _forced(session, "indexscan")
+                exact = (await session.execute(nearest_select(query, ARCHIVE))).tuples().all()
+            if found != list(exact):
+                wrong.append((step, round_, len(found)))
+            async with sessions() as session, session.begin():
+                await session.execute(text(step))
+                pieces = await session.scalar(text("SELECT count(*) FROM pieces"))
+                notes = await session.scalar(text("SELECT count(*) FROM piece_notes"))
+            assert (pieces, notes) == (0, 0)
+
+    assert wrong == []
+
+
+def test_nothing_empties_the_pieces_with_a_delete() -> None:
+    # Split so this line is not a hit; a DELETE with a WHERE drops one note and stays.
+    pattern = re.compile(r"DELETE FROM " r"piece_notes(?!\s+WHERE)")
+    folders = ("docs", "backend/src", "backend/tests", "jobs", "deploy", "shell")
+    hits = [
+        f"{path.relative_to(ROOT)}:{n}"
+        for folder in folders
+        for path in (ROOT / folder).rglob("*")
+        if path.suffix in {".md", ".py", ".sh", ".yaml", ".yml", ".toml"}
+        and "node_modules" not in path.parts
+        for n, line in enumerate(path.read_text().splitlines(), 1)
+        if pattern.search(line)
+    ]
+    assert hits == []
