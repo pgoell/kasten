@@ -199,12 +199,42 @@ _VOID = frozenset(
         "source",
         "track",
         "wbr",
+        "param",
+        "keygen",
+        "basefont",
+        "bgsound",
+        "frame",
+        "image",
         "html",
         "head",
         "body",
     )
 )
 """Html start tags that leave nothing open, `<body>` and its kin only adding attributes."""
+
+_FORMATTING = frozenset(
+    (
+        "a",
+        "b",
+        "big",
+        "code",
+        "em",
+        "font",
+        "i",
+        "nobr",
+        "s",
+        "small",
+        "strike",
+        "strong",
+        "tt",
+        "u",
+    )
+)
+"""Html elements the tree builder reopens after the adoption agency closes them."""
+
+_MARKERS = frozenset(("applet", "caption", "marquee", "object", "td", "template", "th"))
+
+_IMPLIED = ("dd", "dt", "li", "optgroup", "option", "p", "rb", "rp", "rt", "rtc")
 
 _CLOSES_P = frozenset(
     (
@@ -304,15 +334,69 @@ def _attrs(text: str) -> dict[str, str]:
     return attrs
 
 
-def _close(stack: list[_Open], names: tuple[str, ...], stops: frozenset[str]) -> None:
-    """Pop through the nearest open html element in `names`; a point or one in `stops` hides it."""
+def _find(
+    stack: list[_Open], names: tuple[str, ...], stops: frozenset[str], *, past_points: bool = False
+) -> int | None:
+    """The nearest open html element in `names`; a point or one in `stops` hides it."""
     for at in range(len(stack) - 1, -1, -1):
         entry, namespace, point = stack[at]
         if namespace == "html" and entry in names:
-            del stack[at:]
-            return
-        if (namespace != "html" and point) or (namespace == "html" and entry in stops):
-            return
+            return at
+        if (namespace != "html" and point and not past_points) or (
+            namespace == "html" and entry in stops
+        ):
+            return None
+    return None
+
+
+def _close(stack: list[_Open], names: tuple[str, ...], stops: frozenset[str]) -> None:
+    if (at := _find(stack, names, stops)) is not None:
+        del stack[at:]
+
+
+def _adopt(stack: list[_Open], name: str) -> None:
+    """The adoption agency for a new `<a>` or `<nobr>`, which closes the open one.
+
+    Out of scope only it goes; else so does each element above it neither special nor formatting.
+    An `<a>` is looked for back to the last marker, which no point sets.
+    """
+    stops = _MARKERS if name == "a" else _SCOPE
+    if (at := _find(stack, (name,), stops, past_points=name == "a")) is None:
+        return
+    if _find(stack, (name,), _SCOPE) != at:
+        del stack[at]
+        return
+    kept: list[_Open] = []
+    run: list[_Open] = []
+    for entry in stack[at + 1 :]:
+        if entry[0] not in _SPECIAL:
+            run.append(entry)
+            continue
+        # The inner loop keeps formatting only among the three nodes nearest each special one.
+        kept += [*(e for e in run[-3:] if e[0] in _FORMATTING), entry]
+        run = []
+    stack[at:] = kept + [entry for entry in run if entry[0] in _FORMATTING]
+
+
+def _html_start(stack: list[_Open], name: str) -> bool:
+    """Close what an html start tag closes by the in-body rules; False when they ignore it."""
+    # The form pointer: a form inside an open one is ignored.
+    if name == "form" and _find(stack, ("form",), frozenset()) is not None:
+        return False
+    if name in _CLOSES_P:
+        _close(stack, ("p",), _STOPS["p"])
+    if name in ("li", "dd", "dt"):
+        items = ("li",) if name == "li" else ("dd", "dt")
+        _close(stack, items, _SPECIAL - {"address", "div", "p"})
+    if name in _HEADINGS and stack and stack[-1][0] in _HEADINGS and stack[-1][1] == "html":
+        stack.pop()
+    if name in ("option", "optgroup") and stack and stack[-1][:2] == ("option", "html"):
+        stack.pop()
+    if name == "button":
+        _close(stack, ("button",), _SCOPE)
+    if name in ("a", "nobr"):
+        _adopt(stack, name)
+    return True
 
 
 def _start(stack: list[_Open], name: str, attrs: dict[str, str], self_closing: bool) -> bool:
@@ -325,13 +409,8 @@ def _start(stack: list[_Open], name: str, attrs: dict[str, str], self_closing: b
         while stack and not stack[-1][2]:
             stack.pop()
     if _as_html(stack, name):
-        if name in _CLOSES_P:
-            _close(stack, ("p",), _STOPS["p"])
-        if name in ("li", "dd", "dt"):
-            items = ("li",) if name == "li" else ("dd", "dt")
-            _close(stack, items, _SPECIAL - {"address", "div", "p"})
-        if name in _HEADINGS and stack and stack[-1][0] in _HEADINGS and stack[-1][1] == "html":
-            stack.pop()
+        if not _html_start(stack, name):
+            return True
         if name in _FOREIGN and not self_closing:
             stack.append((name, name, ""))
         elif stack and name not in _VOID and name not in _RAW_TEXT:
@@ -359,6 +438,13 @@ def _end(stack: list[_Open], name: str) -> None:
         if stack[at][0] == name:
             del stack[at:]
             return
+    if name == "form":
+        # It removes only the form, after the implied end tags on top.
+        if (at := _find(stack, ("form",), _SCOPE)) is not None:
+            while stack[-1][1] == "html" and stack[-1][0] in _IMPLIED:
+                stack.pop()
+            del stack[at]
+        return
     # Any heading's end tag closes whichever heading is open.
     _close(stack, _HEADINGS if name in _HEADINGS else (name,), _STOPS.get(name, _SPECIAL))
 

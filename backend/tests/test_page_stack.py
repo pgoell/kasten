@@ -333,3 +333,136 @@ def test_1560_the_closer_tracks_html_opened_inside_a_point(end: bytes, closer: b
     served, _ = serve_page(page, None, None)
 
     assert served == DOCTYPE + PAGE_SCRIPT + page[len(DOCTYPE) :] + closer + LINKS_OUT
+
+
+@pytest.mark.parametrize(
+    ("end", "closer"),
+    [
+        pytest.param(
+            b"<svg><foreignObject><option><option></option></foreignObject><![CDATA[x",
+            b"]]></svg>",
+            id="option-pops-option",
+        ),
+        pytest.param(
+            b"<svg><foreignObject><option><optgroup></optgroup></foreignObject><![CDATA[x",
+            b"]]></svg>",
+            id="optgroup-pops-option",
+        ),
+        pytest.param(
+            b"<svg><foreignObject><optgroup><optgroup></optgroup></foreignObject><![CDATA[x",
+            b"></svg>",
+            id="optgroup-keeps-optgroup",
+        ),
+        pytest.param(
+            b"<svg><foreignObject><button><button></button></foreignObject><![CDATA[x",
+            b"]]></svg>",
+            id="button-closes-button",
+        ),
+        pytest.param(
+            b"<svg><foreignObject><button><object><button></button></object></button>"
+            b"</foreignObject><![CDATA[x",
+            b"]]></svg>",
+            id="object-hides-the-outer-button",
+        ),
+        *(
+            pytest.param(
+                b"<svg><foreignObject><" + name + b"><![CDATA[x",
+                b"]]></svg>",
+                id=f"void-{name.decode()}",
+            )
+            for name in (b"param", b"keygen", b"basefont", b"bgsound", b"frame", b"image")
+        ),
+        pytest.param(
+            b"<svg><foreignObject><a><a></a></foreignObject><![CDATA[x",
+            b"]]></svg>",
+            id="a-closes-a",
+        ),
+        pytest.param(
+            b"<svg><foreignObject><nobr><nobr></nobr></foreignObject><![CDATA[x",
+            b"]]></svg>",
+            id="nobr-closes-nobr",
+        ),
+        pytest.param(
+            b"<svg><foreignObject><a><div><a></a></div></foreignObject><![CDATA[x",
+            b"]]></svg>",
+            id="a-past-div-leaves-the-div",
+        ),
+        pytest.param(
+            b"<svg><foreignObject><a><b><a></a></foreignObject><![CDATA[x",
+            b"></svg>",
+            id="a-reopens-b",
+        ),
+        pytest.param(
+            b"<svg><foreignObject><a><span><a></a></span></foreignObject><![CDATA[x",
+            b"]]></svg>",
+            id="a-closes-span",
+        ),
+        pytest.param(
+            b"<svg><foreignObject><a><span><div><a></a></div></foreignObject><![CDATA[x",
+            b"]]></svg>",
+            id="a-past-div-closes-the-span-below-it",
+        ),
+        pytest.param(
+            b"<svg><foreignObject><a><div><span><p><a></a></p></div></foreignObject><![CDATA[x",
+            b"]]></svg>",
+            id="a-past-div-closes-the-span-between-blocks",
+        ),
+        pytest.param(
+            b"<svg><foreignObject><nobr><span><div><nobr></nobr></div></foreignObject><![CDATA[x",
+            b"]]></svg>",
+            id="nobr-past-div-closes-the-span-below-it",
+        ),
+        pytest.param(
+            b"<svg><foreignObject><a><svg><foreignObject><a></a></foreignObject></svg>"
+            b"</foreignObject><![CDATA[x",
+            b"]]></svg>",
+            id="a-behind-a-point-goes",
+        ),
+        pytest.param(
+            b"<svg><foreignObject><a><object><a></a></object></foreignObject><![CDATA[x",
+            b"></svg>",
+            id="object-marker-keeps-the-outer-a",
+        ),
+        pytest.param(
+            b"<svg><foreignObject><a><b><i><u><s><div><a></a></div></s></u></i>"
+            b"</foreignObject><![CDATA[x",
+            b"]]></svg>",
+            id="a-past-div-drops-the-fourth-formatting-up",
+        ),
+        pytest.param(
+            b"<svg><foreignObject><a><b><span><span><span><div><a></a></div></foreignObject>"
+            b"<![CDATA[x",
+            b"]]></svg>",
+            id="a-past-div-counts-every-element-up",
+        ),
+        pytest.param(
+            b"<svg><foreignObject><a><i><u><s><div><a></a></div></s></u></i>"
+            b"</foreignObject><![CDATA[x",
+            b"]]></svg>",
+            id="a-past-div-keeps-three-formatting",
+        ),
+        pytest.param(
+            b"<svg><foreignObject><form><div></form></foreignObject></svg><svg><![CDATA[x",
+            b"]]></svg></svg>",
+            id="form-end-leaves-the-div",
+        ),
+        pytest.param(
+            b"<svg><foreignObject><form><p></form></foreignObject><![CDATA[x",
+            b"]]></svg>",
+            id="form-end-pops-p",
+        ),
+        pytest.param(
+            b"<svg><foreignObject><form><form></form></foreignObject><![CDATA[x",
+            b"]]></svg>",
+            id="form-in-form-ignored",
+        ),
+    ],
+)
+def test_1575_the_closer_follows_the_in_body_rules_inside_a_point(
+    end: bytes, closer: bytes
+) -> None:
+    page = DOCTYPE + b"<p>a</p>" + end
+
+    served, _ = serve_page(page, None, None)
+
+    assert served == DOCTYPE + PAGE_SCRIPT + page[len(DOCTYPE) :] + closer + LINKS_OUT
