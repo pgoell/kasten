@@ -328,6 +328,45 @@ describe("#1477 a comment that opens mid-paragraph holds no card", () => {
   });
 });
 
+describe("#1547 a :: inside a one-line comment after text is no card", () => {
+  const fronts = (text: string) => parseCards(text).map((card) => card.front);
+
+  it("#1547 a :: inside a comment after text is no card", () => {
+    expect(fronts("#flashcards/x\n\ntext <!-- q::a -->\n\nr::b\n")).toEqual(["r"]);
+  });
+
+  it("#1547 a :: inside a comment after text in the deck tag's paragraph is no card", () => {
+    expect(fronts("#flashcards/x\ntext <!-- q::a -->\n\nr::b\n")).toEqual(["r"]);
+  });
+
+  it("#1547 a :: on the opening line of a comment over several lines is no card", () => {
+    expect(fronts("#flashcards/x\n\ntext <!-- q::a\nmore -->\n\nr::b\n")).toEqual(["r"]);
+  });
+
+  it("#1547 a card splits at the :: outside the comment", () => {
+    const card = only("#flashcards/x\n\ntext <!-- q::a --> more::b\n");
+    expect([card.front, card.back]).toEqual(["text <!-- q::a --> more", "b"]);
+  });
+
+  it("#1547 a comment in a card's back stays in the back", () => {
+    const card = only("#flashcards/x\n\nq::a <!-- note::x -->\n");
+    expect([card.front, card.back]).toEqual(["q", "a <!-- note::x -->"]);
+  });
+
+  it.each([
+    ["escaped", "text \\<!-- q::a -->", "text \\<!-- q"],
+    ["in code spans", "`<!--` q::a `-->`", "`<!--` q"],
+  ])("#1547 a <!-- %s is text, so its line is a card", (_, line, front) => {
+    expect(fronts(`#flashcards/x\n\n${line}\n`)).toEqual([front]);
+  });
+
+  it("#1547 a ? card's question runs up through the line", () => {
+    expect(fronts("#flashcards/x\n\ntext <!-- q::a -->\nfront\n?\nback\n")).toEqual([
+      "text <!-- q::a -->\nfront",
+    ]);
+  });
+});
+
 describe("#1479 a comment after a list or quote marker holds no card", () => {
   const fronts = (text: string) => parseCards(text).map((card) => card.front);
 
