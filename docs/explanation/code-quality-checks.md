@@ -66,7 +66,9 @@ only goes down. The section below says why.
 
 **An area review** ([Review an area for deep modules](/how-to/review-an-area-for-deep-modules.md)).
 The split between files. No lint sees it, because every file and function in a
-badly split area can pass each check on its own.
+badly split area can pass each check on its own. A weekly job runs one on the
+busiest area and files its findings for pgoell to pick from, so the review
+reaches code no pull request touched.
 
 ## Why the frontend's list only shrinks
 

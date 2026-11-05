@@ -14,7 +14,8 @@ reads one area whole and files what should merge or move. Why the lints miss
 this is in [Code quality checks](/explanation/code-quality-checks.md).
 
 Run one when an area keeps producing bugs, or a file in it reaches 4,500
-tokens. There is no schedule.
+tokens. A weekly job also runs one on its own; how to read what it files is in
+[The weekly design review](#the-weekly-design-review).
 
 Every command below runs from the repository root.
 
@@ -121,6 +122,38 @@ File each bug found on the way as its own issue labelled `bug`, and link it
 from the finding it showed. Then comment on the issue that asked for the
 review with the list of files, the measurements from step 2 and a link to each
 issue filed.
+
+## The weekly design review
+
+Every Monday at 03:15 Berlin time the `Design review` workflow runs these steps
+with an agent, on the area busiest in the last 7 days. It never writes code.
+
+The area is a source folder under `frontend/src`, `backend/src`, `jobs/src` or
+`shell`; a folder of more than 20 files splits by the first word of each file
+name (`use-` dropped), as `frontend/src/components:todo`. Tests and generated
+files belong to no area. The score is the area's commits plus its `bug` and
+`regression` issues, both over 7 days; an issue counts for the areas whose files
+it names. Files over 4,500 tokens break a tie. Commits of a pull request that
+names a finding's issue do not count, nor does an area reviewed in the last 4
+weeks unless 3 or more bugs named it since. To see what the next run would
+pick, with no token:
+
+```sh
+python3 .github/review/design.py pick
+```
+
+The agent reads the code with read tools and git only, no `gh`, and reads every
+`review:*` issue, open and closed, so it does not suggest a finding again. A
+workflow step files what it wrote as one issue labelled `refactor`,
+`not-for-loop` and `review:design`: at most 5 findings as a checklist, with the
+area and why it was picked. A week with no area to review, or no finding, files
+nothing and says so in one line of the job summary.
+
+To act on the issue, tick the findings worth building and file each ticked one
+as its own `refactor` issue, without `not-for-loop`, with `From #<review
+issue>` in its body; that line is how the next run knows which commits to leave
+out. Then close the review issue. A finding left unticked on a closed issue
+counts as rejected, and the job does not file it again.
 
 ## Related
 
