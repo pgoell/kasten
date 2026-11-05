@@ -200,9 +200,11 @@ def stamp(content: str, previous: str = "", *, now: datetime | None = None) -> s
     when = (now or datetime.now(UTC)).isoformat(timespec="seconds")
     block, body = _split(content)
     held = _split(previous)[0]
+    # A text that is CRLF throughout gets its written lines in CRLF too (#1470).
+    end = "\r" if "\r\n" in content and content.count("\n") == content.count("\r\n") else ""
     opener, closer = _fences(content)
-    # The lines written here end as the opening fence does, so a CRLF text stays CRLF (#1470).
-    end = "\r" if opener.endswith("\r") else ""
+    if not opener.endswith("\r"):
+        opener, closer = opener + end, closer + end
 
     opening = []
     if _line("id", block) is None:

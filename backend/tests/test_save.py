@@ -511,3 +511,14 @@ async def test_1470_a_stale_base_over_a_carriage_return_text_the_disk_holds_writ
 
     assert response.status_code == 200
     assert (vault / "a.md").read_bytes() == on_disk
+
+
+async def test_1470_a_crlf_text_with_no_block_over_a_crlf_note_lands_crlf(
+    client: AsyncClient, vault: Path
+) -> None:
+    (vault / "a.md").write_bytes(CRLF_NOTE)
+
+    await client.put("/api/files/a.md", json={"content": "# one\r\n# two\r\n"})
+
+    landed = (vault / "a.md").read_bytes()
+    assert landed.count(b"\n") == landed.count(b"\r\n") == 8
