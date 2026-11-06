@@ -2,9 +2,7 @@
 # Which round of review this push is, and which commits it covers. Each kind of
 # review (review, security) keeps one comment on the pull request with a marker
 # that records the last commit it covered and the round. Round 1 reads the whole
-# pull request, later rounds only the commits since, and after three rounds the
-# review stops and asks the author to rethink, so an agent author and an agent
-# reviewer cannot cycle all night.
+# pull request, later rounds only the commits since.
 #
 # Security reads every line on round 1 but a later round only when the new
 # commits are big or touch a risky path, as a fix push is a few lines and
@@ -12,7 +10,7 @@
 # and leaves the marker where it was, so the next round that runs reads the
 # skipped commits too.
 #
-#   round.sh plan    writes round, from, comment_id, stop, rerun, skip and max to $GITHUB_OUTPUT
+#   round.sh plan    writes round, from, comment_id, stop, rerun and skip to $GITHUB_OUTPUT
 #   round.sh record  writes the marker comment for this round
 #
 # Reads KIND, PR, BASE_SHA, HEAD_SHA and GH_TOKEN from the environment, and
@@ -21,7 +19,6 @@ set -euo pipefail
 # So a failed command inside $(...) stops the script too.
 shopt -s inherit_errexit
 
-MAX_ROUNDS=3
 MAX_SKIP_LINES=100
 marker="<!-- kasten-review:$KIND"
 
@@ -76,8 +73,7 @@ case $1 in
         from=$last_sha
       fi
     fi
-    stop=false
-    if [ "$round" -gt "$MAX_ROUNDS" ] || [ "$rerun" = true ]; then stop=true; fi
+    stop=$rerun
     skip=
     if [ "$KIND" = security ] && [ "$round" -gt 1 ] && [ "$stop" = false ]; then
       # A binary file counts no lines, but any file can still be risky.
@@ -95,7 +91,6 @@ case $1 in
       echo "stop=$stop"
       echo "rerun=$rerun"
       echo "skip=$skip"
-      echo "max=$MAX_ROUNDS"
     } >>"$GITHUB_OUTPUT"
     ;;
   record)
@@ -106,10 +101,8 @@ case $1 in
       sha=$FROM
       ROUND=$((ROUND - 1))
       text="**${KIND^}** skipped \`${FROM:0:7}..${HEAD_SHA:0:7}\`: $SKIP. It counts no round, and the next round reads these commits too."
-    elif [ "$ROUND" -gt "$MAX_ROUNDS" ]; then
-      text="**${KIND^}**: $MAX_ROUNDS rounds are done and this push brought round $ROUND. No more rounds run on this pull request. Stop fixing line by line: rethink the approach, or ask pgoell."
     else
-      text="**${KIND^}** round $ROUND of $MAX_ROUNDS covered \`${FROM:0:7}..${HEAD_SHA:0:7}\`."
+      text="**${KIND^}** round $ROUND covered \`${FROM:0:7}..${HEAD_SHA:0:7}\`."
     fi
     body="$marker sha=$sha round=$ROUND -->
 $text"
