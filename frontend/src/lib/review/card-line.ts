@@ -59,9 +59,12 @@ export function withoutHeadToken(line: string): string {
   return line.replace(HEAD_TOKEN, "$1");
 }
 
-/** `text` with the token taken off, which is how a parked card is shown. */
-export function withoutToken(text: string): string {
-  const found = token(text);
+/**
+ * `text` with the token taken off, which is how a parked card is shown. `bare` is `text` with
+ * its comments blanked, same length, so a token inside a comment stays (#1590).
+ */
+export function withoutToken(text: string, bare = text): string {
+  const found = token(bare);
   if (found === undefined) return text.trimEnd();
   return (text.slice(0, found.index) + text.slice(found.index + found[0].length)).trimEnd();
 }
@@ -296,6 +299,8 @@ export function divide(line: string, bare = line): Divided | null {
   if (at === undefined) return null;
   return {
     front: withoutAnkiId(line.slice(0, at)).trim(),
-    back: withoutToken(withoutAnkiId(line.slice(at + 2).replace(SR, ""))).trim(),
+    back: withoutAnkiId(
+      withoutToken(line.slice(at + 2), bare.slice(at + 2)).replace(SR, ""),
+    ).trim(),
   };
 }

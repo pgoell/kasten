@@ -155,3 +155,49 @@ describe("#683 an unscheduled one-line card over a ? card's question is a card o
     });
   });
 });
+
+describe("#1590 parking reads the token where the reader does", () => {
+  const SCHEDULE = "<!--SR:!2026-08-20,4,270-->";
+  const round = (line: string) => {
+    const text = `#flashcards/x\n\n${line}\n`;
+    const on = setSuspended(text, only(text), true);
+    const off = setSuspended(on, only(on), false);
+    return { before: only(text).parked, on: only(on).parked, off, after: only(off).parked };
+  };
+
+  it("#1590 parking and unparking a line with a commented token gives the line back", () => {
+    const text = "#flashcards/x\n\nq::a <!-- !suspended -->\n";
+    expect(round("q::a <!-- !suspended -->")).toEqual({
+      before: null,
+      on: "suspended",
+      off: text,
+      after: null,
+    });
+  });
+
+  it("#1590 unparking takes the real token and keeps the comment's", () => {
+    const text = "#flashcards/x\n\nq::a <!-- !suspended --> !suspended\n";
+    const off = setSuspended(text, only(text), false);
+    expect(off).toBe("#flashcards/x\n\nq::a <!-- !suspended -->\n");
+  });
+
+  it("#1590 reader and writer agree on generated lines with comments", () => {
+    const heads = ["q::a", "{{c1::a}}", "{{c1::a}} {{c2::b}}"];
+    const comments = ["<!-- !suspended -->", "<!--!suspended-->", "<!-- x !suspended y -->", ""];
+    const tails = ["", SCHEDULE, "<!--SR:c1!2026-08-20,4,270-->", "`!suspended`"];
+    const lines = heads.flatMap((head) =>
+      comments.flatMap((comment) =>
+        tails.flatMap((tail) => [`${head} ${comment} ${tail}`, `${head} ${tail} ${comment}`]),
+      ),
+    );
+    for (const line of lines.map((line) => line.replace(/ +/g, " ").trim())) {
+      expect({ line, ...round(line) }).toEqual({
+        line,
+        before: null,
+        on: "suspended",
+        off: `#flashcards/x\n\n${line}\n`,
+        after: null,
+      });
+    }
+  });
+});

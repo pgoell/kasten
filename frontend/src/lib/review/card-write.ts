@@ -7,6 +7,7 @@ import {
   withoutHeadToken,
   withoutToken,
 } from "@/lib/review/card-line";
+import { commentsAndCode } from "@/lib/review/deck-parse";
 import type { Card, Schedule } from "@/lib/review/srs";
 
 /** `next` written as the comment that goes in the note, named by its number on a cloze. */
@@ -69,7 +70,8 @@ export function setSuspended(text: string, card: Card, on: boolean): string {
       ? schedule.test(last)
         ? last.replace(schedule, `${SUSPEND_TOKEN} $&`)
         : `${last.trimEnd()} ${SUSPEND_TOKEN}`
-      : withoutToken(last);
+      : // The reader's reading, so a token inside a comment stays where it is (#1590).
+        withoutToken(last, commentsAndCode(text).uncommented.split("\n")[card.to]);
     return lines.join("\n");
   }
 
