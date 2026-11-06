@@ -188,7 +188,7 @@ for (const theme of ["light", "dark"] as const) {
 
 /**
  * A take, then a second selection where the toast lies (#890), or a take in a
- * frame area under 150 px (#891): what the reader sees before they press again.
+ * frame area under 150 px (#891) or 80 px (#1483): what the reader sees before they press again.
  */
 async function shootReach(name: string, size: Size, theme: Theme, short: boolean) {
   const mounted: Mounted = await setUp();
@@ -228,6 +228,8 @@ for (const theme of ["light", "dark"] as const) {
   for (const size of [
     { width: 1440, height: 164, touch: false },
     { width: 390, height: 260, touch: true },
+    { width: 1440, height: 100, touch: false },
+    { width: 390, height: 220, touch: true },
   ]) {
     const name = `html-take-short-${size.width}x${size.height}-${theme}`;
     shotTest(name, () => shootReach(name, size, theme, true));
