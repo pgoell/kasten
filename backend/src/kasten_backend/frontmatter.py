@@ -110,16 +110,6 @@ def _fence(line: str) -> bool:
     return line.rstrip(" \t\r") == FENCE
 
 
-def _fences(content: str) -> tuple[str, str]:
-    """The block's opening and closing lines as written, or plain fences when there is none.
-
-    Trailing blanks kept: the client names its next base from the text it sent (#1468).
-    """
-    lines = _lines(content)
-    end = closing(lines)
-    return (FENCE, FENCE) if end is None else (lines[0], lines[end])
-
-
 def body_start(content: str) -> int:
     """Where the note's own text begins: the offset after the block's closing fence, or 0.
 
