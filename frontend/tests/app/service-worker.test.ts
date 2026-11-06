@@ -86,7 +86,7 @@ function boot() {
   /** The response the worker answered with, or `undefined` when it left the request alone. */
   async function request(request: Request): Promise<Response | undefined> {
     const respondWith = vi.fn();
-    listeners.get("fetch")?.({ request, respondWith });
+    listeners.get("fetch")?.({ request, respondWith, waitUntil: (p: Promise<unknown>) => p });
     const answer = respondWith.mock.calls[0]?.[0] as Promise<Response> | undefined;
     return answer;
   }
@@ -161,6 +161,30 @@ describe("the service worker", () => {
     const answer = await sw.request(navigation("/capture"));
     expect(await answer?.text()).toBe("new shell");
     expect(await (await sw.cached("/"))?.text()).toBe("new shell");
+  });
+
+  it("on a slow network, a navigation opens the cached shell and keeps the late one", async () => {
+    vi.useFakeTimers();
+    const sw = await installed();
+    let land: (response: Response) => void = () => {};
+    sw.fetch.mockReturnValue(new Promise((resolve) => (land = resolve)));
+    const answer = sw.request(navigation("/"));
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(await (await answer)?.text()).toBe("old shell");
+    land(basic("new shell"));
+    await vi.waitFor(async () => expect(await (await sw.cached("/"))?.text()).toBe("new shell"));
+    vi.useRealTimers();
+  });
+
+  it("the sign-in reload waits for the network, so the gate's redirect is not lost", async () => {
+    vi.useFakeTimers();
+    const sw = await installed();
+    const redirect = opaqueRedirect();
+    sw.fetch.mockReturnValue(new Promise((resolve) => setTimeout(() => resolve(redirect), 5000)));
+    const answer = sw.request(navigation("/notes?signin=1"));
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(await answer).toBe(redirect);
+    vi.useRealTimers();
   });
 
   it("a navigation redirected to the sign-in page goes through and is not cached", async () => {

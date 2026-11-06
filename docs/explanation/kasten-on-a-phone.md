@@ -204,10 +204,12 @@ sign-in under `/oauth2/`, the chat, the terminal or the agent door: those reach
 the server or fail.
 
 The shell is network-first. Each start asks the server for it and keeps the
-answer, and only when the request fails outright does the copy answer, for
-whatever route was asked. A cache-first shell would open faster, but it would
-show the last release until a second start, and #368 made a new release reach
-the app on its next start. The hashed files can come from the cache first, as
+answer. When the request fails outright, or the server has not answered within
+three seconds, as on a train or a crowded wifi, the copy answers, for whatever
+route was asked, and the late answer is kept for the next start. A cache-first
+shell would open faster, but it would show the last release until a second
+start, and #368 made a new release reach the app on its next start. With the
+wait, that holds for every start the network answers in time. The hashed files can come from the cache first, as
 a new release gives them new names.
 
 oauth2-proxy stands in front of the app, and when the session has expired it
@@ -222,7 +224,11 @@ to its sign-in on another origin fails the way a lost signal does. So after any
 failed call, and whenever the page comes back into view, kasten asks
 `/api/health` with `redirect: "manual"` (`src/lib/app/session.ts`). A redirect
 or a `401` means the session has gone, and the page reloads; the gate sends that
-navigation to its sign-in, which brings it back after. No answer at all means
+navigation to its sign-in, which brings it back after. The reload carries
+`?signin=1`, which the worker reads as "wait for the network": on a slow link
+the three-second copy would open the app again, its calls would fail again, and
+the page would reload for ever. The app drops the mark from the address as it
+starts. No answer at all means
 no signal, and the page stays.
 
 A tab left open across a release keeps running the old one. Each route's code
