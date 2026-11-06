@@ -120,8 +120,8 @@ A note nobody has open anywhere takes neither. Close the note, leave the player
 running, and the position it reaches is lost.
 
 Pressing the key again goes to the pane already playing rather than opening a
-second one, so it is its own way back. `<leader>q` closes the player, and
-`<leader>k` returns to the note.
+second one, so it is its own way back. `<leader>q` closes the player's pane,
+and the note beside takes the focus.
 
 ### Playing it without leaving the note
 

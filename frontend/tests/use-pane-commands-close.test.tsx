@@ -221,3 +221,49 @@ it("#1605 q on a book writes its place before the note beside takes the focus", 
   expect(order).toEqual([`flush ${NOTE}`, "moved"]);
   expectClosedBeside(start, layout);
 });
+
+// The close waits on the place write; whatever moves the focus meanwhile must not be what closes.
+async function closeTwiceWhileWriting(start: Layout, between: (layout: Layout) => Layout) {
+  let land: () => void = () => {};
+  const written = new Promise<void>((resolve) => {
+    land = resolve;
+  });
+  const moveTo = vi.fn((_update: (previous: Layout) => Layout) => true);
+  const { result } = renderHook(
+    () =>
+      usePaneCommands({
+        pane: focusedPane(start),
+        setLayout: vi.fn(),
+        saveFirst: vi.fn(async () => true),
+        moves: { moveTo, focusToward: vi.fn(), shiftToward: vi.fn() },
+        openPeriodic: vi.fn(),
+        setNotice: vi.fn(),
+        paths: [],
+        focusedNote: { current: { path: undefined, isWriting: () => false } },
+        flushBook: () => written,
+      }),
+    { wrapper },
+  );
+  const closes = [result.current.commands.closeNote(), result.current.commands.closeNote()];
+  land();
+  await Promise.all(closes);
+  return moveTo.mock.calls.reduce((layout, [update]) => update(layout), between(start));
+}
+
+it("#1605 q twice while the place is written closes the book once and keeps the note", async () => {
+  const start = openBeside(emptyLayout(NOTE), (pane) => pane.book === NOTE, { book: NOTE }, "row");
+
+  const layout = await closeTwiceWhileWriting(start, (same) => same);
+
+  expect(tabPanes(layout).map((pane) => pane.path)).toEqual([NOTE]);
+  expect(focusedPane(layout).path).toBe(NOTE);
+});
+
+it("#1605 a focus moved to the note while the place is written still closes the book", async () => {
+  const start = openBeside(emptyLayout(NOTE), (pane) => pane.book === NOTE, { book: NOTE }, "row");
+  const note = tabPanes(start).find((pane) => pane.path === NOTE)?.id ?? "";
+
+  const layout = await closeTwiceWhileWriting(start, (same) => focusPane(same, note));
+
+  expect(tabPanes(layout).map((pane) => pane.path)).toEqual([NOTE]);
+});

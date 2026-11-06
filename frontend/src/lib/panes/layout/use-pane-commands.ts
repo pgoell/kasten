@@ -9,6 +9,7 @@ import { heldKind, type KindField, PANE_KINDS } from "@/lib/panes/layout/pane-ki
 import {
   addTab,
   fillFocused,
+  focusPane,
   goToTab,
   type Layout,
   nextPane,
@@ -143,11 +144,14 @@ export function usePaneCommands({
         if (PANE_KINDS[kind].clears) {
           // The note beside may take the focus, and a focused note refuses the reader's place.
           if (pane.book !== undefined) await flushBook(pane.book);
-          moveTo((previous) =>
-            kind !== "term" && tabPanes(previous).length > 1
-              ? removeFocused(previous)
-              : fillFocused(previous, {}),
-          );
+          // By id: a second press or a move of the focus may have come during the write.
+          moveTo((previous) => {
+            if (!tabPanes(previous).some((each) => each.id === pane.id)) return previous;
+            const here = focusPane(previous, pane.id);
+            return kind !== "term" && tabPanes(here).length > 1
+              ? removeFocused(here)
+              : fillFocused(here, {});
+          });
           return;
         }
         await replace({});
