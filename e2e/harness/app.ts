@@ -19,7 +19,10 @@ export async function leader(page: Page, keys: string): Promise<void> {
   for (const key of keys) await page.keyboard.press(key);
 }
 
-/** Opens the note finder, types the name, and opens the first row once the finder has listed it. */
+/**
+ * Opens the note finder, types the name, and opens the first row once the finder has listed it.
+ * Returns once the note's tab is selected and an editor holds the focus: keys sent sooner are lost on a loaded box (#1615).
+ */
 export async function findNote(page: Page, name: string): Promise<void> {
   await leader(page, "ff");
   const finder = page.getByRole("dialog", { name: "Find note" });
@@ -27,6 +30,9 @@ export async function findNote(page: Page, name: string): Promise<void> {
   await finder.getByRole("combobox").fill(name);
   await expect(finder.getByRole("option").first()).toContainText(name);
   await page.keyboard.press("Enter");
+  await expect(page.getByRole("tab", { name, selected: true })).toBeVisible({ timeout: 15_000 });
+  // `:focus` rather than toBeFocused, which fails outright when two panes each hold an editor.
+  await expect(page.locator(".cm-content:focus")).toHaveCount(1);
 }
 
 /** Opens a note from the file tree at the vault's top level. */

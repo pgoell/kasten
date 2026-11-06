@@ -4,7 +4,6 @@ import { expect, test } from "../../harness/stack.ts";
 test("the finder opens the note it finds", async ({ page }) => {
   await openApp(page);
   await findNote(page, "Garden");
-  await expect(page.getByRole("tab", { name: "Garden", selected: true })).toBeVisible();
   await expect(page.locator(".cm-content")).toContainText("water the tomatoes");
 });
 
