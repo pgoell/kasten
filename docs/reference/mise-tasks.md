@@ -65,6 +65,7 @@ the other two services run stock images and rebuild nothing.
 | `chat:stub` | Run the chat runner on `127.0.0.1:7682` with a scripted session, no SDK and no login. `fe:dev` proxies `/chat` to it |
 | `fe:frame` | The end-to-end frame gates, in Chromium |
 | `fe:e2e` | Build, then prove offline capture in Chromium against `dist/`: the shell offline, dumps waiting and sent in order, a resend with the same id, a sign-in redirect kept out of the cache. Prints PASS or FAIL per step |
+| `e2e` | Build, then run the Playwright journeys in `e2e/` against `frontend/dist`, with Postgres and nginx in Docker. Needs Docker and Chromium. Stubs no API |
 | `fe:e2e:release` | Build two releases into `dist-e2e-a/` and `dist-e2e-b/`, the second with every asset renamed, then prove in Chromium that a tab open across the release gets to its next route on the new one, reloading at most once, and keeps the text typed into a note. Prints PASS or FAIL per scenario |
 | `fe:trace:phone` | `-- <dist> <label>`: trace a tab switch, a note open and ten typed characters in Chromium as a phone (390 px, touch, CPU 4x slower) against a built `dist`, into `frontend/traces/<label>.json` ([Phone performance](phone-performance.md)) |
 | `fe:trace:report` | `-- <prefix> [...]`: print the long tasks, frames, script, layout, style and forced layouts of each step, and the first-load JS, for every trace whose label starts with a prefix |

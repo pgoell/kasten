@@ -48,3 +48,5 @@ frontend/.pdfjs-*/
 
 # Copies of real Claude Code session files for a collector try: they hold private text.
 .session-copy/
+e2e/test-results/
+e2e/playwright-report/
