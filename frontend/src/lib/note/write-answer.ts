@@ -8,6 +8,7 @@ import {
   holdText,
   landedAs,
   movedTo,
+  refusedForGood,
   sameText,
 } from "@/lib/saving/held-text";
 
@@ -42,6 +43,7 @@ function failedHeld(write: Write, failure: unknown, named: string | undefined) {
     conflicted: write.wasConflicted || refused,
     base: write.base,
     after: named === write.base ? undefined : named,
+    ...(refusedForGood(failure) && { refused: true }),
   };
   return { held, refused, message };
 }

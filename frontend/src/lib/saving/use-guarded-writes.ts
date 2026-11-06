@@ -12,6 +12,7 @@ import { bookType } from "@/lib/notes/links/note-path";
 import { noteBase } from "@/lib/notes/note-base";
 import { readField, setField } from "@/lib/notes/text/note-frontmatter";
 import { setWatched } from "@/lib/panes/video/video";
+import { useHeldRetry } from "@/lib/saving/held-retry";
 import { heldText } from "@/lib/saving/held-text";
 import { linkMention, mentionLinkText } from "@/lib/saving/mention-link";
 import { useBookmark } from "@/lib/saving/use-bookmark";
@@ -56,6 +57,17 @@ export function useGuardedWrites({
   // Whole-note writers queue here so bookmarks never race highlights. The editor's save stays
   // out: holding it behind another writer would cost more than the race.
   const write = useNoteWrites();
+  // Held text of notes nobody is typing in goes again once the signal returns. The focused note's
+  // autosave sends its own, and a note gone from the listing is not written back into being.
+  const skipRetry = useCallback(
+    (note: string) => {
+      const focused = focusedNote.current;
+      if (focused.path === note || focused.isWriting(note)) return true;
+      return !queryClient.getQueryData<string[]>(["files"])?.includes(note);
+    },
+    [focusedNote, queryClient],
+  );
+  useHeldRetry(write, skipRetry);
 
   /**
    * Writes a position into a note nobody types in. `apply` sets the field: `reading:` for the
