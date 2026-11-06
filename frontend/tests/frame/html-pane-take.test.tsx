@@ -437,7 +437,7 @@ it.each([
       short: area.clientHeight < 80,
       toast: inside(toast, area),
       unscrolled: toast.scrollHeight <= toast.clientHeight,
-      title: toast.querySelector("p")?.offsetHeight !== 0,
+      title: (toast.querySelector("p")?.offsetWidth ?? 0) > 40,
       buttons: buttons.map((b) => inside(b, toast) && onTop(b) && (!touch || b.offsetHeight >= 44)),
     }).toEqual({ short: true, toast: true, unscrolled: true, title: true, buttons: [true, true] });
 

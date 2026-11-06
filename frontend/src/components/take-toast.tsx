@@ -11,15 +11,6 @@ const FADE_MS = 150;
 /** The passage's first words, which is all the toast has room for. */
 const WORDS = 200;
 
-// Under the height the stacked title and buttons need, about 116 px of frame with touch and
-// 92 with a mouse, they share one line and the list wraps under it (#1483).
-const ONE_LINE =
-  "not-pointer-coarse:[@container(max-height:91px)]:flex-row not-pointer-coarse:[@container(max-height:91px)]:flex-wrap not-pointer-coarse:[@container(max-height:91px)]:items-center not-pointer-coarse:[@container(max-height:91px)]:gap-x-4 not-pointer-coarse:[@container(max-height:91px)]:py-1 pointer-coarse:[@container(max-height:115px)]:flex-row pointer-coarse:[@container(max-height:115px)]:flex-wrap pointer-coarse:[@container(max-height:115px)]:items-center pointer-coarse:[@container(max-height:115px)]:gap-x-4 pointer-coarse:[@container(max-height:115px)]:py-0";
-const ONE_LINE_TITLE =
-  "not-pointer-coarse:[@container(max-height:91px)]:min-w-0 not-pointer-coarse:[@container(max-height:91px)]:flex-1 not-pointer-coarse:[@container(max-height:91px)]:truncate pointer-coarse:[@container(max-height:115px)]:min-w-0 pointer-coarse:[@container(max-height:115px)]:flex-1 pointer-coarse:[@container(max-height:115px)]:truncate";
-const ONE_LINE_LIST =
-  "not-pointer-coarse:[@container(max-height:91px)]:basis-full pointer-coarse:[@container(max-height:115px)]:basis-full";
-
 interface TakeToastProps {
   /** The line above the passage: what happened to it. */
   title: string;
@@ -79,9 +70,11 @@ export function TakeToast({
       role="status"
       onPointerEnter={() => setHovered(true)}
       onPointerLeave={() => setHovered(false)}
-      className={`absolute inset-x-3 ${top ? "top-3" : "bottom-3"} z-10 sm:max-w-md max-h-[calc(100%-1.5rem)] overflow-y-auto flex flex-col gap-1 ${ONE_LINE} rounded-[var(--k-radius-6)] border border-k-rule bg-k-paper p-3 shadow-[var(--k-shadow)] transition-opacity duration-(--k-hover) ease-(--k-ease-out) motion-reduce:transition-none ${leaving ? "opacity-0" : "opacity-100"}`}
+      className={`absolute inset-x-3 ${top ? "top-3" : "bottom-3"} z-10 sm:max-w-md max-h-[calc(100%-1.5rem)] overflow-y-auto flex flex-col gap-1 take-one-line:flex-row take-one-line:flex-wrap take-one-line:items-center take-one-line:gap-x-4 take-one-line:py-1 pointer-coarse:take-one-line:py-0 rounded-[var(--k-radius-6)] border border-k-rule bg-k-paper p-3 shadow-[var(--k-shadow)] transition-opacity duration-(--k-hover) ease-(--k-ease-out) motion-reduce:transition-none ${leaving ? "opacity-0" : "opacity-100"}`}
     >
-      <p className={`shrink-0 font-sans text-k-13 text-k-muted ${ONE_LINE_TITLE}`}>{title}</p>
+      <p className="shrink-0 font-sans text-k-13 text-k-muted take-one-line:min-w-0 take-one-line:flex-1 take-one-line:truncate">
+        {title}
+      </p>
       <p className="line-clamp-2 shrink-0 [@container(max-height:200px)]:hidden font-serif text-k-15 text-k-ink">
         {passage.slice(0, WORDS)}
       </p>
@@ -132,11 +125,13 @@ function RecentNotes({ archive, onPick }: { archive: boolean; onPick: (path: str
   const recent = useRecentNotes(archive);
   if (recent.length === 0) {
     return (
-      <p className={`font-sans text-k-13 text-k-muted ${ONE_LINE_LIST}`}>Nothing written lately.</p>
+      <p className="font-sans text-k-13 text-k-muted take-one-line:basis-full">
+        Nothing written lately.
+      </p>
     );
   }
   return (
-    <ul className={`mt-1 flex min-h-0 flex-col overflow-y-auto ${ONE_LINE_LIST}`}>
+    <ul className="mt-1 flex min-h-0 flex-col overflow-y-auto take-one-line:basis-full">
       {recent.map(({ path }) => (
         <li key={path}>
           <button
