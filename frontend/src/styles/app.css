@@ -31,7 +31,7 @@
 
 /* A take toast's frame area too short for its title over its buttons: about
    116 px with touch, 92 with a mouse (#1483). */
-@custom-variant take-one-line {
+@custom-variant take-row {
   @media not (pointer: coarse) {
     @container (max-height: 91px) {
       @slot;

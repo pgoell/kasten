@@ -70,9 +70,9 @@ export function TakeToast({
       role="status"
       onPointerEnter={() => setHovered(true)}
       onPointerLeave={() => setHovered(false)}
-      className={`absolute inset-x-3 ${top ? "top-3" : "bottom-3"} z-10 sm:max-w-md max-h-[calc(100%-1.5rem)] overflow-y-auto flex flex-col gap-1 take-one-line:flex-row take-one-line:flex-wrap take-one-line:items-center take-one-line:gap-x-4 take-one-line:py-1 pointer-coarse:take-one-line:py-0 rounded-[var(--k-radius-6)] border border-k-rule bg-k-paper p-3 shadow-[var(--k-shadow)] transition-opacity duration-(--k-hover) ease-(--k-ease-out) motion-reduce:transition-none ${leaving ? "opacity-0" : "opacity-100"}`}
+      className={`absolute inset-x-3 ${top ? "top-3" : "bottom-3"} z-10 sm:max-w-md max-h-[calc(100%-1.5rem)] overflow-y-auto flex flex-col gap-1 take-row:flex-row take-row:flex-wrap take-row:items-center take-row:gap-x-4 take-row:py-1 pointer-coarse:take-row:py-0 rounded-[var(--k-radius-6)] border border-k-rule bg-k-paper p-3 shadow-[var(--k-shadow)] transition-opacity duration-(--k-hover) ease-(--k-ease-out) motion-reduce:transition-none ${leaving ? "opacity-0" : "opacity-100"}`}
     >
-      <p className="shrink-0 font-sans text-k-13 text-k-muted take-one-line:min-w-0 take-one-line:flex-1 take-one-line:truncate">
+      <p className="shrink-0 font-sans text-k-13 text-k-muted take-row:min-w-0 take-row:flex-1 take-row:truncate">
         {title}
       </p>
       <p className="line-clamp-2 shrink-0 [@container(max-height:200px)]:hidden font-serif text-k-15 text-k-ink">
@@ -125,13 +125,13 @@ function RecentNotes({ archive, onPick }: { archive: boolean; onPick: (path: str
   const recent = useRecentNotes(archive);
   if (recent.length === 0) {
     return (
-      <p className="font-sans text-k-13 text-k-muted take-one-line:basis-full">
+      <p className="font-sans text-k-13 text-k-muted take-row:basis-full">
         Nothing written lately.
       </p>
     );
   }
   return (
-    <ul className="mt-1 flex min-h-0 flex-col overflow-y-auto take-one-line:basis-full">
+    <ul className="mt-1 flex min-h-0 flex-col overflow-y-auto take-row:basis-full">
       {recent.map(({ path }) => (
         <li key={path}>
           <button
