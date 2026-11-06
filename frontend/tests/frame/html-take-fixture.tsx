@@ -18,6 +18,7 @@ import { PALETTE_KEY, THEME_KEY } from "@/lib/ui/theme";
 import "@/styles/app.css";
 import { stubCommands } from "../stub-commands";
 import { api, resetApi } from "./html-take-api";
+import { NEWS } from "./html-take-pages";
 
 export type Spy = ReturnType<typeof stubCommands>;
 
@@ -200,3 +201,41 @@ export function onTop(el: Element): boolean {
 
 /** What the take has written, read back from the stub: the dumps sent and the daily note's writes. */
 export { api };
+
+/**
+ * Takes a passage of a news page at `width` by `height`: by touch and Take in one pane, or by
+ * `y` in the left of two. Returns the frame area, the toast and its two buttons (#891, #1483).
+ */
+export async function takeInShortFrame(
+  mounted: Mounted,
+  width: number,
+  height: number,
+  touch: boolean,
+) {
+  await page.viewport(width, height);
+  await browser.emulateMedia({ touch });
+  await browser.servePage("take-list-left.html", NEWS);
+  await browser.servePage("take-list-right.html", NEWS);
+  render(
+    mounted,
+    touch ? ["take-list-left.html"] : ["take-list-left.html", "take-list-right.html"],
+    touch,
+  );
+  const frame = frameOf(mounted, 0);
+  // Measured after the load, over the page as it ends up drawn.
+  const loaded = new Promise((done) => frame.addEventListener("load", done, { once: true }));
+  await ready(frame);
+  await loaded;
+  if (touch) {
+    await userEvent.click(frame);
+    await ask(frame, { probe: "touchSelect", range: ["p1", 0, "p1", 5] }, "selected");
+  } else await select(frame, ["p1", 0, "p1", 5]);
+  await expect.poll(() => takeButton(mounted) !== null).toBe(true);
+  if (touch) await userEvent.click(takeButton(mounted) as HTMLElement);
+  else await userEvent.keyboard("y");
+  const named = () => [buttonNamed("Put it in a note"), buttonNamed("Undo")];
+  await expect.poll(() => named().every(Boolean)).toBe(true);
+  const area = frame.parentElement as HTMLElement;
+  const toast = area.querySelector("[role='status']") as HTMLElement;
+  return { area, toast, buttons: named() as HTMLButtonElement[] };
+}
