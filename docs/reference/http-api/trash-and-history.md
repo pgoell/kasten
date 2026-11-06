@@ -73,7 +73,7 @@ A `DELETE` that keeps the note is not a contradiction. What these routes answer
 about is what the vault holds, and the note stops being one of them the moment
 it moves: nothing lists it, nothing searches it, and no path in a URL reaches
 it, because every route refuses a hidden folder. Why it waits there rather than
-going is [Deleting a note](/explanation/deleting-a-note.md).
+going is [Deleting a note](/explanation/trash-and-archive/deleting-a-note.md).
 
 The trash mirrors the vault. A note keeps its path and its leaf takes the moment
 it went, so the name is the whole record: where it came from, when, and no way

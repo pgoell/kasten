@@ -180,9 +180,8 @@ How long a deleted note waits in the vault's `.trash` before it is dropped for
 good. Counted from the moment in the entry's own name, and read at startup,
 which is when the trash is emptied.
 
-Long enough to notice the delete was a mistake, short enough that the trash is
-not a second vault. The reasoning is in
-[Deleting a note](/explanation/deleting-a-note.md).
+Long enough to see the delete was a mistake, short enough that the trash is
+not a second vault ([Deleting a note](/explanation/trash-and-archive/deleting-a-note.md)).
 
 ## KASTEN_TOKENS_PATH
 
@@ -449,6 +448,6 @@ lists them.
 ## Related
 
 * [The vault and the derived index](/explanation/vault-and-derived-index.md): what these settings mean to each other
-* [Deleting a note](/explanation/deleting-a-note.md): what the trash is for
+* [Deleting a note](/explanation/trash-and-archive/deleting-a-note.md): why a trash
 * [Two environments](/explanation/environments.md): the values dev and prod actually run with
 * [The agent boundary](/explanation/the-agent-boundary.md): what the token store is for

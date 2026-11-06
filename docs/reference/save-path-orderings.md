@@ -24,7 +24,7 @@ so the vault can refuse it with `409` if somebody else wrote the note since.
 That refusal is the only conflict check. [Saving](/reference/editor-keys/saving.md#saving)
 says what the reader sees; this page lists the orders the queue can meet. For
 rename and delete, see also [Moving notes](/explanation/moving-notes.md) and
-[Deleting a note](/explanation/deleting-a-note.md).
+[Deleting a note](/explanation/trash-and-archive/deleting-a-note.md).
 
 ## How to read the table
 

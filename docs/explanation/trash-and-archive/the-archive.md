@@ -86,7 +86,7 @@ convenience; leaving it out of a rewrite is a broken link.
 
 Two folders hold things you are done with, and they answer different questions.
 
-[The trash](/explanation/deleting-a-note.md) holds notes you deleted. It is
+[The trash](/explanation/trash-and-archive/deleting-a-note.md) holds notes you deleted. It is
 hidden, it is a dot-directory nothing walks into, entries are stamped with the
 moment they arrived, and startup drops what has been in there longer than
 `KASTEN_TRASH_DAYS`. It is a way back from a mistake.
@@ -101,5 +101,5 @@ because it was right and it is finished.
 ## Related
 
 * [The vault and the derived index](/explanation/vault-and-derived-index.md): why a folder rather than a field
-* [Deleting a note](/explanation/deleting-a-note.md): the other folder
+* [Deleting a note](/explanation/trash-and-archive/deleting-a-note.md): the other folder
 * [Configuration](/reference/configuration.md): the setting that names it

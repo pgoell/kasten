@@ -52,7 +52,7 @@ including the check that refuses a cross-site `POST` with a `403`.
 
 ## Related
 
-* [Deleting a note](/explanation/deleting-a-note.md): why a delete keeps the note
+* [Deleting a note](/explanation/trash-and-archive/deleting-a-note.md): why a delete keeps the note
 * [Moving a note](/explanation/moving-notes.md): why a move rewrites links and carries index entries
 * [Regenerate the API types](/how-to/regenerate-the-api-types.md): push a change here through to the frontend
 * [Configuration](/reference/configuration.md): which directory `/api/files` reads
