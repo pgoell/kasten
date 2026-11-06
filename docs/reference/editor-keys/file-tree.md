@@ -50,7 +50,7 @@ fills the screen and says nothing about which note in the vault opened it.
 | `r` | Rename the note or folder under the cursor |
 | `d` | Delete the note, image or folder under the cursor |
 | `q` | Close the file tree and go back to the focused pane |
-| Escape | Back to the editor |
+| Escape | Back to the focused pane, the tree staying open |
 
 In a window narrower than 768px the tree is a drawer over the page rather than
 a panel beside it. It starts closed, the button on the rail at the left edge

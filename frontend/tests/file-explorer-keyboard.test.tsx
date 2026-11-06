@@ -410,8 +410,10 @@ describe("the tree keyboard", () => {
     expect(onRevealTree).toHaveBeenCalledTimes(1);
   });
 
-  it("hands focus back to the editor on escape", () => {
-    renderTree();
+  it("asks the route to focus the focused pane on escape, not the first editor, and stays open", () => {
+    const onOpenChange = vi.fn();
+    const onLeave = vi.fn();
+    renderTree({ onOpenChange, onLeave });
     const editor = document.createElement("div");
     editor.className = "cm-content";
     editor.tabIndex = 0;
@@ -420,7 +422,10 @@ describe("the tree keyboard", () => {
     tree().focus();
     press("Escape");
 
-    expect(document.activeElement).toBe(editor);
+    expect(onLeave).toHaveBeenCalledOnce();
+    expect(onOpenChange).not.toHaveBeenCalledWith(false);
+    expect(editor).not.toHaveFocus();
+    editor.remove();
   });
 
   it("takes the focus when the route asks for it", () => {

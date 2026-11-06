@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { TreePanel } from "@/components/tree-panel";
 import { DROP, NodeList, useRowDrag } from "@/components/tree-rows";
-import { useViewport } from "@/lib/ui/input/use-viewport";
 import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
 import { heldModifier, leaderAction, leaderPrefix } from "@/lib/ui/keys/leader-keys";
 import { beginLeader, paneOpener } from "@/lib/ui/keys/which-key";
@@ -46,7 +45,7 @@ interface FileExplorerProps {
   /** Raised by the route to ask the panel to unfold down to `openPath` and put
    * its cursor on that row. A change is the request, the way `focusSignal` is. */
   revealSignal?: number;
-  /** Escape in the drawer: close it and hand the focus to the pane on screen. */
+  /** Escape or `q`: hand the focus to the focused pane; a drawer closes too. */
   onLeave?: () => void;
 }
 
@@ -156,7 +155,6 @@ export function FileExplorer({
   // named in the URL has to be visible, or a reload lands on a tree that has
   // hidden what it is showing you.
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => ancestors(openPath));
-  const { narrow } = useViewport();
   /** Which row the vim keys act on. */
   const [active, setActive] = useState(0);
   const rowDrag = useRowDrag({
@@ -377,14 +375,7 @@ export function FileExplorer({
         onLeave?.();
         break;
       case "Escape":
-        // The editor is the only other place focus belongs, and it owns no
-        // React handle here, so the panel finds it the way the user sees it.
-        //
-        // A drawer asks the route instead. The page under it is inert until
-        // it has closed, so nothing there can take the focus yet, and the
-        // first editor in the document may be in a pane that is not drawn.
-        if (narrow) onLeave?.();
-        else document.querySelector<HTMLElement>(".cm-content")?.focus();
+        onLeave?.();
         break;
       case "h":
         foldOrClimb();
