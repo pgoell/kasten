@@ -124,11 +124,11 @@ function useReads(today: string, archive: boolean): Reads {
     config:
       logConfig.error instanceof NoteMissing ? DEFAULT_CONFIG : (logConfig.data ?? DEFAULT_CONFIG),
     days: log.data ?? [],
-    logError: log.error ? messageOf(log.error) : undefined,
+    logError: log.error && log.data === undefined ? messageOf(log.error) : undefined,
     cards: cards.data ?? [],
     cardsError: cards.error ? messageOf(cards.error) : undefined,
     todos: todos.data ?? [],
-    todosError: todos.error ? messageOf(todos.error) : undefined,
+    todosError: todos.error && todos.data === undefined ? messageOf(todos.error) : undefined,
     written: written.data ?? [],
     writtenError: written.error ? messageOf(written.error) : undefined,
   };

@@ -6,6 +6,7 @@ import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { forgetSpentReloads, RouteError } from "@/lib/app/chunk-reload";
+import { keepReads } from "@/lib/app/kept-reads";
 import { start as startOutbox } from "@/lib/capture/outbox";
 import "@/lib/app/service-worker";
 import { checkSession, startSessionCheck } from "@/lib/app/session";
@@ -26,6 +27,9 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// Before any query is asked for, so each finds its kept copy.
+keepReads(queryClient);
 
 // The entry chunk's hashed URL, which names the release: any chunk that
 // changes renames every chunk importing it, up to this one. Before the router,
