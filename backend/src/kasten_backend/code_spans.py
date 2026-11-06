@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 from markdown_it import MarkdownIt
 from markdown_it.common.html_re import HTML_OPEN_CLOSE_TAG_STR
+from markdown_it.rules_block import list_block
 
 if TYPE_CHECKING:
     from markdown_it.rules_block import StateBlock
@@ -81,12 +82,49 @@ def _html_block(state: StateBlock, first: int, end: int, silent: bool) -> bool:
     return True
 
 
+_ITEM = re.compile(r"(?:([-*+])|([0-9]{1,9})([.)]))(?:[ \t]+(\S))?")
+
+
+def _list(state: StateBlock, first: int, end: int, silent: bool) -> bool:
+    """markdown-it's list rule, where a lazy line goes on with its paragraph as in the editor.
+
+    With `lists` in the env, the kinds of the lists open, an empty item or one past 1 cuts a
+    lazy line only to go on with a list of its kind (#1544).
+    """
+    start = state.bMarks[first] + state.tShift[first]
+    item = _ITEM.match(state.src, start, state.eMarks[first])
+    lists = state.env.get("lists")
+    if lists is None or item is None or state.is_code_block(first):
+        return list_block(state, first, end, silent)
+    kind = "bullet" if item[1] else "ordered"
+    if silent and state.parentType in ("paragraph", "blockquote"):
+        # The editor cuts at a literal `1` only, and goes on with any list of the same kind.
+        cuts = item[4] is not None and (item[1] is not None or item[2] == "1")
+        if not cuts and kind not in lists:
+            return False
+        if not cuts:
+            # As a list's own item, which markdown-it asks for under its parent type only.
+            parent, state.parentType = state.parentType, "list"
+            try:
+                return list_block(state, first, end, silent)
+            finally:
+                state.parentType = parent
+    if silent:
+        return list_block(state, first, end, silent)
+    lists.append(kind)
+    try:
+        return list_block(state, first, end, silent)
+    finally:
+        lists.pop()
+
+
 FENCES = MarkdownIt("commonmark").disable(["inline", "text_join"])
 """The parser that finds fenced code blocks, at any depth of quote or list.
 
 Blocks only: the inline pass would nearly double the time a long note holds the event loop.
 """
 FENCES.block.ruler.at("html_block", _html_block, {"alt": ["paragraph", "reference", "blockquote"]})
+FENCES.block.ruler.at("list", _list, {"alt": ["paragraph", "reference", "blockquote"]})
 
 BACKTICKS = re.compile(r"`+")
 """One run of backticks, which opens or closes an inline code span."""
@@ -99,6 +137,16 @@ def code_spans(text: str, *, indented: bool = False, html: bool = False) -> list
     reads them for tags. `html` adds the HTML blocks, comments among them, at any depth.
     In doubt the text is not code. Lines split on LF alone (`splitlines` breaks at U+2028).
     """
+    return blocks(text, indented=indented, html=html)[0]
+
+
+def blocks(
+    text: str, *, indented: bool = False, html: bool = False
+) -> tuple[list[tuple[int, int]], list[tuple[int, int]]]:
+    """`code_spans`, and where each paragraph or heading's text runs, as offsets (#1544).
+
+    The second list is what an inline comment may span, so it is filled only by a parse.
+    """
     lines = text.split("\n")
     starts = [0]
     for line in lines:
@@ -108,13 +156,17 @@ def code_spans(text: str, *, indented: bool = False, html: bool = False) -> list
     # Every fence opens with three backticks or tildes in a row, so a note with
     # neither has none, and skips the parse that is most of a long note's time.
     fenced = []
+    inline = []
     kinds = ("fence", "code_block") if indented else ("fence",)
     if indented or html or "```" in text or "~~~" in text:
-        for token in FENCES.parse(text.replace("\r", " ")):
+        env = {"lists": []} if html else {}
+        for token in FENCES.parse(text.replace("\r", " "), env):
             if token.map is None:
                 continue
             if token.type in kinds or (html and token.type == "html_block"):
                 fenced.append((token.map[0], token.map[1]))
+            elif token.type == "inline":
+                inline.append((starts[token.map[0]], starts[token.map[1]]))
 
     spans = []
     line = 0
@@ -123,7 +175,7 @@ def code_spans(text: str, *, indented: bool = False, html: bool = False) -> list
         spans.append((starts[first], starts[stop]))
         line = stop
     spans += _inline_spans(lines, starts, line, len(lines))
-    return spans
+    return spans, inline
 
 
 def fence_open(text: str, opener: int) -> bool:

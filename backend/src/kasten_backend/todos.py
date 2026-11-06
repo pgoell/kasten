@@ -10,7 +10,7 @@ import sys
 import unicodedata
 from typing import TYPE_CHECKING
 
-from kasten_backend.code_spans import BLOCK_NAMES, FENCES, WIKILINK, code_spans
+from kasten_backend.code_spans import BLOCK_NAMES, FENCES, WIKILINK, blocks
 from kasten_backend.frontmatter import body_start
 from kasten_backend.links import link_path
 from kasten_backend.search import Hit, scan_vault
@@ -240,13 +240,17 @@ def tags_in(text: str) -> list[tuple[int, int]]:
     if "```" in text or "~~~" in text or html or INDENTED.search(text, body):
         # The block as spaces, which the parser reads as blank lines, so an
         # indented line under it opens code as it does under a blank line.
-        hidden += code_spans(_blanked(text, hidden, " "), indented=True, html=html)
+        code_held, texts = blocks(_blanked(text, hidden, " "), indented=True, html=html)
+        hidden += code_held
         # Looked for with the code blanked: a `<!--` in code opens no comment,
         # and paired with a real `-->` below it would hide the tags between.
         # An inline span goes to no-break spaces, or its line would read as blank.
         inline = [span for span in hidden if "\n" not in text[span[0] : span[1]]]
         code = _blanked(_blanked(text, hidden, " "), inline, "\N{NO-BREAK SPACE}")
-        hidden += [found.span() for found in COMMENT.finditer(code)]
+        # A comment closes with its paragraph, which a heading or list item also ends (#1544).
+        hidden += [
+            found.span() for start, end in texts for found in COMMENT.finditer(code, start, end)
+        ]
     if not hidden:
         return line_tags(text)
     return line_tags(_blanked(text, hidden, "\N{NO-BREAK SPACE}"))
