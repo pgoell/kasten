@@ -244,6 +244,30 @@ gives the reloads back, which Safari needs, since its message names no chunk
 [Deploy to the VPS](/how-to/deploy-to-the-vps.md#remove-the-service-worker)
 shows how to remove the worker.
 
+## The notes read before open with no signal
+
+The worker keeps the app, not the vault. So the page keeps its own copy of what
+it read: each note, the file listing, the tags, backlinks, todos and the log go
+into IndexedDB (`kasten-reads`) as they arrive, one record per read
+(`src/lib/app/kept-reads.ts`). A record also follows text the page puts into
+its cache itself, as the autosave does with what the vault answered.
+
+A record fills a read only while that read has nothing yet. With no signal the
+read waits, paused, and the record shows. On a weak signal the record shows
+first and the answer replaces it if one comes; if the read fails, the record
+stays on screen, and the editor and the overview show it rather than an error.
+So any note opened in the last week opens on a train, after a reload too. A
+note never opened on this device does not.
+
+An edit made on a kept copy is safe. Every save names the text it was based on,
+and a vault that has moved on answers `409`, which the editor shows as a
+conflict, so the older copy never lands over newer text.
+
+Records older than a week go at the next start. Finance and tokens never go in:
+the store keeps only what the vault holds, and it outlives a sign-out. A change
+to the shape of a kept read bumps `SCHEMA` in that file, which drops every old
+record rather than reading it.
+
 ## The camera decodes on the phone
 
 The food search reads a barcode through the phone's rear camera. The picture
