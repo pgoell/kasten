@@ -423,6 +423,7 @@ async def test_the_schema_describes_the_agent_routes(
         "/agent/notes/{path}/append",
         "/agent/dump",
         "/agent/search",
+        "/agent/reading",
         "/agent/search/meaning",
         "/agent/graph",
         "/agent/files/{path}",

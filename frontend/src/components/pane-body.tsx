@@ -210,7 +210,7 @@ const BODIES: { [K in KindField]: Body<K> } = {
       // The note is bound here rather than passed back up by the
       // pane, so the pane holds no path of its own and a folder
       // move that rewrites `book` moves both callbacks with it.
-      onMoved={(cfi) => at.extras.writes.moved(book, cfi)}
+      onMoved={(place) => at.extras.writes.moved(book, place)}
       onLeaving={() => at.extras.writes.flush(book)}
       onTake={(passage) => at.extras.writes.takeHighlight(book, passage)}
       archive={at.shared.archive}

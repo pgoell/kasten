@@ -121,3 +121,77 @@ async def test_reports_a_missing_vault_rather_than_raising(
     response = await client.get("/api/books/DDIA.md")
 
     assert response.status_code == 404
+
+
+CONFIG = "99 Misc/01 Config"
+
+
+def _book(vault: Path, name: str, fields: str) -> None:
+    (vault / f"{name}.md").write_text(f"---\n{fields}\n---\n# {name}\n")
+
+
+async def test_reading_answers_the_newest_read_at(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    _book(agent_vault, "Old", "reading: epubcfi(/6/2)\nread_at: 2026-10-01T09:00:00+02:00")
+    _book(
+        agent_vault,
+        "New",
+        "reading: epubcfi(/6/4)\nprogress: 0.41\nread_at: 2026-11-05T21:30:00+01:00\n"
+        "author: Tanya Reilly",
+    )
+    # A newer time on a note with no position does not count.
+    _book(agent_vault, "Shelf", "read_at: 2026-11-06T08:00:00+01:00")
+
+    response = await client.get("/agent/reading", headers=bearer)
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "title": "New",
+        "author": "Tanya Reilly",
+        "progress": 0.41,
+        "read_at": "2026-11-05T21:30:00+01:00",
+    }
+
+
+async def test_reading_prefers_the_book_reading_now_names(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    _book(agent_vault, "New", "reading: epubcfi(/6/4)\nread_at: 2026-11-05T21:30:00+01:00")
+    _book(agent_vault, "Named", "reading: epubcfi(/6/2)\nread_at: 2026-10-01T09:00:00+02:00")
+    (agent_vault / CONFIG).mkdir(parents=True)
+    (agent_vault / CONFIG / "reading-now.md").write_text("Now: [[named]] and [[New]]\n")
+
+    response = await client.get("/agent/reading", headers=bearer)
+
+    assert response.json() == {
+        "title": "Named",
+        "author": None,
+        "progress": None,
+        "read_at": "2026-10-01T09:00:00+02:00",
+    }
+
+
+async def test_reading_falls_back_when_reading_now_names_no_note(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    _book(agent_vault, "New", "reading: epubcfi(/6/4)\nread_at: 2026-11-05T21:30:00+01:00")
+    (agent_vault / CONFIG).mkdir(parents=True)
+    (agent_vault / CONFIG / "reading-now.md").write_text("[[Nowhere]]\n")
+
+    response = await client.get("/agent/reading", headers=bearer)
+
+    assert response.json()["title"] == "New"
+
+
+async def test_reading_is_204_when_no_note_qualifies(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    # A position with no time, or a time that is no time, does not qualify.
+    _book(agent_vault, "Untimed", "reading: epubcfi(/6/4)")
+    _book(agent_vault, "Garbled", "reading: epubcfi(/6/4)\nread_at: yesterday")
+
+    response = await client.get("/agent/reading", headers=bearer)
+
+    assert response.status_code == 204
+    assert response.content == b""

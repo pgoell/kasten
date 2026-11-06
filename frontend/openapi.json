@@ -1238,6 +1238,31 @@
         }
       }
     },
+    "/agent/reading": {
+      "get": {
+        "tags": [
+          "agent"
+        ],
+        "summary": "Reading",
+        "description": "The book being read, or 204 when no note qualifies.",
+        "operationId": "reading_agent_reading_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Reading"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No note qualifies"
+          }
+        }
+      }
+    },
     "/api/health": {
       "get": {
         "summary": "Health",
@@ -11248,6 +11273,15 @@
             "format": "date-time",
             "title": "Created"
           },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "agent",
+              "reading"
+            ],
+            "title": "Scope",
+            "default": "agent"
+          },
           "secret": {
             "type": "string",
             "title": "Secret"
@@ -12502,6 +12536,49 @@
         ],
         "title": "Read",
         "description": "A list read, with what an add of the `text` it names would show as."
+      },
+      "Reading": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "author": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author"
+          },
+          "progress": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress"
+          },
+          "read_at": {
+            "type": "string",
+            "title": "Read At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "author",
+          "progress",
+          "read_at"
+        ],
+        "title": "Reading",
+        "description": "The book being read, for the Reading pane on pgoell.com, and nothing else of its note."
       },
       "ReadingIn": {
         "properties": {
@@ -14318,6 +14395,15 @@
           "name": {
             "type": "string",
             "title": "Name"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "agent",
+              "reading"
+            ],
+            "title": "Scope",
+            "default": "agent"
           }
         },
         "type": "object",
@@ -14325,7 +14411,7 @@
           "name"
         ],
         "title": "TokenName",
-        "description": "What a mint is asked for: a name to tell one token from another."
+        "description": "What a mint is asked for: a name to tell one token from another, and what it opens."
       },
       "TokenUse": {
         "properties": {
@@ -14337,6 +14423,15 @@
             "type": "string",
             "format": "date-time",
             "title": "Created"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "agent",
+              "reading"
+            ],
+            "title": "Scope",
+            "default": "agent"
           },
           "last_used": {
             "anyOf": [

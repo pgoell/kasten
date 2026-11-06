@@ -11,7 +11,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from kasten_backend import db, token_activity
 from kasten_backend.config import Settings, get_settings
-from kasten_backend.tokens import Minted, Token, listing, mint, revoke
+from kasten_backend.tokens import Minted, Scope, Token, listing, mint, revoke
 
 router = APIRouter()
 
@@ -19,9 +19,10 @@ logger = logging.getLogger(__name__)
 
 
 class TokenName(BaseModel):
-    """What a mint is asked for: a name to tell one token from another."""
+    """What a mint is asked for: a name to tell one token from another, and what it opens."""
 
     name: str
+    scope: Scope = "agent"
 
 
 class TokenUse(Token):
@@ -67,10 +68,7 @@ async def read_tokens(settings: Annotated[Settings, Depends(get_settings)]) -> l
         logger.warning("Could not read the last use of the tokens: %s", type(error).__name__)
         last = {}
 
-    return [
-        TokenUse(name=token.name, created=token.created, last_used=_since(last, token))
-        for token in tokens
-    ]
+    return [TokenUse(**token.model_dump(), last_used=_since(last, token)) for token in tokens]
 
 
 def _since(last: dict[str, datetime], token: Token) -> datetime | None:
@@ -123,7 +121,7 @@ async def create_token(
     retype it and has to know which it was.
     """
     try:
-        return await mint(settings.tokens_path, named.name)
+        return await mint(settings.tokens_path, named.name, named.scope)
     except ValueError as taken:
         raise HTTPException(status_code=409, detail=str(taken)) from taken
 

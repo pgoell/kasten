@@ -177,3 +177,38 @@ async def test_a_broken_store_error_quotes_no_digest(tmp_path: Path) -> None:
         await tokens.listing(store)
 
     assert held[-12:] not in str(raised.value)
+
+
+async def test_a_reading_token_lives_in_its_own_file(tmp_path: Path) -> None:
+    # An older backend reads only `tokens.json`, so a rollback cannot widen this token.
+    store = tmp_path / "tokens.json"
+
+    minted = await tokens.mint(store, "website", "reading")
+
+    assert json.loads(store.read_text(encoding="utf-8")) == []
+    assert minted.scope == "reading"
+    assert await tokens.identify(store, minted.secret) == ("website", False, "reading")
+    assert [token.scope for token in await tokens.listing(store)] == ["reading"]
+    assert await tokens.revoke(store, "website") is True
+    assert await tokens.verify(store, minted.secret) is None
+
+
+async def test_a_reading_token_opens_only_the_reading_route(
+    client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
+) -> None:
+    minted = await client.post("/api/tokens", json={"name": "website", "scope": "reading"})
+    reader = {"Authorization": f"Bearer {minted.json()['secret']}"}
+    (agent_vault / "index.md").write_text("# index")
+
+    assert (await client.get("/agent/reading", headers=reader)).status_code == 204
+    assert (await client.get("/agent/reading", headers=bearer)).status_code == 204
+    refused = await client.get("/agent/notes/index.md", headers=reader)
+    assert refused.status_code == 401
+    assert refused.json() == {"detail": "That is not a token this vault knows"}
+    assert (await client.get("/agent/notes", headers=reader)).status_code == 401
+    assert (await client.post("/agent/mcp", headers=reader, json={})).status_code == 401
+    listed = (await client.get("/api/tokens")).json()
+    assert {token["name"]: token["scope"] for token in listed} == {
+        "laptop": "agent",
+        "website": "reading",
+    }

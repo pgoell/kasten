@@ -95,8 +95,14 @@ The second is `reading:`, which
 [the book pane](/reference/editor-keys/book-pane.md#the-book-pane) writes into a
 literature note as you turn pages. It holds an epubcfi naming the page you
 stopped on, and the reader passes it back to foliate when the book opens again.
-The client writes this one too, into the text it hands to `PUT`, so the same
-rule holds: deleting the line loses a bookmark and nothing else, and
+In the same write it sets `progress:`, how far through the whole book you are
+as a fraction from 0 to 1 with two decimals, left as it was when the view has
+no honest number; `read_at:`, the time of the write in ISO 8601 with your
+offset, such as `2026-11-05T21:30:00+01:00`; and `author:`, the book's creators
+from its metadata, only when the note has no `author` yet, so one you set by
+hand stays. [`GET /agent/reading`](/reference/agent-api.md#reading-tokens-and-get-agentreading)
+reads all four. The client writes these too, into the text it hands to `PUT`,
+so the same rule holds: deleting the line loses a bookmark and nothing else, and
 [The file beside a note](/explanation/books-in-the-vault/highlights-and-place.md#how-it-keeps-your-place)
 says what that costs.
 

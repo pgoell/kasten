@@ -47,7 +47,7 @@ describe("the place in a scrolled book", () => {
   it("reports the place a scroll reaches, and a reopen lands in the same paragraph", async () => {
     chooseTheme("light", "poel");
     const moved: string[] = [];
-    const { container } = await drawBook("", plainUrl, (cfi) => moved.push(cfi));
+    const { container } = await drawBook("", plainUrl, (place) => moved.push(place.cfi));
     // A pane that holds a screen of the chapter and not all of it, so there is
     // a scroll to make. A pane too short to hold a line reports no visible range.
     container.style.cssText = "width: 1200px; height: 700px;";
@@ -79,7 +79,7 @@ describe("the place in a scrolled book", () => {
   it("scrolls the text on j, pressed in the book, and reports the place", async () => {
     chooseTheme("light", "poel");
     const moved: string[] = [];
-    const { container } = await drawBook("", plainUrl, (cfi) => moved.push(cfi));
+    const { container } = await drawBook("", plainUrl, (place) => moved.push(place.cfi));
     container.style.cssText = "width: 1200px; height: 700px;";
     const view = await viewIn(container);
     await vi.waitFor(() => expect(sections.length).toBeGreaterThan(0), { timeout: 10_000 });

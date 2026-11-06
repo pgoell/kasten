@@ -2,7 +2,15 @@ import { type RefObject, useCallback, useEffect, useLayoutEffect, useRef, useSta
 import { type TocRow, tocRows } from "@/components/book-contents";
 import { pageStyles } from "@/lib/book/book-backing";
 import { trackPages } from "@/lib/book/book-pages";
-import { closeView, type FoliateView, isError, pdfLayer } from "@/lib/book/foliate-view";
+import {
+  closeView,
+  type FoliateView,
+  isError,
+  type Place,
+  pdfLayer,
+  placeOf,
+  progressOf,
+} from "@/lib/book/foliate-view";
 import type { BookHighlights } from "@/lib/book/use-book-highlights";
 import type { BookTake } from "@/lib/book/use-book-take";
 import type { BookTurns } from "@/lib/book/use-book-turns";
@@ -21,7 +29,7 @@ export function useBookView(o: {
   beside: BookBeside | undefined;
   note: string;
   onFocus: () => void;
-  onMoved: (cfi: string) => void;
+  onMoved: (place: Place) => void;
   onKeyDown: (event: KeyboardEvent) => void;
   repaint: BookHighlights["repaint"];
   watchPage: BookHighlights["watchPage"];
@@ -146,7 +154,7 @@ export function useBookView(o: {
       last = cfi;
       // The first move is init's own navigation, not a turn.
       // Reporting it would write the note on every open.
-      if (!first) onMovedRef.current(cfi);
+      if (!first) onMovedRef.current(placeOf(view, cfi));
     }
 
     // View.open takes a File and makes the book, so kasten imports only the module.
@@ -240,17 +248,6 @@ export function useBookView(o: {
   ]);
 
   return { broken, progress, chapter, rows };
-}
-
-/**
- * How far through the whole book the view is, or null with no honest number. Read off the view, not
- * the event: the event's fraction is per section. The whole-book number is set by a listener the
- * view registers first (view.js:329-337, progress.js:74-98).
- */
-function progressOf(view: FoliateView): number | null {
-  const fraction = view.lastLocation?.fraction;
-  // The typeof narrows: Number.isFinite does not, so the multiply below would not compile.
-  return typeof fraction === "number" && Number.isFinite(fraction) ? fraction : null;
 }
 
 /** The contents entry the view is inside, or null where the book names none. */

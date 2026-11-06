@@ -19,7 +19,10 @@ reading: epubcfi(/6/14!/4/2/2/1:0)
 
 A pdf has no cfi of its own, so foliate writes a fake one naming the page,
 `epubcfi(/6/6)` for the third, and reads it back the same way. One field for
-both, and nothing outside the reader looks at either.
+both. Beside it the reader writes `progress:`, `read_at:` and, once, `author:`
+([the fields](/reference/note-frontmatter.md#every-other-field-is-yours)), so
+[`GET /agent/reading`](/reference/agent-api.md#reading-tokens-and-get-agentreading)
+can say which book you are in and how far.
 
 That field is the whole of it. Delete the line and you lose a bookmark, which is
 what a bookmark is worth; nothing on disk or in Postgres knows where you were.

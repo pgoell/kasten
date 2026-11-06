@@ -30,6 +30,7 @@ const ROW_BUTTON =
  */
 function Tokens() {
   const [name, setName] = useState("");
+  const [reading, setReading] = useState(false);
   const [minted, setMinted] = useState<Minted | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -42,7 +43,7 @@ function Tokens() {
   const idle = tokens?.filter((token) => unused(token, now)).length ?? 0;
 
   const mint = useMutation({
-    mutationFn: (wanted: string) => createToken(wanted),
+    mutationFn: (wanted: string) => createToken(wanted, reading ? "reading" : "agent"),
     onSuccess: (made) => {
       setMinted(made);
       setName("");
@@ -73,7 +74,9 @@ function Tokens() {
    * The line that connects a client to this vault, with the secret in it.
    * Built off `window.location.origin`, so the endpoint is right on whatever host this page is read from.
    */
-  function connectLine(secret: string): string {
+  function connectLine({ secret, scope }: Minted): string {
+    if (scope === "reading")
+      return `curl -H "Authorization: Bearer ${secret}" ${window.location.origin}/agent/reading`;
     return `claude mcp add --transport http kasten ${window.location.origin}/agent/mcp --header "Authorization: Bearer ${secret}"`;
   }
 
@@ -104,7 +107,7 @@ function Tokens() {
           </div>
 
           <form
-            className="flex items-end gap-2 md:w-[320px] md:shrink-0"
+            className="flex flex-wrap items-end gap-2 md:w-[320px] md:shrink-0"
             onSubmit={(event) => {
               event.preventDefault();
               if (name.trim() !== "") mint.mutate(name.trim());
@@ -126,6 +129,14 @@ function Tokens() {
             >
               Mint
             </button>
+            <label className="flex basis-full items-center gap-2 text-k-13 text-k-muted">
+              <input
+                type="checkbox"
+                checked={reading}
+                onChange={(event) => setReading(event.target.checked)}
+              />
+              Reading only: opens <code className="font-mono">/agent/reading</code> alone
+            </label>
           </form>
         </header>
 
@@ -158,7 +169,7 @@ function Tokens() {
               </button>
             </div>
             <code className="break-all font-mono text-k-12 text-k-muted">
-              {connectLine(minted.secret)}
+              {connectLine(minted)}
             </code>
           </section>
         )}
@@ -304,7 +315,12 @@ function TokenRow({
         className={`grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 py-3 md:py-2 ${COLUMNS}`}
       >
         <div className="flex min-w-0 flex-col gap-0.5 md:contents">
-          <span className="min-w-0 truncate font-medium font-mono text-k-13">{token.name}</span>
+          <span className="min-w-0 truncate font-medium font-mono text-k-13">
+            {token.name}
+            {token.scope === "reading" && (
+              <span className="font-normal font-sans text-k-12 text-k-muted"> reading only</span>
+            )}
+          </span>
           <span className="text-k-13 text-k-muted tabular-nums">
             <span className="md:sr-only">created </span>
             {new Date(token.created).toISOString().slice(0, 10)}

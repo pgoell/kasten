@@ -7,7 +7,9 @@
  */
 
 import { act, cleanup, renderHook } from "@testing-library/react";
+import { type FoliateView, placeOf } from "@/lib/book/foliate-view";
 import { useBookmark } from "@/lib/saving/use-bookmark";
+import { placed } from "@/lib/saving/use-guarded-writes";
 
 /** What the hook waits for, spelled here so a change to it fails loudly. */
 const WAIT = 60_000;
@@ -17,11 +19,15 @@ const NOTE = "20 Literature/DDIA.md";
 function renderBookmark() {
   const write = vi.fn<(note: string, cfi: string) => Promise<boolean>>();
   write.mockResolvedValue(true);
-  const { result, unmount } = renderHook(() => useBookmark(write));
+  // The cfi alone reaches `write`, which is what the wait keys on.
+  const { result, unmount } = renderHook(() =>
+    useBookmark((note, place) => write(note, place.cfi)),
+  );
 
   return {
     write,
-    moved: (note: string, cfi: string) => act(() => result.current.moved(note, cfi)),
+    moved: (note: string, cfi: string) =>
+      act(() => result.current.moved(note, { cfi, progress: null, author: undefined })),
     flush: (note: string) =>
       act(() => {
         void result.current.flush(note);
@@ -276,5 +282,40 @@ describe("useBookmark", () => {
     await held.finish();
     expect(settled).toBe(2);
     expect(bookmark.write).toHaveBeenCalledOnce();
+  });
+});
+
+describe("what the bookmark writes", () => {
+  const AT = { cfi: "epubcfi(/6/4)", progress: 0.4149, author: "Tanya Reilly" };
+
+  it("writes the place, the fraction to two places, the time and the book's author", () => {
+    const text = placed("# DDIA\n", AT);
+
+    expect(text).toMatch(/^---\nreading: epubcfi\(\/6\/4\)\nread_at: \S+\nprogress: 0\.41\n/);
+    expect(text).toContain('author: "Tanya Reilly"');
+    const at = /read_at: (\S+)/.exec(text)?.[1] ?? "";
+    expect(at).toMatch(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d[+-]\d\d:\d\d$/);
+    expect(Math.abs(Date.parse(at) - Date.now())).toBeLessThan(2000);
+  });
+
+  it("keeps a hand-set author and an old fraction when the view has no number", () => {
+    const text = placed("---\nauthor: Reilly\nprogress: 0.2\n---\n", { ...AT, progress: null });
+
+    expect(text).toContain("author: Reilly\n");
+    expect(text).toContain("progress: 0.2\n");
+    expect(text).not.toContain("Tanya");
+  });
+
+  it("joins an epub's creators and reads a pdf's author string", () => {
+    const view = (author: unknown) =>
+      ({ book: { metadata: { author } }, lastLocation: { fraction: 0.5 } }) as FoliateView;
+
+    expect(placeOf(view([{ name: { en: "Ann" } }, "Bo "]), "c")).toEqual({
+      cfi: "c",
+      progress: 0.5,
+      author: "Ann, Bo",
+    });
+    expect(placeOf(view("Cy"), "c").author).toBe("Cy");
+    expect(placeOf(view(undefined), "c").author).toBeUndefined();
   });
 });

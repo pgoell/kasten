@@ -5,7 +5,7 @@ import { BookContents, type TocRow, tocRows } from "@/components/book-contents";
 import { Rsvp } from "@/components/rsvp";
 import { TAKE_HOST } from "@/components/take-button-view";
 import { useBookNoteTake } from "@/components/use-book-note-take";
-import type { FoliateView } from "@/lib/book/foliate-view";
+import type { FoliateView, Place } from "@/lib/book/foliate-view";
 import { bookSource } from "@/lib/book/rsvp-book";
 import { useBookHighlights } from "@/lib/book/use-book-highlights";
 import { useBookKeys } from "@/lib/book/use-book-keys";
@@ -73,7 +73,7 @@ interface BookPaneProps {
    */
   onFocus: () => void;
   /** Where the reader turned to, after every move but the one that opened the book. */
-  onMoved: (cfi: string) => void;
+  onMoved: (place: Place) => void;
   /** The pane is going away, so whatever it last reported should be written now. */
   onLeaving: () => void;
   /**

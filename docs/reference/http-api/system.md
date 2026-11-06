@@ -127,8 +127,11 @@ Lists every [agent token](/reference/agent-api.md) the vault holds, with the
 time each one last made a request.
 
 ```json
-[{ "name": "laptop", "created": "2026-08-18T09:00:00+00:00", "last_used": "2026-08-18T09:05:00+00:00" }]
+[{ "name": "laptop", "created": "2026-08-18T09:00:00+00:00", "scope": "agent", "last_used": "2026-08-18T09:05:00+00:00" }]
 ```
+
+`scope` is `agent` for a token that opens all of `/agent/`, and `reading` for
+one that opens [`GET /agent/reading`](/reference/agent-api.md#reading-tokens-and-get-agentreading) alone.
 
 `last_used` is the time of the live token's latest request, and counts only what
 that token itself made since it was minted: rows of a revoked token, or of an
@@ -169,13 +172,16 @@ inside the server can set those headers. `path`, `note` and `tool` are cut to
 Mints one agent token and hands back the only copy of its secret.
 
 ```json
-{ "name": "laptop" }
+{ "name": "laptop", "scope": "agent" }
 ```
+
+`scope` is optional and `agent` when left out; `reading` mints a reading token.
 
 ```json
 {
   "name": "laptop",
   "created": "2026-08-18T09:00:00+00:00",
+  "scope": "agent",
   "secret": "kasten_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 }
 ```
@@ -184,7 +190,7 @@ Mints one agent token and hands back the only copy of its secret.
 recoverable: the store keeps a SHA-256 digest and nothing else, so a lost secret
 is replaced rather than found.
 
-A name already taken is a `409`, the create's answer, because the user is about
+A name already taken, by a token of either scope, is a `409`, the create's answer, because the user is about
 to retype it and has to know which it was.
 
 This route is under `/api/`, which means it inherits the login gate and carries

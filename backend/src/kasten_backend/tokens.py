@@ -14,13 +14,26 @@ import secrets
 import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING, Literal, NamedTuple
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 logger = logging.getLogger(__name__)
 
 PREFIX = "kasten_"
 """What every secret starts with, so a leaked one is greppable and scannable."""
+
+Scope = Literal["agent", "reading"]
+
+READING = "tokens-reading.json"
+"""The file reading tokens live in, beside the store.
+
+Not a `scope` field in `tokens.json`: an older backend ignores unknown fields, so on rollback
+a reading token would open the whole vault. An older backend never reads this file.
+"""
 
 _lock = asyncio.Lock()
 """Held across the read, the change and the write, so two mints cannot race.
@@ -38,6 +51,9 @@ class Token(BaseModel):
 
     name: str
     created: datetime
+
+    scope: Scope = "agent"
+    """`reading` opens `GET /agent/reading` alone; `agent` opens every `/agent/` route."""
 
 
 class Minted(Token):
@@ -98,16 +114,31 @@ def digest(secret: str) -> str:
 
 
 def _read(store: Path) -> list[_Record]:
-    """Every record the file holds, or none at all.
+    """Every record the store and its reading file hold, or none at all.
 
     A missing file is an empty store, so a box with no tokens refuses every bearer. Strict
     otherwise: returning nothing for a file that is there but unreadable would let `mint`
     and `revoke` write over every token it holds.
     """
-    if not store.exists():
+    return _records(store, "agent") + _records(store.with_name(READING), "reading")
+
+
+def _records(path: Path, scope: Scope) -> list[_Record]:
+    if not path.exists():
         return []
 
-    return _RECORDS.validate_json(store.read_bytes())
+    return [
+        record.model_copy(update={"scope": scope})
+        for record in _RECORDS.validate_json(path.read_bytes())
+    ]
+
+
+def _write_active(store: Path, records: list[_Record]) -> None:
+    """Write each record to the file its scope names; the reading file only once it is needed."""
+    _write(store, [record for record in records if record.scope == "agent"])
+    reading = [record for record in records if record.scope == "reading"]
+    if reading or store.with_name(READING).exists():
+        _write(store.with_name(READING), reading)
 
 
 def _read_revoked(path: Path) -> list[_Revoked] | None:
@@ -127,7 +158,7 @@ def _read_revoked(path: Path) -> list[_Revoked] | None:
         return None
 
 
-def _write(target: Path, records: list[BaseModel]) -> None:
+def _write(target: Path, records: Sequence[BaseModel]) -> None:
     """Replace the file at `target` with `records`, atomically, readable by its owner alone.
 
     `mkstemp` gives a unique temp name, `0600` by construction. `vault.write_note`'s fixed
@@ -137,17 +168,19 @@ def _write(target: Path, records: list[BaseModel]) -> None:
     handle, temporary = tempfile.mkstemp(dir=target.parent, prefix=".tokens", suffix=".tmp")
     try:
         with os.fdopen(handle, "w", encoding="utf-8") as output:
-            json.dump([record.model_dump(mode="json") for record in records], output, indent=2)
+            # The file a record sits in says its scope.
+            rows = [record.model_dump(mode="json", exclude={"scope"}) for record in records]
+            json.dump(rows, output, indent=2)
         os.replace(temporary, target)  # noqa: PTH105  Path has no atomic replace of a str
     except BaseException:
         Path(temporary).unlink(missing_ok=True)
         raise
 
 
-async def mint(store: Path, name: str) -> Minted:
+async def mint(store: Path, name: str, scope: Scope = "agent") -> Minted:
     """Add a token called `name` and hand back the only copy of its secret.
 
-    A name a revoked token held is free again: only the active file is checked.
+    A name a revoked token held is free again: only the active files are checked.
     """
     async with _lock:
         records = _read(store)
@@ -155,10 +188,10 @@ async def mint(store: Path, name: str) -> Minted:
             raise ValueError(f"There is already a token called {name}")
 
         secret = PREFIX + secrets.token_urlsafe(32)
-        record = _Record(name=name, created=datetime.now(UTC), digest=digest(secret))
-        _write(store, [*records, record])
+        record = _Record(name=name, created=datetime.now(UTC), scope=scope, digest=digest(secret))
+        _write_active(store, [*records, record])
 
-    return Minted(name=record.name, created=record.created, secret=secret)
+    return Minted(name=record.name, created=record.created, scope=scope, secret=secret)
 
 
 async def revoke(store: Path, name: str) -> bool:
@@ -187,7 +220,7 @@ async def revoke(store: Path, name: str) -> bool:
                     revoked_path,
                     type(error).__name__,
                 )
-        _write(store, [record for record in records if record.name != name])
+        _write_active(store, [record for record in records if record.name != name])
         if revoked is None:
             return True
 
@@ -206,11 +239,19 @@ async def revoke(store: Path, name: str) -> bool:
 async def listing(store: Path) -> list[Token]:
     """Every token the store holds, without the digests."""
     async with _lock:
-        return [Token(name=record.name, created=record.created) for record in _read(store)]
+        return [Token(**record.model_dump(exclude={"digest"})) for record in _read(store)]
 
 
-async def identify(store: Path, secret: str) -> tuple[str, bool] | None:
-    """The name behind `secret`, and whether it was revoked; None when neither file holds it.
+class Holder(NamedTuple):
+    """Who presented a secret: the token's name, whether it was revoked, and its scope."""
+
+    name: str
+    revoked: bool
+    scope: Scope
+
+
+async def identify(store: Path, secret: str) -> Holder | None:
+    """Who holds `secret`; None when no file holds it.
 
     An unreadable `tokens.json` refuses every bearer, and an unreadable revoked file refuses a
     revoked secret as unknown, the same 401 either way. `compare_digest` rather than `==`, so
@@ -228,7 +269,7 @@ async def identify(store: Path, secret: str) -> tuple[str, bool] | None:
 
         for record in records:
             if secrets.compare_digest(record.digest, presented):
-                return record.name, False
+                return Holder(record.name, False, record.scope)
 
         revoked = _read_revoked(store.with_name(REVOKED))
         if revoked is None:
@@ -236,7 +277,7 @@ async def identify(store: Path, secret: str) -> tuple[str, bool] | None:
 
         for record in revoked:
             if secrets.compare_digest(record.digest, presented):
-                return record.name, True
+                return Holder(record.name, True, record.scope)
 
     return None
 
@@ -244,7 +285,7 @@ async def identify(store: Path, secret: str) -> tuple[str, bool] | None:
 async def verify(store: Path, secret: str) -> str | None:
     """The name behind `secret` when it is an active token, or None otherwise."""
     found = await identify(store, secret)
-    if found is None or found[1]:
+    if found is None or found.revoked:
         return None
 
-    return found[0]
+    return found.name

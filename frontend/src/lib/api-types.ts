@@ -462,6 +462,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/agent/reading": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Reading
+         * @description The book being read, or 204 when no note qualifies.
+         */
+        get: operations["reading_agent_reading_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -4890,6 +4910,12 @@ export interface components {
              * Format: date-time
              */
             created: string;
+            /**
+             * Scope
+             * @default agent
+             * @enum {string}
+             */
+            scope: "agent" | "reading";
             /** Secret */
             secret: string;
         };
@@ -5392,6 +5418,20 @@ export interface components {
             items: components["schemas"]["Item"][];
             /** Kept */
             kept?: string | null;
+        };
+        /**
+         * Reading
+         * @description The book being read, for the Reading pane on pgoell.com, and nothing else of its note.
+         */
+        Reading: {
+            /** Title */
+            title: string;
+            /** Author */
+            author: string | null;
+            /** Progress */
+            progress: number | null;
+            /** Read At */
+            read_at: string;
         };
         /**
          * ReadingIn
@@ -6039,11 +6079,17 @@ export interface components {
         };
         /**
          * TokenName
-         * @description What a mint is asked for: a name to tell one token from another.
+         * @description What a mint is asked for: a name to tell one token from another, and what it opens.
          */
         TokenName: {
             /** Name */
             name: string;
+            /**
+             * Scope
+             * @default agent
+             * @enum {string}
+             */
+            scope: "agent" | "reading";
         };
         /**
          * TokenUse
@@ -6057,6 +6103,12 @@ export interface components {
              * Format: date-time
              */
             created: string;
+            /**
+             * Scope
+             * @default agent
+             * @enum {string}
+             */
+            scope: "agent" | "reading";
             /** Last Used */
             last_used?: string | null;
         };
@@ -7065,6 +7117,33 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
+            };
+        };
+    };
+    reading_agent_reading_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Reading"];
+                };
+            };
+            /** @description No note qualifies */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

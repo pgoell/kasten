@@ -344,9 +344,9 @@ def _gate(inner: ASGIApp) -> ASGIApp:
             else None
         )
         if found is not None:
-            token_activity.named(found[0], revoked=found[1])
+            token_activity.named(found.name, revoked=found.revoked)
         # Before the method check, so a caller with no token learns nothing about this endpoint.
-        if found is None or found[1]:
+        if found is None or found.revoked or found.scope != "agent":
             await JSONResponse(
                 {"detail": REFUSED},
                 status_code=401,
@@ -364,7 +364,7 @@ def _gate(inner: ASGIApp) -> ASGIApp:
             )(scope, receive, send)
             return
 
-        held = vcs.writer.set(found[0])
+        held = vcs.writer.set(found.name)
         try:
             await inner(scope, receive, send)
         finally:
