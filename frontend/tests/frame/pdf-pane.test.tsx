@@ -16,7 +16,7 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRoot, type Root } from "react-dom/client";
-import { BookPane } from "@/components/book-pane";
+import { BookPane } from "@/components/books/book-pane";
 // Three pages of selectable text and an outline of three entries, the third
 // nested under the second, so the contents have a shape to draw.
 import contentsUrl from "../fixtures/contents.pdf?url";

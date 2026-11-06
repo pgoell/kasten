@@ -3,7 +3,7 @@
 # lowers or drops lines; to raise one, edit this file by hand.
 backend/src/kasten_backend 107
 backend/src/kasten_backend/routes 26
-backend/tests 175
+backend/tests 174
 docs 8
 docs/assets/shared-lists 15
 docs/explanation 27
@@ -15,7 +15,7 @@ docs/reference/http-api 23
 docs/reference/save-path-orderings 16
 frontend 21
 frontend/src 8
-frontend/src/components 133
+frontend/src/components 131
 frontend/src/lib 26
 frontend/src/lib/book 18
 frontend/src/lib/editor 17

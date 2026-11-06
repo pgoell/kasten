@@ -82,6 +82,7 @@ The file pickers that `<leader>cm` and `<leader>cb` open wait until you let go o
 | `<leader>gh` | Show this note's history in a pane beside it |
 | `<leader>gr` | Read this note's book in a pane beside it |
 | `<leader>gc` | Read the current book |
+| `<leader>gi` | Put the library of every book note in the focused pane |
 | `<leader>gp` | Show this person's card in a pane beside their note |
 | `<leader>gv` | Watch this note's video in a pane beside it |
 | `<leader>ge` | Sit the open note as a practice exam |

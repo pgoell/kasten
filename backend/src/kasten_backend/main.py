@@ -21,6 +21,7 @@ from kasten_backend.agent_routes import (
     too_large,
 )
 from kasten_backend.agent_routes import router as agent_router
+from kasten_backend.books import route as books_route
 from kasten_backend.build import build_id
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.events import KEEPALIVE, format_retry, format_sse, watch_vault
@@ -184,6 +185,7 @@ app.include_router(web.router)
 app.include_router(queries.router)
 app.include_router(search.router)
 app.include_router(pieces_route.router)
+app.include_router(books_route.router)
 app.include_router(github.router)
 app.include_router(model_use.router)
 app.include_router(log.router)

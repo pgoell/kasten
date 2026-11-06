@@ -11,7 +11,7 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRoot } from "react-dom/client";
-import { BookPane } from "@/components/book-pane";
+import { BookPane } from "@/components/books/book-pane";
 import scriptedUrl from "../fixtures/scripted.epub?url";
 import { stubCommands } from "../stub-commands";
 import "@/styles/app.css";

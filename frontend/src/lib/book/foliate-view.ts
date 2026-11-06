@@ -1,4 +1,4 @@
-import type { TocItem } from "@/components/book-contents";
+import type { TocItem } from "@/components/books/book-contents";
 // Static, and for the side effect: loading the module runs
 // `customElements.define("foliate-view", View)`. Without it
 // `document.createElement("foliate-view")` makes an unknown element, `open` is

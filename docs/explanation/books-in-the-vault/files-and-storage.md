@@ -51,8 +51,10 @@ file: there is no delete and no history to get one back from.
 Nothing in kasten lists an epub or a pdf, and that is not a filter anybody
 added. Every reader of the vault already asks for `.md`: the listing skips
 anything else, the finder ranks what the listing gave it, and search runs rg
-over notes. What you read is served by two endpoints and reached by one key, and
-no other part of the app knows it is there.
+over notes. What you read is served by two endpoints and reached from its note.
+Even [the library](/explanation/books-in-the-vault/the-library.md) lists notes and
+not files: a book is there because its note says `type: Book`, and the file only
+lends it a cover.
 
 The one place that had to be told is the image listing, which the editor
 completes a `![](` against. It walks every asset suffix the vault takes and

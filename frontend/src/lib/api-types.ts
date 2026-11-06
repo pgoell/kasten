@@ -1163,6 +1163,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/library": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Library
+         * @description Every `type: Book` note outside the archive, hidden ones included, in path order.
+         */
+        get: operations["read_library_api_library_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/library/cover/{path}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Cover
+         * @description The cover of the epub beside the note at `path`, or 404 when it has none.
+         *
+         *     The tag is the epub's size and time, so a pane drawn again asks once and gets a 304.
+         */
+        get: operations["read_cover_api_library_cover__path__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/github": {
         parameters: {
             query?: never;
@@ -4681,6 +4723,41 @@ export interface components {
             amount: number | string;
         };
         /**
+         * LibraryBook
+         * @description One book note, as the library pane lists it.
+         */
+        LibraryBook: {
+            /** Path */
+            path: string;
+            /** Title */
+            title: string;
+            /** Author */
+            author: string | null;
+            /** Folder */
+            folder: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "unread" | "want" | "reading" | "finished" | "dropped";
+            /** Chosen */
+            chosen: boolean;
+            /** Progress */
+            progress: number | null;
+            /** Read At */
+            read_at: string | null;
+            /** Created */
+            created: string | null;
+            /** Hidden */
+            hidden: boolean;
+            /** Highlights */
+            highlights: number;
+            /** Current */
+            current: boolean;
+            /** Format */
+            format: ("epub" | "pdf") | null;
+        };
+        /**
          * LimitIn
          * @description A category's monthly limit from a month on; null takes the limit away from then.
          */
@@ -7829,6 +7906,64 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["SimilarAnswer"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_library_api_library_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryBook"][];
+                };
+            };
+        };
+    };
+    read_cover_api_library_cover__path__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                path: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/*": unknown;
+                };
+            };
+            /** @description Not changed */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

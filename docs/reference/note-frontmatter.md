@@ -82,7 +82,7 @@ Anything else in the block is copied through a save unread, in the order it was
 written, nested lists and mappings included. kasten neither adds nor removes it.
 Deleting one of your own fields is an edit like any other and it stays deleted.
 
-Three things kasten writes land in this half of the block.
+Four things kasten writes land in this half of the block.
 [An imported web page](/reference/editor-keys/capture.md#importing-a-web-page) arrives
 carrying `resource`, the address the page was read from, and `author` and
 `published` where the page named them. They are written once, by the client, in
@@ -117,6 +117,16 @@ Beside them is `sr-suspended`, which
 [parks the note](/reference/flashcard-format/writing-cards-and-decks.md#a-whole-note-for-review) without
 touching its schedule. `true` parks it and anything else does not, so a note put
 back carries `sr-suspended: false` rather than losing the key.
+
+The fourth is `status:` and `hidden:` on a book note, which
+[the library pane](/reference/editor-keys/book-pane.md#the-library-pane) writes.
+`status` is one of `want`, `reading`, `finished` or `dropped`, and it wins over
+what the reader's fields say; any other value, or none, leaves the library to
+work it out, finished from a `progress` of 0.99 or more and reading from a
+`reading:` place. `hidden: true` keeps the book out of the library's list until
+you ask for hidden books, and anything else does not, so a book shown again
+carries `hidden: false`. The library writes both by `PUT` like everything else in
+this half, so a hand edit to either counts the same.
 
 kasten reads one field it never writes: `aliases`, the other names a note goes
 by. [Unlinked mentions](/reference/http-api/finding.md#get-apimentions) look for each

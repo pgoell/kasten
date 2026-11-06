@@ -1,6 +1,7 @@
 import type { ComponentType, ReactElement } from "react";
 import { expect, it, vi } from "vitest";
-import { BookPane } from "@/components/book-pane";
+import { BookPane } from "@/components/books/book-pane";
+import { LibraryPane } from "@/components/books/library-pane";
 import { ChatPane } from "@/components/chat-pane";
 import { ExamPane } from "@/components/exam-pane";
 import { FinancePane } from "@/components/finance-pane";
@@ -39,6 +40,7 @@ const EXPECTED: { [K in KindField]: Expected } = {
   log: { value: true, draws: LogPane, open: "line", notice: true },
   overview: { value: true, draws: OverviewPane, archive: true },
   finance: { value: true, draws: FinancePane, notice: true },
+  library: { value: true, draws: LibraryPane, open: "path", notice: true },
   book: { value: "b.md", draws: BookPane, archive: true, notice: true },
   exam: { value: "e.md", draws: ExamPane, open: "path" },
   review: { value: true, draws: ReviewPane, open: "line" },

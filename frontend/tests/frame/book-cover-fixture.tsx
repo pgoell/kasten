@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRoot, type Root } from "react-dom/client";
 import { page } from "vitest/browser";
-import { BookPane } from "@/components/book-pane";
+import { BookPane } from "@/components/books/book-pane";
 import { backImages, treatmentFor } from "@/lib/book/book-backing";
 import { fetchBook, fetchNote } from "@/lib/core/api";
 import { THEME_KEY } from "@/lib/ui/theme";

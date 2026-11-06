@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: "HTTP API: assets and books"
-description: Routes for images, sounds and books, and the chunked uploads that carry a file too big for one request.
+description: Routes for images, sounds and books, the library of book notes and their covers, and the chunked uploads that carry a file too big for one request.
 resource: backend/src/kasten_backend/routes/
 tags: [api, backend, openapi]
 status: stable
@@ -278,3 +278,59 @@ no book beside it answers the same either way.
 [The file beside a note](/explanation/books-in-the-vault.md) is why the path is not
 stored anywhere.
 
+## GET /api/library
+
+Lists every note typed `Book` outside the archive, hidden ones included, in path
+order. Each row is read off the note and the file beside it on every request, so
+nothing is stored and a hand edit reads true at once.
+
+```json
+[
+  {
+    "path": "Books/01 Technical/DDIA.md",
+    "title": "DDIA",
+    "author": "Martin Kleppmann",
+    "folder": "Books/01 Technical",
+    "status": "reading",
+    "chosen": false,
+    "progress": 0.42,
+    "read_at": "2026-11-05T21:30:00+01:00",
+    "created": "2026-10-01T10:00:00+00:00",
+    "hidden": false,
+    "highlights": 2,
+    "current": true,
+    "format": "epub"
+  }
+]
+```
+
+| Field | Carries |
+| --- | --- |
+| `title` | The note's file name without `.md` |
+| `author`, `progress`, `read_at`, `created` | The note's own fields, null where it has none; `progress` only when it is a fraction from 0 to 1 |
+| `folder` | The folder holding the note, from the vault root |
+| `status` | `want`, `reading`, `finished` or `dropped` from the note's `status:`; without one, `finished` at a `progress` of 0.99 or more, `reading` with a `reading:` place, else `unread` |
+| `chosen` | Whether `status` came from the note's `status:` line |
+| `hidden` | Whether the note says `hidden: true` |
+| `highlights` | How many `^hl-` anchors the note's body holds |
+| `current` | Whether the first link in `reading-now.md` names this note |
+| `format` | `epub` or `pdf` for the file beside the note, null when there is none |
+
+A note is found by rg for the word `Book` and kept only where its block says
+`type: Book`, so a note that mentions books is not listed.
+
+## GET /api/library/cover/{path}
+
+Answers with the cover picture inside the epub beside the note at `path`. Like
+`/api/books/{path}`, `path` is the note's.
+
+The cover is the manifest item EPUB 3 marks `cover-image`, else the one EPUB 2
+names with `<meta name="cover">`, else the first picture whose id or name holds
+`cover`. Only JPEG, PNG, GIF and WebP are served, never SVG, whose script would
+run from this origin, and never one over 10 MB.
+
+| Status | Means |
+| --- | --- |
+| `200` | The picture, typed as the package names it, with an `ETag` from the epub's size and time |
+| `304` | `If-None-Match` matched that tag |
+| `404` | `No cover beside that note`: no epub, a pdf, no cover the rules find, or a path the vault refuses |

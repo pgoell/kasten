@@ -2257,6 +2257,68 @@
         }
       }
     },
+    "/api/library": {
+      "get": {
+        "summary": "Read Library",
+        "description": "Every `type: Book` note outside the archive, hidden ones included, in path order.",
+        "operationId": "read_library_api_library_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LibraryBook"
+                  },
+                  "type": "array",
+                  "title": "Response Read Library Api Library Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/library/cover/{path}": {
+      "get": {
+        "summary": "Read Cover",
+        "description": "The cover of the epub beside the note at `path`, or 404 when it has none.\n\nThe tag is the epub's size and time, so a pane drawn again asks once and gets a 304.",
+        "operationId": "read_cover_api_library_cover__path__get",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Path"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "image/*": {}
+            }
+          },
+          "304": {
+            "description": "Not changed"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/github": {
       "get": {
         "summary": "Read Github",
@@ -10732,6 +10794,126 @@
         ],
         "title": "LeftoverIn",
         "description": "An amount of what the limits left over, moved into a goal."
+      },
+      "LibraryBook": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "author": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author"
+          },
+          "folder": {
+            "type": "string",
+            "title": "Folder"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "unread",
+              "want",
+              "reading",
+              "finished",
+              "dropped"
+            ],
+            "title": "Status"
+          },
+          "chosen": {
+            "type": "boolean",
+            "title": "Chosen"
+          },
+          "progress": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress"
+          },
+          "read_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read At"
+          },
+          "created": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created"
+          },
+          "hidden": {
+            "type": "boolean",
+            "title": "Hidden"
+          },
+          "highlights": {
+            "type": "integer",
+            "title": "Highlights"
+          },
+          "current": {
+            "type": "boolean",
+            "title": "Current"
+          },
+          "format": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "epub",
+                  "pdf"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Format"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "title",
+          "author",
+          "folder",
+          "status",
+          "chosen",
+          "progress",
+          "read_at",
+          "created",
+          "hidden",
+          "highlights",
+          "current",
+          "format"
+        ],
+        "title": "LibraryBook",
+        "description": "One book note, as the library pane lists it."
       },
       "LimitIn": {
         "properties": {

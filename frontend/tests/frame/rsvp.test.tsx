@@ -16,7 +16,7 @@ import type { ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { commands as browser, userEvent } from "vitest/browser";
-import { BookPane } from "@/components/book-pane";
+import { BookPane } from "@/components/books/book-pane";
 import { HtmlPane } from "@/components/html-pane";
 import { PdfPane } from "@/components/pdf-pane";
 import type { FoliateView, Place } from "@/lib/book/foliate-view";

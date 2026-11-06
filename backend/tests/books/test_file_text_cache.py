@@ -10,8 +10,8 @@ import os
 from typing import TYPE_CHECKING
 
 from backend.tests.book_files import epub, xhtml
-from kasten_backend import file_text
-from kasten_backend.file_text import Extracted, Place
+from kasten_backend.books import file_text
+from kasten_backend.books.file_text import Extracted, Place
 
 if TYPE_CHECKING:
     from pathlib import Path

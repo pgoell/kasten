@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { BookContents, type TocRow, tocRows } from "@/components/book-contents";
+import { BookContents, type TocRow, tocRows } from "@/components/books/book-contents";
 
 describe("the walk over a book's contents", () => {
   it("answers one row per entry, in reading order", () => {

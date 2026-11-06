@@ -30,6 +30,8 @@ export interface Pane {
   overview?: boolean;
   /** The finance pane's. */
   finance?: boolean;
+  /** The library pane's: every book note, a list and the chosen one. */
+  library?: boolean;
   /**
    * The literature note whose book this pane reads, absent otherwise. The note's path, since the
    * reader swaps its suffix to find the epub.
@@ -130,6 +132,7 @@ export const PANE_KINDS: { [K in KindField]: Row<K> } = {
   log: flag("log"),
   overview: flag("overview"),
   finance: flag("finance"),
+  library: flag("library"),
   // A reader, a player, an exam and a card are each named by the note they sit beside (#363).
   book: named("book"),
   exam: named("review"),

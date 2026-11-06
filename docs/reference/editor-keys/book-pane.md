@@ -1,12 +1,48 @@
 ---
 type: Reference
 title: Editor keys, the book pane
-description: The book reader pane, its keys, its contents list and the highlights it takes into the note.
+description: The library pane that lists every book, the book reader pane, its keys, its contents list and the highlights it takes into the note.
 tags: [editor, keyboard, book, reader, frontend]
 status: stable
 ---
 
 # Books in the reader
+
+## The library pane
+
+`<leader>gi` puts the library in the focused pane: every note typed `Book`
+outside the archive, listed on the left in three groups, with the chosen book on
+the right. Reading holds the books you are in, the last read first. Up next
+holds the ones you have not started, those marked want to read first. Done holds
+the finished and the dropped, the last read first. A narrow pane, a phone's
+included, puts the list above the book instead of beside it.
+
+The right side shows the epub's own cover, or a plain one where the book names
+none, then the shelf, the title, the author, how far you are, when you last read
+it, the status switch, the buttons below, and the note's highlights, newest
+first. The shelf is the folder the note sits in, named without its sort number,
+so `01 Technical` reads Technical.
+
+| Key | Does |
+| --- | --- |
+| `j`, `k`, arrows | Move the cursor down or up the list |
+| `g`, `G` | Move to the first or the last book |
+| `Enter` | Read the book in this pane, at the place you stopped |
+| `o` | Open the book's note in this pane |
+| `r` | Make it the current book, the one `<leader>gc` reads |
+| `s` | Step the status: want to read, reading, finished, dropped |
+| `x` | Hide the book, or show it again |
+| `.` | Show or leave out hidden books |
+| `m` | Open the shelf picker; `1` to `9` then moves the book to that shelf |
+| `/` | Filter by title, author or shelf; `Enter` keeps the filter, `Escape` clears it |
+| `q`, `Escape` | Close the pane, or the shelf picker first |
+
+Each key has a button or a box beside the book, so a finger reaches them all.
+The status, `hidden` and the current book are lines in notes, so
+[the note frontmatter](/reference/note-frontmatter.md#every-other-field-is-yours) says
+what each write leaves behind. A move takes the epub with the note, as every note
+move does. [The library](/explanation/books-in-the-vault/the-library.md) says why
+it is built this way.
 
 ## The book pane
 

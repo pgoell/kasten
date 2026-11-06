@@ -10,7 +10,7 @@ from typing import Literal, NamedTuple
 
 from pydantic import BaseModel
 
-from kasten_backend import file_text
+from kasten_backend.books import file_text
 from kasten_backend.search import MOST_HITS, literal_matcher, scan_vault
 
 KINDS: dict[str, Literal["pdf", "epub", "html"]] = {

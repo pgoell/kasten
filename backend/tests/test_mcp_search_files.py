@@ -10,7 +10,8 @@ from typing import TYPE_CHECKING, Any
 
 from backend.tests.book_files import epub, pdf, xhtml
 from backend.tests.test_mcp import ENDPOINT, RPC, call, payload
-from kasten_backend import file_search, file_text
+from kasten_backend import file_search
+from kasten_backend.books import file_text
 
 if TYPE_CHECKING:
     import pytest

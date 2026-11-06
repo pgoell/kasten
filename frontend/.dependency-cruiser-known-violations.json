@@ -2,8 +2,8 @@
   {
     "type": "dependency",
     "from": "src/lib/book/foliate-view.ts",
-    "to": "src/components/book-contents.tsx",
-    "unresolvedTo": "@/components/book-contents",
+    "to": "src/components/books/book-contents.tsx",
+    "unresolvedTo": "@/components/books/book-contents",
     "dependencyTypes": ["undetermined", "import", "type-only"],
     "rule": {
       "severity": "error",
@@ -13,8 +13,8 @@
   {
     "type": "dependency",
     "from": "src/lib/book/use-book-view.ts",
-    "to": "src/components/book-contents.tsx",
-    "unresolvedTo": "@/components/book-contents",
+    "to": "src/components/books/book-contents.tsx",
+    "unresolvedTo": "@/components/books/book-contents",
     "dependencyTypes": ["undetermined", "import"],
     "rule": {
       "severity": "error",

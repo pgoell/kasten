@@ -27,4 +27,5 @@ Each part has a page of its own:
 * [Files and storage beside a note](/explanation/books-in-the-vault/files-and-storage.md): why the path is never stored, the two doors a file comes in by, why jj never takes a copy, what a changed file does, and why a file's markup cannot run code
 * [Highlights and place in a file beside a note](/explanation/books-in-the-vault/highlights-and-place.md): how the reader keeps your place, why a quote is the anchor, how a highlight is drawn again, and what the reader does to the URL
 * [Reading a pdf beside a note](/explanation/books-in-the-vault/pdf.md): what a pdf costs over an epub, and where the vendored pdf.js comes from
+* [The library](/explanation/books-in-the-vault/the-library.md): why it keeps no list of its own, why status is worked out before it is chosen, why hiding is a line in the note, and why a shelf is a folder
 

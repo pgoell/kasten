@@ -48,6 +48,7 @@ export const LEADER: readonly LeaderBinding[] = [
   // Doubled: vim already spends `gg` on going to the top.
   { key: "gg", label: "Open the graph of the whole vault", command: "openGraph" },
   { key: "gh", label: "Show this note's history beside it", command: "openHistory" },
+  { key: "gi", label: "Open the library", command: "openLibrary" },
   { key: "gl", label: "Show the graph around this note", command: "openLocalGraph" },
   { key: "gm", label: "Open this month's note", command: "openMonthly" },
   { key: "go", label: "Show what this note links to", command: "showLinksOut" },
@@ -150,6 +151,7 @@ export const LEADER_COLUMNS: readonly { title: string; keys: readonly string[] }
       "gh",
       "gr",
       "gc",
+      "gi",
       "gp",
       "gv",
       "ge",

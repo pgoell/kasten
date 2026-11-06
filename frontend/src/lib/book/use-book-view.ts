@@ -1,5 +1,5 @@
 import { type RefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { type TocRow, tocRows } from "@/components/book-contents";
+import { type TocRow, tocRows } from "@/components/books/book-contents";
 import { pageStyles } from "@/lib/book/book-backing";
 import { trackPages } from "@/lib/book/book-pages";
 import {

@@ -44,6 +44,8 @@ export interface EditorCommands {
   openLog(): void;
   /** The overview of the week's numbers. */
   openOverview(): void;
+  /** The library: every book note, to find, read and file. */
+  openLibrary(): void;
   /** The finance pane, on the bookings still to sort. */
   openFinance(): void;
   /** Show what links to the open note. Needs one open, as its opposite does. */
