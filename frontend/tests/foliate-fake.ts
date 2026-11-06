@@ -11,7 +11,7 @@
  * document this hands out.
  */
 
-import type { TocItem } from "@/components/book-contents";
+import type { TocItem } from "@/components/books/book-contents";
 
 interface Deferred {
   promise: Promise<void>;

@@ -114,6 +114,8 @@ function onVaultEvent(
 
   // Any write can add a tag, even one the early return skips. One rg pass is the price.
   queryClient.invalidateQueries({ queryKey: ["tags"] }, { cancelRefetch: false });
+  // A book's row is read off its note, and a page turn writes it; only an open library refetches.
+  queryClient.invalidateQueries({ queryKey: ["library"] }, { cancelRefetch: false });
 
   if (event.change === "written" || event.change === "removed") {
     refreshByPath(queryClient, event.path);

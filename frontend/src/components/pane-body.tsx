@@ -1,5 +1,6 @@
 import type { Dispatch, ReactElement, RefObject, SetStateAction } from "react";
-import { BookPane } from "@/components/book-pane";
+import { BookPane } from "@/components/books/book-pane";
+import { LibraryPane } from "@/components/books/library-pane";
 import { ChatPane } from "@/components/chat-pane";
 import { ExamPane } from "@/components/exam-pane";
 import { FinancePane } from "@/components/finance-pane";
@@ -23,9 +24,9 @@ import type { LogActions } from "@/lib/log/use-log-actions";
 import type { useAutosave } from "@/lib/note/use-autosave";
 import type { BufferSync } from "@/lib/note/use-buffer-sync";
 import type { NoteOpening } from "@/lib/note/use-note-opening";
-import { openBeside } from "@/lib/panes/layout/pane-contents";
+import { openBeside, openBookInFocused } from "@/lib/panes/layout/pane-contents";
 import { heldKind, type KindField, type Pane } from "@/lib/panes/layout/pane-kinds";
-import { focusPane, type Layout } from "@/lib/panes/layout/panes";
+import { atPane, focusPane, type Layout } from "@/lib/panes/layout/panes";
 import type { useRsvpAsked } from "@/lib/panes/rsvp/use-rsvp";
 import type { VideoAsks } from "@/lib/panes/video/use-video-player";
 import type { GuardedWrites } from "@/lib/saving/use-guarded-writes";
@@ -186,6 +187,21 @@ const BODIES: { [K in KindField]: Body<K> } = {
       archive={shared.archive}
       // Read at the render, so a tab left open across midnight redraws.
       today={readClock(new Date()).date}
+    />
+  ),
+  library: (_, { shown, shared, extras, signal }) => (
+    <LibraryPane
+      commands={shared.commands}
+      focusSignal={signal}
+      // In this pane, as `<leader>gc` reads the current book over the pane it was pressed in.
+      onRead={(note) =>
+        extras.moveTo((previous) =>
+          atPane(previous, shown.id, (layout) => openBookInFocused(layout, note)),
+        )
+      }
+      onOpen={(note) => void shared.openInPane(note)}
+      onNotice={shared.onNotice}
+      today={new Date()}
     />
   ),
   finance: (_, { shared, signal }) => (
@@ -355,12 +371,13 @@ export function PaneBody({
   return (BODIES[kind] as Body<KindField>)(shown[kind] as never, at);
 }
 
-/** Whether a pane holds one of the five kinds that fill the whole pane. */
+/** Whether a pane holds one of the six kinds that fill the whole pane. */
 export function isWholePane(
-  pane: Pick<Pane, "overview" | "finance" | "log" | "todos" | "review">,
+  pane: Pick<Pane, "overview" | "finance" | "log" | "todos" | "review" | "library">,
 ): boolean {
   return (
     pane.overview === true ||
+    pane.library === true ||
     pane.finance === true ||
     pane.log === true ||
     pane.todos === true ||

@@ -15,14 +15,13 @@ from starlette.requests import ClientDisconnect
 
 from kasten_backend import agent, files, page_store, skills, token_activity, vcs
 from kasten_backend.agent_finance_routes import router as finance_router
-from kasten_backend.code_spans import WIKILINK, code_spans, inside
+from kasten_backend.books.library import fraction, named_book, note_text
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.frontmatter import field
 from kasten_backend.graph import MOST_DEPTH, Graph, GraphError
-from kasten_backend.links import link_path, names_a_file, split_target
 from kasten_backend.search import notes_holding
 from kasten_backend.tokens import Holder, Scope, identify
-from kasten_backend.vault import HTML_SUFFIX, list_markdown_files, resolve_note
+from kasten_backend.vault import HTML_SUFFIX, list_markdown_files
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -108,7 +107,7 @@ async def reading(settings: Annotated[Settings, Depends(get_settings)]) -> Readi
 async def current_book(settings: Settings) -> Reading | None:
     """The current book; None when the named one has no `read_at:` or no note qualifies."""
     root = settings.vault_path
-    named = _named_book(settings, list_markdown_files(root))
+    named = named_book(settings, list_markdown_files(root))
     if named is not None:
         return _reading(root, named)
 
@@ -122,21 +121,9 @@ async def current_book(settings: Settings) -> Reading | None:
     return max(books, key=lambda book: _moment(book.read_at) or datetime.min)
 
 
-def _named_book(settings: Settings, paths: list[str]) -> str | None:
-    """The note the first `[[link]]` in `reading-now.md` names, as `<leader>gc` reads it."""
-    text = _text(settings.vault_path, f"{settings.config_path}/reading-now.md")
-    code = code_spans(text)
-    match = next((m for m in WIKILINK.finditer(text) if not inside(m.start(), code)), None)
-    if match is None:
-        return None
-    name = split_target(match.group(1)).name
-    path = link_path(match.group(1), paths)
-    return path if name and not names_a_file(name) and path in paths else None
-
-
 def _reading(root: Path, path: str) -> Reading | None:
     """What the pane shows of the note at `path`, or None without `reading:` and a `read_at:`."""
-    text = _text(root, path)
+    text = note_text(root, path)
     read_at = field(text, "read_at")
     if not field(text, "reading") or not read_at or _moment(read_at) is None:
         return None
@@ -144,18 +131,9 @@ def _reading(root: Path, path: str) -> Reading | None:
     return Reading(
         title=path.rsplit("/", 1)[-1].removesuffix(".md"),
         author=author or None,
-        progress=_fraction(field(text, "progress")),
+        progress=fraction(field(text, "progress")),
         read_at=read_at,
     )
-
-
-def _text(root: Path, path: str) -> str:
-    """The note at `path`, or nothing when there is none or it cannot be read."""
-    note = resolve_note(root, path)
-    try:
-        return "" if note is None else note.read_text(encoding="utf-8")
-    except OSError, UnicodeDecodeError:
-        return ""
 
 
 def _moment(text: str) -> datetime | None:
@@ -165,15 +143,6 @@ def _moment(text: str) -> datetime | None:
     except ValueError:
         return None
     return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
-
-
-def _fraction(text: str | None) -> float | None:
-    """`text` as a fraction from 0 to 1, or None when it is not one."""
-    try:
-        value = float(text or "")
-    except ValueError:
-        return None
-    return value if 0 <= value <= 1 else None
 
 
 @router.get("/notes/{path:path}")

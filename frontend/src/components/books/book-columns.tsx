@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import type { TocRow } from "@/components/book-contents";
+import type { TocRow } from "@/components/books/book-contents";
 import type { HighlightBlock } from "@/lib/takes/highlight";
 
 /** A column's heading, muted and small, the way the pdf pane labels its header. */

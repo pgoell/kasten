@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ContentsColumn, NoteColumn } from "@/components/book-columns";
-import { BookContents, type TocRow, tocRows } from "@/components/book-contents";
+import { ContentsColumn, NoteColumn } from "@/components/books/book-columns";
+import { BookContents, type TocRow, tocRows } from "@/components/books/book-contents";
 import { Rsvp } from "@/components/rsvp";
 import { TAKE_HOST } from "@/components/take-button-view";
 import { useBookNoteTake } from "@/components/use-book-note-take";

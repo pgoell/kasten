@@ -40,6 +40,7 @@ export function forwardCommands(get: () => EditorCommands | undefined): Extensio
     openTodos: () => get()?.openTodos(),
     openLog: () => get()?.openLog(),
     openOverview: () => get()?.openOverview(),
+    openLibrary: () => get()?.openLibrary(),
     openFinance: () => get()?.openFinance(),
     showBacklinks: () => get()?.showBacklinks(),
     showLinksOut: () => get()?.showLinksOut(),

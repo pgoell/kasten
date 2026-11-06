@@ -1,5 +1,5 @@
 import { act, cleanup, waitFor } from "@testing-library/react";
-import type { TocItem } from "@/components/book-contents";
+import type { TocItem } from "@/components/books/book-contents";
 import {
   BOOK,
   CFI,

@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { useLayoutEffect } from "react";
-import { BookPane } from "@/components/book-pane";
+import { BookPane } from "@/components/books/book-pane";
 import type { Place } from "@/lib/book/foliate-view";
 import { BOOK, draw, NOTE, progress } from "./book-pane-fixture";
 import { defineFoliateFake, FakeView, lastView, resetFoliateFake } from "./foliate-fake";

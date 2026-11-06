@@ -14,7 +14,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 from backend.tests.book_files import epub, pdf, xhtml
-from kasten_backend import file_search, file_text
+from kasten_backend import file_search
+from kasten_backend.books import file_text
 
 if TYPE_CHECKING:
     import pytest
