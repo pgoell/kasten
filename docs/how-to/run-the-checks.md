@@ -57,6 +57,8 @@ the board, panes, search, review, capture, the log and the book pane. Each is a
 thing done daily, and each one that writes checks the file on disk. The todo,
 capture and review files also run a journey at phone width, 414 px with touch,
 where the editor starts without vim; `phone` in `e2e/harness/app.ts` sets that up.
+The journeys block the service worker: Chromium crashed closing a context while
+it installed (#1606). `mise run fe:e2e` checks the offline worker.
 
 Install Chromium once, after `mise run e2e` has put the packages in `e2e/node_modules`:
 
