@@ -81,6 +81,22 @@ describe("FileExplorer in a narrow window", () => {
     editor.remove();
   });
 
+  it("asks the route to take the focus on q too, as on Escape", () => {
+    const editor = document.createElement("div");
+    editor.className = "cm-content";
+    editor.tabIndex = 0;
+    document.body.append(editor);
+    const onLeave = vi.fn();
+    renderTree({ onLeave });
+
+    tree().focus();
+    press("q");
+
+    expect(onLeave).toHaveBeenCalledOnce();
+    expect(editor).not.toHaveFocus();
+    editor.remove();
+  });
+
   it("takes the rail under the drawer out of reach", () => {
     stubMatchMedia({ [NARROW]: true });
     renderTree();
