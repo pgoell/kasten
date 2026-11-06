@@ -290,33 +290,28 @@ function isText(lines: string[], index: number, known: Known): boolean {
 }
 
 /**
- * Whether line `index` is a heading. Under paragraph text its hashes sit at most three past the
- * paragraph's content, else at most three past its own item's (#1583).
+ * Whether line `index` sits where a heading or fence run ends the paragraph above: at most three
+ * past the paragraph's content, else at most three past its own item's (#1583, #1585).
  */
-function heading(lines: string[], index: number, known: Known): boolean {
-  const held = lines[index] ?? "";
-  if (!HEADING_LINE.test(held.trimStart())) return false;
+function endsParagraph(lines: string[], index: number, known: Known): boolean {
   const above = paragraph(lines, index - 1, known);
   const marker = above ? markerAt(lines, index - 1, known) : null;
   const column =
     marker !== null ? contentColumn(marker) : itemColumn(lines, above ? index - 1 : index, known);
-  return width(held) <= column + 3;
+  return width(lines[index] ?? "") <= column + 3;
 }
 
-/**
- * Whether line `index` is a fence run that ends the paragraph above it, as a heading does: its indent
- * sits at most three past the content column, not further in as indented code (#1585).
- */
+/** Whether line `index` is a heading. */
+function heading(lines: string[], index: number, known: Known): boolean {
+  return HEADING_LINE.test((lines[index] ?? "").trimStart()) && endsParagraph(lines, index, known);
+}
+
+/** Whether line `index` is a fence run, not indented code, so no lazy line (#1585). */
 function fenceEnds(lines: string[], index: number, known: Known): boolean {
-  const held = lines[index] ?? "";
-  const match = FENCE.exec(held);
+  const match = FENCE.exec(lines[index] ?? "");
   const fence = match?.[1];
   if (fence === undefined || (fence[0] === "`" && match?.[2]?.includes("`"))) return false;
-  const above = paragraph(lines, index - 1, known);
-  const marker = above ? markerAt(lines, index - 1, known) : null;
-  const column =
-    marker !== null ? contentColumn(marker) : itemColumn(lines, above ? index - 1 : index, known);
-  return width(held) <= column + 3;
+  return endsParagraph(lines, index, known);
 }
 
 /**
