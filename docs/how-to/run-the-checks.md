@@ -65,9 +65,7 @@ cd e2e && mise exec -- bunx playwright test journeys/<file>
 ```
 
 On failure, the run writes a trace and a screenshot to `e2e/test-results/`. Open
-a trace from `e2e/` with `bunx playwright show-trace <zip>`. CI runs the task in
-its own `E2E` job and uploads `e2e/test-results/` as the `e2e-results` artifact.
-That job is not a required check.
+a trace from `e2e/` with `bunx playwright show-trace <zip>`.
 
 ## The hooks
 

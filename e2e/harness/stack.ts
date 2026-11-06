@@ -121,7 +121,7 @@ export function listening(backend: ChildProcess, log: string[]): Promise<number>
 }
 
 // Plays Caddy's part in production: `/api/*` to the backend, the rest to nginx.
-function serve(apiPort: number, webPort: number): Promise<Server> {
+export function serve(apiPort: number, webPort: number): Promise<Server> {
   const server = createServer((req, res) => {
     const port = req.url?.startsWith("/api/") ? apiPort : webPort;
     const upstream = request(
@@ -132,6 +132,8 @@ function serve(apiPort: number, webPort: number): Promise<Server> {
       },
     );
     upstream.on("error", () => res.destroy());
+    // A page that leaves holds `/api/events` open otherwise, and uvicorn waits for it before it stops.
+    res.on("close", () => upstream.destroy());
     req.pipe(upstream);
   });
   return new Promise((resolve) => server.listen(0, "127.0.0.1", () => resolve(server)));
@@ -141,8 +143,18 @@ function serve(apiPort: number, webPort: number): Promise<Server> {
 async function stop(backend: ChildProcess): Promise<void> {
   if (backend.exitCode !== null || backend.pid === undefined) return;
   const exited = new Promise((done) => backend.once("exit", done));
-  process.kill(-backend.pid, "SIGTERM");
-  const late = setTimeout(() => backend.pid && process.kill(-backend.pid, "SIGKILL"), 10_000);
+  const pid = backend.pid;
+  killGroup(pid, "SIGTERM");
+  const late = setTimeout(() => killGroup(pid, "SIGKILL"), 10_000);
   await exited;
   clearTimeout(late);
+}
+
+// A group that exits between the check and the kill is no fault.
+export function killGroup(pid: number, signal: NodeJS.Signals): void {
+  try {
+    process.kill(-pid, signal);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error;
+  }
 }
