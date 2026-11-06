@@ -226,5 +226,27 @@
     "tags": ["#t"]
   },
   { "id": "comment-cut-by-the-next-empty-item", "text": "- a <!-- y\n-\n#t -->", "tags": ["#t"] },
-  { "id": "comment-cut-by-another-bullet", "text": "- a <!-- y\n* #t -->", "tags": ["#t"] }
+  { "id": "comment-cut-by-another-bullet", "text": "- a <!-- y\n* #t -->", "tags": ["#t"] },
+  {
+    "id": "comment-cut-by-a-lazy-empty-item-of-the-same-kind",
+    "text": "- a <!-- y\n*\n#t -->",
+    "tags": ["#t"]
+  },
+  {
+    "id": "comment-cut-by-a-lazy-later-number-of-the-same-kind",
+    "text": "1. a <!-- y\n2)\n#t -->",
+    "tags": ["#t"]
+  },
+  {
+    "id": "comment-cut-by-a-lazy-item-of-an-outer-list",
+    "text": "- a\n  1. b <!-- y\n-\n#t -->",
+    "tags": ["#t"]
+  },
+  {
+    "id": "comment-cut-by-a-later-number-in-an-ordered-item",
+    "text": "1. a <!-- y\n   2. #t -->",
+    "tags": ["#t"]
+  },
+  { "id": "comment-over-a-zero-padded-one", "text": "a <!-- y\n01. #hidden -->", "tags": [] },
+  { "id": "comment-over-a-lazy-zero-padded-one", "text": "> a <!-- y\n01. #hidden -->", "tags": [] }
 ]

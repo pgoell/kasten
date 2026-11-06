@@ -88,23 +88,30 @@ _ITEM = re.compile(r"(?:([-*+])|([0-9]{1,9})([.)]))(?:[ \t]+(\S))?")
 def _list(state: StateBlock, first: int, end: int, silent: bool) -> bool:
     """markdown-it's list rule, where a lazy line goes on with its paragraph as in the editor.
 
-    With `lists` in the env, an empty item or one past 1 cuts a lazy line only to go on
-    with its list (#1544).
+    With `lists` in the env, the kinds of the lists open, an empty item or one past 1 cuts a
+    lazy line only to go on with a list of its kind (#1544).
     """
     start = state.bMarks[first] + state.tShift[first]
     item = _ITEM.match(state.src, start, state.eMarks[first])
     lists = state.env.get("lists")
     if lists is None or item is None or state.is_code_block(first):
         return list_block(state, first, end, silent)
-    marker = item[1] or item[3]
-    lazy = state.parentType == "blockquote" or (
-        state.parentType == "paragraph" and state.sCount[first] < state.blkIndent
-    )
-    cuts = item[4] is not None and (item[1] is not None or int(item[2]) == 1)
+    kind = "bullet" if item[1] else "ordered"
+    if silent and state.parentType in ("paragraph", "blockquote"):
+        # The editor cuts at a literal `1` only, and goes on with any list of the same kind.
+        cuts = item[4] is not None and (item[1] is not None or item[2] == "1")
+        if not cuts and kind not in lists:
+            return False
+        if not cuts:
+            # As a list's own item, which markdown-it asks for under its parent type only.
+            parent, state.parentType = state.parentType, "list"
+            try:
+                return list_block(state, first, end, silent)
+            finally:
+                state.parentType = parent
     if silent:
-        sibling = bool(lists) and lists[-1] == marker
-        return (not lazy or cuts or sibling) and list_block(state, first, end, silent)
-    lists.append(marker)
+        return list_block(state, first, end, silent)
+    lists.append(kind)
     try:
         return list_block(state, first, end, silent)
     finally:
