@@ -205,7 +205,7 @@ Revokes one agent token, and answers `204`.
 The next request carrying that token is refused. Nothing is held between
 requests, so there is no window in which a revoked token still works.
 
-The record moves from `tokens.json` to `tokens-revoked.json` beside it. A request
+The record moves from `tokens.json`, or `tokens-reading.json` for a reading token, to `tokens-revoked.json` beside them. A request
 the revoked token makes after that is still recorded, with the outcome
 `revoked`. Its rows stay for 90 days and show in the actions list of a token
 minted later under the same name, such as a reconnect through OAuth. This list
@@ -213,18 +213,18 @@ leaves the revoked token out.
 
 `tokens-revoked.json` keeps the last 50 records, in the order they were
 revoked; a revoke drops the older ones. Dropping one cannot let its token back
-in, since only `tokens.json` admits a bearer: a token whose record is gone is
+in, since only `tokens.json` and `tokens-reading.json` admit a bearer: a token whose record is gone is
 refused as unknown, and only the action log stops naming it. A
 `tokens-revoked.json` the backend cannot read (a permission error, a directory
 in its place, bad JSON, or anything but a list of records) does not open the
-gate either: every bearer `tokens.json` does not hold gets a 401, and the
+gate either: every bearer the active files do not hold gets a 401, and the
 backend logs a warning with the path. The next revoke moves that file to
 `tokens-revoked.json.broken` and starts a fresh one; when that move fails, the
-revoke still takes the token out of `tokens.json`, leaves the revoked file as it
+revoke still takes the token out of its active file, leaves the revoked file as it
 is and logs a warning.
 
-A `tokens.json` the backend cannot read refuses every bearer with a 401 and a
-logged warning. Minting, revoking and listing raise on it and write nothing.
+A `tokens.json` or `tokens-reading.json` the backend cannot read refuses every
+bearer, full and reading alike, with a 401 and a logged warning. Minting, revoking and listing raise on it and write nothing.
 
 Either file counts as unreadable when a record's `digest` is not 64 lowercase
 hex characters, the only form the backend writes, since no secret could match
