@@ -45,6 +45,30 @@ package past it whose licence you have read and accept, add it to `ACCEPTED`
 in `.github/deps/new_dependencies.py` with the reason; that file is a code
 owner's path, so pgoell reviews the line.
 
+## Run the end-to-end journeys
+
+`mise run e2e` builds the frontend, then runs the Playwright journeys in `e2e/`
+against it. You need Docker, for Postgres and nginx, and Chromium. Each test gets
+its own copy of the fixture vault, its own database and its own backend, and
+teardown removes the containers. Unlike `fe:e2e`, it stubs no API.
+
+Install Chromium once, after `mise run e2e` has put the packages in `e2e/node_modules`:
+
+```sh
+e2e/node_modules/.bin/playwright install chromium
+```
+
+To run one journey:
+
+```sh
+cd e2e && mise exec -- bunx playwright test journeys/<file>
+```
+
+On failure, the run writes a trace and a screenshot to `e2e/test-results/`. Open
+a trace from `e2e/` with `bunx playwright show-trace <zip>`. CI runs the task in
+its own `E2E` job and uploads `e2e/test-results/` as the `e2e-results` artifact.
+That job is not a required check.
+
 ## The hooks
 
 Lefthook runs some of this for you, from `.config/lefthook.yaml`:
