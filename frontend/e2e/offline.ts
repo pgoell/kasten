@@ -138,8 +138,7 @@ async function step(name: string, body: () => Promise<void>): Promise<void> {
   }
 }
 
-// The full build, as e2e/playwright.config.ts uses: the headless shell segfaults closing a context (#1606).
-const browser = await chromium.launch({ channel: "chromium" });
+const browser = await chromium.launch();
 let closing = false;
 // A dead browser leaves every later call waiting on a page that is gone, so stop at once (#1616).
 browser.on("disconnected", () => {
