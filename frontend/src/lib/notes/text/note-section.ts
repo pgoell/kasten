@@ -258,7 +258,10 @@ function placedColumn(lines: string[], index: number, cap: number, known: Known)
   const held = lines[index] ?? "";
   if (held.trim() === "") return 0;
   const lazy =
-    !known.coded.has(index) && !heading(lines, index, known) && paragraph(lines, index - 1, known);
+    !known.coded.has(index) &&
+    !heading(lines, index, known) &&
+    !fenceEnds(lines, index, known) &&
+    paragraph(lines, index - 1, known);
   if (lazy) return null;
   const column = itemColumn(lines, index, known);
   return column <= cap ? column : 0;
@@ -282,22 +285,33 @@ function paragraph(lines: string[], index: number, known: Known): boolean {
 function isText(lines: string[], index: number, known: Known): boolean {
   const held = lines[index] ?? "";
   if (held.trim() === "" || known.coded.has(index) || BREAK.test(held.trim())) return false;
-  if (heading(lines, index, known)) return false;
+  if (heading(lines, index, known) || fenceEnds(lines, index, known)) return false;
   return width(held) < itemColumn(lines, index, known) + 4 || paragraph(lines, index - 1, known);
 }
 
 /**
- * Whether line `index` is a heading. Under paragraph text its hashes sit at most three past the
- * paragraph's content, else at most three past its own item's (#1583).
+ * Whether line `index` sits where a heading or fence run ends the paragraph above: at most three
+ * past the paragraph's content, else at most three past its own item's (#1583, #1585).
  */
-function heading(lines: string[], index: number, known: Known): boolean {
-  const held = lines[index] ?? "";
-  if (!HEADING_LINE.test(held.trimStart())) return false;
+function endsParagraph(lines: string[], index: number, known: Known): boolean {
   const above = paragraph(lines, index - 1, known);
   const marker = above ? markerAt(lines, index - 1, known) : null;
   const column =
     marker !== null ? contentColumn(marker) : itemColumn(lines, above ? index - 1 : index, known);
-  return width(held) <= column + 3;
+  return width(lines[index] ?? "") <= column + 3;
+}
+
+/** Whether line `index` is a heading. */
+function heading(lines: string[], index: number, known: Known): boolean {
+  return HEADING_LINE.test((lines[index] ?? "").trimStart()) && endsParagraph(lines, index, known);
+}
+
+/** Whether line `index` is a fence run, not indented code, so no lazy line (#1585). */
+function fenceEnds(lines: string[], index: number, known: Known): boolean {
+  const match = FENCE.exec(lines[index] ?? "");
+  const fence = match?.[1];
+  if (fence === undefined || (fence[0] === "`" && match?.[2]?.includes("`"))) return false;
+  return endsParagraph(lines, index, known);
 }
 
 /**

@@ -103,17 +103,19 @@ export function readSchedule(text: string, comment = SR): Schedule | null {
 
 /**
  * One card per number the cloze `line` holds, in ascending order. The order
- * keeps the ordinals the same on every read.
+ * keeps the ordinals the same on every read. `bare` is the line with its comments
+ * blanked, as a mark inside one is no mark (#1587); the sides draw the raw line.
  */
 function clozeCards(
   line: string,
+  bare: string,
   extra: string,
   schedule: string,
   card: Pick<Card, "from" | "to" | "inline" | "parked">,
 ): Card[] {
   // The card's own tags are no part of the question, here as on any card.
   const text = withoutTags(line);
-  return clozeNumbers(line).map((cloze) => {
+  return clozeNumbers(bare).map((cloze) => {
     const answer = side(clozeAnswer(text, cloze));
     return {
       ...card,
@@ -122,7 +124,7 @@ function clozeCards(
       decks: [],
       held: readSchedule(schedule, clozeComment(cloze)),
       cloze,
-      target: typedTarget(clozeTarget(text, cloze)),
+      target: typedTarget(clozeTarget(withoutTags(bare), cloze)),
     };
   });
 }
@@ -141,6 +143,8 @@ function oneLine(line: string, bare: string): Divided | null {
 /** What both walks of `parseCards` read and fill. */
 interface Walk {
   lines: string[];
+  /** The lines with their comments blanked, which every cloze mark is read from. */
+  bare: string[];
   code: boolean[];
   /** Lines a card above already took. */
   taken: boolean[];
@@ -166,6 +170,7 @@ export function parseCards(text: string, note = ""): Card[] {
   const bare = uncommented.split("\n");
   const walk: Walk = {
     lines,
+    bare,
     code,
     taken: lines.map(() => false),
     cards: [],
@@ -214,11 +219,11 @@ function push(walk: Walk, card: Card, own: string[]): void {
  */
 function frontOf(walk: Walk, at: number, cloze: boolean): number {
   if (cloze) return at - 1;
-  const { lines, ends, schedules, inline } = walk;
+  const { bare, ends, schedules, inline } = walk;
   let from = at;
   while (
     !ends(from - 1) &&
-    !holdsCloze(lines[from - 1]) &&
+    !holdsCloze(bare[from - 1]) &&
     !schedules(from - 1) &&
     !inline(from - 1)
   )
@@ -263,8 +268,8 @@ function claim(walk: Walk, from: number, to: number, at: number): string[] {
 
 /** The card, or cloze cards, of the `?` at `at`, if it is one. */
 function questionCard(walk: Walk, at: number): void {
-  const { lines, ends } = walk;
-  const cloze = !ends(at - 1) && holdsCloze(lines[at - 1]);
+  const { lines, bare, ends } = walk;
+  const cloze = !ends(at - 1) && holdsCloze(bare[at - 1]);
   const from = frontOf(walk, at, cloze);
   // A `?` with nothing over it is prose.
   if (from === at) return;
@@ -276,7 +281,7 @@ function questionCard(walk: Walk, at: number): void {
   const own = claim(walk, from, to, at);
 
   if (cloze) {
-    const asked = clozeCards(lines[from] ?? "", back, lines[to] ?? "", {
+    const asked = clozeCards(lines[from] ?? "", bare[from] ?? "", back, lines[to] ?? "", {
       from,
       to,
       inline: false,
@@ -312,9 +317,8 @@ function lineCard(walk: Walk, at: number, line: string, bare: string): void {
     const own = cardTags(line) ?? [];
     if (own.length > 0) walk.claimed.add(at);
     const parked = suspended(line) ? "suspended" : null;
-    for (const card of clozeCards(line, "", line, { from: at, to: at, inline: true, parked })) {
-      push(walk, card, own);
-    }
+    const asked = clozeCards(line, bare, "", line, { from: at, to: at, inline: true, parked });
+    for (const card of asked) push(walk, card, own);
     return;
   }
 

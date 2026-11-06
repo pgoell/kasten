@@ -285,6 +285,15 @@ describe("fencedLines closers in a list item", () => {
     expect(read.openRun).toBe(openRun);
   });
 
+  it("#1585 a run four in after a list item's paragraph is indented code, a top-level one stays lazy", () => {
+    expect([
+      ...fencedLines(["  1. a", "    ~~~", "      1. a", "", "     # h", "      # h", "      ~~~"])
+        .coded,
+    ]).toEqual([]);
+    // Guard: a top-level paragraph still reads a run four in as a lazy line.
+    expect([...fencedLines(["x", "    ```", "y"]).coded]).toEqual([]);
+  });
+
   it("1553 reads deep items split by lazy lines without a blowup", () => {
     const pairs = Array.from({ length: 40 }, () => ["  lazy", "    - d"]).flat();
     const started = performance.now();
