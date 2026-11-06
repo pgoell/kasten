@@ -1,7 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Page } from "@playwright/test";
-import { leader, openApp, phone } from "../../harness/app.ts";
+import { leader, noteText, openApp, phone } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 
 // A todo row is keyed by its line, "Home.md:12"; the file tree's rows are not.
@@ -14,7 +14,7 @@ const HOME_TODOS = [
   "ask the landlord about the boiler",
 ];
 
-const homeNote = (vault: string) => join(vault, "02 Projects/Home.md");
+const HOME = "02 Projects/Home.md";
 
 /** Presses j or k until the list's cursor sits on the row whose text holds `words`. */
 async function cursorTo(page: Page, words: string) {
@@ -37,7 +37,7 @@ test("checking off a todo in the todo pane changes the note's line", async ({ pa
   // The first row starts under the cursor; X sets it done.
   await page.keyboard.press("X");
   await expect
-    .poll(() => readFile(join(stack.vault, "02 Projects/Garden.md"), "utf8"), { timeout: 15_000 })
+    .poll(() => noteText(stack.vault, "02 Projects/Garden.md"), { timeout: 15_000 })
     .toMatch(/^- \[x\] water the tomatoes/m);
 });
 
@@ -59,7 +59,7 @@ test("checking off three todos in a row keeps the rows in their order", async ({
     await page.keyboard.press("X");
     // The list redraws once the write lands, so wait for the line before the next row is found.
     await expect
-      .poll(() => readFile(homeNote(stack.vault), "utf8"), { timeout: 15_000 })
+      .poll(() => noteText(stack.vault, HOME), { timeout: 15_000 })
       .toMatch(new RegExp(`^- \\[x\\] ${name}`, "m"));
   }
   const texts = await page
@@ -70,7 +70,7 @@ test("checking off three todos in a row keeps the rows in their order", async ({
     .filter((name) => name !== undefined);
   expect(order).toEqual(HOME_TODOS);
   await expect
-    .poll(() => readFile(homeNote(stack.vault), "utf8"), { timeout: 15_000 })
+    .poll(() => noteText(stack.vault, HOME), { timeout: 15_000 })
     .toMatch(
       /^- \[x\] empty the dishwasher.*\n- \[x\] fold the laundry.*\n- \[x\] take out the bins/m,
     );
@@ -78,7 +78,7 @@ test("checking off three todos in a row keeps the rows in their order", async ({
 
 test("marking a recurring todo done writes its next copy above it", async ({ page, stack }) => {
   // The next copy counts off the due date. The fixture has none: a dated todo would head the list.
-  const note = homeNote(stack.vault);
+  const note = join(stack.vault, HOME);
   const fixture = await readFile(note, "utf8");
   await writeFile(note, fixture.replace("plants 🔁", "plants 📅 2026-11-10 🔁"));
   await openApp(page);
@@ -86,7 +86,7 @@ test("marking a recurring todo done writes its next copy above it", async ({ pag
   await cursorTo(page, "water the plants");
   await page.keyboard.press("X");
   await expect
-    .poll(() => readFile(note, "utf8"), { timeout: 15_000 })
+    .poll(() => noteText(stack.vault, HOME), { timeout: 15_000 })
     .toMatch(
       /^- \[ \] water the plants 📅 2026-11-17 🔁 every week\n- \[x\] water the plants 📅 2026-11-10 🔁 every week ✅/m,
     );
@@ -98,7 +98,7 @@ test("setting a todo to waiting marks its line and its row", async ({ page, stac
   await cursorTo(page, "ask the landlord about the boiler");
   await page.keyboard.press("W");
   await expect
-    .poll(() => readFile(homeNote(stack.vault), "utf8"), { timeout: 15_000 })
+    .poll(() => noteText(stack.vault, HOME), { timeout: 15_000 })
     .toMatch(/^- \[w\] ask the landlord about the boiler/m);
   const row = page.locator(TODO_ROW, { hasText: "ask the landlord about the boiler" });
   await expect(row.getByRole("img", { name: "waiting" })).toBeVisible();
@@ -113,7 +113,7 @@ test.describe("on a phone", () => {
     await page.getByRole("button", { name: "more for fold the laundry" }).tap();
     await page.getByRole("button", { name: "done fold the laundry" }).tap();
     await expect
-      .poll(() => readFile(homeNote(stack.vault), "utf8"), { timeout: 15_000 })
+      .poll(() => noteText(stack.vault, HOME), { timeout: 15_000 })
       .toMatch(/^- \[x\] fold the laundry/m);
   });
 });

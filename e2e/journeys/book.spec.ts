@@ -1,15 +1,11 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
-import { leader, openApp } from "../harness/app.ts";
+import { findNote, leader, noteText, openApp } from "../harness/app.ts";
 import { expect, test } from "../harness/stack.ts";
 
 const primer = "04 Books/Primer.md";
 
 test("the book pane reopens a pdf at the page it was left on", async ({ page, stack }) => {
   await openApp(page);
-  await leader(page, "ff");
-  await page.keyboard.type("Primer");
-  await page.keyboard.press("Enter");
+  await findNote(page, "Primer");
   await expect(page.getByRole("tab", { name: "Primer", selected: true })).toBeVisible();
   await expect(page.locator(".cm-content")).toBeFocused();
 
@@ -29,7 +25,7 @@ test("the book pane reopens a pdf at the page it was left on", async ({ page, st
   await page.locator(".cm-content").first().click();
   await page.keyboard.press("Escape");
   await expect
-    .poll(() => readFile(join(stack.vault, primer), "utf8"), { timeout: 15_000 })
+    .poll(() => noteText(stack.vault, primer), { timeout: 15_000 })
     .toMatch(/^reading: epubcfi\(/m);
 
   await leader(page, "gr");

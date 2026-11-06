@@ -1,18 +1,7 @@
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
-import type { Page } from "@playwright/test";
-import { leader, noteText, openApp } from "../../harness/app.ts";
+import { findNote, leader, noteText, openApp } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
-
-/** Opens the note finder, types the name, and opens the first row once the finder has listed it. */
-async function findNote(page: Page, name: string): Promise<void> {
-  await leader(page, "ff");
-  const finder = page.getByRole("dialog", { name: "Find note" });
-  await expect(finder).toBeVisible();
-  await finder.getByRole("combobox").fill(name);
-  await expect(finder.getByRole("option").first()).toContainText(name);
-  await page.keyboard.press("Enter");
-}
 
 test("a new note made from the note prompt is written to disk with the typed line", async ({
   page,

@@ -1,6 +1,4 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
-import { leader, openApp } from "../../harness/app.ts";
+import { leader, noteText, openApp } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 
 test("dragging a card to the doing column writes its doing mark", async ({ page, stack }) => {
@@ -22,6 +20,6 @@ test("dragging a card to the doing column writes its doing mark", async ({ page,
   await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 10 });
   await page.mouse.up();
   await expect
-    .poll(() => readFile(join(stack.vault, "02 Projects/Home.md"), "utf8"), { timeout: 15_000 })
+    .poll(() => noteText(stack.vault, "02 Projects/Home.md"), { timeout: 15_000 })
     .toMatch(/^- \[\/\] fold the laundry/m);
 });

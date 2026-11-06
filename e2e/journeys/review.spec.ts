@@ -1,13 +1,11 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
-import { leader, openApp, phone, today } from "../harness/app.ts";
+import { leader, noteText, openApp, phone, today } from "../harness/app.ts";
 import { expect, test } from "../harness/stack.ts";
 
 const FRANCE = "What is the capital of France?::Paris";
 
 /** The schedule date kasten wrote after the France card's line, or "" while there is none. */
 async function scheduleDate(vault: string): Promise<string> {
-  const text = await readFile(join(vault, "03 Flashcards/Capitals.md"), "utf8");
+  const text = await noteText(vault, "03 Flashcards/Capitals.md");
   const line = text.split("\n").find((row) => row.startsWith(FRANCE)) ?? "";
   return /<!--SR:!(\d{4}-\d{2}-\d{2}),/.exec(line)?.[1] ?? "";
 }

@@ -1,5 +1,5 @@
 import type { Locator, Page } from "@playwright/test";
-import { leader, openApp, openFromTree } from "../harness/app.ts";
+import { findNote, leader, openApp, openFromTree } from "../harness/app.ts";
 import { expect, test } from "../harness/stack.ts";
 
 const panes = (page: Page): Locator => page.locator("[data-pane]:visible");
@@ -64,9 +64,7 @@ test("the panes and their notes are back after a reload", async ({ page }) => {
   await openApp(page);
   await openFromTree(page, "Welcome");
   await leader(page, "%");
-  await leader(page, "ff");
-  await page.keyboard.type("Garden");
-  await page.keyboard.press("Enter");
+  await findNote(page, "Garden");
   await expect(page.locator(".cm-editor", { hasText: "water the tomatoes" })).toBeVisible();
   await page.reload();
   await expect(panes(page)).toHaveCount(2);
