@@ -177,4 +177,36 @@ describe("kept reads", () => {
     expect(second.client.getQueryData(["note", "a.md"])).toBeUndefined();
     second.stop();
   });
+
+  it("keeps a note read live when the vault later says it is gone", async () => {
+    await readBefore();
+    const second = page();
+    await second.client.fetchQuery({ queryKey: ["note", "a.md"], queryFn: async () => "# A live" });
+    await settle();
+    await second.client
+      .fetchQuery({ queryKey: ["note", "a.md"], queryFn: gone, staleTime: 0 })
+      .catch((error: unknown) => {
+        if (!(error instanceof NoteMissing)) throw error;
+      });
+    await settle();
+    expect(second.client.getQueryData(["note", "a.md"])).toBe("# A live");
+    second.stop();
+  });
+
+  it("keeps text typed over a restored note when the vault later says it is gone", async () => {
+    await readBefore();
+    const second = page();
+    second.client.getQueryCache().build(second.client, { queryKey: ["note", "a.md"] });
+    await settle();
+    expect(second.client.getQueryData(["note", "a.md"])).toBe("# A");
+    second.client.setQueryData(["note", "a.md"], "# A typed");
+    await second.client
+      .fetchQuery({ queryKey: ["note", "a.md"], queryFn: gone, staleTime: 0 })
+      .catch((error: unknown) => {
+        if (!(error instanceof NoteMissing)) throw error;
+      });
+    await settle();
+    expect(second.client.getQueryData(["note", "a.md"])).toBe("# A typed");
+    second.stop();
+  });
 });

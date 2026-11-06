@@ -27,6 +27,10 @@ export function kept(key: QueryKey): boolean {
 }
 
 let connection: Promise<IDBDatabase> | null = null;
+/** Queries showing a record that no answer has replaced: only their data is ever dropped. */
+const restored = new Set<string>();
+/** The query whose record is going in now, so its own `success` is not read as an answer. */
+let restoring: string | null = null;
 
 function open(): Promise<IDBDatabase> {
   connection ??= new Promise((resolve, reject) => {
@@ -62,9 +66,12 @@ async function keep(query: Query): Promise<void> {
   await done((await store("readwrite")).put(record));
 }
 
-/** A note the vault no longer has: its record must not stand in for it, now or next time. */
+/**
+ * A note the vault no longer has: its record must not stand in for it, now or next time. Text a
+ * real answer or an edit put there stays, as the editor keeps it over an error.
+ */
 async function forget(query: Query): Promise<void> {
-  query.setState({ data: undefined, dataUpdatedAt: 0 });
+  if (restored.delete(query.queryHash)) query.setState({ data: undefined, dataUpdatedAt: 0 });
   await done((await store("readwrite")).delete(query.queryHash));
 }
 
@@ -73,7 +80,13 @@ async function restore(client: QueryClient, query: Query): Promise<void> {
   if (!usable(record, Date.now()) || query.state.data !== undefined) return;
   // The vault said the note is gone while the record was being read.
   if (query.state.error instanceof NoteMissing) return;
-  client.setQueryData(query.queryKey, record.data, { updatedAt: record.updatedAt });
+  restoring = query.queryHash;
+  try {
+    client.setQueryData(query.queryKey, record.data, { updatedAt: record.updatedAt });
+  } finally {
+    restoring = null;
+  }
+  restored.add(query.queryHash);
 }
 
 /** Drop records past their age or from another schema. */
@@ -105,12 +118,17 @@ export function keepReads(client: QueryClient): () => void {
   return client.getQueryCache().subscribe((event) => {
     if (!kept(event.query.queryKey)) return;
     if (event.type === "added") quietly(restore(client, event.query));
-    else if (event.type === "updated" && event.action.type === "success")
-      quietly(keep(event.query));
-    else if (event.type === "updated" && event.action.type === "error") {
-      if (event.action.error instanceof NoteMissing) quietly(forget(event.query));
+    if (event.type !== "updated") return;
+    if (event.action.type === "success") answered(event.query);
+    else if (event.action.type === "error" && event.action.error instanceof NoteMissing) {
+      quietly(forget(event.query));
     }
   });
+}
+
+function answered(query: Query): void {
+  if (query.queryHash !== restoring) restored.delete(query.queryHash);
+  quietly(keep(query));
 }
 
 /** Close and forget the database, which a test must do before deleting it. For tests. */

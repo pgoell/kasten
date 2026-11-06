@@ -262,7 +262,8 @@ note never opened on this device does not.
 A record never stands in for a note the vault no longer has. When a read of a
 kept note answers `404`, because it was moved, deleted or sent to the trash
 since, the page drops the record and the text it restored, and the pane says it
-could not open the note. Offline nothing can say so, and a note moved away
+could not open the note. Text a live read or an edit put there stays, as the
+editor keeps it over any error, so nothing typed is lost. Offline nothing can say so, and a note moved away
 since the last read still shows its old text until the signal returns.
 
 An edit made on a kept copy is safe. Every save names the text it was based on,
