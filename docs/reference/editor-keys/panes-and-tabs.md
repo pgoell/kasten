@@ -160,9 +160,10 @@ the pane discards it. Above that editor the pane shows Today, as [Reading a
 note](/reference/reading-a-note.md#today-in-an-empty-pane) says.
 
 The arrangement is not in the URL. `?note=` names the note in the focused pane
-and follows it from pane to pane, so a reload comes back to what you were
-reading, in a single pane, with the tabs and splits gone. The back button steps
-through pages rather than through panes.
+and follows it from pane to pane. The browser keeps the panes, splits and tabs
+in `localStorage`, one layout for a mouse and one for a finger, so a reload
+comes back to all of them (#495). The back button steps through pages rather
+than through panes.
 
 ## The history pane
 

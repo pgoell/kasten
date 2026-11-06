@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { expect, test } from "../harness/stack.ts";
+import { expect, test } from "../../harness/stack.ts";
 
 test("an edit reaches the file on disk", async ({ page, stack }) => {
   await page.goto("/");

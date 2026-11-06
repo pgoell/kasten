@@ -52,6 +52,12 @@ against it. You need Docker, for Postgres and nginx, and Chromium. Each test get
 its own copy of the fixture vault, its own database and its own backend, and
 teardown removes the containers. Unlike `fe:e2e`, it stubs no API.
 
+The journeys sit in `e2e/journeys/`, one spec file per area: notes, todos and
+the board, panes, search, review, capture, the log and the book pane. Each is a
+thing done daily, and each one that writes checks the file on disk. The todo,
+capture and review files also run a journey at phone width, 414 px with touch,
+where the editor starts without vim; `phone` in `e2e/harness/app.ts` sets that up.
+
 Install Chromium once, after `mise run e2e` has put the packages in `e2e/node_modules`:
 
 ```sh

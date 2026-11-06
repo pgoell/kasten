@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { expect, type Page } from "@playwright/test";
 
 /** Loads the app and waits until the tree lists the vault and the editor holds the focus. */
@@ -14,8 +16,38 @@ export async function leader(page: Page, keys: string): Promise<void> {
   for (const key of keys) await page.keyboard.press(key);
 }
 
+/** Opens the note finder, types the name, and opens the first row once the finder has listed it. */
+export async function findNote(page: Page, name: string): Promise<void> {
+  await leader(page, "ff");
+  const finder = page.getByRole("dialog", { name: "Find note" });
+  await expect(finder).toBeVisible();
+  await finder.getByRole("combobox").fill(name);
+  await expect(finder.getByRole("option").first()).toContainText(name);
+  await page.keyboard.press("Enter");
+}
+
 /** Opens a note from the file tree at the vault's top level. */
 export async function openFromTree(page: Page, name: string): Promise<void> {
   await page.getByRole("button", { name, exact: true }).click();
   await expect(page.getByRole("tab", { name, selected: true })).toBeVisible();
+}
+
+/** A phone as `test.use` takes it: 414 px wide, a finger for a pointer, so vim starts off. */
+export const phone = { viewport: { width: 414, height: 896 }, hasTouch: true, isMobile: true };
+
+/** Today's date on this box, as the browser names the daily note it sends. */
+export function today(): string {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+/** A note in the test's vault, or "" while it is not there, so a poll waits for the write. */
+export async function noteText(vault: string, path: string): Promise<string> {
+  try {
+    return await readFile(join(vault, path), "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return "";
+    throw error;
+  }
 }
