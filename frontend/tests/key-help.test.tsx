@@ -39,6 +39,24 @@ function leaderKey(key: string) {
   return `Space ${[...key].join(" ")}`;
 }
 
+/**
+ * Each leader key's row, found in one walk of the panel. A `getByText` per key
+ * walked all of it 62 times, 660 ms of a 770 ms test, past 5 s under load (#1644).
+ */
+function leaderRows() {
+  const rows = new Map<string, HTMLElement[]>();
+  for (const row of screen.getAllByText(/^Space /)) {
+    const text = row.textContent?.trim() ?? "";
+    rows.set(text, [...(rows.get(text) ?? []), row]);
+  }
+  // Exactly one, as `getByText` demands: a key in two groups or in none fails.
+  return (key: string) => {
+    const found = rows.get(leaderKey(key)) ?? [];
+    expect(found, key).toHaveLength(1);
+    return found[0] as HTMLElement;
+  };
+}
+
 /** The filter field, found by its name. Its absence is the failure, said as one. */
 function filterField(): HTMLElement {
   const field = screen.queryByRole("searchbox", { name: "Filter keys" });
@@ -49,6 +67,7 @@ function filterField(): HTMLElement {
 describe("KeyHelp", () => {
   it("lists every leader key and what it does", () => {
     render(<KeyHelp onClose={() => {}} />);
+    const row = leaderRows();
 
     for (const { key, label } of LEADER) {
       // The key's own row, not the label anywhere on the panel: a terminal
@@ -57,18 +76,19 @@ describe("KeyHelp", () => {
       // Unscoped, unlike the groups below, and that is the claim: the panel
       // cuts these keys into groups of its own, and a key that landed in two
       // of them or in none fails right here.
-      expect(screen.getByText(leaderKey(key)).nextElementSibling).toHaveTextContent(label);
+      expect(row(key).nextElementSibling).toHaveTextContent(label);
     }
   });
 
   it("lists every leader key that writes to the note", () => {
     render(<KeyHelp onClose={() => {}} />);
+    const row = leaderRows();
 
     // A second table, and one group: these name no command on `EditorCommands`
     // because they edit the buffer, but they are pressed like every other
     // leader key and belong on the panel beside them.
     for (const { key, label } of LEADER_EDITS) {
-      expect(screen.getByText(leaderKey(key)).nextElementSibling).toHaveTextContent(label);
+      expect(row(key).nextElementSibling).toHaveTextContent(label);
     }
   });
 
@@ -83,12 +103,13 @@ describe("KeyHelp", () => {
 
   it("puts every leader key in a named group", () => {
     render(<KeyHelp onClose={() => {}} />);
+    const row = leaderRows();
 
     // Written out rather than read off the panel, so a catchall group added
     // back under any name fails here.
     const titles = ["Find", "Create", "Go to", "Tabs", "Panes", "This note"];
     for (const { key } of [...LEADER, ...LEADER_EDITS]) {
-      const title = screen.getByText(leaderKey(key)).closest("section")?.querySelector("h3");
+      const title = row(key).closest("section")?.querySelector("h3");
       expect(titles, key).toContain(title?.textContent);
     }
   });

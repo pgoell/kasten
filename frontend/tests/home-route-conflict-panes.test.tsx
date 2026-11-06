@@ -317,12 +317,23 @@ describe("the route", () => {
   });
 
   it("puts the vault's text back in a pane left showing kept text once the conflict is settled elsewhere", async () => {
-    const app = await threePanes();
+    // Two panes, not `threePanes`: a second pane on index.md is never read here,
+    // and each pane drawn costs React and CodeMirror on every step (#1643).
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+    app.leader("%");
+    await settle();
+    app.click("other.md");
+    await settle();
+    app.focusPane(0);
+    await settle();
     app.press("x");
     vaultNow("version two", "a");
     await settle();
-    // Left for the third pane, then the note opened there over other.md.
-    app.focusPane(2);
+    // Left for the second pane, then the note opened there over other.md.
+    app.focusPane(1);
     await settle();
     expect(app.heldConflict()).toBe("Changed on disk: index");
     // Read while no pane holds the focus on it, so the cache takes it now and
@@ -332,17 +343,17 @@ describe("the route", () => {
     expect(paneText(0)).toBe("he index note");
     app.click("index.md");
     await settle();
-    expect(paneText(2)).toBe("he index note");
+    expect(paneText(1)).toBe("he index note");
     expect(app.status()).toBe("Changed on disk");
 
-    // `app.ex` types into the first editor, and this has to be the third.
-    fireEvent.keyDown(document.querySelectorAll(".cm-content")[2] as HTMLElement, { key: ":" });
+    // `app.ex` types into the first editor, and this has to be the second.
+    fireEvent.keyDown(document.querySelectorAll(".cm-content")[1] as HTMLElement, { key: ":" });
     const input = document.querySelector(".cm-vim-panel input") as HTMLInputElement;
     input.value = "e!";
     fireEvent.keyDown(input, { key: "Enter", keyCode: 13 });
     await settle();
     expect(heldText("index.md")).toBeUndefined();
-    expect(paneText(2)).toBe("version three");
+    expect(paneText(1)).toBe("version three");
 
     app.focusPane(0);
     await settle();
