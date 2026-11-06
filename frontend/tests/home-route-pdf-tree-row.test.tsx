@@ -7,6 +7,7 @@ import type { TodoState } from "@/lib/todo/todo";
 import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
 import { FakeEventSource, pageHooks, renderApp, settle, VAULT } from "./home-route-fixture";
+import { paletteRow } from "./home-route-panes";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 
 defineFoliateFake();
@@ -261,8 +262,8 @@ describe("a pdf as a row of the tree", () => {
   });
 
   it("I6 on a phone the drawer marks the open pdf, and its tab is named after it", async () => {
-    // By label, and the open palette's row by its text: a role query computes a
-    // style cascade for each node of every candidate, past 5 s under load (#1641).
+    // By label: a role query by name runs a style cascade for each node of every
+    // button, past 5 s under load (#1641).
     const button = (label: string) => screen.getByLabelText(label, { selector: "button" });
     stubMatchMedia({ [NARROW]: true, [COARSE]: true });
     const app = await renderApp();
@@ -273,9 +274,7 @@ describe("a pdf as a row of the tree", () => {
     // A second tab, so the strip shows and has the pdf's tab to name. Through
     // the palette, a phone keeping vim and so the leader off.
     fireEvent.click(button("Run a command by name"));
-    const create = [
-      ...document.querySelectorAll("[role='listbox'][aria-label='Commands'] [role='option']"),
-    ].find((option) => option.textContent?.startsWith("Create a tab"));
+    const create = paletteRow(/^Create a tab/);
     expect(create).toBeDefined();
     if (create) fireEvent.click(create);
     await settle();

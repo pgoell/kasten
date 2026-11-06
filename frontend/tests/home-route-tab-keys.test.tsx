@@ -3,6 +3,7 @@ import { noteBase } from "@/lib/notes/note-base";
 import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
 import { FakeEventSource, pageHooks, renderApp, settle, VAULT } from "./home-route-fixture";
+import { paletteRow } from "./home-route-panes";
 
 defineFoliateFake();
 
@@ -115,8 +116,6 @@ vi.mock("@/lib/capture/outbox", () => outbox);
 
 pageHooks();
 
-const PALETTE_ROWS = "[role='listbox'][aria-label='Commands'] [role='option']";
-
 describe("the tab keys on the route", () => {
   const FINE = "kasten.workspace.1";
 
@@ -172,11 +171,7 @@ describe("the tab keys on the route", () => {
   ) {
     app.press("P", { keyCode: 80, ctrlKey: true, shiftKey: true });
     await settle();
-    // The open palette's row by its text: a role query computes a style cascade
-    // for each node of every row, which under load took this file past 5 s (#1641).
-    const row = [...document.querySelectorAll(PALETTE_ROWS)].find((option) =>
-      name.test(option.textContent ?? ""),
-    );
+    const row = paletteRow(name);
     expect(row).toBeDefined();
     if (row) fireEvent.click(row);
     await settle();

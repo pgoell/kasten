@@ -16,3 +16,12 @@ export function focusedPaneOf(container: HTMLElement): number {
   const [only] = shown;
   return shown.length === 1 && only !== undefined ? panes.indexOf(only) : -1;
 }
+
+/**
+ * The open palette's row whose text matches `name`. By text, since a role query
+ * by name runs a style cascade for each node of every row: past 5 s under load (#1641).
+ */
+export function paletteRow(name: RegExp): Element | undefined {
+  const rows = document.querySelectorAll("[role='listbox'][aria-label='Commands'] [role='option']");
+  return [...rows].find((row) => name.test(row.textContent ?? ""));
+}
