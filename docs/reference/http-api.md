@@ -10,7 +10,7 @@ status: stable
 # HTTP API
 
 The backend serves one hundred and thirty-two endpoints under `/api/`.
-Seventy-three read, fifty-six write, and one streams. The interactive schema is at `/docs` while the backend
+Seventy-five read, fifty-six write, and one streams. The interactive schema is at `/docs` while the backend
 runs, and the machine-readable one at `/openapi.json`.
 
 The agent's routes sit under `/agent/`, and they are documented on their own page,
