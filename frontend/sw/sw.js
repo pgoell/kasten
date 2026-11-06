@@ -87,7 +87,7 @@ self.addEventListener("fetch", (event) => {
 
   if (request.mode === "navigate") event.respondWith(navigate(event, url));
   else if (url.pathname.startsWith("/assets/")) event.respondWith(hashed(request));
-  else event.respondWith(fresh(request));
+  else event.respondWith(fresh(event));
 });
 
 /**
@@ -101,15 +101,23 @@ async function navigate(event, url) {
   const cache = await caches.open(CACHE);
   const network = fetchShell(event.request, cache);
   const cached = url.searchParams.has(SIGN_IN) ? undefined : await cache.match("/");
-  if (!cached) return (await network) ?? (await cache.match("/")) ?? Response.error();
+  return (await soon(event, network, cached)) ?? (await cache.match("/")) ?? Response.error();
+}
+
+/**
+ * The network's answer, or `cached` when it has not come within SLOW_MS, the late answer still
+ * landing in the cache. Undefined offline. With nothing cached it waits for the network.
+ */
+async function soon(event, network, cached) {
+  if (!cached) return network;
   event.waitUntil(network);
   let timer;
   const slow = new Promise((resolve) => {
-    timer = setTimeout(() => resolve("slow"), SLOW_MS);
+    timer = setTimeout(() => resolve(cached), SLOW_MS);
   });
   const answer = await Promise.race([network, slow]);
   clearTimeout(timer);
-  return answer === "slow" || answer === undefined ? cached : answer;
+  return answer ?? cached;
 }
 
 /** The network's answer to a navigation, kept as the shell when usable, or undefined offline. */
@@ -139,15 +147,24 @@ async function hashed(request) {
   return response;
 }
 
-/** The unhashed public files keep their names across releases, so the network answers first. */
-async function fresh(request) {
+/**
+ * The unhashed public files keep their names across releases, so the network answers first. The
+ * shell's head blocks on two of them, so a slow network gets the cached copy as a navigation does.
+ */
+async function fresh(event) {
   const cache = await caches.open(CACHE);
+  const network = fetchKept(event.request, cache);
+  return (await soon(event, network, await cache.match(event.request))) ?? Response.error();
+}
+
+/** The network's answer, kept when usable, or undefined offline. */
+async function fetchKept(request, cache) {
   let response;
   try {
     response = await fetch(request);
   } catch (error) {
     if (!(error instanceof TypeError)) throw error;
-    return (await cache.match(request)) ?? Response.error();
+    return undefined;
   }
   if (usable(response)) await cache.put(request, response.clone());
   return response;

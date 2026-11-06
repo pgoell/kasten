@@ -206,7 +206,9 @@ the server or fail.
 The shell is network-first. Each start asks the server for it and keeps the
 answer. When the request fails outright, or the server has not answered within
 three seconds, as on a train or a crowded wifi, the copy answers, for whatever
-route was asked, and the late answer is kept for the next start. A cache-first
+route was asked, and the late answer is kept for the next start. The small
+public files get the same three seconds, since the shell's head waits for
+`viewport-fit.js` and `theme.js` before it draws anything. A cache-first
 shell would open faster, but it would show the last release until a second
 start, and #368 made a new release reach the app on its next start. With the
 wait, that holds for every start the network answers in time. The hashed files can come from the cache first, as

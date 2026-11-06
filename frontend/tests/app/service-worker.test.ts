@@ -176,6 +176,18 @@ describe("the service worker", () => {
     vi.useRealTimers();
   });
 
+  it("on a slow network, the shell's blocking scripts come from the cache", async () => {
+    vi.useFakeTimers();
+    const sw = await installed();
+    sw.fetch.mockResolvedValueOnce(basic("kept theme", 200, "text/javascript"));
+    await sw.request(new Request(`${ORIGIN}/theme.js`));
+    sw.fetch.mockReturnValue(new Promise(() => {}));
+    const answer = sw.request(new Request(`${ORIGIN}/theme.js`));
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(await (await answer)?.text()).toBe("kept theme");
+    vi.useRealTimers();
+  });
+
   it("the sign-in reload waits for the network, so the gate's redirect is not lost", async () => {
     vi.useFakeTimers();
     const sw = await installed();
