@@ -116,7 +116,7 @@ export function LibraryPane({
         queryClient,
         "rename",
         book.path,
-        `${folder}/${noteName(book.path)}.md`,
+        folder ? `${folder}/${noteName(book.path)}.md` : `${noteName(book.path)}.md`,
       );
       setChosenPath(landed);
     } catch (error: unknown) {
