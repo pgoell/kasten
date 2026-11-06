@@ -28,6 +28,7 @@ function wired(layout: Layout, onNotice = vi.fn()) {
         setNotice: vi.fn(),
         paths: [],
         focusedNote: { current: { path: NOTE, isWriting: () => false } },
+        flushBook: vi.fn(async () => {}),
       });
       return { commands, asks: useVideoAsks(layout, playSignal, onNotice) };
     },

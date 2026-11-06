@@ -241,20 +241,19 @@ describe("the route", () => {
     expect(caught).toEqual([]);
   });
 
-  it("takes the reader out of its pane and leaves the note pane alone", async () => {
+  it("closes the reader's pane and leaves the note pane alone (#1605)", async () => {
     const app = await renderApp();
     await settle();
     app.click("index.md");
     await settle();
     app.leader("g", "r");
     await settle();
-    // Emptying rather than removing, the way a terminal and the todo list are
-    // taken out. Without `pane.book` on that branch the key removes the pane.
+    // Removed rather than emptied, as Obsidian closes a split's last view.
     app.leader("q");
     await settle();
 
     expect(app.reader()).toBeNull();
-    expect(app.panes()).toBe(2);
+    expect(app.panes()).toBe(1);
     expect(app.text()).toContain("the index note");
   });
 

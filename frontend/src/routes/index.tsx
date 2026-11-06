@@ -135,8 +135,7 @@ function Home() {
   const panes = tabPanes(layout);
   // One autosave, following the focused pane, because the focused pane is the
   // only one that can be typed into. Moving to another note flushes the text
-  // still waiting for the one left behind, which also covers
-  // opening a second note in one window.
+  // still waiting for the one left behind, in this pane or another.
   //
   // The focused pane's document as it stands on screen, which the autosave
   // checks before it takes held text into a pane that was already open, and
@@ -267,6 +266,7 @@ function Home() {
     focusedNote,
     sheetGraph: phone ? openGraphSheet : undefined,
     sideGraph: phone ? undefined : askSideGraph,
+    flushBook: guarded.flush,
   });
   const { playSignal } = paneCommands;
   const files = useFileTransfer({ data, pane, saveFirst, openInPane, setNotice });

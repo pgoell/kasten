@@ -22,8 +22,13 @@ function renderBookmark() {
   return {
     write,
     moved: (note: string, cfi: string) => act(() => result.current.moved(note, cfi)),
-    flush: (note: string) => act(() => result.current.flush(note)),
+    flush: (note: string) =>
+      act(() => {
+        void result.current.flush(note);
+      }),
     cancel: (note: string) => act(() => result.current.cancel(note)),
+    // Unwrapped, so a test can watch when the promise settles.
+    flushed: (note: string) => result.current.flush(note),
     unmount: () => act(() => unmount()),
   };
 }
@@ -254,5 +259,22 @@ describe("useBookmark", () => {
     await tick(WAIT);
 
     expect(bookmark.write).not.toHaveBeenCalled();
+  });
+
+  it("settles a flush only once its write, or the one already out, has ended (#1605)", async () => {
+    // The pane close waits on this, so the note beside takes the focus after the place lands.
+    const bookmark = renderBookmark();
+    const held = heldWrite(bookmark.write);
+    let settled = 0;
+
+    bookmark.moved(NOTE, "cfi-a");
+    void bookmark.flushed(NOTE).then(() => settled++);
+    void bookmark.flushed(NOTE).then(() => settled++);
+    await act(async () => {});
+    expect(settled).toBe(0);
+
+    await held.finish();
+    expect(settled).toBe(2);
+    expect(bookmark.write).toHaveBeenCalledOnce();
   });
 });

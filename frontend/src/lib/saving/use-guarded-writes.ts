@@ -91,21 +91,25 @@ export function useGuardedWrites({
     [queryClient, write, focusedNote],
   );
 
-  const { moved, flush, cancel } = useBookmark((note, cfi) =>
-    writePosition(note, (text) => {
-      // Rides the position write, not the upload: a refused write is retried on the next page, and
-      // a file dropped in from the shell is read without an upload.
-      // Type from the reader's cache, falling back to `Book` when it is empty.
-      const beside = queryClient.getQueryData<BookBeside>(["book", note]);
-      // Only over `Note` or nothing: a type set by hand is the reader's to keep.
-      const held = readField(text, "type");
-      const typed =
-        held === undefined || held === "Note"
-          ? setField(text, "type", beside === undefined ? "Book" : bookType(beside.path))
-          : text;
-      return setField(typed, "reading", cfi);
-    }),
+  // Memoized, so `flush` keeps one identity: the pane commands hold it.
+  const writeBookmark = useCallback(
+    (note: string, cfi: string) =>
+      writePosition(note, (text) => {
+        // Rides the position write, not the upload: a refused write is retried on the next page,
+        // and a file dropped in from the shell is read without an upload.
+        // Type from the reader's cache, falling back to `Book` when it is empty.
+        const beside = queryClient.getQueryData<BookBeside>(["book", note]);
+        // Only over `Note` or nothing: a type set by hand is the reader's to keep.
+        const held = readField(text, "type");
+        const typed =
+          held === undefined || held === "Note"
+            ? setField(text, "type", beside === undefined ? "Book" : bookType(beside.path))
+            : text;
+        return setField(typed, "reading", cfi);
+      }),
+    [writePosition, queryClient],
   );
+  const { moved, flush, cancel } = useBookmark(writeBookmark);
 
   /**
    * Keeps a video's position: the focused note takes it in its buffer, others are written direct.
