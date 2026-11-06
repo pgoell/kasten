@@ -32,8 +32,15 @@ function withoutNote(layout: Layout): Layout {
 }
 
 // The leader's `q` names `closeNote`, so the command is run as the key runs it.
-async function closeFocused(start: Layout) {
-  const moveTo = vi.fn();
+async function closeFocused(
+  start: Layout,
+  flushBook = vi.fn(async (_note: string) => {}),
+  order: string[] = [],
+) {
+  const moveTo = vi.fn((_update: (previous: Layout) => Layout) => {
+    order.push("moved");
+    return true;
+  });
   const saveFirst = vi.fn(async () => true);
   const { result } = renderHook(
     () =>
@@ -46,6 +53,7 @@ async function closeFocused(start: Layout) {
         setNotice: vi.fn(),
         paths: [],
         focusedNote: { current: { path: undefined, isWriting: () => false } },
+        flushBook,
       }),
     { wrapper },
   );
@@ -60,12 +68,12 @@ function expectEmptiedInPlace(start: Layout, layout: Layout) {
   expect(isEmptyTab(activeTab(layout))).toBe(true);
 }
 
-function expectEmptiedBeside(start: Layout, layout: Layout, kind: "graph" | "history" | "person") {
+// Closed in a split, as Obsidian closes a split's last view: the note beside takes the focus (#1605).
+function expectClosedBeside(start: Layout, layout: Layout) {
   const panes = tabPanes(layout);
-  const emptied = panes.find((pane) => pane.id === focusedPane(start).id);
-  expect(panes.map((pane) => pane.path)).toContain(NOTE);
-  expect(emptied?.[kind]).toBeUndefined();
-  expect(panes.map((pane) => pane.id)).toEqual(tabPanes(start).map((pane) => pane.id));
+  expect(panes.map((pane) => pane.id)).not.toContain(focusedPane(start).id);
+  expect(panes).toHaveLength(tabPanes(start).length - 1);
+  expect(focusedPane(layout).path).toBe(NOTE);
 }
 
 it("A1 q on a lone graph pane empties it and shows Today", async () => {
@@ -78,7 +86,7 @@ it("A1 q on a lone graph pane empties it and shows Today", async () => {
   expectEmptiedInPlace(start, layout);
 });
 
-it("A2 q on a graph beside a note empties that pane and keeps the note", async () => {
+it("A2 q on a graph beside a note closes that pane and focuses the note", async () => {
   const start = openBeside(
     emptyLayout(NOTE),
     (pane) => pane.graph?.around === NOTE,
@@ -90,7 +98,7 @@ it("A2 q on a graph beside a note empties that pane and keeps the note", async (
   const { layout, saveFirst } = await closeFocused(start);
 
   expect(saveFirst).not.toHaveBeenCalled();
-  expectEmptiedBeside(start, layout, "graph");
+  expectClosedBeside(start, layout);
 });
 
 it("A3 q on a lone history pane empties it and shows Today", async () => {
@@ -105,7 +113,7 @@ it("A3 q on a lone history pane empties it and shows Today", async () => {
   expectEmptiedInPlace(start, layout);
 });
 
-it("A4 q on a history beside a note empties that pane and keeps the note", async () => {
+it("A4 q on a history beside a note closes that pane and focuses the note", async () => {
   const start = openBeside(
     emptyLayout(NOTE),
     (pane) => pane.history === NOTE,
@@ -117,7 +125,7 @@ it("A4 q on a history beside a note empties that pane and keeps the note", async
   const { layout, saveFirst } = await closeFocused(start);
 
   expect(saveFirst).not.toHaveBeenCalled();
-  expectEmptiedBeside(start, layout, "history");
+  expectClosedBeside(start, layout);
 });
 
 it("A5 q on a lone person pane empties it and shows Today", async () => {
@@ -132,7 +140,7 @@ it("A5 q on a lone person pane empties it and shows Today", async () => {
   expectEmptiedInPlace(start, layout);
 });
 
-it("A6 q on a person beside a note empties that pane and keeps the note", async () => {
+it("A6 q on a person beside a note closes that pane and focuses the note", async () => {
   const start = openBeside(
     emptyLayout(NOTE),
     (pane) => pane.person === PERSON,
@@ -144,7 +152,7 @@ it("A6 q on a person beside a note empties that pane and keeps the note", async 
   const { layout, saveFirst } = await closeFocused(start);
 
   expect(saveFirst).not.toHaveBeenCalled();
-  expectEmptiedBeside(start, layout, "person");
+  expectClosedBeside(start, layout);
 });
 
 it("#978 q on a note saves it first, then empties the pane", async () => {
@@ -154,4 +162,108 @@ it("#978 q on a note saves it first, then empties the pane", async () => {
 
   expect(saveFirst).toHaveBeenCalledTimes(1);
   expectEmptiedInPlace(start, layout);
+});
+
+it("#1605 q on a book beside a note closes that pane and focuses the note", async () => {
+  const start = openBeside(emptyLayout(NOTE), (pane) => pane.book === NOTE, { book: NOTE }, "row");
+  expect(focusedPane(start).book).toBe(NOTE);
+
+  const { layout, saveFirst } = await closeFocused(start);
+
+  expect(saveFirst).not.toHaveBeenCalled();
+  expectClosedBeside(start, layout);
+});
+
+it("#1605 q on a lone book pane empties it and shows Today", async () => {
+  const start = withoutNote(
+    openBeside(emptyLayout(NOTE), (pane) => pane.book === NOTE, { book: NOTE }, "row"),
+  );
+  expect(focusedPane(start).book).toBe(NOTE);
+
+  const { layout } = await closeFocused(start);
+
+  expectEmptiedInPlace(start, layout);
+});
+
+it("#1605 a note beside a book still empties first, keeping its pane", async () => {
+  const start = openBeside(emptyLayout(NOTE), (pane) => pane.book === NOTE, { book: NOTE }, "row");
+  const note = tabPanes(start).find((pane) => pane.path === NOTE);
+  if (note === undefined) throw new Error("no note pane");
+  const focused = focusPane(start, note.id);
+
+  const { layout } = await closeFocused(focused);
+
+  expect(tabPanes(layout).map((pane) => pane.id)).toEqual(tabPanes(focused).map((pane) => pane.id));
+  expect(focusedPane(layout).path).toBeUndefined();
+});
+
+it("#1605 Ctrl+Shift+Q on a terminal beside a note empties it, never removes it", async () => {
+  const start = openBeside(emptyLayout(NOTE), () => false, { term: "main" }, "row");
+  expect(focusedPane(start).term).toBe("main");
+
+  const { layout } = await closeFocused(start);
+
+  expect(tabPanes(layout).map((pane) => pane.id)).toEqual(tabPanes(start).map((pane) => pane.id));
+  expect(focusedPane(layout).id).toBe(focusedPane(start).id);
+  expect(focusedPane(layout).term).toBeUndefined();
+});
+
+it("#1605 q on a book writes its place before the note beside takes the focus", async () => {
+  const start = openBeside(emptyLayout(NOTE), (pane) => pane.book === NOTE, { book: NOTE }, "row");
+  const order: string[] = [];
+  const flushBook = vi.fn(async (note: string) => {
+    await Promise.resolve();
+    order.push(`flush ${note}`);
+  });
+
+  const { layout } = await closeFocused(start, flushBook, order);
+
+  expect(order).toEqual([`flush ${NOTE}`, "moved"]);
+  expectClosedBeside(start, layout);
+});
+
+// The close waits on the place write; whatever moves the focus meanwhile must not be what closes.
+async function closeTwiceWhileWriting(start: Layout, between: (layout: Layout) => Layout) {
+  let land: () => void = () => {};
+  const written = new Promise<void>((resolve) => {
+    land = resolve;
+  });
+  const moveTo = vi.fn((_update: (previous: Layout) => Layout) => true);
+  const { result } = renderHook(
+    () =>
+      usePaneCommands({
+        pane: focusedPane(start),
+        setLayout: vi.fn(),
+        saveFirst: vi.fn(async () => true),
+        moves: { moveTo, focusToward: vi.fn(), shiftToward: vi.fn() },
+        openPeriodic: vi.fn(),
+        setNotice: vi.fn(),
+        paths: [],
+        focusedNote: { current: { path: undefined, isWriting: () => false } },
+        flushBook: () => written,
+      }),
+    { wrapper },
+  );
+  const closes = [result.current.commands.closeNote(), result.current.commands.closeNote()];
+  land();
+  await Promise.all(closes);
+  return moveTo.mock.calls.reduce((layout, [update]) => update(layout), between(start));
+}
+
+it("#1605 q twice while the place is written closes the book once and keeps the note", async () => {
+  const start = openBeside(emptyLayout(NOTE), (pane) => pane.book === NOTE, { book: NOTE }, "row");
+
+  const layout = await closeTwiceWhileWriting(start, (same) => same);
+
+  expect(tabPanes(layout).map((pane) => pane.path)).toEqual([NOTE]);
+  expect(focusedPane(layout).path).toBe(NOTE);
+});
+
+it("#1605 a focus moved to the note while the place is written still closes the book", async () => {
+  const start = openBeside(emptyLayout(NOTE), (pane) => pane.book === NOTE, { book: NOTE }, "row");
+  const note = tabPanes(start).find((pane) => pane.path === NOTE)?.id ?? "";
+
+  const layout = await closeTwiceWhileWriting(start, (same) => focusPane(same, note));
+
+  expect(tabPanes(layout).map((pane) => pane.path)).toEqual([NOTE]);
 });

@@ -24,7 +24,7 @@ Press `<leader>cc`. On a phone, tap `chat` in the toolbar.
 
 ![The chat pane, empty](images/chat-pane-empty.png)
 
-The pane replaces what the focused pane held. `<leader>q` takes it out again.
+The pane replaces what the focused pane held. `<leader>q` closes it again.
 Neither ends the session: it lives in the shell container, and opening the pane
 again shows it as you left it.
 

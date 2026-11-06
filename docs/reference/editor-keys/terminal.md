@@ -192,7 +192,7 @@ The pane takes the focus, not its message box, so the leader works at once.
 | Enter | the message box | Send. Under a coarse pointer it breaks the line, and `Send` sends |
 | Shift+Enter | the message box | Break the line |
 | Escape | the message box | Back to the pane |
-| `<leader>` and a key | the pane | Every leader key. `<leader>q` takes the chat out of the pane |
+| `<leader>` and a key | the pane | Every leader key. `<leader>q` closes the chat's pane, or empties it when alone in its tab |
 
 In the message box and in a question's `Other` field a space is a space, so
 the leader is reached from the pane, after Escape.

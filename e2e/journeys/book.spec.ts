@@ -1,4 +1,4 @@
-import { findNote, leader, noteText, openApp } from "../harness/app.ts";
+import { findNote, leader, noteText, openApp, phone } from "../harness/app.ts";
 import { expect, test } from "../harness/stack.ts";
 
 const primer = "04 Books/Primer.md";
@@ -19,15 +19,38 @@ test("the book pane reopens a pdf at the page it was left on", async ({ page, st
     await expect(pane.getByText(percent, { exact: true })).toBeVisible();
   }
 
-  // Closing the reader writes the place into the note's frontmatter.
+  // Closing the reader writes the place into the note's frontmatter, and the note beside takes
+  // the focus, so the next leader key needs no click first (#1605).
   await page.keyboard.press("q");
   await expect(pane).toHaveCount(0);
-  await page.locator(".cm-content").first().click();
-  await page.keyboard.press("Escape");
   await expect
     .poll(() => noteText(stack.vault, primer), { timeout: 15_000 })
     .toMatch(/^reading: epubcfi\(/m);
 
   await leader(page, "gr");
   await expect(page.locator("[data-book-pane]").getByText("50%", { exact: true })).toBeVisible();
+});
+
+test.describe("on a phone", () => {
+  test.use(phone);
+
+  test("closing the book from the palette shows its note again", async ({ page }) => {
+    await page.goto(`/?note=${encodeURIComponent(primer)}`);
+    const commands = page.getByRole("toolbar", { name: "Commands" });
+    await expect(commands).toBeVisible({ timeout: 15_000 });
+    const run = async (name: RegExp) => {
+      await commands.getByRole("button", { name: "Run a command by name" }).tap();
+      await page.getByRole("option", { name }).first().tap();
+    };
+    await expect(page.getByText("Notes on the primer")).toBeVisible();
+
+    await run(/Read this note's book beside it/);
+    await expect(page.locator("[data-book-pane]")).toBeVisible();
+    await run(/Close the note, then the pane/);
+
+    // The pane goes with the book, so no empty pane showing Today stacks under the note.
+    await expect(page.locator("[data-book-pane]")).toHaveCount(0);
+    await expect(page.locator(".cm-content")).toHaveCount(1);
+    await expect(page.getByText("Notes on the primer")).toBeVisible();
+  });
 });

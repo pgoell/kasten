@@ -68,7 +68,7 @@ note's row drops: the vault holds one kind of note and five kinds of image.
 They, the pages and the pdfs below are the only rows here that are not notes,
 and nothing else in the app treats them as notes, the finder, search and every `[[link]]` reading the note listing
 alone. Enter or a click shows one in the focused pane, over whatever was there,
-and `<leader>q` hands the pane back to an editor. A folder holding nothing but
+and `<leader>q` closes it, as [Panes and tabs](/reference/editor-keys/panes-and-tabs.md) says. A folder holding nothing but
 images is a folder in the tree all the same, which is how you reach the ones
 pasting has filed.
 

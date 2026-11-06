@@ -82,9 +82,9 @@ the other panes. `?` opens key help.
 | `t` | Open the contents |
 | `y` | Take the selected passage into the note |
 | `w` | Download the book as a file |
-| `q` | Take the book out of the pane |
+| `q` | Close the book, writing the place first |
 | `Ctrl+Shift+H` `J` `K` `L` `O` | Walk the panes, as in a terminal |
-| `Ctrl+Shift+Q` | Take the book out of the pane |
+| `Ctrl+Shift+Q` | Close the book, as `q` does |
 
 An `h` or `l` pressed while the book is still opening turns the page once the
 first page has landed, and so does a tap near the left or the right edge. Only
@@ -216,6 +216,11 @@ A book pane is not in the URL. `?note=` names the note in the focused pane, and
 a reader holds none, so opening one empties `?note=` and a reload comes back to
 an empty pane. Closing the reader puts the note back in the URL as soon as the
 focus reaches it.
+
+Closing the reader beside its note closes the pane, and the note takes the
+focus, so the next key, `<leader>gr` included, works at once. The place is
+written into the note before the focus moves, since a focused note takes no
+write from the reader. A reader alone in its tab leaves Today behind.
 
 Moving the folder that holds the pair carries the reader with it. Renaming the
 note alone does not, because the file stays where it was, and the reader then

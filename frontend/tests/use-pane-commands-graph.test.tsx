@@ -30,6 +30,7 @@ function openLocalGraphWith(options: { sideGraph?: (pane: string) => void }) {
         setNotice: vi.fn(),
         paths: [],
         focusedNote: { current: { path: NOTE, isWriting: () => false } },
+        flushBook: vi.fn(async () => {}),
         ...options,
       }),
     { wrapper },
@@ -110,6 +111,7 @@ async function runWith(command: Command, saved: boolean) {
         setNotice: vi.fn(),
         paths: [],
         focusedNote: { current: { path: NOTE, isWriting: () => false } },
+        flushBook: vi.fn(async () => {}),
       }),
     { wrapper },
   );

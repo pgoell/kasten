@@ -9,6 +9,7 @@ import { heldKind, type KindField, PANE_KINDS } from "@/lib/panes/layout/pane-ki
 import {
   addTab,
   fillFocused,
+  focusPane,
   goToTab,
   type Layout,
   nextPane,
@@ -17,6 +18,7 @@ import {
   type Split,
   splitFocused,
   stepTab,
+  tabPanes,
   toggleZoom,
 } from "@/lib/panes/layout/panes";
 import { askRsvp } from "@/lib/panes/rsvp/use-rsvp";
@@ -51,6 +53,7 @@ export function usePaneCommands({
   focusedNote,
   sheetGraph,
   sideGraph,
+  flushBook,
 }: {
   pane: Pick<PaneOf, "id" | KindField>;
   setLayout: Dispatch<SetStateAction<Layout>>;
@@ -66,6 +69,8 @@ export function usePaneCommands({
   sheetGraph?: (note: string) => void;
   /** On a desktop the local graph opens over its pane, or beside it when the margin shows. */
   sideGraph?: (pane: string) => void;
+  /** Writes the reader's place in a note, settling once the write ends. */
+  flushBook: (note: string) => Promise<void>;
 }) {
   const { moveTo, focusToward, shiftToward } = moves;
   const queryClient = useQueryClient();
@@ -134,8 +139,19 @@ export function usePaneCommands({
         }
         // Cleared like a note, since removing the last pane of the last tab does nothing.
         // Closing the socket only detaches a client; the herdr session keeps running.
+        // In a split the pane goes and the pane beside takes the focus, as in Obsidian (#1605);
+        // a terminal still empties, its pane being the way back to an editor.
         if (PANE_KINDS[kind].clears) {
-          moveTo((previous) => fillFocused(previous, {}));
+          // The note beside may take the focus, and a focused note refuses the reader's place.
+          if (pane.book !== undefined) await flushBook(pane.book);
+          // By id: a second press or a move of the focus may have come during the write.
+          moveTo((previous) => {
+            if (!tabPanes(previous).some((each) => each.id === pane.id)) return previous;
+            const here = focusPane(previous, pane.id);
+            return kind !== "term" && tabPanes(here).length > 1
+              ? removeFocused(here)
+              : fillFocused(here, {});
+          });
           return;
         }
         await replace({});
@@ -239,10 +255,12 @@ export function usePaneCommands({
       setLayout,
       pane.id,
       pane.path,
+      pane.book,
       kind,
       queryClient,
       sheetGraph,
       sideGraph,
+      flushBook,
       readRsvp,
       play,
     ],

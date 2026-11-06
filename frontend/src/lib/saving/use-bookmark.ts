@@ -11,8 +11,8 @@ const WAIT_MS = 60_000;
 export function useBookmark(write: (note: string, cfi: string) => Promise<boolean>): {
   /** The reader in `note` turned to `cfi`. Starts the wait again. */
   moved: (note: string, cfi: string) => void;
-  /** Write what `note` is waiting on now, if anything is. */
-  flush: (note: string) => void;
+  /** Write what `note` is waiting on now, if anything is, settling once that write ends. */
+  flush: (note: string) => Promise<void>;
   /** Drop the wait on `note`, keeping where the reader got to. */
   cancel: (note: string) => void;
 } {
@@ -23,7 +23,7 @@ export function useBookmark(write: (note: string, cfi: string) => Promise<boolea
   /** The last position this session put on disk, per note. */
   const sent = useRef(new Map<string, string>());
   /** The notes with a write out, which is the one at a time rule. */
-  const writing = useRef(new Set<string>());
+  const writing = useRef(new Map<string, Promise<void>>());
 
   const send = useCallback(
     (note: string) => {
@@ -31,10 +31,9 @@ export function useBookmark(write: (note: string, cfi: string) => Promise<boolea
       // Nothing new to say, or the note is already being written. Added before any await, so two
       // calls in one tick cannot both pass.
       if (cfi === undefined || cfi === sent.current.get(note)) return;
-      if (writing.current.has(note)) return;
-      writing.current.add(note);
+      if (writing.current.has(note)) return writing.current.get(note);
 
-      void write(note, cfi).then(
+      const out = write(note, cfi).then(
         (took) => {
           writing.current.delete(note);
           if (!took) return;
@@ -47,6 +46,8 @@ export function useBookmark(write: (note: string, cfi: string) => Promise<boolea
           writing.current.delete(note);
         },
       );
+      writing.current.set(note, out);
+      return out;
     },
     [write],
   );
@@ -76,11 +77,12 @@ export function useBookmark(write: (note: string, cfi: string) => Promise<boolea
     (note: string) => {
       // Leave the timer standing: clearing one this call cannot replace strands that turn for good.
       // Sending again on landing would write at request speed while turns keep landing.
-      if (writing.current.has(note)) return;
+      const out = writing.current.get(note);
+      if (out !== undefined) return out;
       clear(note);
       // ponytail: a flush the guards refuse is terminal, the timer and pane gone. Reopening the
       // book is the way out; a retry needs somewhere to live that outlives the pane.
-      send(note);
+      return send(note) ?? Promise.resolve();
     },
     [clear, send],
   );

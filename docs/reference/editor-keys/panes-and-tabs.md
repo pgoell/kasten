@@ -147,10 +147,10 @@ slides in from its side and fades in, from below when the panes are stacked or
 on a phone.
 
 `<leader>q` walks back out of all of this, one press at a time. On a pane
-holding a note it writes the note and empties the pane, and it takes a
-terminal, the todo list, the graph, a note's history or a person card out of a
-pane the same way, so `q` in a lone graph pane leaves Today. On an empty pane
-it closes the pane. On the last pane of a tab it closes the tab. On the last pane of the last
+holding a note it writes the note and empties the pane. Any other pane but a
+terminal, which empties, closes and gives the focus to the pane beside, as in
+Obsidian; alone in its tab it empties, so `q` in a lone graph leaves Today. On
+an empty pane it closes the pane. On the last pane of a tab it closes the tab. On the last pane of the last
 tab it does nothing, because a window with nothing on screen is not a state
 worth reaching.
 
