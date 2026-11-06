@@ -13,13 +13,12 @@
  * sees the page's requests whether or not the worker is in control.
  */
 import { existsSync, statSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { type BrowserContext, chromium, errors, type Page, type Route } from "playwright";
 
 const DIST = path.resolve(import.meta.dirname, "../dist");
-const SHOT =
-  process.env.KASTEN_E2E_SHOT ??
-  "/tmp/claude-1000/-home-pascal-Code-kasten/5dd8be4d-6dce-4308-b9ea-c590f1e2825a/scratchpad/waiting.png";
+const SHOT = process.env.KASTEN_E2E_SHOT ?? path.join(os.tmpdir(), "kasten-e2e", "waiting.png");
 
 if (!existsSync(path.join(DIST, "sw.js"))) {
   console.error("frontend/dist has no sw.js: run `mise run fe:build` first");

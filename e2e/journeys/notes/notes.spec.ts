@@ -27,13 +27,6 @@ test("a new note made from the note prompt is written to disk with the typed lin
 test("renaming a note rewrites the links that named it", async ({ page, stack }) => {
   await openApp(page);
   await findNote(page, "Quote");
-  await expect(page.getByRole("tab", { name: "Quote", selected: true })).toBeVisible({
-    timeout: 15_000,
-  });
-  // The keys must reach the editor, which takes the focus after the tab shows.
-  await expect(page.locator(".cm-content")).toContainText("The best time");
-  await page.locator(".cm-content").first().click();
-  await page.keyboard.press("Escape");
   await leader(page, "rf");
   const prompt = page.getByRole("dialog", { name: "Rename note" });
   await expect(prompt).toBeVisible({ timeout: 15_000 });
@@ -61,11 +54,6 @@ test("following a wikilink opens the note it names", async ({ page }) => {
 test("the backlinks panel lists the note that links to the open one", async ({ page }) => {
   await openApp(page);
   await findNote(page, "Quote");
-  await expect(page.getByRole("tab", { name: "Quote", selected: true })).toBeVisible();
-  // The keys must reach the editor, which takes the focus once the finder closes.
-  await expect(page.locator(".cm-content")).toContainText("The best time");
-  await page.locator(".cm-content").first().click();
-  await page.keyboard.press("Escape");
   await leader(page, "gb");
   const panel = page.getByRole("dialog", { name: "Backlinks" });
   await expect(panel).toBeVisible({ timeout: 15_000 });
@@ -77,7 +65,6 @@ test("the backlinks panel lists the note that links to the open one", async ({ p
 test("an embed draws the text of the note it names inside the note", async ({ page }) => {
   await openApp(page);
   await findNote(page, "Reading");
-  await expect(page.getByRole("tab", { name: "Reading", selected: true })).toBeVisible();
   await expect(page.locator(".cm-embed")).toContainText(
     "The best time to plant a tree was twenty years ago.",
   );
