@@ -26,7 +26,8 @@ export function Outline({ outline }: { outline?: OutlineState }) {
         const current = index === outline.current;
         return (
           <button
-            key={heading.from}
+            // biome-ignore lint/suspicious/noArrayIndexKey: the rows hold no state, and `heading.from` moved with each keystroke above it, rebuilding every row below the cursor (#988).
+            key={index}
             type="button"
             aria-current={current ? "location" : undefined}
             onClick={() => outline.jump(index)}
