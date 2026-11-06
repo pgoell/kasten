@@ -211,6 +211,15 @@ or a `401`, to the page as it came and keeps no copy of it, so the sign-in
 page never takes the place of the app. Only a plain `200` from kasten's own
 origin goes into the cache.
 
+A session can also run out while the page sits open, as it does on a phone app
+resumed after a week. The page's calls then fail, and a call the gate redirects
+to its sign-in on another origin fails the way a lost signal does. So after any
+failed call, and whenever the page comes back into view, kasten asks
+`/api/health` with `redirect: "manual"` (`src/lib/app/session.ts`). A redirect
+or a `401` means the session has gone, and the page reloads; the gate sends that
+navigation to its sign-in, which brings it back after. No answer at all means
+no signal, and the page stays.
+
 A tab left open across a release keeps running the old one. Each route's code
 is a chunk of its own, fetched the first time the route opens, and the new
 image no longer has the old names. While the old worker controls the tab, it
