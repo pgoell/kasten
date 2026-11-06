@@ -8,5 +8,6 @@ export default defineConfig({
   globalSetup: "./harness/global-setup.ts",
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
   use: { trace: "retain-on-failure", screenshot: "only-on-failure" },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  // The full build: chromium_headless_shell-1234 segfaults closing a context after the todo pane wrote a note.
+  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], channel: "chromium" } }],
 });
