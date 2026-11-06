@@ -22,7 +22,7 @@ import {
   openPdfBeside,
   openPdfInFocused,
 } from "@/lib/panes/layout/pane-contents";
-import { fillFocused, type Layout, tabPanes } from "@/lib/panes/layout/panes";
+import { activeTab, atPane, fillFocused, type Layout, tabPanes } from "@/lib/panes/layout/panes";
 import { bookNoteOf, fileKind } from "@/lib/vault/file-kind";
 import type { Listings } from "@/lib/vault/use-listings";
 
@@ -40,10 +40,22 @@ function openBookAt(
   setSeek: Dispatch<SetStateAction<Seek | undefined>>,
   note: string,
   text: string | undefined,
+  at: string,
 ): void {
-  if (moveTo((previous) => openBookInFocused(previous, note)) && text !== undefined) {
+  const open = (previous: Layout) =>
+    atPane(previous, at, (layout) => openBookInFocused(layout, note));
+  if (moveTo(open) && text !== undefined) {
     setSeek({ note, quote: [text] });
   }
+}
+
+/**
+ * The pane an open starts from, by id: the one holding the browser's focus, as a click there reaches
+ * the layout only once React draws it (#361), else the layout's focused one.
+ */
+function startPane(layout: Layout): string {
+  const at = document.activeElement?.closest<HTMLElement>("[data-pane]")?.dataset.pane;
+  return tabPanes(layout).find((each) => each.id === at)?.id ?? activeTab(layout).focus;
 }
 
 /**
@@ -60,21 +72,20 @@ function openAtHeading(
     queryClient: QueryClient;
     layoutNow: RefObject<Layout>;
     focusedNote: RefObject<{ path: string | undefined }>;
-    openInPane: (path: string, line?: number) => Promise<boolean>;
+    openInPane: (path: string, line: number | undefined, at: string) => Promise<boolean>;
   },
   path: string,
   heading: string,
+  at: string,
 ): void {
   // Where the read starts from is the pane the focus is in now, not
   // `focusedNote`: a ctrl+click in another pane moves the focus there in
   // this same call, and the ref hears of it only once React has drawn
   // the move. Read from the ref, the click's own move would look like
   // the reader going elsewhere and drop the open (#361).
-  const at = document.activeElement?.closest<HTMLElement>("[data-pane]")?.dataset.pane;
-  const here = tabPanes(layoutNow.current).find((each) => each.id === at);
-  const from = here === undefined ? focusedNote.current.path : here.path;
+  const from = tabPanes(layoutNow.current).find((each) => each.id === at)?.path;
   const open = (line?: number) => {
-    if (focusedNote.current.path === from) void openInPane(path, line);
+    if (focusedNote.current.path === from) void openInPane(path, line, at);
   };
   void queryClient.fetchQuery({ queryKey: ["note", path], queryFn: () => fetchNote(path) }).then(
     (text) => open(noteSectionOf(text, heading)?.line),
@@ -144,14 +155,14 @@ export function useNoteOpening({
    * The focus is raised with the note, so the keys follow it rather than staying on the tree row.
    */
   const openInPane = useCallback(
-    async (path: string, line?: number): Promise<boolean> => {
+    async (path: string, line?: number, at = startPane(layoutNow.current)): Promise<boolean> => {
       if (!(await saveFirst())) return false;
 
-      setLayout((previous) => openInFocused(previous, path, line));
+      setLayout((previous) => atPane(previous, at, (layout) => openInFocused(layout, path, line)));
       setFocusSignal((previous) => previous + 1);
       return true;
     },
-    [saveFirst, setLayout, setFocusSignal],
+    [saveFirst, setLayout, setFocusSignal, layoutNow],
   );
 
   /**
@@ -174,13 +185,15 @@ export function useNoteOpening({
 
   /** Show an HTML page in the focused pane, the way `openImageInPane` shows an image. */
   const openHtmlInPane = useCallback(
-    async (path: string, anchor?: string) => {
+    async (path: string, anchor?: string, at = startPane(layoutNow.current)) => {
       if (!(await saveFirst())) return;
 
-      setLayout((previous) => fillFocused(previous, { html: path, anchor }));
+      setLayout((previous) =>
+        atPane(previous, at, (layout) => fillFocused(layout, { html: path, anchor })),
+      );
       setFocusSignal((previous) => previous + 1);
     },
-    [saveFirst, setLayout, setFocusSignal],
+    [saveFirst, setLayout, setFocusSignal, layoutNow],
   );
 
   /**
@@ -189,12 +202,15 @@ export function useNoteOpening({
    */
   const openImageInPane = useCallback(
     async (path: string) => {
+      const at = startPane(layoutNow.current);
       if (!(await saveFirst())) return;
 
-      setLayout((previous) => fillFocused(previous, { image: path }));
+      setLayout((previous) =>
+        atPane(previous, at, (layout) => fillFocused(layout, { image: path })),
+      );
       setFocusSignal((previous) => previous + 1);
     },
-    [saveFirst, setLayout, setFocusSignal],
+    [saveFirst, setLayout, setFocusSignal, layoutNow],
   );
 
   /**
@@ -203,12 +219,13 @@ export function useNoteOpening({
    */
   const openPdfFromTree = useCallback(
     async (path: string) => {
+      const at = startPane(layoutNow.current);
       if (!(await saveFirst())) return;
 
-      setLayout((previous) => openPdfInFocused(previous, path));
+      setLayout((previous) => atPane(previous, at, (layout) => openPdfInFocused(layout, path)));
       setFocusSignal((previous) => previous + 1);
     },
-    [saveFirst, setLayout, setFocusSignal],
+    [saveFirst, setLayout, setFocusSignal, layoutNow],
   );
 
   /**
@@ -218,14 +235,18 @@ export function useNoteOpening({
   const openFile = useCallback(
     async (path: string, place?: FilePlace | null, text?: string): Promise<void> => {
       const kind = fileKind(path);
+      const at = startPane(layoutNow.current);
       if (kind === "html") {
-        await openHtmlInPane(path, place?.anchor ?? undefined);
+        await openHtmlInPane(path, place?.anchor ?? undefined, at);
         return;
       }
       if (kind === "pdf") {
         if (!(await saveFirst())) return;
 
-        setLayout((previous) => openPdfInFocused(previous, path, place?.page ?? undefined));
+        const page = place?.page ?? undefined;
+        setLayout((previous) =>
+          atPane(previous, at, (layout) => openPdfInFocused(layout, path, page)),
+        );
         setFocusSignal((previous) => previous + 1);
         return;
       }
@@ -238,9 +259,9 @@ export function useNoteOpening({
       }
       if (!(await saveFirst())) return;
 
-      openBookAt(moveTo, setSeek, note, text);
+      openBookAt(moveTo, setSeek, note, text, at);
     },
-    [data, saveFirst, setLayout, setFocusSignal, moveTo, openHtmlInPane],
+    [data, saveFirst, setLayout, setFocusSignal, moveTo, openHtmlInPane, layoutNow],
   );
 
   /**
@@ -248,7 +269,7 @@ export function useNoteOpening({
    * `body` is empty for links followed by hand. `[[note#heading]]` opens at the heading, and `[[#heading]]` stays in the editor.
    */
   const follow = useCallback(
-    (target: string, file?: FileTarget, body = "") => {
+    (target: string, file?: FileTarget, body = "", at = startPane(layoutNow.current)) => {
       const paths = data ?? [];
       // The one tail a page or an asset takes, from a wikilink or a markdown
       // link alike. The vault has no write for either, so a link to one nobody
@@ -258,7 +279,7 @@ export function useNoteOpening({
       // `#page=3` names, a phone's viewer ignoring `#page` (#353).
       const openFile = (path: string, heading: string | null) => {
         if (html?.includes(path)) {
-          void openHtmlInPane(path, heading ?? undefined);
+          void openHtmlInPane(path, heading ?? undefined, at);
           return;
         }
         if (!assets?.includes(path)) return;
@@ -280,11 +301,11 @@ export function useNoteOpening({
         return;
       }
       if (paths.includes(path) && heading !== null) {
-        openAtHeading({ queryClient, layoutNow, focusedNote, openInPane }, path, heading);
+        openAtHeading({ queryClient, layoutNow, focusedNote, openInPane }, path, heading, at);
         return;
       }
       if (paths.includes(path)) {
-        return openInPane(path);
+        return openInPane(path, undefined, at);
       }
       if (namesAFile(name)) {
         openFile(path, heading);
@@ -301,7 +322,7 @@ export function useNoteOpening({
       // file it just made. A refused path leaves the note on screen open with
       // the link still in it, which is the only place to fix either.
       return makeNote(queryClient, path, body).then((made) =>
-        made === undefined ? false : openInPane(made),
+        made === undefined ? false : openInPane(made, undefined, at),
       );
     },
     [
@@ -351,9 +372,9 @@ export function useNoteOpening({
    * The date is read at the press, so a tab left open overnight opens the new day's note.
    */
   const openPeriodic = useCallback(
-    (period: Period) => {
+    (period: Period, at?: string) => {
       const { path, body } = periodicNote(period, new Date());
-      return follow(path, undefined, body);
+      return follow(path, undefined, body, at);
     },
     [follow],
   );

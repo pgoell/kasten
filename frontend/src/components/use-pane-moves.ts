@@ -2,6 +2,7 @@ import { type Dispatch, type SetStateAction, useCallback, useState } from "react
 import { paneRects } from "@/components/pane-layout";
 import { type Direction, paneToward } from "@/lib/panes/layout/pane-direction";
 import {
+  atPane,
   canMoveToEdge,
   focusedPane,
   focusPane,
@@ -97,8 +98,11 @@ export function usePaneMoves({
         refuse();
         return;
       }
+      // The pane the key was pressed in, as the focus may move during the save (#1626).
       moveTo((previous) =>
-        target === null ? movePaneToEdge(previous, dir) : swapPanes(previous, target),
+        atPane(previous, paneId, (layout) =>
+          target === null ? movePaneToEdge(layout, dir) : swapPanes(layout, target),
+        ),
       );
     },
     [moveTo, refuse, saveFirst, paneId, narrow, layout],

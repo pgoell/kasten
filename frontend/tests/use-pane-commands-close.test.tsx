@@ -292,6 +292,7 @@ async function pressedThenMoved(
       }),
   );
   const moveTo = vi.fn((_update: (previous: Layout) => Layout) => true);
+  const openPeriodic = vi.fn(async () => true);
   const { result } = renderHook(
     () =>
       usePaneCommands({
@@ -299,7 +300,7 @@ async function pressedThenMoved(
         setLayout: vi.fn(),
         saveFirst,
         moves: { moveTo, focusToward: vi.fn(), shiftToward: vi.fn() },
-        openPeriodic: vi.fn(),
+        openPeriodic,
         setNotice: vi.fn(),
         paths: [],
         focusedNote: { current: { path: undefined, isWriting: () => false } },
@@ -312,6 +313,7 @@ async function pressedThenMoved(
   await pressed;
   return {
     moveTo,
+    openPeriodic,
     layout: moveTo.mock.calls.reduce((layout, [update]) => update(layout), between(start)),
   };
 }
@@ -376,4 +378,15 @@ it("#1609 the terminal prompt's opener fills the pane it was asked from", async 
   const layout = moveTo.mock.calls[0]?.[0](toRight(start)) as Layout;
   expect(tabPanes(layout)[0]).toEqual({ id: left, term: "main" });
   expect(focusedPane(layout).path).toBe(PERSON);
+});
+
+it.each([
+  ["logFood", (c: Commands) => c.logFood()],
+  ["logWeight", (c: Commands) => c.logWeight?.("kg")],
+])("#1626 %s opens today's note in the pane it was pressed in", async (_name, run) => {
+  const start = leftOfTwo();
+
+  const { openPeriodic } = await pressedThenMoved(start, run, toRight);
+
+  expect(openPeriodic).toHaveBeenCalledWith("daily", focusedPane(start).id);
 });

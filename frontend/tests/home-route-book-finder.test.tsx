@@ -418,4 +418,42 @@ describe("the book finder", () => {
     expect.soft(document.querySelectorAll("foliate-view")).toHaveLength(1);
     expect.soft(app.focusedPane()).toBe(1);
   });
+
+  it("#1626 fills the pane it was picked from when the focus moves right during the save", async () => {
+    const app = await opened();
+    app.leader("%");
+    await settle();
+    app.click("other.md");
+    await settle();
+    app.leader("o");
+    await settle();
+    app.press("x");
+    let answer = () => {};
+    saveNote.mockImplementationOnce(
+      (path: string, content: string) =>
+        new Promise((resolve) => {
+          answer = () => resolve({ path, content });
+        }),
+    );
+    document.querySelectorAll("[data-pane]").forEach((box, index) => {
+      box.getBoundingClientRect = () =>
+        ({ left: index * 100, top: 0, right: index * 100 + 99, bottom: 100 }) as DOMRect;
+    });
+
+    app.leader("f", "b");
+    await settle();
+    await enter();
+    app.leader("l");
+    await settle();
+    const other = [...document.querySelectorAll("[data-pane] .cm-content")].at(-1) as HTMLElement;
+    fireEvent.keyDown(other, { key: "x" });
+    answer();
+    await settle();
+    await settle();
+
+    const panes = [...document.querySelectorAll("[data-pane]")];
+    expect(panes[0]?.querySelector("foliate-view")).not.toBeNull();
+    expect(panes[1]?.querySelector(".cm-content")?.textContent).toBe("he other note");
+    expect(app.focusedPane()).toBe(1);
+  });
 });

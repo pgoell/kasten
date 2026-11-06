@@ -8,6 +8,7 @@ import type { PaneMoves } from "@/components/use-pane-moves";
 import type { NoteOpening } from "@/lib/note/use-note-opening";
 import { outgoingLinks } from "@/lib/notes/links/wikilink";
 import { openBookInFocused } from "@/lib/panes/layout/pane-contents";
+import { atPane, type Layout, type Pane } from "@/lib/panes/layout/panes";
 import type { GuardedWrites } from "@/lib/saving/use-guarded-writes";
 import { visible } from "@/lib/search/archive";
 import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
@@ -22,7 +23,7 @@ const LOADING: string[] = [];
 /** The vault lookups (notes, links, books, search, todos), the panels that open hits, and the reading book. */
 export function useFinders({
   listings,
-  panePath,
+  pane,
   saveFirst,
   moves,
   openInPane,
@@ -34,7 +35,7 @@ export function useFinders({
   setNotice,
 }: {
   listings: Pick<Listings, "data" | "shown" | "assets" | "html" | "archive">;
-  panePath: string | undefined;
+  pane: Pick<Pane, "id" | "path">;
   saveFirst: () => Promise<boolean>;
   moves: Pick<PaneMoves, "moveTo" | "refocusPane">;
   openInPane: (path: string, line?: number) => Promise<boolean>;
@@ -48,8 +49,9 @@ export function useFinders({
 }) {
   const { data, shown, assets, html, archive } = listings;
   const { moveTo, refocusPane } = moves;
+  const { id: paneId, path: panePath } = pane;
   const queryClient = useQueryClient();
-  const openReadingBook = useReadingBook({ saveFirst, moveTo, setNotice });
+  const openReadingBook = useReadingBook({ paneId, saveFirst, moveTo, setNotice });
   // The pdfs, epubs and pages beside the notes. Images share the listing and drop out.
   const files = useMemo(
     () =>
@@ -159,7 +161,8 @@ export function useFinders({
             // Saves first: the unmounted editor would take unsaved text. A failed save asks the
             // pane to take focus, as the finder hands none back once a row is taken.
             void (async () => {
-              if (await saveFirst()) moveTo((previous) => openBookInFocused(previous, note));
+              const open = (layout: Layout) => openBookInFocused(layout, note);
+              if (await saveFirst()) moveTo((previous) => atPane(previous, paneId, open));
               else refocusPane();
             })();
           }}

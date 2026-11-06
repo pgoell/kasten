@@ -323,6 +323,30 @@ describe("the tab keys on the route", () => {
   const editors = () => [...document.querySelectorAll<HTMLElement>("[data-pane] .cm-content")];
   const typeInto = (editor: HTMLElement, key: string) => fireEvent.keyDown(editor, { key });
 
+  type App = Awaited<ReturnType<typeof renderApp>>;
+
+  /** Renders with a third note, an image, a page and a pdf listed beside the two notes. */
+  async function withFiles<T>(render: () => Promise<T>): Promise<T> {
+    const notes: Record<string, string> = { ...VAULT, "third.md": "the third note" };
+    fetchFiles.mockResolvedValue(Object.keys(notes));
+    fetchNote.mockImplementation(async (path: string) => notes[path] ?? "");
+    fetchImages.mockResolvedValue(["pic.png"]);
+    fetchHtml.mockResolvedValue(["page.html"]);
+    fetchAssets.mockResolvedValue(["doc.pdf"]);
+    createNote.mockImplementation(async (path: string, content: string) => ({ path, content }));
+    return render();
+  }
+
+  /** Picks the first row the note finder ranks for `query`. */
+  async function find(app: App, query: string) {
+    app.leader("f", "f");
+    await settle();
+    const input = screen.getByRole("combobox");
+    fireEvent.change(input, { target: { value: query } });
+    await settle();
+    fireEvent.keyDown(input, { key: "Enter" });
+  }
+
   it("Space q closes the note it was pressed on when the focus moves right during the save (#1609)", async () => {
     const app = await typedLeftOfTwo();
     const answer = holdIndexSave();
@@ -399,5 +423,102 @@ describe("the tab keys on the route", () => {
       expect.any(String),
     );
     expect(editors().map((editor) => editor.textContent)).toEqual(["", "the other note"]);
+  });
+
+  /** What each pane of the first tab holds, as the device keeps it: ids dropped. */
+  function leaves(): unknown[] {
+    type Node = { id?: string; children?: Node[] };
+    const all = (node: Node): Node[] => node.children?.flatMap(all) ?? [node];
+    const tab = JSON.parse(localStorage.getItem(FINE) ?? "null").layout.tabs[0];
+    return all(tab.root).map(({ id: _id, ...held }) => held);
+  }
+
+  // Each starts on the left pane; the focus goes right before index.md's save answers (#1626).
+  it.each([
+    ["a note from the tree", (app: App) => app.click("third.md"), { path: "third.md" }],
+    ["an image from the tree", (app: App) => app.click("pic.png"), { image: "pic.png" }],
+    ["a page from the tree", (app: App) => app.click("page.html"), { html: "page.html" }],
+    ["a pdf from the tree", (app: App) => app.click("doc.pdf"), { pdf: { path: "doc.pdf" } }],
+    ["a note from the finder", (app: App) => find(app, "third"), { path: "third.md" }],
+    ["a pdf from the finder", (app: App) => find(app, "doc.pdf"), { pdf: { path: "doc.pdf" } }],
+    ["a daily note made by its key", (app: App) => app.leader("g", "d"), {}],
+  ])(
+    "%s fills the pane it started from when the focus moves right during the save (#1626)",
+    async (_name, start, held) => {
+      const app = await withFiles(typedLeftOfTwo);
+      const answer = holdIndexSave();
+
+      await start(app);
+      await hashed();
+      await settle();
+      app.leader("l");
+      await settle();
+      typeInto(editors().at(-1) as HTMLElement, "x");
+      answer();
+      await settle();
+
+      expect(saveNote).toHaveBeenCalledWith("index.md", "he index note", false, expect.any(String));
+      expect(leaves()).toEqual([expect.objectContaining(held), { path: "other.md" }]);
+      expect(leaves()[0]).not.toEqual({ path: "index.md" });
+      expect(editors().at(-1)?.textContent).toBe("he other note");
+      expect(app.focusedPane()).toBe(1);
+    },
+  );
+
+  it("Space L moves the pane it was pressed in when the focus moves right during the save (#1626)", async () => {
+    const app = await typedLeftOfTwo();
+    const answer = holdIndexSave();
+
+    app.leader("L");
+    await hashed();
+    await settle();
+    app.leader("l");
+    await settle();
+    typeInto(editors()[1] as HTMLElement, "x");
+    answer();
+    await settle();
+
+    expect(leaves()).toEqual([{ path: "other.md" }, { path: "index.md" }]);
+    // The panes keep their editors, drawn in a fixed order, and the typed text.
+    expect(editors().map((editor) => editor.textContent)).toEqual([
+      "he index note",
+      "he other note",
+    ]);
+    // The focus stays on the pane it was moved to, now on the left.
+    expect(saved()).toMatchObject({ tabs: [{ focus: 0 }] });
+  });
+
+  it("a note from the tree fills the pane it started from when the focus goes to another tab during the save (#1626)", async () => {
+    const app = await withFiles(renderApp);
+    await settle();
+    app.click("index.md");
+    await settle();
+    app.leader("c", "t");
+    await settle();
+    app.click("other.md");
+    await settle();
+    app.leader("t", "h");
+    await settle();
+    app.press("x");
+    const answer = holdIndexSave();
+
+    app.click("third.md");
+    await hashed();
+    await settle();
+    app.leader("t", "l");
+    await settle();
+    const other = editors().find((editor) => editor.textContent === "the other note");
+    typeInto(other as HTMLElement, "x");
+    answer();
+    await settle();
+
+    expect(saveNote).toHaveBeenCalledWith("index.md", "he index note", false, expect.any(String));
+    expect(other?.textContent).toBe("he other note");
+    const raw = JSON.parse(localStorage.getItem(FINE) ?? "null");
+    expect(raw.layout.active).toBe(1);
+    expect(raw.layout.tabs.map((tab: { root: { path?: string } }) => tab.root.path)).toEqual([
+      "third.md",
+      "other.md",
+    ]);
   });
 });

@@ -133,6 +133,21 @@ export function fillPane(layout: Layout, id: string, content: Omit<Pane, "id">):
   };
 }
 
+/**
+ * Runs a focused-pane act on the pane with this id, in whichever tab holds it, as the focus may move
+ * while a save runs (#1626). The focus goes back where it was, unless the act sent it elsewhere.
+ */
+export function atPane(layout: Layout, id: string, act: (layout: Layout) => Layout): Layout {
+  const at = layout.tabs.findIndex((tab) => panesOf(tab.root).some((pane) => pane.id === id));
+  const tab = layout.tabs[at];
+  if (tab === undefined) return layout;
+
+  const acted = act(withTab({ ...layout, active: at }, { ...tab, focus: id }));
+  const after = must(acted.tabs[at], "tab");
+  const focus = after.focus === id ? tab.focus : after.focus;
+  return { ...withTab({ ...acted, active: at }, { ...after, focus }), active: layout.active };
+}
+
 function insertBeside(node: PaneNode, target: string, made: Pane, dir: Split["dir"]): PaneNode {
   if (!isSplit(node)) {
     return node.id === target ? { id: nextId("split"), dir, children: [node, made] } : node;
