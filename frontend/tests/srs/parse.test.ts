@@ -237,3 +237,30 @@ describe("parseCards on a front running over two lines", () => {
     expect(cards.map((card) => card.decks)).toEqual([["db"], ["db"]]);
   });
 });
+
+describe("#1590 a !suspended inside a one-line comment parks nothing", () => {
+  it("#1590 a one-line card keeps the comment on its back and stays in the queue", () => {
+    const card = only("#flashcards/x\n\nq::a <!-- !suspended -->\n");
+    expect([card.front, card.back, card.parked]).toEqual(["q", "a <!-- !suspended -->", null]);
+  });
+
+  it("#1590 a cloze line with the token in a comment stays in the queue", () => {
+    const card = only("#flashcards/x\n\n{{c1::a}} <!-- !suspended -->\n");
+    expect([card.cloze, card.parked]).toEqual([1, null]);
+  });
+
+  it("#1590 a ? card's front line with the token in a comment stays in the queue", () => {
+    const card = only("#flashcards/x\n\nq <!-- !suspended -->\n?\na\n");
+    expect([card.front, card.back, card.parked]).toEqual(["q <!-- !suspended -->", "a", null]);
+  });
+
+  it("#1590 a real token beside a commented one parks the card", () => {
+    const card = only("#flashcards/x\n\nq::a <!-- !suspended --> !suspended\n");
+    expect([card.back, card.parked]).toEqual(["a <!-- !suspended -->", "suspended"]);
+  });
+
+  it("#1590 a comment running past the line's end holds no token", () => {
+    const card = only("#flashcards/x\n\nq::a <!-- !suspended\nmore -->\n");
+    expect(card.parked).toBeNull();
+  });
+});

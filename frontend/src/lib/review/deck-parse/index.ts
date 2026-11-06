@@ -14,6 +14,8 @@ import { WikiLink } from "@/lib/notes/links/wikilink";
 const OPEN_OVER_LINES = /<!--(?:(?!-->).)*\n/;
 // A schedule holds no `::`, so a card's own line stays unparsed.
 const HIDES_DIVIDER = /<!--(?:(?!-->).)*::/;
+// Nor the token, which a comment's copy must not park (#1590).
+const HIDES_TOKEN = /<!--(?:(?!-->).)*!suspended/;
 
 const Untagged: MarkdownConfig = {
   parseInline: [
@@ -24,7 +26,8 @@ const Untagged: MarkdownConfig = {
         pos === cx.offset &&
         !(cx.text.includes("#flashcards") && cx.text.includes("<!--")) &&
         !OPEN_OVER_LINES.test(cx.text) &&
-        !HIDES_DIVIDER.test(cx.text)
+        !HIDES_DIVIDER.test(cx.text) &&
+        !HIDES_TOKEN.test(cx.text)
           ? cx.end
           : -1,
     },

@@ -316,7 +316,8 @@ function lineCard(walk: Walk, at: number, line: string, bare: string): void {
   if (holdsCloze(bare)) {
     const own = cardTags(line) ?? [];
     if (own.length > 0) walk.claimed.add(at);
-    const parked = suspended(line) ? "suspended" : null;
+    // The token is read where the marks are, so one inside a comment parks nothing (#1590).
+    const parked = suspended(bare) ? "suspended" : null;
     const asked = clozeCards(line, bare, "", line, { from: at, to: at, inline: true, parked });
     for (const card of asked) push(walk, card, own);
     return;
@@ -338,7 +339,7 @@ function lineCard(walk: Walk, at: number, line: string, bare: string): void {
       decks: [],
       held: readSchedule(line),
       // The token first: a parked card with no answer yet has both shapes.
-      parked: suspended(line) ? "suspended" : halves.back === "" ? "unanswered" : null,
+      parked: suspended(bare) ? "suspended" : halves.back === "" ? "unanswered" : null,
       cloze: null,
       target: null,
     },
