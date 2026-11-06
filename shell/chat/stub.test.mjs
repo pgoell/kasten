@@ -4,19 +4,50 @@ import { once } from "node:events";
 import { createServer } from "node:net";
 import { test } from "node:test";
 
-async function freePort() {
-  const probe = createServer().listen(0, "127.0.0.1");
-  await once(probe, "listening");
-  const { port } = probe.address();
-  probe.close();
-  return port;
+const stubPath = new URL("./stub.mjs", import.meta.url).pathname;
+// Holds dns.lookup back, which listen with a host waits on before it binds.
+const slowBind =
+  'data:text/javascript,import dns from "node:dns";const l=dns.lookup;dns.lookup=(...a)=>setTimeout(()=>l(...a),500);';
+
+// Resolves with the port the stub says it bound, or rejects if it exits first.
+async function ready(stub) {
+  const [chunk] = await Promise.race([
+    once(stub.stdout, "data"),
+    once(stub, "exit").then(([code]) => Promise.reject(new Error(`stub exited with ${code}`))),
+  ]);
+  return Number(String(chunk).match(/:(\d+)\s*$/)[1]);
 }
 
-test("a stop between the stub's steps ends the turn as stopped", { timeout: 20_000 }, async () => {
-  const port = await freePort();
-  const stub = spawn(process.execPath, [new URL("./stub.mjs", import.meta.url).pathname, port]);
+test("the stub says it is ready only once it listens, even on a slow bind", {
+  timeout: 20_000,
+}, async () => {
+  const stub = spawn(process.execPath, ["--import", slowBind, stubPath, "0"]);
   try {
-    await once(stub.stdout, "data");
+    const port = await ready(stub);
+    assert.notEqual(port, 0);
+    assert.equal((await fetch(`http://127.0.0.1:${port}/chat/events`)).status, 200);
+  } finally {
+    stub.kill();
+  }
+});
+
+test("a stub that cannot bind exits without saying it is ready", { timeout: 20_000 }, async () => {
+  const taken = createServer().listen(0, "127.0.0.1");
+  await once(taken, "listening");
+  const stub = spawn(process.execPath, [stubPath, taken.address().port]);
+  try {
+    await assert.rejects(ready(stub), /stub exited with [1-9]/);
+  } finally {
+    stub.kill();
+    taken.close();
+  }
+});
+
+test("a stop between the stub's steps ends the turn as stopped", { timeout: 20_000 }, async () => {
+  const stub = spawn(process.execPath, [stubPath, "0"]);
+  try {
+    const port = await ready(stub);
+    assert.notEqual(port, 0);
     const host = `127.0.0.1:${port}`;
     const post = (path, body) =>
       fetch(`http://${host}${path}`, {

@@ -129,5 +129,8 @@ function query({ prompt, options }) {
 }
 
 const port = Number(process.argv[2] ?? 7682);
-createServer(createChat({ query, claudePath: "", cwd: "." }).handle).listen(port, "127.0.0.1");
-console.log(`kasten chat stub on http://127.0.0.1:${port}`);
+// A host makes listen resolve it first, so the bind lands later; port 0 picks a free one.
+const server = createServer(createChat({ query, claudePath: "", cwd: "." }).handle);
+server.listen(port, "127.0.0.1", () => {
+  console.log(`kasten chat stub on http://127.0.0.1:${server.address().port}`);
+});
