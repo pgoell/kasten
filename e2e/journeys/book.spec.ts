@@ -34,6 +34,9 @@ test("the book pane reopens a pdf at the page it was left on", async ({ page, st
 test("Escape in the tree hands the keys back to the book pane", async ({ page }) => {
   await openApp(page);
   await findNote(page, "Primer");
+  // Keys sent before the note's editor holds the focus are lost, on a loaded box (#1615).
+  await expect(page.getByRole("tab", { name: "Primer", selected: true })).toBeVisible();
+  await expect(page.locator(".cm-content")).toBeFocused();
   await leader(page, "gr");
   const pane = page.locator("[data-book-pane]");
   await expect(pane.getByText("13%", { exact: true })).toBeVisible();

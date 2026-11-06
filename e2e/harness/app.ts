@@ -5,7 +5,10 @@ import { expect, type Page } from "@playwright/test";
 /** Loads the app and waits until the tree lists the vault and the editor holds the focus. */
 export async function openApp(page: Page): Promise<void> {
   await page.goto("/");
-  await expect(page.getByRole("button", { name: "Welcome", exact: true })).toBeVisible();
+  // The first load parses the whole bundle, which takes past 5 s on a loaded box (#1615).
+  await expect(page.getByRole("button", { name: "Welcome", exact: true })).toBeVisible({
+    timeout: 15_000,
+  });
   await page.locator(".cm-content").first().click();
   await page.keyboard.press("Escape");
 }

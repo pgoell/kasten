@@ -14,7 +14,7 @@
  */
 import { existsSync, statSync } from "node:fs";
 import path from "node:path";
-import { type BrowserContext, chromium, type Page, type Route } from "playwright";
+import { type BrowserContext, chromium, errors, type Page, type Route } from "playwright";
 
 const DIST = path.resolve(import.meta.dirname, "../dist");
 const SHOT =
@@ -139,6 +139,13 @@ async function step(name: string, body: () => Promise<void>): Promise<void> {
 }
 
 const browser = await chromium.launch();
+let closing = false;
+// A dead browser leaves every later call waiting on a page that is gone, so stop at once (#1616).
+browser.on("disconnected", () => {
+  if (closing) return;
+  console.log("FAIL the browser died mid-run; the steps after it cannot run");
+  process.exit(1);
+});
 const context = await browser.newContext({
   viewport: { width: 390, height: 844 },
   isMobile: true,
@@ -150,8 +157,15 @@ let page = await context.newPage();
 
 await step("offline the app opens", async () => {
   await page.goto(`${BASE}/capture`);
-  await page.evaluate(() => navigator.serviceWorker.ready);
-  await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
+  // `serviceWorker.ready` never settles when the install fails, so wait on control with a bound.
+  await page
+    .waitForFunction(() => navigator.serviceWorker.controller !== null, null, { timeout: 15_000 })
+    .catch((error: unknown) => {
+      if (error instanceof errors.TimeoutError) {
+        throw new Error("the service worker took no control in 15 s: its install failed");
+      }
+      throw error;
+    });
   await setOffline(context, true);
   await page.goto(`${BASE}/capture?text=x`);
   await page.getByLabel("What is on your mind").waitFor({ timeout: 5_000 });
@@ -228,6 +242,7 @@ await step("a 302 navigation is not cached as the app", async () => {
   check(!(await page.getByText("LOGIN").isVisible()), "the sign-in page answered offline");
 });
 
+closing = true;
 await browser.close();
 await server.stop(true);
 process.exit(failed ? 1 : 0);
