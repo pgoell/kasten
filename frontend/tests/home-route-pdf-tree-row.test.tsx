@@ -261,18 +261,25 @@ describe("a pdf as a row of the tree", () => {
   });
 
   it("I6 on a phone the drawer marks the open pdf, and its tab is named after it", async () => {
+    // By label, and the open palette's row by its text: a role query computes a
+    // style cascade for each node of every candidate, past 5 s under load (#1641).
+    const button = (label: string) => screen.getByLabelText(label, { selector: "button" });
     stubMatchMedia({ [NARROW]: true, [COARSE]: true });
     const app = await renderApp();
     await settle();
-    fireEvent.click(screen.getByRole("button", { name: "File tree" }));
+    fireEvent.click(button("File tree"));
     app.click("index.md");
     await settle();
     // A second tab, so the strip shows and has the pdf's tab to name. Through
     // the palette, a phone keeping vim and so the leader off.
-    fireEvent.click(screen.getByRole("button", { name: "Run a command by name" }));
-    fireEvent.click(screen.getByRole("option", { name: /^Create a tab/ }));
+    fireEvent.click(button("Run a command by name"));
+    const create = [
+      ...document.querySelectorAll("[role='listbox'][aria-label='Commands'] [role='option']"),
+    ].find((option) => option.textContent?.startsWith("Create a tab"));
+    expect(create).toBeDefined();
+    if (create) fireEvent.click(create);
     await settle();
-    fireEvent.click(screen.getByRole("button", { name: "File tree" }));
+    fireEvent.click(button("File tree"));
     app.expand("x");
     app.click(PLAN);
     await settle();
@@ -281,7 +288,7 @@ describe("a pdf as a row of the tree", () => {
     expect(screen.getByRole("tab", { name: "my plan" })).toBeInTheDocument();
 
     // A tap on a row shuts the drawer; opened again it marks the pdf.
-    fireEvent.click(screen.getByRole("button", { name: "File tree" }));
+    fireEvent.click(button("File tree"));
     expect(row(PLAN)).toHaveAttribute("aria-current", "page");
   });
 });
