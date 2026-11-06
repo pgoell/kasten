@@ -371,8 +371,10 @@ export function FileExplorer({
       case "s":
         commands.searchNotes();
         break;
+      // The route's way back, so the focused pane takes the next key and not the first editor.
       case "q":
         onOpenChange(false);
+        onLeave?.();
         break;
       case "Escape":
         // The editor is the only other place focus belongs, and it owns no

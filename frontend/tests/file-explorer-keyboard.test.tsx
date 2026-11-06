@@ -151,6 +151,18 @@ describe("the tree keyboard", () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
+  it("hands the focus to the focused pane on q, so its next key reaches it", () => {
+    const onOpenChange = vi.fn();
+    const onLeave = vi.fn();
+    renderTree({ onOpenChange, onLeave });
+
+    tree().focus();
+    press("q");
+
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(onLeave).toHaveBeenCalledOnce();
+  });
+
   it("closes the panel on the leader key too", () => {
     const onOpenChange = vi.fn();
     renderTree({ onOpenChange });

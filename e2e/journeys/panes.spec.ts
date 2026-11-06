@@ -71,3 +71,35 @@ test("the panes and their notes are back after a reload", async ({ page }) => {
   await expect(panes(page).filter({ hasText: "front door" })).toHaveCount(1);
   await expect(panes(page).filter({ hasText: "water the tomatoes" })).toHaveCount(1);
 });
+
+test("q in the tree hands the keys to the focused pane, the second of two", async ({ page }) => {
+  await openApp(page);
+  await openFromTree(page, "Welcome");
+  await leader(page, "%");
+  const today = page.getByRole("region", { name: "Today" });
+  await expect(today).toBeVisible();
+  await leader(page, "e");
+  await expect(page.getByRole("navigation", { name: "Vault" }).locator(":focus")).toHaveCount(1);
+  await page.keyboard.press("q");
+  await expect(page.getByRole("navigation", { name: "Vault" })).toBeHidden();
+  await expect(panes(page).filter({ has: today }).locator(".cm-content")).toBeFocused();
+  await leader(page, "ff");
+  await expect(page.getByRole("dialog", { name: "Find note" })).toBeVisible();
+});
+
+test("q in the tree with vim off sends what is typed next into the note", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
+  await openApp(page);
+  await openFromTree(page, "Welcome");
+  const note = page.locator(".cm-editor", { hasText: "front door" });
+  await note.locator(".cm-content").click();
+  const row = page
+    .getByRole("navigation", { name: "Vault" })
+    .getByRole("button", { name: "Welcome", exact: true });
+  await row.focus();
+  await expect(row).toBeFocused();
+  await page.keyboard.press("q");
+  await expect(page.getByRole("navigation", { name: "Vault" })).toBeHidden();
+  await page.keyboard.type("zq");
+  await expect(note).toContainText("zq");
+});
