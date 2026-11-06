@@ -1,6 +1,6 @@
 """The bearer tokens an agent outside the box reaches the vault with.
 
-A JSON file beside the vault, never inside it, where a secret would enter jj history. Only
+JSON files beside the vault, never inside it, where a secret would enter jj history. Only
 the SHA-256 digest is kept, so a lost secret is replaced, not recovered. A revoked token
 moves to `tokens-revoked.json`, so its requests are named as revoked.
 """
@@ -102,7 +102,7 @@ A file of its own, not a `revoked` field: an older backend ignores unknown field
 REVOKED_KEPT = 50
 """How many revoked records the file keeps, in revoke order; older ones are dropped.
 
-Dropping one cannot let its token back in: only `tokens.json` admits a bearer. A pruned
+Dropping one cannot let its token back in: only the active files admit a bearer. A pruned
 secret is refused as unknown, and the revoked file only names refusals. Without the cap,
 every OAuth reconnect, which revokes then mints, would add a record for good.
 """
