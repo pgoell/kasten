@@ -5,8 +5,9 @@
 // list changes with every release, so every release changes these bytes and
 // the browser installs the new worker.
 //
-// The shell is network-first and the cache only a fallback, so a new release
-// still reaches the app on its next start (#368). oauth2-proxy sits in front
+// The shell is network-first, so a new release reaches the app on its next
+// start (#368), unless the network has not answered within SLOW_MS: then the
+// cached shell opens and the late answer is kept for the start after. oauth2-proxy sits in front
 // of every path in production, and a session that expired answers a redirect
 // to its sign-in page: only a plain 200 from this origin is ever cached, so
 // that page is never stored as the app.
@@ -64,6 +65,12 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+/** How long a navigation waits for the network before the cached shell opens instead. */
+const SLOW_MS = 3000;
+
+/** The query `src/lib/app/session.ts` adds to its sign-in reload, which must reach the gate. */
+const SIGN_IN = "signin";
+
 /** Where the manifest's `share_target` posts what the phone shared. */
 const SHARE = "/api/finance/receipts/share";
 
@@ -78,25 +85,50 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
   if (PASS.some((prefix) => url.pathname.startsWith(prefix))) return;
 
-  if (request.mode === "navigate") event.respondWith(navigate(request));
+  if (request.mode === "navigate") event.respondWith(navigate(event, url));
   else if (url.pathname.startsWith("/assets/")) event.respondWith(hashed(request));
-  else event.respondWith(fresh(request));
+  else event.respondWith(fresh(event));
 });
 
 /**
  * Every page is the one shell, so a navigation offline answers "/" whatever
  * route it asked for. Online the network answers as it came, a redirect to
  * the sign-in or a 401 included, and only a usable shell replaces the cached one.
+ * A network slower than SLOW_MS gets the cached shell, except on the sign-in
+ * reload, which would otherwise open the cached shell again and loop.
  */
-async function navigate(request) {
+async function navigate(event, url) {
   const cache = await caches.open(CACHE);
+  const network = fetchShell(event.request, cache);
+  const cached = url.searchParams.has(SIGN_IN) ? undefined : await cache.match("/");
+  return (await soon(event, network, cached)) ?? (await cache.match("/")) ?? Response.error();
+}
+
+/**
+ * The network's answer, or `cached` when it has not come within SLOW_MS, the late answer still
+ * landing in the cache. Undefined offline. With nothing cached it waits for the network.
+ */
+async function soon(event, network, cached) {
+  if (!cached) return network;
+  event.waitUntil(network);
+  let timer;
+  const slow = new Promise((resolve) => {
+    timer = setTimeout(() => resolve(cached), SLOW_MS);
+  });
+  const answer = await Promise.race([network, slow]);
+  clearTimeout(timer);
+  return answer ?? cached;
+}
+
+/** The network's answer to a navigation, kept as the shell when usable, or undefined offline. */
+async function fetchShell(request, cache) {
   let response;
   try {
     response = await fetch(request);
   } catch (error) {
     // A network failure is a TypeError; anything else is a fault to surface.
     if (!(error instanceof TypeError)) throw error;
-    return (await cache.match("/")) ?? Response.error();
+    return undefined;
   }
   // Html alone: a navigation to /favicon.svg or /sw.js is a 200 from this
   // origin too, and stored as "/" it would be what the app starts as offline.
@@ -115,15 +147,24 @@ async function hashed(request) {
   return response;
 }
 
-/** The unhashed public files keep their names across releases, so the network answers first. */
-async function fresh(request) {
+/**
+ * The unhashed public files keep their names across releases, so the network answers first. The
+ * shell's head blocks on two of them, so a slow network gets the cached copy as a navigation does.
+ */
+async function fresh(event) {
   const cache = await caches.open(CACHE);
+  const network = fetchKept(event.request, cache);
+  return (await soon(event, network, await cache.match(event.request))) ?? Response.error();
+}
+
+/** The network's answer, kept when usable, or undefined offline. */
+async function fetchKept(request, cache) {
   let response;
   try {
     response = await fetch(request);
   } catch (error) {
     if (!(error instanceof TypeError)) throw error;
-    return (await cache.match(request)) ?? Response.error();
+    return undefined;
   }
   if (usable(response)) await cache.put(request, response.clone());
   return response;

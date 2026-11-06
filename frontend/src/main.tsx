@@ -32,6 +32,9 @@ const queryClient = new QueryClient({
 // so a route's lazy chunk finds its reload guard already reset.
 forgetSpentReloads(import.meta.url);
 
+// A session that ran out while the page sat open sends it to sign in, rather than failing quietly.
+startSessionCheck();
+
 const router = createRouter({
   routeTree,
   context: { queryClient },
@@ -52,9 +55,6 @@ if (!rootElement) {
 
 // Dumps kept while offline go now, and whenever the signal returns, on any page.
 startOutbox();
-
-// A session that ran out while the page sat open sends it to sign in, rather than failing quietly.
-startSessionCheck();
 
 // The early script in public/theme.js has set data-theme already. This adds the
 // browser bar's colour and the listeners for the system and other tabs.
