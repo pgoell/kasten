@@ -6,16 +6,20 @@ import { READING_NOTE } from "@/lib/core/layout";
 import { noteName } from "@/lib/notes/links/note-path";
 import { splitTarget, wikiLinkPath, wikiLinkTargets } from "@/lib/notes/links/wikilink";
 import { openBookInFocused } from "@/lib/panes/layout/pane-contents";
+import { atPane } from "@/lib/panes/layout/panes";
 
 /**
  * Opens the book `READING_NOTE` links. The note is read fresh on each press: it is
  * hand-edited, and a 404 is the answer that says it is missing.
  */
 export function useReadingBook({
+  paneId,
   saveFirst,
   moveTo,
   setNotice,
 }: {
+  /** The pane the key was pressed in, which the book fills however the focus moves meanwhile. */
+  paneId: string;
   saveFirst: () => Promise<boolean>;
   moveTo: PaneMoves["moveTo"];
   setNotice: Dispatch<SetStateAction<string | undefined>>;
@@ -50,8 +54,10 @@ export function useReadingBook({
     }
 
     // The reader finds the `reading:` place in the note itself.
-    moveTo((previous) => openBookInFocused(previous, found.note));
-  }, [queryClient, saveFirst, moveTo, setNotice]);
+    moveTo((previous) =>
+      atPane(previous, paneId, (layout) => openBookInFocused(layout, found.note)),
+    );
+  }, [queryClient, paneId, saveFirst, moveTo, setNotice]);
 }
 
 /** What the reading note could not be read for, as the notice says it. */

@@ -272,7 +272,7 @@ function Home() {
   const files = useFileTransfer({ data, pane, saveFirst, openInPane, setNotice });
   const finders = useFinders({
     listings: { data, shown, assets, html, archive },
-    panePath: pane.path,
+    pane,
     saveFirst,
     moves: { moveTo, refocusPane },
     openInPane,

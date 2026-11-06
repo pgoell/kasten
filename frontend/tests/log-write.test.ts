@@ -257,6 +257,6 @@ describe("#981 the log commands in their own module", () => {
 
     const saved = logCommands("notes/other.md");
     await saved.commands.logFood();
-    expect(saved.openPeriodic).toHaveBeenCalledWith("daily");
+    expect(saved.openPeriodic).toHaveBeenCalledWith("daily", "pane-1");
   });
 });

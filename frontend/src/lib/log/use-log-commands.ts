@@ -77,7 +77,7 @@ export function useLogCommands({
 }: {
   pane: Pick<Pane, "id" | "path">;
   saveFirst: () => Promise<boolean>;
-  openPeriodic: (period: Period) => boolean | Promise<boolean> | undefined;
+  openPeriodic: (period: Period, at?: string) => boolean | Promise<boolean> | undefined;
   setNotice: Dispatch<SetStateAction<string | undefined>>;
   /** The vault's note paths, as the listing holds them; undefined until it loads. */
   paths: string[] | undefined;
@@ -141,7 +141,8 @@ export function useLogCommands({
         if (!(await saveFirst())) return;
         food.arm(today, (view) => openFoodSearch(view));
         // A failed create or open leaves nothing waiting, so a later `<leader>gd` is not searched.
-        if (!(await openPeriodic("daily"))) food.cancel();
+        // Into the pane pressed in, as the focus may move during the save (#1626).
+        if (!(await openPeriodic("daily", pane.id))) food.cancel();
       },
       logWeight: async (mark) => {
         const today = periodicNote("daily", new Date()).path;
@@ -152,7 +153,7 @@ export function useLogCommands({
         }
         if (!(await saveFirst())) return;
         food.arm(today, (view) => askOnCard(view, mark));
-        if (!(await openPeriodic("daily"))) food.cancel();
+        if (!(await openPeriodic("daily", pane.id))) food.cancel();
       },
     }),
     [pane.id, pane.path, saveFirst, openPeriodic, setNotice, paths, focusedNote, food],

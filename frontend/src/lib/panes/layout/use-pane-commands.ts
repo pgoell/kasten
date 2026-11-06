@@ -65,7 +65,7 @@ export function usePaneCommands({
   setLayout: Dispatch<SetStateAction<Layout>>;
   saveFirst: () => Promise<boolean>;
   moves: Pick<PaneMoves, "moveTo" | "focusToward" | "shiftToward">;
-  openPeriodic: (period: Period) => boolean | Promise<boolean> | undefined;
+  openPeriodic: (period: Period, at?: string) => boolean | Promise<boolean> | undefined;
   setNotice: Dispatch<SetStateAction<string | undefined>>;
   /** The vault's note paths, as the listing holds them; undefined until it loads. */
   paths: string[] | undefined;
