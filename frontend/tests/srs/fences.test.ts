@@ -384,3 +384,25 @@ describe("#1479 a comment after a list or quote marker holds no card", () => {
     expect([card.front, card.held?.due]).toEqual(["- q", "2026-08-20"]);
   });
 });
+
+describe("#1579 a comment after text on its line holds no card", () => {
+  const fronts = (text: string) => parseCards(text).map((card) => card.front);
+
+  it("#1579 a cloze inside a one-line comment after text makes no card", () => {
+    expect(parseCards("#flashcards/x\n\ntext <!-- {{c1::x}} -->\n")).toEqual([]);
+  });
+
+  it("#1579 a cloze with a comment after it on its line stays a cloze", () => {
+    const cards = parseCards("#flashcards/x\n\n{{c1::x}} <!-- note -->\n");
+    expect(cards.map((card) => card.cloze)).toEqual([1]);
+  });
+
+  it("#1579 a cloze with a schedule comment after it keeps its schedule", () => {
+    const card = only("#flashcards/x\n\n{{c1::x}} <!--SR:c1!2026-08-20,4,270-->\n");
+    expect([card.cloze, card.held?.due]).toEqual([1, "2026-08-20"]);
+  });
+
+  it("#1579 a plain card inside a one-line comment after text makes no card", () => {
+    expect(fronts("#flashcards/x\n\ntext <!-- a::b -->\n")).toEqual([]);
+  });
+});

@@ -307,8 +307,8 @@ function questionCard(walk: Walk, at: number): void {
 
 /** The card, or cloze cards, written on the one line at `at`, if it holds any. */
 function lineCard(walk: Walk, at: number, line: string, bare: string): void {
-  // A cloze's `::` divides nothing, so this runs before the divider.
-  if (holdsCloze(line)) {
+  // A cloze's `::` divides nothing, so this runs before the divider. A comment holds no cloze.
+  if (holdsCloze(bare)) {
     const own = cardTags(line) ?? [];
     if (own.length > 0) walk.claimed.add(at);
     const parked = suspended(line) ? "suspended" : null;

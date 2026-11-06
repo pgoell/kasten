@@ -1,4 +1,5 @@
 import hashlib
+import re
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -158,3 +159,21 @@ async def test_1570_a_stale_base_over_a_lone_carriage_return_note_writes_nothing
 
     assert response.status_code == 200
     assert (vault / "a.md").read_bytes() == on_disk
+
+
+async def test_1572_a_mixed_text_keeps_one_block_and_its_next_base(
+    client: AsyncClient, vault: Path
+) -> None:
+    (vault / "a.md").write_text("---\nid: a\n---\nbody\n")
+    texts = [f"---\rid: a\rcolor: #x\r---\nbody {n}\rmore\n" for n in range(2)]
+
+    first = await client.put("/api/files/a.md", json={"content": texts[0]})
+    second = await client.put("/api/files/a.md", json={"content": texts[1], "base": _sha(texts[0])})
+
+    landed = (vault / "a.md").read_bytes()
+    assert (first.status_code, second.status_code) == (200, 200)
+    assert re.fullmatch(
+        rb"---\rcreated: [^\r]+\rtype: Note\rid: a\rcolor: #x\r"
+        rb"modified: [^\r]+\r---\nbody 1\rmore\n",
+        landed,
+    )

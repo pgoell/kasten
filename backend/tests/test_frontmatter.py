@@ -6,7 +6,7 @@ from uuid import UUID
 import pytest
 
 from kasten_backend import model_use_notes
-from kasten_backend.frontmatter import _split, body_start, stamp, unstamped, with_type
+from kasten_backend.frontmatter import _split, bases, body_start, stamp, unstamped, with_type
 from kasten_backend.log_config import parse_config
 
 NOW = datetime(2026, 8, 6, 12, 0, tzinfo=UTC)
@@ -272,3 +272,41 @@ def test_1570_stamp_joins_a_lone_carriage_return_text_with_carriage_returns() ->
 
 def test_1570_with_type_joins_a_lone_carriage_return_text_with_carriage_returns() -> None:
     assert with_type("---\rid: a\r---\rbody\r") == "---\rtype: Note\rid: a\r---\rbody\r"
+
+
+def test_1572_a_text_with_a_lone_cr_and_an_lf_has_its_block() -> None:
+    note = "---\rid: a\rcolor: #x\r---\nbody\n"
+
+    assert (_split(note), note[body_start(note) :]) == (
+        (["id: a", "color: #x"], ["body", ""]),
+        "body\n",
+    )
+
+
+def test_1572_stamp_writes_one_block_into_a_mixed_text() -> None:
+    stamped = stamp("---\rid: a\rcolor: #x\r---\nbody\n", now=NOW)
+
+    assert stamped == (
+        "---\rcreated: 2026-08-06T12:00:00+00:00\rtype: Note\rid: a\rcolor: #x\r"
+        "modified: 2026-08-06T12:00:00+00:00\r---\nbody\n"
+    )
+
+
+def test_1572_stamp_keeps_a_lone_cr_in_the_body() -> None:
+    content = "---\nid: a\n---\nfoo\rbar\nbaz\n"
+
+    assert stamp(content, now=NOW).endswith("---\nfoo\rbar\nbaz\n")
+    assert with_type(content) == "---\ntype: Note\nid: a\n---\nfoo\rbar\nbaz\n"
+
+
+def test_1572_body_start_and_unstamped_agree_on_a_mixed_text() -> None:
+    note = "---\rid: a\rmodified: x\r---\nbody\n"
+
+    assert note[body_start(note) :] == "body\n"
+    assert unstamped(note) == "---\rid: a\r---\nbody\n"
+
+
+def test_1572_bases_of_a_stamped_mixed_text_holds_the_body() -> None:
+    stamped = stamp("---\r---\nfoo\rbar\n", now=NOW)
+
+    assert bases(stamped)[-1] == "foo\rbar\n"
