@@ -118,11 +118,19 @@ function replaceLeaf(node: PaneNode, target: string, next: Pane): PaneNode {
  * its id, so a line or a page from the last thing never survives into the next.
  */
 export function fillFocused(layout: Layout, content: Omit<Pane, "id">): Layout {
-  const tab = activeTab(layout);
-  return withTab(layout, {
-    ...tab,
-    root: replaceLeaf(tab.root, tab.focus, { id: tab.focus, ...content }),
-  });
+  return fillPane(layout, activeTab(layout).focus, content);
+}
+
+/** As `fillFocused`, for the pane with this id in whichever tab holds it; the focus stays put. */
+export function fillPane(layout: Layout, id: string, content: Omit<Pane, "id">): Layout {
+  return {
+    ...layout,
+    tabs: layout.tabs.map((tab) =>
+      panesOf(tab.root).some((pane) => pane.id === id)
+        ? { ...tab, root: replaceLeaf(tab.root, id, { id, ...content }) }
+        : tab,
+    ),
+  };
 }
 
 function insertBeside(node: PaneNode, target: string, made: Pane, dir: Split["dir"]): PaneNode {

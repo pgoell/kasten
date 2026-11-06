@@ -58,20 +58,21 @@ it("I2 openLocalGraph with neither a sheet nor a side ask still opens the graph 
 
 it("replace saves the note before it fills the pane, and a refused save fills nothing", async () => {
   const order: string[] = [];
+  const start = emptyLayout(NOTE);
   const moveTo = vi.fn((update: (previous: Layout) => Layout) => {
     order.push("move");
-    return update(emptyLayout(NOTE)) !== undefined;
+    return update(start) !== undefined;
   });
   let saved = true;
   const saveFirst = vi.fn(async () => {
     order.push("save");
     return saved;
   });
-  const { replace } = paneOpeners(saveFirst, moveTo);
+  const { replace } = paneOpeners(focusedPane(start).id, saveFirst, moveTo);
 
   await replace({ todos: true });
   expect(order).toEqual(["save", "move"]);
-  const layout = moveTo.mock.calls[0]?.[0](emptyLayout(NOTE)) as Layout;
+  const layout = moveTo.mock.calls[0]?.[0](start) as Layout;
   expect(focusedPane(layout)).toEqual({ id: focusedPane(layout).id, todos: true });
 
   saved = false;
@@ -82,7 +83,7 @@ it("replace saves the note before it fills the pane, and a refused save fills no
 it("beside opens the pane without a save, and goes to the pane already holding it", () => {
   const moveTo = vi.fn();
   const saveFirst = vi.fn(async () => true);
-  const { beside } = paneOpeners(saveFirst, moveTo);
+  const { beside } = paneOpeners("unused", saveFirst, moveTo);
 
   beside((each) => each.video === NOTE, { video: NOTE }, "col");
 

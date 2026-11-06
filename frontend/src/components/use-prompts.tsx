@@ -13,7 +13,7 @@ import { flush as flushOutbox, keep } from "@/lib/capture/outbox";
 import { fetchTerminals, type SearchHit } from "@/lib/core/api";
 import { readClock } from "@/lib/core/clock";
 import { mapPanes, openInFocused } from "@/lib/panes/layout/pane-contents";
-import type { Layout } from "@/lib/panes/layout/panes";
+import type { Layout, Pane } from "@/lib/panes/layout/panes";
 import { paneOpeners } from "@/lib/panes/layout/use-pane-commands";
 import { moveHeld } from "@/lib/saving/held-text";
 import { parseTodo } from "@/lib/todo/todo";
@@ -34,7 +34,7 @@ const LOADING: string[] = [];
  */
 export function usePrompts({
   data,
-  panePath,
+  pane,
   narrow,
   setLayout,
   saveFirst,
@@ -44,7 +44,7 @@ export function usePrompts({
   setNotice,
 }: {
   data: string[] | undefined;
-  panePath: string | undefined;
+  pane: Pick<Pane, "id" | "path">;
   narrow: boolean;
   setLayout: Dispatch<SetStateAction<Layout>>;
   saveFirst: () => Promise<boolean>;
@@ -54,8 +54,12 @@ export function usePrompts({
   setNotice: Dispatch<SetStateAction<string | undefined>>;
 }) {
   const { moveTo, refocusPane } = moves;
+  const { id: paneId, path: panePath } = pane;
   const queryClient = useQueryClient();
-  const { replace } = useMemo(() => paneOpeners(saveFirst, moveTo), [saveFirst, moveTo]);
+  const { replace } = useMemo(
+    () => paneOpeners(paneId, saveFirst, moveTo),
+    [paneId, saveFirst, moveTo],
+  );
   // One state for both: a create on the vault root starts at "" and still reads as open.
   const [prompt, setPrompt] = useState<{ mode: PromptMode; startPath: string } | null>(null);
   const [moving, setMoving] = useState<{
