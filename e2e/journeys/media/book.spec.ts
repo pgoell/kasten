@@ -1,5 +1,5 @@
-import { findNote, leader, noteText, openApp, phone } from "../harness/app.ts";
-import { expect, test } from "../harness/stack.ts";
+import { findNote, leader, noteText, openApp, phone } from "../../harness/app.ts";
+import { expect, test } from "../../harness/stack.ts";
 
 const primer = "04 Books/Primer.md";
 

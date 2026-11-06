@@ -56,10 +56,14 @@ its own copy of the fixture vault, its own database and its own backend, and
 teardown removes the containers. Unlike `fe:e2e`, it stubs no API.
 
 The journeys sit in `e2e/journeys/`, one spec file per area: notes, todos and
-the board, panes, search, review, capture, the log and the book pane. Each is a
+the board, panes, search, review, capture, the log, and the book and video panes
+in `media/`. Each is a
 thing done daily, and each one that writes checks the file on disk. The todo,
 capture and review files also run a journey at phone width, 414 px with touch,
 where the editor starts without vim; `phone` in `e2e/harness/app.ts` sets that up.
+A runner has no YouTube, so the video journey serves a fake player for each
+embed (`fakeYouTube` in `e2e/harness/youtube.ts`) and aborts any other request
+that would leave the box.
 The journeys block the service worker: Chromium crashed closing a context while
 it installed (#1606). `mise run fe:e2e` checks the offline worker.
 
