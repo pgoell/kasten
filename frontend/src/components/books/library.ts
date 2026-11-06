@@ -113,7 +113,7 @@ export function namingCurrent(text: string, link: string): string {
   return text.slice(0, first.index) + link + text.slice(first.index + first[0].length);
 }
 
-/** `x` of `n` as a whole percent, or null with no honest number. */
+/** `progress` as a whole percent, or null without one. */
 export function percent(book: LibraryBook): number | null {
   return book.progress === null ? null : Math.round(book.progress * 100);
 }
