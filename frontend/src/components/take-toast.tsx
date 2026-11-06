@@ -63,15 +63,18 @@ export function TakeToast({
 
   // The frame less its two margins, so a short pane keeps the toast inside it and
   // the list scrolls instead of growing past the top (#887). Under 200 px of frame
-  // it keeps the title, which says how the take went, and the buttons, and scrolls past that (#891).
+  // it keeps the title, which says how the take went, and the buttons (#891). Where even those
+  // would need a scroll, they share one line, a touch button keeping its 44 px (#1483).
   return (
     <div
       role="status"
       onPointerEnter={() => setHovered(true)}
       onPointerLeave={() => setHovered(false)}
-      className={`absolute inset-x-3 ${top ? "top-3" : "bottom-3"} z-10 sm:max-w-md max-h-[calc(100%-1.5rem)] overflow-y-auto flex flex-col gap-1 rounded-[var(--k-radius-6)] border border-k-rule bg-k-paper p-3 shadow-[var(--k-shadow)] transition-opacity duration-(--k-hover) ease-(--k-ease-out) motion-reduce:transition-none ${leaving ? "opacity-0" : "opacity-100"}`}
+      className={`absolute inset-x-3 ${top ? "top-3" : "bottom-3"} z-10 sm:max-w-md max-h-[calc(100%-1.5rem)] overflow-y-auto flex flex-col gap-1 take-row:flex-row take-row:flex-wrap take-row:items-center take-row:gap-x-4 take-row:py-1 pointer-coarse:take-row:py-0 rounded-[var(--k-radius-6)] border border-k-rule bg-k-paper p-3 shadow-[var(--k-shadow)] transition-opacity duration-(--k-hover) ease-(--k-ease-out) motion-reduce:transition-none ${leaving ? "opacity-0" : "opacity-100"}`}
     >
-      <p className="shrink-0 font-sans text-k-13 text-k-muted">{title}</p>
+      <p className="shrink-0 font-sans text-k-13 text-k-muted take-row:min-w-0 take-row:flex-1 take-row:truncate">
+        {title}
+      </p>
       <p className="line-clamp-2 shrink-0 [@container(max-height:200px)]:hidden font-serif text-k-15 text-k-ink">
         {passage.slice(0, WORDS)}
       </p>
@@ -121,10 +124,14 @@ export function TakeToast({
 function RecentNotes({ archive, onPick }: { archive: boolean; onPick: (path: string) => void }) {
   const recent = useRecentNotes(archive);
   if (recent.length === 0) {
-    return <p className="font-sans text-k-13 text-k-muted">Nothing written lately.</p>;
+    return (
+      <p className="font-sans text-k-13 text-k-muted take-row:basis-full">
+        Nothing written lately.
+      </p>
+    );
   }
   return (
-    <ul className="mt-1 flex min-h-0 flex-col overflow-y-auto">
+    <ul className="mt-1 flex min-h-0 flex-col overflow-y-auto take-row:basis-full">
       {recent.map(({ path }) => (
         <li key={path}>
           <button

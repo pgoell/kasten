@@ -29,6 +29,21 @@
 @import "./pdf-pane.css";
 @import "./review.css";
 
+/* A take toast's frame area too short for its title over its buttons: about
+   116 px with touch, 92 with a mouse (#1483). */
+@custom-variant take-row {
+  @media not (pointer: coarse) {
+    @container (max-height: 91px) {
+      @slot;
+    }
+  }
+  @media (pointer: coarse) {
+    @container (max-height: 115px) {
+      @slot;
+    }
+  }
+}
+
 /* Tailwind's names for the tokens in kasten-theme.css, so `bg-k-bg` and
    `text-k-ink` exist. Inline, so each utility keeps its `var()` and follows
    the theme switch instead of freezing the value at build time. */

@@ -28,6 +28,7 @@ import {
   select,
   setUp,
   takeButton,
+  takeInShortFrame,
   tearDown,
 } from "./html-take-fixture";
 import { ENDS, NEWS, PLAIN } from "./html-take-pages";
@@ -407,42 +408,47 @@ it("with a mouse, a new selection under the foot toast keeps its Take button in 
   expect(api.dumps[1]).toContain("> Delta");
 });
 
-// A split at 1440 under about 240 px (this mount has no top bar or tab strip), and a phone with its keyboard up.
+// A split at 1440 under about 240 px (this mount has no top bar or tabs), and a phone with its keyboard up.
 it.each([
   [1440, 140, false],
   [390, 260, true],
 ])(
   "at %ix%i the toast and its buttons stay inside a frame area under 150 px (#891)",
   async (width, height, touch) => {
-    await page.viewport(width, height);
-    await browser.emulateMedia({ touch });
-    await browser.servePage(LEFT_PATH, NEWS);
-    await browser.servePage(RIGHT_PATH, NEWS);
-    render(mounted, touch ? [LEFT_PATH] : [LEFT_PATH, RIGHT_PATH], touch);
-    const frame = frameOf(mounted, 0);
-    // Measured after the load, over the page as it ends up drawn.
-    const loaded = new Promise((done) => frame.addEventListener("load", done, { once: true }));
-    await ready(frame);
-    await loaded;
-    // A phone has no y: the reader selects by touch and taps Take.
-    if (touch) await userEvent.click(frame);
-    if (touch) await ask(frame, { probe: "touchSelect", range: ["p1", 0, "p1", 5] }, "selected");
-    else await select(frame, ["p1", 0, "p1", 5]);
-    await expect.poll(() => takeButton(mounted) !== null).toBe(true);
-    if (touch) await userEvent.click(takeButton(mounted) as HTMLElement);
-    else await userEvent.keyboard("y");
-    const named = () => [buttonNamed("Put it in a note"), buttonNamed("Undo")];
-    await expect.poll(() => named().every(Boolean)).toBe(true);
-
-    const area = frame.parentElement as HTMLElement;
-    const toast = area.querySelector("[role='status']") as HTMLElement;
-    const buttons = named() as HTMLElement[];
+    const { area, toast, buttons } = await takeInShortFrame(mounted, width, height, touch);
     expect({
       short: area.clientHeight < 150,
       toast: inside(toast, area),
       title: toast.querySelector("p")?.offsetHeight !== 0,
       buttons: buttons.map((b) => inside(b, toast) && onTop(b)),
     }).toEqual({ short: true, toast: true, title: true, buttons: [true, true] });
+  },
+);
+
+// 77 px of frame by touch, 72 by mouse: no room to stack the title.
+it.each([
+  [390, 220, true],
+  [1440, 100, false],
+])(
+  "at %ix%i Undo and Put it in a note show unscrolled under 80 px of frame (#1483)",
+  async (width, height, touch) => {
+    const { area, toast, buttons } = await takeInShortFrame(mounted, width, height, touch);
+    expect({
+      short: area.clientHeight < 80,
+      toast: inside(toast, area),
+      unscrolled: toast.scrollHeight <= toast.clientHeight,
+      title: (toast.querySelector("p")?.offsetWidth ?? 0) > 40,
+      buttons: buttons.map((b) => inside(b, toast) && onTop(b) && (!touch || b.offsetHeight >= 44)),
+    }).toEqual({ short: true, toast: true, unscrolled: true, title: true, buttons: [true, true] });
+
+    api.recent = RECENT;
+    await userEvent.click(buttons[0] as HTMLButtonElement);
+    await expect.poll(() => listRows().length).toBe(8);
+    const row = listRows()[2] as HTMLButtonElement;
+    row.scrollIntoView();
+    expect(inside(row, toast)).toBe(true);
+    await userEvent.click(row);
+    await expect.poll(() => api.notes[RECENT[2] as string] ?? "").toContain("## Highlights");
   },
 );
 
