@@ -212,7 +212,7 @@ screen, which is how the keys say there is nothing to ask about.
 the tree cursor is already on. `<leader>E` does that and one thing more: it
 unfolds the way down to the note the pane holds and takes the cursor to it, so a
 note you reached by any route but the tree stops being a note the tree cannot
-show you. Escape in the tree comes back to the editor.
+show you. Escape in the tree comes back to the focused pane.
 
 `<leader>q` closes the note only once the vault holds the text. A write that
 fails leaves the note open with the warning in the status bar, because closing

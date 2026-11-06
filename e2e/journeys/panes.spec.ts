@@ -103,3 +103,45 @@ test("q in the tree with vim off sends what is typed next into the note", async 
   await page.keyboard.type("zq");
   await expect(note).toContainText("zq");
 });
+
+test("Escape in the tree hands the keys to the focused pane, the second of two", async ({
+  page,
+}) => {
+  await openApp(page);
+  await openFromTree(page, "Welcome");
+  await leader(page, "%");
+  const today = page.getByRole("region", { name: "Today" });
+  await expect(today).toBeVisible();
+  await leader(page, "e");
+  const tree = page.getByRole("navigation", { name: "Vault" });
+  await expect(tree.locator(":focus")).toHaveCount(1);
+  await page.keyboard.press("Escape");
+  await expect(tree).toBeVisible();
+  await expect(panes(page).filter({ has: today }).locator(".cm-content")).toBeFocused();
+  await leader(page, "ff");
+  await expect(page.getByRole("dialog", { name: "Find note" })).toBeVisible();
+});
+
+test("Escape in the tree with vim off types into the focused pane, the second of two", async ({
+  page,
+}) => {
+  await openApp(page);
+  await openFromTree(page, "Welcome");
+  await leader(page, "%");
+  const today = page.getByRole("region", { name: "Today" });
+  await expect(today).toBeVisible();
+  // The split needs vim's leader, so it is made first and the reload brings it back with vim off.
+  await page.evaluate(() => localStorage.setItem("kasten.vim", "off"));
+  await page.reload();
+  const right = panes(page).filter({ has: today }).locator(".cm-content");
+  await right.click();
+  const row = page
+    .getByRole("navigation", { name: "Vault" })
+    .getByRole("button", { name: "Welcome", exact: true });
+  await row.focus();
+  await expect(row).toBeFocused();
+  await page.keyboard.press("Escape");
+  await page.keyboard.type("zq");
+  await expect(right).toContainText("zq");
+  await expect(page.locator(".cm-editor", { hasText: "front door" })).not.toContainText("zq");
+});

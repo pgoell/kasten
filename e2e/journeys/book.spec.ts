@@ -31,6 +31,21 @@ test("the book pane reopens a pdf at the page it was left on", async ({ page, st
   await expect(page.locator("[data-book-pane]").getByText("50%", { exact: true })).toBeVisible();
 });
 
+test("Escape in the tree hands the keys back to the book pane", async ({ page }) => {
+  await openApp(page);
+  await findNote(page, "Primer");
+  await leader(page, "gr");
+  const pane = page.locator("[data-book-pane]");
+  await expect(pane.getByText("13%", { exact: true })).toBeVisible();
+  await leader(page, "e");
+  const tree = page.getByRole("navigation", { name: "Vault" });
+  await expect(tree.locator(":focus")).toHaveCount(1);
+  await page.keyboard.press("Escape");
+  await expect(tree).toBeVisible();
+  await page.keyboard.press("l");
+  await expect(pane.getByText("25%", { exact: true })).toBeVisible();
+});
+
 test.describe("on a phone", () => {
   test.use(phone);
 
