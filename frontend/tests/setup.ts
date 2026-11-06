@@ -1,5 +1,10 @@
 import "@testing-library/jest-dom/vitest";
+import { configure } from "@testing-library/react";
 import "../scripts/cross-midnight";
+
+// Rows that land after an async load take more than the 1 s default on a loaded
+// box (#1629); 4 s stays under the 5 s test timeout, so a lost row still names itself.
+configure({ asyncUtilTimeout: 4000 });
 
 // A test that ends with a key down and no keyup would leave the next test's
 // picker waiting for a key that never comes up. Losing focus lets it go.

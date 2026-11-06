@@ -146,10 +146,16 @@ describe("KeyHelp", () => {
       ],
     };
     for (const [title, keys] of Object.entries(groups)) {
+      // One walk per group, not per key: under load 60 walks passed 5 s (#1621).
+      const shown = new Set(
+        group(title)
+          .queryAllByText(/^Space /)
+          .map((key) => key.textContent),
+      );
       for (const key of keys) {
-        // Soft and a query, so a key missing from one group still lets every
-        // other group, and the tab row below, be checked.
-        expect.soft(group(title).queryByText(leaderKey(key)), key).not.toBeNull();
+        // Soft, so a key missing from one group still lets every other group,
+        // and the tab row below, be checked.
+        expect.soft(shown.has(leaderKey(key)), key).toBe(true);
       }
     }
     expect(group("Tabs").getByText("Go to a tab by number")).toBeInTheDocument();
