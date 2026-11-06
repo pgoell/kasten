@@ -302,3 +302,31 @@ describe("setSuspended on a cloze", () => {
     }
   });
 });
+
+describe("a cloze mark inside a one-line comment is no mark (#1587, #1589)", () => {
+  it("#1587 a cloze number inside a comment after a cloze makes no card of its own", () => {
+    const cards = parseCards("#flashcards/x\n\n{{c1::a}} <!-- {{c2::b}} -->\n");
+    expect(cards.map((card) => card.cloze)).toEqual([1]);
+  });
+
+  it("#1587 a comment's mark of the same number joins no typed answer", () => {
+    const cards = parseCards("#flashcards/x\n\n{{c1::a}} <!-- {{c1::b}} -->\n?\nmore\n");
+    expect(cards.map((card) => [card.cloze, card.target])).toEqual([[1, "a"]]);
+  });
+
+  it("#1589 a cloze inside a comment above a ? leaves a plain card", () => {
+    const card = only("#flashcards/x\n\ntext <!-- {{c1::x}} -->\n?\nanswer\n");
+    expect([card.cloze, card.inline, card.back, card.target]).toEqual([
+      null,
+      false,
+      "answer",
+      null,
+    ]);
+    expect(card.front).toBe("text <!-- {{c1::x}} -->");
+  });
+
+  it("#1589 the front walk crosses a line whose only cloze sits in a comment", () => {
+    const card = only("#flashcards/x\n\ntext <!-- {{c1::x}} -->\nmore\n?\nanswer\n");
+    expect([card.from, card.front]).toEqual([2, "text <!-- {{c1::x}} -->\nmore"]);
+  });
+});

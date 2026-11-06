@@ -258,7 +258,10 @@ function placedColumn(lines: string[], index: number, cap: number, known: Known)
   const held = lines[index] ?? "";
   if (held.trim() === "") return 0;
   const lazy =
-    !known.coded.has(index) && !heading(lines, index, known) && paragraph(lines, index - 1, known);
+    !known.coded.has(index) &&
+    !heading(lines, index, known) &&
+    !fenceEnds(lines, index, known) &&
+    paragraph(lines, index - 1, known);
   if (lazy) return null;
   const column = itemColumn(lines, index, known);
   return column <= cap ? column : 0;
@@ -282,7 +285,7 @@ function paragraph(lines: string[], index: number, known: Known): boolean {
 function isText(lines: string[], index: number, known: Known): boolean {
   const held = lines[index] ?? "";
   if (held.trim() === "" || known.coded.has(index) || BREAK.test(held.trim())) return false;
-  if (heading(lines, index, known)) return false;
+  if (heading(lines, index, known) || fenceEnds(lines, index, known)) return false;
   return width(held) < itemColumn(lines, index, known) + 4 || paragraph(lines, index - 1, known);
 }
 
@@ -293,6 +296,22 @@ function isText(lines: string[], index: number, known: Known): boolean {
 function heading(lines: string[], index: number, known: Known): boolean {
   const held = lines[index] ?? "";
   if (!HEADING_LINE.test(held.trimStart())) return false;
+  const above = paragraph(lines, index - 1, known);
+  const marker = above ? markerAt(lines, index - 1, known) : null;
+  const column =
+    marker !== null ? contentColumn(marker) : itemColumn(lines, above ? index - 1 : index, known);
+  return width(held) <= column + 3;
+}
+
+/**
+ * Whether line `index` is a fence run that ends the paragraph above it, as a heading does: its indent
+ * sits at most three past the content column, not further in as indented code (#1585).
+ */
+function fenceEnds(lines: string[], index: number, known: Known): boolean {
+  const held = lines[index] ?? "";
+  const match = FENCE.exec(held);
+  const fence = match?.[1];
+  if (fence === undefined || (fence[0] === "`" && match?.[2]?.includes("`"))) return false;
   const above = paragraph(lines, index - 1, known);
   const marker = above ? markerAt(lines, index - 1, known) : null;
   const column =
