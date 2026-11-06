@@ -310,3 +310,16 @@ def test_1572_bases_of_a_stamped_mixed_text_holds_the_body() -> None:
     stamped = stamp("---\r---\nfoo\rbar\n", now=NOW)
 
     assert bases(stamped)[-1] == "foo\rbar\n"
+
+
+def test_1572_stamp_writes_no_doubled_cr_into_a_text_led_by_a_lone_cr() -> None:
+    stamped = stamp("---\ra: b\r\n---\r\nbody\r", now=NOW)
+
+    assert "\r\r" not in stamped
+    assert unstamped("---\ra: b\r\n---\r\nbody\r") in bases(stamped)
+
+
+def test_1572_stamp_reads_a_crlf_text_with_a_lone_cr_as_not_crlf_throughout() -> None:
+    note = "---\r\na: b\r\r---\r"
+
+    assert unstamped(note) in bases(stamp(note, now=NOW))

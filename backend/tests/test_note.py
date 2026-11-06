@@ -2,6 +2,8 @@ import hashlib
 import re
 from typing import TYPE_CHECKING
 
+import pytest
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -177,3 +179,24 @@ async def test_1572_a_mixed_text_keeps_one_block_and_its_next_base(
         rb"modified: [^\r]+\r---\nbody 1\rmore\n",
         landed,
     )
+
+
+@pytest.mark.parametrize(
+    "block",
+    [
+        "---\nid: a\rcolor: #x\n---\n",
+        "---\rid: a\ncolor: #x\n---\n",
+        "---\rid: a\ncolor: #x\r---\n",
+    ],
+)
+async def test_1572_a_block_of_mixed_line_ends_keeps_the_next_base(
+    client: AsyncClient, vault: Path, block: str
+) -> None:
+    (vault / "a.md").write_text("---\nid: a\n---\nbody\n")
+    texts = [f"{block}body {n}\rmore\n" for n in range(2)]
+
+    first = await client.put("/api/files/a.md", json={"content": texts[0]})
+    second = await client.put("/api/files/a.md", json={"content": texts[1], "base": _sha(texts[0])})
+
+    assert (first.status_code, second.status_code) == (200, 200)
+    assert (vault / "a.md").read_bytes().endswith(b"body 1\rmore\n")
