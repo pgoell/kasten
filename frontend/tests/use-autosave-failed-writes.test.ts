@@ -1,6 +1,15 @@
+import { act } from "@testing-library/react";
 import { noteBase } from "@/lib/notes/note-base";
 import { heldText } from "@/lib/saving/held-text";
-import { eachPage, heldRows, idle, pendingSave, renderAutosave } from "./autosave-fixture";
+import {
+  eachPage,
+  heldRows,
+  idle,
+  pendingSave,
+  refused,
+  renderAutosave,
+  settled,
+} from "./autosave-fixture";
 
 const { saveNote, fetchNote } = vi.hoisted(() => ({ saveNote: vi.fn(), fetchNote: vi.fn() }));
 // The real refusal, which the hook tells apart from every other failure.
@@ -160,6 +169,74 @@ describe("useAutosave", () => {
 
       expect(heldText("index.md")).toBeUndefined();
       expect(note.status()).toBe("saved");
+    });
+  });
+
+  describe("a write that failed for want of a signal", () => {
+    async function offline(note: ReturnType<typeof renderAutosave>) {
+      note.seed("index.md", "start");
+      saveNote.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+      note.change("A");
+      await idle();
+      expect(note.status()).toBe("error");
+      saveNote.mockClear();
+    }
+
+    it("goes again when the signal returns", async () => {
+      const note = renderAutosave("index.md", () => "A");
+      await offline(note);
+
+      await act(async () => {
+        window.dispatchEvent(new Event("online"));
+      });
+      await settled();
+
+      expect(saveNote).toHaveBeenCalledWith("index.md", "A", false, noteBase("start"));
+      expect(note.status()).toBe("saved");
+    });
+
+    it("goes again every half minute", async () => {
+      const note = renderAutosave("index.md", () => "A");
+      await offline(note);
+
+      await act(async () => {
+        vi.advanceTimersByTime(30_000);
+      });
+      await settled();
+
+      expect(saveNote).toHaveBeenCalledOnce();
+      expect(note.status()).toBe("saved");
+    });
+
+    it("leaves a write the vault turned away, which another try gets again", async () => {
+      const note = renderAutosave("index.md", () => "A");
+      note.seed("index.md", "start");
+      saveNote.mockRejectedValueOnce(new Error("failed with 422", { cause: 422 }));
+      note.change("A");
+      await idle();
+      saveNote.mockClear();
+
+      await act(async () => {
+        vi.advanceTimersByTime(30_000);
+      });
+
+      expect(saveNote).not.toHaveBeenCalled();
+      expect(note.status()).toBe("error");
+    });
+
+    it("leaves a conflict to :w", async () => {
+      const note = renderAutosave("index.md", () => "A");
+      note.seed("index.md", "start");
+      note.change("A");
+      await refused();
+      saveNote.mockClear();
+
+      await act(async () => {
+        vi.advanceTimersByTime(30_000);
+      });
+
+      expect(saveNote).not.toHaveBeenCalled();
+      expect(note.status()).toBe("conflict");
     });
   });
 });

@@ -26,6 +26,19 @@ export interface Held {
    * this) or not (the vault holds `base`), so nobody else wrote. Absent when none was in the air.
    */
   after?: string;
+  /** The vault turned the text away for good, a 4xx another try gets again. Absent on older entries. */
+  refused?: boolean;
+}
+
+/** How often held text a lost signal kept is sent again, besides when the signal returns. */
+export const RETRY_MS = 30_000;
+
+/** Whether `failure` is a 4xx another try gets again. 408 and 429 pass with time. */
+export function refusedForGood(failure: unknown): boolean {
+  const status = failure instanceof Error ? failure.cause : undefined;
+  return (
+    typeof status === "number" && status >= 400 && status < 500 && ![408, 429].includes(status)
+  );
 }
 
 /** A held entry as the bar lists it. `entry` is kept by identity. */
@@ -88,7 +101,8 @@ function same(a: Held, b: Held): boolean {
     a.reason === b.reason &&
     a.conflicted === b.conflicted &&
     a.base === b.base &&
-    a.after === b.after
+    a.after === b.after &&
+    a.refused === b.refused
   );
 }
 
@@ -249,6 +263,11 @@ function belongsTo(entry: Held, vault: string): boolean {
 function idOf(text: string): string | undefined {
   const line = parts(text)?.block.find((each) => each.startsWith("id:"));
   return line?.slice("id:".length).trim() || undefined;
+}
+
+/** Every held entry with its note, as the bar lists them. */
+export function everyHeld(): readonly HeldRow[] {
+  return current();
 }
 
 /** Every entry `path` holds, oldest first. */

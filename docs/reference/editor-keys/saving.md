@@ -85,7 +85,12 @@ else wrote the note since, it opens under `Changed on disk` instead. A note can
 hold more than one kept text, say when a save fails again after you came back
 to it: kasten keeps each one, opening the note puts back the oldest, and the
 bar lists the rest until a later opening offers them. `:w` and `:e!` settle
-only the text in the buffer. Opening it
+only the text in the buffer. A save that failed for want of a signal, with no
+answer or a 5xx, goes again on its own when the browser says the signal is
+back, and every half minute meanwhile, under the same base. That holds for the
+note you are typing in and for a kept text of a note no editor holds, if it is
+that note's only one: it lands, or turns into `Changed on disk` when somebody
+wrote the note since. A 4xx, which another try would get again, waits for you. Opening it
 writes nothing on its own. If the vault already holds that text, the write
 having landed after the page went away, kasten drops it without asking: the
 `id`, `created` and `type` lines the vault adds to a note that lacks them do

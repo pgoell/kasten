@@ -4,7 +4,7 @@ import { type Buffer, forgetAloft, useHeldBuffer } from "@/lib/note/held-buffer"
 import { saveQueue } from "@/lib/note/save-queue";
 import { useBufferWrite } from "@/lib/note/use-buffer-write";
 import { useVaultReads } from "@/lib/note/vault-reads";
-import { type Held, holdText } from "@/lib/saving/held-text";
+import { type Held, holdText, RETRY_MS } from "@/lib/saving/held-text";
 
 /** Long enough that a sentence is one write, short enough to forget about. */
 const QUIET_MS = 800;
@@ -164,6 +164,22 @@ export function useAutosave(
       document.removeEventListener("visibilitychange", hidden);
     };
   }, [path, write, take, holdOwn]);
+
+  // A write that failed for want of a signal goes again as a keystroke would send it: when the signal
+  // returns, and every half minute. A conflict waits for `:w`, and a refusal for new text.
+  useEffect(() => {
+    if (status !== "error") return;
+    const retry = () => {
+      if (path === undefined || pending.current === null || conflicted.current) return;
+      if (taken.current?.refused !== true && !saveQueue.busy(path)) void save();
+    };
+    const every = setInterval(retry, RETRY_MS);
+    window.addEventListener("online", retry);
+    return () => {
+      clearInterval(every);
+      window.removeEventListener("online", retry);
+    };
+  }, [status, path, save]);
 
   // Declared last, so its opening effect runs after the leave flush and the hide, which still count as the visit they leave.
   const { allowReload, reconcile } = useVaultReads(buffer, path, pane, follow);
