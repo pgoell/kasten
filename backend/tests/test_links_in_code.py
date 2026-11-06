@@ -215,9 +215,9 @@ def test_reads_code_of_a_long_note_full_of_fences_in_time(monkeypatch: pytest.Mo
     parse = spans_module.FENCES.parse
     inline_code = spans_module._inline_code
 
-    def counting_parse(src: str) -> list[Token]:
+    def counting_parse(src: str, env: dict | None = None) -> list[Token]:
         parses.append(1)
-        return parse(src)
+        return parse(src, env)
 
     def counting_inline_code(line: str) -> list[tuple[int, int]]:
         scans.append(1)
