@@ -62,6 +62,8 @@ export function serviceWorker(): Plugin {
   return {
     name: "kasten-service-worker",
     apply: "build",
+    // After vite:css-post, which drops the empty js chunk of a dynamic css import (#1619).
+    enforce: "post",
     configResolved(config) {
       publicDir = config.publicDir;
     },

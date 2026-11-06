@@ -1,6 +1,7 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { build } from "vite";
 import type { Mock } from "vitest";
 import { registerServiceWorker } from "@/lib/app/service-worker";
 import { renderServiceWorker, serviceWorker } from "../../sw/plugin";
@@ -367,6 +368,33 @@ describe("the service worker plugin", () => {
     const list: string[] = JSON.parse(/const PRECACHE = (\[.*\]);/.exec(source)?.[1] ?? "null");
     expect(list.filter((url) => url.startsWith("/lists"))).toEqual([]);
   });
+
+  // #1619: vite drops the pure-CSS chunk of a dynamic CSS import, and one listed
+  // file that 404s fails the whole install.
+  it("lists only files the build emits, with a dynamic css import's styles", async () => {
+    const root = mkdtempSync(path.join(tmpdir(), "kasten-sw-build-"));
+    mkdirSync(path.join(root, "src"));
+    writeFileSync(
+      path.join(root, "index.html"),
+      '<!doctype html><script type="module" src="/src/main.js"></script>',
+    );
+    writeFileSync(path.join(root, "src/styles.css"), "body { color: red }");
+    writeFileSync(path.join(root, "src/main.js"), 'import("./styles.css");');
+    const outDir = path.join(root, "dist");
+    await build({
+      root,
+      configFile: false,
+      logLevel: "silent",
+      publicDir: false,
+      plugins: [serviceWorker()],
+      build: { outDir },
+    });
+    const source = readFileSync(path.join(outDir, "sw.js"), "utf8");
+    const list: string[] = JSON.parse(/const PRECACHE = (\[.*\]);/.exec(source)?.[1] ?? "null");
+    const missing = list.filter((url) => url !== "/" && !existsSync(path.join(outDir, url)));
+    expect(missing).toEqual([]);
+    expect(list.some((url) => /^\/assets\/styles-.*\.css$/.test(url))).toBe(true);
+  }, 30_000);
 
   it("changes the version when the asset list changes", () => {
     const one = /const VERSION = "([^"]+)"/.exec(renderServiceWorker(ASSETS))?.[1];
