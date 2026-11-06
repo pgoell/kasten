@@ -3,6 +3,7 @@ import { noteBase } from "@/lib/notes/note-base";
 import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
 import { FakeEventSource, pageHooks, renderApp, settle, VAULT } from "./home-route-fixture";
+import { paletteRow } from "./home-route-panes";
 
 defineFoliateFake();
 
@@ -170,8 +171,8 @@ describe("the tab keys on the route", () => {
   ) {
     app.press("P", { keyCode: 80, ctrlKey: true, shiftKey: true });
     await settle();
-    const row = screen.queryByRole("option", { name });
-    expect(row).not.toBeNull();
+    const row = paletteRow(name);
+    expect(row).toBeDefined();
     if (row) fireEvent.click(row);
     await settle();
   }

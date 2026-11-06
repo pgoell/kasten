@@ -55,9 +55,10 @@ against it. You need Docker, for Postgres and nginx, and Chromium. Each test get
 its own copy of the fixture vault, its own database and its own backend, and
 teardown removes the containers. Unlike `fe:e2e`, it stubs no API.
 
-The journeys sit in `e2e/journeys/`, one spec file per area: notes, todos and
-the board, panes, search, review, capture, the log, and the book and video panes
-in `media/`. Each is a
+The journeys sit in `e2e/journeys/`: `panes.spec.ts` and `review.spec.ts` at
+the top, notes, the finder and saving in `notes/`, the todo list and the board
+in `todos/`, capture and the log in `day/`, and the book and video panes in
+`media/`. `harness.spec.ts` checks the harness itself. Each journey is a
 thing done daily, and each one that writes checks the file on disk. The todo,
 capture and review files also run a journey at phone width, 414 px with touch,
 where the editor starts without vim; `phone` in `e2e/harness/app.ts` sets that up.

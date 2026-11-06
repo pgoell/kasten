@@ -28,7 +28,8 @@ describe("the todo pane's review fixes", () => {
     const pane = renderPane(DONE);
     await pane.loaded();
     expect(pane.texts().join()).toContain("buy milk");
-    fireEvent.click(screen.getByRole("button", { name: /^Done this week/ }));
+    // By its text: the button named by role costs a style cascade per node of every row (#1641).
+    fireEvent.click(screen.getByText(/^Done this week/));
 
     pane.press("j");
     expect(pane.cursor()?.textContent).toContain("read the spec");

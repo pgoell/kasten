@@ -82,7 +82,9 @@ const STRIP = ["d done", "n next", "v view", "c board"];
 function buttons() {
   return (
     screen
-      .queryAllByRole("button")
+      // The pane hides none of its buttons, and the visibility check costs a style
+      // cascade per button on every poll of a `waitFor` (#1641).
+      .queryAllByRole("button", { hidden: true })
       .filter((button) => !STRIP.includes(button.textContent ?? ""))
       .filter((button) => button.closest("[data-todo-scope]") === null)
       // The fold's text opens with its chevron, so this reads the words, not the start.
@@ -134,7 +136,8 @@ export function renderPane(
     </QueryClientProvider>,
   );
 
-  const panel = () => screen.getByRole("region", { name: "Todos" });
+  // By label: a role query names every region, a style cascade per node, on each key.
+  const panel = () => screen.getByLabelText("Todos", { selector: "section" });
 
   return {
     onOpen,
