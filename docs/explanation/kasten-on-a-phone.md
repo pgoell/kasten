@@ -259,6 +259,12 @@ stays on screen, and the editor and the overview show it rather than an error.
 So any note opened in the last week opens on a train, after a reload too. A
 note never opened on this device does not.
 
+A record never stands in for a note the vault no longer has. When a read of a
+kept note answers `404`, because it was moved, deleted or sent to the trash
+since, the page drops the record and the text it restored, and the pane says it
+could not open the note. Offline nothing can say so, and a note moved away
+since the last read still shows its old text until the signal returns.
+
 An edit made on a kept copy is safe. Every save names the text it was based on,
 and a vault that has moved on answers `409`, which the editor shows as a
 conflict, so the older copy never lands over newer text.

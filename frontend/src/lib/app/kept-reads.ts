@@ -1,10 +1,7 @@
 import type { Query, QueryClient, QueryKey } from "@tanstack/react-query";
+import { NoteMissing } from "@/lib/core/api";
 
-/**
- * Vault reads kept in IndexedDB, one record per query, so a note, the listing, backlinks, todos
- * and the log read before open with no signal after a reload. A record fills a query only while it
- * has no data, so a fresh answer always wins; offline the fetch waits paused and the record shows.
- */
+/** Vault reads kept in IndexedDB so they open with no signal: /explanation/kasten-on-a-phone.md. */
 
 const DATABASE = "kasten-reads";
 const STORE = "queries";
@@ -65,9 +62,17 @@ async function keep(query: Query): Promise<void> {
   await done((await store("readwrite")).put(record));
 }
 
+/** A note the vault no longer has: its record must not stand in for it, now or next time. */
+async function forget(query: Query): Promise<void> {
+  query.setState({ data: undefined, dataUpdatedAt: 0 });
+  await done((await store("readwrite")).delete(query.queryHash));
+}
+
 async function restore(client: QueryClient, query: Query): Promise<void> {
   const record = (await done((await store("readonly")).get(query.queryHash))) as Kept | undefined;
   if (!usable(record, Date.now()) || query.state.data !== undefined) return;
+  // The vault said the note is gone while the record was being read.
+  if (query.state.error instanceof NoteMissing) return;
   client.setQueryData(query.queryKey, record.data, { updatedAt: record.updatedAt });
 }
 
@@ -102,6 +107,9 @@ export function keepReads(client: QueryClient): () => void {
     if (event.type === "added") quietly(restore(client, event.query));
     else if (event.type === "updated" && event.action.type === "success")
       quietly(keep(event.query));
+    else if (event.type === "updated" && event.action.type === "error") {
+      if (event.action.error instanceof NoteMissing) quietly(forget(event.query));
+    }
   });
 }
 

@@ -1,6 +1,7 @@
 import "fake-indexeddb/auto";
 import { onlineManager, QueryClient } from "@tanstack/react-query";
 import { forgetKeptReads, keepReads, kept } from "@/lib/app/kept-reads";
+import { NoteMissing } from "@/lib/core/api";
 
 /**
  * Vault reads kept in IndexedDB so a page reloaded with no signal still shows them. Against
@@ -27,6 +28,15 @@ async function settle(): Promise<void> {
 }
 
 const failing = () => Promise.reject(new TypeError("Failed to fetch"));
+const gone = () => Promise.reject(new NoteMissing("a.md"));
+
+/** A page whose first visit read `a.md`, stopped, so the next page starts from its record. */
+async function readBefore(): Promise<void> {
+  const first = page();
+  await first.client.fetchQuery({ queryKey: ["note", "a.md"], queryFn: async () => "# A" });
+  await settle();
+  first.stop();
+}
 
 describe("kept reads", () => {
   afterEach(async () => {
@@ -128,6 +138,43 @@ describe("kept reads", () => {
     void second.client.prefetchQuery({ queryKey: ["files"], queryFn: failing });
     await settle();
     expect(second.client.getQueryData(["files"])).toBeUndefined();
+    second.stop();
+  });
+
+  it("drops the kept text of a note the vault no longer has", async () => {
+    await readBefore();
+    const second = page();
+    const read = second.client.prefetchQuery({ queryKey: ["note", "a.md"], queryFn: gone });
+    await settle();
+    await read;
+    await settle();
+    const state = second.client.getQueryState(["note", "a.md"]);
+    expect(state?.data).toBeUndefined();
+    expect(state?.error).toBeInstanceOf(NoteMissing);
+    second.stop();
+
+    onlineManager.setOnline(false);
+    const third = page();
+    void third.client.prefetchQuery({ queryKey: ["note", "a.md"], queryFn: failing });
+    await settle();
+    expect(third.client.getQueryData(["note", "a.md"])).toBeUndefined();
+    third.stop();
+  });
+
+  it("does not restore over a note the vault said is gone before the record was read", async () => {
+    await readBefore();
+    const second = page();
+    // The 404 lands in the same task as the add, before IndexedDB answers.
+    second.client.getQueryCache().build(second.client, { queryKey: ["note", "a.md"] });
+    second.client
+      .getQueryCache()
+      .find({ queryKey: ["note", "a.md"] })
+      ?.setState({
+        status: "error",
+        error: new NoteMissing("a.md"),
+      });
+    await settle();
+    expect(second.client.getQueryData(["note", "a.md"])).toBeUndefined();
     second.stop();
   });
 });
