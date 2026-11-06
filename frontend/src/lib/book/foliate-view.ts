@@ -58,6 +58,8 @@ export interface FoliateView extends HTMLElement {
      * since `close()` frees the renderer alone, so the pane calls it on the way out.
      */
     destroy?: () => unknown;
+    /** An epub's creators (`epub.js:294`), or a pdf's `Author` string (`pdf.js:135`). */
+    metadata?: { author?: Contributor | Contributor[] };
   };
   /**
    * Set by `open` from the book's `rendition:layout`. A pre-paginated book shows two documents
@@ -87,6 +89,42 @@ export interface FoliateView extends HTMLElement {
    * section (`view.js:436-445`). A pdf's book answers the page alone.
    */
   resolveCFI?(cfi: string): unknown;
+}
+
+/** One creator as foliate gives it: a name, or a name per language. */
+type Contributor = string | { name?: string | Record<string, string> } | null;
+
+/** Where the reader is, as the bookmark writes it into the book's note. */
+export interface Place {
+  cfi: string;
+  /** The whole-book fraction, or null with no honest number. */
+  progress: number | null;
+  /** The book's creators, comma-joined, or undefined when it names none. */
+  author: string | undefined;
+}
+
+export function placeOf(view: FoliateView, cfi: string): Place {
+  const authors = [view.book?.metadata?.author ?? []].flat().map(nameOf).filter(Boolean);
+  return { cfi, progress: progressOf(view), author: authors.join(", ") || undefined };
+}
+
+function nameOf(contributor: Contributor): string {
+  if (typeof contributor === "string") return contributor.trim();
+  const name = contributor?.name;
+  // A language map: the first language, as foliate's own reader shows it (`reader.js:51-56`).
+  const shown = typeof name === "object" ? Object.values(name)[0] : name;
+  return (shown ?? "").trim();
+}
+
+/**
+ * How far through the whole book the view is, or null with no honest number. Read off the view, not
+ * the event: the event's fraction is per section. The whole-book number is set by a listener the
+ * view registers first (view.js:329-337, progress.js:74-98).
+ */
+export function progressOf(view: FoliateView): number | null {
+  const fraction = view.lastLocation?.fraction;
+  // The typeof narrows: Number.isFinite does not, so the multiply below would not compile.
+  return typeof fraction === "number" && Number.isFinite(fraction) ? fraction : null;
 }
 
 /**

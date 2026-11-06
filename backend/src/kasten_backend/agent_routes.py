@@ -4,9 +4,10 @@ The check hangs off the router's constructor, so every route under it is gated b
 construction. This prefix has no `oauth2_auth` in Caddy: this check is the whole trust boundary.
 """
 
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -14,13 +15,18 @@ from starlette.requests import ClientDisconnect
 
 from kasten_backend import agent, files, page_store, skills, token_activity, vcs
 from kasten_backend.agent_finance_routes import router as finance_router
+from kasten_backend.code_spans import WIKILINK, code_spans, inside
 from kasten_backend.config import Settings, get_settings
+from kasten_backend.frontmatter import field
 from kasten_backend.graph import MOST_DEPTH, Graph, GraphError
-from kasten_backend.tokens import identify
-from kasten_backend.vault import HTML_SUFFIX
+from kasten_backend.links import link_path, names_a_file, split_target
+from kasten_backend.search import notes_holding
+from kasten_backend.tokens import Holder, Scope, identify
+from kasten_backend.vault import HTML_SUFFIX, list_markdown_files, resolve_note
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
+    from pathlib import Path
 
 BEARER = "Bearer "
 """The one scheme this accepts. Anything else is refused before the store is read."""
@@ -29,14 +35,8 @@ REFUSED = "That is not a token this vault knows"
 """One sentence for every refusal, so the answer says nothing about which it was."""
 
 
-async def require_token(
-    request: Request, settings: Annotated[Settings, Depends(get_settings)]
-) -> AsyncIterator[str]:
-    """Refuse anyone without a token in the store, and name the one who has it.
-
-    A yield, so `vcs.writer` is reset after each request. Without the reset, a browser
-    save after an agent save would be recorded as an agent write.
-    """
+async def _admit(request: Request, settings: Settings, scopes: set[Scope]) -> Holder:
+    """The holder of the bearer, refused unless its token is active and of one of `scopes`."""
     header = request.headers.get("Authorization", "")
     if not header.startswith(BEARER):
         raise HTTPException(status_code=401, detail=REFUSED)
@@ -45,12 +45,26 @@ async def require_token(
     if found is None:
         raise HTTPException(status_code=401, detail=REFUSED)
 
-    name, revoked = found
-    if revoked:
-        token_activity.named(name, revoked=True)
+    if found.revoked:
+        token_activity.named(found.name, revoked=True)
         raise HTTPException(status_code=401, detail=REFUSED)
 
-    token_activity.named(name, note=request.path_params.get("path"))
+    token_activity.named(found.name, note=request.path_params.get("path"))
+    if found.scope not in scopes:
+        raise HTTPException(status_code=401, detail=REFUSED)
+
+    return found
+
+
+async def require_token(
+    request: Request, settings: Annotated[Settings, Depends(get_settings)]
+) -> AsyncIterator[str]:
+    """Refuse anyone without a full agent token in the store, and name the one who has it.
+
+    A yield, so `vcs.writer` is reset after each request. Without the reset, a browser
+    save after an agent save would be recorded as an agent write.
+    """
+    name = (await _admit(request, settings, {"agent"})).name
     held = vcs.writer.set(name)
     try:
         yield name
@@ -58,7 +72,108 @@ async def require_token(
         vcs.writer.reset(held)
 
 
+async def require_reader(
+    request: Request, settings: Annotated[Settings, Depends(get_settings)]
+) -> str:
+    """Refuse anyone without a reading or a full agent token. The route it guards writes nothing."""
+    return (await _admit(request, settings, {"agent", "reading"})).name
+
+
 router = APIRouter(prefix="/agent", dependencies=[Depends(require_token)], tags=["agent"])
+
+reading_router = APIRouter(prefix="/agent", dependencies=[Depends(require_reader)], tags=["agent"])
+"""The one route a reading token opens, on a router of its own so its gate is by construction."""
+
+
+class Reading(BaseModel):
+    """The book being read, for the Reading pane on pgoell.com, and nothing else of its note."""
+
+    title: str
+    author: str | None
+    progress: float | None
+    read_at: str
+
+
+@reading_router.get(
+    "/reading",
+    response_model=Reading,
+    responses={204: {"description": "No note qualifies"}},
+)
+async def reading(settings: Annotated[Settings, Depends(get_settings)]) -> Reading | Response:
+    """The book being read, or 204 when no note qualifies."""
+    found = await current_book(settings)
+    return Response(status_code=204) if found is None else found
+
+
+async def current_book(settings: Settings) -> Reading | None:
+    """The current book; None when the named one has no `read_at:` or no note qualifies."""
+    root = settings.vault_path
+    named = _named_book(settings, list_markdown_files(root))
+    if named is not None:
+        return _reading(root, named)
+
+    books: list[Reading] = []
+    for path in await notes_holding(root, "reading:"):
+        book = _reading(root, path)
+        if book is not None:
+            books.append(book)
+    if not books:
+        return None
+    return max(books, key=lambda book: _moment(book.read_at) or datetime.min)
+
+
+def _named_book(settings: Settings, paths: list[str]) -> str | None:
+    """The note the first `[[link]]` in `reading-now.md` names, as `<leader>gc` reads it."""
+    text = _text(settings.vault_path, f"{settings.config_path}/reading-now.md")
+    code = code_spans(text)
+    match = next((m for m in WIKILINK.finditer(text) if not inside(m.start(), code)), None)
+    if match is None:
+        return None
+    name = split_target(match.group(1)).name
+    path = link_path(match.group(1), paths)
+    return path if name and not names_a_file(name) and path in paths else None
+
+
+def _reading(root: Path, path: str) -> Reading | None:
+    """What the pane shows of the note at `path`, or None without `reading:` and a `read_at:`."""
+    text = _text(root, path)
+    read_at = field(text, "read_at")
+    if not field(text, "reading") or not read_at or _moment(read_at) is None:
+        return None
+    author = field(text, "author")
+    return Reading(
+        title=path.rsplit("/", 1)[-1].removesuffix(".md"),
+        author=author or None,
+        progress=_fraction(field(text, "progress")),
+        read_at=read_at,
+    )
+
+
+def _text(root: Path, path: str) -> str:
+    """The note at `path`, or nothing when there is none or it cannot be read."""
+    note = resolve_note(root, path)
+    try:
+        return "" if note is None else note.read_text(encoding="utf-8")
+    except OSError, UnicodeDecodeError:
+        return ""
+
+
+def _moment(text: str) -> datetime | None:
+    """`text` as an aware time, a time without an offset taken as UTC; None when it is no time."""
+    try:
+        moment = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
+
+
+def _fraction(text: str | None) -> float | None:
+    """`text` as a fraction from 0 to 1, or None when it is not one."""
+    try:
+        value = float(text or "")
+    except ValueError:
+        return None
+    return value if 0 <= value <= 1 else None
 
 
 @router.get("/notes/{path:path}")
@@ -151,7 +266,7 @@ async def schema(request: Request) -> dict[str, Any]:
     return get_openapi(
         title=f"{request.app.title} agent API",
         version=request.app.version,
-        routes=router.routes,
+        routes=[*router.routes, *reading_router.routes],
     )
 
 

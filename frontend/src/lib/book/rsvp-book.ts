@@ -4,7 +4,7 @@
  */
 
 import type { RefObject } from "react";
-import { type FoliateView, pdfLayer } from "@/lib/book/foliate-view";
+import { type FoliateView, type Place, pdfLayer, placeOf } from "@/lib/book/foliate-view";
 import { readPdf } from "@/lib/book/use-book-seek";
 import type { BookBeside } from "@/lib/core/api";
 import { fetchNote } from "@/lib/core/api";
@@ -109,7 +109,7 @@ export function bookSource(o: {
   ready: RefObject<boolean>;
   beside: BookBeside | undefined;
   note: string;
-  onMoved: (cfi: string) => void;
+  onMoved: (place: Place) => void;
   /** Writes what the bookmark is waiting on, now. */
   onLeavingRef: RefObject<() => void>;
 }): RsvpSource {
@@ -145,7 +145,7 @@ export function bookSource(o: {
         const view = openBook();
         const cfi = await cfiOfWord(view, word);
         await view.goTo(cfi);
-        onMoved(cfi);
+        onMoved(placeOf(view, cfi));
         onLeavingRef.current();
       },
       // Read off the note, not off the page on screen, which is what `Space r h` is for.

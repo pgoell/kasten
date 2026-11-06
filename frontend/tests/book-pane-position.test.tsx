@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { useLayoutEffect } from "react";
 import { BookPane } from "@/components/book-pane";
+import type { Place } from "@/lib/book/foliate-view";
 import { BOOK, draw, NOTE, progress } from "./book-pane-fixture";
 import { defineFoliateFake, FakeView, lastView, resetFoliateFake } from "./foliate-fake";
 import { stubCommands } from "./stub-commands";
@@ -64,8 +65,8 @@ describe("where the reader got to", () => {
     relocate({ reason: "page" });
 
     expect(pane.onMoved).toHaveBeenCalledTimes(2);
-    expect(pane.onMoved).toHaveBeenNthCalledWith(1, "second");
-    expect(pane.onMoved).toHaveBeenNthCalledWith(2, "third");
+    expect(pane.onMoved).toHaveBeenNthCalledWith(1, expect.objectContaining({ cfi: "second" }));
+    expect(pane.onMoved).toHaveBeenNthCalledWith(2, expect.objectContaining({ cfi: "third" }));
   });
 
   it("builds the cfi out of what the event carried", async () => {
@@ -100,7 +101,7 @@ describe("where the reader got to", () => {
     relocate({ reason: "page" });
 
     expect(pane.onMoved).toHaveBeenCalledTimes(1);
-    expect(pane.onMoved).toHaveBeenCalledWith("second");
+    expect(pane.onMoved).toHaveBeenCalledWith(expect.objectContaining({ cfi: "second" }));
   });
 
   it("reports the page moving to show a selection as nothing", async () => {
@@ -113,7 +114,7 @@ describe("where the reader got to", () => {
     relocate({ reason: "page" });
 
     expect(pane.onMoved).toHaveBeenCalledTimes(1);
-    expect(pane.onMoved).toHaveBeenCalledWith("second");
+    expect(pane.onMoved).toHaveBeenCalledWith(expect.objectContaining({ cfi: "second" }));
   });
 
   it("reports a move carrying no reason at all", async () => {
@@ -127,7 +128,7 @@ describe("where the reader got to", () => {
     relocate({});
 
     expect(pane.onMoved).toHaveBeenCalledTimes(1);
-    expect(pane.onMoved).toHaveBeenCalledWith("second");
+    expect(pane.onMoved).toHaveBeenCalledWith(expect.objectContaining({ cfi: "second" }));
   });
 
   it("reports nothing for a turn that settled on the page it was already on", async () => {
@@ -227,7 +228,7 @@ describe("where the reader got to", () => {
     move,
   }: {
     client: QueryClient;
-    onMoved: (cfi: string) => void;
+    onMoved: (place: Place) => void;
     move: boolean;
   }) {
     useLayoutEffect(() => {
@@ -263,6 +264,9 @@ describe("where the reader got to", () => {
 
     rerender(<MoveOnCommit client={client} onMoved={fresh} move />);
 
-    expect([old.mock.calls, fresh.mock.calls]).toEqual([[], [["second"]]]);
+    expect([old.mock.calls, fresh.mock.calls.map(([place]) => place.cfi)]).toEqual([
+      [],
+      ["second"],
+    ]);
   });
 });

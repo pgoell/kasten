@@ -64,8 +64,8 @@ There is no Anki import, no trash and no terminal. Each is a specific hazard,
 named above on purpose. The asset upload and the page fetch were on that list
 too, until the eighth capability below took a narrow piece of each.
 
-Every token grants all eleven. There are no scopes, no read-only tokens and no
-expiry, which is a cut made for effort rather than a considered design. What a
+Every token grants all eleven but a reading token, which opens one route. There
+is no expiry, a cut made for effort rather than a considered design. What a
 token does have is a name and a revoke button, and that is the thing a single
 environment variable cannot buy at any price: losing a laptop costs one revoke
 rather than rotating a secret every agent shares.

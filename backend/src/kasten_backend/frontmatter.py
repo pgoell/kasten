@@ -159,6 +159,13 @@ def created(content: str) -> str | None:
     return line.partition(":")[2].strip().strip("\"'") or None
 
 
+def field(content: str, name: str) -> str | None:
+    """The block's field `name` as one line, quotes stripped, or None when the block has none."""
+    block, _ = _split(content)
+    line = _line(name, block)
+    return None if line is None else line.partition(":")[2].strip().strip("\"'")
+
+
 def description(content: str) -> str:
     """The block's `description` field as it is written, quotes stripped, or empty.
 

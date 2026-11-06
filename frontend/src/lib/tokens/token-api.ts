@@ -7,6 +7,9 @@ export type TokenUse = components["schemas"]["TokenUse"];
 /** One request a token made: when, what it asked for and what the vault answered. */
 export type TokenAction = components["schemas"]["TokenActionRead"];
 
+/** What a token opens: `reading` is `GET /agent/reading` alone, `agent` all of `/agent/`. */
+export type Scope = components["schemas"]["TokenName"]["scope"];
+
 /** One agent token as it is handed over, secret and all, exactly once. */
 export type Minted = components["schemas"]["Minted"];
 
@@ -38,8 +41,8 @@ export async function fetchTokenActions(name: string): Promise<TokenAction[]> {
  * Mints one agent token and returns its only copy of the secret. The refusal reason is shown
  * to the typist: a taken name is the one failure they can fix.
  */
-export async function createToken(name: string): Promise<Minted> {
-  const { data, error, response } = await client.POST("/api/tokens", { body: { name } });
+export async function createToken(name: string, scope: Scope = "agent"): Promise<Minted> {
+  const { data, error, response } = await client.POST("/api/tokens", { body: { name, scope } });
 
   if (!data) {
     throw new Error(reason(error) ?? `POST /api/tokens failed with ${response.status}`);

@@ -3,7 +3,7 @@ type: Reference
 title: Agent API
 description: The routes an agent outside the box reaches the vault with, the bearer token they require, and the OAuth flow that issues one to a browser product.
 resource: backend/src/kasten_backend/agent_routes.py
-tags: [api, agent, tokens, oauth, backend]
+tags: [api, agent, tokens, oauth, backend, books]
 status: stable
 ---
 
@@ -63,6 +63,35 @@ exist reads as an empty list, and no digest matches nothing.
 The token's name is recorded with the write it makes: an agent's change reads
 `agent(laptop): daily/2026-08-18.md` in `jj log`, where a browser's reads
 `vault: daily/2026-08-18.md`.
+
+## Reading tokens and GET /agent/reading
+
+A token minted with the `reading` scope opens `GET /agent/reading` and nothing
+else. Every other route under `/agent/`, `POST /agent/mcp` included, refuses it
+with the `401` and the sentence above. A full token may call the route too.
+Tick "Reading only" at `/tokens` to mint one, or send `"scope": "reading"` to
+[`POST /api/tokens`](/reference/http-api/system.md#post-apitokens). The store
+keeps reading tokens in `tokens-reading.json` beside `tokens.json`, a digest
+each, so an older backend that reads only `tokens.json` refuses them rather
+than taking them for full tokens.
+
+The route answers the book you are reading, for the Reading pane on pgoell.com:
+
+```json
+{ "title": "The Staff Engineer's Path", "author": "Tanya Reilly", "progress": 0.41, "read_at": "2026-11-05T21:30:00+01:00" }
+```
+
+The book is the note the first `[[link]]` in `reading-now.md` names, in the
+[config folder](/reference/configuration.md#the-vaults-folders). When that file
+is missing or names no note, it is the note with a `reading:` field and the
+newest `read_at:`. A note qualifies only with both fields and a `read_at:` that
+reads as a time, so a `reading-now.md` naming a note without one answers `204`
+with no body, as a vault with no qualifying note does.
+
+`title` is the note's name. `author`, `progress` and `read_at` are the
+[fields the reader writes](/reference/note-frontmatter.md#every-other-field-is-yours);
+`author` and `progress` are `null` when the note has none. Nothing else of the
+note is in the answer: no path, no body and no cfi.
 
 ## Related
 

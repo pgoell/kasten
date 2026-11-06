@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
+import type { Place } from "@/lib/book/foliate-view";
 
 /** Sixty seconds. A bookmark does not need five-second precision. */
 const WAIT_MS = 60_000;
@@ -8,38 +9,38 @@ const WAIT_MS = 60_000;
  * the position, and false leaves it for the next chance. It must not throw, or a position is lost.
  * Keyed by note path, so two readers on one note share a timer.
  */
-export function useBookmark(write: (note: string, cfi: string) => Promise<boolean>): {
-  /** The reader in `note` turned to `cfi`. Starts the wait again. */
-  moved: (note: string, cfi: string) => void;
+export function useBookmark(write: (note: string, place: Place) => Promise<boolean>): {
+  /** The reader in `note` turned to `place`. Starts the wait again. */
+  moved: (note: string, place: Place) => void;
   /** Write what `note` is waiting on now, if anything is, settling once that write ends. */
   flush: (note: string) => Promise<void>;
   /** Drop the wait on `note`, keeping where the reader got to. */
   cancel: (note: string) => void;
 } {
   /** Where each reader got to, with nothing having written it. */
-  const pending = useRef(new Map<string, string>());
+  const pending = useRef(new Map<string, Place>());
   /** One timer per note, cleared and restarted by every `moved`. */
   const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
-  /** The last position this session put on disk, per note. */
+  /** The cfi of the last position this session put on disk, per note. */
   const sent = useRef(new Map<string, string>());
   /** The notes with a write out, which is the one at a time rule. */
   const writing = useRef(new Map<string, Promise<void>>());
 
   const send = useCallback(
     (note: string) => {
-      const cfi = pending.current.get(note);
+      const place = pending.current.get(note);
       // Nothing new to say, or the note is already being written. Added before any await, so two
       // calls in one tick cannot both pass.
-      if (cfi === undefined || cfi === sent.current.get(note)) return;
+      if (place === undefined || place.cfi === sent.current.get(note)) return;
       if (writing.current.has(note)) return writing.current.get(note);
 
-      const out = write(note, cfi).then(
+      const out = write(note, place).then(
         (took) => {
           writing.current.delete(note);
           if (!took) return;
-          sent.current.set(note, cfi);
+          sent.current.set(note, place.cfi);
           // Only where nothing newer arrived while this was out.
-          if (pending.current.get(note) === cfi) pending.current.delete(note);
+          if (pending.current.get(note) === place) pending.current.delete(note);
         },
         // A two-arm `then`: a `write` that throws would gate its note for the page's life.
         () => {
@@ -59,8 +60,8 @@ export function useBookmark(write: (note: string, cfi: string) => Promise<boolea
   }, []);
 
   const moved = useCallback(
-    (note: string, cfi: string) => {
-      pending.current.set(note, cfi);
+    (note: string, place: Place) => {
+      pending.current.set(note, place);
       clear(note);
       timers.current.set(
         note,

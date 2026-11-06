@@ -104,12 +104,11 @@ changing it on a running vault writes a fresh set in the new place and leaves
 the old ones where they are. Move them yourself if you want to keep your edits.
 
 `reading-now.md` is not a startup note. You write it, and kasten only reads it:
-nothing creates it or changes it, except a move of the book's note, which
-rewrites the link as it rewrites any other. Its body holds one `[[wikilink]]` to
+nothing writes it but a move of the book's note, which rewrites the link. Its body holds one `[[wikilink]]` to
 the note of the book you are reading, such as `[[The Expectant Father]]`, and
 the link resolves by the vault's usual rule. With several links the first one
 counts. [`<leader>gc`](/reference/editor-keys/book-pane.md#the-book-pane) reads it afresh
-on each press and opens that book.
+on each press and opens that book, and `GET /agent/reading` answers it.
 
 Changing a folder setting moves nothing. Notes already in the old folder stay
 there, and the links to them keep working.
@@ -209,9 +208,9 @@ refused until you mint again.
 A store that does not exist reads as an empty list, so a box with no tokens
 refuses every bearer rather than failing to start.
 
-A revoked token's record moves out of this file into `tokens-revoked.json`,
-beside it, so a request that token makes later can still be named in the action
-log. Both files sit in the same directory and are written the same way.
+Reading tokens live in `tokens-reading.json` beside it. A revoked token's record
+moves to `tokens-revoked.json`, so the action log can still name its requests.
+All three sit in one directory and are written the same way.
 
 `tokens-revoked.json` keeps the last 50 records; [revoking a token](/reference/http-api/system.md) says why that, or a broken file, cannot let one back in.
 

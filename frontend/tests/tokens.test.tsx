@@ -11,12 +11,17 @@ import { routeTree } from "@/routeTree.gen";
  * Both halves of that are what this file is for: that it is shown once, and that
  * a revoke reaches the route rather than only the row.
  */
-const TOKENS = [
-  { name: "laptop", created: "2026-08-18T09:00:00Z" },
-  { name: "cron", created: "2026-08-17T09:00:00Z" },
+const TOKENS: api.TokenUse[] = [
+  { name: "laptop", created: "2026-08-18T09:00:00Z", scope: "agent" },
+  { name: "cron", created: "2026-08-17T09:00:00Z", scope: "agent" },
 ];
 
-const MINTED = { name: "phone", created: "2026-08-18T10:00:00Z", secret: "kasten_abc123" };
+const MINTED: api.Minted = {
+  name: "phone",
+  created: "2026-08-18T10:00:00Z",
+  scope: "agent",
+  secret: "kasten_abc123",
+};
 
 async function renderRoute() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -60,8 +65,22 @@ describe("the tokens route", () => {
     fireEvent.click(screen.getByRole("button", { name: "Mint" }));
 
     expect(await screen.findByText(MINTED.secret)).toBeInTheDocument();
-    expect(createToken).toHaveBeenCalledWith("phone");
+    expect(createToken).toHaveBeenCalledWith("phone", "agent");
     expect(screen.getAllByText(MINTED.secret)).toHaveLength(1);
+  });
+
+  it("mints a reading-only token and shows how to call its one route", async () => {
+    const createToken = vi
+      .spyOn(api, "createToken")
+      .mockResolvedValue({ ...MINTED, name: "website", scope: "reading" });
+    await renderRoute();
+
+    fireEvent.change(await screen.findByLabelText("Name"), { target: { value: "website" } });
+    fireEvent.click(screen.getByRole("checkbox"));
+    fireEvent.click(screen.getByRole("button", { name: "Mint" }));
+
+    expect(await screen.findByText(/\/agent\/reading$/)).toBeInTheDocument();
+    expect(createToken).toHaveBeenCalledWith("website", "reading");
   });
 
   it("revokes the row's own token and reads the list again", async () => {
@@ -83,7 +102,9 @@ describe("the tokens route", () => {
     vi.spyOn(api, "createToken").mockResolvedValue(MINTED);
     vi.spyOn(api, "revokeToken").mockResolvedValue(undefined);
     vi.spyOn(window, "confirm").mockReturnValue(true);
-    vi.spyOn(api, "fetchTokens").mockResolvedValue([{ name: "phone", created: MINTED.created }]);
+    vi.spyOn(api, "fetchTokens").mockResolvedValue([
+      { name: "phone", created: MINTED.created, scope: "agent" },
+    ]);
     await renderRoute();
 
     fireEvent.change(await screen.findByLabelText("Name"), { target: { value: "phone" } });

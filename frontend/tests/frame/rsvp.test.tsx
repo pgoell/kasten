@@ -19,7 +19,7 @@ import { commands as browser, userEvent } from "vitest/browser";
 import { BookPane } from "@/components/book-pane";
 import { HtmlPane } from "@/components/html-pane";
 import { PdfPane } from "@/components/pdf-pane";
-import type { FoliateView } from "@/lib/book/foliate-view";
+import type { FoliateView, Place } from "@/lib/book/foliate-view";
 import type { RsvpAsk } from "@/lib/panes/rsvp/use-rsvp";
 import "@/styles/app.css";
 import contentsUrl from "../fixtures/contents.pdf?url";
@@ -150,7 +150,7 @@ describe("RSVP over a page", () => {
 });
 
 /** The book pane over `url`, with the note it reads beside holding `note`. */
-function bookPane(url: string, path: string, onMoved: (cfi: string) => void) {
+function bookPane(url: string, path: string, onMoved: (place: Place) => void) {
   return async (note = "") => {
     fetchBook.mockResolvedValue({ path, blob: await (await fetch(url)).blob() });
     fetchNote.mockResolvedValue(note);
@@ -189,7 +189,7 @@ async function askWhenOpen(pane: (rsvp: RsvpAsk) => ReactNode) {
 describe("RSVP over a book", () => {
   it("reads an epub, and moves between its place and reading:", async () => {
     const moved: string[] = [];
-    const pane = await bookPane(plainUrl, "rsvp/Plain.epub", (cfi) => moved.push(cfi))();
+    const pane = await bookPane(plainUrl, "rsvp/Plain.epub", (place) => moved.push(place.cfi))();
     await askWhenOpen(pane);
 
     const first = await shown();
@@ -214,7 +214,9 @@ describe("RSVP over a book", () => {
 
   it("reads a pdf opened as a book, page by page", async () => {
     const moved: string[] = [];
-    const pane = await bookPane(contentsUrl, "rsvp/Contents.pdf", (cfi) => moved.push(cfi))();
+    const pane = await bookPane(contentsUrl, "rsvp/Contents.pdf", (place) =>
+      moved.push(place.cfi),
+    )();
     await askWhenOpen(pane);
 
     expect(await shown()).not.toBe("");

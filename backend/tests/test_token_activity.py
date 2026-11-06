@@ -200,7 +200,9 @@ async def test_the_listing_answers_without_a_database(
     response = await client.get("/api/tokens")
 
     assert response.status_code == 200
-    assert response.json() == [{"name": "laptop", "created": created, "last_used": None}]
+    assert response.json() == [
+        {"name": "laptop", "created": created, "scope": "agent", "last_used": None}
+    ]
 
 
 async def test_a_revoked_name_mints_again_and_never_lists(

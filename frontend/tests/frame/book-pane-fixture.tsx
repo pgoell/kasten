@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRoot, type Root } from "react-dom/client";
 import { userEvent } from "vitest/browser";
 import { BookPane } from "@/components/book-pane";
+import type { Place } from "@/lib/book/foliate-view";
 import { fetchBook, fetchNote } from "@/lib/core/api";
 import { applyTheme, PALETTE_KEY, type Palette, THEME_KEY, type Theme } from "@/lib/ui/theme";
 // A book written for a white page (#467). Two chapters, `One` and `Two`, with
@@ -189,7 +190,7 @@ export async function drawDark(): Promise<{ doc: Document; container: HTMLElemen
 export async function drawBook(
   note = "",
   book = plainUrl,
-  onMoved: (cfi: string) => void = () => {},
+  onMoved: (place: Place) => void = () => {},
 ) {
   // The Perf job runs no backend and vite proxies `/api` to a dead port, so the
   // pane must not fetch here. Seeding the query instead is a trap: seeded data is

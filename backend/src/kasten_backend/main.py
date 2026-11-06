@@ -13,7 +13,13 @@ from pydantic import BaseModel
 from kasten_backend import agent_mcp, food, log, token_activity, uploads
 from kasten_backend.agent import ConflictError, EmptyCaptureError, TooLargeError
 from kasten_backend.agent_oauth import router as oauth_router
-from kasten_backend.agent_routes import note_changed, nothing_to_capture, refused, too_large
+from kasten_backend.agent_routes import (
+    note_changed,
+    nothing_to_capture,
+    reading_router,
+    refused,
+    too_large,
+)
 from kasten_backend.agent_routes import router as agent_router
 from kasten_backend.build import build_id
 from kasten_backend.config import Settings, get_settings
@@ -120,6 +126,7 @@ would reach the bearer check and answer 401.
 """
 
 app.include_router(agent_router)
+app.include_router(reading_router)
 app.add_exception_handler(ConflictError, note_changed)
 app.add_exception_handler(TooLargeError, too_large)
 app.add_exception_handler(EmptyCaptureError, nothing_to_capture)

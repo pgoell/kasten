@@ -7,6 +7,7 @@ import {
   useEffect,
   useState,
 } from "react";
+import type { Place } from "@/lib/book/foliate-view";
 import { type BookBeside, ChangedOnDisk, type Mention, saveNote, updateNote } from "@/lib/core/api";
 import { bookType } from "@/lib/notes/links/note-path";
 import { noteBase } from "@/lib/notes/note-base";
@@ -22,6 +23,28 @@ import { escapedParagraphs } from "@/lib/takes/html-take";
 import { newId } from "@/lib/todo/todo";
 
 export type GuardedWrites = ReturnType<typeof useGuardedWrites>;
+
+/**
+ * `text` with the reader's place, `progress:` when the view has an honest number, `read_at:`, and
+ * the book's `author:` when the note has none, so a hand-set author stays. `GET /agent/reading` reads them.
+ */
+export function placed(text: string, place: Place): string {
+  let next = setField(setField(text, "reading", place.cfi), "read_at", localTime(new Date()));
+  if (place.progress !== null) next = setField(next, "progress", place.progress.toFixed(2));
+  if (place.author !== undefined && !readField(text, "author")) {
+    // Quoted: a colon or a leading quote in a name would break the YAML.
+    next = setField(next, "author", JSON.stringify(place.author));
+  }
+  return next;
+}
+
+/** `moment` as ISO 8601 in the browser's zone, with its offset. */
+function localTime(moment: Date): string {
+  const offset = -moment.getTimezoneOffset();
+  const local = new Date(moment.getTime() + offset * 60_000).toISOString().slice(0, 19);
+  const pad = (n: number) => String(Math.floor(Math.abs(n))).padStart(2, "0");
+  return `${local}${offset < 0 ? "-" : "+"}${pad(offset / 60)}:${pad(offset % 60)}`;
+}
 
 type FocusedWriting = { path: string | undefined; isWriting: (note: string) => boolean };
 
@@ -105,7 +128,7 @@ export function useGuardedWrites({
 
   // Memoized, so `flush` keeps one identity: the pane commands hold it.
   const writeBookmark = useCallback(
-    (note: string, cfi: string) =>
+    (note: string, place: Place) =>
       writePosition(note, (text) => {
         // Rides the position write, not the upload: a refused write is retried on the next page,
         // and a file dropped in from the shell is read without an upload.
@@ -117,7 +140,7 @@ export function useGuardedWrites({
           held === undefined || held === "Note"
             ? setField(text, "type", beside === undefined ? "Book" : bookType(beside.path))
             : text;
-        return setField(typed, "reading", cfi);
+        return placed(typed, place);
       }),
     [writePosition, queryClient],
   );
