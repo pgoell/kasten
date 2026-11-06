@@ -1,6 +1,6 @@
 /**
  * Where a finger meets the graph's canvas: the hit areas, sized so a finger can
- * hit a note, and the pinch that wins over a note's drag.
+ * hit a note, the pinch that wins over a note's drag, and which fingers zoom counts.
  */
 
 import { select } from "d3-selection";
@@ -23,6 +23,30 @@ export function radialHitRadius(dot: number, coarse: boolean): number {
   return coarse ? Math.max(drawn, FINGER / 2) : drawn;
 }
 
+/**
+ * Hands d3-zoom's touchstart only the fingers on the canvas: it reads every finger on the screen,
+ * so a thumb resting on the touch row would turn a one-finger pan into a zoom about it (#1289).
+ */
+function zoomOnOwnTouches(canvas: HTMLCanvasElement) {
+  const start = select(canvas).on("touchstart.zoom");
+  if (start === undefined) return;
+  // Re-adding keeps zoom's listener behind d3-drag's, where force-graph put it.
+  select(canvas).on(
+    "touchstart.zoom",
+    function (this: HTMLCanvasElement, event: TouchEvent, datum) {
+      const touches = [...event.touches].filter((one) => one.target === canvas);
+      const own = new Proxy(event, {
+        get(real, key) {
+          if (key === "touches") return touches;
+          const value = Reflect.get(real, key);
+          return typeof value === "function" ? value.bind(real) : value;
+        },
+      });
+      start.call(this, own, datum);
+    },
+  );
+}
+
 /** What `pinchOverDrag` gives the canvas back. */
 export interface PinchOverDrag {
   /** Whether the touch going on, or the last one, had two fingers in the box: then its lift is no tap. */
@@ -42,6 +66,7 @@ export function pinchOverDrag(
   const canvas = element.querySelector("canvas");
   if (canvas === null) return { pinched: () => false, stop: () => {} };
   const endDrag = select(canvas).on("touchend.drag");
+  zoomOnOwnTouches(canvas);
   const listening = new AbortController();
   const options = { capture: true, signal: listening.signal };
   element.addEventListener(

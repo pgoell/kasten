@@ -11,21 +11,13 @@
 
 import { commands as browser, userEvent } from "vitest/browser";
 import { DESKTOP, need, picture } from "./reader-fixture";
-import {
-  boxOf,
-  DEV_ANSWER,
-  mountPane,
-  registerVaultFixture,
-  serveGraph,
-  setUp,
-  untilCounted,
-  untilStill,
-} from "./vault-graph-fixture";
+import { DEV_ANSWER, registerVaultFixture, untilStill } from "./vault-graph-fixture";
 import {
   backgroundNear,
   blank,
   boxIn,
   canvasOf,
+  desktop,
   fingers,
   fitted,
   graphAt,
@@ -38,6 +30,8 @@ import {
   NAMES_FULL,
   noteWithBackground,
   PHONE,
+  panSteps,
+  pause,
   phone,
   pinch,
   placeOf,
@@ -46,9 +40,11 @@ import {
   spread,
   still,
   tap,
+  thumbOnRow,
   twoNotes,
   unmoved,
   view,
+  viewAbout,
   zoomedAbout,
 } from "./vault-graph-pinch-fixture";
 
@@ -155,9 +151,7 @@ describe("#992 the vault graph zooms under fingers on a phone", () => {
     const fit = await fitted(host);
     const before = view();
 
-    await browser.touchDrag(
-      [0, 1, 2, 3, 4, 5].map((step) => inPage(host, { x: 10 + step * 20, y: 10 + step * 15 })),
-    );
+    await browser.touchDrag(panSteps(0).map((at) => inPage(host, at)));
 
     const after = view();
     expect(after.k).toBeCloseTo(fit, 6);
@@ -177,7 +171,7 @@ describe("#992 the vault graph zooms under fingers on a phone", () => {
 
       await tap(host, at);
       expect(onOpen).not.toHaveBeenCalled();
-      await new Promise((done) => setTimeout(done, 400));
+      await pause(400);
       await tap(host, at);
 
       await vi.waitFor(() => expect(onOpen).toHaveBeenCalledWith(hub));
@@ -203,18 +197,12 @@ describe("#992 the vault graph zooms under fingers on a phone", () => {
 describe("#992 the vault graph on a desktop", () => {
   for (const vim of ["on", "off"] as const) {
     it(`#992 A8 with vim ${vim}, a desktop opens at the fit and the wheel zooms about the pointer with no phone limits`, async () => {
-      await setUp(DESKTOP, "light", "folders", vim);
-      serveGraph(DEV_ANSWER);
-      const host = boxOf(DESKTOP.width, DESKTOP.height);
-      await mountPane(host);
-      await untilCounted(host);
-      // The settle fits, and moves for 400 ms after the drawing stops.
-      await untilStill(host);
+      const host = await desktop(vim);
       const opened = await still();
       need(host.querySelector<HTMLElement>("[data-graph-pane]"), "pane").focus();
       await userEvent.keyboard("f");
       // The fit moves for 300 ms, and would take back a wheel turned before it ends.
-      await new Promise((done) => setTimeout(done, 400));
+      await pause(400);
       expect(view().k).toBeCloseTo(opened, 3);
       expect(readout(host)).toBeNull();
 
@@ -245,7 +233,7 @@ describe("#1286 a pinch that meets a note zooms the vault graph on a phone", () 
       const was = placeOf(host, note.path);
       const a = { id: 0, ...note.at };
       const b = { id: 1, ...note.empty };
-      const before = { k: view().k, under: graphAt(host, middleOf(a, b)) };
+      const before = viewAbout(host, a, b);
 
       await fingers(host, [[a], [a, b], ...spread(a, b, 20)]);
 
@@ -253,10 +241,10 @@ describe("#1286 a pinch that meets a note zooms the vault graph on a phone", () 
       unmoved(host, note.path, was);
       // I4: the fingers' lift after the pinch is no tap, so it opens nothing and
       // picks nothing: had it picked the note, one tap on it now would open it.
-      await new Promise((done) => setTimeout(done, 900));
+      await pause(900);
       expect(onOpen).not.toHaveBeenCalled();
       await tap(host, need(canvasOf().screenOf(note.path), note.path));
-      await new Promise((done) => setTimeout(done, 400));
+      await pause(400);
       expect(onOpen).not.toHaveBeenCalled();
     });
   }
@@ -269,7 +257,7 @@ describe("#1286 a pinch that meets a note zooms the vault graph on a phone", () 
     const wasTwo = placeOf(host, two.path);
     const a = { id: 0, ...one.at };
     const b = { id: 1, ...two.at };
-    const before = { k: view().k, under: graphAt(host, middleOf(a, b)) };
+    const before = viewAbout(host, a, b);
 
     await fingers(host, [[a], [a, b], ...spread(a, b, 20)]);
 
@@ -284,12 +272,12 @@ describe("#1286 a pinch that meets a note zooms the vault graph on a phone", () 
     const note = noteWithBackground(host);
     const a = { id: 0, ...note.at };
     const b = { id: 1, ...note.empty };
-    const before = { k: view().k, under: graphAt(host, middleOf(a, b)) };
+    const before = viewAbout(host, a, b);
     await fingers(host, [[a], [a, b], ...spread(a, b, 20)]);
     zoomedAbout(host, before, a, b, 20);
     await still();
     // The shadow canvas paints the hit areas at most every 800 ms while frames draw.
-    await new Promise((done) => setTimeout(done, 900));
+    await pause(900);
 
     const [moved] = loneNotes(host).filter(
       ({ at }) => blank({ x: at.x + 60, y: at.y }) && at.x < 300,
@@ -307,11 +295,11 @@ describe("#1286 a pinch that meets a note zooms the vault graph on a phone", () 
 
     // The drop lets the note go, and the drawing settles round it again.
     await untilStill(host);
-    await new Promise((done) => setTimeout(done, 900));
+    await pause(900);
     const at = need(canvasOf().screenOf(target.path), "dragged note");
     await tap(host, at);
     expect(onOpen).not.toHaveBeenCalled();
-    await new Promise((done) => setTimeout(done, 400));
+    await pause(400);
     await tap(host, at);
     await vi.waitFor(() => expect(onOpen).toHaveBeenCalledWith(target.path));
   });
@@ -323,7 +311,7 @@ describe("#1286 a pinch that meets a note zooms the vault graph on a phone", () 
     const was = placeOf(host, note.path);
     const a = { id: 0, ...note.empty };
     const b = { id: 1, ...note.at };
-    const before = { k: view().k, under: graphAt(host, middleOf(a, b)) };
+    const before = viewAbout(host, a, b);
 
     await fingers(host, [[a], [a, b], ...spread(a, b, 20)]);
 
@@ -338,7 +326,7 @@ describe("#1286 a pinch that meets a note zooms the vault graph on a phone", () 
     const was = placeOf(host, note.path);
     const a = { id: 0, ...note.at };
     const b = { id: 1, ...note.empty };
-    const before = { k: view().k, under: graphAt(host, middleOf(a, b)) };
+    const before = viewAbout(host, a, b);
     const frames = spread(a, b, 20);
     const last = need(frames.at(-1)?.[0], "first finger's last spot");
     const pan = [1, 2, 3].map((step) => [{ id: 0, x: last.x, y: last.y + step * 15 }]);
@@ -365,7 +353,7 @@ describe("#1286 a pinch that meets a note zooms the vault graph on a phone", () 
     const a = { id: 0, ...note.empty };
     const b = { id: 1, ...backgroundNear(host, a) };
     const c = { id: 2, ...note.at };
-    const before = { k: view().k, under: graphAt(host, middleOf(a, b)) };
+    const before = viewAbout(host, a, b);
     const frames = spread(a, b, 15).map((frame, step) => [
       ...frame,
       { id: 2, x: c.x - (step + 1) * 4, y: c.y - (step + 1) * 4 },
@@ -392,11 +380,11 @@ describe("#1286 review: a pinch after a drag, and a thumb outside the graph", ()
     // The note kept the drag up to the second finger, and the pinch took it no further.
     expect(placeOf(host, one.path).x - was.x).toBeGreaterThan(15 / view().k);
     await untilStill(host);
-    await new Promise((done) => setTimeout(done, 900));
+    await pause(900);
     expect(onOpen).not.toHaveBeenCalled();
     // Had the lift picked the second note, one tap on it now would open it.
     await tap(host, need(canvasOf().screenOf(two.path), two.path));
-    await new Promise((done) => setTimeout(done, 400));
+    await pause(400);
     expect(onOpen).not.toHaveBeenCalled();
   });
 
@@ -406,13 +394,7 @@ describe("#1286 review: a pinch after a drag, and a thumb outside the graph", ()
     const [note] = loneNotes(host).filter(({ at }) => at.x < 300);
     const target = need(note, "a note with room to its right");
     const was = placeOf(host, target.path);
-    const row = need(readout(host), "readout").getBoundingClientRect();
-    const box = boxIn(host).getBoundingClientRect();
-    const thumb = {
-      id: 0,
-      x: row.left + row.width / 2 - box.left,
-      y: row.top + row.height / 2 - box.top,
-    };
+    const thumb = thumbOnRow(host);
     const drag = [1, 2, 3, 4, 5, 6].map((step) => [
       thumb,
       { id: 1, x: target.at.x + step * 10, y: target.at.y },
@@ -421,6 +403,38 @@ describe("#1286 review: a pinch after a drag, and a thumb outside the graph", ()
     await fingers(host, [[thumb], [thumb, { id: 1, ...target.at }], ...drag, [thumb]]);
 
     expect(placeOf(host, target.path).x - was.x).toBeGreaterThan(30 / view().k);
+  });
+});
+
+describe("#1289 a thumb resting outside the vault graph", () => {
+  for (const vim of ["on", "off"] as const) {
+    it(`#1289 A1 with vim ${vim}, a thumb on the touch row and one finger on the background pan the graph, and the zoom holds`, async () => {
+      const { host } = await phone(vim);
+      const fit = await fitted(host);
+      const before = view();
+      const thumb = thumbOnRow(host);
+
+      await fingers(host, [[thumb], ...panSteps(1).map((at) => [thumb, at]), [thumb]]);
+
+      const after = view();
+      expect(after.k).toBeCloseTo(fit, 6);
+      expect((before.x - after.x) * fit).toBeCloseTo(100, 0);
+      expect((before.y - after.y) * fit).toBeCloseTo(75, 0);
+    });
+  }
+
+  it("#1289 A2 a pinch on the canvas with a thumb on the touch row zooms about its two fingers", async () => {
+    const { host } = await phone();
+    await still();
+    const thumb = thumbOnRow(host);
+    const a = { id: 1, ...backgroundNear(host, { x: 150, y: 400 }) };
+    const b = { id: 2, ...backgroundNear(host, a) };
+    const before = viewAbout(host, a, b);
+    const frames = spread(a, b, 20).map((frame) => [thumb, ...frame]);
+
+    await fingers(host, [[thumb], [thumb, a], [thumb, a, b], ...frames, [thumb]]);
+
+    zoomedAbout(host, before, a, b, 20);
   });
 });
 
@@ -438,7 +452,7 @@ describe("#1291 a finger right after the view moves", () => {
     await still();
     const { fit: refit } = canvasOf();
     refit();
-    await new Promise((done) => setTimeout(done, 30));
+    await pause(30);
     // Held past the fit's end, so its last frame is one long step, as on a stalled runner.
     const end = performance.now() + 330;
     while (performance.now() < end);
@@ -458,12 +472,7 @@ describe("#1291 a finger right after the view moves", () => {
 describe("#1286 the vault graph on a desktop", () => {
   for (const vim of ["on", "off"] as const) {
     it(`#1286 A4 with vim ${vim}, a mouse drag on a desktop still moves a note`, async () => {
-      await setUp(DESKTOP, "light", "folders", vim);
-      serveGraph(DEV_ANSWER);
-      const host = boxOf(DESKTOP.width, DESKTOP.height);
-      await mountPane(host);
-      await untilCounted(host);
-      await untilStill(host);
+      const host = await desktop(vim);
       await still();
       const [target] = loneNotes(host).filter(({ at }) => blank({ x: at.x + 60, y: at.y }));
       const note = need(target, "a note with room to its right");
@@ -494,12 +503,7 @@ describe("#992 pictures", () => {
     });
 
     it.skipIf(!SHOTS)(`vault-graph-zoom-1440-${theme}`, async () => {
-      await setUp(DESKTOP, theme, "folders");
-      serveGraph(DEV_ANSWER);
-      const host = boxOf(DESKTOP.width, DESKTOP.height);
-      await mountPane(host);
-      await untilCounted(host);
-      await untilStill(host);
+      const host = await desktop("on", theme);
       await picture(host, `vault-graph-zoom-1440-${theme}`, DESKTOP);
     });
   }

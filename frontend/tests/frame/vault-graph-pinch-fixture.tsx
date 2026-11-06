@@ -10,7 +10,7 @@
 import { act } from "react";
 import { commands as browser, userEvent } from "vitest/browser";
 import type { GraphCanvas } from "@/lib/graph/graph-canvas";
-import { need } from "./reader-fixture";
+import { DESKTOP, need } from "./reader-fixture";
 import {
   boxOf,
   DEV_ANSWER,
@@ -18,6 +18,7 @@ import {
   serveGraph,
   setUp,
   untilCounted,
+  untilStill,
 } from "./vault-graph-fixture";
 
 /** The canvases the pane made, the last the one on screen. */
@@ -116,6 +117,31 @@ export async function phone(vim: "on" | "off" = "on", theme: "light" | "dark" = 
   await vi.waitFor(() => expect(view().k).toBeGreaterThanOrEqual(NAMES_FULL - 0.001), SETTLED);
   return { host, ...spies };
 }
+
+/** The vault graph on a desktop, its drawing settled. */
+export async function desktop(vim: "on" | "off" = "on", theme: "light" | "dark" = "light") {
+  await setUp(DESKTOP, theme, "folders", vim);
+  serveGraph(DEV_ANSWER);
+  const host = boxOf(DESKTOP.width, DESKTOP.height);
+  await mountPane(host);
+  await untilCounted(host);
+  // The settle fits, and moves for 400 ms after the drawing stops.
+  await untilStill(host);
+  return host;
+}
+
+/** A thumb resting on the zoom readout in the touch row, outside the canvas. */
+export function thumbOnRow(host: HTMLElement): Finger {
+  const row = need(readout(host), "readout").getBoundingClientRect();
+  const box = boxIn(host).getBoundingClientRect();
+  return { id: 0, x: row.left + row.width / 2 - box.left, y: row.top + row.height / 2 - box.top };
+}
+
+/** One finger's six steps across the background from the fit's top left margin. */
+export const panSteps = (id: number): Finger[] =>
+  [0, 1, 2, 3, 4, 5].map((step) => ({ id, x: 10 + step * 20, y: 10 + step * 15 }));
+
+export const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
 
 /** Taps fit, and gives back the zoom it settles at. */
 export async function fitted(host: HTMLElement): Promise<number> {
@@ -256,6 +282,12 @@ export async function fingers(host: HTMLElement, frames: Finger[][]) {
 }
 
 export const middleOf = (a: Point, b: Point): Point => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+
+/** The zoom, and the graph point between `a` and `b`, before a pinch. */
+export const viewAbout = (host: HTMLElement, a: Point, b: Point) => ({
+  k: view().k,
+  under: graphAt(host, middleOf(a, b)),
+});
 
 /** Expects the pinch from `a`, `b` spread by `by` to have zoomed about the fingers. */
 export function zoomedAbout(
