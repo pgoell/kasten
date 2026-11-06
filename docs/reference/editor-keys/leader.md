@@ -201,7 +201,7 @@ so it reaches a delete made in another tab, before a reload, or by hand in a
 terminal pane, and it flashes the bar when there is nothing to put back or
 something has taken the path since. Links pointing at a deleted note are left
 alone and draw as links to a note that is not there.
-[Deleting a note](/explanation/deleting-a-note.md) covers why it works this way,
+[Deleting a note](/explanation/trash-and-archive/deleting-a-note.md) covers why it works this way,
 and [Configuration](/reference/configuration.md) how to change the thirty days.
 
 `<leader>gb` and `<leader>go` are a pair and need a note open, one showing what

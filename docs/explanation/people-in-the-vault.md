@@ -30,7 +30,7 @@ saying which notes draw a card. Everything else about a person, who they work
 for, what they are like, what you owe them, stays prose, because prose is what a
 note is for and no schema was ever going to hold it.
 
-This is the same move [the archive](the-archive.md) makes. A folder rather than
+This is the same move [the archive](trash-and-archive/the-archive.md) makes. A folder rather than
 a field, a convention rather than a mechanism, because the vault has to stay
 readable by `cat` when kasten is not running.
 

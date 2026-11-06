@@ -174,7 +174,7 @@ another. The scan walks past that folder, so the cards
 in that note leave the overview and nothing else about the note changes. A deck
 another note still carries the tag of stays, holding what that other note holds.
 That is the whole of archiving here, and it is
-[the archive](/explanation/the-archive.md) doing the work rather than anything
+[the archive](/explanation/trash-and-archive/the-archive.md) doing the work rather than anything
 this format knows about.
 
 Archiving is no longer the only way to take a card out of the review. It moves a

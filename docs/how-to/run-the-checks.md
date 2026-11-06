@@ -26,6 +26,9 @@ skips them, and a skipped job counts as passed.
 database of its own. To debug one test in order, call `uv run pytest <path>`
 yourself.
 
+A new test goes at the highest layer that reproduces the bug: e2e, frame, unit
+or pytest. [Testing layers](/explanation/testing-layers.md) says why.
+
 A push to main skips Lint, Backend, Test and Perf too when the pull request it merged
 already passed them on the same tree. Each pull request run that passes all
 four uploads an artifact named `ci-tested-tree-<tree hash>`, and the push run's

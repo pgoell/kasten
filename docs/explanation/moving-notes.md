@@ -72,7 +72,7 @@ onto its neighbour, and the move it makes rewrites notes you are not looking
 at, some of them nowhere near the folder you meant to touch. The list is what
 lets you see that before it happens.
 
-That is the opposite of the reasoning in [Deleting a note](/explanation/deleting-a-note.md),
+That is the opposite of the reasoning in [Deleting a note](/explanation/trash-and-archive/deleting-a-note.md),
 which has no confirm because the trash undoes a stray key at once. A move has no
 `<leader>du`. The way back is a second move, with rewrites of its own, and
 finding which notes the first one touched means reading jj, which is optional.
@@ -160,4 +160,4 @@ so.
 * [Editor keys](/reference/editor-keys/file-tree.md#dragging-a-row): dragging a row, and the keys in the confirm
 * [Mise tasks](/reference/mise-tasks.md#vault-maintenance): `index:backfill`
 * [OKF in the vault](/explanation/okf-in-the-vault.md): why the vault is a bundle with indexes in it at all
-* [Deleting a note](/explanation/deleting-a-note.md): the other write that takes a folder away
+* [Deleting a note](/explanation/trash-and-archive/deleting-a-note.md): the other write that takes a folder away

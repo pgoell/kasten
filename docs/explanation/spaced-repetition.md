@@ -105,7 +105,7 @@ it files it under `dbt` alone.
 ## Archiving is the archive
 
 There is no "archive this deck" button, no `archived: true`, no key.
-[Moving the note into the archive](/explanation/the-archive.md) takes it out of
+[Moving the note into the archive](/explanation/trash-and-archive/the-archive.md) takes it out of
 the review, because the scan walks past that folder the way search does.
 
 This is the second time that folder has paid for itself without being extended.
@@ -187,6 +187,6 @@ Each of these is a real feature of Anki, left out on purpose:
 ## Related
 
 * [The vault and the derived index](/explanation/vault-and-derived-index.md): why the schedule is in the file
-* [The archive](/explanation/the-archive.md): the folder doing the filing
+* [The archive](/explanation/trash-and-archive/the-archive.md): the folder doing the filing
 * [Flashcard format](/reference/flashcard-format.md): what all this looks like written down
 * [Import an Anki deck](/how-to/import-an-anki-deck.md): the runbook
