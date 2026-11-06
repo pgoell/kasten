@@ -245,7 +245,7 @@ function Home() {
   const { todosWritten, agentTodo } = todos;
   const prompts = usePrompts({
     data,
-    panePath: pane.path,
+    pane,
     narrow,
     setLayout,
     saveFirst,

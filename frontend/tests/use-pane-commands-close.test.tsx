@@ -5,6 +5,7 @@ import { expect, it, vi } from "vitest";
 import { openBeside } from "@/lib/panes/layout/pane-contents";
 import {
   activeTab,
+  addTab,
   emptyLayout,
   fillFocused,
   focusedPane,
@@ -12,11 +13,13 @@ import {
   isEmptyTab,
   type Layout,
   removeFocused,
+  splitFocused,
   tabPanes,
 } from "@/lib/panes/layout/panes";
-import { usePaneCommands } from "@/lib/panes/layout/use-pane-commands";
+import { paneOpeners, usePaneCommands } from "@/lib/panes/layout/use-pane-commands";
 
 const NOTE = "ideas/rag.md";
+type Commands = ReturnType<typeof usePaneCommands>["commands"];
 const PERSON = "people/ada.md";
 const client = new QueryClient();
 
@@ -266,4 +269,111 @@ it("#1605 a focus moved to the note while the place is written still closes the 
   const layout = await closeTwiceWhileWriting(start, (same) => focusPane(same, note));
 
   expect(tabPanes(layout).map((pane) => pane.path)).toEqual([NOTE]);
+});
+
+// Two notes side by side, the focus on the left one, where the key is pressed.
+function leftOfTwo(): Layout {
+  const split = fillFocused(splitFocused(emptyLayout(NOTE), "row"), { path: PERSON });
+  return focusPane(split, tabPanes(split)[0]?.id ?? "");
+}
+
+// Runs a command pressed on the left pane, with the focus moved by `between` before the save answers.
+async function pressedThenMoved(
+  start: Layout,
+  run: (commands: ReturnType<typeof usePaneCommands>["commands"]) => unknown,
+  between: (layout: Layout) => Layout,
+  saved = true,
+) {
+  let answer = (_saved: boolean) => {};
+  const saveFirst = vi.fn(
+    () =>
+      new Promise<boolean>((resolve) => {
+        answer = resolve;
+      }),
+  );
+  const moveTo = vi.fn((_update: (previous: Layout) => Layout) => true);
+  const { result } = renderHook(
+    () =>
+      usePaneCommands({
+        pane: focusedPane(start),
+        setLayout: vi.fn(),
+        saveFirst,
+        moves: { moveTo, focusToward: vi.fn(), shiftToward: vi.fn() },
+        openPeriodic: vi.fn(),
+        setNotice: vi.fn(),
+        paths: [],
+        focusedNote: { current: { path: undefined, isWriting: () => false } },
+        flushBook: vi.fn(async () => {}),
+      }),
+    { wrapper },
+  );
+  const pressed = run(result.current.commands);
+  answer(saved);
+  await pressed;
+  return {
+    moveTo,
+    layout: moveTo.mock.calls.reduce((layout, [update]) => update(layout), between(start)),
+  };
+}
+
+const toRight = (layout: Layout) => focusPane(layout, tabPanes(layout)[1]?.id ?? "");
+
+it.each([
+  ["q on a note", (c: Commands) => c.closeNote(), {}],
+  ["todos", (c: Commands) => c.openTodos(), { todos: true }],
+  ["log", (c: Commands) => c.openLog(), { log: true }],
+  ["overview", (c: Commands) => c.openOverview(), { overview: true }],
+  ["finance", (c: Commands) => c.openFinance(), { finance: true }],
+  ["review", (c: Commands) => c.openReview(), { review: true }],
+  ["chat", (c: Commands) => c.openChat(), { chat: true }],
+  ["graph", (c: Commands) => c.openGraph(), { graph: {} }],
+  ["exam", (c: Commands) => c.openExam(), { exam: NOTE }],
+])(
+  "#1609 %s fills the pane it was pressed in when the focus moves during the save",
+  async (_name, run, content) => {
+    const start = leftOfTwo();
+    const left = focusedPane(start).id;
+
+    const { layout } = await pressedThenMoved(start, run, toRight);
+
+    expect(tabPanes(layout)).toEqual([{ id: left, ...content }, { ...tabPanes(start)[1] }]);
+    expect(focusedPane(layout).path).toBe(PERSON);
+  },
+);
+
+it("#1609 q fills the pane it was pressed in when another tab is open by the time the save answers", async () => {
+  const start = leftOfTwo();
+  const left = focusedPane(start).id;
+
+  const { layout } = await pressedThenMoved(start, (c) => c.closeNote(), addTab);
+
+  expect(layout.active).toBe(1);
+  expect(tabPanes({ ...layout, active: 0 })).toEqual([{ id: left }, tabPanes(start)[1]]);
+  expect(focusedPane(layout)).not.toHaveProperty("path");
+});
+
+it("#1609 q fills no pane when its own has gone by the time the save answers", async () => {
+  const start = leftOfTwo();
+
+  const { layout } = await pressedThenMoved(start, (c) => c.closeNote(), removeFocused);
+
+  expect(tabPanes(layout).map((pane) => pane.path)).toEqual([PERSON]);
+});
+
+it("#1609 a refused save changes no pane", async () => {
+  const { moveTo } = await pressedThenMoved(leftOfTwo(), (c) => c.closeNote(), toRight, false);
+
+  expect(moveTo).not.toHaveBeenCalled();
+});
+
+it("#1609 the terminal prompt's opener fills the pane it was asked from", async () => {
+  const start = leftOfTwo();
+  const left = focusedPane(start).id;
+  const moveTo = vi.fn((_update: (previous: Layout) => Layout) => true);
+
+  await paneOpeners(left, async () => true, moveTo).replace({ term: "main" });
+
+  const layout = moveTo.mock.calls[0]?.[0](toRight(start)) as Layout;
+  expect(tabPanes(layout)[0]).toEqual({ id: left, term: "main" });
+  expect(focusedPane(layout).path).toBe(PERSON);
 });

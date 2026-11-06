@@ -285,4 +285,119 @@ describe("the tab keys on the route", () => {
       localStorage.removeItem("kasten.vim");
     }
   });
+
+  /** Two panes, index.md left and other.md right, with an x typed into the left one. */
+  async function typedLeftOfTwo() {
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+    app.leader("%");
+    await settle();
+    app.click("other.md");
+    await settle();
+    app.leader("o");
+    await settle();
+    app.press("x");
+    // jsdom measures nothing: the panes side by side, in the order they are drawn.
+    document.querySelectorAll("[data-pane]").forEach((box, index) => {
+      box.getBoundingClientRect = () =>
+        ({ left: index * 100, top: 0, right: index * 100 + 99, bottom: 100 }) as DOMRect;
+    });
+    return app;
+  }
+
+  /** The next write of index.md waits until the test lets it answer. */
+  function holdIndexSave(): () => void {
+    let answer = () => {};
+    saveNote.mockImplementationOnce(
+      (path: string, content: string) =>
+        new Promise((resolve) => {
+          answer = () => resolve({ path, content });
+        }),
+    );
+    return () => answer();
+  }
+
+  // A pane on its way out, as the last tab's are, drops `data-pane` and is no editor of the window.
+  const editors = () => [...document.querySelectorAll<HTMLElement>("[data-pane] .cm-content")];
+  const typeInto = (editor: HTMLElement, key: string) => fireEvent.keyDown(editor, { key });
+
+  it("Space q closes the note it was pressed on when the focus moves right during the save (#1609)", async () => {
+    const app = await typedLeftOfTwo();
+    const answer = holdIndexSave();
+
+    app.leader("q");
+    await hashed();
+    await settle();
+    app.leader("l");
+    await settle();
+    typeInto(editors()[1] as HTMLElement, "x");
+    answer();
+    await settle();
+
+    expect(saveNote).toHaveBeenCalledWith("index.md", "he index note", false, expect.any(String));
+    expect(app.panes()).toBe(2);
+    // The left pane is emptied in place, as q on a note does; the right keeps what was typed.
+    expect(editors().map((editor) => editor.textContent)).toEqual(["", "he other note"]);
+    expect(app.focusedPane()).toBe(1);
+  });
+
+  it("Space q closes the note it was pressed on when the focus goes to another tab during the save (#1609)", async () => {
+    const app = await renderApp();
+    await settle();
+    app.click("index.md");
+    await settle();
+    app.leader("c", "t");
+    await settle();
+    app.click("other.md");
+    await settle();
+    app.leader("t", "h");
+    await settle();
+    app.press("x");
+    const answer = holdIndexSave();
+
+    app.leader("q");
+    await hashed();
+    await settle();
+    app.leader("t", "l");
+    await settle();
+    const other = editors().find((editor) => editor.textContent === "the other note");
+    typeInto(other as HTMLElement, "x");
+    answer();
+    await settle();
+
+    expect(saveNote).toHaveBeenCalledWith("index.md", "he index note", false, expect.any(String));
+    expect(other?.textContent).toBe("he other note");
+    const raw = JSON.parse(localStorage.getItem(FINE) ?? "null");
+    expect(raw.layout.active).toBe(1);
+    expect(raw.layout.tabs.map((tab: { root: { path?: string } }) => tab.root.path)).toEqual([
+      undefined,
+      "other.md",
+    ]);
+  });
+
+  it("Space q writes what was typed into its note after the key and before the save answered (#1609)", async () => {
+    const app = await typedLeftOfTwo();
+    const answer = holdIndexSave();
+
+    app.leader("q");
+    await hashed();
+    await settle();
+    app.press("x");
+    app.leader("l");
+    await settle();
+    answer();
+    await settle();
+    await hashed();
+    await settle();
+
+    expect(saveNote).toHaveBeenLastCalledWith(
+      "index.md",
+      "e index note",
+      false,
+      expect.any(String),
+    );
+    expect(editors().map((editor) => editor.textContent)).toEqual(["", "the other note"]);
+  });
 });

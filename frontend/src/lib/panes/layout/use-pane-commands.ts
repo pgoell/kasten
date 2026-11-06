@@ -9,6 +9,7 @@ import { heldKind, type KindField, PANE_KINDS } from "@/lib/panes/layout/pane-ki
 import {
   addTab,
   fillFocused,
+  fillPane,
   focusPane,
   goToTab,
   type Layout,
@@ -30,12 +31,17 @@ export type PaneCommands = ReturnType<typeof usePaneCommands>;
 /**
  * The save rule, in one place. `replace` unmounts the editor, which holds the only copy of an
  * unsaved edit, so it saves first and a refused save keeps the note; `beside` unmounts nothing.
- * `replace` answers whether the pane changed.
+ * `replace` fills the pane the key came from, by id, as the focus may move during the save (#1609),
+ * and answers whether the save went through.
  */
-export function paneOpeners(saveFirst: () => Promise<boolean>, moveTo: PaneMoves["moveTo"]) {
+export function paneOpeners(
+  paneId: string,
+  saveFirst: () => Promise<boolean>,
+  moveTo: PaneMoves["moveTo"],
+) {
   return {
     replace: async (content: Omit<PaneOf, "id">) =>
-      (await saveFirst()) && moveTo((previous) => fillFocused(previous, content)),
+      (await saveFirst()) && moveTo((previous) => fillPane(previous, paneId, content)),
     beside: (holds: (pane: PaneOf) => boolean, content: Omit<PaneOf, "id">, dir: Split["dir"]) =>
       moveTo((previous) => openBeside(previous, holds, content, dir)),
   };
@@ -76,7 +82,10 @@ export function usePaneCommands({
   const queryClient = useQueryClient();
   const { playSignal, play } = usePlayAsk();
 
-  const { replace, beside } = useMemo(() => paneOpeners(saveFirst, moveTo), [saveFirst, moveTo]);
+  const { replace, beside } = useMemo(
+    () => paneOpeners(pane.id, saveFirst, moveTo),
+    [pane.id, saveFirst, moveTo],
+  );
   const log = useLogCommands({ pane, saveFirst, openPeriodic, setNotice, paths, focusedNote });
   const kind = heldKind(pane);
 
