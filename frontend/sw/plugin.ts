@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
-import type { Plugin } from "vite";
+import type { Plugin, Rollup } from "vite";
 
 const SOURCE = path.join(import.meta.dirname, "sw.js");
 
@@ -49,6 +49,54 @@ function publicFiles(publicDir: string): string[] {
   return [...listed(""), ...listed("icons")];
 }
 
+/** The `/src/` path in a module id, which marks kasten's own code. */
+const OWN = `${path.sep}src${path.sep}`;
+
+/** The files one emitted file leads the walk on to. */
+function next(
+  bundle: Rollup.OutputBundle,
+  file: Rollup.OutputAsset | Rollup.OutputChunk,
+  assets: string[],
+): string[] {
+  if (file.type === "asset") return named(String(file.source), assets);
+  const own = file.dynamicImports.filter((target) => {
+    const chunk = bundle[target];
+    return chunk?.type === "chunk" && chunk.moduleIds.some((id) => id.includes(OWN));
+  });
+  return [
+    ...named(file.code, assets),
+    ...(file.viteMetadata?.importedCss ?? []),
+    ...(file.viteMetadata?.importedAssets ?? []),
+    ...file.imports,
+    ...own,
+  ];
+}
+
+/** The assets a file's text names, which is how workers, fonts and css are referenced. */
+function named(text: string, assets: string[]): string[] {
+  return assets.filter((asset) => text.includes(path.posix.basename(asset)));
+}
+
+/**
+ * The emitted files the app needs before it has opened anything on demand: what the entry reaches
+ * by static imports, and by dynamic imports of kasten's own code, such as a route. A dynamic import
+ * of a third-party bundle alone (mermaid, KaTeX, elk, zxing, pdf.js) is left to the worker's
+ * cache-on-first-use, with every file only it reaches: megabytes most starts never open.
+ */
+export function precached(bundle: Rollup.OutputBundle): string[] {
+  const files = Object.values(bundle);
+  const assets = files.filter((file) => file.type === "asset").map((file) => file.fileName);
+  const todo = files.filter((file) => file.type === "chunk" && file.isEntry).map((f) => f.fileName);
+  const reached = new Set<string>();
+  for (let name = todo.pop(); name !== undefined; name = todo.pop()) {
+    const file = bundle[name];
+    if (file === undefined || reached.has(name)) continue;
+    reached.add(name);
+    todo.push(...next(bundle, file, assets));
+  }
+  return [...reached].filter((name) => name.startsWith("assets/")).map((name) => `/${name}`);
+}
+
 /**
  * Emit `/sw.js` beside `index.html`.
  *
@@ -68,9 +116,7 @@ export function serviceWorker(): Plugin {
       publicDir = config.publicDir;
     },
     generateBundle(_options, bundle) {
-      const assets = Object.keys(bundle)
-        .filter((name) => name.startsWith("assets/"))
-        .map((name) => `/${name}`);
+      const assets = precached(bundle);
       const files = publicDir === "" ? [] : publicFiles(publicDir);
       this.emitFile({
         type: "asset",

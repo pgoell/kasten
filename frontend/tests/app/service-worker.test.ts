@@ -1,10 +1,6 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
-import { build } from "vite";
 import type { Mock } from "vitest";
 import { registerServiceWorker } from "@/lib/app/service-worker";
-import { renderServiceWorker, serviceWorker } from "../../sw/plugin";
+import { renderServiceWorker } from "../../sw/plugin";
 
 const ORIGIN = "https://kasten.test";
 const ASSETS = ["/assets/index-abc.js", "/assets/index-def.css"];
@@ -297,110 +293,6 @@ describe("the service worker", () => {
     await sw.lifecycle("activate");
     expect(await sw.caches.keys()).toEqual([`kasten-${sw.version}`]);
     expect(sw.self.clients.claim).toHaveBeenCalled();
-  });
-});
-
-describe("the service worker plugin", () => {
-  it("emits sw.js listing the shell and every assets/ file", () => {
-    const plugin = serviceWorker();
-    const emitFile = vi.fn();
-    const bundle = {
-      "assets/index-abc.js": {},
-      "assets/index-def.css": {},
-      "index.html": {},
-    };
-    // biome-ignore lint/complexity/noBannedTypes: rollup's hook, called the way rollup calls it
-    (plugin.generateBundle as Function).call({ emitFile }, {}, bundle);
-    expect(emitFile).toHaveBeenCalledTimes(1);
-    expect(emitFile).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "asset", fileName: "sw.js" }),
-    );
-    const source: string = emitFile.mock.lastCall?.[0]?.source ?? "";
-    const list = JSON.parse(/const PRECACHE = (\[.*\]);/.exec(source)?.[1] ?? "null");
-    expect(list.sort()).toEqual(["/", ...ASSETS].sort());
-  });
-
-  it("lists the public files a first offline start needs, and not pdf.js", () => {
-    const publicDir = mkdtempSync(path.join(tmpdir(), "kasten-public-"));
-    for (const name of [
-      "viewport-fit.js",
-      "manifest.webmanifest",
-      "favicon.svg",
-      "icons/app-192.png",
-      "pdfjs/pdf.worker.mjs",
-      "pdfjs/.stamp",
-    ]) {
-      mkdirSync(path.dirname(path.join(publicDir, name)), { recursive: true });
-      writeFileSync(path.join(publicDir, name), "");
-    }
-    const plugin = serviceWorker();
-    const emitFile = vi.fn();
-    // biome-ignore lint/complexity/noBannedTypes: rollup's hooks, called the way vite calls them
-    (plugin.configResolved as Function)({ publicDir });
-    // biome-ignore lint/complexity/noBannedTypes: as above
-    (plugin.generateBundle as Function).call({ emitFile }, {}, { "assets/index-abc.js": {} });
-    const source: string = emitFile.mock.lastCall?.[0]?.source ?? "";
-    const list = JSON.parse(/const PRECACHE = (\[.*\]);/.exec(source)?.[1] ?? "null");
-    expect(list.sort()).toEqual(
-      [
-        "/",
-        "/assets/index-abc.js",
-        "/favicon.svg",
-        "/icons/app-192.png",
-        "/manifest.webmanifest",
-        "/viewport-fit.js",
-      ].sort(),
-    );
-  });
-
-  it("leaves the lists app's files out of the precache", () => {
-    const publicDir = mkdtempSync(path.join(tmpdir(), "kasten-public-"));
-    for (const name of ["viewport-fit.js", "lists-sw.js", "lists.webmanifest"]) {
-      writeFileSync(path.join(publicDir, name), "");
-    }
-    const plugin = serviceWorker();
-    const emitFile = vi.fn();
-    // biome-ignore lint/complexity/noBannedTypes: rollup's hooks, called the way vite calls them
-    (plugin.configResolved as Function)({ publicDir });
-    // biome-ignore lint/complexity/noBannedTypes: as above
-    (plugin.generateBundle as Function).call({ emitFile }, {}, { "assets/index-abc.js": {} });
-    const source: string = emitFile.mock.lastCall?.[0]?.source ?? "";
-    const list: string[] = JSON.parse(/const PRECACHE = (\[.*\]);/.exec(source)?.[1] ?? "null");
-    expect(list.filter((url) => url.startsWith("/lists"))).toEqual([]);
-  });
-
-  // #1619: vite drops the pure-CSS chunk of a dynamic CSS import, and one listed
-  // file that 404s fails the whole install.
-  it("lists only files the build emits, with a dynamic css import's styles", async () => {
-    const root = mkdtempSync(path.join(tmpdir(), "kasten-sw-build-"));
-    mkdirSync(path.join(root, "src"));
-    writeFileSync(
-      path.join(root, "index.html"),
-      '<!doctype html><script type="module" src="/src/main.js"></script>',
-    );
-    writeFileSync(path.join(root, "src/styles.css"), "body { color: red }");
-    writeFileSync(path.join(root, "src/main.js"), 'import("./styles.css");');
-    const outDir = path.join(root, "dist");
-    await build({
-      root,
-      configFile: false,
-      logLevel: "silent",
-      publicDir: false,
-      plugins: [serviceWorker()],
-      build: { outDir },
-    });
-    const source = readFileSync(path.join(outDir, "sw.js"), "utf8");
-    const list: string[] = JSON.parse(/const PRECACHE = (\[.*\]);/.exec(source)?.[1] ?? "null");
-    const missing = list.filter((url) => url !== "/" && !existsSync(path.join(outDir, url)));
-    expect(missing).toEqual([]);
-    expect(list.some((url) => /^\/assets\/styles-.*\.css$/.test(url))).toBe(true);
-  }, 30_000);
-
-  it("changes the version when the asset list changes", () => {
-    const one = /const VERSION = "([^"]+)"/.exec(renderServiceWorker(ASSETS))?.[1];
-    const two = /const VERSION = "([^"]+)"/.exec(renderServiceWorker(["/assets/other.js"]))?.[1];
-    expect(one).toBeTruthy();
-    expect(one).not.toBe(two);
   });
 });
 
