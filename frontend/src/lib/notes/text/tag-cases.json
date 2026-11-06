@@ -248,5 +248,78 @@
     "tags": ["#t"]
   },
   { "id": "comment-over-a-zero-padded-one", "text": "a <!-- y\n01. #hidden -->", "tags": [] },
-  { "id": "comment-over-a-lazy-zero-padded-one", "text": "> a <!-- y\n01. #hidden -->", "tags": [] }
+  {
+    "id": "comment-over-a-lazy-zero-padded-one",
+    "text": "> a <!-- y\n01. #hidden -->",
+    "tags": []
+  },
+  {
+    "id": "comment-holding-a-code-span-with-dashes",
+    "text": "a <!-- y\n`a <!--` #t\n-->",
+    "tags": ["#t"]
+  },
+  { "id": "comment-holding-a-code-span", "text": "a <!-- y `x` #hidden --> #t", "tags": ["#t"] },
+  { "id": "code-span-holding-a-comment-opener", "text": "`<!--` #u --> #t", "tags": ["#u", "#t"] },
+  { "id": "empty-item-then-a-tab", "text": "-\n\n\t#t", "tags": ["#t"] },
+  { "id": "empty-item-then-four-spaces", "text": "-\n\n    #t", "tags": ["#t"] },
+  { "id": "empty-item-then-six-spaces", "text": "-\n\n      #hidden", "tags": [] },
+  { "id": "later-empty-item-then-four-spaces", "text": "- a\n-\n\n    #t", "tags": ["#t"] },
+  { "id": "nested-later-empty-item", "text": "- a\n  - b\n  -\n\n      #t", "tags": ["#t"] },
+  { "id": "empty-item-over-two-blank-lines", "text": "-\n\n\n    #t", "tags": ["#t"] },
+  { "id": "empty-item-in-a-quote", "text": "> -\n>\n>     #t", "tags": ["#t"] },
+  {
+    "id": "empty-item-then-a-tab-with-a-comment",
+    "text": "a <!-- y -->\n\n-\n\n\t#t",
+    "tags": ["#t"]
+  },
+  {
+    "id": "lazy-later-number-in-a-quote-then-code",
+    "text": "> x\ny\n2. #a\n\n    #b",
+    "tags": ["#a"]
+  },
+  {
+    "id": "lazy-later-number-in-a-quote-then-code-with-a-comment",
+    "text": "<!-- c -->\n\n> x\ny\n2. #a\n\n    #b",
+    "tags": ["#a"]
+  },
+  {
+    "id": "comment-cut-by-a-lazy-item-of-a-list-in-a-quote",
+    "text": "> 1. a <!-- y\n2.\n> #t -->",
+    "tags": ["#t"]
+  },
+  {
+    "id": "comment-cut-by-a-lazy-item-of-a-list-in-a-quote-under-a-line",
+    "text": "> 1. a\n>    b <!-- y\n2.\n> #t -->",
+    "tags": ["#t"]
+  },
+  {
+    "id": "comment-over-a-lazy-item-of-the-other-kind-in-a-quote",
+    "text": "> - a <!-- y\n2.\n> #hidden -->",
+    "tags": []
+  },
+  {
+    "id": "comment-over-a-lazy-later-number-in-a-quote",
+    "text": "> a <!-- y\n2.\n> #hidden -->",
+    "tags": []
+  },
+  {
+    "id": "comment-closed-on-a-lazy-line-in-a-quote",
+    "text": "> - #a\nb <!--\n#hidden\n-->",
+    "tags": ["#a"]
+  },
+  {
+    "id": "comment-closed-on-an-indented-lazy-line-in-a-quote",
+    "text": "> - #a\nb <!-- y\n2. #hidden\n  -->",
+    "tags": ["#a"]
+  },
+  {
+    "id": "comment-over-a-lazy-number-after-a-cut-quote",
+    "text": "> 2. a\n  1.\nb <!-- y #hidden\n2)\n#hidden -->",
+    "tags": []
+  },
+  {
+    "id": "comment-over-a-lazy-number-in-a-quote-after-a-cut",
+    "text": "> 1. a <!-- y\n2.\n> b <!-- z\n2.\n> #hidden -->",
+    "tags": []
+  }
 ]

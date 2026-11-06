@@ -5,15 +5,16 @@ there would be a cycle. A backtick in an alias is read against it.
 """
 
 import re
+import sys
 from bisect import bisect_right
 from typing import TYPE_CHECKING
 
 from markdown_it import MarkdownIt
 from markdown_it.common.html_re import HTML_OPEN_CLOSE_TAG_STR
-from markdown_it.rules_block import list_block
+from markdown_it.rules_block import StateBlock, list_block
 
 if TYPE_CHECKING:
-    from markdown_it.rules_block import StateBlock
+    from markdown_it.token import Token
 
 WIKILINK = re.compile(r"\[\[([^\[\]\n]+)\]\]")
 """One `[[link]]`, spelled the way the editor's parser spells it.
@@ -82,7 +83,7 @@ def _html_block(state: StateBlock, first: int, end: int, silent: bool) -> bool:
     return True
 
 
-_ITEM = re.compile(r"(?:([-*+])|([0-9]{1,9})([.)]))(?:[ \t]+(\S))?")
+_ITEM = re.compile(r"(?:([-*+])|([0-9]{1,9})([.)]))(?=[ \t]|$)(?:[ \t]+(\S))?")
 
 
 def _list(state: StateBlock, first: int, end: int, silent: bool) -> bool:
@@ -101,7 +102,11 @@ def _list(state: StateBlock, first: int, end: int, silent: bool) -> bool:
         # The editor cuts at a literal `1` only, and goes on with any list of the same kind.
         cuts = item[4] is not None and (item[1] is not None or item[2] == "1")
         if not cuts and kind not in lists:
-            return False
+            if state.parentType != "blockquote":
+                return False
+            # A list open inside the quote is parsed only after its lines are taken (#1597).
+            state.env["lazy"].append((first, kind))
+            return first in state.env["cut"]
         if not cuts:
             # As a list's own item, which markdown-it asks for under its parent type only.
             parent, state.parentType = state.parentType, "list"
@@ -112,6 +117,15 @@ def _list(state: StateBlock, first: int, end: int, silent: bool) -> bool:
     if silent:
         return list_block(state, first, end, silent)
     lists.append(kind)
+    # The editor goes on with an empty item over blank lines, where markdown-it ends it (#1595).
+    # Only `list_block`'s own asks are answered so; the state lasts one parse.
+    setattr(  # noqa: B010
+        state,
+        "isEmpty",
+        lambda line: (
+            sys._getframe(1).f_code is not list_block.__code__ and StateBlock.isEmpty(state, line)
+        ),
+    )
     try:
         return list_block(state, first, end, silent)
     finally:
@@ -159,8 +173,8 @@ def blocks(
     inline = []
     kinds = ("fence", "code_block") if indented else ("fence",)
     if indented or html or "```" in text or "~~~" in text:
-        env = {"lists": []} if html else {}
-        for token in FENCES.parse(text.replace("\r", " "), env):
+        tokens = _parse(text.replace("\r", " "), lists=indented)
+        for token in tokens:
             if token.map is None:
                 continue
             if token.type in kinds or (html and token.type == "html_block"):
@@ -176,6 +190,39 @@ def blocks(
         line = stop
     spans += _inline_spans(lines, starts, line, len(lines))
     return spans, inline
+
+
+def _parse(text: str, *, lists: bool) -> list[Token]:
+    """`FENCES`'s tokens, with `lists` the list rule of the editor that `_list` reads.
+
+    A lazy item cuts a quote where a list of its kind is open inside it, which only a first
+    parse shows, so a note with such a line is parsed twice (#1597).
+    """
+    if not lists:
+        return FENCES.parse(text)
+    cut: set[int] = set()
+    # A cut moves the quotes after it, so it is parsed again until the cuts hold, a few times.
+    for _ in range(4):
+        env: dict = {"lists": [], "lazy": [], "cut": cut}
+        tokens = FENCES.parse(text, env)
+        if not env["lazy"]:
+            break
+        # How many lists of each kind hold each line, as running sums.
+        held = {kind: [0] * (text.count("\n") + 2) for kind in ("bullet", "ordered")}
+        for token in tokens:
+            if token.type in ("bullet_list_open", "ordered_list_open") and token.map:
+                counts = held[token.type.split("_")[0]]
+                counts[token.map[0]] += 1
+                counts[token.map[1]] -= 1
+        for counts in held.values():
+            for index in range(1, len(counts)):
+                counts[index] += counts[index - 1]
+        # A list holding the line above holds the paragraph the lazy line goes on with.
+        found = {line for line, kind in env["lazy"] if held[kind][line - 1] > 0}
+        if found == cut:
+            break
+        cut = found
+    return tokens
 
 
 def fence_open(text: str, opener: int) -> bool:
