@@ -113,9 +113,9 @@ export function listening(backend: ChildProcess, log: string[]): Promise<number>
     };
     backend.stdout?.on("data", read);
     backend.stderr?.on("data", read);
-    backend.on("exit", (code) => {
+    backend.on("exit", (code, signal) => {
       clearTimeout(timer);
-      reject(new Error(`backend exited with ${code}:\n${log.join("")}`));
+      reject(new Error(`backend exited with ${code ?? signal}:\n${log.join("")}`));
     });
   });
 }
@@ -140,8 +140,13 @@ export function serve(apiPort: number, webPort: number): Promise<Server> {
 }
 
 // The whole process group, since `uv run` starts uvicorn as its child.
-async function stop(backend: ChildProcess): Promise<void> {
-  if (backend.exitCode !== null || backend.pid === undefined) return;
+export async function stop(backend: ChildProcess): Promise<void> {
+  if (backend.pid === undefined) return;
+  // A `uv` that died, by a code or a signal, can leave uvicorn running in its group.
+  if (backend.exitCode !== null || backend.signalCode !== null) {
+    killGroup(backend.pid, "SIGKILL");
+    return;
+  }
   const exited = new Promise((done) => backend.once("exit", done));
   const pid = backend.pid;
   killGroup(pid, "SIGTERM");
