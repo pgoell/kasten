@@ -13,8 +13,7 @@ test("the book pane reopens a pdf at the page it was left on", async ({ page, st
   // shows the page as a share of the 8 pages: page N reads N/8.
   await leader(page, "gr");
   const pane = page.locator("[data-book-pane]");
-  // The first open fetches pdf.js and parses the book, past 5 s on a loaded box (#1615).
-  await expect(pane.getByText("13%", { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(pane.getByText("13%", { exact: true })).toBeVisible();
   for (const percent of ["25%", "38%", "50%"]) {
     await page.keyboard.press("l");
     await expect(pane.getByText(percent, { exact: true })).toBeVisible();
@@ -35,9 +34,12 @@ test("the book pane reopens a pdf at the page it was left on", async ({ page, st
 test("Escape in the tree hands the keys back to the book pane", async ({ page }) => {
   await openApp(page);
   await findNote(page, "Primer");
+  // Keys sent before the note's editor holds the focus are lost, on a loaded box (#1615).
+  await expect(page.getByRole("tab", { name: "Primer", selected: true })).toBeVisible();
+  await expect(page.locator(".cm-content")).toBeFocused();
   await leader(page, "gr");
   const pane = page.locator("[data-book-pane]");
-  await expect(pane.getByText("13%", { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(pane.getByText("13%", { exact: true })).toBeVisible();
   await leader(page, "e");
   const tree = page.getByRole("navigation", { name: "Vault" });
   await expect(tree.locator(":focus")).toHaveCount(1);
