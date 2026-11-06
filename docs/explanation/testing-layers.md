@@ -16,8 +16,8 @@ most for that cost, and the rule below says where that is.
 
 | Layer | Where | Runs with | What is real | What it may fake |
 |---|---|---|---|---|
-| pytest | `backend/tests/` | `mise run test:py` | The FastAPI app in process, reached through `httpx`, and the Postgres at `KASTEN_DATABASE_URL` | Outside services, through `monkeypatch` or an `httpx` mock transport. A box with no database skips the tests that need one |
-| unit | `frontend/tests/`, the `unit` project | `mise run fe:test` | The frontend's own code, in jsdom | The backend: tests mock `@/lib/core/api` with `vi.mock`. jsdom itself fakes the browser: no layout, no paint, and `tests/setup.ts` stubs what jsdom leaves out, such as `ResizeObserver` and `matchMedia` |
+| pytest | `backend/tests/` and `jobs/tests/` | `mise run test:py` | The FastAPI app in process, reached through `httpx`, and the Postgres at `KASTEN_DATABASE_URL` | Outside services, through `monkeypatch` or an `httpx` mock transport. A box with no database skips the tests that need one |
+| unit | `frontend/tests/`, the `unit` project | `mise run fe:test` | The frontend's own code, in jsdom | The backend: a test that reaches it mocks `@/lib/core/api` with `vi.mock`. jsdom itself fakes the browser: no layout, no paint, and `tests/setup.ts` stubs what jsdom leaves out, such as `ResizeObserver` and `matchMedia` |
 | frame | `frontend/tests/frame/`, the `frame` project | `mise run fe:frame` | React in a real Chromium, so layout, focus, touch and scroll behave as they do for you | The backend's HTTP: most frame tests mock `@/lib/core/api` too, and no backend server or database runs. An html page comes from the backend's own page writer, run as a script |
 | e2e | `e2e/journeys/` | `mise run e2e` | Everything: the built frontend behind nginx, a backend and a database per test, a copy of the fixture vault on disk | Nothing in the API. The journeys block the service worker, which crashed Chromium at a context close (#1606) |
 
