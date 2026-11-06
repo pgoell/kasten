@@ -53,12 +53,26 @@ def _line(name: str, block: list[str]) -> str | None:
     return next((line for line in block if _key(line) == name), None)
 
 
-def _end(content: str) -> str:
-    """What ends a line of `content`: a lone CR in a text with no LF, as `read_note` reads (#1570).
+_LINE_END = re.compile(r"\n|\r(?![ \t]*\n)")
+"""Where a line ends: at an LF, or at a CR that no LF follows, as `read_note` reads it (#1572).
 
-    A text that holds both is cut on LF only.
+A CRLF keeps its CR on the line, so a CRLF text splits as it always did. So does a CR with
+only blanks before the LF, which leaves a fence one line as the client reads it (#658).
+"""
+
+
+def _lines(content: str) -> list[str]:
+    """The lines of `content`, cut where `_LINE_END` says."""
+    return _LINE_END.split(content)
+
+
+def _end(content: str) -> str:
+    """What joins the lines a writer makes: whatever ends the first line, LF when none does.
+
+    A client that sent a lone CR names those bytes as its next base, so a block keeps them (#1572).
     """
-    return "\r" if "\n" not in content and "\r" in content else "\n"
+    first = _lines(content)[0]
+    return content[len(first)] if len(first) < len(content) else "\n"
 
 
 def _split(content: str) -> tuple[list[str], list[str]]:
@@ -67,7 +81,7 @@ def _split(content: str) -> tuple[list[str], list[str]]:
     No block, or an opening fence with no partner, means every line is the note's. A lone `---`
     is a horizontal rule, and read as an open block it would swallow the note under it.
     """
-    lines = content.split(_end(content))
+    lines = _lines(content)
     end = closing(lines)
     if end is None:
         return [], lines
@@ -96,27 +110,30 @@ def _fence(line: str) -> bool:
     return line.rstrip(" \t\r") == FENCE
 
 
-def _fences(content: str) -> tuple[str, str]:
-    """The block's opening and closing lines as written, or plain fences when there is none.
-
-    Trailing blanks kept: the client names its next base from the text it sent (#1468).
-    """
-    lines = content.split(_end(content))
-    end = closing(lines)
-    return (FENCE, FENCE) if end is None else (lines[0], lines[end])
-
-
 def body_start(content: str) -> int:
     """Where the note's own text begins: the offset after the block's closing fence, or 0.
 
     Not from `_split`, which gives no lines both for a note with no block and for an empty one.
     """
-    lines = content.split(_end(content))
+    lines = _lines(content)
     end = closing(lines)
     if end is None:
         return 0
 
     return min(len(content), sum(len(line) + 1 for line in lines[: end + 1]))
+
+
+def _attach(head: str, content: str, body: list[str]) -> str:
+    """`head` with the text below `content`'s block set after it, as `content` holds it.
+
+    Joined line by line, a lone CR in the body would become a line end, so the slice is taken
+    whole (#1572). A closer with no line after it gets no line end either.
+    """
+    if not body:
+        return head
+
+    start = body_start(content)
+    return head + (content[start - 1 :] if start else _end(content) + content)
 
 
 def aliases(content: str) -> list[str]:
@@ -195,7 +212,9 @@ def with_type(content: str) -> str:
     if _line("type", block) is not None:
         return content
 
-    return _end(content).join([FENCE, f"type: {DEFAULT_TYPE}", *block, FENCE, *body])
+    return _attach(
+        _end(content).join([FENCE, f"type: {DEFAULT_TYPE}", *block, FENCE]), content, body
+    )
 
 
 def stamp(content: str, previous: str = "", *, now: datetime | None = None) -> str:
@@ -206,13 +225,16 @@ def stamp(content: str, previous: str = "", *, now: datetime | None = None) -> s
     UTC, to the second, as the vault outlives the machine's timezone.
     """
     when = (now or datetime.now(UTC)).isoformat(timespec="seconds")
-    block, body = _split(content)
+    block, _ = _split(content)
     held = _split(previous)[0]
+    eol = _end(content)
+    lines, ends = _lines(content), _LINE_END.findall(content)
     # A text that is CRLF throughout gets its written lines in CRLF too (#1470).
-    end = "\r" if "\r\n" in content and content.count("\n") == content.count("\r\n") else ""
-    opener, closer = _fences(content)
-    if not opener.endswith("\r"):
-        opener, closer = opener + end, closer + end
+    crlf = "\r\n" in content and content.count("\n") == content.count("\r\n")
+    end = "\r" if crlf and "\r" not in ends else ""
+    at = closing(lines)
+    if at is None:
+        lines, ends, at = [FENCE + end, FENCE + end, *lines], [eol, eol, *ends], 1
 
     opening = []
     if _line("id", block) is None:
@@ -222,11 +244,20 @@ def stamp(content: str, previous: str = "", *, now: datetime | None = None) -> s
     if _line("type", block) is None:
         opening.append((_line("type", held) or f"type: {DEFAULT_TYPE}") + end)
 
-    dated = [f"modified: {when}{end}" if _key(line) == "modified" else line for line in block]
+    # Each block line keeps its own end, so a client's next base still names its text (#1572).
+    dated = [
+        (f"modified: {when}{end}" if _key(line) == "modified" else line) + ends[i]
+        for i, line in enumerate(lines[1:at], 1)
+    ]
     if _line("modified", block) is None:
-        dated.append(f"modified: {when}{end}")
+        # Before the end that led to the closer, which `unstamped` keeps when it drops the line.
+        added = f"modified: {when}{end}"
+        dated[-1:] = [d + added + d[-1] for d in dated[-1:]] or [added + eol]
 
-    return _end(content).join([opener, *opening, *dated, closer, *body])
+    head = lines[0] + ends[0] + "".join(line + eol for line in opening) + "".join(dated)
+    return head + "".join(
+        line + mark for line, mark in zip(lines[at:], [*ends[at:], ""], strict=True)
+    )
 
 
 def unstamped(content: str) -> str:
@@ -234,18 +265,21 @@ def unstamped(content: str) -> str:
 
     What a save's base hashes. A client that has not heard back cannot know the restamped
     `modified` line, so leaving it out lets it still name the note. A copy lives in
-    frontend/src/lib/saving/held-text.ts, byte for byte, and must cut the fence as this does.
+    frontend/src/lib/saving/held-text.ts and cuts on LF only: the browser's texts hold no CR.
     """
-    lines = content.split(_end(content))
+    lines, ends = _lines(content), _LINE_END.findall(content)
     end = closing(lines)
     if end is None:
         return content
-    block = [line for line in lines[1:end] if not line.startswith("modified:")]
+    kept = [
+        line + ends[i] for i, line in enumerate(lines[1:end], 1) if not line.startswith("modified:")
+    ]
     # With no line dropped the text stands, so an empty block gains no blank line.
-    if len(block) == end - 1:
+    if len(kept) == end - 1:
         return content
-    eol = _end(content)
-    return lines[0] + eol + eol.join(block) + content[len(eol.join(lines[:end])) :]
+    # The last kept line's end gives way to the one before the closer, each one character.
+    block = "".join(kept)[:-1]
+    return lines[0] + ends[0] + block + content[len("\n".join(lines[:end])) :]
 
 
 _OPENING = ("id", "created", "type")
@@ -260,9 +294,8 @@ def bases(content: str) -> list[str]:
     leading lines `stamp` could write is set aside, and the whole block when only `modified` is.
     """
     found = [unstamped(content)]
-    eol = _end(content)
-    block, body = _split(content)
-    opener, closer = _fences(content)
+    block, _ = _split(content)
+    start = len(_lines(content)[0]) + 1
     left = list(_OPENING)
     for count, line in enumerate(block[: len(_OPENING)], 1):
         key = _key(line)
@@ -270,7 +303,9 @@ def bases(content: str) -> list[str]:
             break
         del left[: left.index(key) + 1]
         rest = block[count:]
-        found.append(unstamped(eol.join([opener, *rest, closer, *body])))
+        # Cut from the text as written, so every other line keeps its own end (#1572).
+        cut = start + sum(len(field) + 1 for field in block[:count])
+        found.append(unstamped(content[:start] + content[cut:]))
         if count == len(_OPENING) and [_key(field) for field in rest] == ["modified"]:
-            found.append(eol.join(body))
+            found.append(content[body_start(content) :])
     return found

@@ -93,7 +93,10 @@ LF in a text with no carriage return lands as a CRLF, the restamped `modified:`
 line included. A text that holds a carriage return keeps its own line endings, and the lines
 `stamp` writes end in CRLF only when the text is CRLF throughout (#1470). In a
 text with no LF, a lone carriage return ends each line, and the lines `stamp`
-writes end in one (#1570). The
+writes end in one (#1570). In a text that holds both, a lone carriage return
+ends a line too; each line of the block keeps its own ending, the `id`,
+`created` and `type` lines `stamp` adds end as the first line does, and an added
+`modified` line ends as the line before the closer does (#1572). The
 reply is the text as stamped, before any LF becomes a CRLF, and the next `base`
 may name either the LF text a read serves or the bytes on disk. A note with
 only LF on disk is written as sent.

@@ -198,3 +198,13 @@ async def test_1570_a_block_whose_lines_end_in_a_lone_carriage_return_hides_its_
     response = await client.get("/api/tags")
 
     assert response.json() == ["#real"]
+
+
+async def test_1572_a_block_cut_by_lone_carriage_returns_above_an_lf_body_hides_its_hash(
+    client: AsyncClient, vault: Path
+) -> None:
+    write(vault, "mixed.md", "---\rid: a\rcolor: #inblock\r---\nbody #real\n")
+
+    response = await client.get("/api/tags")
+
+    assert response.json() == ["#real"]
