@@ -197,5 +197,34 @@
     "id": "comment-opening-at-line-end-past-blank-line",
     "text": "a <!--\n\n#t\n-->",
     "tags": ["#t"]
-  }
+  },
+  { "id": "comment-cut-by-heading", "text": "a <!-- y\n# h #t\n-->", "tags": ["#t"] },
+  { "id": "comment-cut-by-list-item", "text": "a <!-- y\n- #t\n-->", "tags": ["#t"] },
+  { "id": "comment-cut-by-blank-quote-line", "text": "> a <!-- y\n>\n> #t -->", "tags": ["#t"] },
+  { "id": "comment-cut-by-fence", "text": "a <!-- y\n```\nx\n```\n#t -->", "tags": ["#t"] },
+  { "id": "comment-over-a-lazy-quote-line", "text": "> a <!-- y\n#hidden -->", "tags": [] },
+  { "id": "comment-over-a-list-item-line", "text": "- a <!-- y\n  #hidden -->", "tags": [] },
+  { "id": "comment-cut-by-first-ordered-item", "text": "a <!-- y\n1. #t -->", "tags": ["#t"] },
+  { "id": "comment-over-a-later-ordered-number", "text": "a <!-- y\n2. #hidden -->", "tags": [] },
+  { "id": "comment-in-a-setext-heading", "text": "a <!-- y\n#hidden -->\n===", "tags": [] },
+  { "id": "comment-cut-by-a-setext-dash", "text": "a <!-- y\n-\n#t -->", "tags": ["#t"] },
+  { "id": "comment-cut-by-thematic-break", "text": "a <!-- y\n***\n#t -->", "tags": ["#t"] },
+  { "id": "comment-opened-in-a-heading", "text": "# a <!-- y\n#t -->", "tags": ["#t"] },
+  {
+    "id": "comment-over-a-lazy-empty-item-in-a-quote",
+    "text": "> a <!-- y\n-\n#hidden -->",
+    "tags": []
+  },
+  {
+    "id": "comment-over-a-lazy-later-number-in-an-item",
+    "text": "- a <!-- y\nb\n2. #hidden -->",
+    "tags": []
+  },
+  {
+    "id": "comment-cut-by-the-next-ordered-item",
+    "text": "1. a <!-- y\n2. #t -->",
+    "tags": ["#t"]
+  },
+  { "id": "comment-cut-by-the-next-empty-item", "text": "- a <!-- y\n-\n#t -->", "tags": ["#t"] },
+  { "id": "comment-cut-by-another-bullet", "text": "- a <!-- y\n* #t -->", "tags": ["#t"] }
 ]

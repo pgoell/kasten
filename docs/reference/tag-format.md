@@ -35,9 +35,12 @@ finder that leaves a name inside a tag alone.
    spaces or a tab after a blank line, or after a quote or list marker, so
    `>     #h` and `-     #h` open code; a line indented under a list item goes
    on with the item and keeps its tags. A comment after other text may run over
-   the lines of its paragraph but not past a blank line, and holds no `--`, so
+   the lines of its paragraph and no further, and holds no `--`, so
    `a <!-- x -- #t -->` and `a <!-- y`, a blank line, `#t`, `-->` carry `#t`
-   (#1474, #1475). As in the editor, `<!-->` after other text opens no comment, so
+   (#1474, #1475). A heading, a fence, a thematic break, a blank quote line or a
+   list item that may start a list also ends the paragraph, so `a <!-- y`,
+   `# h #t`, `-->` carries `#t`. A lazy line does not: `> a <!-- y`,
+   `#t -->` carries none, and neither does `a <!-- y`, `2. #t -->` (#1544). As in the editor, `<!-->` after other text opens no comment, so
    `a <!--> #x -->` carries `#x`, while `<!--->` opens one that runs to the
    next `-->`. A line opening with either is a block that ends on that line
    (#657).

@@ -13,7 +13,7 @@ import statistics
 import time
 from typing import TYPE_CHECKING
 
-from kasten_backend import tags
+from kasten_backend import tags, todos
 from kasten_backend.graph import read_graph
 from kasten_backend.tags import find_tags
 
@@ -126,3 +126,20 @@ async def test_find_tags_reads_whole_only_the_notes_a_line_cannot_say(
     print(f"\nwhole reads: {len(whole)} of {NOTES} notes")
     assert {"#shared", "#field", "#continued"} <= set(found)
     assert 0 < len(whole) < NOTES // 2
+
+
+def test_1544_long_notes_of_open_comments_and_lazy_items_read_in_bounded_time() -> None:
+    """A comment closes per paragraph and a lazy line asks the list stack: neither may walk back."""
+    notes = {
+        "open comments": "a <!-- y\n" * 20_000,
+        "lazy quote": "> a <!-- y\n" + "2. x\n" * 20_000 + "#t -->",
+        "lazy items": "- a <!-- y\n" + "- \n2. x\nz\n" * 7_000,
+        "nested lists": "".join("  " * (i % 30) + "- a <!-- y\n" for i in range(20_000)),
+    }
+    for label, text in notes.items():
+        start = cpu_seconds()
+        found = todos.tags_in(text)
+        spent = cpu_seconds() - start
+        print(f"\n{label}: {spent * 1000:.0f}ms cpu")
+        assert spent < MOST_SECONDS, label
+        assert len(found) <= 1
