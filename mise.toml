@@ -315,7 +315,7 @@ run = "bun frontend/e2e/offline.ts"
 
 [tasks.e2e]
 description = "Run the Playwright journeys against the real stack: nginx and Postgres in Docker, a backend per test (needs Docker and a browser install)"
-# Stubs nothing, unlike `fe:e2e`. Ports are Docker's and the OS's pick, so a run
+# Stubs no API, unlike `fe:e2e`; only YouTube's player is faked. Ports are Docker's and the OS's pick, so a run
 # never collides with dev or another project on the box. See e2e/harness.
 depends = ["fe:build"]
 dir = "{{config_root}}/e2e"
