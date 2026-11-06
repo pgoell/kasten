@@ -34,13 +34,19 @@ finder that leaves a name inside a tag alone.
    the end of the note. An indented block is code as CommonMark reads it, four
    spaces or a tab after a blank line, or after a quote or list marker, so
    `>     #h` and `-     #h` open code; a line indented under a list item goes
-   on with the item and keeps its tags. A comment after other text may run over
+   on with the item and keeps its tags. So does a line indented that far under an
+   empty item, over blank lines: `-`, a blank line, `    #t` carries `#t` (#1595).
+   A comment after other text may run over
    the lines of its paragraph and no further, and holds no `--`, so
    `a <!-- x -- #t -->` and `a <!-- y`, a blank line, `#t`, `-->` carry `#t`
    (#1474, #1475). A heading, a fence, a thematic break, a blank quote line or a
    list item that may start a list also ends the paragraph, so `a <!-- y`,
    `# h #t`, `-->` carries `#t`. A lazy line does not: `> a <!-- y`,
-   `#t -->` carries none, and neither does `a <!-- y`, `2. #t -->` (#1544). As in the editor, `<!-->` after other text opens no comment, so
+   `#t -->` carries none, and neither does `a <!-- y`, `2. #t -->` (#1544), unless
+   it starts an item of a list open inside the quote: `> 1. a <!-- y`, `2.`,
+   `> #t -->` carries `#t` (#1597). Of a comment and a code span, the one that
+   opens first wins, so a `--` in a span inside a comment still ends it, and
+   `a <!-- y`, `` `a <!--` #t ``, `-->` carries `#t` (#1594). As in the editor, `<!-->` after other text opens no comment, so
    `a <!--> #x -->` carries `#x`, while `<!--->` opens one that runs to the
    next `-->`. A line opening with either is a block that ends on that line
    (#657).

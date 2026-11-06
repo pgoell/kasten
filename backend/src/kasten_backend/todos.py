@@ -8,6 +8,7 @@ too and two parsers drift. It works out only the project, from indent, tags and 
 import re
 import sys
 import unicodedata
+from bisect import bisect_right
 from typing import TYPE_CHECKING
 
 from kasten_backend.code_spans import BLOCK_NAMES, FENCES, WIKILINK, blocks
@@ -226,6 +227,24 @@ def _blanked(text: str, spans: list[tuple[int, int]], filler: str) -> str:
     return "".join(blanked)
 
 
+def _comments(
+    code: str, start: int, end: int, inline: list[tuple[int, int]]
+) -> list[tuple[int, int]]:
+    """`COMMENT`'s spans in `code[start:end]`, where of a comment and an inline span the first wins.
+
+    So a `--` in a span inside a comment still ends it, and a `<!--` in a span opens none (#1594).
+    """
+    found = []
+    while match := COMMENT.search(code, start, end):
+        index = bisect_right(inline, match.start(), key=lambda span: span[0])
+        if index and inline[index - 1][1] > match.start():
+            start = inline[index - 1][1]
+            continue
+        found.append(match.span())
+        start = match.end()
+    return found
+
+
 def tags_in(text: str) -> list[tuple[int, int]]:
     """Where a whole note holds a tag, as `(start, end)` offsets.
 
@@ -242,15 +261,12 @@ def tags_in(text: str) -> list[tuple[int, int]]:
         # indented line under it opens code as it does under a blank line.
         code_held, texts = blocks(_blanked(text, hidden, " "), indented=True, html=html)
         hidden += code_held
-        # Looked for with the code blanked: a `<!--` in code opens no comment,
+        # Looked for with the blocks of code blanked: a `<!--` in one opens no comment,
         # and paired with a real `-->` below it would hide the tags between.
-        # An inline span goes to no-break spaces, or its line would read as blank.
         inline = [span for span in hidden if "\n" not in text[span[0] : span[1]]]
-        code = _blanked(_blanked(text, hidden, " "), inline, "\N{NO-BREAK SPACE}")
+        code = _blanked(text, [span for span in hidden if "\n" in text[span[0] : span[1]]], " ")
         # A comment closes with its paragraph, which a heading or list item also ends (#1544).
-        hidden += [
-            found.span() for start, end in texts for found in COMMENT.finditer(code, start, end)
-        ]
+        hidden += [found for start, end in texts for found in _comments(code, start, end, inline)]
     if not hidden:
         return line_tags(text)
     return line_tags(_blanked(text, hidden, "\N{NO-BREAK SPACE}"))

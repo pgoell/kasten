@@ -143,3 +143,21 @@ def test_1544_long_notes_of_open_comments_and_lazy_items_read_in_bounded_time() 
         print(f"\n{label}: {spent * 1000:.0f}ms cpu")
         assert spent < MOST_SECONDS, label
         assert len(found) <= 1
+
+
+def test_1594_long_notes_of_spans_in_comments_empty_items_and_lazy_quote_items() -> None:
+    """The comment walk passes spans by bisect, and a quote's lazy items cost one parse more."""
+    notes = {
+        "spans in a comment": "a <!-- y " + "`x <!--` " * 20_000 + "-->",
+        "spans opening comments": "`<!--` x " * 20_000 + "\n" + "a <!-- `--` y " * 5_000,
+        "empty items": "-\n\n" * 20_000 + "    #t",
+        "lazy items of the other kind": "> - a <!-- y\n" + "2.\n" * 20_000 + "> #t -->",
+        "lazy items that cut": "> 1. a <!-- y\n2.\n" * 5_000,
+        "quote and lazy lines in turn": "> - a <!-- y\n2.\n> b\n" * 7_000,
+    }
+    for label, text in notes.items():
+        start = cpu_seconds()
+        todos.tags_in(text)
+        spent = cpu_seconds() - start
+        print(f"\n{label}: {spent * 1000:.0f}ms cpu")
+        assert spent < MOST_SECONDS, label
