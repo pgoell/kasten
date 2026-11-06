@@ -181,6 +181,17 @@ describe("#1590 parking reads the token where the reader does", () => {
     expect(off).toBe("#flashcards/x\n\nq::a <!-- !suspended -->\n");
   });
 
+  it("#1590 parking a line that ends in a comment running on writes the token before it", () => {
+    const text = "#flashcards/x\n\nq::a <!-- note\nmore -->\n";
+    const on = setSuspended(text, only(text), true);
+    const off = setSuspended(on, only(on), false);
+    expect({ on, parked: only(on).parked, off }).toEqual({
+      on: "#flashcards/x\n\nq::a !suspended <!-- note\nmore -->\n",
+      parked: "suspended",
+      off: text,
+    });
+  });
+
   it("#1590 reader and writer agree on generated lines with comments", () => {
     const heads = ["q::a", "{{c1::a}}", "{{c1::a}} {{c2::b}}"];
     const comments = ["<!-- !suspended -->", "<!--!suspended-->", "<!-- x !suspended y -->", ""];

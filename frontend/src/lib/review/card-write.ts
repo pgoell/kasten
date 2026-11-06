@@ -66,12 +66,14 @@ export function setSuspended(text: string, card: Card, on: boolean): string {
   const schedule = card.cloze === null ? SR : ANY_SR;
 
   if (card.inline) {
+    // The reader's reading, so the token is never cut from or written into a comment (#1590).
+    const bare = commentsAndCode(text).uncommented.split("\n")[card.to] ?? last;
+    const end = bare.trimEnd().length;
     lines[card.to] = on
       ? schedule.test(last)
         ? last.replace(schedule, `${SUSPEND_TOKEN} $&`)
-        : `${last.trimEnd()} ${SUSPEND_TOKEN}`
-      : // The reader's reading, so a token inside a comment stays where it is (#1590).
-        withoutToken(last, commentsAndCode(text).uncommented.split("\n")[card.to]);
+        : `${last.slice(0, end)} ${SUSPEND_TOKEN}${last.slice(end).trimEnd()}`
+      : withoutToken(last, bare);
     return lines.join("\n");
   }
 
