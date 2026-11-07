@@ -134,6 +134,7 @@ BEHIND = b"<a></a></foreignObject><![CDATA[x"
             id="a-behind-annotation-xml",
         ),
         pytest.param(b"<A>" + POINT + BEHIND, b"]]></svg>", id="upper-case-a"),
+        pytest.param(b'<a href=x"y>' + POINT + BEHIND, b"]]></svg>", id="a-with-a-stray-quote"),
         pytest.param(b'<a title="x>y">' + POINT + BEHIND, b"]]></svg>", id="a-with-a-quoted-gt"),
         pytest.param(b"\r\n<a>\r\n" + POINT + BEHIND, b"]]></svg>", id="crlf-before-a"),
         pytest.param(b"<p><a></p>q" + POINT + BEHIND, b"]]></svg>", id="reopened-outer-a"),
@@ -181,6 +182,27 @@ BEHIND = b"<a></a></foreignObject><![CDATA[x"
 )
 def test_1652_the_closer_gives_what_chrome_needs(end: bytes, closer: bytes) -> None:
     assert served_closer(end) == closer
+
+
+@pytest.mark.parametrize(
+    ("end", "parses"),
+    [
+        pytest.param(b'<a href="x"><svg><title>t</title></svg></a>' * 50, 0, id="icon-links"),
+        pytest.param(
+            b"<a><svg>" + b"<title>t</title>" * 50 + b"</svg><a>x", 1, id="titles-share-one-a"
+        ),
+    ],
+)
+def test_1652_a_page_pays_one_prefix_parse_per_suspect_tag_at_most(
+    end: bytes, parses: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls = []
+    real = html_closer._open
+    monkeypatch.setattr(html_closer, "_open", lambda prefix: calls.append(prefix) or real(prefix))
+
+    served_closer(end)
+
+    assert len(calls) <= parses
 
 
 FUZZ = (

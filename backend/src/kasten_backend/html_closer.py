@@ -38,7 +38,9 @@ _POINT_TAG = re.compile(
 _CDATA = re.compile(r"<!\[(?!CDATA\[)(?i:cdata)\[")
 _A_START = re.compile(r"<a[\t\n\f\r />]", re.IGNORECASE)
 _FOREIGN_OBJECT_END = re.compile(r"</foreignobject[\t\n\f\r />]", re.IGNORECASE)
-_START_TAG = re.compile(r"""<(?:"[^"]*"|'[^']*'|[^"'>])*>""")
+_A_END = re.compile(r"</a[\t\n\f\r />]", re.IGNORECASE)
+# A quote opens a value only after `=`; elsewhere it is a plain character.
+_START_TAG = re.compile(r"""<(?:=\s*+"[^"]*+"|=\s*+'[^']*+'|[^>])*+>""")
 
 _TAG = ((">", False), ('">', False), ("'>", False), ("]]>", False))
 """What may end a tag, a doctype or a CDATA section, the shortest first, each with whether it
@@ -97,28 +99,34 @@ def _fixed(page: str, nodes: list[Node]) -> str | None:
         ),
         default=len(page),
     )
-    html_point = min(
-        (
-            e.origin_offset
-            for e in elements
-            if (e.namespace, e.name) == ("html", "foreignobject") and e.origin_offset is not None
-        ),
-        default=len(page),
-    )
-    # justhtml closes the point at the inner `<a>`, so it is the first after the point's last tag.
-    behind = (
-        _A_START.search(page, max(n.origin_offset or 0 for n in _nodes(e)))
+    # justhtml closes the point at the token at fault, so it is the first after the point's last
+    # tag; an `</a>` between means the outer `<a>` had gone.
+    a_tags = {
+        m.start()
         for e in elements
-        if (e.namespace, e.name) in _POINTS and _ancestor_a(e)
-    )
+        if (e.namespace, e.name) in _POINTS
+        and _ancestor_a(e)
+        and (m := _after(_A_START, page, e))
+        and not _A_END.search(page, e.origin_offset or 0, m.start())
+    }
+    end_tags = {
+        m.start()
+        for e in elements
+        if (e.namespace, e.name) == ("html", "foreignobject")
+        and (m := _after(_FOREIGN_OBJECT_END, page, e))
+    }
     tags = sorted(
-        [(m.start(), _a_fix) for m in behind if m is not None and m.start() < image]
-        + [(m.start(), _end_fix) for m in _FOREIGN_OBJECT_END.finditer(page, html_point, image)]
+        [(at, _a_fix) for at in a_tags if at < image]
+        + [(at, _end_fix) for at in end_tags if at < image]
     )
     for at, fix in tags:
         if (fixed := fix(page, at)) is not None:
             return fixed
     return page[:image] + "<img  " + page[image + 6 :] if image < len(page) else None
+
+
+def _after(tag: re.Pattern[str], page: str, element: Element) -> re.Match[str] | None:
+    return tag.search(page, max(node.origin_offset or 0 for node in _nodes(element)))
 
 
 def _ancestor_a(element: Element) -> bool:
