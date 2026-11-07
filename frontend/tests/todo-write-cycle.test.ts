@@ -1,3 +1,4 @@
+// @vitest-environment node
 import type { TodoState } from "@/lib/todo/todo";
 import type { Closed } from "@/lib/todo/todo-blocked";
 import { cycleLines } from "@/lib/todo/todo-write";

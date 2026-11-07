@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { ChangedOnDisk, fetchNote, saveNote, updateNote } from "@/lib/core/api";
 import { noteBase } from "@/lib/notes/note-base";
 import { updateWithTries } from "./stand-in";

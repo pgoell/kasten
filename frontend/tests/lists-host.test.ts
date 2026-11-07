@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { POLICY } from "@/lib/app/csp";
 import { blocks } from "./nginx-conf";
 

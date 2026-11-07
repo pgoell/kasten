@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { appendUnder, fencedLines, noteSectionOf, sectionOf } from "@/lib/notes/text/note-section";
 
 /** Today's daily note as the vault holds it, log line and all. */

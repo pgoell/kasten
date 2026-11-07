@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { digestOf, parseVaultEvent } from "@/lib/vault/events/vault-events";
 
 describe("parseVaultEvent", () => {

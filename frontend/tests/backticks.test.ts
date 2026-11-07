@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { EditorState } from "@codemirror/state";
 import { backticks, fenceAt } from "@/lib/notes/editor/backticks";

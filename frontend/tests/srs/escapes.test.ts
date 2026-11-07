@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { sameAnswer } from "@/lib/review/card-text";
 import { parseCards } from "@/lib/review/srs";
 import { only } from "./fixture";

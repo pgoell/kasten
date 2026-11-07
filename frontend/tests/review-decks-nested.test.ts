@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { decksFrom } from "@/lib/review/review";
 import { note, TODAY } from "./review-fixture";
 

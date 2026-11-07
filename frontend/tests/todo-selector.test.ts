@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { patchLine, setStateOn, type TodoState } from "@/lib/todo/todo";
 import { FRESH, parsed, press, TODAY } from "./todo-fixture";
 

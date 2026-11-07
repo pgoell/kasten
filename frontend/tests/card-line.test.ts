@@ -1,3 +1,4 @@
+// @vitest-environment node
 import {
   ANKI_ID,
   CLOZE_SR,

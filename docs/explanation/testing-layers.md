@@ -25,6 +25,11 @@ most for that cost, and the rule below says where that is.
 `frontend/e2e/offline.ts`, that proves offline capture against the build; the
 journeys in `e2e/` are the layer this page means by e2e.
 
+A unit test file that touches no `window` or `document` starts with
+`// @vitest-environment node`. jsdom takes about half a second to build for
+each file, and a file under node skips it. `tests/setup.ts` stubs the browser
+only where there is a window, so it serves both kinds.
+
 ## Where a new test goes
 
 A bug fix adds its test at the highest layer that reproduces the bug:

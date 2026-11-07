@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { dropTarget } from "@/lib/vault/move/move";
 
 describe("dropTarget", () => {

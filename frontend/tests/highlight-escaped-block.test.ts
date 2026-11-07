@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { highlightBlocks } from "@/lib/takes/highlight";
 import { quoteParagraphs } from "@/lib/takes/html-take";
 

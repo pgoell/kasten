@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createNote, fetchNote, NoteMissing, updateNote } from "@/lib/core/api";
 import {

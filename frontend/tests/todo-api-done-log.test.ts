@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { ChangedOnDisk, NoteExists, NoteMissing } from "@/lib/core/api";
 import { noteBase } from "@/lib/notes/note-base";
 import { periodicNote } from "@/lib/notes/text/periodic";

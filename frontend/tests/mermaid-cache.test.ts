@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * The drawings kept are bounded (#838). The package is mocked as in
  * `mermaid-theme.test.ts`, and each case gets a module of its own.

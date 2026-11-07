@@ -1,3 +1,4 @@
+// @vitest-environment node
 import "fake-indexeddb/auto";
 import { onlineManager, QueryClient } from "@tanstack/react-query";
 import { forgetKeptReads, keepReads, kept } from "@/lib/app/kept-reads";

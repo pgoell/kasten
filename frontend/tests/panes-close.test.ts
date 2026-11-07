@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { openInFocused } from "@/lib/panes/layout/pane-contents";
 import {
   addTab,

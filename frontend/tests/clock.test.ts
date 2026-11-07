@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { readClock } from "@/lib/core/clock";
 
 // Built from local parts rather than parsed from a string, because a bare ISO

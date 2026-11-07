@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { noteBase } from "@/lib/notes/note-base";
 import { periodicNote } from "@/lib/notes/text/periodic";
 import { cycleTodoInVault } from "@/lib/todo/todo-api";

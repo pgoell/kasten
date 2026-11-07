@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { GFM, parser } from "@lezer/markdown";
 import { Highlight } from "@/lib/markdown/markdown-highlight";
 import { MathSyntax } from "@/lib/markdown/math";

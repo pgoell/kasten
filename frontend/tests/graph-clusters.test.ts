@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * The clusters' arithmetic, with no canvas: places, spots, anchors, the seed
  * positions and the forces. None of it exists on main, so these cannot run there.

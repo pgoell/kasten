@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { mapPanes, openInFocused } from "@/lib/panes/layout/pane-contents";
 import { addTab, emptyLayout, goToTab, splitFocused } from "@/lib/panes/layout/panes";
 import { notes } from "./panes-fixture";

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { setSuspended, writeSchedule } from "@/lib/review/card-write";
 import { type Card, parseCards } from "@/lib/review/srs";
 import { only } from "./fixture";

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { noteAfterPrompt } from "@/components/note-prompt";
 
 describe("what the editor follows", () => {

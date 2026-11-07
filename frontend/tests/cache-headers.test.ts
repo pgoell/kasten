@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { blocks } from "./nginx-conf";
 
 describe("the cache headers nginx sends", () => {

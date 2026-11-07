@@ -1,3 +1,4 @@
+// @vitest-environment node
 import type { Mention } from "@/lib/core/api";
 import { wikiLinkPath } from "@/lib/notes/links/wikilink";
 import { linkMention, mentionLinkText } from "@/lib/saving/mention-link";

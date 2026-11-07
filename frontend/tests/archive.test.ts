@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { ARCHIVE, inArchive, visible } from "@/lib/search/archive";
 
 describe("inArchive", () => {

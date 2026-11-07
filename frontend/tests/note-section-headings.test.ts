@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { drinkTotals } from "@/lib/log/log-lines";
 import { appendUnder } from "@/lib/notes/text/note-section";
 

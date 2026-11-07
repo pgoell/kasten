@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { noteLanguage } from "@/lib/markdown/note-language";
 import cases from "@/lib/notes/text/tag-cases.json";

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import "fake-indexeddb/auto";
 import { flush, keep, reset, type State, subscribe, waiting } from "@/lib/capture/outbox";
 import { readClock } from "@/lib/core/clock";

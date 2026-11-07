@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { expect, it } from "vitest";
 import { editedLine, removeLine, replaceLine } from "@/lib/log/log-edit";
 import type { LogKind } from "@/lib/log/log-kinds";

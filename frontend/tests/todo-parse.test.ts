@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { formatTodo, parseTodo, type Todo } from "@/lib/todo/todo";
 import { EXAMPLE, parsed } from "./todo-fixture";
 

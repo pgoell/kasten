@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * A passage that carries a link of Kasten's own, written onto its anchor line.
  */

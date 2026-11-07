@@ -1,3 +1,4 @@
+// @vitest-environment node
 import type { LineHit, TodoHit } from "@/lib/core/api";
 import type { LogDay } from "@/lib/log/food-api";
 import {

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { firstAddress, sharedDraft } from "@/lib/capture/share";
 
 describe("sharedDraft", () => {

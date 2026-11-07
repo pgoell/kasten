@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { isOpen, newId } from "@/lib/todo/todo";
 import { parsed } from "./todo-fixture";
 

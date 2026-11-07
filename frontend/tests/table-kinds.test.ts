@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { isBlank, isCodeToken, isNumber, isNumericColumn } from "@/lib/notes/live/table-kinds";
 
 // Each case has its own `it`, so a red one names the text that broke the rule.

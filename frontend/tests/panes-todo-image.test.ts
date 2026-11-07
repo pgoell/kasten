@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { emptyLayout, fillFocused, focusedPane, tabPanes } from "@/lib/panes/layout/panes";
 
 describe("the todo list in a pane", () => {

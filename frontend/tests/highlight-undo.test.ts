@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { withoutHighlight } from "@/lib/panes/book/highlight-undo";
 import { addHighlight } from "@/lib/takes/highlight";
 

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * What the vault says about one person, read off the lines that link them.
  *

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import type { GraphEdge, GraphNode } from "@/lib/graph/graph";
 import { tagCounts, withoutTags } from "@/lib/graph/graph-tags";
 

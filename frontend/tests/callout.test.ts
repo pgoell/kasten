@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { parseCallout } from "@/lib/markdown/callout";
 
 describe("parseCallout", () => {

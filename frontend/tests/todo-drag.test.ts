@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { dropOf, pinnedBy, type Spot } from "@/lib/todo/todo-drag";
 
 const FDE = "02 Projects/FDE";

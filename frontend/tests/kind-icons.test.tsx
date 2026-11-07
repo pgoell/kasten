@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { paneKind, panePath } from "@/components/kind-icons";
 
 describe("kind icons", () => {

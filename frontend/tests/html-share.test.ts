@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { shareLine, sourceOf, storyOf } from "@/lib/panes/html/html-share";
 
 const PAGE = "01 Periodic/05 Newspaper/2026-10-26.html";

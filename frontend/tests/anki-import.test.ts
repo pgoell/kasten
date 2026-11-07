@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { importAnki, importAnkiLink } from "@/lib/anki-import";
 import { PIECE, uploads } from "./upload-backend-fixture";
 

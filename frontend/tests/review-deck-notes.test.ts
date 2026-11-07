@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { deckNotes, parkedNotes } from "@/lib/review/review";
 import { hits } from "./review-fixture";
 

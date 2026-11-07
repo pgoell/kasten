@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { gradeExam, parseExam, resultNote, resultPath } from "@/lib/review/exam";
 
 /** The shape the vault's four practice exams are written in, cut down to two questions. */
