@@ -2,11 +2,11 @@ import type { Extension } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
 import { fireEvent, waitFor } from "@testing-library/react";
-import { pdfRenderer } from "@/lib/book/pdf-view";
-import { livePreview } from "@/lib/live/live-preview";
 import { type EmbedSource, embedSource } from "@/lib/notes/embeds/embed";
 import { imagePaths } from "@/lib/notes/embeds/image";
 import { vaultPaths } from "@/lib/notes/links/wikilink";
+import { livePreview } from "@/lib/notes/live/live-preview";
+import { pdfRenderer } from "@/lib/panes/book/pdf-view";
 import {
   ABOVE,
   FakeObserver,

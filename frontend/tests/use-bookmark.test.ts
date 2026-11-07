@@ -7,7 +7,7 @@
  */
 
 import { act, cleanup, renderHook } from "@testing-library/react";
-import { type FoliateView, placeOf } from "@/lib/book/foliate-view";
+import { type FoliateView, placeOf } from "@/lib/panes/book/foliate-view";
 import { useBookmark } from "@/lib/saving/use-bookmark";
 import { placed } from "@/lib/saving/use-guarded-writes";
 

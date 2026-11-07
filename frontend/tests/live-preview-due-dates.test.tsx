@@ -1,9 +1,9 @@
 import { vim } from "@replit/codemirror-vim";
 import { fireEvent, waitFor } from "@testing-library/react";
 import { Editor } from "@/components/editor";
-import { livePreview } from "@/lib/live/live-preview";
 import { imagePaths } from "@/lib/notes/embeds/image";
 import { vaultPaths } from "@/lib/notes/links/wikilink";
+import { livePreview } from "@/lib/notes/live/live-preview";
 import { content, liveHooks, mount, plain, renderEditor } from "./live-preview-fixture";
 
 liveHooks();

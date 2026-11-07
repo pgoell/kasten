@@ -2,8 +2,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { QueryClient } from "@tanstack/react-query";
 import type { Note } from "@/lib/core/api";
-import * as queueModule from "@/lib/note/save-queue";
-import { type Asked, SaveQueue, Skipped } from "@/lib/note/save-queue";
+import * as queueModule from "@/lib/notes/note/save-queue";
+import { type Asked, SaveQueue, Skipped } from "@/lib/notes/note/save-queue";
 import { heldTexts, resetHeld } from "@/lib/saving/held-text";
 
 const { saveNote, fetchNote } = vi.hoisted(() => ({ saveNote: vi.fn(), fetchNote: vi.fn() }));

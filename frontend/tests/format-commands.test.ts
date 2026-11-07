@@ -1,6 +1,7 @@
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
+import { Highlight } from "@/lib/markdown/markdown-highlight";
 import {
   BOLD,
   formatDocument,
@@ -8,8 +9,7 @@ import {
   ITALIC,
   STRIKE,
   toggleMark,
-} from "@/lib/editor/format-commands";
-import { Highlight } from "@/lib/markdown/markdown-highlight";
+} from "@/lib/notes/editor/format-commands";
 
 /** A view with the same markdown parser the editor uses, and nothing else. */
 function open(doc: string, anchor: number, head = anchor) {

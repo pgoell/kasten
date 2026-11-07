@@ -11,12 +11,12 @@
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { cdp, page } from "vitest/browser";
-import { kastenTheme } from "@/lib/editor/editor-theme";
-import { vimKeys } from "@/lib/editor/vim-mode";
-import { livePreview } from "@/lib/live/live-preview";
 import { noteLanguage } from "@/lib/markdown/note-language";
+import { kastenTheme } from "@/lib/notes/editor/editor-theme";
+import { vimKeys } from "@/lib/notes/editor/vim-mode";
 import { imagePaths } from "@/lib/notes/embeds/image";
 import { vaultPaths } from "@/lib/notes/links/wikilink";
+import { livePreview } from "@/lib/notes/live/live-preview";
 import { notePath } from "@/lib/todo/todo-commands";
 import { mountApp, SITE, settled, stubOpen, tableLinkCleanup, tap } from "./table-link-fixture";
 

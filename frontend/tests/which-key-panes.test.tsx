@@ -58,8 +58,8 @@ vi.mock("@/lib/graph/graph-canvas", async (importOriginal) => ({
   }),
 }));
 
-vi.mock("@/lib/book/pdf-view", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/book/pdf-view")>()),
+vi.mock("@/lib/panes/book/pdf-view", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/panes/book/pdf-view")>()),
   showPdf: vi.fn(),
 }));
 

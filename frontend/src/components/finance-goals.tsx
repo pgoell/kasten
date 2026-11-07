@@ -2,8 +2,13 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { amountOf, positive } from "@/components/finance-budget-tab";
 import { Meter } from "@/components/finance-meter";
-import { fetchGoals, type Goal, type GoalIn, type Goals } from "@/lib/finance/finance-plans-api";
-import { euros, monthName, monthOf } from "@/lib/finance/finance-words";
+import {
+  fetchGoals,
+  type Goal,
+  type GoalIn,
+  type Goals,
+} from "@/lib/panes/finance/finance-plans-api";
+import { euros, monthName, monthOf } from "@/lib/panes/finance/finance-words";
 
 /** This month's contribution in words, with a sign beside the colour: `500 € moved ✓`. */
 export function contributionWords(goal: Goal): string {

@@ -10,7 +10,7 @@
  * layout and a real decoder answer.
  */
 
-import { backImages } from "@/lib/book/book-backing";
+import { backImages } from "@/lib/panes/book/book-backing";
 import {
   additions,
   chapterOne,

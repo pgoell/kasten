@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
-import { toggleVim } from "@/lib/editor/vim-setting";
+import { toggleVim } from "@/lib/notes/editor/vim-setting";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 import {
   BOARD,

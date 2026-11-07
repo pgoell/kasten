@@ -1,6 +1,6 @@
-import type { ScopeCompared } from "@/lib/finance/finance-budget-api";
-import type { Scope, ScopeDrill } from "@/lib/finance/finance-drill-api";
-import { euros } from "@/lib/finance/finance-words";
+import type { ScopeCompared } from "@/lib/panes/finance/finance-budget-api";
+import type { Scope, ScopeDrill } from "@/lib/panes/finance/finance-drill-api";
+import { euros } from "@/lib/panes/finance/finance-words";
 
 export type ScopeMonth = ScopeDrill["months"][number];
 

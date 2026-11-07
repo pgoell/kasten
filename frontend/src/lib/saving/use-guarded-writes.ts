@@ -7,11 +7,11 @@ import {
   useEffect,
   useState,
 } from "react";
-import type { Place } from "@/lib/book/foliate-view";
 import { type BookBeside, ChangedOnDisk, type Mention, saveNote, updateNote } from "@/lib/core/api";
 import { bookType } from "@/lib/notes/links/note-path";
 import { noteBase } from "@/lib/notes/note-base";
 import { readField, setField } from "@/lib/notes/text/note-frontmatter";
+import type { Place } from "@/lib/panes/book/foliate-view";
 import { setWatched } from "@/lib/panes/video/video";
 import { useHeldRetry } from "@/lib/saving/held-retry";
 import { heldText } from "@/lib/saving/held-text";

@@ -3,11 +3,11 @@ import type { EditorView } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
 import { act, fireEvent, waitFor } from "@testing-library/react";
 import { vi } from "vitest";
-import { followOnClick, followOnTap } from "@/lib/editor/editor-follow";
-import { vimKeys } from "@/lib/editor/vim-mode";
-import { livePreview } from "@/lib/live/live-preview";
-import { timeSeek } from "@/lib/live/live-preview-times";
+import { followOnClick, followOnTap } from "@/lib/notes/editor/editor-follow";
+import { vimKeys } from "@/lib/notes/editor/vim-mode";
 import { vaultPaths } from "@/lib/notes/links/wikilink";
+import { livePreview } from "@/lib/notes/live/live-preview";
+import { timeSeek } from "@/lib/notes/live/live-preview-times";
 import { noteVideos } from "@/lib/panes/video/video";
 import { liveHooks, mount, parsed, plain } from "./live-preview-fixture";
 

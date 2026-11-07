@@ -2,7 +2,7 @@ import { undo } from "@codemirror/commands";
 import { EditorView } from "@codemirror/view";
 import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { Editor } from "@/components/editor";
-import { toggleVim } from "@/lib/editor/vim-setting";
+import { toggleVim } from "@/lib/notes/editor/vim-setting";
 import { paletteEntries } from "@/lib/ui/palette";
 import { COARSE, stubMatchMedia } from "./match-media";
 import { finishParsing, renderStarved } from "./parsing";

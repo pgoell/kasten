@@ -9,10 +9,10 @@ import {
   type ViewUpdate,
 } from "@codemirror/view";
 import { useEffect, useRef } from "react";
-import { kastenTheme } from "@/lib/editor/editor-theme";
-import { renderedMarkdown } from "@/lib/live/live-preview";
-import { opensFor } from "@/lib/live/live-preview-callouts";
 import { noteLanguage } from "@/lib/markdown/note-language";
+import { kastenTheme } from "@/lib/notes/editor/editor-theme";
+import { renderedMarkdown } from "@/lib/notes/live/live-preview";
+import { opensFor } from "@/lib/notes/live/live-preview-callouts";
 
 interface NotePreviewProps {
   /** The text to show. Read on mount; pass a `key` to show another note. */

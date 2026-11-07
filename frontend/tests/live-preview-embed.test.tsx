@@ -1,11 +1,11 @@
 import { EditorSelection } from "@codemirror/state";
 import { vim } from "@replit/codemirror-vim";
 import { fireEvent, waitFor } from "@testing-library/react";
-import { vimKeys } from "@/lib/editor/vim-mode";
-import { livePreview } from "@/lib/live/live-preview";
+import { vimKeys } from "@/lib/notes/editor/vim-mode";
 import { EMBED_DEPTH, embedSource } from "@/lib/notes/embeds/embed";
 import { imagePaths } from "@/lib/notes/embeds/image";
 import { vaultPaths } from "@/lib/notes/links/wikilink";
+import { livePreview } from "@/lib/notes/live/live-preview";
 import {
   ABOVE,
   embedded,

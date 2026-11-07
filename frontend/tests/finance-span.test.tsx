@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { parseLimit } from "@/components/finance-budget-setup";
 import { FinancePane } from "@/components/finance-pane";
-import { spanName, spanOf, stepMonth } from "@/lib/finance/finance-span";
+import { spanName, spanOf, stepMonth } from "@/lib/panes/finance/finance-span";
 import { stubCommands } from "./stub-commands";
 
 const { never } = vi.hoisted(() => ({ never: () => new Promise(() => undefined) }));
@@ -15,14 +15,14 @@ const api = vi.hoisted(() => ({
   writeLimits: vi.fn(),
 }));
 
-vi.mock("@/lib/finance/finance-api", () => ({
+vi.mock("@/lib/panes/finance/finance-api", () => ({
   fetchCategories: () => Promise.resolve([]),
   fetchToSort: never,
   sortByHand: never,
   sortPayee: never,
 }));
-vi.mock("@/lib/finance/finance-plans-api", () => ({ fetchGoals: never }));
-vi.mock("@/lib/finance/finance-budget-api", () => ({
+vi.mock("@/lib/panes/finance/finance-plans-api", () => ({ fetchGoals: never }));
+vi.mock("@/lib/panes/finance/finance-budget-api", () => ({
   fetchBudget: api.fetchBudget,
   fetchFree: never,
   fetchTrend: never,

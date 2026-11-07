@@ -3,7 +3,7 @@ import { EditorView } from "@codemirror/view";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { Editor } from "@/components/editor";
 import { NotePreview } from "@/components/note-preview";
-import { HIDDEN, nudgeOutOfHidden } from "@/lib/live/live-preview-hidden";
+import { HIDDEN, nudgeOutOfHidden } from "@/lib/notes/live/live-preview-hidden";
 import { parseCards } from "@/lib/review/srs";
 import { content, liveHooks, mount, plain, renderEditor } from "./live-preview-fixture";
 

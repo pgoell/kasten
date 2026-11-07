@@ -1,6 +1,6 @@
 import { act, fireEvent, waitFor } from "@testing-library/react";
 import { Editor } from "@/components/editor";
-import { toggleVim } from "@/lib/editor/vim-setting";
+import { toggleVim } from "@/lib/notes/editor/vim-setting";
 import { content, liveHooks, renderEditor } from "./live-preview-fixture";
 
 liveHooks();

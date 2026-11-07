@@ -1,19 +1,19 @@
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { useContext, useEffect, useLayoutEffect, useRef } from "react";
-import { takeVaultText, writeWatched } from "@/lib/editor/buffer-writes";
-import type { FileTarget } from "@/lib/editor/editor-follow";
-import { notePosition } from "@/lib/editor/editor-position";
+import { takeVaultText, writeWatched } from "@/lib/notes/editor/buffer-writes";
+import type { FileTarget } from "@/lib/notes/editor/editor-follow";
+import { notePosition } from "@/lib/notes/editor/editor-position";
 import {
   createNoteView,
   type NoteViewLatest,
   setListings,
   setPreview,
   setVim,
-} from "@/lib/editor/note-view";
-import { useVim } from "@/lib/editor/vim-setting";
-import type { Outline } from "@/lib/note/note-head";
+} from "@/lib/notes/editor/note-view";
+import { useVim } from "@/lib/notes/editor/vim-setting";
 import type { EmbedSource } from "@/lib/notes/embeds/embed";
+import type { Outline } from "@/lib/notes/note/note-head";
 import type { ReviewSource } from "@/lib/review/periodic-review";
 import type { CycleHandler } from "@/lib/todo/todo-commands";
 import { keyboardUnasked } from "@/lib/ui/input/last-input";

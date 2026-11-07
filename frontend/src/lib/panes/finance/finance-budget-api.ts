@@ -1,0 +1,135 @@
+/** The finance pane's overview, budget and transaction calls. The sorting calls live in `finance-api.ts`. */
+
+import type { components } from "@/lib/api-types";
+import { client, reason } from "@/lib/core/api-client";
+import type { Span } from "@/lib/panes/finance/finance-span";
+
+export type Budget = components["schemas"]["BudgetOut"];
+export type BudgetCategory = components["schemas"]["BudgetCategoryOut"];
+export type FreeToSpend = components["schemas"]["FreeToSpendOut"];
+export type Free = components["schemas"]["FreeOut"];
+export type Trend = components["schemas"]["TrendOut"];
+export type Flow = components["schemas"]["FlowOut"];
+export type FlowNode = components["schemas"]["FlowNodeOut"];
+export type Transaction = components["schemas"]["TransactionOut"];
+export type Account = components["schemas"]["AccountOut"];
+export type SyncStatus = components["schemas"]["SyncStatus"];
+export type Range = components["schemas"]["RangeOut"];
+export type ScopeCompared = components["schemas"]["ScopeComparedOut"];
+export type Setup = components["schemas"]["SetupOut"];
+
+/** What the transactions list narrows to; every field left out matches every booking. */
+export interface TransactionFilter {
+  month?: string;
+  account?: number;
+  category?: number;
+  text?: string;
+}
+
+/** The bookings a filter answers with at once, newest first. A month holds about 100. */
+const PAGE = 500;
+
+function failed(what: string, error: { detail?: unknown } | undefined, status: number): Error {
+  return new Error(reason(error) ?? `${what} failed with ${status}`);
+}
+
+export async function fetchBudget(month: string, today: string): Promise<Budget> {
+  const { data, error, response } = await client.GET("/api/finance/budget", {
+    params: { query: { month, today } },
+  });
+  if (!data) throw failed("GET /api/finance/budget", error, response.status);
+  return data;
+}
+
+export async function fetchFree(month: string, today: string): Promise<FreeToSpend> {
+  const { data, error, response } = await client.GET("/api/finance/budget/free", {
+    params: { query: { month, today } },
+  });
+  if (!data) throw failed("GET /api/finance/budget/free", error, response.status);
+  return data;
+}
+
+/** Where the money of a span went; a span of one month is that month. */
+export async function fetchFlow(span: Span): Promise<Flow> {
+  const { data, error, response } = await client.GET("/api/finance/budget/flow", {
+    params: { query: { month: span.to, from: span.from } },
+  });
+  if (!data) throw failed("GET /api/finance/budget/flow", error, response.status);
+  return data;
+}
+
+/** Both scopes over a span, against the same months a year before and the 6-month average. */
+export async function fetchRange(span: Span): Promise<Range> {
+  const { data, error, response } = await client.GET("/api/finance/budget/range", {
+    params: { query: { month: span.to, from: span.from } },
+  });
+  if (!data) throw failed("GET /api/finance/budget/range", error, response.status);
+  return data;
+}
+
+/** Every spending category's limit, average and plans, and the income they are set against. */
+export async function fetchSetup(month: string, today: string): Promise<Setup> {
+  const { data, error, response } = await client.GET("/api/finance/budget/setup", {
+    params: { query: { month, today } },
+  });
+  if (!data) throw failed("GET /api/finance/budget/setup", error, response.status);
+  return data;
+}
+
+/** Set every limit given from `month` on, all or none; null takes one away. */
+export async function writeLimits(
+  month: string,
+  limits: { category_id: number; amount: string | null }[],
+): Promise<void> {
+  const { error, response } = await client.PUT("/api/finance/budget/limits", {
+    body: { from: month, limits },
+  });
+  if (!response.ok) throw failed("Setting the limits", error, response.status);
+}
+
+export async function fetchTrend(month: string): Promise<Trend> {
+  const { data, error, response } = await client.GET("/api/finance/budget/trend", {
+    params: { query: { month, months: 12 } },
+  });
+  if (!data) throw failed("GET /api/finance/budget/trend", error, response.status);
+  return data;
+}
+
+export async function fetchTransactions(filter: TransactionFilter): Promise<Transaction[]> {
+  const { data, error, response } = await client.GET("/api/finance/transactions", {
+    params: { query: { ...filter, text: filter.text || undefined, order: "desc", limit: PAGE } },
+  });
+  if (!data) throw failed("GET /api/finance/transactions", error, response.status);
+  return data;
+}
+
+export async function fetchAccounts(): Promise<Account[]> {
+  const { data, error, response } = await client.GET("/api/finance/accounts");
+  if (!data) throw failed("GET /api/finance/accounts", error, response.status);
+  return data;
+}
+
+/** Set a category's limit from `month` on; null takes it away. */
+export async function writeLimit(
+  category: number,
+  amount: string | null,
+  month: string,
+): Promise<void> {
+  const { error, response } = await client.PUT("/api/finance/categories/{category_id}/limit", {
+    params: { path: { category_id: category } },
+    body: { amount, from: month },
+  });
+  if (!response.ok) throw failed("Setting the limit", error, response.status);
+}
+
+export async function fetchSync(): Promise<SyncStatus> {
+  const { data, error, response } = await client.GET("/api/finance/sync");
+  if (!data) throw failed("GET /api/finance/sync", error, response.status);
+  return data;
+}
+
+/** "Pull now": the bank job sees the request within a minute and starts a pull. */
+export async function requestPull(): Promise<void> {
+  const { error, response } = await client.POST("/api/finance/sync/requests");
+  if (!response.ok) throw failed("Asking for a pull", error, response.status);
+}

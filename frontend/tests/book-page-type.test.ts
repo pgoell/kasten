@@ -1,4 +1,4 @@
-import { pageStyles } from "@/lib/book/book-backing";
+import { pageStyles } from "@/lib/panes/book/book-backing";
 
 const { theme } = vi.hoisted(() => ({ theme: { current: "light" as "light" | "dark" } }));
 vi.mock("@/lib/ui/theme", () => ({ currentTheme: () => theme.current }));

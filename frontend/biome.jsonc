@@ -69,7 +69,7 @@
     // to the repo root, where `shell:lint` runs. The count is guarded by
     // backend/tests/test_complexity_baseline.py.
     {
-      "includes": ["src/lib/note/save-queue.ts"],
+      "includes": ["src/lib/notes/note/save-queue.ts"],
       "linter": {
         "rules": { "complexity": { "noExcessiveCognitiveComplexity": "off" } }
       }

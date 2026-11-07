@@ -4,11 +4,11 @@ import { EditorView } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
 import { fireEvent } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { vimKeys, vimModeField, vimModeState } from "@/lib/editor/vim-mode";
 import { type Food, fetchLog, type LogDay, readBarcode, searchFood } from "@/lib/log/food-api";
 import { logCard } from "@/lib/log/log-card";
 import { drinkTotals } from "@/lib/log/log-lines";
 import { addMyFood, fetchMyFoods } from "@/lib/log/my-foods";
+import { vimKeys, vimModeField, vimModeState } from "@/lib/notes/editor/vim-mode";
 import { notePath } from "@/lib/todo/todo-commands";
 
 vi.mock("@/lib/log/food-api", () => ({

@@ -3,13 +3,13 @@ import { type CompletionContext, type CompletionResult, snippet } from "@codemir
 import { Facet } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { getCM, Vim } from "@replit/codemirror-vim";
-import { FORMAT, LEADER_EDITS, readable } from "@/lib/editor/buffer-keys";
-import { editorCommands } from "@/lib/editor/editor-commands";
-import { toggleMark } from "@/lib/editor/format-commands";
-import { toggleVim } from "@/lib/editor/vim-setting";
 import { askOnCard, openFoodSearch } from "@/lib/log/log-card";
 import { DEFAULT_CONFIG, type LogKind, tapLine } from "@/lib/log/log-kinds";
 import { logDrinkInView } from "@/lib/log/log-write";
+import { FORMAT, LEADER_EDITS, readable } from "@/lib/notes/editor/buffer-keys";
+import { editorCommands } from "@/lib/notes/editor/editor-commands";
+import { toggleMark } from "@/lib/notes/editor/format-commands";
+import { toggleVim } from "@/lib/notes/editor/vim-setting";
 import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
 import { LEADER, spelled, TAB_KEYS } from "@/lib/ui/keys/leader-keys";
 import { pickPalette, toggleTheme } from "@/lib/ui/theme";
@@ -58,7 +58,7 @@ export function writeInsert(view: EditorView, insert: Insert, from: number, to: 
 export type CopyFormat = "md" | "slack" | "teams";
 
 /**
- * What vim's keys reach on a view: the ex commands and `gf`. `lib/editor/editor-ex.ts` provides
+ * What vim's keys reach on a view: the ex commands and `gf`. `lib/notes/editor/editor-ex.ts` provides
  * these, since importing back here is a cycle. Absent on a view that is no note's editor.
  */
 export interface ViewCommands {

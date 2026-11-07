@@ -14,7 +14,7 @@ import {
   pdfjsRenderer,
   type ShowOptions,
   showPdf,
-} from "@/lib/book/pdf-view";
+} from "@/lib/panes/book/pdf-view";
 import "@/styles/app.css";
 import { IMAGE_BOX, PAGE_HEIGHT, PAGE_ONE, PAGE_WIDTH } from "./pdf-fixture";
 

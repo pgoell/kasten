@@ -4,10 +4,10 @@ import { EditorState, type Extension } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
 import { act, fireEvent, waitFor } from "@testing-library/react";
-import { livePreview } from "@/lib/live/live-preview";
 import { noteLanguage } from "@/lib/markdown/note-language";
 import { imagePaths } from "@/lib/notes/embeds/image";
 import { vaultPaths } from "@/lib/notes/links/wikilink";
+import { livePreview } from "@/lib/notes/live/live-preview";
 import { liveHooks, mount, mounted, plain } from "./live-preview-fixture";
 
 liveHooks();

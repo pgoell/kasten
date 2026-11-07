@@ -5,9 +5,9 @@ import { vim } from "@replit/codemirror-vim";
 import { fireEvent } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchNote, NoteMissing } from "@/lib/core/api";
-import { vimKeys, vimModeField, vimModeState } from "@/lib/editor/vim-mode";
 import { logCard, reloadLogConfig } from "@/lib/log/log-card";
 import { logConfig } from "@/lib/log/log-config";
+import { vimKeys, vimModeField, vimModeState } from "@/lib/notes/editor/vim-mode";
 import { notePath } from "@/lib/todo/todo-commands";
 
 vi.mock("@/lib/core/api", async (importOriginal) => ({

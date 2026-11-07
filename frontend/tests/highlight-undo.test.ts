@@ -1,4 +1,4 @@
-import { withoutHighlight } from "@/lib/book/highlight-undo";
+import { withoutHighlight } from "@/lib/panes/book/highlight-undo";
 import { addHighlight } from "@/lib/takes/highlight";
 
 const BASE = "# DDIA\n\n## Highlights\n";
