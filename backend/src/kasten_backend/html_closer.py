@@ -39,8 +39,10 @@ _CDATA = re.compile(r"<!\[(?!CDATA\[)(?i:cdata)\[")
 _A_START = re.compile(r"<a[\t\n\f\r />]", re.IGNORECASE)
 _FOREIGN_OBJECT_END = re.compile(r"</foreignobject[\t\n\f\r />]", re.IGNORECASE)
 _A_END = re.compile(r"</a[\t\n\f\r />]", re.IGNORECASE)
-# A quote opens a value only after `=`; elsewhere it is a plain character.
-_START_TAG = re.compile(r"""<(?:=\s*+"[^"]*+"|=\s*+'[^']*+'|[^>])*+>""")
+# A value follows an attribute name and `=`; a quote anywhere else is a plain character.
+_START_TAG = re.compile(
+    r"""<[^\s/>]++(?:[\s/]++|[^\s/>=]++(?:\s*+=\s*+(?:"[^"]*+"|'[^']*+'|[^\s>]*+))?+)*+>"""
+)
 
 _TAG = ((">", False), ('">', False), ("'>", False), ("]]>", False))
 """What may end a tag, a doctype or a CDATA section, the shortest first, each with whether it
@@ -99,21 +101,26 @@ def _fixed(page: str, nodes: list[Node]) -> str | None:
         ),
         default=len(page),
     )
-    # justhtml closes the point at the token at fault, so it is the first after the point's last
-    # tag; an `</a>` between means the outer `<a>` had gone.
-    a_tags = {
-        m.start()
+    # justhtml closes the point at the token at fault, so it is the first tag after the point's
+    # last node; an `</a>` between means the outer `<a>` had gone.
+    starts = sorted(
+        e.origin_offset
         for e in elements
-        if (e.namespace, e.name) in _POINTS
-        and _ancestor_a(e)
-        and (m := _after(_A_START, page, e))
-        and not _A_END.search(page, e.origin_offset or 0, m.start())
+        if (e.namespace, e.name) == ("html", "a") and e.origin_offset is not None
+    )
+    a_tags = {
+        starts[i]
+        for e in elements
+        if (e.namespace, e.name) in _POINTS and _ancestor_a(e)
+        for last in [_last(page, e)]
+        if (i := bisect.bisect_left(starts, last)) < len(starts)
+        and not _A_END.search(page, last, starts[i])
     }
     end_tags = {
         m.start()
         for e in elements
         if (e.namespace, e.name) == ("html", "foreignobject")
-        and (m := _after(_FOREIGN_OBJECT_END, page, e))
+        and (m := _FOREIGN_OBJECT_END.search(page, _last(page, e)))
     }
     tags = sorted(
         [(at, _a_fix) for at in a_tags if at < image]
@@ -125,8 +132,21 @@ def _fixed(page: str, nodes: list[Node]) -> str | None:
     return page[:image] + "<img  " + page[image + 6 :] if image < len(page) else None
 
 
-def _after(tag: re.Pattern[str], page: str, element: Element) -> re.Match[str] | None:
-    return tag.search(page, max(node.origin_offset or 0 for node in _nodes(element)))
+def _last(page: str, element: Element) -> int:
+    """Where the source of the element's last node ends, past any tag-like text inside it."""
+    node = max(_nodes(element), key=lambda n: n.origin_offset or 0)
+    at = node.origin_offset or 0
+    if isinstance(node, Element):
+        tag = _START_TAG.match(page, at)
+        return tag.end() if tag else at
+    if isinstance(node, Comment):
+        end = page.find("-->" if page.startswith("<!--", at) else ">", at)
+    elif isinstance(node, Text) and node.parent is not None and node.parent.name in _RAW:
+        found = re.compile(f"</{node.parent.name}", re.IGNORECASE).search(page, at)
+        end = found.start() if found else -1
+    else:
+        return at
+    return len(page) if end < 0 else end
 
 
 def _ancestor_a(element: Element) -> bool:

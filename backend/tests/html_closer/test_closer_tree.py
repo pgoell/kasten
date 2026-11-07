@@ -135,6 +135,23 @@ BEHIND = b"<a></a></foreignObject><![CDATA[x"
         ),
         pytest.param(b"<A>" + POINT + BEHIND, b"]]></svg>", id="upper-case-a"),
         pytest.param(b'<a href=x"y>' + POINT + BEHIND, b"]]></svg>", id="a-with-a-stray-quote"),
+        pytest.param(
+            b'<a href=/s?q="x>' + POINT + BEHIND, b"]]></svg>", id="a-with-an-equals-quote"
+        ),
+        pytest.param(
+            b"<a>" + POINT + b"<!-- </a> -->" + BEHIND, b"]]></svg>", id="end-a-in-a-comment"
+        ),
+        pytest.param(
+            b"<a>" + POINT + b"<!-- <a> -->" + BEHIND, b"]]></svg>", id="start-a-in-a-comment"
+        ),
+        pytest.param(
+            b"<a>" + POINT + b'<script>"</a>"</script>' + BEHIND,
+            b"]]></svg>",
+            id="end-a-in-a-script",
+        ),
+        pytest.param(
+            b"<a>" + POINT + b'<br title="</a>">' + BEHIND, b"]]></svg>", id="end-a-in-an-attribute"
+        ),
         pytest.param(b'<a title="x>y">' + POINT + BEHIND, b"]]></svg>", id="a-with-a-quoted-gt"),
         pytest.param(b"\r\n<a>\r\n" + POINT + BEHIND, b"]]></svg>", id="crlf-before-a"),
         pytest.param(b"<p><a></p>q" + POINT + BEHIND, b"]]></svg>", id="reopened-outer-a"),
