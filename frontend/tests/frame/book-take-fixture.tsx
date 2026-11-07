@@ -8,8 +8,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { flushSync } from "react-dom";
 import { BookPane } from "@/components/books/book-pane";
-import type { FoliateView } from "@/lib/book/foliate-view";
 import { updateNote } from "@/lib/core/api";
+import type { FoliateView } from "@/lib/panes/book/foliate-view";
 import { addHighlight, type Passage } from "@/lib/takes/highlight";
 import { quoteParagraphs } from "@/lib/takes/html-take";
 import { newId } from "@/lib/todo/todo";

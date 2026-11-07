@@ -8,7 +8,7 @@ import { Decoration, type DecorationSet, EditorView, WidgetType } from "@codemir
 import type { QueryClient } from "@tanstack/react-query";
 import type { Root } from "react-dom/client";
 import { mountReview } from "@/components/review-block";
-import { cardLine } from "@/lib/note/weather-card";
+import { cardLine } from "@/lib/notes/note/weather-card";
 import { closing } from "@/lib/notes/text/note-frontmatter";
 import { weeklyWeek, yearlyYear } from "@/lib/notes/text/periodic";
 import { notePath } from "@/lib/todo/todo-commands";

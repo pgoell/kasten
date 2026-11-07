@@ -20,11 +20,11 @@ import type {} from "@vitest/browser-playwright";
 import { createRoot, type Root } from "react-dom/client";
 import { cdp, page } from "vitest/browser";
 import { Editor } from "@/components/editor";
-import { vimKeys } from "@/lib/editor/vim-mode";
-import { livePreview } from "@/lib/live/live-preview";
 import { noteLanguage } from "@/lib/markdown/note-language";
+import { vimKeys } from "@/lib/notes/editor/vim-mode";
 import { imagePaths } from "@/lib/notes/embeds/image";
 import { vaultPaths } from "@/lib/notes/links/wikilink";
+import { livePreview } from "@/lib/notes/live/live-preview";
 import "@/styles/app.css";
 
 const CAT = "https://example.com/cat.png";

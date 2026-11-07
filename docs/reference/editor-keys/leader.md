@@ -261,7 +261,7 @@ while today's note holds unsaved text or is being saved. See
 [Log format](/reference/log-format.md#the-card).
 
 `frontend/src/lib/ui/palette.ts` builds both lists from the tables in
-`leader-keys.ts` and `editor/buffer-keys.ts`, so a new leader binding appears in the palette and in the
+`leader-keys.ts` and `notes/editor/buffer-keys.ts`, so a new leader binding appears in the palette and in the
 `/` menu with no further edit.
 
 ### The `/` menu

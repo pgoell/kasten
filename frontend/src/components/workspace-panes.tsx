@@ -4,8 +4,8 @@ import { PaneBody, type PaneExtras } from "@/components/pane-body";
 import { PaneLayout } from "@/components/pane-layout";
 import { isUnsaved, TabStrip } from "@/components/tab-strip";
 import type { PaneMoves } from "@/components/use-pane-moves";
-import type { SaveStatus } from "@/lib/note/use-autosave";
-import { makeNote } from "@/lib/note/use-note-opening";
+import type { SaveStatus } from "@/lib/notes/note/use-autosave";
+import { makeNote } from "@/lib/notes/note/use-note-opening";
 import { openBeside } from "@/lib/panes/layout/pane-contents";
 import {
   activeTab,

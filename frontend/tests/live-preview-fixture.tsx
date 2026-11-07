@@ -3,13 +3,13 @@ import { EditorState, type Extension } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { act, type RenderResult, render, waitFor } from "@testing-library/react";
 import type { ReactElement } from "react";
-import { type PdfFile, type PdfRenderer, pdfRenderer } from "@/lib/book/pdf-view";
-import { vimKeys } from "@/lib/editor/vim-mode";
-import { livePreview } from "@/lib/live/live-preview";
 import { noteLanguage } from "@/lib/markdown/note-language";
+import { vimKeys } from "@/lib/notes/editor/vim-mode";
 import { type EmbedSource, embedSource } from "@/lib/notes/embeds/embed";
 import { imagePaths } from "@/lib/notes/embeds/image";
 import { vaultPaths } from "@/lib/notes/links/wikilink";
+import { livePreview } from "@/lib/notes/live/live-preview";
+import { type PdfFile, type PdfRenderer, pdfRenderer } from "@/lib/panes/book/pdf-view";
 
 /**
  * Helpers the live-preview test files share. Each of those files calls

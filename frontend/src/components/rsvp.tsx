@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { isError } from "@/lib/book/foliate-view";
+import { isError } from "@/lib/panes/book/foliate-view";
 import {
   back,
   chunkEnd,

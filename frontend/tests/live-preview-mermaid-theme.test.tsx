@@ -12,19 +12,19 @@ import { vim } from "@replit/codemirror-vim";
 import { act } from "@testing-library/react";
 import { createRoot, type Root } from "react-dom/client";
 import { NotePreview } from "@/components/note-preview";
-import { vimKeys } from "@/lib/editor/vim-mode";
-import { livePreview } from "@/lib/live/live-preview";
-import { drawMermaid } from "@/lib/live/mermaid";
 import { noteLanguage } from "@/lib/markdown/note-language";
+import { vimKeys } from "@/lib/notes/editor/vim-mode";
 import { imagePaths } from "@/lib/notes/embeds/image";
 import { vaultPaths } from "@/lib/notes/links/wikilink";
+import { livePreview } from "@/lib/notes/live/live-preview";
+import { drawMermaid } from "@/lib/notes/live/mermaid";
 import { startTheme, toggleTheme } from "@/lib/ui/theme";
 import { stubMatchMedia } from "./match-media";
 
 const DARK = "(prefers-color-scheme: dark)";
 
 // Spied, so a test can read the draws a switch asked for.
-vi.mock("@/lib/live/mermaid", { spy: true });
+vi.mock("@/lib/notes/live/mermaid", { spy: true });
 
 const { initialize, render, hold } = vi.hoisted(() => {
   let theme = "default";

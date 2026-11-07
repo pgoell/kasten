@@ -8,15 +8,15 @@ import {
   sortKeys,
   type TabKeys,
 } from "@/components/finance-sort-bar";
-import type { Category } from "@/lib/finance/finance-api";
+import type { Category } from "@/lib/panes/finance/finance-api";
 import {
   fetchAccounts,
   fetchTransactions,
   type Transaction,
-} from "@/lib/finance/finance-budget-api";
-import type { DrillStep } from "@/lib/finance/finance-drill-api";
-import { money } from "@/lib/finance/finance-words";
-import type { CategorySort, SortRow } from "@/lib/finance/use-category-sort";
+} from "@/lib/panes/finance/finance-budget-api";
+import type { DrillStep } from "@/lib/panes/finance/finance-drill-api";
+import { money } from "@/lib/panes/finance/finance-words";
+import type { CategorySort, SortRow } from "@/lib/panes/finance/use-category-sort";
 
 function lineOf(booking: Transaction, names: Map<number, string>): BookingLine {
   return {

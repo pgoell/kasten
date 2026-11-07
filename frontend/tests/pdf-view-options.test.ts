@@ -6,7 +6,7 @@ import {
   pageColors,
   type ShowOptions,
   showPdf,
-} from "@/lib/book/pdf-view";
+} from "@/lib/panes/book/pdf-view";
 
 /** One draw of a page: which page, at what scale, in which colours. */
 interface Draw {

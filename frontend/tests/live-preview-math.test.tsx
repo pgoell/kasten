@@ -8,10 +8,10 @@ import { EditorView } from "@codemirror/view";
 import { act, fireEvent, type RenderResult, render, waitFor } from "@testing-library/react";
 import { Editor } from "@/components/editor";
 import { NotePreview } from "@/components/note-preview";
-import { kastenTheme } from "@/lib/editor/editor-theme";
-import { renderedMarkdown } from "@/lib/live/live-preview";
 import { loadKatex } from "@/lib/markdown/math";
 import { noteLanguage } from "@/lib/markdown/note-language";
+import { kastenTheme } from "@/lib/notes/editor/editor-theme";
+import { renderedMarkdown } from "@/lib/notes/live/live-preview";
 
 // Spied rather than replaced, so KaTeX still draws and a test can also ask
 // whether it was loaded at all.

@@ -1,7 +1,7 @@
 import { EditorView } from "@codemirror/view";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { WhichKey } from "@/components/which-key";
-import { LEADER_EDITS } from "@/lib/editor/buffer-keys";
+import { LEADER_EDITS } from "@/lib/notes/editor/buffer-keys";
 import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
 import { LEADER } from "@/lib/ui/keys/leader-keys";
 import { beginLeader, editorOpener, type LeaderOpener, paneOpener } from "@/lib/ui/keys/which-key";

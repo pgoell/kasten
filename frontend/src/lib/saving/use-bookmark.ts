@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
-import type { Place } from "@/lib/book/foliate-view";
+import type { Place } from "@/lib/panes/book/foliate-view";
 
 /** Sixty seconds. A bookmark does not need five-second precision. */
 const WAIT_MS = 60_000;

@@ -1,4 +1,4 @@
-import { FORMAT, LEADER_EDITS } from "@/lib/editor/buffer-keys";
+import { FORMAT, LEADER_EDITS } from "@/lib/notes/editor/buffer-keys";
 import { type EditorCommands, TERMINAL } from "@/lib/ui/keys/key-bindings";
 import { LEADER } from "@/lib/ui/keys/leader-keys";
 

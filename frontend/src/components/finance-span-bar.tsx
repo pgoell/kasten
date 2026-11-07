@@ -6,8 +6,8 @@ import {
   spanName,
   spanOf,
   stepMonth,
-} from "@/lib/finance/finance-span";
-import { monthName, monthOf, shiftMonth } from "@/lib/finance/finance-words";
+} from "@/lib/panes/finance/finance-span";
+import { monthName, monthOf, shiftMonth } from "@/lib/panes/finance/finance-words";
 
 /**
  * The months the pane reads: the month shown, and around it the span the overview and the

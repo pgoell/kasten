@@ -13,11 +13,11 @@ import { EditorView } from "@codemirror/view";
 // For its types alone: the provider is what gives `cdp()` a typed `send`.
 import type {} from "@vitest/browser-playwright";
 import { cdp, page } from "vitest/browser";
-import { vimKeys } from "@/lib/editor/vim-mode";
-import { livePreview } from "@/lib/live/live-preview";
 import { noteLanguage } from "@/lib/markdown/note-language";
+import { vimKeys } from "@/lib/notes/editor/vim-mode";
 import { imagePaths } from "@/lib/notes/embeds/image";
 import { vaultPaths } from "@/lib/notes/links/wikilink";
+import { livePreview } from "@/lib/notes/live/live-preview";
 import { notePath } from "@/lib/todo/todo-commands";
 import "@/styles/app.css";
 import { shot } from "./shots";

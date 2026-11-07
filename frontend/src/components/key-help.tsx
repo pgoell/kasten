@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Sheet } from "@/components/sheet";
-import { FOLLOW, FORMAT, INDENT, LEADER_EDITS, readable } from "@/lib/editor/buffer-keys";
-import { useVim } from "@/lib/editor/vim-setting";
-import { FINANCE_PANE } from "@/lib/finance/finance-keys";
+import { FOLLOW, FORMAT, INDENT, LEADER_EDITS, readable } from "@/lib/notes/editor/buffer-keys";
+import { useVim } from "@/lib/notes/editor/vim-setting";
+import { FINANCE_PANE } from "@/lib/panes/finance/finance-keys";
 import { VIDEO_PANE } from "@/lib/panes/video/video-keys";
 import { trapTab } from "@/lib/ui/focus-trap";
 import { useViewport } from "@/lib/ui/input/use-viewport";

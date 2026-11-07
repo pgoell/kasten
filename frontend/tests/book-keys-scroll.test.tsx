@@ -1,9 +1,9 @@
 import { renderHook } from "@testing-library/react";
 import type { RefObject } from "react";
-import type { FoliateView } from "@/lib/book/foliate-view";
-import { useBookKeys } from "@/lib/book/use-book-keys";
-import type { BookTake } from "@/lib/book/use-book-take";
-import { useBookTurns } from "@/lib/book/use-book-turns";
+import type { FoliateView } from "@/lib/panes/book/foliate-view";
+import { useBookKeys } from "@/lib/panes/book/use-book-keys";
+import type { BookTake } from "@/lib/panes/book/use-book-take";
+import { useBookTurns } from "@/lib/panes/book/use-book-turns";
 import { hostLeader } from "@/lib/ui/keys/which-key";
 import { stubCommands } from "./stub-commands";
 

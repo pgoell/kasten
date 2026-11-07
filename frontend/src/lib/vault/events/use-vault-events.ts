@@ -2,7 +2,7 @@ import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { type RefObject, useEffect } from "react";
 import { LOG_NOTE, MODEL_USE_FOLDER } from "@/lib/core/layout";
 import { reloadLogConfig } from "@/lib/log/log-card";
-import type { useAutosave } from "@/lib/note/use-autosave";
+import type { useAutosave } from "@/lib/notes/note/use-autosave";
 import { dailyDate, weeklyWeek, yearlyYear } from "@/lib/notes/text/periodic";
 import { pageWritten } from "@/lib/panes/html/page-written";
 import { pressEcho } from "@/lib/todo/todo-press-echo";

@@ -1,11 +1,11 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { type RefObject, useState } from "react";
 import { BookingList, type TabKeys } from "@/components/finance-sort-bar";
-import type { Transaction } from "@/lib/finance/finance-budget-api";
-import type { DrillStep } from "@/lib/finance/finance-drill-api";
-import type { Span } from "@/lib/finance/finance-span";
-import { euros, money } from "@/lib/finance/finance-words";
-import type { CategorySort } from "@/lib/finance/use-category-sort";
+import type { Transaction } from "@/lib/panes/finance/finance-budget-api";
+import type { DrillStep } from "@/lib/panes/finance/finance-drill-api";
+import type { Span } from "@/lib/panes/finance/finance-span";
+import { euros, money } from "@/lib/panes/finance/finance-words";
+import type { CategorySort } from "@/lib/panes/finance/use-category-sort";
 
 /** What every drilldown view is handed: where it is, and how to go further down. */
 export interface DrillProps {

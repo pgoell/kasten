@@ -2,7 +2,7 @@ import { cleanup, waitFor } from "@testing-library/react";
 import { Editor } from "@/components/editor";
 import { StatusBar } from "@/components/status-bar";
 import { ChangedOnDisk } from "@/lib/core/api";
-import { forgetQueues } from "@/lib/note/use-autosave";
+import { forgetQueues } from "@/lib/notes/note/use-autosave";
 import { resetHeld, unstamped } from "@/lib/saving/held-text";
 import { digestOf } from "@/lib/vault/events/vault-events";
 import { renderNote, serveVault } from "./note-editor-fixture";

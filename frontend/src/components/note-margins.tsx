@@ -1,4 +1,4 @@
-import type { Outline as OutlineState } from "@/lib/note/note-head";
+import type { Outline as OutlineState } from "@/lib/notes/note/note-head";
 
 /**
  * The start inset of a margin's text: the outline row's base padding plus its 2 px

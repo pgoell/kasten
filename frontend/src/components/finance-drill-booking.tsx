@@ -10,10 +10,14 @@ import {
 import { BookingOrder } from "@/components/finance-orders";
 import { SortBar, sortKeys } from "@/components/finance-sort-bar";
 import { BookingTaxCard } from "@/components/finance-tax-mark";
-import { sortByHand } from "@/lib/finance/finance-api";
-import type { Transaction } from "@/lib/finance/finance-budget-api";
-import { type BookingDrill, fetchBookingDrill, writeSplits } from "@/lib/finance/finance-drill-api";
-import { money, monthName } from "@/lib/finance/finance-words";
+import { sortByHand } from "@/lib/panes/finance/finance-api";
+import type { Transaction } from "@/lib/panes/finance/finance-budget-api";
+import {
+  type BookingDrill,
+  fetchBookingDrill,
+  writeSplits,
+} from "@/lib/panes/finance/finance-drill-api";
+import { money, monthName } from "@/lib/panes/finance/finance-words";
 
 /** The words for the part of the budget a booking counts in. */
 const PARTS: Record<string, string> = {

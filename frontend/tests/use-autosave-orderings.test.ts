@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { ChangedOnDisk } from "@/lib/core/api";
-import { forgetQueues, useAutosave } from "@/lib/note/use-autosave";
+import { forgetQueues, useAutosave } from "@/lib/notes/note/use-autosave";
 import { noteBase } from "@/lib/notes/note-base";
 import { resetHeld } from "@/lib/saving/held-text";
 

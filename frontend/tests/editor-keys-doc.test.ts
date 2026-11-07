@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-import { LEADER_EDITS } from "@/lib/editor/buffer-keys";
+import { LEADER_EDITS } from "@/lib/notes/editor/buffer-keys";
 import { TODO_PANE } from "@/lib/ui/keys/key-bindings";
 import { LEADER } from "@/lib/ui/keys/leader-keys";
 

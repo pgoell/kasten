@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { KeyHelp } from "@/components/key-help";
-import { FOLLOW, FORMAT, INDENT, LEADER_EDITS } from "@/lib/editor/buffer-keys";
+import { FOLLOW, FORMAT, INDENT, LEADER_EDITS } from "@/lib/notes/editor/buffer-keys";
 import { SCREENS, TERMINAL, TERMINAL_CHORD, TODO_PANE, TREE } from "@/lib/ui/keys/key-bindings";
 import { LEADER } from "@/lib/ui/keys/leader-keys";
 

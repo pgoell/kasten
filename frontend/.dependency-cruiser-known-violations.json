@@ -1,7 +1,7 @@
 [
   {
     "type": "dependency",
-    "from": "src/lib/book/foliate-view.ts",
+    "from": "src/lib/panes/book/foliate-view.ts",
     "to": "src/components/books/book-contents.tsx",
     "unresolvedTo": "@/components/books/book-contents",
     "dependencyTypes": ["undetermined", "import", "type-only"],
@@ -12,7 +12,7 @@
   },
   {
     "type": "dependency",
-    "from": "src/lib/book/use-book-view.ts",
+    "from": "src/lib/panes/book/use-book-view.ts",
     "to": "src/components/books/book-contents.tsx",
     "unresolvedTo": "@/components/books/book-contents",
     "dependencyTypes": ["undetermined", "import"],
@@ -145,9 +145,9 @@
   },
   {
     "type": "cycle",
-    "from": "src/lib/book/pdf-view.ts",
-    "to": "src/lib/book/pdfjs-renderer.ts",
-    "unresolvedTo": "@/lib/book/pdfjs-renderer",
+    "from": "src/lib/panes/book/pdf-view.ts",
+    "to": "src/lib/panes/book/pdfjs-renderer.ts",
+    "unresolvedTo": "@/lib/panes/book/pdfjs-renderer",
     "dependencyTypes": ["undetermined", "import"],
     "rule": {
       "severity": "error",
@@ -155,11 +155,11 @@
     },
     "cycle": [
       {
-        "name": "src/lib/book/pdfjs-renderer.ts",
+        "name": "src/lib/panes/book/pdfjs-renderer.ts",
         "dependencyTypes": ["undetermined", "import"]
       },
       {
-        "name": "src/lib/book/pdf-view.ts",
+        "name": "src/lib/panes/book/pdf-view.ts",
         "dependencyTypes": ["undetermined", "import", "type-only"]
       }
     ]
@@ -187,9 +187,9 @@
   },
   {
     "type": "cycle",
-    "from": "src/lib/live/live-preview-images.ts",
-    "to": "src/lib/live/live-preview-video.ts",
-    "unresolvedTo": "@/lib/live/live-preview-video",
+    "from": "src/lib/notes/live/live-preview-images.ts",
+    "to": "src/lib/notes/live/live-preview-video.ts",
+    "unresolvedTo": "@/lib/notes/live/live-preview-video",
     "dependencyTypes": ["undetermined", "import"],
     "rule": {
       "severity": "error",
@@ -197,11 +197,11 @@
     },
     "cycle": [
       {
-        "name": "src/lib/live/live-preview-video.ts",
+        "name": "src/lib/notes/live/live-preview-video.ts",
         "dependencyTypes": ["undetermined", "import"]
       },
       {
-        "name": "src/lib/live/live-preview-images.ts",
+        "name": "src/lib/notes/live/live-preview-images.ts",
         "dependencyTypes": ["undetermined", "import"]
       }
     ]
@@ -275,9 +275,9 @@
   },
   {
     "type": "cycle",
-    "from": "src/lib/note/held-buffer.ts",
-    "to": "src/lib/note/use-autosave.ts",
-    "unresolvedTo": "@/lib/note/use-autosave",
+    "from": "src/lib/notes/note/held-buffer.ts",
+    "to": "src/lib/notes/note/use-autosave.ts",
+    "unresolvedTo": "@/lib/notes/note/use-autosave",
     "dependencyTypes": ["undetermined", "import", "type-only"],
     "rule": {
       "severity": "error",
@@ -285,20 +285,20 @@
     },
     "cycle": [
       {
-        "name": "src/lib/note/use-autosave.ts",
+        "name": "src/lib/notes/note/use-autosave.ts",
         "dependencyTypes": ["undetermined", "import", "type-only"]
       },
       {
-        "name": "src/lib/note/held-buffer.ts",
+        "name": "src/lib/notes/note/held-buffer.ts",
         "dependencyTypes": ["undetermined", "import"]
       }
     ]
   },
   {
     "type": "cycle",
-    "from": "src/lib/note/use-autosave.ts",
-    "to": "src/lib/note/use-buffer-write.ts",
-    "unresolvedTo": "@/lib/note/use-buffer-write",
+    "from": "src/lib/notes/note/use-autosave.ts",
+    "to": "src/lib/notes/note/use-buffer-write.ts",
+    "unresolvedTo": "@/lib/notes/note/use-buffer-write",
     "dependencyTypes": ["undetermined", "import"],
     "rule": {
       "severity": "error",
@@ -306,24 +306,24 @@
     },
     "cycle": [
       {
-        "name": "src/lib/note/use-buffer-write.ts",
+        "name": "src/lib/notes/note/use-buffer-write.ts",
         "dependencyTypes": ["undetermined", "import"]
       },
       {
-        "name": "src/lib/note/held-buffer.ts",
+        "name": "src/lib/notes/note/held-buffer.ts",
         "dependencyTypes": ["undetermined", "import", "type-only"]
       },
       {
-        "name": "src/lib/note/use-autosave.ts",
+        "name": "src/lib/notes/note/use-autosave.ts",
         "dependencyTypes": ["undetermined", "import", "type-only"]
       }
     ]
   },
   {
     "type": "cycle",
-    "from": "src/lib/note/use-autosave.ts",
-    "to": "src/lib/note/vault-reads.ts",
-    "unresolvedTo": "@/lib/note/vault-reads",
+    "from": "src/lib/notes/note/use-autosave.ts",
+    "to": "src/lib/notes/note/vault-reads.ts",
+    "unresolvedTo": "@/lib/notes/note/vault-reads",
     "dependencyTypes": ["undetermined", "import"],
     "rule": {
       "severity": "error",
@@ -331,24 +331,24 @@
     },
     "cycle": [
       {
-        "name": "src/lib/note/vault-reads.ts",
+        "name": "src/lib/notes/note/vault-reads.ts",
         "dependencyTypes": ["undetermined", "import"]
       },
       {
-        "name": "src/lib/note/held-buffer.ts",
+        "name": "src/lib/notes/note/held-buffer.ts",
         "dependencyTypes": ["undetermined", "import"]
       },
       {
-        "name": "src/lib/note/use-autosave.ts",
+        "name": "src/lib/notes/note/use-autosave.ts",
         "dependencyTypes": ["undetermined", "import", "type-only"]
       }
     ]
   },
   {
     "type": "cycle",
-    "from": "src/lib/note/use-buffer-write.ts",
-    "to": "src/lib/note/write-answer.ts",
-    "unresolvedTo": "@/lib/note/write-answer",
+    "from": "src/lib/notes/note/use-buffer-write.ts",
+    "to": "src/lib/notes/note/write-answer.ts",
+    "unresolvedTo": "@/lib/notes/note/write-answer",
     "dependencyTypes": ["undetermined", "import"],
     "rule": {
       "severity": "error",
@@ -356,19 +356,19 @@
     },
     "cycle": [
       {
-        "name": "src/lib/note/write-answer.ts",
+        "name": "src/lib/notes/note/write-answer.ts",
         "dependencyTypes": ["undetermined", "import"]
       },
       {
-        "name": "src/lib/note/held-buffer.ts",
+        "name": "src/lib/notes/note/held-buffer.ts",
         "dependencyTypes": ["undetermined", "import", "type-only"]
       },
       {
-        "name": "src/lib/note/use-autosave.ts",
+        "name": "src/lib/notes/note/use-autosave.ts",
         "dependencyTypes": ["undetermined", "import", "type-only"]
       },
       {
-        "name": "src/lib/note/use-buffer-write.ts",
+        "name": "src/lib/notes/note/use-buffer-write.ts",
         "dependencyTypes": ["undetermined", "import"]
       }
     ]
@@ -396,7 +396,7 @@
   },
   {
     "type": "dependency",
-    "from": "src/lib/book/pdfjs-renderer.ts",
+    "from": "src/lib/panes/book/pdfjs-renderer.ts",
     "to": "foliate-pdfjs",
     "unresolvedTo": "foliate-pdfjs",
     "dependencyTypes": ["unknown"],
@@ -407,7 +407,7 @@
   },
   {
     "type": "dependency",
-    "from": "src/lib/live/mermaid.ts",
+    "from": "src/lib/notes/live/mermaid.ts",
     "to": "mermaid",
     "unresolvedTo": "mermaid",
     "dependencyTypes": ["unknown"],

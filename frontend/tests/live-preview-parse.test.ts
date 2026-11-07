@@ -1,9 +1,9 @@
 import { ensureSyntaxTree, forceParsing, syntaxTree } from "@codemirror/language";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { renderedMarkdown } from "@/lib/live/live-preview";
 import { noteLanguage } from "@/lib/markdown/note-language";
 import { wikiLinkAt } from "@/lib/notes/links/wikilink";
+import { renderedMarkdown } from "@/lib/notes/live/live-preview";
 
 /** Whether some decoration replaces the range with a widget. */
 function drawn(view: EditorView, from: number, to: number): boolean {

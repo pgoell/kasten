@@ -1,5 +1,5 @@
 import { type Ref, useEffect, useImperativeHandle, useRef } from "react";
-import { type PdfFile, pageColors } from "@/lib/book/pdf-view";
+import { type PdfFile, pageColors } from "@/lib/panes/book/pdf-view";
 
 /** Pane width from which the thumbnail column draws. Measured on the pane, not the window. */
 export const THUMBS_FROM = 900;

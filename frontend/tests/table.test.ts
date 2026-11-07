@@ -1,8 +1,14 @@
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { type ChangeSpec, EditorState, Text } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { formatDocument } from "@/lib/editor/format-commands";
-import { alignTable, lineUpChanges, moveCell, type TableRun, tableAt } from "@/lib/editor/table";
+import { formatDocument } from "@/lib/notes/editor/format-commands";
+import {
+  alignTable,
+  lineUpChanges,
+  moveCell,
+  type TableRun,
+  tableAt,
+} from "@/lib/notes/editor/table";
 
 /** The run around the given line, drawn back out, or null. */
 function align(source: string, line = 1): string | null {

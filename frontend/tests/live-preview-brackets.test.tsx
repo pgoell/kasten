@@ -4,10 +4,10 @@ import { readFileSync } from "node:fs";
 import type { Extension } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
-import { kastenTheme } from "@/lib/editor/editor-theme";
-import { livePreview } from "@/lib/live/live-preview";
+import { kastenTheme } from "@/lib/notes/editor/editor-theme";
 import { imagePaths } from "@/lib/notes/embeds/image";
 import { vaultPaths } from "@/lib/notes/links/wikilink";
+import { livePreview } from "@/lib/notes/live/live-preview";
 import { liveHooks, mount, plain } from "./live-preview-fixture";
 
 liveHooks();

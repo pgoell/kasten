@@ -9,7 +9,7 @@
 
 import type { Root } from "react-dom/client";
 import { userEvent } from "vitest/browser";
-import type { FoliateView } from "@/lib/book/foliate-view";
+import type { FoliateView } from "@/lib/panes/book/foliate-view";
 // Three chapters and a nav holding three entries, the third nested under the
 // second, for the cases that walk a real list of chapters.
 import contentsUrl from "../fixtures/contents.epub?url";

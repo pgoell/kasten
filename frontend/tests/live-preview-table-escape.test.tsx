@@ -3,9 +3,9 @@ import type { EditorView } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
 import { act, render } from "@testing-library/react";
 import { NotePreview } from "@/components/note-preview";
-import { livePreview } from "@/lib/live/live-preview";
 import { imagePaths } from "@/lib/notes/embeds/image";
 import { vaultPaths } from "@/lib/notes/links/wikilink";
+import { livePreview } from "@/lib/notes/live/live-preview";
 import { liveHooks, mount, plain } from "./live-preview-fixture";
 
 liveHooks();

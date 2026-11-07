@@ -1,7 +1,7 @@
 import { history, undo } from "@codemirror/commands";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { LEADER_EDITS } from "@/lib/editor/buffer-keys";
+import { LEADER_EDITS } from "@/lib/notes/editor/buffer-keys";
 import type { TodoState } from "@/lib/todo/todo";
 import type { Closed } from "@/lib/todo/todo-blocked";
 import { cycleTodoAtCursor } from "@/lib/todo/todo-commands";

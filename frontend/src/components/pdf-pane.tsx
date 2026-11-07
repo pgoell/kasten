@@ -3,14 +3,14 @@ import { usePdfTake } from "@/components/pdf-take";
 import { PdfThumbs, THUMBS_FROM, type ThumbsHandle } from "@/components/pdf-thumbs";
 import { Rsvp } from "@/components/rsvp";
 import { TAKE_HOST } from "@/components/take-button-view";
+import { encodePath } from "@/lib/notes/links/note-path";
 import {
   type PdfFile,
   type PdfView,
   pageColors,
   pdfjsRenderer,
   showPdf,
-} from "@/lib/book/pdf-view";
-import { encodePath } from "@/lib/notes/links/note-path";
+} from "@/lib/panes/book/pdf-view";
 import { findQuote, firstOf, type Word } from "@/lib/panes/rsvp/rsvp";
 import { pdfWords } from "@/lib/panes/rsvp/rsvp-sources";
 import { type RsvpAsk, useRsvpAsk } from "@/lib/panes/rsvp/use-rsvp";
