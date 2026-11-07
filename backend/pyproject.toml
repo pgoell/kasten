@@ -17,6 +17,7 @@ dependencies = [
     # client fastapi's standard extra brings it in for.
     "httpcore>=1.0",
     "httpx>=0.28",
+    "justhtml==3.16.0",
     "markdown-it-py>=3.0",
     # Pinned exactly, not floored. There is no dependabot or renovate in
     # `.github/`, so a bump is something a person does on purpose; the pin plus
