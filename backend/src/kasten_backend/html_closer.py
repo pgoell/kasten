@@ -38,6 +38,7 @@ _POINT_TAG = re.compile(
 _CDATA = re.compile(r"<!\[(?!CDATA\[)(?i:cdata)\[")
 _A_START = re.compile(r"<a[\t\n\f\r />]", re.IGNORECASE)
 _FOREIGN_OBJECT_END = re.compile(r"</foreignobject[\t\n\f\r />]", re.IGNORECASE)
+_COMMENT = re.compile(r"<!--(?:>|->|.*?(?:-->|--!>))", re.DOTALL)
 _A_END = re.compile(r"</a[\t\n\f\r />]", re.IGNORECASE)
 # A value follows an attribute name and `=`; a quote anywhere else is a plain character.
 _START_TAG = re.compile(
@@ -140,8 +141,13 @@ def _last(page: str, element: Element) -> int:
         tag = _START_TAG.match(page, at)
         return tag.end() if tag else at
     if isinstance(node, Comment):
-        end = page.find("-->" if page.startswith("<!--", at) else ">", at)
-    elif isinstance(node, Text) and node.parent is not None and node.parent.name in _RAW:
+        found = _COMMENT.match(page, at)
+        end = found.end() if found else page.find(">", at)
+    elif (
+        isinstance(node, Text)
+        and isinstance(node.parent, Element)
+        and (node.parent.namespace, node.parent.name in _RAW) == ("html", True)
+    ):
         found = re.compile(f"</{node.parent.name}", re.IGNORECASE).search(page, at)
         end = found.start() if found else -1
     else:

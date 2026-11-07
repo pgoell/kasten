@@ -142,6 +142,17 @@ BEHIND = b"<a></a></foreignObject><![CDATA[x"
             b"<a>" + POINT + b"<!-- </a> -->" + BEHIND, b"]]></svg>", id="end-a-in-a-comment"
         ),
         pytest.param(
+            b"<a><svg><title>x<a></a></title><![CDATA[x", b"]]></svg>", id="a-after-svg-title-text"
+        ),
+        *(
+            pytest.param(b"<a>" + POINT + end + BEHIND, b"]]></svg>", id=name)
+            for name, end in (
+                ("comment-ends-at-gt", b"<!-->"),
+                ("comment-ends-at-dash-gt", b"<!--->"),
+                ("comment-ends-at-bang", b"<!-- c --!>"),
+            )
+        ),
+        pytest.param(
             b"<a>" + POINT + b"<!-- <a> -->" + BEHIND, b"]]></svg>", id="start-a-in-a-comment"
         ),
         pytest.param(
