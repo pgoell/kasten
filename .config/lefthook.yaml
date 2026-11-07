@@ -18,6 +18,8 @@ pre-commit:
 pre-push:
   commands:
     test:
-      run: mise run test
+      # Parallel sessions' suites push the load far past the cores, and timing
+      # tests then fail. Wait up to 10 minutes for it to drop below 2x cores.
+      run: for i in $(seq 60); do [ "$(cut -d. -f1 /proc/loadavg)" -le "$(( $(nproc) * 2 ))" ] && break; sleep 10; done; mise run test
     typecheck-frontend:
       run: mise run fe:typecheck
