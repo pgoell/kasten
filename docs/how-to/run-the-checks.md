@@ -83,6 +83,9 @@ cd e2e && mise exec -- bunx playwright test journeys/<file>
 On failure, the run writes a trace and a screenshot to `e2e/test-results/`. Open
 a trace from `e2e/` with `bunx playwright show-trace <zip>`.
 
+CI's E2E job runs the same journeys on every pull request. It is not a required
+check yet. Its `e2e-results` artifact holds the traces and screenshots.
+
 ## The hooks
 
 Lefthook runs some of this for you, from `.config/lefthook.yaml`:
