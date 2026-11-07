@@ -126,17 +126,15 @@ complexity over 15 (`noExcessiveCognitiveComplexity`, set in
 `frontend/biome.jsonc`). Each `if`, loop, `catch` and `? :` adds one, plus one
 for every level of nesting it sits in; a run of `&&` or `||` adds one.
 
-The 111 files that failed when the rule came in sit on a list in the last
-`overrides` entry of `frontend/biome.jsonc`, which turns the rule off for them.
-That list only shrinks. When the rule fires on your function, split it: return
-early instead of nesting, and lift a branch or a loop body into a function of
-its own. Never add a file to the list or raise the limit;
-`backend/tests/test_complexity_baseline.py` fails when the list holds more files
-than its `MAX_FILES`.
+One file stays exempt: `src/lib/notes/note/save-queue.ts`, the last of the
+files that failed when the rule came in, which pgoell keeps. It sits in the last
+`overrides` entry of `frontend/biome.jsonc`, and that list may not grow. When
+the rule fires on your function, split it: return early instead of nesting, and
+lift a branch or a loop body into a function of its own. Never add a file to the
+list or raise the limit; `backend/tests/test_complexity_baseline.py` fails when
+the list holds more files than its `MAX_FILES` of 1.
 
-To take a file off the list, make each of its functions pass, delete its line,
-and lower `MAX_FILES` by one in the same commit. To see what fails on the
-listed files:
+To see what fails:
 
 ```sh
 cd frontend && bunx biome lint --only=complexity/noExcessiveCognitiveComplexity --max-diagnostics=200 src

@@ -63,11 +63,9 @@
       "includes": ["**/*.css"],
       "linter": { "enabled": false }
     },
-    // The files over the cognitive-complexity limit when the rule came in (#939).
-    // This list may only shrink: a file comes off when it passes, never by
-    // raising the limit, and nothing goes on. The shell/chat paths are relative
-    // to the repo root, where `shell:lint` runs. The count is guarded by
-    // backend/tests/test_complexity_baseline.py.
+    // The last file over the cognitive-complexity limit from #939's list. pgoell
+    // keeps it on (#968 gives no reason). Nothing goes on and the limit never
+    // rises; backend/tests/test_complexity_baseline.py guards the count.
     {
       "includes": ["src/lib/notes/note/save-queue.ts"],
       "linter": {
