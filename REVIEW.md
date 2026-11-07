@@ -39,6 +39,17 @@ must name what would show it, so the author can check it:
 
 Taste with no rule behind it is not a finding.
 
+## Tests that cannot fail
+
+A test that stays green whatever the code does: it asserts only on a mock or
+stub the test set up itself, its assert holds on the base branch too, or it
+asserts nothing. Name the test and the line that makes it pass regardless (the
+mock's value it reads back, the assert the base branch already meets), so the
+author can run it on the base branch and see. A guard for a box that says
+something still works may hold on the base branch; that alone is a finding
+only where the PR body says it fails there. It is Important, a thread, only
+where the PR body names that test as the proof for a checklist box; else a Nit.
+
 ## What not to flag
 
 - Formatting and the rules ruff, Biome, ty and tsc already enforce.
