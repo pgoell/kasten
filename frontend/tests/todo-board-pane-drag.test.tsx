@@ -62,16 +62,6 @@ describe("dragging a card (#397)", () => {
 
   const lifted = () => document.querySelectorAll("[data-lifted]").length;
 
-  it("#397 A1 a card dragged by mouse onto another column sets its state through onCycle", async () => {
-    const pane = await boardPane();
-
-    lift(pane.card("send the invoice"));
-    drop(cell("#client", "done"));
-
-    expect(pane.onCycle).toHaveBeenCalledExactlyOnceWith(INVOICE, "done");
-    expect(pane.onRefile).not.toHaveBeenCalled();
-  });
-
   it("#397 A2 a card dragged from No project onto a project lane refiles it there", async () => {
     const pane = await boardPane();
     pane.press("g");

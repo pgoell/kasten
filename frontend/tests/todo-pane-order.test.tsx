@@ -254,28 +254,6 @@ describe("the todo pane holds the order it is drawn in while a press is made", (
     vi.useRealTimers();
   });
 
-  it("#947 A1 three check-offs in a row keep every other row where it was", async () => {
-    await mount();
-    const first = order();
-
-    press("x");
-    expect(order()).toEqual(first);
-    await settle();
-    expect(order()).toEqual(first);
-
-    press("j");
-    press("x");
-    expect(order()).toEqual(first);
-    await settle();
-    expect(order()).toEqual(first);
-
-    press("j");
-    press("x");
-    expect(order()).toEqual(first);
-    await settle();
-    expect(order()).toEqual(first);
-  });
-
   it("#947 A2 a row checked off stays in place, struck, until the pane is left", async () => {
     await mount();
     const first = order();

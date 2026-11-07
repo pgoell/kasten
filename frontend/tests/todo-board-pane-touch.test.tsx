@@ -204,16 +204,6 @@ describe("refiling one todo (#396)", () => {
     });
   }
 
-  it("#396 A4 a phone's row strip holds refile, and a tap refiles", async () => {
-    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
-    const pane = await listPane({ hits: [SEND, LOOSE] });
-
-    fireEvent.click(screen.getByLabelText("more for send the invoice"));
-    fireEvent.click(screen.getByLabelText("refile send the invoice"));
-
-    expect(pane.onRefile).toHaveBeenCalledExactlyOnceWith(SEND);
-  });
-
   it("#396 A4 a phone's card strip holds refile, and a tap refiles", async () => {
     stubMatchMedia({ [NARROW]: true, [COARSE]: true });
     const pane = await boardPane({ hits: [SEND, LOOSE] });

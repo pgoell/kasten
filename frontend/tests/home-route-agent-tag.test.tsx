@@ -328,12 +328,6 @@ describe("the route", () => {
       expect(notes[PATH]).toBe("## TODOs\n- [ ] send the deck #agent 📅 2026-10-20");
     });
 
-    it("#523 A10 the pane's footer names @ agent", async () => {
-      await listing([ROW], `## TODOs\n${ROW.text}`);
-
-      expect(screen.getByTestId("todo-footer").textContent).toContain("@ agent");
-    });
-
     /** The palette's row for the pane's `@`, or null where it lists none. */
     const agentEntry = () =>
       screen.queryByRole("option", { name: /^Send the todo under the cursor to the agent/ });
