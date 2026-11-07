@@ -1,3 +1,4 @@
+// @vitest-environment node
 import type { SearchHit } from "@/lib/core/api";
 import { facets, filterHits, termRuns, topFolder } from "@/lib/search/search-facets";
 

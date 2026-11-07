@@ -1,3 +1,4 @@
+// @vitest-environment node
 /// <reference types="node" />
 
 import { existsSync, readFileSync } from "node:fs";

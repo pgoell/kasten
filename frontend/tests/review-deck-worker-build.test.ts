@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * The deck parse's worker as the production build emits it (#1359). A worker
  * has no `document`, and a bundle that touches one at load throws, which leaves

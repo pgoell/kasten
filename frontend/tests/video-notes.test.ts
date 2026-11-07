@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * The video's note read back: chapters, transcript paragraphs, the takes that
  * point into the video, and the time links that write them.

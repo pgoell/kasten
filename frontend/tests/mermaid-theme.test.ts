@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * The theme mermaid is initialised with for each draw, read when the draw starts
  * (#835).

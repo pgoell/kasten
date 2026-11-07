@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { agentPress } from "@/lib/todo/todo-agent";
 import { TODAY, todo } from "./todo-write-fixture";
 

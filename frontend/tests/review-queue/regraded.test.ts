@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { writeSchedule } from "@/lib/review/card-write";
 import type { Deck } from "@/lib/review/review";
 import { cardsRead, regraded } from "@/lib/review/review-queue";

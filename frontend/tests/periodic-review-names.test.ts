@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { periodicNote, weeklyWeek, yearlyYear } from "@/lib/notes/text/periodic";
 
 const YEARLY = "01 Periodic/04 Yearly";

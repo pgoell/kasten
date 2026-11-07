@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { noteName } from "@/lib/notes/links/note-path";
 import { inDeck } from "@/lib/review/deck-tag";
 import { type Deck, type DeckNote, decksFrom, parkedNotes } from "@/lib/review/review";

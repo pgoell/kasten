@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * The whole text of a note after a passage lands in it.
  *

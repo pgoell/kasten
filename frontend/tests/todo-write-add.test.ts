@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { addTodoWrites, insertSubtask } from "@/lib/todo/todo-write";
 import { DAILY_PATH, FRESH_DAILY, todo } from "./todo-write-fixture";
 

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { stampOf, swipeGrade, TILT, tiltOf } from "@/lib/review/card-swipe";
 
 const WIDTH = 390;

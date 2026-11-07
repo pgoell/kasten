@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { noteBase } from "@/lib/notes/note-base";
 import { dailyDate, periodicNote } from "@/lib/notes/text/periodic";
 import { toggleTimerInVault } from "@/lib/todo/todo-api";

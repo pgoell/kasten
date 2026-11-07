@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { blockLine } from "@/lib/todo/todo-blocked";
 import { closeSessions, type TimerInput, timerWrites } from "@/lib/todo/todo-timer";
 import type { Write } from "@/lib/todo/todo-write";

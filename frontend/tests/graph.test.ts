@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * The drawing's arithmetic, apart from the canvas it is drawn on.
  *

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { ensureSyntaxTree, syntaxTree } from "@codemirror/language";
 import { EditorState } from "@codemirror/state";
 import { fileLinkAt } from "@/lib/markdown/link-reference";

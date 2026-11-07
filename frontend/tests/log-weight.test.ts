@@ -1,3 +1,4 @@
+// @vitest-environment node
 import type { LogDay } from "@/lib/log/food-api";
 import type { LogKind } from "@/lib/log/log-kinds";
 import { averagesOf, latestOn, meanOf, valueOn, weightOf } from "@/lib/log/log-weight";

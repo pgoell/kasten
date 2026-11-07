@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { confirmReceipt, MarkHeldError } from "@/lib/panes/finance/finance-tax-api";
 
 const { POST } = vi.hoisted(() => ({ POST: vi.fn() }));

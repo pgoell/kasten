@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { lineDiff } from "@/lib/history/diff";
 
 describe("lineDiff", () => {

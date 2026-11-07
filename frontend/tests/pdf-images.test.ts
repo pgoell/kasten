@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { imageBoxes, type Matrix } from "@/lib/panes/book/pdf-images";
 
 /** The operator codes of pdf.js's `OPS` table, for the operators these tests use. */

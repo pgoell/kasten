@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { formatTodo, parseTodo, type Todo } from "@/lib/todo/todo";
 import { expandShorthand, matchesFilter, parseFilter } from "@/lib/todo/todo-shorthand";
 import { parseViews } from "@/lib/todo/todo-view";

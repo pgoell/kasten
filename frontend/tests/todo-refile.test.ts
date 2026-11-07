@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { fileUnderTodos, lineOf, projectNote, refileOf } from "@/lib/todo/todo-refile";
 
 const FDE = "02 Projects/FDE";

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { appendStub } from "@/lib/review/card-write";
 import { parseCards, readSchedule } from "@/lib/review/srs";
 import { NOTE, only } from "./fixture";

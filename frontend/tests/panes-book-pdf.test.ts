@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { openBeside, openPdfBeside, openPdfInFocused } from "@/lib/panes/layout/pane-contents";
 import { emptyLayout, focusedPane, nextPane, tabPanes } from "@/lib/panes/layout/panes";
 import { notes } from "./panes-fixture";

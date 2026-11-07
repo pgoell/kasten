@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { parseTodo, type Todo } from "@/lib/todo/todo";

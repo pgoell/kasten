@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { formatTodo, parseTodo, type Todo } from "@/lib/todo/todo";
 import { formatRecurrence, nextDate, nextOccurrence, parseRecurrence } from "@/lib/todo/todo-recur";
 

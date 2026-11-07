@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { setSuspended } from "@/lib/review/card-write";
 import { decksFrom } from "@/lib/review/review";
 import { parseCards } from "@/lib/review/srs";

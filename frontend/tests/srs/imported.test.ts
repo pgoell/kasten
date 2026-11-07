@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { sameAnswer } from "@/lib/review/card-text";
 import { setSuspended, writeSchedule } from "@/lib/review/card-write";
 import { parseCards } from "@/lib/review/srs";

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { noteBase } from "@/lib/notes/note-base";
 import { withoutHighlight } from "@/lib/panes/book/highlight-undo";
 import { addHighlight } from "@/lib/takes/highlight";

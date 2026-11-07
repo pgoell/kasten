@@ -1,3 +1,4 @@
+// @vitest-environment node
 import type { ModelUseLine } from "@/lib/review/review-api";
 import {
   costWords,

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import type { LogDay } from "@/lib/log/food-api";
 import type { Goal } from "@/lib/log/log-kinds";
 import { streakOf } from "@/lib/log/log-streak";

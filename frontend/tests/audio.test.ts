@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { isAudio, soundsIn } from "@/lib/notes/embeds/audio";
 
 describe("isAudio", () => {

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { swipeOffset, swipeTarget } from "@/lib/todo/column-swipe";
 import { rubberBand } from "@/lib/ui/motion/sheet-math";
 

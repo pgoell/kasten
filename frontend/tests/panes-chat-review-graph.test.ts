@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { openBeside, openInFocused } from "@/lib/panes/layout/pane-contents";
 import {
   emptyLayout,

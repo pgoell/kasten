@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { parseTodo, type Todo } from "@/lib/todo/todo";
 import {
   COLUMNS,

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { type DeckNote, decksFrom } from "@/lib/review/review";
 
 const TODAY = "2026-10-24";

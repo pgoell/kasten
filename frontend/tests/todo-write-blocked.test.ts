@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { parseTodo } from "@/lib/todo/todo";
 import {
   applyBlocked,

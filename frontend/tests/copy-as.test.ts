@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { toHtml, toSlack } from "@/lib/notes/editor/copy-as";
 
 describe("toSlack", () => {

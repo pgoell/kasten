@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * The client's half of the frontmatter reader, kept in step with the backend's.
  *

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * A passage a vault HTML page sends, written as a dump paragraph.
  *

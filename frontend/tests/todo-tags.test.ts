@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { parsed } from "./todo-fixture";
 
 describe("#617 a hash in a span or an address is no tag", () => {

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { CompletionContext } from "@codemirror/autocomplete";
 import { EditorState } from "@codemirror/state";
 import { lineSuggestions, shorthandSuggestions, todoCompletions } from "@/lib/todo/todo-suggest";

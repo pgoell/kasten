@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { press } from "./todo-fixture";
 
 describe("cycleLine", () => {
