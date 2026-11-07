@@ -59,9 +59,9 @@ into a test file that exists.
 ## What CI runs
 
 CI runs pytest in its Backend job, the unit and perf projects in its Test job,
-and the frame project in its Perf job. It does not run the journeys in `e2e/`
-yet, so run `mise run e2e` yourself before you push a fix whose test lives
-there.
+the frame project in its Perf job and the journeys in `e2e/` in its E2E job.
+E2E is not a required check yet (#1606: Chromium can die between tests, and
+nothing retries), so a red E2E does not block a merge; read it anyway.
 
 ## Related
 
