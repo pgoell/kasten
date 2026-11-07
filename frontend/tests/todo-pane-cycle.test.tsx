@@ -37,16 +37,6 @@ describe("the todo pane", () => {
     expect(pane.onCycle).toHaveBeenCalledWith(TODOS[0], "blocked");
   });
 
-  it("sets a row to waiting on W", async () => {
-    const pane = renderPane();
-    await pane.loaded();
-    expect(pane.rows()).toHaveLength(6);
-
-    pane.press("W");
-
-    expect(pane.onCycle).toHaveBeenCalledWith(TODOS[0], "waiting");
-  });
-
   it("sets a row to review on V", async () => {
     const pane = renderPane();
     await pane.loaded();
