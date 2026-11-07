@@ -27,7 +27,6 @@ OPTED_IN = (
     + b"</body></html>"
 )
 PLAIN = DOCTYPE + b"<html><head><title>report</title></head><body>" + GRID + b"</body></html>"
-JUSTHTML_BUG = "justhtml 3.16.0 parts from the spec here (#1652)"
 TOKENS = Path(__file__).parents[2] / "src" / "kasten_backend" / "kasten-theme.css"
 
 
@@ -138,11 +137,7 @@ def test_886_an_odd_byte_utf16_page_gets_its_zero_byte_then_the_closer(
         (b"<math><![CDATA[a", b"]]></math>"),
         (b"<svg><script><![CDATA[a", b"]]></svg>"),
         (b"<svg><svg><![CDATA[a", b"]]></svg></svg>"),
-        pytest.param(
-            b"<svg><![cdata[a > b",
-            b"</svg>",
-            marks=pytest.mark.xfail(strict=True, reason=JUSTHTML_BUG),
-        ),
+        (b"<svg><![cdata[a > b", b"</svg>"),
         (b"<svg><![CDATA[a > b]]></svg>", b""),
         (b"<svg/><![CDATA[a > b", b""),
         (b"<![CDATA[a > b", b""),
@@ -374,9 +369,6 @@ def test_1560_the_closer_tracks_html_opened_inside_a_point(end: bytes, closer: b
                 b"<svg><foreignObject><" + name + b"><![CDATA[x",
                 b"]]></svg>",
                 id=f"void-{name.decode()}",
-                marks=[pytest.mark.xfail(strict=True, reason=JUSTHTML_BUG)]
-                if name == b"image"
-                else [],
             )
             for name in (b"param", b"keygen", b"basefont", b"bgsound", b"frame", b"image")
         ),
@@ -425,7 +417,6 @@ def test_1560_the_closer_tracks_html_opened_inside_a_point(end: bytes, closer: b
             b"</foreignObject><![CDATA[x",
             b"]]></svg>",
             id="a-behind-a-point-goes",
-            marks=pytest.mark.xfail(strict=True, reason=JUSTHTML_BUG),
         ),
         pytest.param(
             b"<svg><foreignObject><a><object><a></a></object></foreignObject><![CDATA[x",

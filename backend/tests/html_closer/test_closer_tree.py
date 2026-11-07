@@ -100,6 +100,89 @@ def test_1577_a_plaintext_after_a_crlf_takes_the_scripts_ahead_of_it() -> None:
     assert served == DOCTYPE + PAGE_SCRIPT + head[len(DOCTYPE) :] + LINKS_OUT + b"<plaintext>b\r\n"
 
 
+HTML_POINT = b"</math><annotation-xml encoding=text/html><foreignObject><svg><object><a><!-- c -->"
+BEHIND = b"<a></a></foreignObject><![CDATA[x"
+
+
+@pytest.mark.parametrize(
+    ("end", "closer"),
+    [
+        pytest.param(HTML_POINT + b"</foreignObject", b"></svg>", id="seed-11-end-tag-cut"),
+        pytest.param(HTML_POINT + b"</foreignObject>", b"</svg>", id="seed-11-end-tag"),
+        pytest.param(
+            HTML_POINT + b"</foreignObject><svg><![CDATA[<i>",
+            b"]]></svg></svg>",
+            id="seed-11-cdata",
+        ),
+        pytest.param(
+            b"</math><foreignObject><svg><a></FOREIGNOBJECT ><![CDATA[x",
+            b"]]></svg>",
+            id="upper-case-end-tag",
+        ),
+        pytest.param(b"<a>" + POINT + BEHIND, b"]]></svg>", id="a-behind-foreign-object"),
+        pytest.param(b"<a><svg><desc><a></a></desc><![CDATA[x", b"]]></svg>", id="a-behind-desc"),
+        pytest.param(
+            b"<a><svg><title><a></a></title><![CDATA[x", b"]]></svg>", id="a-behind-title"
+        ),
+        pytest.param(b"<a><math><mi><a></a></mi><![CDATA[x", b"]]></math>", id="a-behind-mi"),
+        pytest.param(
+            b"<a><math><mtext><a></a></mtext><![CDATA[x", b"]]></math>", id="a-behind-mtext"
+        ),
+        pytest.param(
+            b"<a><math><annotation-xml encoding=text/html><a></a></annotation-xml><![CDATA[x",
+            b"]]></math>",
+            id="a-behind-annotation-xml",
+        ),
+        pytest.param(b"<A>" + POINT + BEHIND, b"]]></svg>", id="upper-case-a"),
+        pytest.param(b'<a title="x>y">' + POINT + BEHIND, b"]]></svg>", id="a-with-a-quoted-gt"),
+        pytest.param(b"\r\n<a>\r\n" + POINT + BEHIND, b"]]></svg>", id="crlf-before-a"),
+        pytest.param(b"<p><a></p>q" + POINT + BEHIND, b"]]></svg>", id="reopened-outer-a"),
+        pytest.param(
+            b"<a>" + POINT + b"<object><a></a></object></foreignObject><![CDATA[x",
+            b"]]></svg>",
+            id="object-marker-between",
+        ),
+        pytest.param(
+            b"<a>" + POINT + b"<table><tr><td><a></a></td></tr></table></foreignObject><![CDATA[x",
+            b"]]></svg>",
+            id="td-marker-between",
+        ),
+        pytest.param(b"<svg><image><![CDATA[x", b"]]></svg>", id="svg-image"),
+        pytest.param(b"<svg><image/><![CDATA[x", b"]]></svg>", id="svg-image-self-closing"),
+        pytest.param(b"<p>\r\n</p>" + POINT + b"<image><![CDATA[x", b"]]></svg>", id="crlf-image"),
+        pytest.param(POINT + b"<image-x><![CDATA[x", b"></svg>", id="image-x-is-no-image"),
+        pytest.param(b"<p><![cdata[x", b">", id="lowercase-cdata-in-html"),
+        pytest.param(b"<svg><![CDATA[a > b", b"]]></svg>", id="exact-cdata"),
+        pytest.param(
+            b"<foreignObject><p></foreignObject><svg><![CDATA[x",
+            b"]]></svg>",
+            id="html-foreign-object-closes",
+        ),
+        pytest.param(
+            b"<a>" + POINT + b"<abbr></abbr></foreignObject><![CDATA[x", b"]]></svg>", id="abbr"
+        ),
+        pytest.param(
+            b"<a>" + POINT + b'<script>"<a>"</script></foreignObject><![CDATA[x',
+            b"]]></svg>",
+            id="a-in-a-script",
+        ),
+        pytest.param(
+            b"<a>" + POINT + b"<!-- <a> --></foreignObject><![CDATA[x",
+            b"]]></svg>",
+            id="a-in-a-comment",
+        ),
+        pytest.param(
+            b"<a>" + POINT + b'<p title="<a>"></p></foreignObject><![CDATA[x',
+            b"]]></svg>",
+            id="a-in-an-attribute",
+        ),
+        pytest.param(b"<b>" + POINT + b"</b><![CDATA[x", b"]]></svg>", id="b-end-behind-a-point"),
+    ],
+)
+def test_1652_the_closer_gives_what_chrome_needs(end: bytes, closer: bytes) -> None:
+    assert served_closer(end) == closer
+
+
 FUZZ = (
     '<p class="a">x<!-- c --><svg viewBox="0 0 1 1"><g><![CDATA[a]]><foreignObject><div>'
     "<b>t</div>u<table><tr><td>v</table></foreignObject><title>w</title></svg>",
