@@ -219,10 +219,21 @@ it would add them to it a second time. Join those notes into
 ```
 
 Join the parts back into that note, import, and split it again if you want it
-split. A deck renamed in Anki is refused the same way, its cards being in the
-note of its old name: rename that note to the new name, then import. A note
-under the deck's tag holding only cards you wrote yourself does not count, and
-nor does one in the archive folder, which the review skips.
+split. A note under the deck's tag holding only cards you wrote yourself does
+not count, and nor does one in the archive folder, which the review skips.
+
+### A card moved to another deck in Anki
+
+A card you moved in Anki to another deck moves in kasten too, whether you
+export both decks or only the new one. The import takes its lines, schedule
+and your edits included, out of the old deck's note, the one at that deck's
+name under its own tag, and puts them at the end of the new deck's note. A deck
+renamed in Anki moves this way too; your other lines stay in the old note.
+
+The import refuses, names the notes and writes nothing when the card sits in
+two notes, or in a note of no deck that holds other cards too, or when you
+edited a `?` card over its lines, or when the old note is not UTF-8. Move each
+such card's lines into the new deck's note, then import again.
 
 ## How a note becomes cards
 
