@@ -179,8 +179,9 @@ the plan's amount, `new` the newest booking's. A period's booking is one of
 the plan's payee or text, as matching reads it but at any amount, from the
 period's month first, then within 20 days of its date; one within the
 tolerance wins over a dearer one, and a booking another plan holds never
-counts. A period unpaid so far is passed over, so the flag stands until the
-next booking comes in. Nothing stores it; each read works it out.
+counts. A plan of money in, or one that falls due once, never flags. A period
+unpaid so far is passed over, so the flag stands until the next booking comes
+in. Nothing stores it; each read works it out.
 
 ## POST /api/finance/contracts/reminders
 

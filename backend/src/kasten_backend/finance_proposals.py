@@ -190,12 +190,12 @@ def _within(booking: Booking, due: dt.date, *, near: bool) -> bool:
 def price_rise(
     plan: Plan, bookings: list[Booking], today: dt.date
 ) -> tuple[Decimal, Decimal] | None:
-    """The plan's amount and the newest booking's when its two newest paid periods cost more.
+    """A cost plan's amount and the newest booking's when its two newest paid periods cost more.
 
     Both periods must be in a row and dearer than the tolerance allows. Each period takes a
     booking of its month first, then one within 20 days, one within the tolerance before others.
     """
-    if plan.every is None:
+    if plan.every is None or plan.amount >= 0:
         return None
     dues = due_dates(plan, plan.start, today + dt.timedelta(days=NEAR_DAYS))
     mine = [b for b in bookings if pays(plan, b)]

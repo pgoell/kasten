@@ -435,3 +435,8 @@ def test_1679_a_period_paid_within_the_tolerance_too_is_no_rise() -> None:
     rule = plan(amount="-39", start=dt.date(2026, 7, 5))
     twice = [*bills("-50", "-50"), Booking(9, GIRO, dt.date(2026, 8, 6), Decimal(-39), 7, "")]
     assert price_rise(rule, twice, dt.date(2026, 10, 10)) is None
+
+
+def test_1679_income_paid_less_is_no_price_rise() -> None:
+    rent = plan(amount="800", start=dt.date(2026, 7, 5))
+    assert price_rise(rent, bills("700", "700"), dt.date(2026, 10, 10)) is None
