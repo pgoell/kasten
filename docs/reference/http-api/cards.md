@@ -101,7 +101,9 @@ one. One that asks for another `carry` while it runs is refused with 409. A fini
 
 On shutdown the backend cancels a running import, and the import takes back what
 it wrote, the media and the notes, so no half-written deck note stays. A hard
-kill can still leave a new deck's note cut short.
+kill (SIGKILL, out of memory) cannot take anything back, but it leaves no cut
+note either: a new note lands through a hidden temp and a rename. The media and
+notes it wrote stay, and importing the same file again finishes the import.
 
 ```json
 {
@@ -220,8 +222,9 @@ such a file has nothing left to ask and is left out.
   above first. Where rg cannot read the whole vault to look, the import
   answers 503 `The vault could not be read whole…` and writes nothing.
 * A media file whose path is already taken answers 409 the same way for a deck
-  imported the first time. A deck merged into its note keeps the file it finds
-  and does not count it.
+  imported the first time, unless the file holds the same bytes, as one a
+  killed import left does: the import keeps it and does not count it. A deck
+  merged into its note keeps the file it finds and does not count it.
 * With `carry`, a collection whose `col` row holds no creation time answers 400.
 * A body over 1GiB answers 413 `That file is over the 1 GiB limit`.
 * With `upload`, an id no upload holds answers 404 `No such upload`, and one
