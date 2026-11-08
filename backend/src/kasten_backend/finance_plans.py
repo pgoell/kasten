@@ -5,13 +5,22 @@ forecast read due dates from here, so they never disagree. See docs/reference/bu
 """
 
 import datetime as dt
+import re
 from calendar import monthrange
 from dataclasses import dataclass, field
 from decimal import ROUND_UP, Decimal
 
+from kasten_backend import frontmatter
 from kasten_backend.finance_ledger import CENT, ZERO, Scope, add_months, months_between
+from kasten_backend.periodic import append_under
 
 FORECAST_MONTHS = 12
+DAY = dt.timedelta(days=1)
+# A day-long renewal over three centuries; past it the sum gives up rather than spin.
+MAX_RENEWALS = 100_000
+CANCEL_BY = "## Cancel-by"
+REMIND_BEFORE = dt.timedelta(weeks=4)
+TODO_DUE = re.compile(r"\s*- \[(.)\] .*?📅\uFE0F? +(\d{4}-\d{2}-\d{2})")
 
 
 @dataclass(frozen=True)
@@ -345,3 +354,132 @@ def forecast(  # noqa: PLR0913  each input of the forecast is its own argument
         balance += planned_in - planned_out
         found.append(ForecastMonth(at, planned_in, planned_out, balance))
     return found
+
+
+@dataclass(frozen=True)
+class Span:
+    """A length as a contract writes it: `12 months`, `6 weeks`, `30 days`; years are months."""
+
+    count: int
+    unit: str
+
+
+@dataclass(frozen=True)
+class Contract:
+    """A contract note's terms. `renews` None for one that ends with its term."""
+
+    start: dt.date
+    term: Span
+    renews: Span | None
+    notice: Span
+    ends: dt.date | None = None
+
+
+def span_end(begin: dt.date, span: Span) -> dt.date:
+    """The last day of `span` from `begin` on, `begin` counted (BGB § 188 (2) and (3))."""
+    if span.unit != "month":
+        return begin + dt.timedelta(days=span.count * (7 if span.unit == "week" else 1) - 1)
+    month = add_months(begin.replace(day=1), span.count)
+    last = monthrange(month.year, month.month)[1]
+    return month.replace(day=last) if begin.day > last else month.replace(day=begin.day) - DAY
+
+
+def notice_by(end: dt.date, notice: Span) -> dt.date:
+    """The last day notice may arrive for a term ending on `end`; a short month's last day."""
+    if notice.unit != "month":
+        return end - dt.timedelta(days=notice.count * (7 if notice.unit == "week" else 1))
+    month = add_months(end.replace(day=1), -notice.count)
+    return month.replace(day=min(end.day, monthrange(month.year, month.month)[1]))
+
+
+def cancel_by(contract: Contract, floor: dt.date) -> tuple[dt.date, dt.date] | None:
+    """The first cancel-by date on or after `floor`, and the day the contract renews if not.
+
+    Renewals count from the first one, so a month end never drifts. None once it can renew no
+    more, or once cancelled: `ends` set.
+    """
+    if contract.ends is not None:
+        return None
+    end = span_end(contract.start, contract.term)
+    renewal = end + DAY
+    for step in range(MAX_RENEWALS):
+        if step > 0:
+            if contract.renews is None:
+                return None
+            span = Span(contract.renews.count * step, contract.renews.unit)
+            end = span_end(renewal, span)
+        by = notice_by(end, contract.notice)
+        if by >= floor:
+            return by, end + DAY
+    return None
+
+
+def span_of(text: str | None) -> Span | None:
+    """`12 months`, `1 year`, `6 weeks` or `30 days` as a Span; None for anything else."""
+    found = re.fullmatch(r"(\d+) *(day|week|month|year)s?", (text or "").strip().lower())
+    if found is None or int(found[1]) < 1:
+        return None
+    count, unit = int(found[1]), found[2]
+    return Span(count * 12, "month") if unit == "year" else Span(count, unit)
+
+
+def contract_of(content: str) -> Contract | str:
+    """The terms of a contract note, or the name of the first field missing or unreadable.
+
+    No `renews` renews monthly, the rule for consumer contracts since March 2022 (BGB § 309 Nr. 9).
+    """
+    try:
+        start = dt.date.fromisoformat(frontmatter.field(content, "start") or "")
+    except ValueError:
+        return "start"
+    ends_text = frontmatter.field(content, "ends") or ""
+    try:
+        ends = dt.date.fromisoformat(ends_text) if ends_text else None
+    except ValueError:
+        return "ends"
+    term, notice = (
+        span_of(frontmatter.field(content, "term")),
+        span_of(frontmatter.field(content, "notice")),
+    )
+    renews_text = (frontmatter.field(content, "renews") or "1 month").strip().lower()
+    renews = span_of(renews_text)
+    if term is None:
+        return "term"
+    if notice is None:
+        return "notice"
+    if renews is None and renews_text != "none":
+        return "renews"
+    return Contract(start, term, renews, notice, ends)
+
+
+def reminder(content: str, name: str, contract: Contract, today: dt.date) -> str | None:
+    """The note with the next cancel-by todo under `## Cancel-by`, or None where it needs none.
+
+    An open todo there holds it. Past a done or rejected one, the next comes after that one's date.
+    """
+    dates = [
+        (dt.date.fromisoformat(found[2]), found[1] not in "xX-")
+        for found in map(TODO_DUE.match, _section_lines(content))
+        if found is not None
+    ]
+    if any(open_ for _, open_ in dates):
+        return None
+    floor = max([today, *(due + DAY for due, _ in dates)])
+    found = cancel_by(contract, floor)
+    if found is None:
+        return None
+    by, renews = found
+    line = (
+        f"- [ ] cancel or renegotiate {name}, renews {renews.isoformat()}"
+        f" 📅 {by.isoformat()} ⏳ {max(today, by - REMIND_BEFORE).isoformat()}"
+    )
+    return append_under(content, CANCEL_BY, line)
+
+
+def _section_lines(content: str) -> list[str]:
+    lines = content.split("\n")
+    if CANCEL_BY not in lines:
+        return []
+    rest = lines[lines.index(CANCEL_BY) + 1 :]
+    heading = next((at for at, line in enumerate(rest) if re.match(r"#{1,6} ", line)), len(rest))
+    return rest[:heading]
