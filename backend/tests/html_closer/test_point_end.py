@@ -101,6 +101,18 @@ def served_closer(end: bytes) -> bytes:
         pytest.param(b"<svg><desc><b></desc a='x", b"'></svg>", id="cut-in-a-single-quoted-value"),
         pytest.param(b"<svg><desc><b></desc ", b"></svg>", id="cut-after-the-name"),
         pytest.param(b'<svg><desc><b></desc a=">">x', b"</svg>", id="quoted-gt-whole-page"),
+        pytest.param(b"<svg><desc><b></desc =x><![CDATA[x", b"></svg>", id="equals-starts-a-name"),
+        pytest.param(
+            b'<svg><desc><b></desc a="x"=y><![CDATA[x', b"></svg>", id="equals-after-a-quoted-value"
+        ),
+        pytest.param(b"<svg><desc><b></desc ==><![CDATA[x", b"></svg>", id="equals-twice"),
+        pytest.param(
+            b'<svg><desc><b></desc a ="x"><![CDATA[x', b"></svg>", id="space-before-equals"
+        ),
+        pytest.param(b"<svg><desc><b></desc =x", b"></svg>", id="cut-in-an-equals-name"),
+        pytest.param(
+            b'<svg><desc><b></desc =x="y', b'"></svg>', id="cut-in-a-value-after-equals-name"
+        ),
     ],
 )
 def test_1670_a_points_own_end_tag_behind_html_leaves_the_point_open(

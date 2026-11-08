@@ -49,9 +49,12 @@ _SCOPE = _MARKERS | {"html", "table"}
 _START_TAG = re.compile(
     r"""<[^\s/>]++(?:[\s/]++|[^\s/>=]++(?:\s*+=\s*+(?:"[^"]*+"|'[^']*+'|[^\s>]*+))?+)*+>"""
 )
-# An unquoted value never starts with a quote, so a cut quoted value matches no tag.
+# As the tokenizer reads it: a name after a space or a quote may start with `=`, a name followed
+# by `=` takes a value, and an unquoted value never starts with a quote, so a cut quoted value
+# matches no tag.
 _END_TAG = re.compile(
-    r"""</[^\s/>]++(?:[\s/]++|[^\s/>=]++(?:\s*+=\s*+(?:"[^"]*+"|'[^']*+'|(?!["'])[^\s>]*+))?+)*+>"""
+    r"""</[^\s/>]++(?:[\s/]++|(?<=[\s/"'])=?+[^\s/>=]*+"""
+    r"""(?:\s*+=\s*+(?:"[^"]*+"|'[^']*+'|(?!["'])[^\s>]*+)|(?!\s*=)))*+>"""
 )
 
 _TAG = ((">", False), ('">', False), ("'>", False), ("]]>", False))
