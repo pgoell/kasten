@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { amountOf, positive } from "@/components/finance-budget-tab";
 import { madeOf } from "@/components/finance-overview";
 import { FinancePane } from "@/components/finance-pane";
-import { euros } from "@/lib/panes/finance/finance-words";
+import { euros, money } from "@/lib/panes/finance/finance-words";
 import { stubCommands } from "./stub-commands";
 
 const api = vi.hoisted(() => ({
@@ -17,6 +17,14 @@ const api = vi.hoisted(() => ({
   assignGoal: vi.fn(),
   undoAssign: vi.fn(),
   fetchBudget: vi.fn(),
+  fetchContracts: vi.fn(),
+  makeContract: vi.fn(),
+}));
+const http = vi.hoisted(() => ({ POST: vi.fn(), GET: vi.fn() }));
+
+vi.mock("@/lib/core/api-client", async (actual) => ({
+  ...(await actual<typeof import("@/lib/core/api-client")>()),
+  client: http,
 }));
 
 vi.mock("@/lib/panes/finance/finance-plans-api", async (actual) => ({
@@ -99,6 +107,8 @@ beforeEach(() => {
   api.fetchProposals.mockResolvedValue([PROPOSAL]);
   api.fetchGoals.mockResolvedValue({ goals: [WEDDING], accounts: [ACCOUNT] });
   api.writePlan.mockResolvedValue(undefined);
+  api.fetchContracts.mockResolvedValue({ contracts: [], yearly: "0.00" });
+  api.makeContract.mockResolvedValue({ path: "03 Areas/03 Money/Contracts/Haftpflicht.md" });
   api.writeGoal.mockResolvedValue(undefined);
   api.assignGoal.mockResolvedValue(undefined);
   api.undoAssign.mockResolvedValue(undefined);
@@ -115,14 +125,14 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-function renderPane() {
+function renderPane(onNotice: (text: string | undefined) => void = () => undefined) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
       <FinancePane
         commands={stubCommands()}
         focusSignal={1}
-        onNotice={() => undefined}
+        onNotice={onNotice}
         today="2026-10-25"
       />
     </QueryClientProvider>,
@@ -219,5 +229,116 @@ describe("the finance pane's plans and goals", () => {
     expect(madeOf(free)).toBe(
       `${euros(1000)} income, less ${euros(50)} reserved for plans, ${euros(300)} still to move to goals`,
     );
+  });
+
+  it("#1675 the contracts list by cancel-by date, with its plan, cost a year and the total", async () => {
+    const row = {
+      plan_id: null,
+      plan_name: null,
+      amount: null,
+      every_months: null,
+      yearly: null,
+      cancel_by: null,
+      renews: null,
+      ends: null,
+      problem: null,
+    };
+    api.fetchContracts.mockResolvedValue({
+      contracts: [
+        { ...row, path: "c/Gym.md", name: "Gym", cancel_by: "2026-11-14", renews: "2027-01-15" },
+        {
+          ...row,
+          path: "c/Haftpflicht.md",
+          name: "Haftpflicht",
+          plan_id: 3,
+          plan_name: "HUK",
+          amount: "-600.00",
+          every_months: 12,
+          yearly: "600.00",
+          cancel_by: "2026-11-28",
+          renews: "2027-03-01",
+        },
+        { ...row, path: "c/Phone.md", name: "Phone", plan_id: 9, problem: "plan 9 is gone" },
+        { ...row, path: "c/Paper.md", name: "Paper", problem: "term missing or unreadable" },
+      ],
+      yearly: "600.00",
+    });
+    renderPane();
+    const list = await screen.findByRole("region", { name: "Contracts" });
+    await waitFor(() => expect(list.querySelectorAll("li")).toHaveLength(4));
+    const rows = [...list.querySelectorAll("li")].map((li) => li.textContent);
+    expect(rows).toEqual([
+      "Gymcancel by 14 Nov 2026, else renews 15 Jan 2027; no plan",
+      `Haftpflicht${euros(600)} a yearcancel by 28 Nov 2026, else renews 1 Mar 2027; HUK, ${money("-600.00")} yearly`,
+      "Phoneplan 9 is gone; no plan",
+      "Paperterm missing or unreadable; no plan",
+    ]);
+    expect(list.querySelector("ul + p")?.textContent).toBe(`${euros(600)} a year in all`);
+    expect(api.fetchContracts).toHaveBeenCalledWith("2026-10-25");
+  });
+
+  const contractButtons = () =>
+    screen.getAllByRole("button", { name: "Make a contract note for Haftpflicht" });
+
+  it("#1675 a plan's and a proposal's Contract button start the note and say where", async () => {
+    api.fetchPlans.mockResolvedValue([{ ...PROPOSAL, id: 3, reserves: true, share: "41.50" }]);
+    const notices: (string | undefined)[] = [];
+    renderPane((text) => notices.push(text));
+    const plans = await screen.findByRole("region", { name: "Plans" });
+    await waitFor(() => expect(plans.querySelector("li")).toBeTruthy());
+    fireEvent.click(contractButtons()[1] as HTMLElement);
+    await waitFor(() => expect(api.makeContract).toHaveBeenCalledTimes(1));
+    expect(api.makeContract.mock.calls[0]?.[0]).toMatchObject({ id: 3 });
+    await waitFor(() =>
+      expect(notices.at(-1)).toBe(
+        "Wrote 03 Areas/03 Money/Contracts/Haftpflicht.md: fill in its terms there",
+      ),
+    );
+    fireEvent.click(contractButtons()[0] as HTMLElement);
+    await waitFor(() => expect(api.makeContract).toHaveBeenCalledTimes(2));
+    expect(api.makeContract.mock.calls[1]).toEqual([PROPOSAL, "2026-10-25"]);
+    api.makeContract.mockRejectedValue(new Error("A note is already there"));
+    fireEvent.click(contractButtons()[1] as HTMLElement);
+    await waitFor(() => expect(notices.at(-1)).toBe("A note is already there"));
+  });
+
+  it("#1675 a proposal is confirmed as a plan before its contract note, by its new id", async () => {
+    const real = await vi.importActual<typeof import("@/lib/panes/finance/finance-plans-api")>(
+      "@/lib/panes/finance/finance-plans-api",
+    );
+    const ok = { ok: true, status: 200 };
+    http.POST.mockResolvedValueOnce({ data: { id: 41 }, response: ok }).mockResolvedValueOnce({
+      data: { path: "c/Haftpflicht.md" },
+      response: { ok: true, status: 201 },
+    });
+    expect(await real.makeContract(PROPOSAL as never, "2026-10-25")).toEqual({
+      path: "c/Haftpflicht.md",
+    });
+    const { key: _k, source: _s, seen: _n, last: _l, ...plan } = PROPOSAL;
+    expect(http.POST.mock.calls).toEqual([
+      ["/api/finance/plans", { body: plan, params: { query: { today: "2026-10-25" } } }],
+      ["/api/finance/contracts", { body: { plan_id: 41 } }],
+    ]);
+    http.POST.mockResolvedValueOnce({ data: { path: "c/Miete.md" }, response: ok });
+    await real.makeContract({ id: 5 } as never, "2026-10-25");
+    expect(http.POST.mock.calls[2]).toEqual(["/api/finance/contracts", { body: { plan_id: 5 } }]);
+  });
+
+  it("#1675 opening the list writes the cancel-by todos first, then reads the contracts", async () => {
+    const real = await vi.importActual<typeof import("@/lib/panes/finance/finance-plans-api")>(
+      "@/lib/panes/finance/finance-plans-api",
+    );
+    const order: string[] = [];
+    http.POST.mockImplementation((url: string) => {
+      order.push(url);
+      return Promise.resolve({ data: [], response: { ok: true, status: 200 } });
+    });
+    http.GET.mockImplementation((url: string) => {
+      order.push(url);
+      return Promise.resolve({ data: { contracts: [], yearly: "0.00" }, response: { ok: true } });
+    });
+    expect(await real.fetchContracts("2026-10-25")).toEqual({ contracts: [], yearly: "0.00" });
+    expect(order).toEqual(["/api/finance/contracts/reminders", "/api/finance/contracts"]);
+    http.POST.mockReset();
   });
 });

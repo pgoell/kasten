@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { type RefObject, useState } from "react";
+import { Contracts } from "@/components/finance-contracts";
 import { Forecast } from "@/components/finance-forecast";
 import { GoalBar, GoalForm, NotReserved } from "@/components/finance-goals";
 import { MoveLeftover } from "@/components/finance-leftover";
@@ -19,6 +20,7 @@ import {
   fetchUpcoming,
   type Goal,
   type Goals,
+  makeContract,
   type Plan,
   type PlanIn,
   type Proposal,
@@ -47,14 +49,30 @@ function day(date: string): string {
   });
 }
 
+/** A row's button that starts the contract note for its plan. */
+function ContractButton({ name, onPress }: { name: string; onPress: () => void }) {
+  return (
+    <button
+      type="button"
+      className="finance-pane-button finance-small"
+      aria-label={`Make a contract note for ${name}`}
+      onClick={onPress}
+    >
+      Contract
+    </button>
+  );
+}
+
 function Proposals({
   proposals,
   busy,
   onConfirm,
+  onContract,
 }: {
   proposals: Proposal[];
   busy: boolean;
   onConfirm: (p: Proposal) => void;
+  onContract: (p: Proposal) => void;
 }) {
   if (proposals.length === 0) return null;
   return (
@@ -77,6 +95,7 @@ function Proposals({
             >
               {index < PROPOSAL_KEYS.length ? <kbd>{PROPOSAL_KEYS[index]}</kbd> : null} Confirm
             </button>
+            <ContractButton name={proposal.name} onPress={() => onContract(proposal)} />
           </li>
         ))}
       </ul>
@@ -126,10 +145,12 @@ function Plans({
   plans,
   onEdit,
   onNew,
+  onContract,
 }: {
   plans: Plan[];
   onEdit: (p: Plan) => void;
   onNew: () => void;
+  onContract: (p: Plan) => void;
 }) {
   return (
     <section aria-label="Plans" className="finance-plans-group">
@@ -150,6 +171,7 @@ function Plans({
             >
               Edit
             </button>
+            <ContractButton name={plan.name} onPress={() => onContract(plan)} />
           </li>
         ))}
       </ul>
@@ -445,6 +467,13 @@ export function FinancePlans({ month, today, keys, onNotice, refocus }: TabProps
     }
     void run(() => writePlan(planOf(proposal), today));
   };
+  const contract = async (from: Plan | Proposal) => {
+    let path = "";
+    await run(async () => {
+      path = (await makeContract(from, today)).path;
+    });
+    if (path) onNotice(`Wrote ${path}: fill in its terms there`);
+  };
   const cancel = () => {
     setEditing(undefined);
     refocus();
@@ -495,12 +524,19 @@ export function FinancePlans({ month, today, keys, onNotice, refocus }: TabProps
           <Upcoming dues={dues.data ?? []} month={month} />
         </div>
         <div className="finance-plans-column">
-          <Proposals proposals={proposals.data ?? []} busy={busy} onConfirm={confirm} />
+          <Proposals
+            proposals={proposals.data ?? []}
+            busy={busy}
+            onConfirm={confirm}
+            onContract={(from) => void contract(from)}
+          />
           <Plans
             plans={plans.data ?? []}
             onEdit={(plan) => setEditing({ kind: "plan", id: plan.id })}
             onNew={() => setEditing({ kind: "plan" })}
+            onContract={(from) => void contract(from)}
           />
+          <Contracts today={today} />
         </div>
       </div>
       <Forecast today={today} />
