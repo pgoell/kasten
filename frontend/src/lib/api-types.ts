@@ -4182,6 +4182,7 @@ export interface components {
          * @description A contract note, its plan, its cost a year and its next cancel-by date.
          *
          *     `problem` names what keeps a date or a cost from it: a field missing, or a plan gone.
+         *     `rise` is set once the plan's two newest paid periods in a row cost more than it allows.
          */
         ContractOut: {
             /** Path */
@@ -4206,6 +4207,7 @@ export interface components {
             ends: string | null;
             /** Problem */
             problem: string | null;
+            rise: components["schemas"]["RiseOut"] | null;
         };
         /**
          * ContractsOut
@@ -5840,6 +5842,16 @@ export interface components {
             new_per_day: number | null;
             /** Reviews Per Day */
             reviews_per_day: number | null;
+        };
+        /**
+         * RiseOut
+         * @description A price rise: the plan's amount, and the newest booking's, dearer past the tolerance.
+         */
+        RiseOut: {
+            /** Old */
+            old: string;
+            /** New */
+            new: string;
         };
         /**
          * RuleIn

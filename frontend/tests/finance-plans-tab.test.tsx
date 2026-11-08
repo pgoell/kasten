@@ -242,6 +242,7 @@ describe("the finance pane's plans and goals", () => {
       renews: null,
       ends: null,
       problem: null,
+      rise: null,
     };
     api.fetchContracts.mockResolvedValue({
       contracts: [
@@ -283,6 +284,35 @@ describe("the finance pane's plans and goals", () => {
     ]);
     expect(list.querySelector("ul + p")?.textContent).toBe(`${euros(600)} a year in all`);
     expect(api.fetchContracts).toHaveBeenCalledWith("2026-10-25");
+  });
+
+  it("#1679 a contract whose price rose shows the old and the new amount beside it", async () => {
+    const gym = {
+      path: "c/Gym.md",
+      name: "Gym",
+      plan_id: 4,
+      plan_name: "Gym",
+      amount: "-39.00",
+      every_months: 1,
+      yearly: "468.00",
+      cancel_by: "2026-11-14",
+      renews: "2027-01-15",
+      ends: null,
+      problem: null,
+      rise: { old: "-39.00", new: "-44.00" },
+    };
+    api.fetchContracts.mockResolvedValue({
+      contracts: [gym, { ...gym, path: "c/Pay.md", name: "Pay", rise: null }],
+      yearly: "936.00",
+    });
+    renderPane();
+    const list = await screen.findByRole("region", { name: "Contracts" });
+    await waitFor(() => expect(list.querySelectorAll("li")).toHaveLength(2));
+    const [rose, kept] = [...list.querySelectorAll("li")];
+    expect(rose?.querySelector(".finance-plans-rise")?.textContent).toBe(
+      `Price rose from ${money("-39.00")} to ${money("-44.00")}`,
+    );
+    expect(kept?.querySelector(".finance-plans-rise")).toBeNull();
   });
 
   const contractButtons = () =>

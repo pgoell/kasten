@@ -66,7 +66,10 @@ and the id of the plan its payments meet.
    kasten writes no more todos.
 
 **Contracts** lists them all by their next cancel-by date, with what the plan
-costs a year and the total. Each time the tab opens, kasten writes the next
+costs a year and the total. Once the plan's last two bookings in a row cost
+more than its amount and tolerance allow, the contract shows `Price rose from`
+the plan's amount `to` the newest booking's: change the plan's amount, or
+renegotiate. Each time the tab opens, kasten writes the next
 cancel-by todo under `## Cancel-by` in each note that has none open: `📅` on
 the cancel-by date and `⏳` four weeks before. Tick it done or rejected and the
 next term's todo comes the next time the tab opens. A term ends the day

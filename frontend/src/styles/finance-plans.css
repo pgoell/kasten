@@ -178,6 +178,14 @@
   font-size: var(--k-text-13);
 }
 
+.finance-plans-rise {
+  grid-column: 1 / 4;
+  grid-row: 3;
+  color: var(--k-warn);
+  font-size: var(--k-text-13);
+  font-variant-numeric: tabular-nums;
+}
+
 .finance-plans-row > button,
 .finance-plans-buttons {
   grid-column: 4;

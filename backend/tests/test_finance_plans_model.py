@@ -9,6 +9,8 @@ import dataclasses
 import datetime as dt
 from decimal import Decimal
 
+import pytest
+
 from backend.tests.test_finance_budget_model import (
     GIRO,
     GROCERIES,
@@ -39,7 +41,7 @@ from kasten_backend.finance_plans import (
     monthly_need,
     reminder,
 )
-from kasten_backend.finance_proposals import Seen, every_of, proposals
+from kasten_backend.finance_proposals import Seen, every_of, price_rise, proposals
 
 TODAY = dt.date(2026, 10, 10)
 
@@ -396,3 +398,40 @@ def test_contract_fields_may_carry_a_trailing_comment() -> None:
     assert terms(**commented) == terms(**YEARLY)
     assert contract_field(note(plan="14 # Haftpflicht"), "plan") == "14"
     assert contract_field(note(start="# fill in"), "start") == ""
+
+
+def bills(*amounts: str | None) -> list[Booking]:
+    """One booking of payee 7 on the 5th of each month from July, none for a None."""
+    return [
+        Booking(n, GIRO, dt.date(2026, 7 + n, 5), Decimal(a), 7, "")
+        for n, a in enumerate(amounts)
+        if a is not None
+    ]
+
+
+@pytest.mark.parametrize(
+    ("amounts", "rise"),
+    [
+        (["-50", "-50"], ("-39", "-50")),
+        (["-50", "-51"], ("-39", "-51")),
+        (["-39", "-50"], None),
+        (["-50", "-39", "-50"], None),
+        (["-50", None, "-50"], None),
+        (["-50", "-50", None], ("-39", "-50")),
+        (["-50", "-50", "-39"], None),
+        (["-42", "-44"], None),
+        (["-30", "-30"], None),
+    ],
+)
+def test_1679_a_price_rise_is_two_periods_in_a_row_dearer_than_the_tolerance(
+    amounts: list[str | None], rise: tuple[str, str] | None
+) -> None:
+    rule = plan(amount="-39", start=dt.date(2026, 7, 5))
+    found = price_rise(rule, bills(*amounts), dt.date(2026, 10, 10))
+    assert found == (rise and (Decimal(rise[0]), Decimal(rise[1])))
+
+
+def test_1679_a_period_paid_within_the_tolerance_too_is_no_rise() -> None:
+    rule = plan(amount="-39", start=dt.date(2026, 7, 5))
+    twice = [*bills("-50", "-50"), Booking(9, GIRO, dt.date(2026, 8, 6), Decimal(-39), 7, "")]
+    assert price_rise(rule, twice, dt.date(2026, 10, 10)) is None

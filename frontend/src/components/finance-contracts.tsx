@@ -28,7 +28,7 @@ function plan(contract: Contract): string {
 }
 
 /**
- * Every contract note by its next cancel-by date, with its plan and what it costs a year, and
+ * Every contract note by its next cancel-by date, with its plan, cost a year and any price rise,
  * the total, and the note just made. Opening it writes each note's next cancel-by todo first.
  */
 export function Contracts({ today, made }: { today: string; made?: string }) {
@@ -57,6 +57,11 @@ export function Contracts({ today, made }: { today: string; made?: string }) {
               <span className="finance-muted finance-plans-aside">
                 {[terms(contract), contract.problem, plan(contract)].filter(Boolean).join("; ")}
               </span>
+              {contract.rise == null ? null : (
+                <span className="finance-plans-rise">
+                  {`Price rose from ${money(contract.rise.old)} to ${money(contract.rise.new)}`}
+                </span>
+              )}
             </li>
           ))}
         </ul>

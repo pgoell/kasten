@@ -14,6 +14,7 @@ from statistics import median
 from typing import Literal
 
 from kasten_backend.finance_ledger import ZERO
+from kasten_backend.finance_plans import NEAR_DAYS, Booking, Plan, due_dates, pays
 
 EVERY = (1, 2, 3, 4, 6, 12)
 """The schedules a gap between bookings is rounded to, in months."""
@@ -178,3 +179,40 @@ def proposals(
         if p.name.casefold() not in names
         and (p.payee is None or (p.payee, p.account) not in planned)
     ]
+
+
+def _within(booking: Booking, due: dt.date, *, near: bool) -> bool:
+    if near:
+        return abs((booking.day - due).days) <= NEAR_DAYS
+    return booking.day.replace(day=1) == due.replace(day=1)
+
+
+def price_rise(
+    plan: Plan, bookings: list[Booking], today: dt.date
+) -> tuple[Decimal, Decimal] | None:
+    """The plan's amount and the newest booking's when its two newest paid periods cost more.
+
+    Both periods must be in a row and dearer than the tolerance allows. Each period takes a
+    booking of its month first, then one within 20 days, one within the tolerance before others.
+    """
+    if plan.every is None:
+        return None
+    dues = due_dates(plan, plan.start, today + dt.timedelta(days=NEAR_DAYS))
+    mine = [b for b in bookings if pays(plan, b)]
+    paid: dict[int, Booking] = {}
+    for near in (False, True):
+        for step, due in enumerate(dues):
+            taken = {b.id for b in paid.values()}
+            fitting = [b for b in mine if b.id not in taken and _within(b, due, near=near)]
+            if step not in paid and fitting:
+                paid[step] = min(
+                    fitting,
+                    key=lambda b: (abs(b.amount - plan.amount) > plan.tolerance, abs(b.day - due)),
+                )
+    newest = sorted(paid.items())[-2:]
+    in_a_row = (
+        [step for step, _ in newest] == [newest[-1][0] - 1, newest[-1][0]] if newest else False
+    )
+    if not in_a_row or any(b.amount >= plan.amount - plan.tolerance for _, b in newest):
+        return None
+    return plan.amount, newest[-1][1].amount

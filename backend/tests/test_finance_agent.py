@@ -21,6 +21,7 @@ from backend.tests.test_finance_plans import (
     TERMS,
     contract_note,
     plan,
+    rising_gym,
     setup,
 )
 from backend.tests.test_mcp import ENDPOINT, RPC, call, payload
@@ -356,6 +357,7 @@ async def test_the_contracts_are_the_plans_tabs_list(
     made = await plan(finance_client, **HAFTPFLICHT, account_id=ids["giro"])
     contract_note(agent_vault, "Haftpflicht", f"plan: {made['id']}\n{TERMS}")
     contract_note(agent_vault, "Paper", "start: 2024-03-01\n")
+    await rising_gym(finance_client, agent_vault, ids["giro"])
     day = {"today": "2026-10-10"}
 
     pane = (await finance_client.get(f"{API}/contracts", params=day)).json()
@@ -363,7 +365,8 @@ async def test_the_contracts_are_the_plans_tabs_list(
 
     assert agent.status_code == 200, agent.text
     assert agent.json() == pane
-    assert pane["contracts"][0]["cancel_by"] == "2026-11-28"
+    assert pane["contracts"][1]["cancel_by"] == "2026-11-28"
+    assert pane["contracts"][0]["rise"] == {"old": "-39.00", "new": "-44.00"}
     assert await tool(finance_client, bearer, "list_contracts", **day) == pane
     # What /close-day, a vault skill, goes by when it names a contract to cancel soon.
     assert "next 14 days" in " ".join((agent_mcp_finance.list_contracts.__doc__ or "").split())

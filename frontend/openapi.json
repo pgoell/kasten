@@ -9521,6 +9521,16 @@
               }
             ],
             "title": "Problem"
+          },
+          "rise": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RiseOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -9535,10 +9545,11 @@
           "cancel_by",
           "renews",
           "ends",
-          "problem"
+          "problem",
+          "rise"
         ],
         "title": "ContractOut",
-        "description": "A contract note, its plan, its cost a year and its next cancel-by date.\n\n`problem` names what keeps a date or a cost from it: a field missing, or a plan gone."
+        "description": "A contract note, its plan, its cost a year and its next cancel-by date.\n\n`problem` names what keeps a date or a cost from it: a field missing, or a plan gone.\n`rise` is set once the plan's two newest paid periods in a row cost more than it allows."
       },
       "ContractsOut": {
         "properties": {
@@ -13734,6 +13745,27 @@
         ],
         "title": "ReviewLimits",
         "description": "The daily limits a deck falls back on, None meaning no limit."
+      },
+      "RiseOut": {
+        "properties": {
+          "old": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Old"
+          },
+          "new": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "New"
+          }
+        },
+        "type": "object",
+        "required": [
+          "old",
+          "new"
+        ],
+        "title": "RiseOut",
+        "description": "A price rise: the plan's amount, and the newest booking's, dearer past the tolerance."
       },
       "RuleIn": {
         "properties": {

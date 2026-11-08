@@ -163,7 +163,7 @@ Every contract note, by its next cancel-by date on or after `today`
     "path": "03 Areas/03 Money/Contracts/Haftpflicht.md", "name": "Haftpflicht",
     "plan_id": 14, "plan_name": "Haftpflicht", "amount": "-600.00", "every_months": 12,
     "yearly": "600.00", "cancel_by": "2026-11-28", "renews": "2027-03-01",
-    "ends": null, "problem": null
+    "ends": null, "problem": null, "rise": null
   }],
   "yearly": "600.00"
 }
@@ -172,6 +172,15 @@ Every contract note, by its next cancel-by date on or after `today`
 `yearly` is what the plan costs a year, positive, `null` with no plan or one
 that falls due once. `problem` names a field missing or unreadable, or
 `plan 14 is gone`.
+
+`rise` is `{"old": "-39.00", "new": "-44.00"}` once the plan's two newest paid
+periods in a row each cost more than its `amount` less `tolerance`: `old` is
+the plan's amount, `new` the newest booking's. A period's booking is one of
+the plan's payee or text, as matching reads it but at any amount, from the
+period's month first, then within 20 days of its date; one within the
+tolerance wins over a dearer one, and a booking another plan holds never
+counts. A period unpaid so far is passed over, so the flag stands until the
+next booking comes in. Nothing stores it; each read works it out.
 
 ## POST /api/finance/contracts/reminders
 
