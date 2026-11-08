@@ -132,7 +132,9 @@ describe("the lists app contrast", () => {
       const ring = parse(
         getComputedStyle(milch.querySelector(".check") as HTMLElement).borderTopColor,
       );
-      const text = parse(getComputedStyle(eier.querySelector(".text") as HTMLElement).color);
+      const text = parse(
+        getComputedStyle(eier.closest(".row")?.querySelector(".text") as HTMLElement).color,
+      );
       const tick = parse(
         getComputedStyle(eier.querySelector(".check") as HTMLElement, "::after").borderBottomColor,
       );
