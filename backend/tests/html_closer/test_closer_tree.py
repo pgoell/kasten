@@ -212,6 +212,92 @@ def test_1652_the_closer_gives_what_chrome_needs(end: bytes, closer: bytes) -> N
     assert served_closer(end) == closer
 
 
+# Chrome ignores `</foreignObject>` with an html element open inside the point (#1652).
+NOBR_END = b"</foreignObject><![CDATA[x"
+
+
+@pytest.mark.parametrize(
+    ("end", "closer"),
+    [
+        pytest.param(b"<nobr>" + POINT + b"<nobr>" + NOBR_END, b"></svg>", id="issue-step"),
+        pytest.param(b"<nobr><svg><desc><nobr><![CDATA[x", b"></svg>", id="desc"),
+        pytest.param(b"<nobr><svg><title><nobr><![CDATA[x", b"></svg>", id="title"),
+        pytest.param(b"<nobr><math><mi><nobr><![CDATA[x", b"></math>", id="mi"),
+        pytest.param(b"<nobr><math><mtext><nobr><![CDATA[x", b"></math>", id="mtext"),
+        pytest.param(
+            b"<nobr><math><annotation-xml encoding=text/html><nobr><![CDATA[x",
+            b"></math>",
+            id="annotation-xml",
+        ),
+        pytest.param(b"<NOBR>" + POINT + b"<NOBR>" + NOBR_END, b"></svg>", id="upper-case"),
+        pytest.param(
+            b'<nobr title="x>y">' + POINT + b'<nobr title="x>y">' + NOBR_END,
+            b"></svg>",
+            id="quoted-gt",
+        ),
+        pytest.param(b"\r\n<nobr>\r\n" + POINT + b"\r\n<nobr>" + NOBR_END, b"></svg>", id="crlf"),
+        pytest.param(
+            b"<nobr>" + POINT + b"<nobr></nobr>" + NOBR_END, b"]]></svg>", id="inner-end-tag"
+        ),
+        pytest.param(
+            b"<nobr>" + POINT + b"<nobr>\r\n</NOBR >" + NOBR_END,
+            b"]]></svg>",
+            id="inner-end-tag-crlf-upper-case",
+        ),
+        pytest.param(
+            b"<nobr>" + POINT + b"<nobr></nobr></nobr><![CDATA[x",
+            b"]]></svg>",
+            id="outer-end-tag-ignored",
+        ),
+        pytest.param(
+            b"<nobr>" + POINT + b"<b></nobr><![CDATA[x", b"></svg>", id="outer-end-tag-past-b"
+        ),
+        pytest.param(b"<nobr>" + POINT + b"<nobr><nobr>" + NOBR_END, b"></svg>", id="third-nobr"),
+        pytest.param(
+            b"<nobr>" + POINT + b"<nobr><nobr></nobr></nobr>" + NOBR_END,
+            b"]]></svg>",
+            id="third-nobr-both-end-tags",
+        ),
+        pytest.param(
+            b"<nobr>" + POINT + b"<nobr></nobr>" * 9 + b"<nobr>" + NOBR_END,
+            b"></svg>",
+            id="more-tags-than-rewrites",
+        ),
+        pytest.param(
+            b"<title>t</title><nobr>"
+            + POINT
+            + b"<nobr></nobr>" * 9
+            + b"</foreignObject><![CDATA[x",
+            b"]]></svg>",
+            id="more-pairs-than-rewrites",
+        ),
+        pytest.param(
+            b"<a><nobr>" + POINT + b"<nobr></nobr>" * 9 + b"<a></a></foreignObject><![CDATA[x",
+            b"]]></svg>",
+            id="a-after-a-run-of-nobr",
+        ),
+        pytest.param(
+            b"<font><nobr>" + POINT + b"<nobr><font></font></nobr>" + NOBR_END,
+            b"]]></svg>",
+            id="font-of-its-own",
+        ),
+        pytest.param(b"<nobr><nobr><svg><![CDATA[x", b"]]></svg>", id="nobr-in-scope"),
+        pytest.param(
+            b"<nobr>" + POINT + b"</foreignObject></svg><nobr><svg><![CDATA[x",
+            b"]]></svg>",
+            id="nobr-after-the-point",
+        ),
+        pytest.param(
+            b"<nobr>" + POINT + b"<object><nobr></object>" + NOBR_END,
+            b"]]></svg>",
+            id="object-marker-between",
+        ),
+    ],
+)
+def test_1657_a_nobr_behind_a_point_leaves_the_point_open(end: bytes, closer: bytes) -> None:
+    assert served_closer(end) == closer
+
+
 @pytest.mark.parametrize(
     ("end", "parses"),
     [
