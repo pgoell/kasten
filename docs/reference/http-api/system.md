@@ -131,7 +131,8 @@ time each one last made a request.
 ```
 
 `scope` is `agent` for a token that opens all of `/agent/`, and `reading` for
-one that opens [`GET /agent/reading`](/reference/agent-api.md#reading-tokens-and-get-agentreading) alone.
+one that opens [`GET /agent/reading`](/reference/agent-api.md#reading-tokens-and-get-agentreading)
+and [the post reads](/reference/agent-api.md#get-agentposts) alone.
 
 `last_used` is the time of the live token's latest request, and counts only what
 that token itself made since it was minted: rows of a revoked token, or of an

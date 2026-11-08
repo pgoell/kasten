@@ -66,10 +66,10 @@ The token's name is recorded with the write it makes: an agent's change reads
 
 ## Reading tokens and GET /agent/reading
 
-A token minted with the `reading` scope opens `GET /agent/reading` and nothing
-else. Every other route under `/agent/`, `POST /agent/mcp` included, refuses it
+A token minted with the `reading` scope opens `GET /agent/reading` and
+[the two post reads](#get-agentposts), and nothing else. Every other route under `/agent/`, `POST /agent/mcp` included, refuses it
 with the `401` and the sentence above. A full token may call the route too.
-Tick "Reading only" at `/tokens` to mint one, or send `"scope": "reading"` to
+Tick "Website only" at `/tokens` to mint one, or send `"scope": "reading"` to
 [`POST /api/tokens`](/reference/http-api/system.md#post-apitokens). The store
 keeps reading tokens in `tokens-reading.json` beside `tokens.json`, a digest
 each, so an older backend that reads only `tokens.json` refuses them rather
@@ -92,6 +92,36 @@ with no body, as a vault with no qualifying note does.
 [fields the reader writes](/reference/note-frontmatter.md#every-other-field-is-yours);
 `author` and `progress` are `null` when the note has none. Nothing else of the
 note is in the answer: no path, no body and no cfi.
+
+## GET /agent/posts
+
+The blog on pgoell.com reads the notes you publish through two routes, which a
+reading token opens as well as a full one. A note is a post when its block says
+`publish: true` (or `yes`) and it has a date, from `date:` or else `created`.
+Notes in the archive folder never are.
+
+`GET /agent/posts` answers every post, newest first, without its text:
+
+```json
+[{ "slug": "how-this-site-was-made", "title": "How this site was made", "date": "2026-11-08", "description": "The viewfinder home page", "lang": "en", "translation_key": "viewfinder" }]
+```
+
+`GET /agent/posts/{slug}` answers one, the same fields and `body`, or `404`.
+With `?lang=de` it picks the post in that language when two share a slug.
+
+* `slug` is the `slug:` field when it is lowercase words joined by hyphens, or
+  else the note's name made into one, `ä` as `ae`.
+* `title` is the `title:` field, or else the `# heading` the note opens with, or
+  else the note's name.
+* `description`, `lang` (lowercased) and `translation_key` (or `translationKey`)
+  are the fields of those names, `null` when absent.
+* `body` is the markdown below the block, without the opening `# heading`. A
+  `[[link]]` to another post becomes `[words](its-slug)`, a link the site reads
+  relative to the post. Any other `[[link]]` becomes its words, so no private
+  note's path leaves the vault. An embed, `![[...]]`, is dropped. Links in code
+  stay as written.
+
+No path, folder or other field of the note is in either answer.
 
 ## Related
 
