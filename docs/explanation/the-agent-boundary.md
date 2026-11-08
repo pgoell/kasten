@@ -64,7 +64,10 @@ There is no Anki import, no trash and no terminal. Each is a specific hazard,
 named above on purpose. The asset upload and the page fetch were on that list
 too, until the eighth capability below took a narrow piece of each.
 
-Every token grants all eleven but a reading token, which opens one route. There
+Every token grants all eleven but a reading token, which opens the three reads
+pgoell.com makes: the book being read, the list of published posts and one post.
+A leaked one shows nothing the site does not already show, since the post reads
+serve only notes marked `publish: true` and no path or other field of them. There
 is no expiry, a cut made for effort rather than a considered design. What a
 token does have is a name and a revoke button, and that is the thing a single
 environment variable cannot buy at any price: losing a laptop costs one revoke

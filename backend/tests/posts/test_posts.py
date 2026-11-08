@@ -60,7 +60,7 @@ async def test_a_post_drops_its_heading_and_points_links_at_posts(
         agent_vault,
         "Blog/Main.md",
         "publish: true\ndate: 2026-02-01\ntitle: The main one",
-        "# Main\n\nSee [[Other|this]], [[Ideas]] and ![[photo.png]].\n\n`[[kept]]`\n",
+        "# Main\n\nSee [[Other|this]], [[Ideas]], [[#Setup]] and ![[photo.png]].\n\n`[[kept]]`\n",
     )
 
     response = await client.get("/agent/posts/the-main-one", headers=bearer)
@@ -71,7 +71,7 @@ async def test_a_post_drops_its_heading_and_points_links_at_posts(
     assert response.status_code == 200
     found = response.json()
     assert found["title"] == "The main one"
-    assert found["body"] == "See [this](other-one), Ideas and .\n\n`[[kept]]`\n"
+    assert found["body"] == "See [this](other-one), Ideas, Setup and .\n\n`[[kept]]`\n"
 
 
 async def test_a_post_picks_the_language_asked_for(
@@ -80,9 +80,10 @@ async def test_a_post_picks_the_language_asked_for(
     _note(agent_vault, "en/Hello.md", "publish: true\ndate: 2026-01-01\nlang: en", "Hello")
     _note(agent_vault, "de/Hello.md", "publish: true\ndate: 2026-01-01\nlang: de", "Hallo")
 
-    german = await client.get("/agent/posts/hello", params={"lang": "de"}, headers=bearer)
+    # `de/` sorts first, so only `lang` can pick the English one.
+    english = await client.get("/agent/posts/hello", params={"lang": "EN"}, headers=bearer)
 
-    assert german.json()["body"] == "Hallo"
+    assert english.json()["body"] == "Hello"
 
 
 async def test_a_post_with_no_date_is_not_published(

@@ -110,7 +110,8 @@ async def post(settings: Settings, slug: str, lang: str | None = None) -> Post |
     """The post at `slug`, in `lang` when one in it is there; None when none is published."""
     found = await _published(settings)
     same = [one for one in found if one.slug == slug]
-    chosen = next((one for one in same if lang and one.lang == lang), same[0] if same else None)
+    wanted = lang.lower() if lang else None
+    chosen = next((one for one in same if wanted and one.lang == wanted), same[0] if same else None)
     if chosen is None:
         return None
     _, body = _split_heading(chosen.text[body_start(chosen.text) :])
@@ -137,7 +138,7 @@ def _relinked(body: str, paths: list[str], slugs: dict[str, str]) -> str:
         if embed:
             continue
         target = split_target(match.group(1))
-        words = target.alias or target.name.rsplit("/", 1)[-1]
+        words = target.alias or target.name.rsplit("/", 1)[-1] or target.heading or ""
         slug = None if names_a_file(target.name) else slugs.get(link_path(match.group(1), paths))
         out.append(f"[{words}]({slug})" if slug else words)
     out.append(body[last:])
