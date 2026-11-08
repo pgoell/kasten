@@ -185,11 +185,16 @@ def _new_media(deck: Deck, settings: Settings, *, fresh: bool) -> list[tuple[str
         if asset.exists():
             # A merged deck's media is most likely this import's own
             # from last time, and a card links it by name either way.
-            if not fresh:
+            if not fresh or _same(asset, data):
                 continue
             raise HTTPException(status_code=409, detail=f"{path} is already in the vault")
         media.append((path, data))
     return media
+
+
+def _same(asset: Path, data: bytes) -> bool:
+    """Whether `asset` holds `data` already, as a hard-killed import leaves it (#1311)."""
+    return asset.is_file() and asset.stat().st_size == len(data) and asset.read_bytes() == data
 
 
 async def _marked_elsewhere(settings: Settings, own: set[str]) -> dict[tuple[int, int], set[str]]:
