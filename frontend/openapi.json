@@ -4377,6 +4377,129 @@
         }
       }
     },
+    "/api/finance/contracts": {
+      "get": {
+        "summary": "Read Contracts",
+        "description": "Every contract note in the contracts folder, by its next cancel-by date.",
+        "operationId": "read_contracts_api_finance_contracts_get",
+        "parameters": [
+          {
+            "name": "today",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+              "title": "Today"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractsOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Write Contract",
+        "description": "Start a contract note for a plan, its id filled in and its terms left to fill.",
+        "operationId": "write_contract_api_finance_contracts_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContractIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/contracts/reminders": {
+      "post": {
+        "summary": "Write Reminders",
+        "description": "Write each contract note's next cancel-by todo where it has none open; the paths written.",
+        "operationId": "write_reminders_api_finance_contracts_reminders_post",
+        "parameters": [
+          {
+            "name": "today",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+              "title": "Today"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Response Write Reminders Api Finance Contracts Reminders Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/finance/goals": {
       "get": {
         "summary": "Read Goals",
@@ -9178,6 +9301,175 @@
         ],
         "title": "ConfirmIn",
         "description": "The booking the receipt paid and, with a line, the mark to set on it."
+      },
+      "ContractIn": {
+        "properties": {
+          "plan_id": {
+            "type": "integer",
+            "title": "Plan Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "plan_id"
+        ],
+        "title": "ContractIn",
+        "description": "The plan a new contract note is for."
+      },
+      "ContractOut": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "plan_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Id"
+          },
+          "plan_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Name"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "every_months": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Every Months"
+          },
+          "yearly": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Yearly"
+          },
+          "cancel_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancel By"
+          },
+          "renews": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Renews"
+          },
+          "ends": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ends"
+          },
+          "problem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Problem"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "name",
+          "plan_id",
+          "plan_name",
+          "amount",
+          "every_months",
+          "yearly",
+          "cancel_by",
+          "renews",
+          "ends",
+          "problem"
+        ],
+        "title": "ContractOut",
+        "description": "A contract note, its plan, its cost a year and its next cancel-by date.\n\n`problem` names what keeps a date or a cost from it: a field missing, or a plan gone."
+      },
+      "ContractsOut": {
+        "properties": {
+          "contracts": {
+            "items": {
+              "$ref": "#/components/schemas/ContractOut"
+            },
+            "type": "array",
+            "title": "Contracts"
+          },
+          "yearly": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Yearly"
+          }
+        },
+        "type": "object",
+        "required": [
+          "contracts",
+          "yearly"
+        ],
+        "title": "ContractsOut",
+        "description": "Every contract note by cancel-by date, and what they cost a year together."
       },
       "ContributionOut": {
         "properties": {

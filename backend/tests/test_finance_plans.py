@@ -11,6 +11,8 @@ from backend.tests.finance_rows import API, GIRO, SAVING, booking, category, pos
 from backend.tests.test_finance_budget import own
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from httpx import AsyncClient
 
 TODAY = {"month": "2026-10", "today": "2026-10-10"}
@@ -305,3 +307,87 @@ async def test_a_second_press_makes_no_twin_plan(finance_client: AsyncClient) ->
     await plan(finance_client, **body)
     again = await finance_client.post(f"{API}/plans", json=body, params={"today": "2026-10-10"})
     assert again.status_code == 409
+
+
+CONTRACTS = "03 Areas/03 Money/Contracts"
+HAFTPFLICHT: dict[str, Any] = {
+    "name": "Haftpflicht",
+    "text": "HUK",
+    "amount": "-600.00",
+    "every_months": 12,
+    "start": "2025-10-04",
+}
+TERMS = "start: 2024-03-01\nterm: 12 months\nrenews: 12 months\nnotice: 3 months\n"
+
+
+def contract_note(vault: Path, name: str, fields: str) -> Path:
+    note = vault / CONTRACTS / f"{name}.md"
+    note.parent.mkdir(parents=True, exist_ok=True)
+    note.write_text(f"---\ntype: Contract\n{fields}---\n# {name}\n", encoding="utf-8")
+    return note
+
+
+async def test_a_contract_note_is_made_from_a_plan_once(
+    vault: Path, finance_client: AsyncClient
+) -> None:
+    ids = await setup(finance_client)
+    made = await plan(finance_client, **HAFTPFLICHT, account_id=ids["giro"])
+    response = await finance_client.post(f"{API}/contracts", json={"plan_id": made["id"]})
+    assert response.status_code == 201, response.text
+    assert response.json()["path"] == f"{CONTRACTS}/Haftpflicht.md"
+    assert response.json()["problem"] == "start missing or unreadable"
+    text = (vault / CONTRACTS / "Haftpflicht.md").read_text(encoding="utf-8")
+    assert f"type: Contract\nplan: {made['id']}\nstart:\nterm:\nrenews:\nnotice:\n" in text
+    assert f"Plan {made['id']} in kasten: Haftpflicht, -600.00 € every 12 months." in text
+    again = await finance_client.post(f"{API}/contracts", json={"plan_id": made["id"]})
+    assert again.status_code == 409
+    gone = await finance_client.post(f"{API}/contracts", json={"plan_id": made["id"] + 999})
+    assert gone.status_code == 404
+
+
+async def test_contracts_list_by_cancel_by_with_cost_a_year_and_what_is_wrong(
+    vault: Path, finance_client: AsyncClient
+) -> None:
+    ids = await setup(finance_client)
+    made = await plan(finance_client, **HAFTPFLICHT, account_id=ids["giro"])
+    contract_note(vault, "Haftpflicht", f"plan: {made['id']}\n{TERMS}")
+    contract_note(vault, "Gym", TERMS.replace("2024-03-01", "2024-01-15"))
+    contract_note(vault, "Phone", f"plan: {made['id'] + 999}\n{TERMS}")
+    contract_note(vault, "Paper", "start: 2024-03-01\n")
+    (vault / CONTRACTS / "Notes.md").write_text("# not a contract\n", encoding="utf-8")
+    response = await finance_client.get(f"{API}/contracts", params={"today": "2026-10-10"})
+    assert response.status_code == 200, response.text
+    found = response.json()
+    rows = [
+        (c["name"], c["cancel_by"], c["renews"], c["yearly"], c["problem"])
+        for c in found["contracts"]
+    ]
+    assert rows == [
+        ("Gym", "2026-10-14", "2027-01-15", None, None),
+        ("Haftpflicht", "2026-11-28", "2027-03-01", "600.00", None),
+        ("Phone", "2026-11-28", "2027-03-01", None, f"plan {made['id'] + 999} is gone"),
+        ("Paper", None, None, None, "term missing or unreadable"),
+    ]
+    assert found["contracts"][1]["plan_name"] == "Haftpflicht"
+    assert found["contracts"][1]["amount"] == "-600.00"
+    assert found["yearly"] == "600.00"
+
+
+async def test_reminders_write_each_cancel_by_todo_once(vault: Path, client: AsyncClient) -> None:
+    note = contract_note(vault, "Gym", TERMS)
+    contract_note(vault, "Paper", "start: 2024-03-01\n")
+    params = {"today": "2026-10-10"}
+    first = await client.post(f"{API}/contracts/reminders", params=params)
+    assert first.json() == [f"{CONTRACTS}/Gym.md"]
+    text = note.read_text(encoding="utf-8")
+    assert text.endswith(
+        "## Cancel-by\n- [ ] cancel or renegotiate Gym, renews 2027-03-01"
+        " 📅 2026-11-28 ⏳ 2026-10-31\n"
+    )
+    assert "\nid: " in text
+    assert (await client.post(f"{API}/contracts/reminders", params=params)).json() == []
+    note.write_text(text.replace("- [ ]", "- [x]"), encoding="utf-8")
+    assert (await client.post(f"{API}/contracts/reminders", params=params)).json() == [
+        f"{CONTRACTS}/Gym.md"
+    ]
+    assert "📅 2027-11-29 ⏳ 2027-11-01\n" in note.read_text(encoding="utf-8")
