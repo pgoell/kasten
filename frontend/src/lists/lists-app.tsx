@@ -4,11 +4,17 @@ import { followScheme } from "./follow-scheme";
 import { personOf } from "./lists-person";
 import { Row } from "./lists-row";
 import { createListsStore, type Item, LISTS, type ListsStore, type Snapshot } from "./lists-store";
-import { suggestionsFor, viewOf } from "./lists-view";
+import { countOf, type Group, groupsOf, suggestionsFor, viewOf, without } from "./lists-view";
 import { tickLine } from "./tick-line";
 
 /** The done items shown before "Erledigt" is unfolded. */
 const FOLDED = 3;
+
+/** How long a delete waits for Rückgängig before it is sent. */
+const UNDO_MS = 5000;
+
+/** A delete the person can still take back. */
+type Pending = { list: string; text: string };
 
 type Keyed = Item & { key: string };
 
@@ -37,28 +43,66 @@ function Lists({ store }: { store: ListsStore }) {
   // The one chip whose menu is open, by its row's key. A second menu cannot open.
   const [menu, setMenu] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  // The item the Eintrag field adds a part to, by its words, or null for an item of its own.
+  const [under, setUnder] = useState<string | null>(null);
+  // Items with their parts folded away, by row key. Parts show by default.
+  const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
+  const [pending, setPending] = useState<Pending | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const field = useRef<HTMLInputElement>(null);
   const now = Date.now();
+
+  // A delete still waiting is sent when the next one comes or the screen goes, never dropped.
+  const sendPending = useRef<() => void>(() => undefined);
+  sendPending.current = () => {
+    clearTimeout(timer.current);
+    if (pending) store.remove(pending.list, pending.text);
+    setPending(null);
+  };
+  useEffect(() => () => sendPending.current(), []);
 
   // "Meine": the items for you, and the ones for nobody. With no name read, that is the nobody ones.
   const shown = (item: Item) => {
     const name = personOf(item.assignee);
     return !mine || name === null || name === snap.me;
   };
-  const items = viewOf(snap, current).filter(shown);
-  const open = items.filter((item) => !item.done);
-  const done = latestFirst(items.filter((item) => item.done));
+  const all = viewOf(snap, current);
+  const groups = groupsOf(
+    pending && pending.list === current ? without(all, pending.text) : all,
+  ).filter(({ item, parts }) => shown(item) || parts.some(shown));
+  const open = groups.filter(({ item }) => !item.done);
+  const done = latestFirst(groups.filter(({ item }) => item.done));
   const loaded = snap.lists[current] !== undefined;
   const chips = suggestionsFor(snap, current, draft);
 
   function choose(name: string): void {
     setCurrent(name);
     setMenu(null);
+    setUnder(null);
   }
 
   function add(text: string): void {
     const clean = text.trim();
-    if (clean) store.add(current, clean);
+    if (clean) store.add(current, clean, under ?? undefined);
+  }
+
+  function remove(text: string): void {
+    sendPending.current();
+    setPending({ list: current, text });
+    timer.current = setTimeout(() => sendPending.current(), UNDO_MS);
+  }
+
+  function undo(): void {
+    clearTimeout(timer.current);
+    setPending(null);
+  }
+
+  function fold(key: string): void {
+    setFolded((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(key)) next.add(key);
+      return next;
+    });
   }
 
   function take(text: string): void {
@@ -68,6 +112,7 @@ function Lists({ store }: { store: ListsStore }) {
   }
 
   function onKey(event: KeyboardEvent<HTMLInputElement>): void {
+    if (event.key === "Escape") setUnder(null);
     // Enter picks a candidate in a Japanese or Chinese input method; that is not a submit.
     if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
     event.preventDefault();
@@ -75,7 +120,7 @@ function Lists({ store }: { store: ListsStore }) {
     setDraft("");
   }
 
-  function rowOf(item: Keyed, tick: string | null) {
+  function rowOf(item: Keyed, tick: string | null, count: string | null) {
     return (
       <Row
         key={item.key}
@@ -83,11 +128,33 @@ function Lists({ store }: { store: ListsStore }) {
         me={snap.me}
         people={snap.people}
         tick={tick}
+        count={count}
+        folded={folded.has(item.key)}
         open={menu === item.key}
         onToggle={() => store.tick(current, item.text, !item.done)}
         onMenu={(on) => setMenu((prev) => (on ? item.key : prev === item.key ? null : prev))}
         onPick={(name) => store.assign(current, item.text, name, personOf(item.assignee))}
+        onEdit={(text) => store.edit(current, item.text, text)}
+        onDelete={() => remove(item.text)}
+        onFold={() => fold(item.key)}
+        onPart={
+          item.depth === 0 && !item.done
+            ? () => {
+                setUnder(item.text);
+                field.current?.focus();
+              }
+            : undefined
+        }
       />
+    );
+  }
+
+  /** An item's row and, unless folded, its parts' rows under it, each with its own count. */
+  function groupRows(groups: Group[], prefix: string, withTick: boolean) {
+    return keyed(groups, prefix).flatMap(({ key, rows }) =>
+      (folded.has(key) ? rows.slice(0, 1) : rows).map((row, n) =>
+        rowOf(row, withTick ? tickLine(row, now) : null, countOf(rows, n)),
+      ),
     );
   }
 
@@ -142,7 +209,7 @@ function Lists({ store }: { store: ListsStore }) {
 
         {open.length > 0 && (
           <section className="group" aria-label="Offen">
-            {keyed(open, "open").map((item) => rowOf(item, null))}
+            {groupRows(open, "open", false)}
           </section>
         )}
 
@@ -163,15 +230,30 @@ function Lists({ store }: { store: ListsStore }) {
               </button>
             </div>
             <div className="group">
-              {keyed(unfolded ? done : done.slice(0, FOLDED), "done").map((item) =>
-                rowOf(item, tickLine(item, now)),
-              )}
+              {groupRows(unfolded ? done : done.slice(0, FOLDED), "done", true)}
             </div>
           </section>
         )}
       </main>
 
+      {pending && (
+        <div className="undo" role="status">
+          <span>„{pending.text}“ gelöscht</span>
+          <button type="button" onClick={undo}>
+            Rückgängig
+          </button>
+        </div>
+      )}
+
       <footer className="composer">
+        {under !== null && (
+          <div className="under">
+            <span>Teil von „{under}“</span>
+            <button type="button" aria-label="Kein Teil" onClick={() => setUnder(null)}>
+              ×
+            </button>
+          </div>
+        )}
         {chips.length > 0 && (
           // biome-ignore lint/a11y/useSemanticElements: a row of suggestion chips, not a form group
           <div className="chips" role="group" aria-label="Vorschläge">
@@ -188,7 +270,7 @@ function Lists({ store }: { store: ListsStore }) {
             className="field"
             type="text"
             aria-label="Eintrag"
-            placeholder="Eintrag"
+            placeholder={under === null ? "Eintrag" : "Teil"}
             enterKeyHint="done"
             autoComplete="off"
             value={draft}
@@ -212,23 +294,31 @@ function Lists({ store }: { store: ListsStore }) {
 }
 
 /**
- * Keys by text, with a count for repeats. Not by line: an optimistic row has
- * line -1, and the server's answer gives it a real one, which would remount
- * the row and leave a node a caller is holding detached. The group is in the key
- * so an open row and a done row of one text do not share a menu.
+ * Keys by text, with a count for repeats, a part's under its item's. Not by line: an optimistic
+ * row has line -1, and the server's answer gives it a real one, which would remount the row and
+ * leave a node a caller is holding detached. The group is in the key so an open row and a done
+ * row of one text do not share a menu.
  */
-function keyed(items: Item[], group: string): Keyed[] {
+function keyed(groups: Group[], prefix: string): { key: string; rows: Keyed[] }[] {
   const count = new Map<string, number>();
-  return items.map((item) => {
-    const n = count.get(item.text) ?? 0;
-    count.set(item.text, n + 1);
-    return { ...item, key: `${group}:${item.text}#${n}` };
+  const keyOf = (text: string) => {
+    const n = count.get(text) ?? 0;
+    count.set(text, n + 1);
+    return `${text}#${n}`;
+  };
+  return groups.map(({ item, parts }) => {
+    const key = `${prefix}:${keyOf(item.text)}`;
+    const rows = [item, ...parts].map((row, n) => ({
+      ...row,
+      key: n === 0 ? key : `${key}>${keyOf(`${item.text}>${row.text}`)}`,
+    }));
+    return { key, rows };
   });
 }
 
 /** Latest tick first. An item with no time comes after them, in the note's order. */
-function latestFirst(items: Item[]): Item[] {
-  return [...items].sort((one, other) => {
+function latestFirst(groups: Group[]): Group[] {
+  return [...groups].sort(({ item: one }, { item: other }) => {
     if (one.ticked_at && other.ticked_at) {
       return Date.parse(other.ticked_at) - Date.parse(one.ticked_at);
     }
@@ -238,7 +328,7 @@ function latestFirst(items: Item[]): Item[] {
   });
 }
 
-/** The open items of a list, queued writes laid over, for its count in the switch. */
+/** The open items of a list, parts not counted, queued writes laid over, for its count in the switch. */
 function openCount(snap: Snapshot, list: string): number {
-  return viewOf(snap, list).filter((item) => !item.done).length;
+  return viewOf(snap, list).filter((item) => !item.done && item.depth === 0).length;
 }

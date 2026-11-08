@@ -20,7 +20,7 @@ afterEach(() => {
 const doneWords = () =>
   within(screen.getByRole("region", { name: "Erledigt" }))
     .getAllByRole("checkbox")
-    .map((box) => box.textContent);
+    .map((box) => box.getAttribute("aria-label"));
 
 /** The people the open chip menu offers, in order. */
 const menuOptions = () =>

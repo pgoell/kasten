@@ -170,7 +170,7 @@ describe("the assignee chip in the lists app", () => {
     await screen.findByRole("checkbox", { name: "Milch" });
 
     fireEvent.click(screen.getByRole("button", { name: "Meine" }));
-    expect(screen.getAllByRole("checkbox").map((box) => box.textContent)).toEqual([
+    expect(screen.getAllByRole("checkbox").map((box) => box.getAttribute("aria-label"))).toEqual([
       "Milch",
       "Eier",
     ]);
@@ -178,7 +178,7 @@ describe("the assignee chip in the lists app", () => {
     expect(screen.getByRole("button", { name: "Einkauf 3" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Alle" }));
-    expect(screen.getAllByRole("checkbox").map((box) => box.textContent)).toEqual([
+    expect(screen.getAllByRole("checkbox").map((box) => box.getAttribute("aria-label"))).toEqual([
       "Milch",
       "Vollkornbrot",
       "Eier",

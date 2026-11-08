@@ -1,49 +1,160 @@
-import { type KeyboardEvent, type MouseEvent, useEffect, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  type KeyboardEvent,
+  type MouseEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { personOf } from "./lists-person";
 import type { Item } from "./lists-store";
 
 /**
- * One item: the tick and the words as one checkbox button, the assignee chip on
- * the right as a sibling. A button may not hold a button, so the two sit side by side.
+ * One item or part: the tick, the words, which a tap opens for editing, and the assignee chip.
+ * In editing, Löschen stands where the chip was. A button may not hold a button, so all sit side by side.
  */
 export function Row({
   item,
   me,
   people,
   tick,
+  count,
+  folded,
   open,
   onToggle,
   onMenu,
   onPick,
+  onEdit,
+  onDelete,
+  onFold,
+  onPart,
 }: {
   item: Item;
   me: string | null;
   people: string[];
   /** The "abgehakt von" line under a done item, or null. */
   tick: string | null;
+  /** `1/3` for an item with parts, or null. */
+  count: string | null;
+  /** Whether the parts are folded away; only read when there is a count. */
+  folded: boolean;
   /** Whether this row's chip menu is the one open. */
   open: boolean;
   onToggle: () => void;
   onMenu: (open: boolean) => void;
   onPick: (name: string | null) => void;
+  onEdit: (text: string) => void;
+  onDelete: () => void;
+  onFold: () => void;
+  /** Opens the Eintrag field for a part of this item; left out where no part is offered. */
+  onPart?: () => void;
 }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  // Set once Enter, Escape or Löschen ends the edit, so the blur the field's removal may fire saves nothing.
+  const ended = useRef(false);
+
+  // Enter and a blur save, Escape drops the draft. Empty words are no edit.
+  function finish(save: boolean): void {
+    if (ended.current) return;
+    ended.current = true;
+    const text = draft?.trim() ?? "";
+    setDraft(null);
+    if (save && text && text !== item.text) onEdit(text);
+  }
+
+  function start(): void {
+    ended.current = false;
+    setDraft(item.text);
+  }
+
   return (
-    <div className="row">
+    <div className="row" data-done={item.done} style={{ "--depth": item.depth } as CSSProperties}>
+      {/* biome-ignore lint/a11y/useSemanticElements: a round tick, drawn as the list's own */}
+      <button
+        type="button"
+        role="checkbox"
+        aria-checked={item.done}
+        aria-label={item.text}
+        className="tick"
+        onClick={onToggle}
+      >
+        <span className="check" aria-hidden="true" />
+      </button>
       <div className="line">
-        {/* biome-ignore lint/a11y/useSemanticElements: the whole line is the tap target */}
-        <button
-          type="button"
-          role="checkbox"
-          aria-checked={item.done}
-          className="words"
-          onClick={onToggle}
-        >
-          <span className="check" aria-hidden="true" />
-          <span className="text">{item.text}</span>
-        </button>
+        {draft === null ? (
+          <button
+            type="button"
+            className="words"
+            aria-label={`${item.text} bearbeiten`}
+            onClick={start}
+          >
+            <span className="text">{item.text}</span>
+            {count && <span className="parts">{count}</span>}
+          </button>
+        ) : (
+          <input
+            className="edit"
+            aria-label="Wörter"
+            enterKeyHint="done"
+            autoComplete="off"
+            // biome-ignore lint/a11y/noAutofocus: the tap on the words asked for this field
+            autoFocus
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onBlur={() => finish(true)}
+            onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
+              if (event.nativeEvent.isComposing) return;
+              if (event.key === "Enter") finish(true);
+              if (event.key === "Escape") finish(false);
+            }}
+          />
+        )}
         {tick && <p className="by">{tick}</p>}
       </div>
-      <PersonChip item={item} me={me} people={people} open={open} onMenu={onMenu} onPick={onPick} />
+      {draft !== null ? (
+        <button
+          type="button"
+          className="delete"
+          // Held off the field's blur, which would save the words first.
+          onPointerDown={(event) => event.preventDefault()}
+          onClick={() => {
+            finish(false);
+            onDelete();
+          }}
+        >
+          Löschen
+        </button>
+      ) : (
+        <>
+          {count && (
+            <button
+              type="button"
+              className="fold"
+              aria-expanded={!folded}
+              aria-label={`Teile von ${item.text}`}
+              onClick={onFold}
+            />
+          )}
+          {onPart && (
+            <button
+              type="button"
+              className="part"
+              aria-label={`Teil zu ${item.text}`}
+              onClick={onPart}
+            >
+              +
+            </button>
+          )}
+          <PersonChip
+            item={item}
+            me={me}
+            people={people}
+            open={open}
+            onMenu={onMenu}
+            onPick={onPick}
+          />
+        </>
+      )}
     </div>
   );
 }

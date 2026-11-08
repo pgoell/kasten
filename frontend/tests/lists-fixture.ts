@@ -10,6 +10,8 @@ import type { ListData } from "@/lists/lists-store";
 export type Seed = {
   text: string;
   done: boolean;
+  /** A part's depth under the item above it; 0 when left out. */
+  depth?: number;
   assignee?: string | null;
   ticked_by?: string | null;
   ticked_at?: string | null;
@@ -56,15 +58,34 @@ function unknownAssignee(action: string, body: Record<string, unknown>): boolean
   );
 }
 
+/** The index after the parts under `items[at]`. */
+function endOf(items: Seed[], at: number): number {
+  let end = at + 1;
+  while (end < items.length && (items[end]?.depth ?? 0) > (items[at]?.depth ?? 0)) end += 1;
+  return end;
+}
+
 /** The note's lines after `action` with `body`; a tick or an assign naming no line changes nothing. */
 function written(items: Seed[], action: string, body: Record<string, unknown>): Seed[] {
-  if (action === "items") return [...items, { text: serverText(String(body.text)), done: false }];
+  const text = serverText(String(body.text));
+  if (action === "items" && typeof body.under === "number") {
+    const end = endOf(items, body.under);
+    const depth = (items[body.under]?.depth ?? 0) + 1;
+    return [...items.slice(0, end), { text, done: false, depth }, ...items.slice(end)];
+  }
+  if (action === "items") return [...items, { text, done: false }];
   if (action === "clear") return items.filter((item) => !item.done);
   const at = Number(body.line);
   const item = items[at];
   if (!item) return [...items];
+  if (action === "delete") return [...items.slice(0, at), ...items.slice(endOf(items, at))];
   const next = [...items];
-  if (action === "tick") next[at] = { ...item, done: Boolean(body.done) };
+  if (action === "edit") next[at] = { ...item, text };
+  // A tick takes the parts along, as the server's does.
+  const end = body.done ? endOf(items, at) : at + 1;
+  for (let n = at; action === "tick" && n < end; n += 1) {
+    next[n] = { ...(next[n] as Seed), done: Boolean(body.done) };
+  }
   if (action === "assign") {
     next[at] = {
       ...item,
@@ -106,6 +127,7 @@ export function fakeShare(seed: Record<string, Seed[]>) {
       sha: note ? String(note.rev) : null,
       items: (note?.items ?? []).map((item, line) => ({
         line,
+        depth: 0,
         assignee: null,
         ticked_by: null,
         ticked_at: null,
@@ -127,7 +149,9 @@ export function fakeShare(seed: Record<string, Seed[]>) {
     if (expired) return expired === "opaque" ? opaqueRedirect() : signInPage();
     if (url === "/share/me") return reply(WHO);
     const [path = "", query = ""] = url.split("?");
-    const match = /^\/share\/lists\/([^/]+)(?:\/(items|tick|clear|assign))?$/.exec(path);
+    const match = /^\/share\/lists\/([^/]+)(?:\/(items|tick|clear|assign|edit|delete))?$/.exec(
+      path,
+    );
     if (!match) return reply({ detail: "No such list" }, 404);
     const name = decodeURIComponent(match[1] ?? "");
     const action = match[2];

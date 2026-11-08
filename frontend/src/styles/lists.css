@@ -201,9 +201,11 @@ button:not(.words, .menu button):active:not(:disabled) {
   display: flex;
   /* The chip sits on the line of the words, not in the middle of a row with a note under it. */
   align-items: flex-start;
-  gap: var(--k-space-12);
+  gap: var(--k-space-4);
   min-height: 44px;
-  padding: var(--k-space-8) var(--k-space-8) var(--k-space-8) var(--k-space-16);
+  /* A part sits one step in per level under its item, as the todo pane draws it. */
+  padding: var(--k-space-8) var(--k-space-8) var(--k-space-8)
+    calc(var(--k-space-4) + var(--depth, 0) * var(--k-space-24));
 }
 
 .row + .row {
@@ -220,10 +222,46 @@ button:not(.words, .menu button):active:not(:disabled) {
   min-width: 0;
 }
 
+/* The tick is its own 44 px target; the words beside it open the edit. */
+.tick,
+.fold,
+.part {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.part {
+  color: var(--k-link);
+  font-size: var(--k-text-19);
+}
+
+/* The fold's chevron, drawn as Erledigt's is: down when the parts are folded, up when shown. */
+.fold::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  margin-top: -3px;
+  border-right: 2px solid var(--k-muted);
+  border-bottom: 2px solid var(--k-muted);
+  transform: rotate(45deg);
+  transition: transform var(--k-press-out) var(--k-ease-out);
+}
+
+.fold[aria-expanded="true"]::after {
+  margin-top: 3px;
+  transform: rotate(-135deg);
+}
+
 .words {
   display: flex;
   align-items: center;
-  gap: var(--k-space-12);
+  gap: var(--k-space-8);
   width: 100%;
   min-height: 44px;
   padding: 0;
@@ -274,12 +312,12 @@ button:not(.words, .menu button):active:not(:disabled) {
   transition: opacity var(--k-spring-response) var(--k-ease-out);
 }
 
-.words[aria-checked="true"] .check::before {
+.tick[aria-checked="true"] .check::before {
   transform: scale(1);
   opacity: 1;
 }
 
-.words[aria-checked="true"] .check::after {
+.tick[aria-checked="true"] .check::after {
   opacity: 1;
 }
 
@@ -289,9 +327,41 @@ button:not(.words, .menu button):active:not(:disabled) {
   overflow-wrap: anywhere;
 }
 
-.words[aria-checked="true"] .text {
+.row[data-done="true"] .text {
   color: var(--k-muted);
   text-decoration: line-through;
+}
+
+.parts {
+  flex: none;
+  color: var(--k-muted);
+  font-size: var(--k-text-13);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The words in editing: the same place and size as the words, on a line in the accent. */
+.edit {
+  width: 100%;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-bottom: 2px solid var(--k-accent);
+  background: none;
+  color: var(--k-ink);
+  /* 16px or more stops Safari zooming in, as on the Eintrag field. */
+  font-size: max(16px, var(--k-text-15));
+  outline: none;
+}
+
+.delete {
+  flex: none;
+  min-height: 44px;
+  padding: 0 var(--k-space-12);
+  border: 0;
+  background: none;
+  color: var(--k-danger);
+  font-size: var(--k-text-13);
+  font-weight: 600;
 }
 
 .done {
@@ -350,7 +420,7 @@ button:not(.words, .menu button):active:not(:disabled) {
 
 /* The line under a done item: who ticked it and when, read from the note's history. */
 .by {
-  margin: var(--k-space-4) 0 0 calc(var(--k-space-24) + var(--k-space-12));
+  margin: 0;
   font-size: var(--k-text-12);
   color: var(--k-muted);
 }
@@ -455,6 +525,50 @@ button:not(.words, .menu button):active:not(:disabled) {
   /* Solid: glass is kept for the top bar only (#798). */
   background: var(--k-bg);
   border-top: 1px solid var(--k-rule);
+}
+
+/* A delete waits here for Rückgängig before it is sent. */
+.undo {
+  position: sticky;
+  bottom: calc(var(--k-space-64) + var(--k-space-48) + env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--k-space-12);
+  margin: 0 var(--k-space-16) var(--k-space-8);
+  padding: 0 0 0 var(--k-space-16);
+  border-radius: var(--k-radius-8);
+  background: var(--k-ink);
+  color: var(--k-bg);
+  box-shadow: var(--k-shadow);
+}
+
+.undo span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.undo button,
+.under button {
+  flex: none;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 var(--k-space-12);
+  border: 0;
+  background: none;
+  color: inherit;
+  font-weight: 600;
+}
+
+.under {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-inline-start: var(--k-space-4);
+  color: var(--k-muted);
+  font-size: var(--k-text-13);
 }
 
 .chips {

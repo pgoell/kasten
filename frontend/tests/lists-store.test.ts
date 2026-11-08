@@ -102,7 +102,15 @@ describe("the lists store", () => {
       name: "Einkauf",
       sha: "s",
       items: [
-        { line: 3, text: "Milch", done: false, assignee: null, ticked_by: null, ticked_at: null },
+        {
+          line: 3,
+          depth: 0,
+          text: "Milch",
+          done: false,
+          assignee: null,
+          ticked_by: null,
+          ticked_at: null,
+        },
       ],
     };
     const tick = { id: "1", kind: "tick", list: "Einkauf", text: "Milch", done: true } as const;
