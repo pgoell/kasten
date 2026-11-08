@@ -218,6 +218,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/agent/finance/contracts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Contracts
+         * @description Every contract note in the contracts folder, by its next cancel-by date.
+         */
+        get: operations["read_contracts_agent_finance_contracts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/agent/finance/goals": {
         parameters: {
             query?: never;
@@ -332,6 +352,26 @@ export interface paths {
         get: operations["read_booking_agent_finance_transactions__transaction_id__get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent/finance/contracts/reminders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write Reminders
+         * @description Write each contract note's next cancel-by todo where it has none open; the paths written.
+         */
+        post: operations["write_reminders_agent_finance_contracts_reminders_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6984,6 +7024,37 @@ export interface operations {
             };
         };
     };
+    read_contracts_agent_finance_contracts_get: {
+        parameters: {
+            query: {
+                today: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     read_goals_agent_finance_goals_get: {
         parameters: {
             query: {
@@ -7146,6 +7217,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BookingDrillOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    write_reminders_agent_finance_contracts_reminders_post: {
+        parameters: {
+            query: {
+                today: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
                 };
             };
             /** @description Validation Error */
