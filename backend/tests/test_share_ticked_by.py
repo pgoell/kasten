@@ -169,6 +169,7 @@ async def test_810_i4_a_vault_with_no_history_answers_nulls(
     assert ticked["items"] == [
         {
             "line": 6,
+            "depth": 0,
             "text": "Milch",
             "done": True,
             "assignee": None,
@@ -191,6 +192,7 @@ async def test_810_i4_jj_missing_from_the_path_answers_nulls(
     assert read.status_code == 200
     assert _first(read.json()) == {
         "line": 6,
+        "depth": 0,
         "text": "Milch",
         "done": True,
         "assignee": None,

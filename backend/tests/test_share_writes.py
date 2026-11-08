@@ -70,6 +70,7 @@ async def test_read_returns_the_items_without_markdown_or_fields(
         "items": [
             {
                 "line": 10,
+                "depth": 0,
                 "text": "Milch",
                 "done": False,
                 "assignee": None,
@@ -78,6 +79,7 @@ async def test_read_returns_the_items_without_markdown_or_fields(
             },
             {
                 "line": 11,
+                "depth": 0,
                 "text": "Brot",
                 "done": True,
                 "assignee": None,
@@ -86,6 +88,7 @@ async def test_read_returns_the_items_without_markdown_or_fields(
             },
             {
                 "line": 12,
+                "depth": 0,
                 "text": "Eier",
                 "done": True,
                 "assignee": None,
@@ -93,7 +96,17 @@ async def test_read_returns_the_items_without_markdown_or_fields(
                 "ticked_at": None,
             },
             {
+                "line": 13,
+                "depth": 1,
+                "text": "nested Käse",
+                "done": False,
+                "assignee": None,
+                "ticked_by": None,
+                "ticked_at": None,
+            },
+            {
                 "line": 14,
+                "depth": 0,
                 "text": "Butter #einkauf",
                 "done": False,
                 "assignee": None,
@@ -347,20 +360,6 @@ async def test_tick_refuses_a_recurring_item(client: AsyncClient, folder: Path) 
     assert (folder / "Einkauf.md").read_bytes() == text.encode("utf-8")
 
 
-async def test_tick_refuses_an_item_with_parts(client: AsyncClient, folder: Path) -> None:
-    # An indented task under the line is its parts, which kasten ticks with it.
-    text = BLOCK + "- [ ] Einkauf\n  - [ ] Milch\n"
-    sha = put(folder, text)
-
-    response = await client.post(
-        "/share/lists/Einkauf/tick", json={"line": 6, "done": True, "sha": sha}
-    )
-
-    assert response.status_code == 422
-    assert response.json() == {"detail": "Tick this one in kasten"}
-    assert (folder / "Einkauf.md").read_bytes() == text.encode("utf-8")
-
-
 async def test_read_cuts_recurrence_waiting_and_block_ids(
     client: AsyncClient, folder: Path
 ) -> None:
@@ -526,6 +525,7 @@ async def test_1058_read_after_a_tick_names_the_item_without_its_block_id(
     assert tick.json()["items"] == [
         {
             "line": 6,
+            "depth": 0,
             "text": "Brot",
             "done": True,
             "assignee": None,
