@@ -495,3 +495,57 @@ async def test_m16_a_moved_deck_note_under_another_tag_still_gets_the_join_advic
     response = await client.post("/api/anki", content=TWO_CARDS)
 
     assert (response.status_code, "Join those notes" in response.text) == (409, True)
+
+
+async def test_m17_an_unchanged_note_with_no_final_newline_is_not_rewritten(
+    client: AsyncClient, vault: Path
+) -> None:
+    await client.post("/api/anki", content=TWO_CARDS)
+    aws = vault / "03 Flashcards" / "AWS.md"
+    aws.write_bytes(aws.read_bytes().rstrip(b"\n"))
+    before = aws.read_bytes()
+
+    await client.post("/api/anki", content=TWO_CARDS)
+
+    assert aws.read_bytes() == before
+
+
+async def test_m18_an_edited_question_card_anki_made_one_line_is_refused_not_split(
+    client: AsyncClient, vault: Path
+) -> None:
+    await client.post(
+        "/api/anki",
+        content=apkg(
+            notes=((1, BASIC, "a\x1fb"), (2, BASIC, "q::r\x1fd"), (3, BASIC, "e\x1ff")),
+            cards=((1, 1, 10, 0), (2, 2, 10, 0), (3, 3, 20, 0)),
+            decks=((10, "AWS"), (20, "GCP")),
+        ),
+    )
+    _rate(vault, "AWS.md", 2, edit=" mine")
+    aws = vault / "03 Flashcards" / "AWS.md"
+    before = aws.read_bytes()
+
+    response = await client.post(
+        "/api/anki",
+        content=apkg(
+            notes=((2, BASIC, "qr\x1fd"), (3, BASIC, "e\x1ff")),
+            cards=((2, 2, 20, 0), (3, 3, 20, 0)),
+            decks=((20, "GCP"),),
+        ),
+    )
+
+    assert (response.status_code, aws.read_bytes()) == (409, before)
+
+
+async def test_m19_an_old_note_that_is_not_utf8_is_refused_and_kept_byte_for_byte(
+    client: AsyncClient, vault: Path
+) -> None:
+    await client.post("/api/anki", content=AWS_GCP)
+    aws = vault / "03 Flashcards" / "AWS.md"
+    aws.write_bytes(aws.read_bytes() + b"caf\xe9\n")
+    before = aws.read_bytes()
+
+    response = await client.post("/api/anki", content=MOVED_GCP)
+
+    assert (response.status_code, aws.read_bytes()) == (409, before)
+    assert "not UTF-8" in response.text

@@ -34,7 +34,7 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator
     from pathlib import Path
 
-    from kasten_backend.anki_deck import Card, Deck
+    from kasten_backend.anki_deck import Deck
 
 router = APIRouter()
 
@@ -251,7 +251,7 @@ def _moves(
     under its deck's tag. A note under the importing deck's tag is a split part, refused (#1177).
     """
     held = {path: marked_cards(text) for path, text in texts.items()}
-    leaving: dict[str, list[Card]] = {}
+    leaving: dict[str, list[tuple[int, int]]] = {}
     into: dict[tuple[int, int], str] = {}
     for deck in decks:
         target = paths[deck.name]
@@ -288,14 +288,15 @@ def _moves(
             if len(found) > 1 or (found and not _deck_note(settings, found[0], texts, paths)):
                 raise _stuck(deck.name, found, target)
             if found:
-                leaving.setdefault(found[0], []).append(_card(deck, key))
+                leaving.setdefault(found[0], []).append(key)
                 into[key] = deck.name
     cut: dict[str, str] = {}
     gains: dict[str, dict[tuple[int, int], list[str]]] = {}
-    for path, cards in leaving.items():
-        result = taken(texts[path], cards)
+    for path, keys in leaving.items():
+        name = into[keys[0]]
+        text = texts[path] if path in paths.values() else _strict(settings, path, name)
+        result = taken(text, keys)
         if result is None:
-            name = into[cards[0].nid, cards[0].ord]
             raise _stuck(name, [path], paths[name])
         cut[path] = result[0]
         for key, lines in result[1].items():
@@ -303,9 +304,16 @@ def _moves(
     return cut, gains
 
 
-def _card(deck: Deck, key: tuple[int, int]) -> Card:
-    """The card of `deck` with Anki note and template `key`."""
-    return next(card for card in note_cards(deck) if (card.nid, card.ord) == key)
+def _strict(settings: Settings, path: str, deck: str) -> str:
+    """The text of `path` read strictly, as a card cut out of it is written back over it."""
+    try:
+        return (settings.vault_path / path).read_text(encoding="utf-8")
+    except UnicodeDecodeError as error:
+        raise HTTPException(
+            status_code=409,
+            detail=f"{path} is not UTF-8, so {deck}'s cards cannot move out of it. "
+            "Save it as UTF-8, then import again.",
+        ) from error
 
 
 def _tagged(text: str, deck: str) -> bool:
@@ -385,7 +393,7 @@ async def _import_bytes(body: bytes, settings: Settings, *, carry: bool, limit: 
             else:
                 fresh_cards = [c for c in note_cards(deck) if (c.nid, c.ord) not in moved]
                 base = as_note(replace(deck, cards=fresh_cards)) if fresh else cut.get(target, disk)
-                merged = merge(joined(base, list(moved.values())), deck)
+                merged = merge(joined(base, list(moved.values())) if moved else base, deck)
                 # Unchanged, it is not written: a stamp would date the note today.
                 if merged.text != disk:
                     targets.append((note, merged.text, disk))

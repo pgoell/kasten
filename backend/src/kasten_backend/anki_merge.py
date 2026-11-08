@@ -104,23 +104,25 @@ def merge(old: str, deck: Deck) -> Merged:
     return Merged(text, len(added), updated, kept, removed)
 
 
-def taken(old: str, cards: list[Card]) -> tuple[str, dict[tuple[int, int], list[str]]] | None:
-    """`old` with `cards` cut out, and each card's lines as they stand there, edits and schedule.
+def taken(
+    old: str, keys: list[tuple[int, int]]
+) -> tuple[str, dict[tuple[int, int], list[str]]] | None:
+    """`old` with the cards of `keys` cut out, and each one's lines as they stand, edits and all.
 
     None when one cannot be cut whole: `srs.ts` reads it as part of another card, or it was
-    edited in kasten over several lines, so where it starts is past telling (#1178).
+    edited in kasten and lines it may own touch its marker's, so where it starts is past telling.
     """
     crlf = old.split("\n", 1)[0].endswith("\r")
     lines = [line.removesuffix("\r") for line in old.split("\n")]
     spans = _spans(lines)
     cut: dict[int, int] = {}
     moved: dict[tuple[int, int], list[str]] = {}
-    for card in cards:
-        span = spans[(card.nid, card.ord)]
-        if span.inside or (not span.found and len(card_lines(card)) > 1):
+    for key in keys:
+        span = spans[key]
+        if span.inside or (not span.found and not _alone(lines, span.start)):
             return None
         cut[span.start] = span.end
-        moved[(card.nid, card.ord)] = lines[span.start : span.end + 1]
+        moved[key] = lines[span.start : span.end + 1]
     out: list[str] = []
     at = 0
     while at < len(lines):
@@ -133,6 +135,17 @@ def taken(old: str, cards: list[Card]) -> tuple[str, dict[tuple[int, int], list[
         if (not out or not out[-1]) and at < len(lines) and not lines[at]:
             at += 1
     return ("\r\n" if crlf else "\n").join(out), moved
+
+
+def _alone(lines: list[str], at: int) -> bool:
+    """Whether the edited card marked at line `at` is that line alone, read from the note.
+
+    Not when a line above could be its front, or a schedule below is its own, as on a `?` card.
+    """
+    above = lines[at - 1] if at else ""
+    below = lines[at + 1] if at + 1 < len(lines) else ""
+    ends = _ANKI_ID.search(above) is not None or _ends_back(above, code=False)
+    return ends and not below.startswith(("<!--SR:", "!suspended"))
 
 
 def joined(old: str, moved: list[list[str]]) -> str:
