@@ -25,7 +25,7 @@ import { toggleMark } from "@/lib/notes/editor/format-commands";
 import { moveCell } from "@/lib/notes/editor/table";
 import { tableLineup } from "@/lib/notes/editor/table-lineup";
 import { tableSource } from "@/lib/notes/editor/table-source";
-import { vimKeys } from "@/lib/notes/editor/vim-mode";
+import { vimInsertUndo, vimKeys } from "@/lib/notes/editor/vim-mode";
 import { type EmbedSource, embedSource } from "@/lib/notes/embeds/embed";
 import { imageCompletions, imagePaste, imagePaths, noticeHandler } from "@/lib/notes/embeds/image";
 import { relationCompletions, vaultRelations } from "@/lib/notes/links/ontology";
@@ -115,7 +115,7 @@ const formatKeys = keymap.of(
  * preview reads as always typing, plus the chords vim would have resolved.
  */
 function modalKeys(on: boolean): Extension {
-  return on ? [vim(), relativeNumbers] : [vimKeys.of(false), formatKeys];
+  return on ? [vim(), relativeNumbers, vimInsertUndo()] : [vimKeys.of(false), formatKeys];
 }
 
 /**

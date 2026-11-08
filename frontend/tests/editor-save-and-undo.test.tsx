@@ -1,6 +1,132 @@
-import { fireEvent, render } from "@testing-library/react";
+import { Transaction } from "@codemirror/state";
+import { act, fireEvent, render } from "@testing-library/react";
 import { Editor } from "@/components/editor";
+import { takeVaultText } from "@/lib/notes/editor/buffer-writes";
 import { runExCommand } from "./editor-fixture";
+import { content, typeAt, viewIn } from "./table-lineup-fixture";
+
+const BODY = "# Welcome\n\nThe front door.\nA second line.\n";
+const STAMP =
+  "---\nid: 01\ncreated: 2026-11-08T10:00:00+00:00\ntype: Note\nmodified: 2026-11-08T10:00:00+00:00\n---\n";
+const LINE = "A line typed by the test.";
+
+/** Vim keys one by one, each its own task as on a keyboard: vim's mode reaches the state a microtask later. */
+async function press(el: HTMLElement, keys: string[]) {
+  for (const key of keys) {
+    fireEvent.keyDown(el, { key });
+    await act(async () => {});
+  }
+}
+
+/** What the save's reply does: the vault's text, here with its `modified` restamped, put in off the undo stack. */
+function landSave(view: ReturnType<typeof viewIn>, stamp = STAMP) {
+  const doc = view.state.doc.toString();
+  const body = doc.startsWith("---\n") ? doc.slice(doc.indexOf("\n---\n") + 5) : doc;
+  act(() =>
+    takeVaultText(view, stamp.replace("10:00:00+00:00\n---", "10:00:05+00:00\n---") + body),
+  );
+}
+
+function typeHere(view: ReturnType<typeof viewIn>, text: string, at = Date.now()) {
+  const head = view.state.selection.main.head;
+  act(() =>
+    view.dispatch({
+      changes: { from: head, insert: text },
+      selection: { anchor: head + text.length },
+      userEvent: "input.type",
+      annotations: Transaction.time.of(at),
+    }),
+  );
+}
+
+describe("#1662 one u takes back a whole vim insert", () => {
+  async function insertThenUndo(doc: string, keys: string[], during = false) {
+    const { container } = render(<Editor initialDoc={doc} preview={false} />);
+    const view = viewIn(container);
+    const el = content(container);
+    await press(el, keys);
+    typeHere(view, LINE.slice(0, 6));
+    if (during) landSave(view);
+    typeHere(view, LINE.slice(6));
+    await press(el, ["Escape"]);
+    const typed = view.state.doc.toString();
+    if (!during) landSave(view);
+    const saved = view.state.doc.toString();
+    await press(el, ["u"]);
+    return { view, el, typed, saved, stamped: saved.slice(0, saved.indexOf("\n---\n") + 5) };
+  }
+
+  it("Go at the end, a save after Escape, u: the body is byte for byte as before", async () => {
+    const { view, stamped } = await insertThenUndo(BODY, ["G", "o"]);
+    expect(view.state.doc.toString()).toBe(stamped + BODY);
+  });
+
+  it("Go, a save that lands during the insert, u: the body is byte for byte as before", async () => {
+    const { view, stamped } = await insertThenUndo(BODY, ["G", "o"], true);
+    expect(view.state.doc.toString()).toBe(stamped + BODY);
+  });
+
+  it("O above a middle line, a save, u: as before", async () => {
+    const { view, stamped } = await insertThenUndo(BODY, ["g", "g", "j", "j", "O"]);
+    expect(view.state.doc.toString()).toBe(stamped + BODY);
+  });
+
+  it("O on the first line, a save, u: as before", async () => {
+    const { view, stamped } = await insertThenUndo(BODY, ["g", "g", "O"]);
+    expect(view.state.doc.toString()).toBe(stamped + BODY);
+  });
+
+  it("o in the middle of a note, a save, u: as before", async () => {
+    const { view, stamped } = await insertThenUndo(BODY, ["g", "g", "j", "j", "o"]);
+    expect(view.state.doc.toString()).toBe(stamped + BODY);
+  });
+
+  it("Go in a note already stamped, the save restamping modified, u: as before", async () => {
+    const { view, saved } = await insertThenUndo(STAMP + BODY, ["G", "o"]);
+    expect(view.state.doc.toString()).toBe(saved.slice(0, STAMP.length) + BODY);
+  });
+
+  it("ctrl+r after that u puts the whole insert back, and the stamp stays through both", async () => {
+    const { view, el, typed, saved, stamped } = await insertThenUndo(BODY, ["G", "o"]);
+    fireEvent.keyDown(el, { key: "r", ctrlKey: true });
+    expect(view.state.doc.toString()).toBe(saved);
+    expect(saved).toBe(stamped + typed);
+  });
+
+  it("a pause in the typing still leaves one insert for one u", async () => {
+    const { container } = render(<Editor initialDoc={BODY} preview={false} />);
+    const view = viewIn(container);
+    const el = content(container);
+    await press(el, ["G", "o"]);
+    typeHere(view, "first ");
+    typeHere(view, "second", Date.now() + 5_000);
+    await press(el, ["Escape", "u"]);
+    expect(view.state.doc.toString()).toBe(BODY);
+  });
+
+  it("an insert after dd is its own undo: u takes back the insert and leaves the dd", async () => {
+    const { container } = render(<Editor initialDoc={BODY} preview={false} />);
+    const view = viewIn(container);
+    const el = content(container);
+    await press(el, ["g", "g", "d", "d", "i"]);
+    const deleted = view.state.doc.toString();
+    typeHere(view, LINE);
+    await press(el, ["Escape", "u"]);
+    expect(view.state.doc.toString()).toBe(deleted);
+  });
+
+  it("with vim off, a line typed at the end, a save, ctrl+z: the body as before", async () => {
+    localStorage.setItem("kasten.vim", "off");
+    const { container } = render(<Editor initialDoc={BODY} preview={false} />);
+    const view = viewIn(container);
+    typeAt(view, BODY.length, `\n${LINE}`);
+    landSave(view);
+    const stamped = view.state.doc.toString().slice(0, STAMP.length);
+    fireEvent.keyDown(content(container), { key: "z", ctrlKey: true });
+    localStorage.clear();
+    expect(view.state.doc.toString()).toBe(stamped + BODY);
+  });
+});
 
 describe("Editor", () => {
   it("starts in vim normal mode, so keys act as commands", () => {

@@ -27,10 +27,17 @@ test("an edit with vim off reaches the file on disk", async ({ page, stack }) =>
   await page.locator(".cm-content").click();
   await page.keyboard.press("Control+End");
   await page.keyboard.type(`\n${TYPED}`);
-  await expect.poll(() => noteText(stack.vault, "Welcome.md"), { timeout: 15_000 }).toContain(TYPED);
+  await expect
+    .poll(() => noteText(stack.vault, "Welcome.md"), { timeout: 15_000 })
+    .toContain(TYPED);
 });
 
+/** The note below its frontmatter, which each save restamps. */
+const body = (text: string) =>
+  text.startsWith("---\n") ? text.slice(text.indexOf("\n---\n") + 5) : text;
+
 test("u after an edit puts the old text back on disk", async ({ page, stack }) => {
+  const before = await noteText(stack.vault, "Welcome.md");
   await openApp(page);
   await openFromTree(page, "Welcome");
   await page.locator(".cm-content").click();
@@ -39,12 +46,15 @@ test("u after an edit puts the old text back on disk", async ({ page, stack }) =
   await page.keyboard.type(TYPED);
   await page.keyboard.press("Escape");
   // The edit must be on disk first, or a poll for the old text passes before any save.
-  await expect.poll(() => noteText(stack.vault, "Welcome.md"), { timeout: 15_000 }).toContain(TYPED);
+  await expect
+    .poll(() => noteText(stack.vault, "Welcome.md"), { timeout: 15_000 })
+    .toContain(TYPED);
   await page.keyboard.press("u");
   await expect
     .poll(() => noteText(stack.vault, "Welcome.md"), { timeout: 15_000 })
     .not.toContain(TYPED);
-  expect(await noteText(stack.vault, "Welcome.md")).toContain("# Welcome\n\nThe front door");
+  // Byte for byte, so the blank line `o` opened goes too (#1662).
+  expect(body(await noteText(stack.vault, "Welcome.md"))).toBe(body(before));
 });
 
 test.describe("on a phone", () => {
@@ -55,7 +65,10 @@ test.describe("on a phone", () => {
     await page.goto("/");
     await page.getByRole("button", { name: /^Search \d+ notes$/ }).tap({ timeout: 15_000 });
     await page.getByRole("combobox").fill("Welcome");
-    await page.getByRole("option", { name: /Welcome/ }).first().tap();
+    await page
+      .getByRole("option", { name: /Welcome/ })
+      .first()
+      .tap();
     const editor = page.locator(".cm-content", { hasText: "front door" });
     await expect(editor).toBeVisible();
     await editor.tap();
