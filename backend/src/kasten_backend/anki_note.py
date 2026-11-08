@@ -31,9 +31,7 @@ def as_note(deck: Deck) -> str:
     A front with `::`, or a side over lines, becomes a `?` card with blank lines around it.
     Each card ends in `<!--anki:NID:ORD-->`, which is how `merge` finds it again.
     """
-    # A tag ends at the first character outside letters, digits, `_`, `-` and `/`, so a deck
-    # named "JLPT: N5" needs each run of others turned into one `-`. The `/` stays for nesting.
-    head = [f"#flashcards/{re.sub(r'[^\w/-]+', '-', deck.name)}", ""]
+    head = [deck_tag(deck.name), ""]
     body: list[str] = []
     for card in note_cards(deck):
         place(body, written(card))
@@ -42,6 +40,13 @@ def as_note(deck: Deck) -> str:
     if body and not body[-1]:
         body.pop()
     return "\n".join(head + body) + "\n"
+
+
+def deck_tag(name: str) -> str:
+    """The tag line `as_note` heads the note of deck `name` with."""
+    # A tag ends at the first character outside letters, digits, `_`, `-` and `/`, so a deck
+    # named "JLPT: N5" needs each run of others turned into one `-`. The `/` stays for nesting.
+    return f"#flashcards/{re.sub(r'[^\w/-]+', '-', name)}"
 
 
 def note_cards(deck: Deck) -> list[Card]:

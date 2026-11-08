@@ -137,6 +137,11 @@ ending at the marker whose hash matches:
   back.
 * A card the note lacks goes on the end.
 * A card the export lacks stays in the note and is counted as `removed`.
+* A card the export puts in another deck moves: its lines, schedule and edits
+  included, leave this note for the end of that deck's note, counted there as
+  `kept` or `updated`. The same holds when only the new deck imports and the
+  card sits in another deck's own note, `<flashcards>/<deck>.md` holding the
+  tag line `#flashcards/<deck>`.
 * A line without a marker, the tag line, a card of your own, prose, comes
   through byte for byte.
 * A note the merge would leave unchanged is not written at all.
@@ -217,9 +222,12 @@ such a file has nothing left to ask and is left out.
 * A deck holding a card the import would add whose marker already sits in
   another note, outside the export's own notes and the archive, answers 409
   the same way, with a `detail` naming those notes and saying to join them
-  into the deck's note. A merge goes into one note, so the card would land
-  there a second time. A deck note from before the marker gets the refusal
-  above first. Where rg cannot read the whole vault to look, the import
+  into the deck's note, when such a note carries the deck's own tag line (a
+  split part). A merge goes into one note, so the card would land there a
+  second time. A card that cannot move safely, in a note no deck owns, in two
+  notes, or a `?` card edited over its lines, answers 409 with a `detail`
+  saying to move each card's lines into the deck's note. A deck note from
+  before the marker gets the refusal above first. Where rg cannot read the whole vault to look, the import
   answers 503 `The vault could not be read whole…` and writes nothing.
 * A media file whose path is already taken answers 409 the same way for a deck
   imported the first time, unless the file holds the same bytes, as one a

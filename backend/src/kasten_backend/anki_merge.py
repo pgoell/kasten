@@ -57,8 +57,8 @@ class _Span:
     """
 
 
-def merge(old: str, deck: Deck) -> Merged | None:
-    """The note `old` with `deck` imported into it again, or None when `old` holds no marker.
+def merge(old: str, deck: Deck) -> Merged:
+    """The note `old` with `deck` imported into it again; one with no marker gains every card.
 
     Changed cards are rewritten with their parking token and schedules. Edited ones are kept,
     as is a card the export lacks. Other lines come through byte for byte, CRLF included.
@@ -66,9 +66,6 @@ def merge(old: str, deck: Deck) -> Merged | None:
     crlf = old.split("\n", 1)[0].endswith("\r")
     lines = [line.removesuffix("\r") for line in old.split("\n")]
     spans = _spans(lines)
-    if not spans:
-        return None
-
     added: list[list[str]] = []
     replaced: dict[int, tuple[_Span, list[str]]] = {}
     kept = 0
@@ -105,6 +102,51 @@ def merge(old: str, deck: Deck) -> Merged | None:
     # Untouched, the note comes back as it was, whatever its line ends.
     text = ("\r\n" if crlf else "\n").join(out) if added or updated else old
     return Merged(text, len(added), updated, kept, removed)
+
+
+def taken(old: str, cards: list[Card]) -> tuple[str, dict[tuple[int, int], list[str]]] | None:
+    """`old` with `cards` cut out, and each card's lines as they stand there, edits and schedule.
+
+    None when one cannot be cut whole: `srs.ts` reads it as part of another card, or it was
+    edited in kasten over several lines, so where it starts is past telling (#1178).
+    """
+    crlf = old.split("\n", 1)[0].endswith("\r")
+    lines = [line.removesuffix("\r") for line in old.split("\n")]
+    spans = _spans(lines)
+    cut: dict[int, int] = {}
+    moved: dict[tuple[int, int], list[str]] = {}
+    for card in cards:
+        span = spans[(card.nid, card.ord)]
+        if span.inside or (not span.found and len(card_lines(card)) > 1):
+            return None
+        cut[span.start] = span.end
+        moved[(card.nid, card.ord)] = lines[span.start : span.end + 1]
+    out: list[str] = []
+    at = 0
+    while at < len(lines):
+        if at not in cut:
+            out.append(lines[at])
+            at += 1
+            continue
+        at = cut[at] + 1
+        # A `?` card stood between two blank lines; one of them goes with it.
+        if (not out or not out[-1]) and at < len(lines) and not lines[at]:
+            at += 1
+    return ("\r\n" if crlf else "\n").join(out), moved
+
+
+def joined(old: str, moved: list[list[str]]) -> str:
+    """`old` with each card of `moved` placed at its end, as `merge` adds a card."""
+    crlf = old.split("\n", 1)[0].endswith("\r")
+    out = [line.removesuffix("\r") for line in old.split("\n")]
+    while out and not out[-1]:
+        out.pop()
+    out.append("")
+    for lines in moved:
+        place(out, lines)
+    if not out[-1]:
+        out.pop()
+    return ("\r\n" if crlf else "\n").join([*out, ""])
 
 
 def marked_cards(text: str) -> set[tuple[int, int]]:
