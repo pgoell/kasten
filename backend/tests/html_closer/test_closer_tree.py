@@ -259,6 +259,24 @@ NOBR_END = b"</foreignObject><![CDATA[x"
             id="third-nobr-both-end-tags",
         ),
         pytest.param(
+            b"<nobr>" + POINT + b"<nobr></nobr>" * 9 + b"<nobr>" + NOBR_END,
+            b"></svg>",
+            id="more-tags-than-rewrites",
+        ),
+        pytest.param(
+            b"<title>t</title><nobr>"
+            + POINT
+            + b"<nobr></nobr>" * 9
+            + b"</foreignObject><![CDATA[x",
+            b"]]></svg>",
+            id="more-pairs-than-rewrites",
+        ),
+        pytest.param(
+            b"<a><nobr>" + POINT + b"<nobr></nobr>" * 9 + b"<a></a></foreignObject><![CDATA[x",
+            b"]]></svg>",
+            id="a-after-a-run-of-nobr",
+        ),
+        pytest.param(
             b"<font><nobr>" + POINT + b"<nobr><font></font></nobr>" + NOBR_END,
             b"]]></svg>",
             id="font-of-its-own",

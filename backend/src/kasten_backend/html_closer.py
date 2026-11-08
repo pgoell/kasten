@@ -6,6 +6,7 @@ close to try, and once it parses as a script the svg and math elements around it
 """
 
 import bisect
+import functools
 import re
 
 from justhtml import Comment, Element, JustHTML, Node, Text
@@ -126,22 +127,29 @@ def _fixed(source: str, page: str, nodes: list[Node]) -> str | None:
         if (e.namespace, e.name) == ("html", "foreignobject")
         and (m := _FOREIGN_OBJECT_END.search(page, _last(page, e)))
     }
-    point = _POINT_TAG.search(page)
+    point = min(
+        (e.origin_offset or 0 for e in elements if (e.namespace, e.name) in _POINTS),
+        default=len(page),
+    )
+    nobr = functools.partial(_nobr_fix, source)
     nobr_tags = {e.origin_offset for e in elements if (e.namespace, e.name) == ("html", "nobr")} | {
         m.start() for m in _NOBR_END.finditer(page)
     }
     tags = sorted(
         [(at, _a_fix) for at in a_tags if at < image]
         + [(at, _end_fix) for at in end_tags if at < image]
-        + [
-            (at, lambda page, at: _nobr_fix(source, page, at))
-            for at in nobr_tags
-            if at is not None and point and point.start() < at < image
-        ]
+        + [(at, nobr) for at in nobr_tags if at is not None and point < at < image]
     )
+    # Each inner `nobr` tag needs its own rewrite, so a run of them goes in one pass (_REWRITES).
+    fixed = None
     for at, fix in tags:
-        if (fixed := fix(page, at)) is not None:
+        if fixed is not None and fix is not nobr:
             return fixed
+        if (found := fix(fixed or page, at)) is not None and fix is not nobr:
+            return found
+        fixed = found or fixed
+    if fixed is not None:
+        return fixed
     return page[:image] + "<img  " + page[image + 6 :] if image < len(page) else None
 
 
