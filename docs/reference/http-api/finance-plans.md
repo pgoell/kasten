@@ -152,7 +152,7 @@ last day of a shorter month (BGB § 188); each renewal counts from the day
 after it. A period's cancel-by is its end less `notice`, on the same day or
 the last of a shorter month. `ends` set means cancelled: no cancel-by.
 
-### GET /api/finance/contracts
+## GET /api/finance/contracts
 
 Every contract note, by its next cancel-by date on or after `today`
 (`YYYY-MM-DD`, required), those with none last; `yearly` is the sum of theirs.
@@ -173,14 +173,14 @@ Every contract note, by its next cancel-by date on or after `today`
 that falls due once. `problem` names a field missing or unreadable, or
 `plan 14 is gone`.
 
-### POST /api/finance/contracts/reminders
+## POST /api/finance/contracts/reminders
 
 Writes each contract note's next cancel-by todo under `## Cancel-by`, as
 `- [ ] cancel or renegotiate <name>, renews <date> 📅 <cancel-by> ⏳ <four weeks before, not before today>`,
 and answers the paths it wrote. `today` is required. An open todo there holds
 the note; past a done or rejected one the next comes after its `📅`.
 
-### POST /api/finance/contracts
+## POST /api/finance/contracts
 
 Starts the note for `{"plan_id": 14}`, named after the plan, its id, name and
 amount filled in and its terms left empty, and answers it as `GET` does,
