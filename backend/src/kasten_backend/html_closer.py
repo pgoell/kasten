@@ -42,6 +42,7 @@ _FOREIGN_OBJECT_END = re.compile(r"</foreignobject[\t\n\f\r />]", re.IGNORECASE)
 _COMMENT = re.compile(r"<!--(?:>|->|.*?(?:-->|--!>))", re.DOTALL)
 _A_END = re.compile(r"</a[\t\n\f\r />]", re.IGNORECASE)
 _NOBR_END = re.compile(r"</nobr[\t\n\f\r />]", re.IGNORECASE)
+_POINT_END = re.compile(r"</(desc|title|m[ionst]|mtext|annotation-xml)[\t\n\f\r />]", re.IGNORECASE)
 _SCOPE = _MARKERS | {"html", "table"}
 """With the points, the elements that bound the spec's "in scope" (#1657)."""
 # A value follows an attribute name and `=`; a quote anywhere else is a plain character.
@@ -80,8 +81,11 @@ def _parse(page: str) -> Node:
     # `[CDATA[` matches case-sensitively; justhtml reads `[cdata[` as a CDATA section.
     page = source = _CDATA.sub("<![xdata[", page)
     a = _A_START.search(page)
-    if _FOREIGN.search(page) and (
-        _SUSPECT.search(page) or (a is not None and _POINT_TAG.search(page, a.end()))
+    foreign = _FOREIGN.search(page)
+    if foreign and (
+        _SUSPECT.search(page)
+        or (a is not None and _POINT_TAG.search(page, a.end()))
+        or _POINT_END.search(page, foreign.end())
     ):
         for _ in range(_REWRITES):
             # Only to find the faults: tracking locations changes some parses.
@@ -135,17 +139,28 @@ def _fixed(source: str, page: str, nodes: list[Node]) -> str | None:
     nobr_tags = {e.origin_offset for e in elements if (e.namespace, e.name) == ("html", "nobr")} | {
         m.start() for m in _NOBR_END.finditer(page)
     }
+    # Only a point holding an html element can meet its own end tag with an html current node.
+    names = {
+        e.name.lower()
+        for e in elements
+        if (e.namespace, e.name) in _POINTS
+        and any(isinstance(n, Element) and n.namespace == "html" for n in _nodes(e)[1:])
+    }
+    point_ends = {m.start() for m in _POINT_END.finditer(page, point) if m[1].lower() in names}
     tags = sorted(
         [(at, _a_fix) for at in a_tags if at < image]
         + [(at, _end_fix) for at in end_tags if at < image]
         + [(at, nobr) for at in nobr_tags if at is not None and point < at < image]
+        + [(at, _point_end_fix) for at in point_ends if at < image]
     )
-    # Each inner `nobr` tag needs its own rewrite, so a run of them goes in one pass (_REWRITES).
+    # Each inner `nobr` tag and point end tag needs its own rewrite, so a run of them goes in one
+    # pass (_REWRITES).
+    runs = (nobr, _point_end_fix)
     fixed = None
     for at, fix in tags:
-        if fixed is not None and fix is not nobr:
+        if fixed is not None and fix not in runs:
             return fixed
-        if (found := fix(fixed or page, at)) is not None and fix is not nobr:
+        if (found := fix(fixed or page, at)) is not None and fix not in runs:
             return found
         fixed = found or fixed
     if fixed is not None:
@@ -227,6 +242,24 @@ def _end_fix(page: str, at: int) -> str | None:
             return page[:at] + "<?" + page[at + 2 :]
         if node.name.lower() == "foreignobject":
             return None
+    return None
+
+
+def _point_end_fix(page: str, at: int) -> str | None:
+    """A point's own end tag with an html current node, which Chrome ignores (#1670).
+
+    The in-body rules stop at the point, a special element; justhtml pops it. The tag becomes a
+    bogus comment.
+    """
+    stack = _open(page[:at])
+    name = re.split(r"[\t\n\f\r />]", page[at + 2 : at + 18], maxsplit=1)[0].lower()
+    if not stack[1:] or stack[1].namespace != "html":
+        return None
+    foreign = False
+    for node in stack[1:]:
+        foreign = foreign or node.namespace != "html"
+        if node.name.lower() == name:
+            return page[:at] + "<?" + page[at + 2 :] if foreign else None
     return None
 
 
