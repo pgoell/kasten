@@ -15,6 +15,8 @@ enforces this note. It is what the completion offers and what an agent reads.
 - Periodic Note: a day, week, month, quarter or year
 - Book: a note with a book beside it
 - Reference: how something here works
+- Contract: a contract that costs money, with `plan`, `start`, `term`, `renews`, `notice`
+  and `ends` in its frontmatter
 
 ## Relations
 
