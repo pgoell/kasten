@@ -94,13 +94,18 @@ class Booking:
     text: str
 
 
-def fits(plan: Plan, booking: Booking) -> bool:
-    """Same account, the amount within the tolerance, and the payee or the text."""
-    if booking.account != plan.account or abs(booking.amount - plan.amount) > plan.tolerance:
+def pays(plan: Plan, booking: Booking) -> bool:
+    """Same account, and the payee or the text: whatever the amount."""
+    if booking.account != plan.account:
         return False
     if plan.payee is not None and booking.payee == plan.payee:
         return True
     return bool(plan.text) and plan.text.casefold() in booking.text
+
+
+def fits(plan: Plan, booking: Booking) -> bool:
+    """It pays the plan, the amount within the tolerance."""
+    return abs(booking.amount - plan.amount) <= plan.tolerance and pays(plan, booking)
 
 
 Index = dict[tuple[int, dt.date], list[Booking]]

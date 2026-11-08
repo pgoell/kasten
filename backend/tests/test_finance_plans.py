@@ -393,3 +393,30 @@ async def test_reminders_write_each_cancel_by_todo_once(vault: Path, client: Asy
         f"{CONTRACTS}/Gym.md"
     ]
     assert "📅 2027-11-29 ⏳ 2027-11-01\n" in note.read_text(encoding="utf-8")
+
+
+async def rising_gym(client: AsyncClient, vault: Path, giro: int) -> dict[str, Any]:
+    """A plan of -39.00 to the cent, paid -44.00 in September and October, and its contract."""
+    await post(
+        client,
+        [
+            booking(giro, f"gym{n}", "-44.00", booking_date=day, counterparty_name="Fitness")
+            for n, day in enumerate(["2026-09-05", "2026-10-05"])
+        ],
+    )
+    gym: dict[str, Any] = {"name": "Gym", "account_id": giro, "text": "fitness", "tolerance": "0"}
+    made = await plan(client, **gym, amount="-39.00", start="2026-09-05")
+    contract_note(vault, "Gym", f"plan: {made['id']}\n{TERMS}")
+    return gym
+
+
+async def test_1679_contracts_flag_a_price_rise_unless_another_plan_holds_its_bookings(
+    vault: Path, finance_client: AsyncClient
+) -> None:
+    gym = await rising_gym(finance_client, vault, await own(finance_client, "Giro", GIRO, "giro"))
+    day = {"today": "2026-10-10"}
+    found = (await finance_client.get(f"{API}/contracts", params=day)).json()
+    assert found["contracts"][0]["rise"] == {"old": "-39.00", "new": "-44.00"}
+    await plan(finance_client, **{**gym, "name": "Gym plus"}, amount="-44.00", start="2026-09-05")
+    found = (await finance_client.get(f"{API}/contracts", params=day)).json()
+    assert found["contracts"][0]["rise"] is None

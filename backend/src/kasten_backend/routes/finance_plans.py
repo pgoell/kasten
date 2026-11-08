@@ -365,10 +365,18 @@ class ContractIn(BaseModel):
     plan_id: int
 
 
+class RiseOut(BaseModel):
+    """A price rise: the plan's amount, and the newest booking's, dearer past the tolerance."""
+
+    old: Cents
+    new: Cents
+
+
 class ContractOut(BaseModel):
     """A contract note, its plan, its cost a year and its next cancel-by date.
 
     `problem` names what keeps a date or a cost from it: a field missing, or a plan gone.
+    `rise` is set once the plan's two newest paid periods in a row cost more than it allows.
     """
 
     path: str
@@ -382,6 +390,7 @@ class ContractOut(BaseModel):
     renews: dt.date | None
     ends: dt.date | None
     problem: str | None
+    rise: RiseOut | None
 
 
 class ContractsOut(BaseModel):
@@ -409,7 +418,13 @@ def _plan_id(content: str) -> int | None:
     return int(text) if text.isdigit() else None
 
 
-def _contract_out(path: str, content: str, plan: Plan | None, today: dt.date) -> ContractOut:
+def _contract_out(
+    path: str,
+    content: str,
+    plan: Plan | None,
+    today: dt.date,
+    rise: tuple[Decimal, Decimal] | None = None,
+) -> ContractOut:
     name, plan_id = Path(path).stem, _plan_id(content)
     terms = contract_of(content)
     found = cancel_by(terms, today) if isinstance(terms, Contract) else None
@@ -429,6 +444,7 @@ def _contract_out(path: str, content: str, plan: Plan | None, today: dt.date) ->
         renews=found[1] if found else None,
         ends=terms.ends if isinstance(terms, Contract) else None,
         problem=problem,
+        rise=None if rise is None else RiseOut(old=rise[0], new=rise[1]),
     )
 
 
@@ -439,9 +455,13 @@ async def read_contracts(
     """Every contract note in the contracts folder, by its next cancel-by date."""
     _, day = parse_when(today[:7], today)
     plans = {plan.id: plan for plan in await session.scalars(select(Plan))}
+    notes = _contract_notes(settings.vault_path)
+    rises = await reads.rises(session, {_plan_id(content) or 0 for _, content in notes}, day)
     found = [
-        _contract_out(path, content, plans.get(_plan_id(content) or 0), day)
-        for path, content in _contract_notes(settings.vault_path)
+        _contract_out(
+            path, content, plans.get(_plan_id(content) or 0), day, rises.get(_plan_id(content) or 0)
+        )
+        for path, content in notes
     ]
     found.sort(key=lambda c: (c.cancel_by is None, c.cancel_by or day, c.name.casefold()))
     yearly = sum((c.yearly for c in found if c.yearly is not None), Decimal(0))
