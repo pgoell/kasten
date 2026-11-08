@@ -1,7 +1,7 @@
 """The `/agent/finance/` routes: the pane's finance reads, behind the token check.
 
-The summaries are the pane's route functions mounted again, so a token holder gets the
-browser's answer in the same shape. Every route is a GET: an agent writes nothing to finance.
+The pane's route functions mounted again, so a token holder gets the browser's answer.
+Nothing writes to finance; the one POST writes cancel-by todos into contract notes.
 `agent_routes.py` includes this router, which is how the token check reaches it.
 """
 
@@ -28,6 +28,7 @@ router = APIRouter(prefix="/finance")
 for path, read in [
     ("/budget", finance_budget.read_budget),
     ("/budget/free", finance_budget.read_free_to_spend),
+    ("/contracts", finance_plans.read_contracts),
     ("/goals", finance_goals.read_goals),
     ("/plans/forecast", finance_plans.read_forecast),
     ("/plans/upcoming", finance_plans.read_upcoming),
@@ -36,6 +37,7 @@ for path, read in [
     ("/transactions/{transaction_id}", finance_drill.read_booking),
 ]:
     router.add_api_route(path, read, methods=["GET"])
+router.add_api_route("/contracts/reminders", finance_plans.write_reminders, methods=["POST"])
 
 
 @router.get("/lookup")

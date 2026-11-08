@@ -342,6 +342,8 @@ async def test_the_reading_tools_say_so(
         "list_transactions": True,
         "read_transaction": True,
         "finance_lookup": True,
+        "list_contracts": True,
+        "write_contract_reminders": False,
     }
 
 

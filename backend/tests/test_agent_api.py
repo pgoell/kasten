@@ -441,6 +441,8 @@ async def test_the_schema_describes_the_agent_routes(
         "/agent/finance/transactions",
         "/agent/finance/transactions/{transaction_id}",
         "/agent/finance/lookup",
+        "/agent/finance/contracts",
+        "/agent/finance/contracts/reminders",
     }
 
 

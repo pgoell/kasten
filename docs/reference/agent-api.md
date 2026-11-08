@@ -23,6 +23,7 @@ Mint a token at `/tokens` in the notebook. Connecting a client to it is
 The routes and the sign-in flow have pages of their own:
 
 * [Agent routes](/reference/agent-api/routes.md): every route under `/agent/`, the finance reads and the skill reads among them, what it answers, and the digest a write must present
+* [Agent finance routes](/reference/agent-api/finance.md): the finance pane's routes behind the token, the contracts and their reminder pass, and the MCP tool beside each
 * [Search by meaning for agents](/reference/agent-api/search-by-meaning.md): the ranked search behind `search_meaning` and `GET /agent/search/meaning`, and the notes like one note
 * [Agent OAuth flow](/reference/agent-api/oauth.md): the routes claude.ai and chatgpt.com sign in through, and the redirects they may use
 
