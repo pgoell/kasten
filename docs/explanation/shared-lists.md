@@ -109,8 +109,10 @@ tick and the line under it stays blank.
 Alle shows every item in the list. Meine shows the open items for you and the
 ones for nobody. An item for Alicia stays out of your view, and an item nobody
 has taken stays in it, so nothing open drops out of sight. This is the issue's
-default. The filter applies to Erledigt too. The counts in the list switch still
-count every open item in the list, whatever filter is chosen.
+default. The filter applies to Erledigt too. An item shows when it or one of its
+parts passes, and then with all its parts, so a step for you keeps its job in
+view. The counts in the list switch count every open item in the list, parts
+left out, whatever filter is chosen.
 
 ## How it looks
 

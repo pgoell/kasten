@@ -197,7 +197,8 @@ words that sat between two fields, such as a tag after the assignee, move before
 them: `Milch 👤 [[Alicia]] #bio 📅 2026-11-20` edited to `2x Milch #bio` becomes
 `2x Milch #bio 👤 [[Alicia]] 📅 2026-11-20`.
 
-Text that leaves the item no words, blank or only fields, answers `422` and
+A field typed into `text` is written as one: `Milch 📅 2026-12-01` adds a due
+date. Text that leaves the item no words, blank or only fields, answers `422` and
 writes nothing. A line that is no item, or words the line has already, write
 nothing and answer the `List`. A stale sha answers `409`.
 
