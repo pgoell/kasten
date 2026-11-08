@@ -37,8 +37,9 @@ the reader's local date, never the server's.
 The reminder pass is the one the Plans & goals tab runs when it opens: each
 contract note with no open cancel-by todo gets the next one, and the answer
 is the paths written. It reads only the vault, so it runs with no database
-too. `/close-day` reads `list_contracts` to name each contract whose
-`cancel_by` falls in the next 14 days.
+too. The `list_contracts` description tells a model closing the day, such as
+the vault's `/close-day` skill, to name each contract whose `cancel_by` falls
+in the next 14 days.
 
 `GET /agent/finance/transactions` is a page of single bookings, newest first.
 It takes the filters of [`GET /api/finance/transactions`](/reference/http-api/finance.md)
