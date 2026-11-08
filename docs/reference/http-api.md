@@ -48,7 +48,7 @@ including the check that refuses a cross-site `POST` with a `403`.
 * [Cards](/reference/http-api/cards.md): flashcard lines, review limits and Anki imports
 * [Capture](/reference/http-api/capture.md): the dump, web pages, YouTube transcripts, HTML pages, weather and GitHub contributions
 * [System](/reference/http-api/system.md): health, version, the change stream, terminals and agent tokens
-* [Shared lists](/reference/http-api/shared-lists.md): the six `/share/` routes the shared lists app reaches, outside the `/api/` count
+* [Shared lists](/reference/http-api/shared-lists.md): the ten `/share/` routes the shared lists app reaches, outside the `/api/` count
 
 ## Related
 

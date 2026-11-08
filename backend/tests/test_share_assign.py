@@ -186,6 +186,7 @@ async def test_810_a5_assign_then_read_names_the_assignee(
     assert read.json()["items"] == [
         {
             "line": 6,
+            "depth": 0,
             "text": "Milch",
             "done": False,
             "assignee": "[[Pascal]]",

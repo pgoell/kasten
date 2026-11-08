@@ -10,6 +10,8 @@ export const LISTS = ["Einkauf", "Todo"];
 
 export type Item = {
   line: number;
+  /** 0 for an item, 1 for a part of the item above it, and so on. */
+  depth: number;
   text: string;
   done: boolean;
   /** Who the item is for, as written after an undated `👤`, or null. */
@@ -33,7 +35,9 @@ const NOBODY: Who = { me: null, people: [] };
  * the server wrote shows as one more afterwards.
  */
 type OpBody =
-  | { kind: "add"; list: string; text: string; before?: number; kept?: string }
+  | { kind: "add"; list: string; text: string; before?: number; kept?: string; under?: string }
+  | { kind: "edit"; list: string; text: string; to: string }
+  | { kind: "delete"; list: string; text: string }
   | { kind: "tick"; list: string; text: string; done: boolean; day?: string }
   | { kind: "assign"; list: string; text: string; assignee: string | null; from: string | null }
   | { kind: "clear"; list: string };
@@ -62,7 +66,10 @@ export type Snapshot = {
 export type ListsStore = {
   subscribe: (listener: () => void) => () => void;
   snapshot: () => Snapshot;
-  add: (list: string, text: string) => void;
+  /** Adds an item, or with `under` a part of the item showing that text. */
+  add: (list: string, text: string, under?: string) => void;
+  edit: (list: string, text: string, to: string) => void;
+  remove: (list: string, text: string) => void;
   tick: (list: string, text: string, done: boolean) => void;
   /** Sets whom an item is for, by name, or clears it with null. */
   assign: (list: string, text: string, assignee: string | null, from: string | null) => void;
@@ -421,6 +428,7 @@ export function createListsStore(): ListsStore {
 
   function enqueue(op: OpBody): void {
     if (op.kind === "add") remember(op.list, [op.text]);
+    if (op.kind === "edit") remember(op.list, [op.to]);
     if (op.kind === "tick") {
       const key = tickKey(op.list, op.text);
       if (op.done) ticks.set(key, { at: new Date().toISOString(), by: snap.me });
@@ -466,7 +474,9 @@ export function createListsStore(): ListsStore {
       };
     },
     snapshot: () => snap,
-    add: (list, text) => enqueue({ kind: "add", list, text }),
+    add: (list, text, under) => enqueue({ kind: "add", list, text, under }),
+    edit: (list, text, to) => enqueue({ kind: "edit", list, text, to }),
+    remove: (list, text) => enqueue({ kind: "delete", list, text }),
     // The day of the press, so a tick sent after midnight stamps the day it was made (#1513).
     tick: (list, text, done) =>
       enqueue({ kind: "tick", list, text, done, day: localDay(new Date()) }),

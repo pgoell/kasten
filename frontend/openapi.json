@@ -6256,7 +6256,7 @@
           "share"
         ],
         "summary": "Add Item",
-        "description": "Append an item to a list, creating the list when `sha` is absent and it is missing.",
+        "description": "Append an item, or a part of the item on line `under`; no `sha` creates a missing list.",
         "operationId": "add_item_share_lists__name__items_post",
         "parameters": [
           {
@@ -6309,7 +6309,7 @@
           "share"
         ],
         "summary": "Tick Item",
-        "description": "Tick or untick the item on one line of a list.\n\nA tick on a recurring item or one with parts is refused with 422, since kasten\ndoes more on its own tick than this path does. Unticking has no such limit.",
+        "description": "Tick or untick the item on one line of a list.\n\nA tick takes the item's open parts along. One on a recurring item or part is refused\nwith 422, since kasten writes the next copy. Unticking has no such limit.",
         "operationId": "tick_item_share_lists__name__tick_post",
         "parameters": [
           {
@@ -6381,6 +6381,112 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/Assign"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Checklist"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/share/lists/{name}/edit": {
+      "post": {
+        "tags": [
+          "share"
+        ],
+        "summary": "Edit Item",
+        "description": "Put new words on one line of a list, its fields as they were. Empty words answer 422.",
+        "operationId": "edit_item_share_lists__name__edit_post",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Edit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Checklist"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/share/lists/{name}/delete": {
+      "post": {
+        "tags": [
+          "share"
+        ],
+        "summary": "Delete Item",
+        "description": "Take one line of a list out, and its parts with it.",
+        "operationId": "delete_item_share_lists__name__delete_post",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Delete"
               }
             }
           }
@@ -7641,6 +7747,17 @@
               }
             ],
             "title": "Sha"
+          },
+          "under": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Under"
           }
         },
         "type": "object",
@@ -9234,6 +9351,25 @@
         "title": "DeckLink",
         "description": "Where a deck to import lives."
       },
+      "Delete": {
+        "properties": {
+          "line": {
+            "type": "integer",
+            "title": "Line"
+          },
+          "sha": {
+            "type": "string",
+            "title": "Sha"
+          }
+        },
+        "type": "object",
+        "required": [
+          "line",
+          "sha"
+        ],
+        "title": "Delete",
+        "description": "Which line goes, with its parts, and the digest of the list the caller read."
+      },
       "DueOut": {
         "properties": {
           "plan_id": {
@@ -9324,6 +9460,30 @@
         ],
         "title": "Dump",
         "description": "One thought for a day's dump, and the day the sender is having."
+      },
+      "Edit": {
+        "properties": {
+          "line": {
+            "type": "integer",
+            "title": "Line"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "sha": {
+            "type": "string",
+            "title": "Sha"
+          }
+        },
+        "type": "object",
+        "required": [
+          "line",
+          "text",
+          "sha"
+        ],
+        "title": "Edit",
+        "description": "The words one line is to read, and the digest of the list the caller read."
       },
       "Entry": {
         "properties": {
@@ -10637,6 +10797,11 @@
           "line": {
             "type": "integer",
             "title": "Line"
+          },
+          "depth": {
+            "type": "integer",
+            "title": "Depth",
+            "default": 0
           },
           "text": {
             "type": "string",

@@ -9,12 +9,14 @@ import json
 import re
 from typing import TYPE_CHECKING, NamedTuple
 
-from kasten_backend import history, share, vcs
+from kasten_backend import history, vcs
+from kasten_backend.share.lines import TASK, key
 
 if TYPE_CHECKING:
     from pathlib import Path
 
     from kasten_backend.config import Settings
+    from kasten_backend.share.lists import Checklist
 
 VERSIONS = 30
 """How many of the note's latest changes the walk reads, newest first."""
@@ -59,12 +61,12 @@ _cache: dict[tuple[str, str, str], dict[str, Tick]] = {}
 
 def _take(version: _Version, line: str) -> None:
     """Record a done task line of a version's patch on the side it sits on."""
-    match = share.ITEM.match(line[1:])
-    if match is None or match.group(1) == " ":
+    match = TASK.match(line[1:])
+    if match is None or match.group(2) == " ":
         return
 
     side = version.done_before if line[0] == "-" else version.done_after
-    side.add(share.key(match.group(2)))
+    side.add(key(match.group(3)))
 
 
 def _head(line: str) -> _Version:
@@ -105,8 +107,8 @@ def _ticks(versions: list[_Version]) -> dict[str, Tick]:
     """
     found: dict[str, Tick] = {}
     for version in versions:
-        for key in version.done_after - version.done_before:
-            found.setdefault(key, Tick(version.who, version.when))
+        for item in version.done_after - version.done_before:
+            found.setdefault(item, Tick(version.who, version.when))
 
     return found
 
@@ -138,7 +140,7 @@ async def _ticks_of(root: Path, path: str, digest: str) -> dict[str, Tick]:
     return _cache[key]
 
 
-async def attach(settings: Settings, found: share.Checklist) -> share.Checklist:
+async def attach(settings: Settings, found: Checklist) -> Checklist:
     """The list with `ticked_by` and `ticked_at` set on every done item the history can name.
 
     The digest and keys come from `found`, one read of the note, so a write between reads cannot

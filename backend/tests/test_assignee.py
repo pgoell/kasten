@@ -141,6 +141,7 @@ async def test_809_a6_the_route_answers_the_assignee(client: AsyncClient, folder
     assert response.json()["items"] == [
         {
             "line": 6,
+            "depth": 0,
             "text": "milk",
             "done": False,
             "assignee": "[[Pascal]]",
@@ -149,6 +150,7 @@ async def test_809_a6_the_route_answers_the_assignee(client: AsyncClient, folder
         },
         {
             "line": 7,
+            "depth": 0,
             "text": "eggs",
             "done": False,
             "assignee": None,

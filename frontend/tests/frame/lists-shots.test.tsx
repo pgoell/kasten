@@ -202,7 +202,7 @@ async function drawRows(dark: boolean) {
     return {
       check: getComputedStyle(check),
       fill: getComputedStyle(check, "::before"),
-      text: getComputedStyle(box.querySelector(".text") as HTMLElement),
+      text: getComputedStyle(box.closest(".row")?.querySelector(".text") as HTMLElement),
     };
   };
   return { open: look("Milch"), done: look("Bananen") };

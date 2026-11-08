@@ -2800,7 +2800,7 @@ export interface paths {
         put?: never;
         /**
          * Add Item
-         * @description Append an item to a list, creating the list when `sha` is absent and it is missing.
+         * @description Append an item, or a part of the item on line `under`; no `sha` creates a missing list.
          */
         post: operations["add_item_share_lists__name__items_post"];
         delete?: never;
@@ -2822,8 +2822,8 @@ export interface paths {
          * Tick Item
          * @description Tick or untick the item on one line of a list.
          *
-         *     A tick on a recurring item or one with parts is refused with 422, since kasten
-         *     does more on its own tick than this path does. Unticking has no such limit.
+         *     A tick takes the item's open parts along. One on a recurring item or part is refused
+         *     with 422, since kasten writes the next copy. Unticking has no such limit.
          */
         post: operations["tick_item_share_lists__name__tick_post"];
         delete?: never;
@@ -2846,6 +2846,46 @@ export interface paths {
          * @description Set or clear whose item one line of a list is. A name the app does not list answers 422.
          */
         post: operations["assign_item_share_lists__name__assign_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/share/lists/{name}/edit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Edit Item
+         * @description Put new words on one line of a list, its fields as they were. Empty words answer 422.
+         */
+        post: operations["edit_item_share_lists__name__edit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/share/lists/{name}/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete Item
+         * @description Take one line of a list out, and its parts with it.
+         */
+        post: operations["delete_item_share_lists__name__delete_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3536,6 +3576,8 @@ export interface components {
             text: string;
             /** Sha */
             sha?: string | null;
+            /** Under */
+            under?: number | null;
         };
         /**
          * Alcohol
@@ -4122,6 +4164,16 @@ export interface components {
             url: string;
         };
         /**
+         * Delete
+         * @description Which line goes, with its parts, and the digest of the list the caller read.
+         */
+        Delete: {
+            /** Line */
+            line: number;
+            /** Sha */
+            sha: string;
+        };
+        /**
          * DueOut
          * @description A date a plan falls due in the month, and the booking that met it, if one did.
          */
@@ -4157,6 +4209,18 @@ export interface components {
              * Format: date
              */
             date: string;
+        };
+        /**
+         * Edit
+         * @description The words one line is to read, and the digest of the list the caller read.
+         */
+        Edit: {
+            /** Line */
+            line: number;
+            /** Text */
+            text: string;
+            /** Sha */
+            sha: string;
         };
         /**
          * Entry
@@ -4667,6 +4731,11 @@ export interface components {
         Item: {
             /** Line */
             line: number;
+            /**
+             * Depth
+             * @default 0
+             */
+            depth: number;
             /** Text */
             text: string;
             /** Done */
@@ -10744,6 +10813,76 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["Assign"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Checklist"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_item_share_lists__name__edit_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Edit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Checklist"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_item_share_lists__name__delete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Delete"];
             };
         };
         responses: {

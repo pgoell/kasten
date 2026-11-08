@@ -137,11 +137,15 @@ describe("the lists app in a browser, by touch, keys and mouse", () => {
     expect([fill.transitionDuration, fill.animationName]).toEqual(["0s", "none"]);
   }, 30_000);
 
-  it("#810 A12 at 1440x900 by keys Tab reaches the tick and the chip, and Enter and Escape open and close the menu", async () => {
+  it("#810 A12 at 1440x900 by keys Tab reaches the tick, the words, the + and the chip, and Enter and Escape open and close the menu", async () => {
     await page.viewport(1440, 900);
     await draw();
 
     screen.getByRole("checkbox", { name: "Milch" }).focus();
+    await key("Tab", "Tab", 9);
+    expect(screen.getByRole("button", { name: "Milch bearbeiten" })).toHaveFocus();
+    await key("Tab", "Tab", 9);
+    expect(screen.getByRole("button", { name: "Teil zu Milch" })).toHaveFocus();
     await key("Tab", "Tab", 9);
     const chip = chipOf("Milch");
     expect(document.activeElement).toBe(chip);

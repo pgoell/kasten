@@ -138,7 +138,12 @@ describe("the lists app", () => {
     await screen.findByRole("checkbox", { name: "Milch" });
 
     const boxes = screen.getAllByRole("checkbox");
-    expect(boxes.map((box) => box.textContent)).toEqual(["Milch", "Brot", "Eier", "Zitronen"]);
+    expect(boxes.map((box) => box.getAttribute("aria-label"))).toEqual([
+      "Milch",
+      "Brot",
+      "Eier",
+      "Zitronen",
+    ]);
     expect(boxes.map((box) => box.getAttribute("aria-checked"))).toEqual([
       "false",
       "false",

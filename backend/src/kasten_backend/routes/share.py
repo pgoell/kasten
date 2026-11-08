@@ -1,6 +1,6 @@
 """The `/share/` routes the shared lists app reads and ticks through, and its host's gate.
 
-What a list is and how an edit lands is in `kasten_backend/share.py`.
+What a list is and how an edit lands is in `kasten_backend/share/`.
 """
 
 import asyncio
@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-from kasten_backend import share, share_history, vcs
+from kasten_backend import share, vcs
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.events import KEEPALIVE, format_retry, format_sse, watch_vault
 
@@ -70,6 +70,9 @@ class Add(BaseModel):
     text: str
     sha: str | None = None
 
+    under: int | None = None
+    """The line of the item the new one is a part of, or None for an item of its own."""
+
 
 class Tick(BaseModel):
     """Which line to tick or untick, and the digest of the list the caller read."""
@@ -99,6 +102,21 @@ class Assign(BaseModel):
     sha: str
 
 
+class Edit(BaseModel):
+    """The words one line is to read, and the digest of the list the caller read."""
+
+    line: int
+    text: str
+    sha: str
+
+
+class Delete(BaseModel):
+    """Which line goes, with its parts, and the digest of the list the caller read."""
+
+    line: int
+    sha: str
+
+
 class Me(BaseModel):
     """Who is asking, if the proxy's address is a listed one, and the people the app offers."""
 
@@ -116,7 +134,7 @@ def _found(found: share.Checklist | None) -> share.Checklist:
 
 async def _answer(settings: Settings, found: share.Checklist | None) -> share.Checklist:
     """The list with who ticked each done item, which every list answer carries."""
-    return await share_history.attach(settings, _found(found))
+    return await share.attach(settings, _found(found))
 
 
 @router.get("/me")
@@ -152,8 +170,9 @@ async def read_list(
 async def add_item(
     name: str, body: Add, settings: Annotated[Settings, Depends(get_settings)]
 ) -> share.Checklist:
-    """Append an item to a list, creating the list when `sha` is absent and it is missing."""
-    return await _answer(settings, await share.add(settings, name, body.text, body.sha))
+    """Append an item, or a part of the item on line `under`; no `sha` creates a missing list."""
+    found = await share.add(settings, name, body.text, body.sha, body.under)
+    return await _answer(settings, found)
 
 
 @router.post("/lists/{name:path}/tick")
@@ -162,8 +181,8 @@ async def tick_item(
 ) -> share.Checklist:
     """Tick or untick the item on one line of a list.
 
-    A tick on a recurring item or one with parts is refused with 422, since kasten
-    does more on its own tick than this path does. Unticking has no such limit.
+    A tick takes the item's open parts along. One on a recurring item or part is refused
+    with 422, since kasten writes the next copy. Unticking has no such limit.
     """
     try:
         found = await share.tick(settings, name, body.line, body.done, body.sha, day=body.day)
@@ -183,6 +202,22 @@ async def assign_item(
 
     found = await share.assign(settings, name, body.line, body.assignee, body.sha)
     return await _answer(settings, found)
+
+
+@router.post("/lists/{name:path}/edit")
+async def edit_item(
+    name: str, body: Edit, settings: Annotated[Settings, Depends(get_settings)]
+) -> share.Checklist:
+    """Put new words on one line of a list, its fields as they were. Empty words answer 422."""
+    return await _answer(settings, await share.edit(settings, name, body.line, body.text, body.sha))
+
+
+@router.post("/lists/{name:path}/delete")
+async def delete_item(
+    name: str, body: Delete, settings: Annotated[Settings, Depends(get_settings)]
+) -> share.Checklist:
+    """Take one line of a list out, and its parts with it."""
+    return await _answer(settings, await share.delete(settings, name, body.line, body.sha))
 
 
 @router.post("/lists/{name:path}/clear")

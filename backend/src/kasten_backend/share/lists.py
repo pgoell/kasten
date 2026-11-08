@@ -5,8 +5,6 @@ a request brings is spelled into a path here, so that check is the rule the rout
 Edits touch only the task lines; every other byte goes back out as it came in.
 """
 
-import re
-import secrets
 from datetime import date
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING
@@ -14,22 +12,28 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel, Field
 
 from kasten_backend import agent, done_log, todo_fields, vault
+from kasten_backend.share.lines import (
+    CLOSED,
+    TASK,
+    assigned,
+    box,
+    descendants,
+    key,
+    one_line,
+    parents,
+    retext,
+    taken_along,
+    ticked,
+    undone,
+    words,
+)
 
 if TYPE_CHECKING:
+    import re
+    from collections.abc import Callable
+
     from kasten_backend.config import Settings
     from kasten_backend.events import VaultEvent
-
-ITEM = re.compile(r"^- \[([ xX])\] (.*?)(\r?)$")
-"""A top-level task line: its state, its words and the line ending an edit keeps.
-
-Only the margin counts, so an indented task under another item is not a list item.
-"""
-
-ID_MARK = "🆔"
-"""The Tasks id a ticked item gets, so the done line keeps one name across edits."""
-
-PARTS = re.compile(r"^[ \t]+- \[.\] ")
-"""An indented task: a part of the task above it, which kasten ticks along with it."""
 
 TICK_IN_KASTEN = "Tick this one in kasten"
 """What a tick the share path leaves to kasten is answered with."""
@@ -39,7 +43,7 @@ class TickInKastenError(Exception):
     """A tick the share path refuses, because kasten has more to write than a tick does.
 
     The route answers 422, so the lists app shows the item still open and tells the person to
-    tick it in kasten. A tick or untick of an id another todo carries is refused the same way.
+    tick it in kasten: a recurring item or part, and a tick or untick of an id another todo carries.
     """
 
 
@@ -48,6 +52,9 @@ class Item(BaseModel):
 
     line: int
     """The 0-based index of the line in the note."""
+
+    depth: int = 0
+    """0 for an item, 1 for a part of the item above it, 2 for a part of that part, and so on."""
 
     text: str
     done: bool
@@ -130,43 +137,33 @@ def names(settings: Settings) -> list[str]:
 
 
 def items(text: str) -> list[Item]:
-    """Every task line of `text`, in order, with its words as the editor reads them."""
+    """Every task line of `text` at the margin, and the parts under one, in note order.
+
+    A part counts only under a task the list shows: one under a `[/]` line or plain item stays out.
+    """
+    lines = text.split("\n")
+    up = parents(lines)
+    depth: dict[int, int] = {}
     found = []
-    for number, line in enumerate(text.split("\n")):
-        match = ITEM.match(line)
-        if match is not None:
-            found.append(
-                Item(
-                    line=number,
-                    text=words(match.group(2)),
-                    done=match.group(1) != " ",
-                    assignee=todo_fields.assignee(match.group(2)),
-                    key=key(match.group(2)) if match.group(1) != " " else None,
-                )
+    for number, line in enumerate(lines):
+        match = TASK.match(line)
+        if match is None or (match.group(1) and up.get(number) not in depth):
+            continue
+        parent = up.get(number)
+        depth[number] = 0 if not match.group(1) or parent is None else depth[parent] + 1
+        rest, done = match.group(3), match.group(2) != " "
+        found.append(
+            Item(
+                line=number,
+                depth=depth[number],
+                text=words(rest),
+                done=done,
+                assignee=todo_fields.assignee(rest),
+                key=key(rest) if done else None,
             )
+        )
 
     return found
-
-
-def key(rest: str) -> str:
-    """What names an item across the history: its `🆔` when it reads one, else its words."""
-    found = todo_fields.place(rest, todo_fields.ID)
-    return words(rest) if found is None else rest[found[0] : found[1]]
-
-
-def words(rest: str) -> str:
-    """The words of an item with every field out, and no trailing block id."""
-    return todo_fields.BLOCK_ID.sub("", todo_fields.words(rest).strip())
-
-
-def _one_line(text: str) -> str:
-    """The text an add writes: its words joined by single spaces, on one line."""
-    return " ".join(text.split())
-
-
-def kept(text: str) -> str:
-    """The words an add of `text` shows as on the list, which the app counts a landed add by."""
-    return words(_one_line(text))
 
 
 def _shape(name: str, raw: bytes | None) -> Checklist:
@@ -193,118 +190,27 @@ def _agree(raw: bytes | None, sha: str | None) -> None:
         raise agent.ConflictError(current)
 
 
-def _kasten_owns(lines: list[str], line: int, rest: str) -> bool:
-    """Whether ticking this item here would skip what kasten does with it.
-
-    Kasten writes a recurring item's next occurrence and ticks its parts with it. This path
-    must not do one of those alone, and leave the series stopped.
-    """
-    following = lines[line + 1] if line + 1 < len(lines) else ""
-
-    recurs = todo_fields.place(rest, todo_fields.RECURRENCE) is not None
-    return recurs or PARTS.match(following) is not None
+def _lines(raw: bytes | None) -> list[str]:
+    """The note's lines, an empty note's one empty line when there is none."""
+    return ("" if raw is None else raw.decode("utf-8")).split("\n")
 
 
-def _done(line: str) -> bool:
-    """Whether a line is a task that is ticked."""
-    match = ITEM.match(line)
-    return match is not None and match.group(1) != " "
+def _task(lines: list[str], line: int) -> re.Match[str] | None:
+    """The task on `line`, or None when the line is no task or out of range."""
+    return TASK.match(lines[line]) if 0 <= line < len(lines) else None
 
 
-def _undone(rest: str) -> str:
-    """The words without the done field the line reads, its date and all.
-
-    Only the `✅ <date>` the reader takes goes, so a bare `✅` among the words stays.
-    """
-    found = todo_fields.place(rest, todo_fields.DONE)
-    if found is None:
-        return rest.rstrip()
-
-    head, tail = rest[: found[0]], rest[found[1] :]
-    # Words the field kept apart stay apart where, glued, they would read differently (#1491).
-    # A no-break space keeps them apart too, though the reader does not squeeze it.
-    apart = head[-1:].isspace() or tail[:1].isspace()
-    if head and not apart and words(head + tail) != words(f"{head} {tail}"):
-        return f"{head} {tail}".rstrip()
-
-    return _without(rest, *found).rstrip()
+def _recurs(line: str) -> bool:
+    """Whether an open todo line carries a `🔁`, whose next copy only kasten writes."""
+    state = box(line)
+    open_ = state is not None and state not in CLOSED
+    return open_ and todo_fields.place(line, todo_fields.RECURRENCE) is not None
 
 
-def _ticked(rest: str, today: date) -> str:
-    """The words of an item as a done one: its done date and an id, a block id last.
-
-    An item that reads an id keeps it, with the date before it, so the id survives edits.
-    A new id is made otherwise. A trailing block id stays last.
-    """
-    rest = _undone(rest)
-    block = todo_fields.BLOCK_ID.search(rest)
-    tail = "" if block is None else block[0]
-    words = rest if block is None else rest[: block.start()]
-    found = todo_fields.place(words, todo_fields.ID)
-    if found is None:
-        head, mark = words, f"{ID_MARK} kt-{secrets.token_hex(3)}"
-    else:
-        head, mark = words[: found[0]].rstrip(), words[found[0] :]
-    # A block id that is the whole item has no blank of its own to keep it apart.
-    tail = tail if tail[:1] in ("", " ", "\t") else f" {tail}"
-    lead = f"{head} " if head else ""
-    return f"{lead}✅ {today.isoformat()} {mark}{tail}"
-
-
-NEW_FIELD_AT = re.compile(
-    todo_fields.STOP + "|🔁|👤\N{VARIATION SELECTOR-16}?[ \t]+[0-9]{4}-[0-9]{2}-[0-9]{2}"
-)
-"""Where a new assignee goes: the first field marker, or a dated `👤` (the wait) that is one."""
-
-
-def _assigned(rest: str, assignee: str | None) -> str:
-    """The words of an item with its undated `👤` set to `assignee`, or cleared when it is None.
-
-    A switch replaces the value in place, and a clear takes the blank before it. A new one goes
-    before the first field, else a trailing block id, else at the end, so existing bytes stay put.
-    The same assignee again is the same words, which is how a caller learns nothing is to write.
-    """
-    span = todo_fields.assignee_span(rest)
-    if span is None:
-        return rest if assignee is None else _with_new_assignee(rest, assignee)
-
-    start, end = span
-    if assignee is None:
-        return _without(rest, start, end)
-
-    value = f"[[{assignee}]]"
-    if todo_fields.assignee(rest) == value:
-        return rest
-
-    return f"{rest[:start]}👤 {value}{rest[end:]}"
-
-
-def _without(rest: str, start: int, end: int) -> str:
-    """The words with `rest[start:end]` taken out, and the blank before it when a blank follows.
-
-    A field glued to the span keeps the blank before it, so the field does not run into the words.
-    """
-    head, tail = rest[:start], rest[end:]
-    if tail and tail[0] not in " \t":
-        return head + tail
-
-    head = head.rstrip(" \t")
-    return head + tail if head else tail.lstrip(" \t")
-
-
-def _with_new_assignee(rest: str, assignee: str) -> str:
-    """The words with `👤 [[assignee]]` added where the reader finds no other field."""
-    field = f"👤 [[{assignee}]]"
-    marker = NEW_FIELD_AT.search(todo_fields.mask(rest))
-    if marker is not None:
-        return f"{rest[: marker.start()]}{field} {rest[marker.start() :]}"
-
-    block = todo_fields.BLOCK_ID.search(rest)
-    if block is not None and block.start() > 0:
-        return f"{rest[: block.start()]} {field}{rest[block.start() :]}"
-
-    end = len(rest.rstrip(" \t"))
-    return f"{rest[:end]} {field}{rest[end:]}"
+def _drop(lines: list[str], numbers: list[int]) -> str:
+    """The note with the lines at `numbers` taken out, every other byte as it was."""
+    gone = set(numbers)
+    return "\n".join(line for number, line in enumerate(lines) if number not in gone)
 
 
 async def _save(settings: Settings, name: str, content: str, sha: str | None) -> Checklist | None:
@@ -325,26 +231,32 @@ async def read(settings: Settings, name: str) -> Checklist | None:
     return _shape(name, _read_bytes(note))
 
 
-async def add(settings: Settings, name: str, text: str, sha: str | None) -> Checklist | None:
-    """Append `- [ ] text` after the last task line, or at the end when there is none.
+async def add(
+    settings: Settings, name: str, text: str, sha: str | None, under: int | None = None
+) -> Checklist | None:
+    """Append `- [ ] text` after the last task line, or as a part of the task on line `under`.
 
-    The text is joined onto one line, since a newline in it would start a line
-    the list does not own. A blank text is refused as an empty capture.
+    A part goes after the parts the task has, two spaces further in, as the todo pane's `s`
+    writes one. The text is joined onto one line; a blank one is refused as an empty capture.
     """
     note = resolve_list(settings, name)
     if note is None:
         return None
 
-    words = _one_line(text)
-    if words == "":
+    text = one_line(text)
+    if text == "":
         raise agent.EmptyCaptureError(agent.NOTHING)
 
     raw = _read_bytes(note)
     _agree(raw, sha)
     body = "" if raw is None else raw.decode("utf-8")
     lines = body.split("\n")
-    numbers = [number for number, line in enumerate(lines) if ITEM.match(line)]
-    if numbers:
+    parent = None if under is None else _task(lines, under)
+    numbers = [number for number, line in enumerate(lines) if TASK.match(line)]
+    indent = ""
+    if parent is not None and under is not None:
+        at, indent = max([under, *descendants(lines, under)]) + 1, f"{parent.group(1)}  "
+    elif numbers:
         at = numbers[-1] + 1
     elif lines[-1] == "":
         # A note ending in a newline has an empty last element, and the new line
@@ -356,7 +268,7 @@ async def add(settings: Settings, name: str, text: str, sha: str | None) -> Chec
     # The new line takes a CRLF only when something follows it, so a note without a final
     # newline gains no stray carriage return.
     ending = "\r" if "\r\n" in body and at < len(lines) else ""
-    lines.insert(at, f"- [ ] {words}{ending}")
+    lines.insert(at, f"{indent}- [ ] {text}{ending}")
 
     return await _save(settings, name, "\n".join(lines), sha)
 
@@ -366,9 +278,8 @@ async def tick(  # noqa: PLR0913  the route's body, field by field, and the tick
 ) -> Checklist | None:
     """Tick or untick the task on `line`, or change nothing when it is not that state already.
 
-    A line that is no task, or is out of range, answers the list as it is and
-    writes nothing, the same as a tick already in the asked state. `day` is the
-    ticker's own date; without it the server's stands in.
+    A tick takes the open parts along, as kasten's does; an untick leaves them. A line that is
+    no task answers the list as it is. `day` is the ticker's date, else the server's stands in.
     """
     note = resolve_list(settings, name)
     if note is None:
@@ -376,13 +287,14 @@ async def tick(  # noqa: PLR0913  the route's body, field by field, and the tick
 
     raw = _read_bytes(note)
     _agree(raw, sha)
-    lines = ("" if raw is None else raw.decode("utf-8")).split("\n")
-    match = ITEM.match(lines[line]) if 0 <= line < len(lines) else None
-    if match is None or (match.group(1) != " ") == done:
+    lines = _lines(raw)
+    match = _task(lines, line)
+    if match is None or (match.group(2) != " ") == done:
         return _shape(name, raw)
 
-    rest, eol = match.group(2), match.group(3)
-    if done and _kasten_owns(lines, line, rest):
+    indent, rest, eol = match.group(1), match.group(3), match.group(4)
+    parts = descendants(lines, line) if done else []
+    if done and any(_recurs(lines[number]) for number in [line, *parts]):
         raise TickInKastenError(TICK_IN_KASTEN)
     path = f"{settings.share_folder}/{name}.md"
     if settings.share_logs_done:
@@ -393,10 +305,12 @@ async def tick(  # noqa: PLR0913  the route's body, field by field, and the tick
     # One day for the stamp and the daily note: the ticker's, else the server's (#1300).
     today = day or date.today()
     if done:
-        rest = _ticked(rest, today)
-        lines[line] = f"- [x] {rest}{eol}"
+        rest = ticked(rest, today)
+        lines[line] = f"{indent}- [x] {rest}{eol}"
+        for number in parts:
+            lines[number] = taken_along(lines[number], today)
     else:
-        lines[line] = f"- [ ] {_undone(rest)}{eol}"
+        lines[line] = f"{indent}- [ ] {undone(rest)}{eol}"
 
     saved = await _save(settings, name, "\n".join(lines), sha)
     # The list first, then the log: a write that fails between them leaves the
@@ -418,37 +332,77 @@ async def assign(
     A line that is no task, or is out of range, answers the list as it is. The caller has checked
     that `assignee` is a known person, so nothing else is written into the line.
     """
+    return await _rewrite(settings, name, line, sha, lambda rest: assigned(rest, assignee))
+
+
+async def edit(settings: Settings, name: str, line: int, text: str, sha: str) -> Checklist | None:
+    """Put `text` in for the words of the task on `line`, its box, indent and fields as they were.
+
+    Text that leaves the item no words, blank or only fields, is refused as an empty capture.
+    """
+    if words(retext("", text)) == "":
+        raise agent.EmptyCaptureError(agent.NOTHING)
+
+    return await _rewrite(settings, name, line, sha, lambda rest: retext(rest, text))
+
+
+async def _rewrite(
+    settings: Settings, name: str, line: int, sha: str, change: Callable[[str], str]
+) -> Checklist | None:
+    """Write the task on `line` with its words through `change`, or nothing when they stay."""
     note = resolve_list(settings, name)
     if note is None:
         return None
 
     raw = _read_bytes(note)
     _agree(raw, sha)
-    lines = ("" if raw is None else raw.decode("utf-8")).split("\n")
-    match = ITEM.match(lines[line]) if 0 <= line < len(lines) else None
-    if match is None:
+    lines = _lines(raw)
+    match = _task(lines, line)
+    edited = None if match is None else change(match.group(3))
+    if match is None or edited == match.group(3):
         return _shape(name, raw)
 
-    rest, eol = match.group(2), match.group(3)
-    edited = _assigned(rest, assignee)
-    if edited == rest:
-        return _shape(name, raw)
-
-    lines[line] = f"- [{match.group(1)}] {edited}{eol}"
+    lines[line] = f"{match.group(1)}- [{match.group(2)}] {edited}{match.group(4)}"
     return await _save(settings, name, "\n".join(lines), sha)
 
 
-async def clear(settings: Settings, name: str, sha: str) -> Checklist | None:
-    """Remove every ticked task line, and nothing else, or change nothing when none is ticked."""
+async def delete(settings: Settings, name: str, line: int, sha: str) -> Checklist | None:
+    """Take the task on `line` out of the note, and its parts with it; the history keeps them."""
     note = resolve_list(settings, name)
     if note is None:
         return None
 
     raw = _read_bytes(note)
     _agree(raw, sha)
-    lines = ("" if raw is None else raw.decode("utf-8")).split("\n")
-    kept = [line for line in lines if not _done(line)]
-    if len(kept) == len(lines):
+    lines = _lines(raw)
+    if _task(lines, line) is None:
         return _shape(name, raw)
 
-    return await _save(settings, name, "\n".join(kept), sha)
+    return await _save(settings, name, _drop(lines, [line, *descendants(lines, line)]), sha)
+
+
+async def clear(settings: Settings, name: str, sha: str) -> Checklist | None:
+    """Remove every ticked item at the margin with its parts, or change nothing when none is ticked.
+
+    An item with a part still open stays, so no open work goes. A done part of an open item stays
+    with it, counted in its `1/3`.
+    """
+    note = resolve_list(settings, name)
+    if note is None:
+        return None
+
+    raw = _read_bytes(note)
+    _agree(raw, sha)
+    lines = _lines(raw)
+    gone: list[int] = []
+    for number, line in enumerate(lines):
+        match = TASK.match(line)
+        if match is None or match.group(1) or match.group(2) == " ":
+            continue
+        parts = descendants(lines, number)
+        if all((box(lines[part]) or "x") in CLOSED for part in parts):
+            gone += [number, *parts]
+    if not gone:
+        return _shape(name, raw)
+
+    return await _save(settings, name, _drop(lines, gone), sha)

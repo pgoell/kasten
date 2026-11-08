@@ -91,7 +91,9 @@ def mask(text: str) -> str:
     return blank(text, SPANS)
 
 
-def _scan(rest: str) -> tuple[str, str | None, dict[re.Pattern[str], tuple[int, int]]]:
+def _scan(
+    rest: str,
+) -> tuple[str, str | None, dict[re.Pattern[str], tuple[int, int]], list[tuple[int, int]]]:
     """A todo's words, assignee and the place of each field, as `readTagged` reads them.
 
     Fields are found on a copy with every span blanked, so a marker in a link is no marker.
@@ -105,23 +107,30 @@ def _scan(rest: str) -> tuple[str, str | None, dict[re.Pattern[str], tuple[int, 
     origin = list(range(len(rest)))
     who = None
     places = {}
+    cuts = []
     for pattern in (*FIELDS, BLOCKED_BY, WAITING, ASSIGNEE):
         while (found := pattern.search(masked)) is not None and any(found.groups()):
             if pattern is ASSIGNEE:
                 who = text[found.start(1) : found.end(1)]
-            places.setdefault(pattern, (origin[found.start()], origin[found.end() - 1] + 1))
+            cuts.append((origin[found.start()], origin[found.end() - 1] + 1))
+            places.setdefault(pattern, cuts[-1])
             text = text[: found.start()] + _CUT + text[found.end() :]
             masked = masked[: found.start()] + _CUT + masked[found.end() :]
             origin = [*origin[: found.start()], -1, *origin[found.end() :]]
             if pattern is not BLOCKED_BY:
                 break
     # As the editor squeezes the words, so `[[FDE  Kickoff]]` names `FDE Kickoff`.
-    return re.sub(r"[ \t]+", " ", text.replace(_CUT, "")), who, places
+    return re.sub(r"[ \t]+", " ", text.replace(_CUT, "")), who, places, sorted(cuts)
 
 
 def words(rest: str) -> str:
     """A todo's words, as `_scan` leaves them."""
     return _scan(rest)[0]
+
+
+def field_spans(rest: str) -> list[tuple[int, int]]:
+    """Where every field the reader cuts sits in `rest`, in line order: all but the words."""
+    return _scan(rest)[3]
 
 
 def assignee(rest: str) -> str | None:

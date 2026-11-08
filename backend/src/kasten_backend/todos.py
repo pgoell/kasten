@@ -19,6 +19,7 @@ from kasten_backend.todo_fields import SPANS, blank, mask
 from kasten_backend.todo_fields import words as _words
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
     from pathlib import Path
 
 MOST_TODOS = 100_000
@@ -79,6 +80,29 @@ def stop_of(text: str) -> int | None:
         return -1
     item = ITEM.match(text)
     return None if item is None else len(item[1])
+
+
+def parents(lines: Iterable[tuple[int, str]]) -> dict[int, int | None]:
+    """The todo each todo line is a part of, by line number, or None: every parts reader's walk.
+
+    `lines` come in order, with no line break in them. A line that is no todo ends parts by
+    `stop_of`.
+    """
+    found: dict[int, int | None] = {}
+    above: list[tuple[int, int | None]] = []
+    for number, text in lines:
+        todo = LINE.fullmatch(text)
+        # A tab counts one, as the editor's `parseTodo` counts it.
+        indent = len(todo[1]) if todo else stop_of(text)
+        if indent is None:
+            continue
+        while above and above[-1][0] >= indent:
+            above.pop()
+        if todo is not None:
+            found[number] = above[-1][1] if above else None
+        # A heading or a plain item ends the parts, holding what sits under it apart.
+        above.append((indent, None if todo is None else number))
+    return found
 
 
 def _whole(root: Path, note: str, hits: list[Hit]) -> list[Hit]:
@@ -356,30 +380,22 @@ def projects_of(hits: list[Hit], paths: list[str]) -> list[str | None]:
 
     for note, lines in by_note.items():
         folder = project_in(note, PROJECT_ROOTS)
-        # The todos open above this one, shallowest first: indent, the tag
-        # project it passes down, and its whole project.
-        above: list[tuple[int, str | None, str | None]] = []
         # rg answers in any order, and a parent has to come before its parts.
-        for hit in sorted(lines, key=lambda one: one.line):
+        ordered = sorted(lines, key=lambda one: one.line)
+        up = parents((hit.line, hit.text) for hit in ordered)
+        tags: dict[int, str | None] = {}
+        for hit in ordered:
             todo = LINE.fullmatch(hit.text)
-            # A tab counts one, as the editor's `parseTodo` counts it.
-            indent = len(todo[1]) if todo else stop_of(hit.text)
-            if indent is None:
+            if todo is None or hit.line not in up:
                 continue
-            while above and above[-1][0] >= indent:
-                above.pop()
-            if todo is None:
-                # A heading or a plain item ends the parts, holding what sits under it apart.
-                above.append((indent, None, None))
-                continue
-            parent_tag, parent = (above[-1][1], above[-1][2]) if above else (None, None)
-
+            parent = up[hit.line]
             # Tags and links off the words, as the board read `todo.tags` and
             # `todo.text`, so neither counts inside a field's value.
             words = _words(todo[2] or "")
-            tagged = _tag_project(words, folders) or parent_tag
-            project = tagged or folder or _link_project(words, paths) or parent
+            tagged = _tag_project(words, folders) or tags.get(parent)
+            above = None if parent is None else found.get((note, parent))
+            project = tagged or folder or _link_project(words, paths) or above
             found[(note, hit.line)] = project
-            above.append((indent, tagged, project))
+            tags[hit.line] = tagged
 
     return [found.get((hit.path, hit.line)) for hit in hits]

@@ -16,7 +16,7 @@ function open(seed: Record<string, Seed[]>) {
 const doneWords = () =>
   within(screen.getByRole("region", { name: "Erledigt" }))
     .getAllByRole("checkbox")
-    .map((box) => box.textContent);
+    .map((box) => box.getAttribute("aria-label"));
 
 beforeEach(() => {
   localStorage.clear();
@@ -242,6 +242,7 @@ describe("a tick's day (#1513)", () => {
   it("requestFor sends a tick's own day over the send-time one, and no day on the other writes", () => {
     const item = {
       line: 3,
+      depth: 0,
       text: "Milch",
       done: false,
       assignee: null,
