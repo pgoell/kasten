@@ -1,3 +1,4 @@
+import { isolateHistory } from "@codemirror/commands";
 import {
   EditorState,
   type Extension,
@@ -98,7 +99,7 @@ export function vimModeState(): Extension {
 
 type Insert = { insert: boolean; joins: boolean };
 
-/** Sent as vim enters insert mode, `joins` true when its key already changed the text (`o`, `cw`), and as it leaves. */
+/** Vim entering insert mode (joins when its key already changed the text) or leaving it. */
 const insertMode = StateEffect.define<Insert>();
 
 /** Whether vim is inserting, and whether a typed change joins the last undo event, it being this insert's own. */
@@ -108,14 +109,15 @@ const insertField = StateField.define<Insert>({
     for (const effect of tr.effects) {
       if (effect.is(insertMode)) value = effect.value;
     }
+    if (!value.insert) return value;
+    // An undo, a redo, a step kept apart (the table line-up) or a cursor moved by a click or a key
+    // ends the undo step there, as vim's insert does.
+    const apart = tr.annotation(isolateHistory) !== undefined;
+    const moved =
+      tr.isUserEvent("undo") || tr.isUserEvent("redo") || apart || (tr.selection && !tr.docChanged);
+    if (moved) return { insert: true, joins: false };
     const kept = tr.annotation(Transaction.addToHistory) !== false;
-    if (value.insert && !value.joins && tr.docChanged && kept) {
-      value = { insert: true, joins: true };
-    } else if (value.insert && value.joins && tr.selection && !tr.docChanged) {
-      // A cursor moved by a click or a key ends the undo step there, as vim's insert does.
-      value = { insert: true, joins: false };
-    }
-    return value;
+    return tr.docChanged && kept ? { insert: true, joins: true } : value;
   },
 });
 

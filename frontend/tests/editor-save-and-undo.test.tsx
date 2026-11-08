@@ -1,3 +1,4 @@
+import { isolateHistory, redo, undo } from "@codemirror/commands";
 import { Transaction } from "@codemirror/state";
 import { act, fireEvent, render } from "@testing-library/react";
 import { Editor } from "@/components/editor";
@@ -137,6 +138,55 @@ describe("#1662 one u takes back a whole vim insert", () => {
     await press(el, ["g", "g", "o"]);
     typeHere(view, "foo");
     await press(el, ["ArrowDown"]);
+    const between = view.state.doc.toString();
+    typeHere(view, "bar");
+    await press(el, ["Escape", "u"]);
+    expect(view.state.doc.toString()).toBe(between);
+  });
+
+  it.each([
+    ["i", ["g", "g", "d", "d", "A"]],
+    ["o", ["g", "g", "d", "d", "o"]],
+  ])("an undo mid-insert after %s ends the join: u then leaves the dd done", async (_, keys) => {
+    const { container } = render(<Editor initialDoc={BODY} preview={false} />);
+    const view = viewIn(container);
+    const el = content(container);
+    await press(el, keys.slice(0, 4));
+    const deleted = view.state.doc.toString();
+    await press(el, keys.slice(4));
+    typeHere(view, "foo");
+    act(() => undo(view));
+    const between = view.state.doc.toString();
+    typeHere(view, "bar");
+    await press(el, ["Escape", "u"]);
+    expect(view.state.doc.toString()).toBe(between);
+    await press(el, ["u"]);
+    expect(view.state.doc.toString()).not.toBe(deleted);
+  });
+
+  it("a redo mid-insert ends the join too: u takes back only the typing after it", async () => {
+    const { container } = render(<Editor initialDoc={BODY} preview={false} />);
+    const view = viewIn(container);
+    const el = content(container);
+    await press(el, ["G", "o"]);
+    typeHere(view, "foo");
+    act(() => undo(view));
+    act(() => redo(view));
+    const between = view.state.doc.toString();
+    typeHere(view, "bar");
+    await press(el, ["Escape", "u"]);
+    expect(view.state.doc.toString()).toBe(between);
+  });
+
+  it("a step kept apart mid-insert, as the table line-up is, keeps its own undo", async () => {
+    const { container } = render(<Editor initialDoc={BODY} preview={false} />);
+    const view = viewIn(container);
+    const el = content(container);
+    await press(el, ["G", "o"]);
+    typeHere(view, "foo");
+    act(() =>
+      view.dispatch({ changes: { from: 0, insert: "x" }, annotations: isolateHistory.of("full") }),
+    );
     const between = view.state.doc.toString();
     typeHere(view, "bar");
     await press(el, ["Escape", "u"]);
