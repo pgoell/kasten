@@ -87,6 +87,20 @@ def served_closer(end: bytes) -> bytes:
         pytest.param(b"<svg><desc><b></desc></b></desc><![CDATA[x", b"]]></svg>", id="then-closed"),
         pytest.param(b"<a><svg><desc><a></desc><![CDATA[x", b"></svg>", id="with-a"),
         pytest.param(b"<nobr><svg><desc><nobr></desc><![CDATA[x", b"></svg>", id="with-nobr"),
+        pytest.param(
+            b'<svg><desc><b></desc a=">"><![CDATA[x', b"></svg>", id="quoted-gt-in-end-tag"
+        ),
+        pytest.param(
+            b"<svg><desc><b></desc a='>'><![CDATA[x", b"></svg>", id="single-quoted-gt-in-end-tag"
+        ),
+        pytest.param(
+            b"<svg><desc><b></desc a=><![CDATA[x", b"></svg>", id="empty-value-in-end-tag"
+        ),
+        pytest.param(b"<svg><desc><b></desc/><![CDATA[x", b"></svg>", id="slash-in-end-tag"),
+        pytest.param(b'<svg><desc><b></desc a="x', b'"></svg>', id="cut-in-a-quoted-value"),
+        pytest.param(b"<svg><desc><b></desc a='x", b"'></svg>", id="cut-in-a-single-quoted-value"),
+        pytest.param(b"<svg><desc><b></desc ", b"></svg>", id="cut-after-the-name"),
+        pytest.param(b'<svg><desc><b></desc a=">">x', b"</svg>", id="quoted-gt-whole-page"),
     ],
 )
 def test_1670_a_points_own_end_tag_behind_html_leaves_the_point_open(

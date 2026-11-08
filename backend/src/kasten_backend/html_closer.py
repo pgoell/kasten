@@ -49,6 +49,10 @@ _SCOPE = _MARKERS | {"html", "table"}
 _START_TAG = re.compile(
     r"""<[^\s/>]++(?:[\s/]++|[^\s/>=]++(?:\s*+=\s*+(?:"[^"]*+"|'[^']*+'|[^\s>]*+))?+)*+>"""
 )
+# An unquoted value never starts with a quote, so a cut quoted value matches no tag.
+_END_TAG = re.compile(
+    r"""</[^\s/>]++(?:[\s/]++|[^\s/>=]++(?:\s*+=\s*+(?:"[^"]*+"|'[^']*+'|(?!["'])[^\s>]*+))?+)*+>"""
+)
 
 _TAG = ((">", False), ('">', False), ("'>", False), ("]]>", False))
 """What may end a tag, a doctype or a CDATA section, the shortest first, each with whether it
@@ -249,8 +253,10 @@ def _point_end_fix(page: str, at: int) -> str | None:
     """A point's own end tag with an html current node, which Chrome ignores (#1670).
 
     The in-body rules stop at the point, a special element; justhtml pops it. The tag becomes a
-    bogus comment.
+    bogus comment, blank through the tag's real end, past any `>` in a quoted value.
     """
+    if (tag := _END_TAG.match(page, at)) is None:
+        return None
     stack = _open(page[:at])
     name = re.split(r"[\t\n\f\r />]", page[at + 2 : at + 18], maxsplit=1)[0].lower()
     if not stack[1:] or stack[1].namespace != "html":
@@ -259,7 +265,8 @@ def _point_end_fix(page: str, at: int) -> str | None:
     for node in stack[1:]:
         foreign = foreign or node.namespace != "html"
         if node.name.lower() == name:
-            return page[:at] + "<?" + page[at + 2 :] if foreign else None
+            blank = "<?" + " " * (tag.end() - at - 3) + ">"
+            return page[:at] + blank + page[tag.end() :] if foreign else None
     return None
 
 
