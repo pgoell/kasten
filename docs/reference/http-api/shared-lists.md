@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: "HTTP API: shared lists"
-description: The eight routes the shared lists app reaches under /share/, with what each takes and answers.
+description: The ten routes the shared lists app reaches under /share/, with what each takes and answers.
 resource: backend/src/kasten_backend/routes/share.py
 tags: [api, backend, share, lists]
 status: stable
@@ -9,7 +9,7 @@ status: stable
 
 # HTTP API: shared lists
 
-The eight routes under `/share/`. They sit outside `/api/`, so the count on
+The ten routes under `/share/`. They sit outside `/api/`, so the count on
 [the HTTP API page](/reference/http-api.md) leaves them out. On the share host,
 set by [`KASTEN_SHARE_HOST`](/reference/configuration/shared-lists.md#kasten_share_host), they
 are the only paths the backend answers. The reasoning is in
@@ -27,11 +27,14 @@ dot-dot, a symlink or a nested folder, answers `404` with
 Each list route answers the same shape:
 
 ```json
-{ "name": "Einkauf", "sha": "3f9c1a0", "items": [{ "line": 4, "text": "Milch", "done": false, "assignee": null, "ticked_by": null, "ticked_at": null }] }
+{ "name": "Einkauf", "sha": "3f9c1a0", "items": [{ "line": 4, "depth": 0, "text": "Milch", "done": false, "assignee": null, "ticked_by": null, "ticked_at": null }] }
 ```
 
 * `sha` is the note's current sha, or `null` when the note is not there.
 * `line` is the item's 0-based line index in the note.
+* `depth` is `0` for an item and `1` for a part of the item above it, `2` for a
+  part of that part, and so on. Items come in note order, so a part follows the
+  item it belongs to.
 * `text` is the item with no markdown: no `- [ ]`, every field the editor
   reads taken out, such as `✅ <date>`, `🆔 kt-…` or `📅 <date>`, and no
   trailing `^block-id`. Words after a field stay, and so does a marker with no
@@ -45,7 +48,11 @@ Each list route answers the same shape:
 * `ticked_at` is when a done item was ticked, as ISO 8601 with an offset, such as
   `2026-10-25T18:04:12+02:00`. It is `null` for an open item and when the history
   cannot be read.
-* Only top-level lines `- [ ] `, `- [x] ` and `- [X] ` are items.
+* Lines `- [ ] `, `- [x] ` and `- [X] ` at the margin are items. The same lines
+  indented under one are its parts, by the rule in
+  [Subtasks](/reference/todo-format/state-changes.md#subtasks): a heading or a
+  plain list item ends them. A part under a line in another state, such as
+  `- [/]`, is not listed, and neither is the `- [/]` line.
 
 A note that is not there reads as `{"sha": null, "items": []}`, and an add with
 `sha: null` creates it.
@@ -103,6 +110,11 @@ so an add whose answer was lost is not sent twice. A read without `text` has no
 Takes `{"text": "Milch", "sha": "3f9c1a0"}` and appends `- [ ] Milch` after the
 last item line, or at the end of the note. Answers the `List` after the add.
 
+With `"under": 4` the new line is a part of the item on line 4: it goes after
+that item's parts, two spaces further in than the item's own line, as
+[`s` in the todo pane](/reference/editor-keys/todo-pane.md#the-todo-pane) writes
+one. An `under` that names no item adds an item of its own.
+
 * `sha: null` creates the note when it is missing.
 * Blank text answers `422`.
 * A stale sha answers `409`.
@@ -130,12 +142,17 @@ read differently without it: `Brot✅ 2026-01-01mehr` becomes `Brot mehr`, but
 outside a link or code span: a bare `✅` among the words, or one inside a code
 span, stays as it is.
 
+A tick to done takes the item's open parts along, as kasten's completion does:
+every part under it, parts of parts too, in any state but done and rejected,
+becomes `[x]` with `✅ <today>` and no `🆔`, and a waiting part loses its dated
+`👤`. A part already done or rejected stays. Unticking an item leaves its parts as
+they are, and a part ticks and unticks alone like any item.
+
 A tick whose line is already in the asked state, or is not an item, answers
-`200` and changes nothing. A stale sha answers `409`. A tick to done on a line
-that reads a recurrence, a `🔁` with a value outside a link or code span, or
-on a line with indented parts under it, answers `422`
-`{"detail": "Tick this one in kasten"}` and writes nothing: kasten's own cycle
-writes the next occurrence and ticks the parts.
+`200` and changes nothing. A stale sha answers `409`. A tick to done on a line,
+or over an open part, that reads a recurrence, a `🔁` with a value outside a
+link or code span, answers `422` `{"detail": "Tick this one in kasten"}` and
+writes nothing: kasten's own cycle writes the next occurrence.
 
 A tick to done also writes the done log line the todo pane writes, `- ✅ <today>
 <words> [[<list>]] <id>`, under `## Done` in today's daily note, making the note
@@ -169,10 +186,34 @@ A stale sha answers `409`. An assign to the state the line is in already, or on 
 line that is no task, writes nothing and answers the `List`. An item that is
 done keeps who ticked it, since an assign is no tick.
 
+## POST /share/lists/{name}/edit
+
+Takes `{"line": 4, "text": "2x Milch", "sha": "3f9c1a0"}` and answers the
+`List`. The words of the item or part on that line become `text`, joined onto
+one line. The box, the indent, every field the editor reads (`👤`, `📅`, `🔁`,
+`➕`, `✅`, `🆔`, `⛔` and the rest) and a trailing `^block-id` stay as written.
+The fields follow the new words in the order they stood, one space apart, so
+words that sat between two fields, such as a tag after the assignee, move before
+them: `Milch 👤 [[Alicia]] #bio 📅 2026-11-20` edited to `2x Milch #bio` becomes
+`2x Milch #bio 👤 [[Alicia]] 📅 2026-11-20`.
+
+Text that leaves the item no words, blank or only fields, answers `422` and
+writes nothing. A line that is no item, or words the line has already, write
+nothing and answer the `List`. A stale sha answers `409`.
+
+## POST /share/lists/{name}/delete
+
+Takes `{"line": 4, "sha": "3f9c1a0"}` and takes the item or part on that line
+out of the note, with every part under it. A part goes alone. The vault's history
+keeps the lines. Answers the `List`; a line that is no item writes nothing, and a
+stale sha answers `409`.
+
 ## POST /share/lists/{name}/clear
 
-Takes `{"sha": "3f9c1a0"}` and removes the `- [x]` and `- [X]` item lines.
-Nothing else changes. Answers the `List`, and a stale sha answers `409`.
+Takes `{"sha": "3f9c1a0"}` and removes each done item at the margin with its
+parts, when every part is done or rejected. An item with a part still open stays,
+and so does a done part of an open item, which counts in its `1/3`. Nothing else
+changes. Answers the `List`, and a stale sha answers `409`.
 
 ## GET /share/events
 
