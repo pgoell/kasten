@@ -161,6 +161,12 @@ def append_dump(text: str, capture: str) -> str:
     return "\n".join([*written, "", *rest] if rest else [*written, ""])
 
 
+def section_lines(text: str, heading: str) -> list[str]:
+    """The lines under `heading` to its section's end, found as `append_under` finds it."""
+    at, end = _section(text, heading, ANY_HEADING)
+    return [] if at is None else text.split("\n")[at + 1 : end]
+
+
 def append_under(text: str, heading: str, line: str) -> str:
     """`text` with `line` at the end of `heading`'s section, made at the end where there is none.
 

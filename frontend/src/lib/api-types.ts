@@ -1996,6 +1996,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/finance/contracts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Contracts
+         * @description Every contract note in the contracts folder, by its next cancel-by date.
+         */
+        get: operations["read_contracts_api_finance_contracts_get"];
+        put?: never;
+        /**
+         * Write Contract
+         * @description Start a contract note for a plan, its id filled in and its terms left to fill.
+         */
+        post: operations["write_contract_api_finance_contracts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/contracts/reminders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write Reminders
+         * @description Write each contract note's next cancel-by todo where it has none open; the paths written.
+         */
+        post: operations["write_reminders_api_finance_contracts_reminders_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/finance/goals": {
         parameters: {
             query?: never;
@@ -4084,6 +4128,54 @@ export interface components {
              * @default false
              */
             replace: boolean;
+        };
+        /**
+         * ContractIn
+         * @description The plan a new contract note is for.
+         */
+        ContractIn: {
+            /** Plan Id */
+            plan_id: number;
+        };
+        /**
+         * ContractOut
+         * @description A contract note, its plan, its cost a year and its next cancel-by date.
+         *
+         *     `problem` names what keeps a date or a cost from it: a field missing, or a plan gone.
+         */
+        ContractOut: {
+            /** Path */
+            path: string;
+            /** Name */
+            name: string;
+            /** Plan Id */
+            plan_id: number | null;
+            /** Plan Name */
+            plan_name: string | null;
+            /** Amount */
+            amount: string | null;
+            /** Every Months */
+            every_months: number | null;
+            /** Yearly */
+            yearly: string | null;
+            /** Cancel By */
+            cancel_by: string | null;
+            /** Renews */
+            renews: string | null;
+            /** Ends */
+            ends: string | null;
+            /** Problem */
+            problem: string | null;
+        };
+        /**
+         * ContractsOut
+         * @description Every contract note by cancel-by date, and what they cost a year together.
+         */
+        ContractsOut: {
+            /** Contracts */
+            contracts: components["schemas"]["ContractOut"][];
+            /** Yearly */
+            yearly: string;
         };
         /**
          * ContributionOut
@@ -9309,6 +9401,101 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProposalOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_contracts_api_finance_contracts_get: {
+        parameters: {
+            query: {
+                today: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    write_contract_api_finance_contracts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContractIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    write_reminders_api_finance_contracts_reminders_post: {
+        parameters: {
+            query: {
+                today: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
                 };
             };
             /** @description Validation Error */

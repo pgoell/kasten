@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: "HTTP API: finance plans and goals"
-description: The routes behind plans and goals, the plans and the bookings that met them, the dates a month holds, the 12-month forecast, plans proposed from history, and saving goals with each saving account's balance, reserved and unreserved.
+description: The routes behind plans, contracts and goals, the plans and the bookings that met them, contract notes with their cancel-by dates, the dates a month holds, the 12-month forecast, plans proposed from history, and saving goals with each saving account's balance, reserved and unreserved.
 resource: backend/src/kasten_backend/routes/finance_plans.py
 tags: [api, backend, openapi, finance]
 status: draft
@@ -140,6 +140,51 @@ plan already covers, by its payee and account or by its name, is left out.
   }
 ]
 ```
+
+## Contracts
+
+A contract is a note in `03 Areas/03 Money/Contracts/` whose frontmatter has
+`type: Contract`, `plan` (a plan's id, optional), `start`, `term`, `renews`,
+`notice` and `ends`. A length is `12 months`, `1 year`, `6 weeks` or
+`30 days`; `renews: none` ends with the term, and no `renews` renews monthly.
+The term ends the day before `start`'s day that many months on, or on the
+last day of a shorter month (BGB § 188); each renewal counts from the day
+after it. A period's cancel-by is its end less `notice`, on the same day or
+the last of a shorter month. `ends` set means cancelled: no cancel-by.
+
+## GET /api/finance/contracts
+
+Every contract note, by its next cancel-by date on or after `today`
+(`YYYY-MM-DD`, required), those with none last; `yearly` is the sum of theirs.
+
+```json
+{
+  "contracts": [{
+    "path": "03 Areas/03 Money/Contracts/Haftpflicht.md", "name": "Haftpflicht",
+    "plan_id": 14, "plan_name": "Haftpflicht", "amount": "-600.00", "every_months": 12,
+    "yearly": "600.00", "cancel_by": "2026-11-28", "renews": "2027-03-01",
+    "ends": null, "problem": null
+  }],
+  "yearly": "600.00"
+}
+```
+
+`yearly` is what the plan costs a year, positive, `null` with no plan or one
+that falls due once. `problem` names a field missing or unreadable, or
+`plan 14 is gone`.
+
+## POST /api/finance/contracts/reminders
+
+Writes each contract note's next cancel-by todo under `## Cancel-by`, as
+`- [ ] cancel or renegotiate <name>, renews <date> 📅 <cancel-by> ⏳ <four weeks before, not before today>`,
+and answers the paths it wrote. `today` is required. An open todo there holds
+the note; past a done or rejected one the next comes after its `📅`.
+
+## POST /api/finance/contracts
+
+Starts the note for `{"plan_id": 14}`, named after the plan, its id, name and
+amount filled in and its terms left empty, and answers it as `GET` does,
+`201`. `404` for a plan that is not there, `409` for a note already there.
 
 ## A goal
 

@@ -5,22 +5,36 @@ matches the plans again before it commits, so a read only reads.
 docs/reference/budget-model.md says how plans count in free to spend.
 """
 
-import datetime as dt  # noqa: TC003  pydantic reads the annotation at runtime
+import datetime as dt
 from decimal import Decimal
+from pathlib import Path
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from kasten_backend import finance_budget_reads as budget_reads
 from kasten_backend import finance_plan_reads as reads
+from kasten_backend import frontmatter
+from kasten_backend.change import vault_change, vault_write
+from kasten_backend.config import Settings, get_settings
 from kasten_backend.finance_ledger import SCOPES, add_months
 from kasten_backend.finance_models import Category
 from kasten_backend.finance_plan_models import Plan
-from kasten_backend.finance_plans import due_in, forecast
+from kasten_backend.finance_plans import (
+    CANCEL_BY,
+    Contract,
+    cancel_by,
+    contract_field,
+    contract_of,
+    due_in,
+    forecast,
+    reminder,
+)
 from kasten_backend.finance_proposals import proposals
+from kasten_backend.folders import create_note
 from kasten_backend.routes.finance import (  # noqa: TC001  FastAPI reads both at runtime
     Money,
     Session,
@@ -32,8 +46,16 @@ from kasten_backend.routes.finance_budget import (
     parse_month,
     parse_when,
 )
+from kasten_backend.vault import (
+    relative_path,
+    resolve_folder,
+    resolve_note,
+    resolve_path,
+    write_note,
+)
 
 router = APIRouter(prefix="/api/finance")
+CONTRACTS = "03 Areas/03 Money/Contracts"
 
 
 class PlanIn(BaseModel):
@@ -335,3 +357,141 @@ async def read_proposals(session: Session, today: TodayParam) -> list[ProposalOu
         )
         for p in found
     ]
+
+
+class ContractIn(BaseModel):
+    """The plan a new contract note is for."""
+
+    plan_id: int
+
+
+class ContractOut(BaseModel):
+    """A contract note, its plan, its cost a year and its next cancel-by date.
+
+    `problem` names what keeps a date or a cost from it: a field missing, or a plan gone.
+    """
+
+    path: str
+    name: str
+    plan_id: int | None
+    plan_name: str | None
+    amount: Cents | None
+    every_months: int | None
+    yearly: Cents | None
+    cancel_by: dt.date | None
+    renews: dt.date | None
+    ends: dt.date | None
+    problem: str | None
+
+
+class ContractsOut(BaseModel):
+    """Every contract note by cancel-by date, and what they cost a year together."""
+
+    contracts: list[ContractOut]
+    yearly: Cents
+
+
+VaultSettings = Annotated[Settings, Depends(get_settings)]
+
+
+def _contract_notes(root: Path) -> list[tuple[str, str]]:
+    folder = resolve_folder(root, CONTRACTS)
+    found = []
+    for note in sorted(folder.glob("*.md")) if folder is not None else []:
+        content = note.read_text(encoding="utf-8")
+        if frontmatter.field(content, "type") == "Contract":
+            found.append((relative_path(root, note), content))
+    return found
+
+
+def _plan_id(content: str) -> int | None:
+    text = contract_field(content, "plan")
+    return int(text) if text.isdigit() else None
+
+
+def _contract_out(path: str, content: str, plan: Plan | None, today: dt.date) -> ContractOut:
+    name, plan_id = Path(path).stem, _plan_id(content)
+    terms = contract_of(content)
+    found = cancel_by(terms, today) if isinstance(terms, Contract) else None
+    problem = None if isinstance(terms, Contract) else f"{terms} missing or unreadable"
+    if plan_id is not None and plan is None:
+        problem = "; ".join(filter(None, [f"plan {plan_id} is gone", problem]))
+    every = plan.every_months if plan is not None else None
+    return ContractOut(
+        path=path,
+        name=name,
+        plan_id=plan_id,
+        plan_name=plan.name if plan is not None else None,
+        amount=plan.amount if plan is not None else None,
+        every_months=every,
+        yearly=None if plan is None or every is None else -plan.amount * 12 / every,
+        cancel_by=found[0] if found else None,
+        renews=found[1] if found else None,
+        ends=terms.ends if isinstance(terms, Contract) else None,
+        problem=problem,
+    )
+
+
+@router.get("/contracts")
+async def read_contracts(
+    session: Session, settings: VaultSettings, today: TodayParam
+) -> ContractsOut:
+    """Every contract note in the contracts folder, by its next cancel-by date."""
+    _, day = parse_when(today[:7], today)
+    plans = {plan.id: plan for plan in await session.scalars(select(Plan))}
+    found = [
+        _contract_out(path, content, plans.get(_plan_id(content) or 0), day)
+        for path, content in _contract_notes(settings.vault_path)
+    ]
+    found.sort(key=lambda c: (c.cancel_by is None, c.cancel_by or day, c.name.casefold()))
+    yearly = sum((c.yearly for c in found if c.yearly is not None), Decimal(0))
+    return ContractsOut(contracts=found, yearly=yearly)
+
+
+@router.post("/contracts/reminders")
+async def write_reminders(settings: VaultSettings, today: TodayParam) -> list[str]:
+    """Write each contract note's next cancel-by todo where it has none open; the paths written."""
+    _, day = parse_when(today[:7], today)
+    written = []
+    async with vault_write():
+        for path, content in _contract_notes(settings.vault_path):
+            terms = contract_of(content)
+            text = (
+                reminder(content, Path(path).stem, terms, day)
+                if isinstance(terms, Contract)
+                else None
+            )
+            note = resolve_note(settings.vault_path, path)
+            if text is None or note is None:
+                continue
+            async with vault_change(settings.vault_path, path):
+                write_note(note, frontmatter.stamp(text, content))
+            written.append(path)
+    return written
+
+
+@router.post("/contracts", status_code=201)
+async def write_contract(
+    body: ContractIn, session: Session, settings: VaultSettings
+) -> ContractOut:
+    """Start a contract note for a plan, its id filled in and its terms left to fill."""
+    plan = await session.get(Plan, body.plan_id)
+    if plan is None:
+        raise HTTPException(status_code=404, detail="No such plan")
+    name = plan.name.replace("/", "-").strip()
+    note = resolve_path(settings.vault_path, f"{CONTRACTS}/{name}.md")
+    if note is None:
+        raise HTTPException(status_code=422, detail="The vault will not take that name")
+    every = {None: "once", 1: "a month"}.get(plan.every_months, f"every {plan.every_months} months")
+    raw = (
+        f"---\ntype: Contract\nplan: {plan.id}\nstart:\nterm:\nrenews:\nnotice:\n---\n\n"
+        f"Plan {plan.id} in kasten: {plan.name}, {plan.amount} € {every}.\n\n{CANCEL_BY}\n"
+    )
+    async with vault_write():
+        if note.exists():
+            raise HTTPException(status_code=409, detail="A note is already there")
+        relative = relative_path(settings.vault_path, note)
+        content = frontmatter.stamp(raw)
+        async with vault_change(settings.vault_path, relative):
+            create_note(note, content)
+    return _contract_out(relative, content, plan, dt.date.today())

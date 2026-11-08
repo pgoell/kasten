@@ -26,12 +26,18 @@ from kasten_backend.finance_ledger import Line
 from kasten_backend.finance_plans import (
     Book,
     Booking,
+    Contract,
     GoalPlan,
     Plan,
+    Span,
+    cancel_by,
+    contract_field,
+    contract_of,
     due_dates,
     forecast,
     match,
     monthly_need,
+    reminder,
 )
 from kasten_backend.finance_proposals import Seen, every_of, proposals
 
@@ -250,3 +256,143 @@ def test_a_plan_confirmed_late_sets_aside_from_then_and_leaves_earlier_months() 
     book = Book(plans=[rent])
     september = free_to_spend(ledger(*lines), "mine", month(-1), TODAY, book)
     assert september.fixed[0].basis == "so_far"
+
+
+def note(**fields: str) -> str:
+    """A contract note with these frontmatter fields and nothing under it but a title."""
+    block = "".join(f"{key}: {value}\n" for key, value in fields.items())
+    return f"---\ntype: Contract\n{block}---\n# Phone\n"
+
+
+def terms(**fields: str) -> Contract:
+    found = contract_of(note(**fields))
+    assert isinstance(found, Contract), found
+    return found
+
+
+YEARLY = {"start": "2024-03-01", "term": "12 months", "renews": "12 months", "notice": "3 months"}
+
+
+def test_cancel_by_is_the_term_end_less_the_notice_and_renews_the_day_after() -> None:
+    # The term runs to 2025-02-28; three months back from a month end keeps the day, the stricter.
+    assert cancel_by(terms(**YEARLY), dt.date(2024, 6, 1)) == (
+        dt.date(2024, 11, 28),
+        dt.date(2025, 3, 1),
+    )
+
+
+def test_cancel_by_from_the_thirty_first_ends_on_the_short_months_last_day() -> None:
+    contract = terms(start="2024-01-31", term="1 month", renews="1 month", notice="2 weeks")
+    # Jan 31 plus a month ends Feb 29 (BGB § 188 (3)); the renewals count from Mar 1, never drift.
+    assert cancel_by(contract, dt.date(2024, 1, 31)) == (dt.date(2024, 2, 15), dt.date(2024, 3, 1))
+    assert cancel_by(contract, dt.date(2024, 2, 16)) == (dt.date(2024, 3, 17), dt.date(2024, 4, 1))
+    assert cancel_by(contract, dt.date(2024, 4, 17)) == (dt.date(2024, 5, 17), dt.date(2024, 6, 1))
+
+
+def test_cancel_by_of_a_term_already_past_is_the_next_one_from_today() -> None:
+    assert cancel_by(terms(**YEARLY), dt.date(2026, 11, 8)) == (
+        dt.date(2026, 11, 28),
+        dt.date(2027, 3, 1),
+    )
+    # Its cancel-by passed, its renewal ahead: that period is lost. The next ends on a leap day.
+    assert cancel_by(terms(**YEARLY), dt.date(2026, 12, 1)) == (
+        dt.date(2027, 11, 29),
+        dt.date(2028, 3, 1),
+    )
+
+
+def test_cancel_by_renews_monthly_after_the_first_term() -> None:
+    contract = terms(start="2024-03-01", term="24 months", renews="1 month", notice="1 month")
+    assert cancel_by(contract, dt.date(2025, 1, 1)) == (dt.date(2026, 1, 28), dt.date(2026, 3, 1))
+    assert cancel_by(contract, dt.date(2026, 1, 29)) == (dt.date(2026, 2, 28), dt.date(2026, 4, 1))
+    assert cancel_by(contract, dt.date(2026, 7, 20)) == (dt.date(2026, 7, 31), dt.date(2026, 9, 1))
+
+
+def test_cancel_by_with_notice_longer_than_the_renewal() -> None:
+    contract = terms(start="2024-03-01", term="12 months", renews="1 month", notice="3 months")
+    # Notice sent now ends the month that ends three months on, not the one running.
+    assert cancel_by(contract, dt.date(2025, 6, 10)) == (dt.date(2025, 6, 30), dt.date(2025, 10, 1))
+
+
+def test_cancel_by_of_one_that_ends_or_was_cancelled_is_none() -> None:
+    once = terms(start="2024-03-01", term="12 months", renews="none", notice="1 month")
+    assert cancel_by(once, dt.date(2024, 3, 1)) == (dt.date(2025, 1, 28), dt.date(2025, 3, 1))
+    assert cancel_by(once, dt.date(2025, 1, 29)) is None
+    assert cancel_by(terms(**YEARLY, ends="2025-02-28"), dt.date(2024, 6, 1)) is None
+
+
+def test_contract_of_names_the_field_missing_and_renews_monthly_unless_told() -> None:
+    assert contract_of(note(term="12 months", notice="1 month")) == "start"
+    assert contract_of(note(start="2024-03-01", notice="1 month")) == "term"
+    assert contract_of(note(start="2024-03-01", term="12 months", notice="soon")) == "notice"
+    assert (
+        contract_of(note(start="2024-03-01", term="1 year", notice="30 days", renews="x"))
+        == "renews"
+    )
+    assert terms(start="2024-03-01", term="1 year", notice="30 days").renews == Span(1, "month")
+
+
+def test_reminder_writes_the_todo_once_then_the_next_after_done_or_rejected() -> None:
+    contract, today = terms(**YEARLY), dt.date(2024, 6, 1)
+    first = reminder(note(**YEARLY), "Phone", contract, today)
+    line = "- [ ] cancel or renegotiate Phone, renews 2025-03-01 📅 2024-11-28 ⏳ 2024-10-31"
+    assert first == f"{note(**YEARLY)}\n## Cancel-by\n{line}\n"
+    assert reminder(first, "Phone", contract, today) is None
+    for box in ("x", "-"):
+        closed = first.replace("- [ ]", f"- [{box}]")
+        # Closed early, the next is the following term's, never the same date twice.
+        assert reminder(closed, "Phone", contract, today) == (
+            f"{closed}- [ ] cancel or renegotiate Phone, renews 2026-03-01"
+            " 📅 2025-11-28 ⏳ 2025-10-31\n"
+        )
+
+
+def test_reminder_holds_its_scheduled_date_to_today_and_reads_only_its_section() -> None:
+    text = f"{note(**YEARLY)}\n## Calls\n- [ ] ring them 📅 2024-11-20\n"
+    written = reminder(text, "Phone", terms(**YEARLY), dt.date(2024, 11, 10))
+    assert written is not None
+    assert written.endswith(
+        "## Cancel-by\n- [ ] cancel or renegotiate Phone, renews 2025-03-01"
+        " 📅 2024-11-28 ⏳ 2024-11-10\n"
+    )
+
+
+def test_reminder_finds_its_section_as_the_writer_does_and_writes_once() -> None:
+    contract, today = terms(**YEARLY), dt.date(2024, 6, 1)
+    for heading in ("## Cancel-by ", "## Cancel-by\t"):
+        first = reminder(f"{note(**YEARLY)}\n{heading}\n", "Phone", contract, today)
+        assert first is not None
+        assert first.count("- [ ]") == 1
+        assert reminder(first, "Phone", contract, today) is None
+    crlf = reminder(note(**YEARLY), "Phone", contract, today)
+    assert crlf is not None
+    assert reminder(crlf.replace("\n", "\r\n"), "Phone", contract, today) is None
+    # A heading inside a fence is no section, for the reader as for the writer.
+    fenced = f"{note(**YEARLY)}\n```\n## Cancel-by\n- [ ] x 📅 2024-11-28\n```\n"
+    written = reminder(fenced, "Phone", contract, today)
+    assert written is not None
+    assert reminder(written, "Phone", contract, today) is None
+
+
+def test_reminder_reads_the_due_date_as_the_todo_board_does() -> None:
+    contract, today = terms(**YEARLY), dt.date(2024, 6, 1)
+    for marker in ("📆", "🗓", "📅\N{VARIATION SELECTOR-16}"):
+        text = f"{note(**YEARLY)}\n## Cancel-by\n- [ ] cancel Phone {marker} 2024-11-28\n"
+        assert reminder(text, "Phone", contract, today) is None
+    # A marker in code is no date, so that line holds nothing.
+    coded = f"{note(**YEARLY)}\n## Cancel-by\n- [ ] see `📅 2024-11-28`\n"
+    assert reminder(coded, "Phone", contract, today) is not None
+
+
+def test_reminder_skips_a_date_the_calendar_lacks() -> None:
+    text = f"{note(**YEARLY)}\n## Cancel-by\n- [x] cancel Phone 📅 2024-11-31\n"
+    written = reminder(text, "Phone", terms(**YEARLY), dt.date(2024, 6, 1))
+    assert written is not None
+    assert written.endswith("📅 2024-11-28 ⏳ 2024-10-31\n")
+
+
+def test_contract_fields_may_carry_a_trailing_comment() -> None:
+    commented = {key: f"{value}   # from the paper" for key, value in YEARLY.items()}
+    assert terms(**commented) == terms(**YEARLY)
+    assert contract_field(note(plan="14 # Haftpflicht"), "plan") == "14"
+    assert contract_field(note(start="# fill in"), "start") == ""
