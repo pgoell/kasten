@@ -109,8 +109,12 @@ const insertField = StateField.define<Insert>({
       if (effect.is(insertMode)) value = effect.value;
     }
     const kept = tr.annotation(Transaction.addToHistory) !== false;
-    if (value.insert && !value.joins && tr.docChanged && kept)
+    if (value.insert && !value.joins && tr.docChanged && kept) {
       value = { insert: true, joins: true };
+    } else if (value.insert && value.joins && tr.selection && !tr.docChanged) {
+      // A cursor moved by a click or a key ends the undo step there, as vim's insert does.
+      value = { insert: true, joins: false };
+    }
     return value;
   },
 });

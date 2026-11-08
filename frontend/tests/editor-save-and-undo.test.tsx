@@ -115,6 +115,34 @@ describe("#1662 one u takes back a whole vim insert", () => {
     expect(view.state.doc.toString()).toBe(deleted);
   });
 
+  it("a click elsewhere mid-insert ends the undo step: u takes back only what came after it", async () => {
+    const { container } = render(<Editor initialDoc={BODY} preview={false} />);
+    const view = viewIn(container);
+    const el = content(container);
+    await press(el, ["i"]);
+    typeHere(view, "foo");
+    const between = view.state.doc.toString();
+    act(() =>
+      view.dispatch({ selection: { anchor: between.length }, userEvent: "select.pointer" }),
+    );
+    typeHere(view, "bar");
+    await press(el, ["Escape", "u"]);
+    expect(view.state.doc.toString()).toBe(between);
+  });
+
+  it("an arrow key mid-insert ends the undo step too, after o", async () => {
+    const { container } = render(<Editor initialDoc={BODY} preview={false} />);
+    const view = viewIn(container);
+    const el = content(container);
+    await press(el, ["g", "g", "o"]);
+    typeHere(view, "foo");
+    await press(el, ["ArrowDown"]);
+    const between = view.state.doc.toString();
+    typeHere(view, "bar");
+    await press(el, ["Escape", "u"]);
+    expect(view.state.doc.toString()).toBe(between);
+  });
+
   it("with vim off, a line typed at the end, a save, ctrl+z: the body as before", async () => {
     localStorage.setItem("kasten.vim", "off");
     const { container } = render(<Editor initialDoc={BODY} preview={false} />);
