@@ -21,15 +21,16 @@ function terms(contract: Contract): string {
 }
 
 function plan(contract: Contract): string {
+  if (contract.plan_id != null && contract.plan_name == null) return "";
   if (contract.plan_name == null || contract.amount == null) return "no plan";
   return `${contract.plan_name}, ${money(contract.amount)} ${scheduleName(contract.every_months).toLowerCase()}`;
 }
 
 /**
  * Every contract note by its next cancel-by date, with its plan and what it costs a year, and
- * the total. Opening it writes each note's next cancel-by todo first, where none is open.
+ * the total, and the note just made. Opening it writes each note's next cancel-by todo first.
  */
-export function Contracts({ today }: { today: string }) {
+export function Contracts({ today, made }: { today: string; made?: string }) {
   const contracts = useQuery({
     queryKey: ["finance", "contracts", today],
     queryFn: () => fetchContracts(today),
@@ -39,6 +40,7 @@ export function Contracts({ today }: { today: string }) {
   return (
     <section aria-label="Contracts" className="finance-plans-group">
       <h3>Contracts</h3>
+      {made === undefined ? null : <p role="status">{`Wrote ${made}: fill in its terms there.`}</p>}
       {rows.length === 0 ? (
         <p className="finance-muted">
           No contract notes yet: press Contract on a plan or a proposal to start one.
@@ -52,7 +54,7 @@ export function Contracts({ today }: { today: string }) {
                 {contract.yearly == null ? "" : `${euros(contract.yearly)} a year`}
               </span>
               <span className="finance-muted finance-plans-aside">
-                {`${terms(contract)}; ${plan(contract)}`}
+                {[terms(contract), plan(contract)].filter(Boolean).join("; ")}
               </span>
             </li>
           ))}

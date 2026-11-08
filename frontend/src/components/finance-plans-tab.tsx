@@ -86,16 +86,18 @@ function Proposals({
             <span className="finance-muted finance-plans-aside">
               {`${scheduleName(proposal.every_months)}, ${proposal.source === "bill" ? "a Firefly bill" : "a recurring payee"}, ${proposal.seen === 1 ? "seen once" : `seen ${proposal.seen} times`}, last ${day(proposal.last)}`}
             </span>
-            <button
-              type="button"
-              className="finance-pane-button finance-small"
-              aria-label={`Confirm ${proposal.name}`}
-              disabled={busy}
-              onClick={() => onConfirm(proposal)}
-            >
-              {index < PROPOSAL_KEYS.length ? <kbd>{PROPOSAL_KEYS[index]}</kbd> : null} Confirm
-            </button>
-            <ContractButton name={proposal.name} onPress={() => onContract(proposal)} />
+            <span className="finance-plans-buttons">
+              <button
+                type="button"
+                className="finance-pane-button finance-small"
+                aria-label={`Confirm ${proposal.name}`}
+                disabled={busy}
+                onClick={() => onConfirm(proposal)}
+              >
+                {index < PROPOSAL_KEYS.length ? <kbd>{PROPOSAL_KEYS[index]}</kbd> : null} Confirm
+              </button>
+              <ContractButton name={proposal.name} onPress={() => onContract(proposal)} />
+            </span>
           </li>
         ))}
       </ul>
@@ -163,15 +165,17 @@ function Plans({
             <span className="finance-muted finance-plans-aside">
               {`${scheduleName(plan.every_months)}${plan.reserves ? `, reserves ${money(plan.share)} a month when set aside in time` : ""}`}
             </span>
-            <button
-              type="button"
-              className="finance-pane-button finance-small"
-              aria-label={`Edit ${plan.name}`}
-              onClick={() => onEdit(plan)}
-            >
-              Edit
-            </button>
-            <ContractButton name={plan.name} onPress={() => onContract(plan)} />
+            <span className="finance-plans-buttons">
+              <button
+                type="button"
+                className="finance-pane-button finance-small"
+                aria-label={`Edit ${plan.name}`}
+                onClick={() => onEdit(plan)}
+              >
+                Edit
+              </button>
+              <ContractButton name={plan.name} onPress={() => onContract(plan)} />
+            </span>
           </li>
         ))}
       </ul>
@@ -423,6 +427,7 @@ export function FinancePlans({ month, today, keys, onNotice, refocus }: TabProps
   const categories = useQuery({ queryKey: ["finance", "categories"], queryFn: fetchCategories });
   const [editing, setEditing] = useState<Editing>();
   const [busy, setBusy] = useState(false);
+  const [made, setMade] = useState<string>();
   const [cursor, setCursor] = useState(0);
   const goalRows = goals.data?.goals ?? [];
   const at = Math.max(0, Math.min(cursor, goalRows.length - 1));
@@ -467,13 +472,8 @@ export function FinancePlans({ month, today, keys, onNotice, refocus }: TabProps
     }
     void run(() => writePlan(planOf(proposal), today));
   };
-  const contract = async (from: Plan | Proposal) => {
-    let path = "";
-    await run(async () => {
-      path = (await makeContract(from, today)).path;
-    });
-    if (path) onNotice(`Wrote ${path}: fill in its terms there`);
-  };
+  const contract = (from: Plan | Proposal) =>
+    void run(async () => setMade((await makeContract(from, today)).path));
   const cancel = () => {
     setEditing(undefined);
     refocus();
@@ -528,15 +528,15 @@ export function FinancePlans({ month, today, keys, onNotice, refocus }: TabProps
             proposals={proposals.data ?? []}
             busy={busy}
             onConfirm={confirm}
-            onContract={(from) => void contract(from)}
+            onContract={contract}
           />
           <Plans
             plans={plans.data ?? []}
             onEdit={(plan) => setEditing({ kind: "plan", id: plan.id })}
             onNew={() => setEditing({ kind: "plan" })}
-            onContract={(from) => void contract(from)}
+            onContract={contract}
           />
-          <Contracts today={today} />
+          <Contracts today={today} made={made} />
         </div>
       </div>
       <Forecast today={today} />

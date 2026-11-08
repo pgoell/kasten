@@ -270,7 +270,7 @@ describe("the finance pane's plans and goals", () => {
     expect(rows).toEqual([
       "Gymcancel by 14 Nov 2026, else renews 15 Jan 2027; no plan",
       `Haftpflicht${euros(600)} a yearcancel by 28 Nov 2026, else renews 1 Mar 2027; HUK, ${money("-600.00")} yearly`,
-      "Phoneplan 9 is gone; no plan",
+      "Phoneplan 9 is gone",
       "Paperterm missing or unreadable; no plan",
     ]);
     expect(list.querySelector("ul + p")?.textContent).toBe(`${euros(600)} a year in all`);
@@ -289,10 +289,8 @@ describe("the finance pane's plans and goals", () => {
     fireEvent.click(contractButtons()[1] as HTMLElement);
     await waitFor(() => expect(api.makeContract).toHaveBeenCalledTimes(1));
     expect(api.makeContract.mock.calls[0]?.[0]).toMatchObject({ id: 3 });
-    await waitFor(() =>
-      expect(notices.at(-1)).toBe(
-        "Wrote 03 Areas/03 Money/Contracts/Haftpflicht.md: fill in its terms there",
-      ),
+    expect((await screen.findByRole("status")).textContent).toBe(
+      "Wrote 03 Areas/03 Money/Contracts/Haftpflicht.md: fill in its terms there.",
     );
     fireEvent.click(contractButtons()[0] as HTMLElement);
     await waitFor(() => expect(api.makeContract).toHaveBeenCalledTimes(2));
