@@ -415,7 +415,7 @@ def _contract_out(path: str, content: str, plan: Plan | None, today: dt.date) ->
     found = cancel_by(terms, today) if isinstance(terms, Contract) else None
     problem = None if isinstance(terms, Contract) else f"{terms} missing or unreadable"
     if plan_id is not None and plan is None:
-        problem = f"plan {plan_id} is gone"
+        problem = "; ".join(filter(None, [f"plan {plan_id} is gone", problem]))
     every = plan.every_months if plan is not None else None
     return ContractOut(
         path=path,

@@ -354,6 +354,7 @@ async def test_contracts_list_by_cancel_by_with_cost_a_year_and_what_is_wrong(
     contract_note(vault, "Gym", TERMS.replace("2024-03-01", "2024-01-15"))
     contract_note(vault, "Phone", f"plan: {made['id'] + 999}\n{TERMS}")
     contract_note(vault, "Paper", "start: 2024-03-01\n")
+    contract_note(vault, "Fax", f"plan: {made['id'] + 999}\nstart: 2024-03-01\n")
     (vault / CONTRACTS / "Notes.md").write_text("# not a contract\n", encoding="utf-8")
     response = await finance_client.get(f"{API}/contracts", params={"today": "2026-10-10"})
     assert response.status_code == 200, response.text
@@ -366,6 +367,7 @@ async def test_contracts_list_by_cancel_by_with_cost_a_year_and_what_is_wrong(
         ("Gym", "2026-10-14", "2027-01-15", None, None),
         ("Haftpflicht", "2026-11-28", "2027-03-01", "600.00", None),
         ("Phone", "2026-11-28", "2027-03-01", None, f"plan {made['id'] + 999} is gone"),
+        ("Fax", None, None, None, f"plan {made['id'] + 999} is gone; term missing or unreadable"),
         ("Paper", None, None, None, "term missing or unreadable"),
     ]
     assert found["contracts"][1]["plan_name"] == "Haftpflicht"

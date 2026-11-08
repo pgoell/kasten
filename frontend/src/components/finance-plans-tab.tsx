@@ -49,13 +49,28 @@ function day(date: string): string {
   });
 }
 
+/** A proposal that cannot be posted as it is, with no payee or text to match by. */
+function unmatchable(proposal: Proposal): boolean {
+  return proposal.payee_id == null && !proposal.text;
+}
+
 /** A row's button that starts the contract note for its plan. */
-function ContractButton({ name, onPress }: { name: string; onPress: () => void }) {
+function ContractButton({
+  name,
+  onPress,
+  disabled = false,
+}: {
+  name: string;
+  onPress: () => void;
+  disabled?: boolean;
+}) {
   return (
     <button
       type="button"
       className="finance-pane-button finance-small"
       aria-label={`Make a contract note for ${name}`}
+      title={disabled ? "Confirm it as a plan first: it has nothing to match by" : undefined}
+      disabled={disabled}
       onClick={onPress}
     >
       Contract
@@ -96,7 +111,11 @@ function Proposals({
               >
                 {index < PROPOSAL_KEYS.length ? <kbd>{PROPOSAL_KEYS[index]}</kbd> : null} Confirm
               </button>
-              <ContractButton name={proposal.name} onPress={() => onContract(proposal)} />
+              <ContractButton
+                name={proposal.name}
+                onPress={() => onContract(proposal)}
+                disabled={busy || unmatchable(proposal)}
+              />
             </span>
           </li>
         ))}
@@ -466,7 +485,7 @@ export function FinancePlans({ month, today, keys, onNotice, refocus }: TabProps
   };
   /** Post a proposal as it is, or open the form for one with nothing to match by. */
   const confirm = (proposal: Proposal) => {
-    if (proposal.payee_id == null && !proposal.text) {
+    if (unmatchable(proposal)) {
       setEditing({ kind: "plan", draft: planOf(proposal) });
       return;
     }

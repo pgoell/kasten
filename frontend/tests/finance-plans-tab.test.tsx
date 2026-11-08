@@ -258,7 +258,15 @@ describe("the finance pane's plans and goals", () => {
           cancel_by: "2026-11-28",
           renews: "2027-03-01",
         },
-        { ...row, path: "c/Phone.md", name: "Phone", plan_id: 9, problem: "plan 9 is gone" },
+        {
+          ...row,
+          path: "c/Phone.md",
+          name: "Phone",
+          plan_id: 9,
+          cancel_by: "2026-11-28",
+          renews: "2027-03-01",
+          problem: "plan 9 is gone",
+        },
         { ...row, path: "c/Paper.md", name: "Paper", problem: "term missing or unreadable" },
       ],
       yearly: "600.00",
@@ -270,7 +278,7 @@ describe("the finance pane's plans and goals", () => {
     expect(rows).toEqual([
       "Gymcancel by 14 Nov 2026, else renews 15 Jan 2027; no plan",
       `Haftpflicht${euros(600)} a yearcancel by 28 Nov 2026, else renews 1 Mar 2027; HUK, ${money("-600.00")} yearly`,
-      "Phoneplan 9 is gone",
+      "Phonecancel by 28 Nov 2026, else renews 1 Mar 2027; plan 9 is gone",
       "Paperterm missing or unreadable; no plan",
     ]);
     expect(list.querySelector("ul + p")?.textContent).toBe(`${euros(600)} a year in all`);
@@ -338,5 +346,17 @@ describe("the finance pane's plans and goals", () => {
     expect(await real.fetchContracts("2026-10-25")).toEqual({ contracts: [], yearly: "0.00" });
     expect(order).toEqual(["/api/finance/contracts/reminders", "/api/finance/contracts"]);
     http.POST.mockReset();
+  });
+
+  it("#1675 a proposal with nothing to match by offers no Contract until it is a plan", async () => {
+    api.fetchProposals.mockResolvedValue([{ ...PROPOSAL, payee_id: null, text: null }]);
+    renderPane();
+    const button = await screen.findByRole("button", {
+      name: "Make a contract note for Haftpflicht",
+    });
+    expect((button as HTMLButtonElement).disabled).toBe(true);
+    expect(button.title).toBe("Confirm it as a plan first: it has nothing to match by");
+    fireEvent.click(button);
+    expect(api.makeContract).not.toHaveBeenCalled();
   });
 });

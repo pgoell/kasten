@@ -14,10 +14,11 @@ function longDay(date: string): string {
 }
 
 function terms(contract: Contract): string {
-  if (contract.problem) return contract.problem;
   if (contract.ends) return `cancelled, ends ${longDay(contract.ends)}`;
-  if (!contract.cancel_by || !contract.renews) return "renews no more";
-  return `cancel by ${longDay(contract.cancel_by)}, else renews ${longDay(contract.renews)}`;
+  if (contract.cancel_by && contract.renews) {
+    return `cancel by ${longDay(contract.cancel_by)}, else renews ${longDay(contract.renews)}`;
+  }
+  return contract.problem ? "" : "renews no more";
 }
 
 function plan(contract: Contract): string {
@@ -54,7 +55,7 @@ export function Contracts({ today, made }: { today: string; made?: string }) {
                 {contract.yearly == null ? "" : `${euros(contract.yearly)} a year`}
               </span>
               <span className="finance-muted finance-plans-aside">
-                {[terms(contract), plan(contract)].filter(Boolean).join("; ")}
+                {[terms(contract), contract.problem, plan(contract)].filter(Boolean).join("; ")}
               </span>
             </li>
           ))}
