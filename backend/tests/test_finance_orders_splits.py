@@ -18,9 +18,7 @@ from backend.tests.finance_order_rows import (
     send,
 )
 from backend.tests.finance_rows import API, GIRO, account, category, post, rule, stored
-from kasten_backend.finance_order_models import OrderItem
-from kasten_backend.finance_order_text import same_shop, shop_name
-from kasten_backend.finance_orders import net
+from kasten_backend.finance_orders import OrderItem, net, same_shop, shop_name
 
 if TYPE_CHECKING:
     from httpx import AsyncClient

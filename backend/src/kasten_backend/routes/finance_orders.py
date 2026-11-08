@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from kasten_backend import finance_orders
 from kasten_backend.db import get_session
-from kasten_backend.finance_order_models import (  # noqa: TC001  pydantic reads them at runtime
+from kasten_backend.finance_orders import (  # noqa: TC001  pydantic reads them at runtime
     ChargeKind,
     Source,
 )

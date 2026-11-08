@@ -226,6 +226,7 @@ export const TREE: readonly { key: string; label: string }[] = [
  */
 export const SCREENS: readonly { key: string; label: string }[] = [
   { key: "/tokens", label: "Mint and revoke the tokens an agent reaches the vault with" },
+  { key: "/settings", label: "Send todo reminders to this device, and remove a device" },
   { key: "/review", label: "The review, on a page of its own, sized for a phone" },
   // The phone route, and the page Android's share sheet opens. `<leader>cd` does the same.
   { key: "/capture", label: "Capture a thought into today's dump, sized for a phone" },

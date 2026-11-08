@@ -14,7 +14,7 @@ from sqlalchemy import and_, exists, select
 from sqlalchemy.orm import aliased, selectinload
 
 from kasten_backend.finance_models import Account, Category, Transaction
-from kasten_backend.finance_order_models import OrderCharge
+from kasten_backend.finance_orders import OrderCharge
 from kasten_backend.finance_tax_models import FORM_LINES, LABOUR_LINES, Receipt, TaxMark
 
 if TYPE_CHECKING:

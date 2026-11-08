@@ -15,8 +15,8 @@ from sqlalchemy.orm import selectinload
 
 from kasten_backend import finance, finance_sorting
 from kasten_backend.finance_models import Account, Transaction, TransactionSplit
-from kasten_backend.finance_order_models import OrderCharge, OrderItem, ShopOrder
-from kasten_backend.finance_order_text import NAMED, Candidate, choose, rank
+from kasten_backend.finance_orders.models import OrderCharge, OrderItem, ShopOrder
+from kasten_backend.finance_orders.text import NAMED, Candidate, choose, rank
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
