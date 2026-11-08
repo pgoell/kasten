@@ -36,10 +36,13 @@ _POINT_TAG = re.compile(
     r"<(?:foreignobject|desc|title|m[ionst]|mtext|annotation-xml)[\t\n\f\r />]", re.IGNORECASE
 )
 _CDATA = re.compile(r"<!\[(?!CDATA\[)(?i:cdata)\[")
-_A_START = re.compile(r"<a[\t\n\f\r />]", re.IGNORECASE)
+_A_START = re.compile(r"<(?:a|nobr)[\t\n\f\r />]", re.IGNORECASE)
 _FOREIGN_OBJECT_END = re.compile(r"</foreignobject[\t\n\f\r />]", re.IGNORECASE)
 _COMMENT = re.compile(r"<!--(?:>|->|.*?(?:-->|--!>))", re.DOTALL)
 _A_END = re.compile(r"</a[\t\n\f\r />]", re.IGNORECASE)
+_NOBR_END = re.compile(r"</nobr[\t\n\f\r />]", re.IGNORECASE)
+_SCOPE = _MARKERS | {"html", "table"}
+"""With the points, the elements that bound the spec's "in scope" (#1657)."""
 # A value follows an attribute name and `=`; a quote anywhere else is a plain character.
 _START_TAG = re.compile(
     r"""<[^\s/>]++(?:[\s/]++|[^\s/>=]++(?:\s*+=\s*+(?:"[^"]*+"|'[^']*+'|[^\s>]*+))?+)*+>"""
@@ -74,7 +77,7 @@ def _parse(page: str) -> Node:
     A rewrite keeps the length, so offsets into the page hold.
     """
     # `[CDATA[` matches case-sensitively; justhtml reads `[cdata[` as a CDATA section.
-    page = _CDATA.sub("<![xdata[", page)
+    page = source = _CDATA.sub("<![xdata[", page)
     a = _A_START.search(page)
     if _FOREIGN.search(page) and (
         _SUSPECT.search(page) or (a is not None and _POINT_TAG.search(page, a.end()))
@@ -82,13 +85,13 @@ def _parse(page: str) -> Node:
         for _ in range(_REWRITES):
             # Only to find the faults: tracking locations changes some parses.
             located = JustHTML(page, sanitize=False, track_node_locations=True).root
-            if (fixed := _fixed(page, _nodes(located))) is None:
+            if (fixed := _fixed(source, page, _nodes(located))) is None:
                 break
             page = fixed
     return JustHTML(page, sanitize=False).root
 
 
-def _fixed(page: str, nodes: list[Node]) -> str | None:
+def _fixed(source: str, page: str, nodes: list[Node]) -> str | None:
     """The page with its first token at fault rewritten, or None when there is none."""
     elements = [node for node in nodes if isinstance(node, Element)]
     # The in-body rules make `<image>` an `<img>`; justhtml misses it inside a point.
@@ -123,9 +126,18 @@ def _fixed(page: str, nodes: list[Node]) -> str | None:
         if (e.namespace, e.name) == ("html", "foreignobject")
         and (m := _FOREIGN_OBJECT_END.search(page, _last(page, e)))
     }
+    point = _POINT_TAG.search(page)
+    nobr_tags = {e.origin_offset for e in elements if (e.namespace, e.name) == ("html", "nobr")} | {
+        m.start() for m in _NOBR_END.finditer(page)
+    }
     tags = sorted(
         [(at, _a_fix) for at in a_tags if at < image]
         + [(at, _end_fix) for at in end_tags if at < image]
+        + [
+            (at, lambda page, at: _nobr_fix(source, page, at))
+            for at in nobr_tags
+            if at is not None and point and point.start() < at < image
+        ]
     )
     for at, fix in tags:
         if (fixed := fix(page, at)) is not None:
@@ -207,6 +219,33 @@ def _end_fix(page: str, at: int) -> str | None:
             return page[:at] + "<?" + page[at + 2 :]
         if node.name.lower() == "foreignobject":
             return None
+    return None
+
+
+def _nobr_fix(source: str, page: str, at: int) -> str | None:
+    """A `nobr` tag that justhtml reads against a `nobr` out of the spec's scope (#1657).
+
+    justhtml takes any open `nobr` off the stack, where Chrome keeps the outer one and opens a
+    new one. The inner tag becomes a `<font`, and its end tag with it; an end tag that reaches
+    no `nobr` in scope becomes a bogus comment.
+    """
+    stack = _open(page[:at])
+    bounded, target = False, None
+    for node in stack[1:]:
+        if node.namespace != "html" or node.name in _SCOPE:
+            bounded = bounded or node.namespace == "html" or (node.namespace, node.name) in _POINTS
+            continue
+        start = node.origin_offset
+        if node.name != "nobr" and source[start or 0 : (start or 0) + 5].lower() == "<nobr":
+            target = target or ("bogus" if bounded else "close")
+        elif node.name == "nobr":
+            if not bounded and target is None:
+                return None
+            if not page.startswith("</", at):
+                return page[:at] + "<font" + page[at + 5 :]
+            if target == "close":
+                return page[:at] + "</font" + page[at + 6 :]
+            return page[:at] + "<?" + page[at + 2 :]
     return None
 
 
