@@ -31,6 +31,7 @@ from kasten_backend.finance_plans import (
     Plan,
     Span,
     cancel_by,
+    contract_field,
     contract_of,
     due_dates,
     forecast,
@@ -354,3 +355,44 @@ def test_reminder_holds_its_scheduled_date_to_today_and_reads_only_its_section()
         "## Cancel-by\n- [ ] cancel or renegotiate Phone, renews 2025-03-01"
         " 📅 2024-11-28 ⏳ 2024-11-10\n"
     )
+
+
+def test_reminder_finds_its_section_as_the_writer_does_and_writes_once() -> None:
+    contract, today = terms(**YEARLY), dt.date(2024, 6, 1)
+    for heading in ("## Cancel-by ", "## Cancel-by\t"):
+        first = reminder(f"{note(**YEARLY)}\n{heading}\n", "Phone", contract, today)
+        assert first is not None
+        assert first.count("- [ ]") == 1
+        assert reminder(first, "Phone", contract, today) is None
+    crlf = reminder(note(**YEARLY), "Phone", contract, today)
+    assert crlf is not None
+    assert reminder(crlf.replace("\n", "\r\n"), "Phone", contract, today) is None
+    # A heading inside a fence is no section, for the reader as for the writer.
+    fenced = f"{note(**YEARLY)}\n```\n## Cancel-by\n- [ ] x 📅 2024-11-28\n```\n"
+    written = reminder(fenced, "Phone", contract, today)
+    assert written is not None
+    assert reminder(written, "Phone", contract, today) is None
+
+
+def test_reminder_reads_the_due_date_as_the_todo_board_does() -> None:
+    contract, today = terms(**YEARLY), dt.date(2024, 6, 1)
+    for marker in ("📆", "🗓", "📅\N{VARIATION SELECTOR-16}"):
+        text = f"{note(**YEARLY)}\n## Cancel-by\n- [ ] cancel Phone {marker} 2024-11-28\n"
+        assert reminder(text, "Phone", contract, today) is None
+    # A marker in code is no date, so that line holds nothing.
+    coded = f"{note(**YEARLY)}\n## Cancel-by\n- [ ] see `📅 2024-11-28`\n"
+    assert reminder(coded, "Phone", contract, today) is not None
+
+
+def test_reminder_skips_a_date_the_calendar_lacks() -> None:
+    text = f"{note(**YEARLY)}\n## Cancel-by\n- [x] cancel Phone 📅 2024-11-31\n"
+    written = reminder(text, "Phone", terms(**YEARLY), dt.date(2024, 6, 1))
+    assert written is not None
+    assert written.endswith("📅 2024-11-28 ⏳ 2024-10-31\n")
+
+
+def test_contract_fields_may_carry_a_trailing_comment() -> None:
+    commented = {key: f"{value}   # from the paper" for key, value in YEARLY.items()}
+    assert terms(**commented) == terms(**YEARLY)
+    assert contract_field(note(plan="14 # Haftpflicht"), "plan") == "14"
+    assert contract_field(note(start="# fill in"), "start") == ""

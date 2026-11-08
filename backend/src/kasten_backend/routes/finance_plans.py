@@ -27,6 +27,7 @@ from kasten_backend.finance_plans import (
     CANCEL_BY,
     Contract,
     cancel_by,
+    contract_field,
     contract_of,
     due_in,
     forecast,
@@ -404,7 +405,7 @@ def _contract_notes(root: Path) -> list[tuple[str, str]]:
 
 
 def _plan_id(content: str) -> int | None:
-    text = frontmatter.field(content, "plan") or ""
+    text = contract_field(content, "plan")
     return int(text) if text.isdigit() else None
 
 

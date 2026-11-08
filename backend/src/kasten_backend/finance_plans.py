@@ -10,9 +10,9 @@ from calendar import monthrange
 from dataclasses import dataclass, field
 from decimal import ROUND_UP, Decimal
 
-from kasten_backend import frontmatter
+from kasten_backend import frontmatter, todo_fields, todos
 from kasten_backend.finance_ledger import CENT, ZERO, Scope, add_months, months_between
-from kasten_backend.periodic import append_under
+from kasten_backend.periodic import append_under, section_lines
 
 FORECAST_MONTHS = 12
 DAY = dt.timedelta(days=1)
@@ -20,7 +20,6 @@ DAY = dt.timedelta(days=1)
 MAX_RENEWALS = 100_000
 CANCEL_BY = "## Cancel-by"
 REMIND_BEFORE = dt.timedelta(weeks=4)
-TODO_DUE = re.compile(r"\s*- \[(.)\] .*?📅\uFE0F? +(\d{4}-\d{2}-\d{2})")
 
 
 @dataclass(frozen=True)
@@ -423,25 +422,30 @@ def span_of(text: str | None) -> Span | None:
     return Span(count * 12, "month") if unit == "year" else Span(count, unit)
 
 
+def contract_field(content: str, name: str) -> str:
+    """A frontmatter field's value without a trailing `# comment`, empty where there is none."""
+    return re.split(r"(?:^|\s+)#", frontmatter.field(content, name) or "", maxsplit=1)[0].strip()
+
+
 def contract_of(content: str) -> Contract | str:
     """The terms of a contract note, or the name of the first field missing or unreadable.
 
     No `renews` renews monthly, the rule for consumer contracts since March 2022 (BGB § 309 Nr. 9).
     """
     try:
-        start = dt.date.fromisoformat(frontmatter.field(content, "start") or "")
+        start = dt.date.fromisoformat(contract_field(content, "start"))
     except ValueError:
         return "start"
-    ends_text = frontmatter.field(content, "ends") or ""
+    ends_text = contract_field(content, "ends")
     try:
         ends = dt.date.fromisoformat(ends_text) if ends_text else None
     except ValueError:
         return "ends"
     term, notice = (
-        span_of(frontmatter.field(content, "term")),
-        span_of(frontmatter.field(content, "notice")),
+        span_of(contract_field(content, "term")),
+        span_of(contract_field(content, "notice")),
     )
-    renews_text = (frontmatter.field(content, "renews") or "1 month").strip().lower()
+    renews_text = (contract_field(content, "renews") or "1 month").strip().lower()
     renews = span_of(renews_text)
     if term is None:
         return "term"
@@ -457,11 +461,7 @@ def reminder(content: str, name: str, contract: Contract, today: dt.date) -> str
 
     An open todo there holds it. Past a done or rejected one, the next comes after that one's date.
     """
-    dates = [
-        (dt.date.fromisoformat(found[2]), found[1] not in "xX-")
-        for found in map(TODO_DUE.match, _section_lines(content))
-        if found is not None
-    ]
+    dates = [found for line in section_lines(content, CANCEL_BY) if (found := _due(line))]
     if any(open_ for _, open_ in dates):
         return None
     floor = max([today, *(due + DAY for due, _ in dates)])
@@ -476,10 +476,15 @@ def reminder(content: str, name: str, contract: Contract, today: dt.date) -> str
     return append_under(content, CANCEL_BY, line)
 
 
-def _section_lines(content: str) -> list[str]:
-    lines = content.split("\n")
-    if CANCEL_BY not in lines:
-        return []
-    rest = lines[lines.index(CANCEL_BY) + 1 :]
-    heading = next((at for at, line in enumerate(rest) if re.match(r"#{1,6} ", line)), len(rest))
-    return rest[:heading]
+def _due(line: str) -> tuple[dt.date, bool] | None:
+    """A todo line's due date and whether it is open, read as the todo board reads them."""
+    todo = todos.LINE.match(line)
+    rest = "" if todo is None else todo[2] or ""
+    due = todo_fields.FIELDS[0]
+    span = todo_fields.place(rest, due)
+    found = None if todo is None or span is None else due.match(rest, *span)
+    try:
+        day = dt.date.fromisoformat(found[1]) if found else None
+    except ValueError:
+        return None
+    return None if day is None or todo is None else (day, line[len(todo[1]) + 3] not in "xX-")
