@@ -178,7 +178,6 @@ export function useTodoActions({
     [data, todosWritten, setNotice],
   );
 
-
   /**
    * Walk one todo on in the vault, from the pane's `x` or a card drop, or set the state a key named.
    * A refused write says so, since a dropped card goes back to the column it left. A line no longer found writes nothing, and says so too.
@@ -193,7 +192,7 @@ export function useTodoActions({
         .catch((error: unknown) => setNotice(nothingMoved(error)))
         .finally(settled);
     },
-    [queryClient, data, settled, setNotice],
+    [queryClient, data, settled, setNotice, begun],
   );
 
   /**
@@ -208,7 +207,7 @@ export function useTodoActions({
         .catch((error: unknown) => setNotice(nothingMoved(error)))
         .finally(settled);
     },
-    [data, settled, setNotice],
+    [data, settled, setNotice, begun],
   );
 
   /**
@@ -283,7 +282,7 @@ export function useTodoActions({
       begun();
       return tagTodo(hit, twins).finally(settled);
     },
-    [tagTodo, settled],
+    [tagTodo, settled, begun],
   );
 
   /**
@@ -298,7 +297,7 @@ export function useTodoActions({
         .catch(() => {})
         .finally(settled);
     },
-    [settled],
+    [settled, begun],
   );
 
   /**
@@ -312,7 +311,7 @@ export function useTodoActions({
         .catch((error: unknown) => setNotice(nothingMoved(error)))
         .finally(settled);
     },
-    [settled, setNotice],
+    [settled, setNotice, begun],
   );
 
   /**
@@ -438,7 +437,7 @@ export function useTodoActions({
       begun();
       return moveTodo(hit, lane).finally(settled);
     },
-    [moveTodo, settled],
+    [moveTodo, settled, begun],
   );
 
   return {
