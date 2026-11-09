@@ -157,7 +157,7 @@ def _reading(text: str | None) -> TrainingReading | None:
 
 
 def _test(rest: str) -> dict[str, object] | None:
-    if not rest[:1].isspace():
+    if rest[:1] not in (" ", "\t"):
         return None
     groups: list[TrainingGroup] = []
     for part in GROUP_SPLIT.split(rest.strip(" \t")):

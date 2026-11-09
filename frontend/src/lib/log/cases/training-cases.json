@@ -290,6 +290,7 @@
     "entry": null
   },
   { "id": "test-label-only", "line": "- 📏 [[Schulter-Rotation]] außen", "entry": null },
+  { "id": "test-no-break-space", "line": "- 📏 [[Modifizierter Thomas-Test]]\u00a0 ok", "entry": null },
   { "id": "unknown-marker", "line": "- 🏊 [[Schwimmen]] 30 min", "entry": null },
   { "id": "no-bullet", "line": "🏋 [[Kniebeuge]] 80 kg 8", "entry": null },
   { "id": "plain-words", "line": "- Rücken war heute steif", "entry": null }

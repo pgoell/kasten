@@ -9,6 +9,7 @@ import re
 from datetime import date, timedelta
 from typing import TYPE_CHECKING
 
+from kasten_backend import vault
 from kasten_backend.code_spans import code_spans, fence_open, inside
 from kasten_backend.config import DEFAULTS
 from kasten_backend.frontmatter import body_start
@@ -245,3 +246,30 @@ def heading_lines(text: str, heading: str) -> list[tuple[int, str]] | None:
         elif within:
             lines.append((number, line))
     return lines if seen else None
+
+
+def day_sections(
+    vault_path: Path, periodic: str, first: date, last: date, heading: str
+) -> list[tuple[date, str, list[tuple[int, str]]]]:
+    """Each day from `first` to `last` whose daily note holds `heading`: its path and lines.
+
+    Blocking file reads, so an async caller runs it in a thread.
+    """
+    # One listing of the folder, not a read per date: a range of years would
+    # otherwise stall the backend on millions of misses.
+    folder = vault.resolve_folder(vault_path, f"{periodic}/{DAILY}")
+    if folder is None:
+        return []
+    found: list[tuple[date, str, list[tuple[int, str]]]] = []
+    for day in day_notes(folder, first, last):
+        path = daily_path(day, periodic)
+        try:
+            text = vault.read_note(vault_path, path)
+        except UnicodeDecodeError, OSError:
+            # Gone, unreadable or not UTF-8: a note the reader cannot take is
+            # skipped as a missing one, so one bad file does not fail the range.
+            continue
+        lines = None if text is None else heading_lines(text, heading)
+        if lines is not None:
+            found.append((day, path, lines))
+    return found

@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 from kasten_backend import vault
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.log_config import Kind, parse_config, parse_kind_line
-from kasten_backend.periodic import DAILY, daily_path, day_notes, heading_lines
+from kasten_backend.periodic import day_sections
 from kasten_backend.todo_fields import mask
 
 if TYPE_CHECKING:
@@ -362,13 +362,18 @@ def read_log(
     """
     # A plain `def`, not `async`: FastAPI runs it in its thread pool, so the file
     # reads and the markdown parse do not hold up the event loop.
+    return read_days(settings, *date_range(start, end))
+
+
+def date_range(start: str, end: str) -> tuple[date, date]:
+    """`from` and `to` as dates: 422 for a day that does not exist, 400 when out of order."""
     try:
         first, last = date.fromisoformat(start), date.fromisoformat(end)
     except ValueError as error:
         raise HTTPException(status_code=422, detail="`from` and `to` must be real dates") from error
     if first > last:
         raise HTTPException(status_code=400, detail="`from` is after `to`")
-    return read_days(settings, first, last)
+    return first, last
 
 
 def read_days(settings: Settings, first: date, last: date) -> list[Day]:
@@ -376,26 +381,12 @@ def read_days(settings: Settings, first: date, last: date) -> list[Day]:
 
     Blocking file reads, so an async caller runs it in a thread.
     """
-    # One listing of the folder, not a read per date: a range of years would
-    # otherwise stall the backend on millions of misses.
-    folder = vault.resolve_folder(settings.vault_path, f"{settings.periodic_path}/{DAILY}")
-    if folder is None:
-        return []
-
     # Read once for the whole range.
     kinds = _own_kinds(settings)
     days: list[Day] = []
-    for day in day_notes(folder, first, last):
-        path = daily_path(day, settings.periodic_path)
-        try:
-            text = vault.read_note(settings.vault_path, path)
-        except UnicodeDecodeError, OSError:
-            # Gone, unreadable or not UTF-8: a note the reader cannot take is
-            # skipped as a missing one, so one bad file does not fail the range.
-            continue
-        lines = None if text is None else heading_lines(text, LOG)
-        if lines is None:
-            continue
+    for day, path, lines in day_sections(
+        settings.vault_path, settings.periodic_path, first, last, LOG
+    ):
         entries = [
             parsed
             for number, line in lines
