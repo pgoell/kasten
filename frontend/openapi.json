@@ -2453,6 +2453,62 @@
         }
       }
     },
+    "/api/push/settings": {
+      "get": {
+        "summary": "Read Hours",
+        "description": "When pushes go, as `HH:MM`; all None until first saved.",
+        "operationId": "read_hours_api_push_settings_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushHours-Output"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Write Hours",
+        "description": "Store when pushes go; the sender reads it on its next tick.",
+        "operationId": "write_hours_api_push_settings_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushHours-Input"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushHours-Output"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/push/devices": {
       "post": {
         "summary": "Write Device",
@@ -13504,6 +13560,99 @@
         ],
         "title": "ProposalOut",
         "description": "A plan read from history, ready to post as it is, and what it was read from."
+      },
+      "PushHours-Input": {
+        "properties": {
+          "morning": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Morning"
+          },
+          "quiet_start": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quiet Start"
+          },
+          "quiet_end": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quiet End"
+          }
+        },
+        "type": "object",
+        "required": [
+          "morning",
+          "quiet_start",
+          "quiet_end"
+        ],
+        "title": "PushHours",
+        "description": "The morning push's time and the quiet hours, None for off; quiet hours need both ends."
+      },
+      "PushHours-Output": {
+        "properties": {
+          "morning": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Morning"
+          },
+          "quiet_start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quiet Start"
+          },
+          "quiet_end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quiet End"
+          }
+        },
+        "type": "object",
+        "required": [
+          "morning",
+          "quiet_start",
+          "quiet_end"
+        ],
+        "title": "PushHours",
+        "description": "The morning push's time and the quiet hours, None for off; quiet hours need both ends."
       },
       "PushOut": {
         "properties": {

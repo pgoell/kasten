@@ -7,6 +7,7 @@ import { client } from "@/lib/core/api-client";
 import { Route } from "@/routes/settings";
 
 type PushOut = components["schemas"]["PushOut"];
+type PushHours = components["schemas"]["PushHours-Output"];
 type PushSubscriptionOptionsInit = { userVisibleOnly: boolean; applicationServerKey: Uint8Array };
 
 const DEVICES: PushOut["devices"] = [
@@ -42,11 +43,17 @@ let current: ReturnType<typeof subscriptionAt> | null;
 let subscribe: Mock<(options: PushSubscriptionOptionsInit) => Promise<unknown>>;
 /** The backend's list, which a POST and a DELETE change as the real one does. */
 let state: PushOut;
+/** The backend's stored times, which a PUT replaces. */
+let hours: PushHours;
 
 /** The page's two reads, and the POST and DELETE it sends, answered by the fake backend. */
 function serve(push: PushOut) {
   state = push;
-  const get = vi.fn(async () => ({ data: state, response: new Response(null, { status: 200 }) }));
+  hours = { morning: null, quiet_start: null, quiet_end: null };
+  const get = vi.fn(async (path: string) => ({
+    data: path === "/api/push/settings" ? hours : state,
+    response: new Response(null, { status: 200 }),
+  }));
   const post = vi.fn(async (_path: string, init: { body: { endpoint: string; name: string } }) => {
     const device = {
       id: 3,
@@ -186,5 +193,78 @@ describe("the settings page's reminders", () => {
     expect(del).toHaveBeenCalledWith("/api/push/devices/{device_id}", {
       params: { path: { device_id: 2 } },
     });
+  });
+});
+
+describe("the settings page's push times", () => {
+  /** The PUT the page sends, answered as the backend does, or refused with `refusal`. */
+  function serveHours(stored: PushHours, refusal?: string) {
+    serve({ public_key: "-_8", devices: [] });
+    hours = stored;
+    const put = vi.fn(async (_path: string, init: { body: PushHours }) => {
+      if (refusal !== undefined) {
+        const detail = [{ msg: `Value error, ${refusal}` }];
+        return { error: { detail }, response: new Response(null, { status: 422 }) };
+      }
+      hours = init.body;
+      return { data: hours, response: new Response(null, { status: 200 }) };
+    });
+    vi.spyOn(client, "PUT").mockImplementation(put as unknown as typeof client.PUT);
+    return put;
+  }
+
+  it("shows the stored morning time and quiet hours after a reload", async () => {
+    serveHours({ morning: "07:30", quiet_start: "22:00", quiet_end: "07:00" });
+    await renderPage();
+
+    expect(await screen.findByLabelText("Morning push time")).toHaveValue("07:30");
+    expect(screen.getByLabelText("Quiet hours start")).toHaveValue("22:00");
+    expect(screen.getByLabelText("Quiet hours end")).toHaveValue("07:00");
+  });
+
+  it("saves the times, sending an emptied one as null for off", async () => {
+    const put = serveHours({ morning: "07:30", quiet_start: null, quiet_end: null });
+    await renderPage();
+
+    fireEvent.change(await screen.findByLabelText("Morning push time"), { target: { value: "" } });
+    fireEvent.change(screen.getByLabelText("Quiet hours start"), { target: { value: "22:00" } });
+    fireEvent.change(screen.getByLabelText("Quiet hours end"), { target: { value: "07:00" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save times" }));
+
+    expect(await screen.findByText("Saved")).toBeInTheDocument();
+    expect(put).toHaveBeenCalledWith("/api/push/settings", {
+      body: { morning: null, quiet_start: "22:00", quiet_end: "07:00" },
+    });
+  });
+
+  it("says why when the server refuses the times", async () => {
+    serveHours(
+      { morning: null, quiet_start: null, quiet_end: null },
+      "quiet hours need a start and an end",
+    );
+    await renderPage();
+
+    fireEvent.change(await screen.findByLabelText("Quiet hours start"), {
+      target: { value: "22:00" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save times" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "quiet hours need a start and an end",
+    );
+    expect(screen.queryByText("Saved")).not.toBeInTheDocument();
+  });
+
+  it("keeps each time and the save button a touch target", async () => {
+    serveHours({ morning: null, quiet_start: null, quiet_end: null });
+    await renderPage();
+
+    const controls = [
+      await screen.findByLabelText("Morning push time"),
+      screen.getByLabelText("Quiet hours start"),
+      screen.getByLabelText("Quiet hours end"),
+      screen.getByRole("button", { name: "Save times" }),
+    ];
+    for (const control of controls) expect(control.className).toContain("min-h-11");
   });
 });

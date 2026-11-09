@@ -127,3 +127,28 @@ export async function currentEndpoint(): Promise<string | null> {
 export async function unsubscribeHere(): Promise<void> {
   await (await currentSubscription())?.unsubscribe();
 }
+
+/** When pushes go: the morning push's time and the quiet hours, each `HH:MM` or null for off. */
+export type PushHours = components["schemas"]["PushHours-Output"];
+
+/** The stored morning time and quiet hours. */
+export async function fetchHours(): Promise<PushHours> {
+  const { data, response } = await client.GET("/api/push/settings");
+
+  if (!data) {
+    throw new Error(`GET /api/push/settings failed with ${response.status}`);
+  }
+
+  return data;
+}
+
+/** Store the morning time and quiet hours; the sender reads them on its next minute. */
+export async function saveHours(body: PushHours): Promise<PushHours> {
+  const { data, error, response } = await client.PUT("/api/push/settings", { body });
+
+  if (!data) {
+    throw new Error(reason(error) ?? `PUT /api/push/settings failed with ${response.status}`);
+  }
+
+  return data;
+}
