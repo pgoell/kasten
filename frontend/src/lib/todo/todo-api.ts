@@ -291,6 +291,7 @@ export async function cycleTodoInVault(
   paths: string[],
   state?: TodoState,
   twins?: number[],
+  id = newId(),
 ): Promise<void> {
   // The vault, not the row: the list is as old as the last fetch, and the note
   // is what the press is about to overwrite.
@@ -304,7 +305,6 @@ export async function cycleTodoInVault(
 
   // The id goes only into the write, so stamping it before the search changes
   // nothing; it lets the press be read here, ahead of the search, as it will land.
-  const id = newId();
   const pressed = pressedLine(line, today, id, state);
   // A press that leaves the line as it is, such as `X` on a done todo, has
   // nothing to log, unblock or write, so it costs no search and no save.
