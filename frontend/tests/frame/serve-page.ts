@@ -80,9 +80,30 @@ async function routePage({ context }: BrowserCommandContext, pagePath: string, f
   );
 }
 
+/** Under the frame project's 15 s test timeout, so a page never asked for fails with its path named. */
+const SERVED_WITHIN = 10_000;
+
 /** Waits until the page at `pathname` has been answered once; a path no route serves passes at once. */
 export const pageServed: BrowserCommand<[string]> = async ({ context }, pathname) => {
-  await answered.get(context)?.get(pathname);
+  const pending = answered.get(context)?.get(pathname);
+  if (!pending) return;
+  let timer: NodeJS.Timeout | undefined;
+  const late = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () =>
+        reject(
+          new Error(
+            `pageServed: ${pathname} was not answered within ${SERVED_WITHIN} ms: no frame asked for it, or its render queued that long`,
+          ),
+        ),
+      SERVED_WITHIN,
+    );
+  });
+  try {
+    await Promise.race([pending, late]);
+  } finally {
+    clearTimeout(timer);
+  }
 };
 
 /**
