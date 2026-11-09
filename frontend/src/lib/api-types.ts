@@ -1327,6 +1327,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/push/act": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Act
+         * @description `Done` or `Tomorrow` on a reminder, written as the todo pane writes a tick.
+         */
+        post: operations["act_api_push_act_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/library": {
         parameters: {
             query?: never;
@@ -3776,6 +3796,21 @@ export interface components {
             newest_booking: string | null;
         };
         /**
+         * ActIn
+         * @description A button on a reminder: the note, the todo line's text as pushed, and what to do.
+         */
+        ActIn: {
+            /** Path */
+            path: string;
+            /** Text */
+            text: string;
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "done" | "tomorrow";
+        };
+        /**
          * Add
          * @description One item to append, and the digest of the list the caller read, if it read one.
          */
@@ -5837,7 +5872,9 @@ export interface components {
         };
         /**
          * PushHours
-         * @description The morning push's time and the quiet hours, None for off; quiet hours need both ends.
+         * @description When the morning and goals pushes go and the quiet hours, None for off.
+         *
+         *     Quiet hours need both ends.
          */
         "PushHours-Input": {
             /** Morning */
@@ -5846,10 +5883,14 @@ export interface components {
             quiet_start: string | null;
             /** Quiet End */
             quiet_end: string | null;
+            /** Goals */
+            goals?: string | null;
         };
         /**
          * PushHours
-         * @description The morning push's time and the quiet hours, None for off; quiet hours need both ends.
+         * @description When the morning and goals pushes go and the quiet hours, None for off.
+         *
+         *     Quiet hours need both ends.
          */
         "PushHours-Output": {
             /** Morning */
@@ -5858,6 +5899,8 @@ export interface components {
             quiet_start: string | null;
             /** Quiet End */
             quiet_end: string | null;
+            /** Goals */
+            goals?: string | null;
         };
         /**
          * PushOut
@@ -8596,6 +8639,37 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    act_api_push_act_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             204: {

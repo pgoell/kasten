@@ -1,6 +1,6 @@
 ---
 type: Reference
-title: "Save path orderings: the share tick and the done log"
+title: "Save path orderings: the share tick, the done log and the reminder buttons"
 description: The orders in which a tick or untick through the lists app writes its list and the done log line in a daily note, what a crash or a refusal between the two writes leaves, and the test that holds each.
 resource: backend/src/kasten_backend/done_log.py
 tags: [saving, backend, tests, share, todos]
@@ -24,3 +24,16 @@ The backend holds one lock for the whole vault (`vault_write` in `change.py`), s
 | S5 | A refused tick: a name outside the share folder (`404`), a line that is no item (`200`), a stale sha (`409`), a recurring item (`422`). | The refusal fires before the list is written, and no daily note is written or made. | no | test_share_done_log: `test_726_refused_tick_writes_no_done_log_line` |
 | S6 | `KASTEN_SHARE_LOGS_DONE=false`. | The tick writes its list and nothing else. | no | test_share_done_log: `test_726_logs_done_off_leaves_the_daily_note_alone` |
 | S7 | A tick or untick of an item whose `🆔` another todo line carries too, in the list (a pasted copy) or in another note outside the archive, while `KASTEN_SHARE_LOGS_DONE` is on. | It answers `422` with the pane's words, `🆔 <id> is on another todo too: <note> line <n>`, before the list is written, and no log line is written or dropped: the log line could be the other todo's. As the pane's row 127. With the log off nothing goes by id, and the tick goes through. | no | test_share_done_log: `test_1303_tick_refuses_an_id_two_todos_carry_and_writes_nothing` (two cases, red before #1303, which ticked and logged), `test_1301_untick_refuses_an_id_two_todos_carry_and_writes_nothing` (two cases, red before #1301), `test_1303_logs_done_off_ticks_an_id_two_todos_carry` |
+
+## The reminder buttons
+
+**Done** and **Tomorrow** on a pushed reminder go to [POST /api/push/act](/reference/http-api/todos.md#post-apipushact), which ticks through the same code as the share tick (`share.tick_task`) and writes through the agent's conditional save, under the same vault lock. It reads the note, finds the line by the text the push carried, and saves with the digest of what it read; a browser save landing between the read and the write refuses the save, and the act reads again, up to three times. The history names the writer `push`.
+
+| # | Ordering | Must hold | Loses typed text if wrong | Test |
+|---|---|---|---|---|
+| N1 | Lines were added or taken out above the todo after the push went, so its line number moved. | The act finds the line by its text, ticks it (or moves its `⏰`) and touches no other line. | no | test_act: `test_1682_done_ticks_the_line_found_by_its_text_where_it_moved`, `test_1682_tomorrow_moves_the_alarm_a_day_on_where_the_line_moved` (red on main, which has no route) |
+| N2 | The todo's text changed, it was ticked already, the note went, two lines of the note now read that text, or the line carries no `⏰` the reader takes. | It answers `409` and writes nothing, no daily note either: it never ticks a line it cannot tell is the pushed one. The service worker then opens the note at its line. | no | test_act: `test_1682_an_act_whose_line_is_gone_or_twinned_writes_nothing` (six cases), `test_1682_an_act_on_a_note_that_is_gone_writes_nothing`, `test_1682_an_act_on_a_line_with_no_alarm_writes_nothing` (four cases, `done` red before the review's fix, which ticked a line with no `⏰`); service-worker: `#1682 I2 a button answered %s opens the note: %s` |
+| N3 | **Done** on a recurring todo or part, on one whose `🆔` another todo carries, or on one whose `🆔` a `⛔` names. | It answers `422` and writes nothing: the pane writes a next copy or moves dependents there, which a tick here does not. As S7 and the pane's 127 and 129. | no | test_act: `test_1682_done_the_pane_writes_more_for_is_refused_and_writes_nothing` (three cases) |
+| N4 | A browser save lands between the act's read and its write. | The save names the digest the act read, so it is refused, and the act reads the newer text and finds the line again, three tries in all, then `409`. The browser's text is never written over. | no | none: the conditional save is the agent's, held by its own tests |
+| N5 | **Done** lands, then the `- ✅` line goes into today's daily note. | As S1 and S2: the line first, then the log, so a failure between them leaves the todo ticked with no log line. | no | test_act: `test_1682_done_ticks_the_line_found_by_its_text_where_it_moved` |
+

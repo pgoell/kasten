@@ -6,6 +6,7 @@
 from kasten_backend.share.history import attach
 from kasten_backend.share.lines import kept
 from kasten_backend.share.lists import (
+    TICK_IN_KASTEN,
     Checklist,
     Item,
     TickInKastenError,
@@ -21,9 +22,11 @@ from kasten_backend.share.lists import (
     read,
     resolve_list,
     tick,
+    tick_task,
 )
 
 __all__ = [
+    "TICK_IN_KASTEN",
     "Checklist",
     "Item",
     "TickInKastenError",
@@ -41,4 +44,5 @@ __all__ = [
     "read",
     "resolve_list",
     "tick",
+    "tick_task",
 ]

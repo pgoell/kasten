@@ -13,6 +13,8 @@ from kasten_backend import todo_fields, todos
 if TYPE_CHECKING:
     from zoneinfo import ZoneInfo
 
+    from kasten_backend.log import Totals
+    from kasten_backend.log_config import Config
     from kasten_backend.search import Hit
 
 ALARM = re.compile(
@@ -26,12 +28,13 @@ CLOSED = "xX-"
 
 
 class Reminder(NamedTuple):
-    """A todo's reminder: its note and line, its words, and when it falls due."""
+    """A todo's reminder: its note and line, its words, when it falls due, and its line's text."""
 
     path: str
     line: int
     words: str
     due: dt.datetime
+    text: str = ""
 
     @property
     def key(self) -> str:
@@ -56,7 +59,7 @@ def reminder_of(hit: Hit, zone: ZoneInfo) -> Reminder | None:
         due = dt.datetime.fromisoformat(f"{found[1]}T{found[2]}").replace(tzinfo=zone)
     except ValueError:
         return None
-    return Reminder(hit.path, hit.line, _spoken(rest), due)
+    return Reminder(hit.path, hit.line, _spoken(rest), due, hit.text)
 
 
 def _spoken(rest: str) -> str:
@@ -65,6 +68,21 @@ def _spoken(rest: str) -> str:
     if found is not None:
         rest = rest[: found.start()] + rest[found.end() :]
     return " ".join(todo_fields.words(todo_fields.BLOCK_ID.sub("", rest)).split())
+
+
+def put_off(line: str, today: dt.date) -> str | None:
+    """`line` with the `⏰` the reader takes moved to the day after `today`, its time kept.
+
+    None for a line that is no open todo or reads no reminder, so nothing is written.
+    """
+    todo = todos.LINE.fullmatch(line.removesuffix("\r"))
+    if todo is None or todo[2] is None or line[len(todo[1]) + 3] in CLOSED:
+        return None
+    found = ALARM.search(todo_fields.mask(todo[2]))
+    if found is None:
+        return None
+    start, day = todo.start(2), (today + dt.timedelta(days=1)).isoformat()
+    return line[: start + found.start(1)] + day + line[start + found.end(1) :]
 
 
 def reminders(hits: list[Hit], zone: ZoneInfo) -> list[Reminder]:
@@ -126,4 +144,35 @@ def today_todos(hits: list[Hit], today: dt.date) -> list[str]:
         dates = [m[1] for field in todo_fields.FIELDS[:2] if (m := field.search(masked))]
         if day in dates:
             found.append(_spoken(rest))
+    return found
+
+
+FOOD_UNITS = {"kcal": "kcal", "protein": "g", "carbs": "g", "fat": "g"}
+
+
+def unmet(config: Config, totals: Totals | None) -> list[tuple[str, str]]:
+    """Each `min` goal of the log config `totals` falls short of, as its key and its words.
+
+    Read as the log pane reads goals; `totals` is None on a day with no `## Log`, all zero.
+    """
+    found = []
+    mine = {total.mark: total.total for total in (totals.mine or [])} if totals else {}
+    builtin = (
+        {"water": totals.water.ml, "coffee": totals.coffee.count, "alcohol": totals.alcohol.count}
+        if totals
+        else {}
+    )
+    for kind in config.kinds:
+        if kind.goal is None or kind.goal.type != "floor":
+            continue
+        unit = "ml" if kind.builtin == "water" else kind.unit
+        total = builtin.get(kind.builtin, 0) if kind.builtin else mine.get(kind.mark)
+        if total is None or total < kind.goal.value:
+            words = f"{kind.mark} {kind.name}: {total or 0:g} of {kind.goal.value:g} {unit}"
+            found.append((kind.mark, words.rstrip()))
+    for field, goal in config.food.items():
+        total = getattr(totals.food, field) if totals else 0
+        if goal.type == "floor" and total < goal.value:
+            unit = FOOD_UNITS[field]
+            found.append((field, f"🍽 {field}: {total:g} of {goal.value:g} {unit}"))
     return found

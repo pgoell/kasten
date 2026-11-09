@@ -58,11 +58,16 @@ async def _set(client: httpx.AsyncClient, **hours: str | None) -> None:
 async def test_the_settings_are_stored_and_read_back(
     client: httpx.AsyncClient, served: Settings
 ) -> None:
-    empty = {"morning": None, "quiet_start": None, "quiet_end": None}
+    empty = {"morning": None, "quiet_start": None, "quiet_end": None, "goals": None}
     assert (await client.get("/api/push/settings")).json() == empty
     await _set(client, morning="07:30", quiet_start="22:00", quiet_end="07:00")
     stored = (await client.get("/api/push/settings")).json()
-    assert stored == {"morning": "07:30", "quiet_start": "22:00", "quiet_end": "07:00"}
+    assert stored == {
+        "morning": "07:30",
+        "quiet_start": "22:00",
+        "quiet_end": "07:00",
+        "goals": None,
+    }
     await _set(client)
     assert (await client.get("/api/push/settings")).json() == empty
 
@@ -128,6 +133,8 @@ async def test_the_morning_push_sends_today_once_a_day(
     assert message["title"] == "Today"
     assert message["body"] == "pay rent\nbook train\ncall mum"
     assert message["path"] == "01 Periodic/00 Daily/2026-11-12.md"
+    # No line of its own, so no Done or Tomorrow buttons (#1682 I7).
+    assert "text" not in message
 
 
 async def test_1703_a_crlf_note_s_todos_are_in_the_morning_push(

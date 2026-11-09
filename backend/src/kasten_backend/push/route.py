@@ -1,16 +1,20 @@
 """The devices push reminders go to: list them, subscribe one, remove one; and when pushes go."""
 
-from datetime import datetime, time  # noqa: TC003  pydantic reads it at runtime
-from typing import Annotated
+import datetime as dt
+from datetime import datetime, time
+from typing import Annotated, Literal
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, Field, field_serializer, model_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kasten_backend import agent, done_log, share, todo_fields, todos, vault, vcs
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.db import get_session
 from kasten_backend.push import webpush
+from kasten_backend.push.due import ALARM, CLOSED, put_off
 from kasten_backend.push.models import PushDevice, PushSettings
 
 router = APIRouter(prefix="/api/push")
@@ -68,11 +72,15 @@ async def read_push(session: Session, settings: VaultSettings) -> PushOut:
 
 
 class PushHours(BaseModel):
-    """The morning push's time and the quiet hours, None for off; quiet hours need both ends."""
+    """When the morning and goals pushes go and the quiet hours, None for off.
+
+    Quiet hours need both ends.
+    """
 
     morning: time | None
     quiet_start: time | None
     quiet_end: time | None
+    goals: time | None = None
 
     @model_validator(mode="after")
     def _whole_quiet_hours(self) -> PushHours:
@@ -82,7 +90,7 @@ class PushHours(BaseModel):
             raise ValueError("quiet hours end where they start")
         return self
 
-    @field_serializer("morning", "quiet_start", "quiet_end")
+    @field_serializer("morning", "quiet_start", "quiet_end", "goals")
     def _minutes(self, value: time | None) -> str | None:
         return None if value is None else value.strftime("%H:%M")
 
@@ -92,7 +100,10 @@ async def read_hours(session: Session) -> PushHours:
     """When pushes go, as `HH:MM`; all None until first saved."""
     hours = await session.get(PushSettings, 1) or PushSettings()
     return PushHours(
-        morning=hours.morning, quiet_start=hours.quiet_start, quiet_end=hours.quiet_end
+        morning=hours.morning,
+        quiet_start=hours.quiet_start,
+        quiet_end=hours.quiet_end,
+        goals=hours.goals,
     )
 
 
@@ -103,10 +114,11 @@ async def write_hours(body: PushHours, session: Session) -> PushHours:
     if hours is None:
         hours = PushSettings(id=1)
         session.add(hours)
-    hours.morning, hours.quiet_start, hours.quiet_end = (
+    hours.morning, hours.quiet_start, hours.quiet_end, hours.goals = (
         body.morning,
         body.quiet_start,
         body.quiet_end,
+        body.goals,
     )
     await session.commit()
     return body
@@ -136,3 +148,81 @@ async def delete_device(device_id: int, session: Session) -> Response:
     await session.delete(device)
     await session.commit()
     return Response(status_code=204)
+
+
+CHANGED = "That line has changed since the push: open the note"
+TRIES = 3
+"""Reads and writes before an act gives up on a note the browser keeps saving."""
+
+
+class ActIn(BaseModel):
+    """A button on a reminder: the note, the todo line's text as pushed, and what to do."""
+
+    path: str = Field(min_length=1)
+    text: str = Field(min_length=1)
+    action: Literal["done", "tomorrow"]
+
+
+async def _blocks(settings: Settings, id_: str | None) -> bool:
+    """Whether a `⛔` on any todo names `id_`, whose tick the pane would carry to that todo."""
+    if id_ is None:
+        return False
+    for hit in await todos.find_todos(settings.vault_path, settings.archive_path):
+        todo = todos.LINE.fullmatch(hit.text)
+        rest = todo_fields.mask("" if todo is None else todo[2] or "")
+        if any(found[1] == id_ for found in todo_fields.BLOCKED_BY.finditer(rest)):
+            return True
+    return False
+
+
+async def _act(settings: Settings, body: ActIn, today: dt.date) -> str | None:
+    """Write one act on the line whose text is `body.text`; the done words to log, if any.
+
+    The line is found by its text, as its number may have moved; none or two refuse with 409.
+    """
+    note = vault.resolve_path(settings.vault_path, body.path)
+    raw = note.read_bytes() if note is not None and note.is_file() else b""
+    lines = raw.decode("utf-8").split("\n")
+    found = [at for at, line in enumerate(lines) if line.removesuffix("\r") == body.text]
+    box = None if len(found) != 1 else todos.LINE.fullmatch(body.text)
+    # Only a reminder's line gets buttons, so one with no `⏰` the reader takes is not it.
+    if (
+        box is None
+        or body.text[len(box[1]) + 3] in CLOSED
+        or ALARM.search(todo_fields.mask(box[2] or "")) is None
+    ):
+        raise HTTPException(409, CHANGED)
+    at, rest = found[0], None
+    if body.action == "tomorrow":
+        moved = put_off(lines[at], today)
+        if moved is None:
+            raise HTTPException(409, CHANGED)
+        lines[at] = moved
+    else:
+        if await _blocks(settings, todo_fields.id_of(box[2] or "")):
+            raise HTTPException(422, share.TICK_IN_KASTEN)
+        try:
+            rest = await share.tick_task(settings, body.path, lines, at, today, twins=True)
+        except share.TickInKastenError as error:
+            raise HTTPException(422, str(error)) from error
+    await agent.save_note(settings, body.path, "\n".join(lines), agent.digest(raw))
+    return rest
+
+
+@router.post("/act", status_code=204)
+async def act(body: ActIn, settings: VaultSettings) -> Response:
+    """`Done` or `Tomorrow` on a reminder, written as the todo pane writes a tick."""
+    today = dt.datetime.now(ZoneInfo(settings.timezone)).date()
+    held = vcs.writer.set("push")
+    try:
+        for _ in range(TRIES):
+            try:
+                rest = await _act(settings, body, today)
+            except agent.ConflictError:
+                continue
+            if rest is not None:
+                await done_log.log(settings, body.path, rest, today)
+            return Response(status_code=204)
+    finally:
+        vcs.writer.reset(held)
+    raise HTTPException(409, CHANGED)

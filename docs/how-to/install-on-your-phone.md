@@ -72,11 +72,14 @@ without it `/settings` says push is not set up.
 2. Open `/settings` and press **Send reminders to this device**, then allow
    notifications.
 3. Add `⏰` and a time a minute or two ahead to a todo, and wait for the push.
-   A tap opens the todo's note.
+   A tap opens the todo's note. On Android the push also has **Done**, which
+   ticks the todo as the todo pane does, and **Tomorrow**, which moves its `⏰`
+   to the same time tomorrow. An iPhone shows no buttons.
 
 Under **When reminders go** on the same page, a morning time sends one push
-with the day's due and scheduled todos, and quiet hours hold every push until
-they end. Leave a field empty to turn it off, then press **Save times**.
+with the day's due and scheduled todos, a log goals time sends one push for
+each `min` goal of the log not met yet that day, and quiet hours hold every push
+until they end. Leave a field empty to turn it off, then press **Save times**.
 
 Each device subscribes on its own, and `/settings` lists them all. **Remove**
 takes one off; on the device in your hand it also turns off the browser's
