@@ -51,6 +51,8 @@ describe("the water switch", () => {
         </QueryClientProvider>,
       );
     });
+    // The switch waits for the timers, so a tap cannot start a second repeat.
+    await screen.findByLabelText("Stop time");
   }
 
   const press = () =>
@@ -83,6 +85,22 @@ describe("the water switch", () => {
     expect(readPlan()).toEqual({ every: 3600, until: "22:00" });
     expect(await screen.findByRole("listitem")).toHaveTextContent(WATER_LABEL);
     expect(screen.queryByRole("button", { name: "Remind me to drink water" })).toBeNull();
+  });
+
+  it("shows beside a one-off timer of the same name, which is not the repeat", async () => {
+    timers = [
+      {
+        id: 3,
+        label: WATER_LABEL,
+        due: NOW.toISOString(),
+        every: null,
+        until: null,
+        created: NOW.toISOString(),
+      },
+    ];
+    serve();
+    await renderRow();
+    expect(screen.getByRole("button", { name: "Remind me to drink water" })).toBeInTheDocument();
   });
 
   it("refuses a stop time already past, and sends nothing", async () => {

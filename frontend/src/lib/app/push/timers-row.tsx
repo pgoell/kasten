@@ -2,22 +2,19 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useEffect, useState } from "react";
 import {
   durationLabel,
+  FIELD,
   fetchTimers,
   keepRecent,
   parseDuration,
   type Recent,
   readRecent,
   remaining,
+  SMALL_BUTTON,
   startTimer,
   stopTimer,
   type Timer,
 } from "@/lib/app/push/timers";
 import { WaterSwitch } from "@/lib/app/push/water";
-
-const SMALL_BUTTON =
-  "rounded-[var(--k-radius-6)] border px-2 py-1 font-sans text-k-13 transition-colors duration-(--k-hover) disabled:opacity-50 pointer-coarse:min-h-11 pointer-coarse:px-3";
-const FIELD =
-  "min-w-0 rounded-[var(--k-radius-6)] border border-k-rule bg-k-paper px-2 py-1 font-sans text-k-15 text-k-ink placeholder:text-k-muted pointer-coarse:min-h-11";
 
 /** Every second while a timer runs, so its clock counts down; still when none does. */
 function useNow(running: boolean): Date {
@@ -131,7 +128,7 @@ export function TimersRow() {
         </button>
       </form>
 
-      <WaterSwitch running={running} onStarted={changed} />
+      <WaterSwitch running={timers.data} onStarted={changed} />
 
       {recent.length > 0 && (
         <div className="flex flex-wrap gap-2 px-2">

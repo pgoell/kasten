@@ -21,30 +21,27 @@ export async function fetchTimers(): Promise<Timer[]> {
   return data;
 }
 
-/** Start a timer that rings `seconds` from `now` with its label as the push. */
-export async function startTimer(label: string, seconds: number, now = new Date()): Promise<Timer> {
-  const due = new Date(now.getTime() + seconds * 1000).toISOString();
-  const { data, error, response } = await client.POST("/api/push/timers", {
-    body: { label, due },
-  });
+/** A timer that rings again every `every` seconds until `until`. */
+export type Repeat = { every: number; until: Date };
 
-  if (!data) {
-    throw new Error(reason(error) ?? `POST /api/push/timers failed with ${response.status}`);
-  }
+/** The look the timer controls share, on Today and in the water switch. */
+export const SMALL_BUTTON =
+  "rounded-[var(--k-radius-6)] border px-2 py-1 font-sans text-k-13 transition-colors duration-(--k-hover) disabled:opacity-50 pointer-coarse:min-h-11 pointer-coarse:px-3";
+export const FIELD =
+  "min-w-0 rounded-[var(--k-radius-6)] border border-k-rule bg-k-paper px-2 py-1 font-sans text-k-15 text-k-ink placeholder:text-k-muted pointer-coarse:min-h-11";
 
-  return data;
-}
-
-/** Start a repeat that rings at once, then every `every` seconds until `until`. */
-export async function startRepeat(
+/** Start a timer that rings `seconds` from `now` with its label as the push, once or as a repeat. */
+export async function startTimer(
   label: string,
-  every: number,
-  until: Date,
+  seconds: number,
   now = new Date(),
+  repeat?: Repeat,
 ): Promise<Timer> {
-  const { data, error, response } = await client.POST("/api/push/timers", {
-    body: { label, due: now.toISOString(), every, until: until.toISOString() },
-  });
+  const due = new Date(now.getTime() + seconds * 1000).toISOString();
+  const body = repeat
+    ? { label, due, every: repeat.every, until: repeat.until.toISOString() }
+    : { label, due };
+  const { data, error, response } = await client.POST("/api/push/timers", { body });
 
   if (!data) {
     throw new Error(reason(error) ?? `POST /api/push/timers failed with ${response.status}`);
