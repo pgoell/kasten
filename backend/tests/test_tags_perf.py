@@ -160,12 +160,7 @@ def test_growth_ignores_a_slow_runner_and_catches_a_walk_back() -> None:
         for _ in range(6):
             todos.tags_in(text)
 
-    calls = []
-
-    def burst(text: str) -> None:
-        calls.append(text)
-        for _ in range(6 if len(calls) <= 3 else 1):
-            todos.tags_in(text)
+    lengths: list[int] = []
 
     def walk_back(text: str) -> None:
         for _ in range(len(text) // 500):
@@ -175,7 +170,14 @@ def test_growth_ignores_a_slow_runner_and_catches_a_walk_back() -> None:
         return "> 1. a <!-- y\n2.\n" * size
 
     assert growth("six times slower", text_of, 500, slow) < MOST_GROWTH
-    assert growth("a burst of load", text_of, 2_000, burst) < MOST_GROWTH
+
+    # In turn, so a burst of load slows both lengths, not only the first one read.
+    def recording(text: str) -> None:
+        lengths.append(len(text))
+        todos.tags_in(text)
+
+    growth("in turn", text_of, 2_000, recording)
+    assert lengths == [len(text_of(2_000)), len(text_of(500))] * 3
     assert growth("walking back", text_of, 500, walk_back) > MOST_GROWTH
 
 
