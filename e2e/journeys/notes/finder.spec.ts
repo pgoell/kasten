@@ -15,9 +15,74 @@ test("a query the finder reads into nothing says so, and Enter opens nothing", a
   await page.keyboard.type("zzz");
   await expect(finder.getByRole("status")).toHaveText("no notes match");
   await expect(finder.getByRole("option")).toHaveCount(0);
+  // An empty list is where Tab would leave the panel and never come back.
+  await page.keyboard.press("Tab");
+  await expect(finder.getByRole("combobox")).toBeFocused();
   const tabs = await page.getByRole("tab").count();
   await page.keyboard.press("Enter");
   await expect(finder).toBeVisible();
+  await expect(page.getByRole("tab")).toHaveCount(tabs);
+});
+
+test("the finder's keys walk the list, and Enter opens the row the highlight is on", async ({
+  page,
+}) => {
+  await openApp(page);
+  await leader(page, "ff");
+  const finder = page.getByRole("dialog", { name: "Find note" });
+  const input = finder.getByRole("combobox");
+  const options = finder.getByRole("option");
+  const selected = finder.getByRole("option", { selected: true });
+  await expect(options.nth(2)).toBeVisible();
+  // Read, not assumed: the walk holds whatever order the vault ranks in.
+  const names = await options.allTextContents();
+  const walk: [string, number][] = [
+    ["ArrowDown", 1],
+    ["Control+n", 2],
+    ["ArrowUp", 1],
+    ["Control+p", 0],
+    ["Control+j", 1],
+    ["Control+k", 0],
+    ["Control+k", 0],
+    ["Tab", 1],
+    ["Tab", 2],
+    ["Shift+Tab", 1],
+  ];
+  for (const [key, row] of walk) {
+    await page.keyboard.press(key);
+    await expect(selected, key).toHaveText(names[row]);
+  }
+  await expect(input).toBeFocused();
+
+  await page.keyboard.type("o");
+  await expect(options.nth(1)).toBeVisible();
+  await expect(selected).toHaveText((await options.first().textContent()) ?? "");
+  await input.fill("");
+  await expect(selected).toHaveText(names[0]);
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
+  const name = names[1].replace(/^.*\//, "").replace(/\.md$/, "");
+  await expect(page.getByRole("tab", { name, selected: true })).toBeVisible();
+});
+
+test("the finder's Enter opens the row it ranks first, not the text typed", async ({ page }) => {
+  await openApp(page);
+  await leader(page, "ff");
+  // `grdn` names no note; `02 Projects/Garden.md` reads into it.
+  await page.keyboard.type("grdn");
+  await expect(page.getByRole("option", { selected: true })).toHaveText("02 Projects/Garden.md");
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("tab", { name: "Garden", selected: true })).toBeVisible();
+});
+
+test("Escape closes the finder and opens nothing", async ({ page }) => {
+  await openApp(page);
+  const tabs = await page.getByRole("tab").count();
+  await leader(page, "ff");
+  const finder = page.getByRole("dialog", { name: "Find note" });
+  await expect(finder.getByRole("option").first()).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(finder).toBeHidden();
   await expect(page.getByRole("tab")).toHaveCount(tabs);
 });
 
