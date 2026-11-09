@@ -133,7 +133,9 @@ async def test_find_tags_reads_whole_only_the_notes_a_line_cannot_say(
 MOST_GROWTH = 6
 """A note four times longer may take at most this many times the steps: linear is 4, a walk back 16.
 
-Steps, not time, since a slow or loaded runner changes time and not steps (#1708).
+Steps, not time, since a slow or loaded runner changes time and not steps (#1708). A step
+is a Python call or loop turn, so a walk back inside one C call (a regex, a str method) goes
+unseen.
 """
 
 STEPS_TOOL = 4
@@ -185,7 +187,7 @@ def test_growth_counts_steps_and_catches_a_walk_back() -> None:
 
 
 def test_1544_long_notes_of_open_comments_and_lazy_items_read_in_bounded_time() -> None:
-    """A comment closes per paragraph and a lazy line asks the list stack: neither may walk back."""
+    """A comment closes per paragraph, a lazy line asks the list stack: no Python walks back."""
     notes = {
         "open comments": (lambda n: "a <!-- y\n" * n, 20_000),
         "lazy quote": (lambda n: "> a <!-- y\n" + "2. x\n" * n + "#t -->", 20_000),
