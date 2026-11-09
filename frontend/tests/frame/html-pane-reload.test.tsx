@@ -428,3 +428,7 @@ it("a page another test file writes under the same name does not change the page
 
   expect(await titleOf(frameOf(mounted, 0))).toBe("mine");
 });
+
+it("pageServed answers at once for a path no route serves", async () => {
+  await expect(browser.pageServed("/api/html/never-served.html")).resolves.toBeUndefined();
+});
