@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from starlette.requests import ClientDisconnect
 
-from kasten_backend import agent, files, page_store, skills, token_activity, vcs
+from kasten_backend import agent, files, page_store, posts, skills, token_activity, vcs
 from kasten_backend.agent_finance_routes import router as finance_router
 from kasten_backend.books.library import fraction, named_book, note_text
 from kasten_backend.config import Settings, get_settings
@@ -74,14 +74,17 @@ async def require_token(
 async def require_reader(
     request: Request, settings: Annotated[Settings, Depends(get_settings)]
 ) -> str:
-    """Refuse anyone without a reading or a full agent token. The route it guards writes nothing."""
+    """Refuse anyone without a reading or a full agent token. The routes it guards write nothing."""
     return (await _admit(request, settings, {"agent", "reading"})).name
 
 
 router = APIRouter(prefix="/agent", dependencies=[Depends(require_token)], tags=["agent"])
 
 reading_router = APIRouter(prefix="/agent", dependencies=[Depends(require_reader)], tags=["agent"])
-"""The one route a reading token opens, on a router of its own so its gate is by construction."""
+"""The routes a reading token opens, on a router of their own so their gate is by construction.
+
+Each serves only what pgoell.com shows anyway: the book being read and the published posts.
+"""
 
 
 class Reading(BaseModel):
@@ -134,6 +137,25 @@ def _reading(root: Path, path: str) -> Reading | None:
         progress=fraction(field(text, "progress")),
         read_at=read_at,
     )
+
+
+@reading_router.get("/posts")
+async def published_posts(
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> list[posts.PostMeta]:
+    """Every note marked `publish: true`, newest first, without its body."""
+    return await posts.posts(settings)
+
+
+@reading_router.get("/posts/{slug}")
+async def published_post(
+    slug: str, settings: Annotated[Settings, Depends(get_settings)], lang: str | None = None
+) -> posts.Post:
+    """One published post by its slug, in `lang` when there is one in it."""
+    found = await posts.post(settings, slug, lang)
+    if found is None:
+        raise HTTPException(status_code=404, detail="No such post")
+    return found
 
 
 def _moment(text: str) -> datetime | None:

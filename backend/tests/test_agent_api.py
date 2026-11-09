@@ -424,6 +424,8 @@ async def test_the_schema_describes_the_agent_routes(
         "/agent/dump",
         "/agent/search",
         "/agent/reading",
+        "/agent/posts",
+        "/agent/posts/{slug}",
         "/agent/search/meaning",
         "/agent/graph",
         "/agent/files/{path}",

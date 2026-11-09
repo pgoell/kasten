@@ -53,7 +53,7 @@ class Token(BaseModel):
     created: datetime
 
     scope: Scope = "agent"
-    """`reading` opens `GET /agent/reading` alone; `agent` opens every `/agent/` route."""
+    """`reading` opens the site routes, reading and posts; `agent` opens every `/agent/` route."""
 
 
 class Minted(Token):
