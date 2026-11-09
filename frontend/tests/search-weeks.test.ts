@@ -128,7 +128,3 @@ describe("linesPerWeek", () => {
     expect(linesPerWeek([null, undefined], ["2026-W38"])).toEqual([0]);
   });
 });
-
-test("fails in CI to prove a red shard fails Test", () => {
-  expect(process.env.CI).toBeUndefined();
-});
