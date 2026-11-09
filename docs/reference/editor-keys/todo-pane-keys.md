@@ -41,7 +41,7 @@ written elsewhere meanwhile joins the end of its group. The order goes once the
 focus leaves the pane, the pane closes or the page reloads, and `d`, `n`, `v`,
 `c`, `b`, `i`, `s` and the filter draw the list afresh too. A press redraws the
 list once, after its last write, whether every write landed or not, and
-presses that overlap, of any kind, redraw it once, after the last lands; the vault's
+presses of `x`, the state keys, `t`, `@`, `e`, `b` and `m` that overlap redraw it once, after the last lands; the vault's
 word on a note the press wrote asks again only where the note now holds other
 text than the press wrote (#947).
 
