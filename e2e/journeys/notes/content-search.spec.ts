@@ -1,23 +1,7 @@
 import type { Page, Route } from "@playwright/test";
-import { leader, openApp, today } from "../../harness/app.ts";
+import { openApp } from "../../harness/app.ts";
+import { answer, bars, daysAgo, type Hit, hit, openSearch } from "../../harness/search.ts";
 import { expect, test } from "../../harness/stack.ts";
-
-type Hit = { path: string; line: number; text: string; date: string; tags: string[] };
-
-const hit = (path: string, line: number, text: string): Hit => ({
-  path,
-  line,
-  text,
-  date: today(),
-  tags: [],
-});
-
-/** Answers every content search with `reply`'s hits rather than the vault's. */
-async function answer(page: Page, reply: (route: Route) => Hit[] | Promise<Hit[]>) {
-  await page.route("**/api/search?**", async (route) =>
-    route.fulfill({ json: await reply(route) }),
-  );
-}
 
 /** The vault's own hits for each query in turn, so a row opens a real note on a real line. */
 async function vaultHits(route: Route, queries: string[]): Promise<Hit[]> {
@@ -32,13 +16,6 @@ async function vaultHits(route: Route, queries: string[]): Promise<Hit[]> {
 
 // One line in each of two notes: Welcome's front door, then Long note's last todo.
 const twoNotes = (route: Route) => vaultHits(route, ["front door", "far away letter"]);
-
-/** Opens the search with `Space f g`, and waits for its input to hold the focus before keys go. */
-async function openSearch(page: Page) {
-  await openApp(page);
-  await leader(page, "fg");
-  await expect(page.getByRole("combobox", { name: "search notes" })).toBeFocused();
-}
 
 const rows = (page: Page) => page.getByRole("option");
 
@@ -153,4 +130,89 @@ test("the highlight stays in view when it walks past the end of a long list and 
   for (let at = 0; at < 59; at++) await page.keyboard.press("ArrowUp");
   await expect(rows(page).first()).toHaveAttribute("aria-selected", "true");
   await expect(rows(page).first()).toBeInViewport();
+});
+
+test("Tab, Shift+Tab, Ctrl+N, Ctrl+P and the arrows walk the lines, a bare letter is typed, and Escape closes", async ({
+  page,
+}) => {
+  await answer(page, () => [hit("Welcome.md", 3, "postgres"), hit("Long note.md", 9, "postgres")]);
+  await openSearch(page);
+  const input = page.getByRole("combobox", { name: "search notes" });
+  // With no line to walk, Tab still stays in the page rather than leaving it.
+  await page.keyboard.press("Tab");
+  await expect(input).toBeFocused();
+  await page.keyboard.type("postgres");
+  await expect(rows(page)).toHaveCount(2);
+  const walk: [string, number][] = [
+    ["Tab", 1],
+    ["ArrowDown", 1],
+    ["Shift+Tab", 0],
+    ["ArrowUp", 0],
+    ["Control+n", 1],
+    ["Control+p", 0],
+  ];
+  for (const [key, at] of walk) {
+    await page.keyboard.press(key);
+    await expect(rows(page).nth(at)).toHaveAttribute("aria-selected", "true");
+  }
+  await page.keyboard.press("n");
+  await expect(input).toHaveValue("postgresn");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "Search notes" })).toHaveCount(0);
+});
+
+test("a click on a bar leaves the focus in the input, and the arrows and Enter open a line of its week", async ({
+  page,
+}) => {
+  // Welcome's line dated today, Long note's a week back, so last week's bar holds Long note alone.
+  await answer(page, async (route) => {
+    const [front, letter] = await twoNotes(route);
+    return [
+      { ...(front as Hit), date: daysAgo(0) },
+      { ...(letter as Hit), date: daysAgo(7) },
+    ];
+  });
+  await openSearch(page);
+  await page.keyboard.type("the");
+  await expect(rows(page)).toHaveCount(2);
+  await bars(page).nth(12).click();
+  await expect(page.getByRole("combobox", { name: "search notes" })).toBeFocused();
+  await expect(rows(page)).toHaveCount(1);
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("tab", { name: "Long note", selected: true })).toBeVisible();
+  await expect(page.locator(".cm-activeLine")).toContainText("reply to the far away letter");
+});
+
+test("the query is set in serif at the display size, an empty status draws no rule, and Enter on a focused bar presses it", async ({
+  page,
+}) => {
+  await answer(page, () => [hit("Welcome.md", 3, "postgres")]);
+  await openSearch(page);
+  const input = page.getByRole("combobox", { name: "search notes" });
+  await expect(input).toHaveAttribute("placeholder", "Search the vault");
+  await expect(input).toHaveCSS("font-family", /Newsreader/);
+  await expect(input).toHaveCSS("font-size", "36px");
+  await page.keyboard.type("postgres");
+  await expect(rows(page)).toHaveCount(1);
+  const status = page.getByRole("status");
+  // One poll: the rule goes with the text, on the render the answer lands in.
+  await expect
+    .poll(async () => [
+      await status.textContent(),
+      await status.evaluate((at) => getComputedStyle(at).borderTopWidth),
+    ])
+    .toEqual(["", "0px"]);
+  const week = bars(page).last();
+  await week.focus();
+  await page.keyboard.press("Enter");
+  await expect(week).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("dialog", { name: "Search notes" })).toBeVisible();
+});
+
+test("Escape hands the focus back to the editor the search opened over", async ({ page }) => {
+  await openSearch(page);
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "Search notes" })).toHaveCount(0);
+  await expect(page.locator(".cm-content:focus")).toHaveCount(1);
 });
