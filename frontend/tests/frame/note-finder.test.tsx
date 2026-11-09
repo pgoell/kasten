@@ -342,7 +342,11 @@ describe("the note finder's preview", () => {
     fetchNote.mockRejectedValueOnce(new Error("GET /api/files/x failed with 500"));
     const finder = renderFinder();
 
-    await vi.waitFor(() => expect(finder.preview()).toBe("could not read this note"));
+    // Settled first: the pending pane must not pass for the error one.
+    await vi.waitFor(() =>
+      expect(finder.queryClient.getQueryState(["note", PATHS[0]])?.status).toBe("error"),
+    );
+    expect(finder.preview()).toBe("could not read this note");
     expect(finder.rows()).toEqual(PATHS);
     finder.press("Enter");
     expect(finder.onOpen).toHaveBeenCalledWith(PATHS[0]);
