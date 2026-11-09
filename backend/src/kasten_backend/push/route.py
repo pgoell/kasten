@@ -14,7 +14,7 @@ from kasten_backend import agent, done_log, share, todo_fields, todos, vault, vc
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.db import get_session
 from kasten_backend.push import webpush
-from kasten_backend.push.due import CLOSED, put_off
+from kasten_backend.push.due import ALARM, CLOSED, put_off
 from kasten_backend.push.models import PushDevice, PushSettings
 
 router = APIRouter(prefix="/api/push")
@@ -185,7 +185,12 @@ async def _act(settings: Settings, body: ActIn, today: dt.date) -> str | None:
     lines = raw.decode("utf-8").split("\n")
     found = [at for at, line in enumerate(lines) if line.removesuffix("\r") == body.text]
     box = None if len(found) != 1 else todos.LINE.fullmatch(body.text)
-    if box is None or body.text[len(box[1]) + 3] in CLOSED:
+    # Only a reminder's line gets buttons, so one with no `⏰` the reader takes is not it.
+    if (
+        box is None
+        or body.text[len(box[1]) + 3] in CLOSED
+        or ALARM.search(todo_fields.mask(box[2] or "")) is None
+    ):
         raise HTTPException(409, CHANGED)
     at, rest = found[0], None
     if body.action == "tomorrow":

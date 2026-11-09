@@ -418,7 +418,14 @@ def read_log(
         raise HTTPException(status_code=422, detail="`from` and `to` must be real dates") from error
     if first > last:
         raise HTTPException(status_code=400, detail="`from` is after `to`")
+    return read_days(settings, first, last)
 
+
+def read_days(settings: Settings, first: date, last: date) -> list[Day]:
+    """The days from `first` to `last` with a `## Log`, as `GET /api/log` answers them.
+
+    Blocking file reads, so an async caller runs it in a thread.
+    """
     # One listing of the folder, not a read per date: a range of years would
     # otherwise stall the backend on millions of misses.
     folder = vault.resolve_folder(settings.vault_path, f"{settings.periodic_path}/{DAILY}")

@@ -17,7 +17,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from kasten_backend import vault
-from kasten_backend.log import CONFIG_NOTE, read_log
+from kasten_backend.log import CONFIG_NOTE, read_days
 from kasten_backend.log_config import parse_config
 from kasten_backend.periodic import daily_path
 from kasten_backend.push import webpush
@@ -71,7 +71,8 @@ async def _send_due(
     due = [found for found in reminders(hits, zone) if sendable(found.due, now, quiet, zone)]
     morning = _morning(settings, now, hours.morning, quiet, hits)
     sent = await _send_once(session, client, key, morning)
-    for goal in _goals(settings, now, hours.goals, quiet):
+    # File reads and a markdown parse, kept off the event loop.
+    for goal in await asyncio.to_thread(_goals, settings, now, hours.goals, quiet):
         sent += await _send_once(session, client, key, goal)
     devices = list(await session.scalars(select(PushDevice)))
     for reminder in due:
@@ -133,7 +134,7 @@ def _goals(
         note = vault.read_note(settings.vault_path, f"{settings.config_path}/{CONFIG_NOTE}")
     except UnicodeDecodeError, OSError:
         note = None
-    days = read_log(today.isoformat(), today.isoformat(), settings)
+    days = read_days(settings, today, today)
     path = daily_path(today, settings.periodic_path)
     found = []
     for name, words in unmet(parse_config(note), days[0].totals if days else None):

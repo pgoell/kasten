@@ -85,6 +85,20 @@ async def test_1682_an_act_whose_line_is_gone_or_twinned_writes_nothing(
     assert _daily(served) == ""
 
 
+@pytest.mark.parametrize("action", ["done", "tomorrow"])
+@pytest.mark.parametrize(
+    "line", ["- [ ] buy milk", "- [ ] buy milk `⏰ 2026-11-12 09:00`"], ids=["none", "in code"]
+)
+async def test_1682_an_act_on_a_line_with_no_alarm_writes_nothing(
+    client: httpx.AsyncClient, served: Settings, action: str, line: str
+) -> None:
+    body = f"# Errands\n\n{line}\n"
+    note(served, body, PATH)
+    assert await _act(client, action, line) == 409
+    assert _read(served) == body
+    assert _daily(served) == ""
+
+
 async def test_1682_an_act_on_a_note_that_is_gone_writes_nothing(
     client: httpx.AsyncClient, served: Settings
 ) -> None:
