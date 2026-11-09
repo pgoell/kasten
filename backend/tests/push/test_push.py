@@ -2,6 +2,7 @@
 
 import asyncio
 import datetime as dt
+from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -17,10 +18,14 @@ from backend.tests.push.conftest import KEY, PUBLIC, PushService, note, subscrib
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.main import app
 from kasten_backend.push import PushDevice, tick
-from kasten_backend.push.due import reminder_of
+from kasten_backend.push.due import reminder_of, reminders, today_todos
 from kasten_backend.push.loop import PUSH_LOCK
 from kasten_backend.push.webpush import encrypt, private_key, unb64, vapid
 from kasten_backend.search import Hit
+from kasten_backend.todos import find_todos
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 BERLIN = ZoneInfo("Europe/Berlin")
 NOW = dt.datetime(2026, 11, 12, 9, 0, tzinfo=BERLIN)
@@ -89,6 +94,7 @@ def test_a_reminder_reads_its_words_and_time_in_the_zone(line: str, words: str, 
         "- [x] done ⏰ 2026-11-12 09:00",
         "- [X] done ⏰ 2026-11-12 09:00",
         "- [-] cancelled ⏰ 2026-11-12 09:00",
+        "- [x] done on a CRLF line ⏰ 2026-11-12 09:00\r",
         "- [ ] in code `⏰ 2026-11-12 09:00`",
         "- [ ] bad hour ⏰ 2026-11-12 25:00",
         "- [ ] no such day ⏰ 2026-02-30 09:00",
@@ -98,6 +104,19 @@ def test_a_reminder_reads_its_words_and_time_in_the_zone(line: str, words: str, 
 )
 def test_a_closed_coded_or_malformed_reminder_is_none(line: str) -> None:
     assert reminder_of(Hit("a.md", 1, line), BERLIN) is None
+
+
+@pytest.mark.parametrize("end", ["\r\n", "\r"])
+async def test_1703_a_crlf_or_bare_cr_line_reads_as_its_lf_line(tmp_path: Path, end: str) -> None:
+    line = "- [ ] call the dentist ⏰ 2026-11-12 09:00 📅 2026-11-12"
+    (tmp_path / "lf").mkdir()
+    (tmp_path / "lf" / "a.md").write_text(f"# A\n\n{line}\n", encoding="utf-8")
+    (tmp_path / "cr").mkdir()
+    (tmp_path / "cr" / "a.md").write_text(f"# A\n\n{line}{end}", encoding="utf-8")
+    lf, cr = await find_todos(tmp_path / "lf"), await find_todos(tmp_path / "cr")
+    assert reminders(cr, BERLIN) == reminders(lf, BERLIN) != []
+    assert [found.key for found in reminders(cr, BERLIN)] == [r.key for r in reminders(lf, BERLIN)]
+    assert today_todos(cr, NOW.date()) == today_todos(lf, NOW.date()) == ["call the dentist"]
 
 
 async def test_devices_are_listed_and_one_endpoint_is_one_device(
@@ -150,6 +169,26 @@ async def test_a_reminder_due_now_goes_to_every_device_with_its_note(
         "https://push.example/phone",
     ]
     message = service.sent[0][1]
+    assert message["body"] == "call the dentist"
+    assert (message["path"], message["line"]) == ("01 Periodic/Today.md", 3)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "# Today\r\n\r\n- [ ] call the dentist ⏰ 2026-11-12 09:00\r\n",
+        "# Today\n\n- [ ] call the dentist ⏰ 2026-11-12 09:00\r",
+    ],
+)
+async def test_1703_a_crlf_note_sends_its_reminder(
+    client: httpx.AsyncClient, served: Settings, push_db: AsyncEngine, text: str
+) -> None:
+    service = PushService()
+    await subscribe(client, service, "phone")
+    note(served, text, "01 Periodic/Today.md")
+    async with service.client() as http:
+        assert await tick(push_db, served, http, NOW) == 1
+    [(_, message)] = service.sent
     assert message["body"] == "call the dentist"
     assert (message["path"], message["line"]) == ("01 Periodic/Today.md", 3)
 

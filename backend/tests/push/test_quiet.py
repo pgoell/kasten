@@ -130,6 +130,19 @@ async def test_the_morning_push_sends_today_once_a_day(
     assert message["path"] == "01 Periodic/00 Daily/2026-11-12.md"
 
 
+async def test_1703_a_crlf_note_s_todos_are_in_the_morning_push(
+    client: httpx.AsyncClient, served: Settings, push_db: AsyncEngine
+) -> None:
+    service = PushService()
+    await subscribe(client, service, "phone")
+    await _set(client, morning="07:30")
+    note(served, TODAY.replace("\n", "\r\n"), "Plans.md")
+    async with service.client() as http:
+        assert await tick(push_db, served, http, _at(12, 7, 30)) == 1
+    [(_, message)] = service.sent
+    assert message["body"] == "pay rent\nbook train\ncall mum"
+
+
 @pytest.mark.parametrize(("morning", "body"), [(None, TODAY), ("07:30", "- [ ] someday\n")])
 async def test_no_morning_push_when_it_is_off_or_nothing_is_due(
     client: httpx.AsyncClient,

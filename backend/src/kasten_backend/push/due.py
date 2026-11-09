@@ -43,8 +43,10 @@ class Reminder(NamedTuple):
 
 def reminder_of(hit: Hit, zone: ZoneInfo) -> Reminder | None:
     """The reminder on one todo line, or None for a closed todo, a malformed time or none at all."""
-    todo = todos.LINE.fullmatch(hit.text)
-    if todo is None or hit.text[len(todo[1]) + 3] in CLOSED:
+    # rg hands a CRLF line on with its `\r`, which `LINE` takes as no todo (#1703).
+    text = hit.text.removesuffix("\r")
+    todo = todos.LINE.fullmatch(text)
+    if todo is None or text[len(todo[1]) + 3] in CLOSED:
         return None
     rest = todo[2] or ""
     found = ALARM.search(todo_fields.mask(rest))
@@ -114,8 +116,9 @@ def today_todos(hits: list[Hit], today: dt.date) -> list[str]:
     day = today.isoformat()
     found = []
     for hit in hits:
-        todo = todos.LINE.fullmatch(hit.text)
-        if todo is None or hit.text[len(todo[1]) + 3] in CLOSED:
+        text = hit.text.removesuffix("\r")
+        todo = todos.LINE.fullmatch(text)
+        if todo is None or text[len(todo[1]) + 3] in CLOSED:
             continue
         rest = todo[2] or ""
         masked = todo_fields.mask(rest)
