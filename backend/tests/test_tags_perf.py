@@ -139,20 +139,18 @@ A ratio, not a time, since a slow or loaded runner slows both lengths alike (#17
 def growth(label: str, text_of: Callable[[int], str], size: int, read=todos.tags_in) -> float:
     """How many times the CPU `read` spends on `text_of(size)` exceeds that on a quarter of it.
 
-    Best of 3 on this thread's clock, which no other thread or reaped child adds to.
+    Best of 3 on this thread's clock, which no other thread or reaped child adds to. The
+    lengths take turns, so a burst of load slows both alike.
     """
-
-    def best(length: int) -> float:
-        text = text_of(length)
-        spent = []
-        for _ in range(3):
+    texts = [text_of(size), text_of(size // 4)]
+    best = [float("inf"), float("inf")]
+    for _ in range(3):
+        for index, text in enumerate(texts):
             start = time.thread_time()
             read(text)
-            spent.append(time.thread_time() - start)
-        return min(spent)
-
-    full = best(size)
-    ratio = full / best(size // 4)
+            best[index] = min(best[index], time.thread_time() - start)
+    full = best[0]
+    ratio = full / best[1]
     print(f"\n{label}: {full * 1000:.0f}ms cpu, {ratio:.1f} times a quarter")
     return ratio
 
@@ -160,6 +158,13 @@ def growth(label: str, text_of: Callable[[int], str], size: int, read=todos.tags
 def test_growth_ignores_a_slow_runner_and_catches_a_walk_back() -> None:
     def slow(text: str) -> None:
         for _ in range(6):
+            todos.tags_in(text)
+
+    calls = []
+
+    def burst(text: str) -> None:
+        calls.append(text)
+        for _ in range(6 if len(calls) <= 3 else 1):
             todos.tags_in(text)
 
     def walk_back(text: str) -> None:
@@ -170,6 +175,7 @@ def test_growth_ignores_a_slow_runner_and_catches_a_walk_back() -> None:
         return "> 1. a <!-- y\n2.\n" * size
 
     assert growth("six times slower", text_of, 500, slow) < MOST_GROWTH
+    assert growth("a burst of load", text_of, 2_000, burst) < MOST_GROWTH
     assert growth("walking back", text_of, 500, walk_back) > MOST_GROWTH
 
 
