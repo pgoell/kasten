@@ -37,7 +37,8 @@ test("the vault is asked once for the settled query with the archive out, and an
     return q === "wikilink" ? [] : HITS;
   });
   await openSearch(page);
-  await page.keyboard.type("pos");
+  // Keys 30 ms apart, inside the search's 120 ms settle, so a scan per key would show.
+  await page.keyboard.type("pos", { delay: 30 });
   // One poll: the rows land with the answer to the one question asked.
   await expect.poll(async () => [await rows(page).count(), asked]).toEqual([2, ["pos"]]);
   await input(page).fill("wikilink");
