@@ -13660,6 +13660,18 @@
               }
             ],
             "title": "Quiet End"
+          },
+          "goals": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Goals"
           }
         },
         "type": "object",
@@ -13669,7 +13681,7 @@
           "quiet_end"
         ],
         "title": "PushHours",
-        "description": "The morning push's time and the quiet hours, None for off; quiet hours need both ends."
+        "description": "When the morning and goals pushes go and the quiet hours, None for off.\n\nQuiet hours need both ends."
       },
       "PushHours-Output": {
         "properties": {
@@ -13705,6 +13717,17 @@
               }
             ],
             "title": "Quiet End"
+          },
+          "goals": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Goals"
           }
         },
         "type": "object",
@@ -13714,7 +13737,7 @@
           "quiet_end"
         ],
         "title": "PushHours",
-        "description": "The morning push's time and the quiet hours, None for off; quiet hours need both ends."
+        "description": "When the morning and goals pushes go and the quiet hours, None for off.\n\nQuiet hours need both ends."
       },
       "PushOut": {
         "properties": {

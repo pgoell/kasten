@@ -16,9 +16,12 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
+from kasten_backend import vault
+from kasten_backend.log import CONFIG_NOTE, read_log
+from kasten_backend.log_config import parse_config
 from kasten_backend.periodic import daily_path
 from kasten_backend.push import webpush
-from kasten_backend.push.due import Quiet, reminders, sendable, today_todos
+from kasten_backend.push.due import Quiet, reminders, sendable, today_todos, unmet
 from kasten_backend.push.models import PushDevice, PushSent, PushSettings
 from kasten_backend.todos import find_todos
 
@@ -67,7 +70,9 @@ async def _send_due(
     hits = await find_todos(settings.vault_path, settings.archive_path)
     due = [found for found in reminders(hits, zone) if sendable(found.due, now, quiet, zone)]
     morning = _morning(settings, now, hours.morning, quiet, hits)
-    sent = await _send_morning(session, client, key, morning)
+    sent = await _send_once(session, client, key, morning)
+    for goal in _goals(settings, now, hours.goals, quiet):
+        sent += await _send_once(session, client, key, goal)
     devices = list(await session.scalars(select(PushDevice)))
     for reminder in due:
         if await session.get(PushSent, reminder.key) is not None:
@@ -113,16 +118,41 @@ def _morning(
     return PushSent(key=key, path=path, due=at), message
 
 
-async def _send_morning(
+def _goals(
+    settings: Settings, now: dt.datetime, at_time: dt.time | None, quiet: Quiet | None
+) -> list[tuple[PushSent, dict]]:
+    """Today's push for each `min` log goal not met yet, each keyed on the day and the goal."""
+    zone = ZoneInfo(settings.timezone)
+    today = now.astimezone(zone).date()
+    if at_time is None:
+        return []
+    at = dt.datetime.combine(today, at_time, tzinfo=zone)
+    if not sendable(at, now, quiet, zone):
+        return []
+    try:
+        note = vault.read_note(settings.vault_path, f"{settings.config_path}/{CONFIG_NOTE}")
+    except UnicodeDecodeError, OSError:
+        note = None
+    days = read_log(today.isoformat(), today.isoformat(), settings)
+    path = daily_path(today, settings.periodic_path)
+    found = []
+    for name, words in unmet(parse_config(note), days[0].totals if days else None):
+        key = hashlib.sha256(f"goal\0{today.isoformat()}\0{name}".encode()).hexdigest()
+        message = {"title": "Goal", "body": words, "path": path, "line": 1, "tag": key}
+        found.append((PushSent(key=key, path=path, due=at), message))
+    return found
+
+
+async def _send_once(
     session: AsyncSession,
     client: httpx.AsyncClient,
     key: str,
-    morning: tuple[PushSent, dict] | None,
+    push: tuple[PushSent, dict] | None,
 ) -> int:
-    """Send the morning push to every device unless it went today already."""
-    if morning is None or await session.get(PushSent, morning[0].key) is not None:
+    """Send a push of the day to every device unless it went already."""
+    if push is None or await session.get(PushSent, push[0].key) is not None:
         return 0
-    record, message = morning
+    record, message = push
     for device in list(await session.scalars(select(PushDevice))):
         if await _post(client, device, message, key) in GONE:
             await session.execute(delete(PushDevice).where(PushDevice.id == device.id))

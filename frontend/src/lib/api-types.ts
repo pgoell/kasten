@@ -5872,7 +5872,9 @@ export interface components {
         };
         /**
          * PushHours
-         * @description The morning push's time and the quiet hours, None for off; quiet hours need both ends.
+         * @description When the morning and goals pushes go and the quiet hours, None for off.
+         *
+         *     Quiet hours need both ends.
          */
         "PushHours-Input": {
             /** Morning */
@@ -5881,10 +5883,14 @@ export interface components {
             quiet_start: string | null;
             /** Quiet End */
             quiet_end: string | null;
+            /** Goals */
+            goals?: string | null;
         };
         /**
          * PushHours
-         * @description The morning push's time and the quiet hours, None for off; quiet hours need both ends.
+         * @description When the morning and goals pushes go and the quiet hours, None for off.
+         *
+         *     Quiet hours need both ends.
          */
         "PushHours-Output": {
             /** Morning */
@@ -5893,6 +5899,8 @@ export interface components {
             quiet_start: string | null;
             /** Quiet End */
             quiet_end: string | null;
+            /** Goals */
+            goals?: string | null;
         };
         /**
          * PushOut

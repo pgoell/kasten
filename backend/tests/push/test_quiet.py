@@ -58,11 +58,16 @@ async def _set(client: httpx.AsyncClient, **hours: str | None) -> None:
 async def test_the_settings_are_stored_and_read_back(
     client: httpx.AsyncClient, served: Settings
 ) -> None:
-    empty = {"morning": None, "quiet_start": None, "quiet_end": None}
+    empty = {"morning": None, "quiet_start": None, "quiet_end": None, "goals": None}
     assert (await client.get("/api/push/settings")).json() == empty
     await _set(client, morning="07:30", quiet_start="22:00", quiet_end="07:00")
     stored = (await client.get("/api/push/settings")).json()
-    assert stored == {"morning": "07:30", "quiet_start": "22:00", "quiet_end": "07:00"}
+    assert stored == {
+        "morning": "07:30",
+        "quiet_start": "22:00",
+        "quiet_end": "07:00",
+        "goals": None,
+    }
     await _set(client)
     assert (await client.get("/api/push/settings")).json() == empty
 

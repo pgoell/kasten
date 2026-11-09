@@ -13,6 +13,8 @@ from kasten_backend import todo_fields, todos
 if TYPE_CHECKING:
     from zoneinfo import ZoneInfo
 
+    from kasten_backend.log import Totals
+    from kasten_backend.log_config import Config
     from kasten_backend.search import Hit
 
 ALARM = re.compile(
@@ -139,4 +141,35 @@ def today_todos(hits: list[Hit], today: dt.date) -> list[str]:
         dates = [m[1] for field in todo_fields.FIELDS[:2] if (m := field.search(masked))]
         if day in dates:
             found.append(_spoken(rest))
+    return found
+
+
+FOOD_UNITS = {"kcal": "kcal", "protein": "g", "carbs": "g", "fat": "g"}
+
+
+def unmet(config: Config, totals: Totals | None) -> list[tuple[str, str]]:
+    """Each `min` goal of the log config `totals` falls short of, as its key and its words.
+
+    Read as the log pane reads goals; `totals` is None on a day with no `## Log`, all zero.
+    """
+    found = []
+    mine = {total.mark: total.total for total in (totals.mine or [])} if totals else {}
+    builtin = (
+        {"water": totals.water.ml, "coffee": totals.coffee.count, "alcohol": totals.alcohol.count}
+        if totals
+        else {}
+    )
+    for kind in config.kinds:
+        if kind.goal is None or kind.goal.type != "floor":
+            continue
+        unit = "ml" if kind.builtin == "water" else kind.unit
+        total = builtin.get(kind.builtin, 0) if kind.builtin else mine.get(kind.mark)
+        if total is None or total < kind.goal.value:
+            words = f"{kind.mark} {kind.name}: {total or 0:g} of {kind.goal.value:g} {unit}"
+            found.append((kind.mark, words.rstrip()))
+    for field, goal in config.food.items():
+        total = getattr(totals.food, field) if totals else 0
+        if goal.type == "floor" and total < goal.value:
+            unit = FOOD_UNITS[field]
+            found.append((field, f"🍽 {field}: {total:g} of {goal.value:g} {unit}"))
     return found

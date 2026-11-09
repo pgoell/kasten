@@ -72,11 +72,15 @@ async def read_push(session: Session, settings: VaultSettings) -> PushOut:
 
 
 class PushHours(BaseModel):
-    """The morning push's time and the quiet hours, None for off; quiet hours need both ends."""
+    """When the morning and goals pushes go and the quiet hours, None for off.
+
+    Quiet hours need both ends.
+    """
 
     morning: time | None
     quiet_start: time | None
     quiet_end: time | None
+    goals: time | None = None
 
     @model_validator(mode="after")
     def _whole_quiet_hours(self) -> PushHours:
@@ -86,7 +90,7 @@ class PushHours(BaseModel):
             raise ValueError("quiet hours end where they start")
         return self
 
-    @field_serializer("morning", "quiet_start", "quiet_end")
+    @field_serializer("morning", "quiet_start", "quiet_end", "goals")
     def _minutes(self, value: time | None) -> str | None:
         return None if value is None else value.strftime("%H:%M")
 
@@ -96,7 +100,10 @@ async def read_hours(session: Session) -> PushHours:
     """When pushes go, as `HH:MM`; all None until first saved."""
     hours = await session.get(PushSettings, 1) or PushSettings()
     return PushHours(
-        morning=hours.morning, quiet_start=hours.quiet_start, quiet_end=hours.quiet_end
+        morning=hours.morning,
+        quiet_start=hours.quiet_start,
+        quiet_end=hours.quiet_end,
+        goals=hours.goals,
     )
 
 
@@ -107,10 +114,11 @@ async def write_hours(body: PushHours, session: Session) -> PushHours:
     if hours is None:
         hours = PushSettings(id=1)
         session.add(hours)
-    hours.morning, hours.quiet_start, hours.quiet_end = (
+    hours.morning, hours.quiet_start, hours.quiet_end, hours.goals = (
         body.morning,
         body.quiet_start,
         body.quiet_end,
+        body.goals,
     )
     await session.commit()
     return body
