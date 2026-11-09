@@ -1,7 +1,7 @@
 ---
 type: How-to Guide
 title: Install kasten on your phone
-description: Put kasten on a phone's home screen, reach the capture page from its icon, replace the capture app an earlier release installed, and get todo reminders pushed to it.
+description: Put kasten on a phone's home screen, reach the capture page from its icon, replace the capture app an earlier release installed, get todo reminders pushed to it, and set a timer that rings on it.
 tags: [phone, install, android, ios, capture, push]
 status: stable
 ---
@@ -77,6 +77,20 @@ without it `/settings` says push is not set up.
 Each device subscribes on its own, and `/settings` lists them all. **Remove**
 takes one off; on the device in your hand it also turns off the browser's
 subscription.
+
+## Set a timer
+
+A timer rings on every device that gets reminders, so subscribe first, as
+above.
+
+1. Open an empty pane, which shows Today.
+2. Under **Timers**, type a name such as `Washer` and a duration such as
+   `1h 25m`, `1:25` or `85`, and press **Start**.
+3. Wait: the row counts down, and when it ends each device gets a push with the
+   name. A tap opens kasten.
+
+The timer then shows as a button under the form, and a tap starts it again. To
+cancel one, press **Stop** beside it.
 
 ## Related
 

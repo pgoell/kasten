@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Reading a note
-description: What the top bar holds, the three-column grid the note pane lays out with its numbers, the header block at the top of a note, Read and Edit, the frontmatter behind Properties, the outline, the container query's breaks, the local graph in the right margin and its sheet, and the Today screen an empty pane shows.
+description: What the top bar holds, the three-column grid the note pane lays out with its numbers, the header block at the top of a note, Read and Edit, the frontmatter behind Properties, the outline, the container query's breaks, the local graph in the right margin and its sheet, and the Today screen an empty pane shows, with its timers.
 resource: frontend/src/components/note-pane.tsx
 tags: [frontend, design, reader]
 status: stable
@@ -160,7 +160,20 @@ note, the larger graph to zoom and drag
 ## Today in an empty pane
 
 An empty pane shows Today above its empty editor, so every key an empty pane
-took still works. The heading is the date, under it three columns:
+took still works. The heading is the date. Under it sits a Timers row, then
+three columns.
+
+Timers lists each running timer with its name, the clock time it rings, the
+time left counting down, and **Stop**. A repeat shows its step and next time
+instead. Below them a form takes a name and a duration, read as minutes (`90`),
+hours and minutes (`1:25`) or with units (`1h 25m`, `45 min`, `30s`); an empty
+name starts "Timer". The last four timers started on this device follow as
+buttons that start the same timer again; the browser keeps them, so each device
+has its own. When a timer rings, the server pushes it to every subscribed device
+([Timers](/reference/http-api/todos.md#timers)), and the row shows Done until
+the server drops it a few seconds later.
+
+The three columns:
 
 - Today: today's todos, with their state.
 - Recent: the eight notes with the newest `modified:` stamps. The page reads

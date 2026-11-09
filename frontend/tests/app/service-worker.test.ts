@@ -350,7 +350,20 @@ describe("the service worker", () => {
     expect(sw.self.registration.showNotification).toHaveBeenCalledWith("Todo due", {
       body: "Pay the rent",
       tag: "todo-3",
+      renotify: false,
       data: { url: "/?note=20%20Notes%2FRent.md&line=7" },
+    });
+  });
+
+  it("a timer's push, with no note, opens the app and rings again under its tag", async () => {
+    const sw = await installed();
+    const payload = { title: "kasten", body: "Washer", tag: "timer-4", renotify: true };
+    await sw.dispatch("push", { data: { json: () => payload } });
+    expect(sw.self.registration.showNotification).toHaveBeenCalledWith("kasten", {
+      body: "Washer",
+      tag: "timer-4",
+      renotify: true,
+      data: { url: "/" },
     });
   });
 

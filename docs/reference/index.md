@@ -33,7 +33,7 @@ is there and do not teach; for that, read a [tutorial](/tutorials/index.md) or a
 * [The shared lists](configuration/shared-lists.md): the host the lists app is served on and whether its ticks write the done log line
 * [Push reminders](configuration/push-reminders.md): the VAPID key push reminders are signed with, and the zone a reminder time is read in
 * [Requirements](requirements.md): the machine, ports, memory and disk the self-host stack needs
-* [Reading a note](reading-a-note.md): the top bar, the three columns a note sits in with their widths and the breaks of its container query, the header block, Read and Edit, the outline, the local graph in the right margin and its sheet, and the Today screen an empty pane shows
+* [Reading a note](reading-a-note.md): the top bar, the three columns a note sits in with their widths and the breaks of its container query, the header block, Read and Edit, the outline, the local graph in the right margin and its sheet, and the Today screen an empty pane shows, with its timers
 * [Design tokens](design-tokens.md): the token file the app is painted from, every colour of the light and the dark set, the graph's tag slots, type, space and motion, the contrast each pair holds, how light and dark are chosen and kept, and the fonts and their licenses
 * [HTML theme contract](html-theme-contract.md): how an HTML page in the vault opts in to kasten's theme, what kasten adds to it and to a newspaper's stories, the messages a theme switch sends, the fallback layer, what a page may and may not do, how to check one, and the token table
 * [Accent palettes](accent-palettes.md): the four palettes the accent can take, the colours each one sets in light and dark, and how a palette is picked and kept

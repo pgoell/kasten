@@ -9,7 +9,7 @@ import {
   removeDevice,
   subscribeHere,
   unsubscribeHere,
-} from "@/lib/app/push";
+} from "@/lib/app/push/push";
 
 export const Route = createFileRoute("/settings")({
   component: Settings,

@@ -228,10 +228,10 @@ export async function renderApp(entry = "/") {
       fireEvent.change(input);
     },
     /** The prompt's input, while one is open. */
-    prompt: () => container.querySelector("input") as HTMLInputElement,
+    prompt: () => promptOf(container),
     /** Type a path into the open prompt and take it. */
     fill: (value: string) => {
-      const input = container.querySelector("input") as HTMLInputElement;
+      const input = promptOf(container);
       fireEvent.change(input, { target: { value } });
       fireEvent.keyDown(input, { key: "Enter" });
     },
@@ -457,4 +457,10 @@ export function somebodyElseWrote() {
     vi.advanceTimersByTime(800);
   });
   vi.mocked(saveNote).mockClear();
+}
+
+/** The first input outside an empty pane's timers form, which is the open prompt's. */
+function promptOf(container: HTMLElement): HTMLInputElement {
+  const inputs = [...container.querySelectorAll("input")];
+  return inputs.find((input) => !input.closest("[data-today-timers]")) as HTMLInputElement;
 }

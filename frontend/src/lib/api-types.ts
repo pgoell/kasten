@@ -1263,6 +1263,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/push/timers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Timers
+         * @description Every running timer, the next to ring first.
+         */
+        get: operations["read_timers_api_push_timers_get"];
+        put?: never;
+        /**
+         * Write Timer
+         * @description Start a timer; the sender pushes it to every device when it falls due.
+         */
+        post: operations["write_timer_api_push_timers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/push/timers/{timer_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Timer
+         * @description Stop a timer before it rings, or stop a repeat.
+         */
+        delete: operations["delete_timer_api_push_timers__timer_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/library": {
         parameters: {
             query?: never;
@@ -6383,6 +6427,47 @@ export interface components {
             day?: string | null;
         };
         /**
+         * TimerIn
+         * @description A timer to start: its label, when it rings, and for a repeat its seconds apart and end.
+         */
+        TimerIn: {
+            /** Label */
+            label: string;
+            /**
+             * Due
+             * Format: date-time
+             */
+            due: string;
+            /** Every */
+            every?: number | null;
+            /** Until */
+            until?: string | null;
+        };
+        /**
+         * TimerOut
+         * @description A running timer; `due` is when it rings next.
+         */
+        TimerOut: {
+            /** Id */
+            id: number;
+            /** Label */
+            label: string;
+            /**
+             * Due
+             * Format: date-time
+             */
+            due: string;
+            /** Every */
+            every: number | null;
+            /** Until */
+            until: string | null;
+            /**
+             * Created
+             * Format: date-time
+             */
+            created: string;
+        };
+        /**
          * ToSort
          * @description A booking that holds something to sort: itself, or the splits listed.
          */
@@ -8360,6 +8445,88 @@ export interface operations {
             header?: never;
             path: {
                 device_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_timers_api_push_timers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimerOut"][];
+                };
+            };
+        };
+    };
+    write_timer_api_push_timers_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TimerIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimerOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_timer_api_push_timers__timer_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                timer_id: number;
             };
             cookie?: never;
         };
