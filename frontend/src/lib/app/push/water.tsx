@@ -113,6 +113,7 @@ export function WaterSwitch({ running, onStarted }: { running: Timer[]; onStarte
         every
         <input
           aria-label="Gap between glasses"
+          data-timer-field
           value={gap}
           onChange={(event) => setGap(event.target.value)}
           className={`${FIELD} w-24`}
@@ -122,6 +123,7 @@ export function WaterSwitch({ running, onStarted }: { running: Timer[]; onStarte
         until
         <input
           aria-label="Stop time"
+          data-timer-field
           type="time"
           value={until}
           onChange={(event) => setUntil(event.target.value)}
