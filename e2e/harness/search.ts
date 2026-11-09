@@ -1,14 +1,14 @@
 import { expect, type Page, type Route } from "@playwright/test";
-import { leader, openApp } from "./app.ts";
+import { leader, localDate, openApp } from "./app.ts";
 
-export type Hit = { path: string; line: number; text: string; date: string; tags: string[] };
+/** A matched line; a note with no date in its name or frontmatter answers `date: null`. */
+export type Hit = { path: string; line: number; text: string; date: string | null; tags: string[] };
 
 /** The date `days` before today on this box, as a hit carries it. */
 export function daysAgo(days: number): string {
   const at = new Date();
   at.setDate(at.getDate() - days);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
+  return localDate(at);
 }
 
 /** A line of a note, dated today unless `date` says otherwise. */
@@ -42,3 +42,7 @@ export async function openSearch(page: Page) {
 
 /** The histogram's fourteen bars, oldest first: the last is this week. */
 export const bars = (page: Page) => page.getByRole("button", { name: /^Week \d+,/ });
+
+/** The bar of ISO week `week`, by its name. */
+export const bar = (page: Page, week: number) =>
+  page.getByRole("button", { name: new RegExp(`^Week ${week},`) });
