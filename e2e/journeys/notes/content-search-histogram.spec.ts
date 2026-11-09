@@ -176,7 +176,7 @@ test("a line with no date or from before week 30 lists in no bar, an archived li
 test.describe("on a phone", () => {
   test.use(phone);
 
-  test("a bar's colour fills its whole width under a finger, and a tap shows no count", async ({
+  test("a bar's colour fills its whole width under a finger, and a resting finger shows no count", async ({
     page,
   }) => {
     await answer(page, () => lines("a/one.md", 3, "2026-10-21"));
@@ -190,8 +190,16 @@ test.describe("on a phone", () => {
     const block = await fill(week).boundingBox();
     // The block stands in from the bar by its 2 px margins, no more.
     expect(block?.width).toBeGreaterThanOrEqual((area?.width ?? 0) - 5);
-    await week.tap();
-    await expect(week).toHaveAttribute("aria-pressed", "true");
+    // A tap's pointer leaves on lift, so the finger is held down while the count is read.
+    const touch = await page.context().newCDPSession(page);
+    const at = { x: (area?.x ?? 0) + (area?.width ?? 0) / 2, y: (area?.y ?? 0) + 30 };
+    await touch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [at] });
+    // Two frames, so a count the pointer set would be drawn by now.
+    await page.evaluate(
+      () => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))),
+    );
     await expect(week.getByText("3", { exact: true })).toHaveCount(0);
+    await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await expect(week).toHaveAttribute("aria-pressed", "true");
   });
 });
