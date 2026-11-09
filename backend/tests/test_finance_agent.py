@@ -15,11 +15,21 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from backend.tests.finance_rows import API, SAVING
 from backend.tests.test_finance_budget import household, own
+from backend.tests.test_finance_plans import (
+    CONTRACTS,
+    HAFTPFLICHT,
+    TERMS,
+    contract_note,
+    plan,
+    rising_gym,
+    setup,
+)
 from backend.tests.test_mcp import ENDPOINT, RPC, call, payload
 from kasten_backend import agent, agent_finance, agent_mcp_finance, db
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
+    from pathlib import Path
 
     from httpx import AsyncClient
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -251,8 +261,12 @@ async def test_the_agent_writes_nothing_to_finance(
     schema = (await finance_client.get("/agent/openapi.json", headers=bearer)).json()
     finance = {path: ops for path, ops in schema["paths"].items() if "/finance/" in path}
 
-    assert len(finance) == 10
-    assert {method for ops in finance.values() for method in ops} == {"get"}
+    writes = {path for path, ops in finance.items() if set(ops) != {"get"}}
+
+    assert len(finance) == 12
+    # The reminder pass writes todo lines into contract notes, in the vault, not the database.
+    assert writes == {"/agent/finance/contracts/reminders"}
+    assert set(finance["/agent/finance/contracts/reminders"]) == {"post"}
     post_attempt = await finance_client.post(f"{AGENT}/transactions", json=[], headers=bearer)
     # Past the routes to the MCP mount, which has no such path either.
     assert post_attempt.status_code == 404
@@ -334,3 +348,71 @@ def test_the_agent_modules_keep_no_session_source_of_their_own() -> None:
     assert not hasattr(agent, "sessions")
     assert not hasattr(agent_finance, "sessions")
     assert not hasattr(agent_finance, "session")
+
+
+async def test_the_contracts_are_the_plans_tabs_list(
+    agent_vault: Path, finance_client: AsyncClient, bearer: dict[str, str]
+) -> None:
+    ids = await setup(finance_client)
+    made = await plan(finance_client, **HAFTPFLICHT, account_id=ids["giro"])
+    contract_note(agent_vault, "Haftpflicht", f"plan: {made['id']}\n{TERMS}")
+    contract_note(agent_vault, "Paper", "start: 2024-03-01\n")
+    await rising_gym(finance_client, agent_vault, ids["giro"])
+    day = {"today": "2026-10-10"}
+
+    pane = (await finance_client.get(f"{API}/contracts", params=day)).json()
+    agent = await finance_client.get(f"{AGENT}/contracts", params=day, headers=bearer)
+
+    assert agent.status_code == 200, agent.text
+    assert agent.json() == pane
+    assert pane["contracts"][1]["cancel_by"] == "2026-11-28"
+    assert pane["contracts"][0]["rise"] == {"old": "-39.00", "new": "-44.00"}
+    assert await tool(finance_client, bearer, "list_contracts", **day) == pane
+    # What /close-day, a vault skill, goes by when it names a contract to cancel soon.
+    assert "next 14 days" in " ".join((agent_mcp_finance.list_contracts.__doc__ or "").split())
+
+
+async def test_the_agent_writes_each_cancel_by_todo_once(
+    agent_vault: Path, client: AsyncClient, bearer: dict[str, str]
+) -> None:
+    # No database here: the pass reads the vault alone, so a self-host without finance has it.
+    note = contract_note(agent_vault, "Gym", TERMS)
+    day = {"today": "2026-10-10"}
+
+    first = await client.post(f"{AGENT}/contracts/reminders", params=day, headers=bearer)
+
+    assert first.status_code == 200, first.text
+    assert first.json() == [f"{CONTRACTS}/Gym.md"]
+    assert "- [ ] cancel or renegotiate Gym" in note.read_text(encoding="utf-8")
+    assert await tool(client, bearer, "write_contract_reminders", **day) == {"result": []}
+    note.write_text(note.read_text(encoding="utf-8").replace("- [ ]", "- [x]"), encoding="utf-8")
+    assert await tool(client, bearer, "write_contract_reminders", **day) == {
+        "result": [f"{CONTRACTS}/Gym.md"]
+    }
+    assert "📅 2027-11-29 ⏳ 2027-11-01\n" in note.read_text(encoding="utf-8")
+
+
+async def test_no_token_reads_no_contract_and_writes_no_todo(
+    agent_vault: Path, client: AsyncClient
+) -> None:
+    contract_note(agent_vault, "Gym", TERMS)
+    day = {"today": "2026-10-10"}
+
+    assert (await client.get(f"{AGENT}/contracts", params=day)).status_code == 401
+    assert (await client.post(f"{AGENT}/contracts/reminders", params=day)).status_code == 401
+    assert "- [ ]" not in (agent_vault / CONTRACTS / "Gym.md").read_text(encoding="utf-8")
+
+
+async def test_with_no_database_the_contracts_say_so(
+    agent_vault: Path, client: AsyncClient, bearer: dict[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    nowhere = create_async_engine("postgresql+psycopg://x:x@127.0.0.1:1/x")
+    monkeypatch.setattr(db, "session_factory", async_sessionmaker(nowhere))
+    monkeypatch.setattr(db, "sessions", db.get_session)
+
+    route = await client.get(f"{AGENT}/contracts", params={"today": "2026-10-10"}, headers=bearer)
+    said = await tool(client, bearer, "list_contracts", today="2026-10-10")
+
+    assert route.status_code == 503
+    assert said.endswith(route.json()["detail"])
+    await nowhere.dispose()

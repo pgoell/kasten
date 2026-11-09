@@ -9,8 +9,8 @@ status: stable
 
 # HTTP API
 
-The backend serves one hundred and thirty-two endpoints under `/api/`.
-Seventy-five read, fifty-six write, and one streams. The interactive schema is at `/docs` while the backend
+The backend serves one hundred and thirty-eight endpoints under `/api/`.
+Seventy-seven read, sixty write, and one streams. The interactive schema is at `/docs` while the backend
 runs, and the machine-readable one at `/openapi.json`.
 
 The agent's routes sit under `/agent/`, and they are documented on their own page,
@@ -31,7 +31,7 @@ including the check that refuses a cross-site `POST` with a `403`.
 * [Trash and history](/reference/http-api/trash-and-history.md): delete into the trash, restore, and read a note's jj history
 * [Assets and books](/reference/http-api/assets-and-books.md): images, sounds, books, the library of book notes and the chunked uploads
 * [Finding](/reference/http-api/finding.md): search, tags, mentions, notes like this one, the link graph and the folder layout
-* [Todos](/reference/http-api/todos.md): the route that lists every todo and its project
+* [Todos](/reference/http-api/todos.md): the route that lists every todo and its project, and the devices a todo's `⏰` reminder is pushed to
 * [Log](/reference/http-api/log.md): the day's water, coffee, alcohol and food, and their totals
 * [Food](/reference/http-api/food.md): search Open Food Facts for a food, or read one by its barcode
 * [Finance](/reference/http-api/finance.md): the accounts, balances and bookings host jobs write, the splits under a booking, and the reads, with a `503` when there is no database
@@ -39,7 +39,7 @@ including the check that refuses a cross-site `POST` with a `403`.
 * [Finance budget](/reference/http-api/finance-budget.md): a month's budget per category, free to spend for mine and household, where the month's money went, the spending trend, a category's limit and the budget settings
 * [Finance drilldowns](/reference/http-api/finance-drill.md): one scope, account, category, payee or booking, month by month, with the bookings that count in the month and where a booking counts
 * [Finance spans and setup](/reference/http-api/finance-range.md): both scopes over a span of months against a year before and the 6-month average, the budget setup, and every limit set at once
-* [Finance plans and goals](/reference/http-api/finance-plans.md): plans and the bookings that met them, the month's dates, the 12-month forecast, plans proposed from history, and saving goals with what each account has unreserved
+* [Finance plans and goals](/reference/http-api/finance-plans.md): plans and the bookings that met them, contract notes with their cancel-by dates, the month's dates, the 12-month forecast, plans proposed from history, and saving goals with what each account has unreserved
 * [Finance orders](/reference/http-api/finance-orders.md): the PayPal and Amazon orders the order mail job sends, how each charge finds its booking and splits it into items, and the orders no booking holds yet
 * [Finance tax](/reference/http-api/finance-tax.md): a booking's tax mark on a line of the return and the money rules it is held to, the tax year's totals per line, and its exports
 * [Finance receipts](/reference/http-api/finance-receipts.md): receipts kept by their hash beside the vault, the share from the phone, the reader's readings, the queue with the bookings each may have paid, and the file

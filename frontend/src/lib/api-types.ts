@@ -218,6 +218,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/agent/finance/contracts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Contracts
+         * @description Every contract note in the contracts folder, by its next cancel-by date.
+         */
+        get: operations["read_contracts_agent_finance_contracts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/agent/finance/goals": {
         parameters: {
             query?: never;
@@ -332,6 +352,26 @@ export interface paths {
         get: operations["read_booking_agent_finance_transactions__transaction_id__get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent/finance/contracts/reminders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write Reminders
+         * @description Write each contract note's next cancel-by todo where it has none open; the paths written.
+         */
+        post: operations["write_reminders_agent_finance_contracts_reminders_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1203,6 +1243,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/push": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Push
+         * @description The public key and every device, oldest first.
+         */
+        get: operations["read_push_api_push_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/push/devices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write Device
+         * @description Subscribe a device; the same endpoint again updates its keys and name, as one device.
+         */
+        post: operations["write_device_api_push_devices_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/push/devices/{device_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Device
+         * @description Remove a device, so no push goes to it again.
+         */
+        delete: operations["delete_device_api_push_devices__device_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/library": {
         parameters: {
             query?: never;
@@ -2030,6 +2130,50 @@ export interface paths {
         get: operations["read_proposals_api_finance_plans_proposals_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/contracts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Contracts
+         * @description Every contract note in the contracts folder, by its next cancel-by date.
+         */
+        get: operations["read_contracts_api_finance_contracts_get"];
+        put?: never;
+        /**
+         * Write Contract
+         * @description Start a contract note for a plan, its id filled in and its terms left to fill.
+         */
+        post: operations["write_contract_api_finance_contracts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/contracts/reminders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write Reminders
+         * @description Write each contract note's next cancel-by todo where it has none open; the paths written.
+         */
+        post: operations["write_reminders_api_finance_contracts_reminders_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4126,6 +4270,56 @@ export interface components {
             replace: boolean;
         };
         /**
+         * ContractIn
+         * @description The plan a new contract note is for.
+         */
+        ContractIn: {
+            /** Plan Id */
+            plan_id: number;
+        };
+        /**
+         * ContractOut
+         * @description A contract note, its plan, its cost a year and its next cancel-by date.
+         *
+         *     `problem` names what keeps a date or a cost from it: a field missing, or a plan gone.
+         *     `rise` is set once the plan's two newest paid periods in a row cost more than it allows.
+         */
+        ContractOut: {
+            /** Path */
+            path: string;
+            /** Name */
+            name: string;
+            /** Plan Id */
+            plan_id: number | null;
+            /** Plan Name */
+            plan_name: string | null;
+            /** Amount */
+            amount: string | null;
+            /** Every Months */
+            every_months: number | null;
+            /** Yearly */
+            yearly: string | null;
+            /** Cancel By */
+            cancel_by: string | null;
+            /** Renews */
+            renews: string | null;
+            /** Ends */
+            ends: string | null;
+            /** Problem */
+            problem: string | null;
+            rise: components["schemas"]["RiseOut"] | null;
+        };
+        /**
+         * ContractsOut
+         * @description Every contract note by cancel-by date, and what they cost a year together.
+         */
+        ContractsOut: {
+            /** Contracts */
+            contracts: components["schemas"]["ContractOut"][];
+            /** Yearly */
+            yearly: string;
+        };
+        /**
          * ContributionOut
          * @description This month's contribution: what is planned, and what of it moved into the account.
          */
@@ -4212,6 +4406,34 @@ export interface components {
             line: number;
             /** Sha */
             sha: string;
+        };
+        /**
+         * DeviceIn
+         * @description A browser's `PushSubscription` as `toJSON` gives it, and a name to list it by.
+         */
+        DeviceIn: {
+            /** Endpoint */
+            endpoint: string;
+            keys: components["schemas"]["Keys"];
+            /** Name */
+            name: string;
+        };
+        /**
+         * DeviceOut
+         * @description A subscribed device, without its keys.
+         */
+        DeviceOut: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Endpoint */
+            endpoint: string;
+            /**
+             * Created
+             * Format: date-time
+             */
+            created: string;
         };
         /**
          * DueOut
@@ -4806,6 +5028,16 @@ export interface components {
             text: string;
             /** Amount */
             amount: string;
+        };
+        /**
+         * Keys
+         * @description The subscription's keys: the browser's public key and the shared secret.
+         */
+        Keys: {
+            /** P256Dh */
+            p256dh: string;
+            /** Auth */
+            auth: string;
         };
         /**
          * Layout
@@ -5580,6 +5812,16 @@ export interface components {
             last: string;
         };
         /**
+         * PushOut
+         * @description The key a browser subscribes with, or None where push is not set up, and the devices.
+         */
+        PushOut: {
+            /** Public Key */
+            public_key: string | null;
+            /** Devices */
+            devices: components["schemas"]["DeviceOut"][];
+        };
+        /**
          * Ran
          * @description How many bookings and splits a run of the rules gave another category.
          */
@@ -5786,6 +6028,16 @@ export interface components {
             new_per_day: number | null;
             /** Reviews Per Day */
             reviews_per_day: number | null;
+        };
+        /**
+         * RiseOut
+         * @description A price rise: the plan's amount, and the newest booking's, dearer past the tolerance.
+         */
+        RiseOut: {
+            /** Old */
+            old: string;
+            /** New */
+            new: string;
         };
         /**
          * RuleIn
@@ -6970,6 +7222,37 @@ export interface operations {
             };
         };
     };
+    read_contracts_agent_finance_contracts_get: {
+        parameters: {
+            query: {
+                today: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     read_goals_agent_finance_goals_get: {
         parameters: {
             query: {
@@ -7132,6 +7415,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BookingDrillOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    write_reminders_agent_finance_contracts_reminders_post: {
+        parameters: {
+            query: {
+                today: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
                 };
             };
             /** @description Validation Error */
@@ -8106,6 +8420,88 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["SimilarAnswer"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_push_api_push_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushOut"];
+                };
+            };
+        };
+    };
+    write_device_api_push_devices_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeviceIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_device_api_push_devices__device_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                device_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -9440,6 +9836,101 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProposalOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_contracts_api_finance_contracts_get: {
+        parameters: {
+            query: {
+                today: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    write_contract_api_finance_contracts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContractIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    write_reminders_api_finance_contracts_reminders_post: {
+        parameters: {
+            query: {
+                today: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
                 };
             };
             /** @description Validation Error */

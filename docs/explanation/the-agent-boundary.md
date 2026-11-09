@@ -157,8 +157,8 @@ as `content`.
 
 The finance reads are the first capability that reaches data no note holds:
 the finance pane's summaries, single bookings with their raw bank records, and
-the accounts, categories and payees. They only read, and the summaries are the
-pane's own figures. The cost was accepted on purpose: **a leaked token exposes
+the accounts, categories and payees. None writes to finance; the summaries are the
+pane's own. The cost was accepted on purpose: **a leaked token exposes
 every transaction**, and nothing undoes a read. The argument, and why a
 backend with no database exposes nothing more, is in
 [Finance reads past the boundary](/explanation/the-agent-boundary/finance-reads.md).

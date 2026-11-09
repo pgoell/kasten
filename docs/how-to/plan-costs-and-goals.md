@@ -1,8 +1,8 @@
 ---
 type: How-to Guide
 title: Plan costs and goals
-description: Confirm the plans kasten proposes from history, add and change a plan, see what is due this month and which booking met it, read the forecast, set a saving goal in a saving account, assign its contribution once a month, and move what the limits left into it.
-tags: [finance, budget, plans, goals, pane, keys, phone]
+description: Confirm the plans kasten proposes from history, add and change a plan, keep a note for each contract with a todo before its cancel-by date, see what is due this month and which booking met it, read the forecast, set a saving goal in a saving account, assign its contribution once a month, and move what the limits left into it.
+tags: [finance, budget, plans, goals, contracts, pane, keys, phone]
 status: draft
 ---
 
@@ -43,6 +43,38 @@ weekly at the same price, is best left alone.
 A cost every 2 months or more, such as a yearly insurance, sets aside its
 monthly share: the plans list says how much. Its bill then comes out of that
 reserve, not out of the month it is paid in.
+
+## Keep a note for each contract
+
+A contract is a note in `03 Areas/03 Money/Contracts/` with `type: Contract`
+and the id of the plan its payments meet.
+
+1. Tap `Contract` beside a plan, or beside a proposal, which confirms it as a
+   plan first. kasten writes the note, with the plan's id, name and amount
+   filled in, and says where.
+2. Open the note and fill in its terms from the contract:
+
+   ```yaml
+   start: 2024-03-01   # its first day
+   term: 12 months     # minimum term: days, weeks, months or years
+   renews: 1 month     # each renewal after it; `none` if it just ends
+   notice: 1 month     # before the end of the term or a renewal
+   ```
+
+   With no `renews`, it renews monthly, the rule for most consumer contracts
+   since March 2022. Once you have cancelled, add `ends: <its last day>` and
+   kasten writes no more todos.
+
+**Contracts** lists them all by their next cancel-by date, with what the plan
+costs a year and the total. Once the plan's last two bookings in a row cost
+more than its amount and tolerance allow, the contract shows `Price rose from`
+the plan's amount `to` the newest booking's: change the plan's amount, or
+renegotiate. Each time the tab opens, kasten writes the next
+cancel-by todo under `## Cancel-by` in each note that has none open: `📅` on
+the cancel-by date and `⏳` four weeks before. Tick it done or rejected and the
+next term's todo comes the next time the tab opens. A term ends the day
+before the same day of the month, or on the last day of a shorter month;
+notice counts back from that end to the same day.
 
 ## See what is due
 

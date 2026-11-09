@@ -311,10 +311,10 @@ It also bounds the `Origin` check on the
 [consent `POST`](/reference/agent-api/oauth.md#get-and-post-apioauthauthorize):
 `https://{value}` is accepted there as well as the request's own origin.
 
-## The shared lists
+## The shared lists and push
 
-`KASTEN_SHARE_HOST` and `KASTEN_SHARE_LOGS_DONE` set the lists app's host and
-whether its ticks reach the done log: [The shared lists](/reference/configuration/shared-lists.md).
+`KASTEN_SHARE_HOST` and `KASTEN_SHARE_LOGS_DONE`: [The shared lists](/reference/configuration/shared-lists.md).
+`KASTEN_PUSH_PRIVATE_KEY` and `KASTEN_TIMEZONE`: [Push reminders](/reference/configuration/push-reminders.md).
 
 ## KASTEN_HERDR_SESSIONS_PATH
 
@@ -440,9 +440,8 @@ the production ones go.
 
 ## The self-host stack
 
-`deploy/selfhost/compose.yaml` reads more variables from `.env` beside it, and
-two files sit beside that: [The self-host stack](/reference/configuration/self-host-stack.md)
-lists them.
+`deploy/selfhost/compose.yaml` reads more from `.env` and two files beside it:
+[The self-host stack](/reference/configuration/self-host-stack.md).
 
 ## Related
 

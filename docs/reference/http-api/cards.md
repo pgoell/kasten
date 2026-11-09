@@ -101,7 +101,9 @@ one. One that asks for another `carry` while it runs is refused with 409. A fini
 
 On shutdown the backend cancels a running import, and the import takes back what
 it wrote, the media and the notes, so no half-written deck note stays. A hard
-kill can still leave a new deck's note cut short.
+kill (SIGKILL, out of memory) cannot take anything back, but it leaves no cut
+note either: a new note lands through a hidden temp and a rename. The media and
+notes it wrote stay, and importing the same file again finishes the import.
 
 ```json
 {
@@ -135,6 +137,11 @@ ending at the marker whose hash matches:
   back.
 * A card the note lacks goes on the end.
 * A card the export lacks stays in the note and is counted as `removed`.
+* A card the export puts in another deck moves: its lines, schedule and edits
+  included, leave this note for the end of that deck's note, counted there as
+  `kept` or `updated`. The same holds when only the new deck imports and the
+  card sits in another deck's own note, `<flashcards>/<deck>.md` holding the
+  tag line `#flashcards/<deck>`.
 * A line without a marker, the tag line, a card of your own, prose, comes
   through byte for byte.
 * A note the merge would leave unchanged is not written at all.
@@ -215,13 +222,22 @@ such a file has nothing left to ask and is left out.
 * A deck holding a card the import would add whose marker already sits in
   another note, outside the export's own notes and the archive, answers 409
   the same way, with a `detail` naming those notes and saying to join them
-  into the deck's note. A merge goes into one note, so the card would land
-  there a second time. A deck note from before the marker gets the refusal
-  above first. Where rg cannot read the whole vault to look, the import
+  into the deck's note, when that note is a split part: one under the deck's
+  own tag line, or one that is no deck's own note and holds only the deck's
+  cards. A merge goes into one note, so the card would land there a second
+  time. A card that cannot move safely answers 409 with a `detail` saying to
+  move each card's lines into the deck's note: one in a note that is no deck's
+  own note and holds other cards too, one in two notes, or one edited in
+  kasten whose marker line is not alone (a line above that ends no card, or a
+  schedule line below, as on a `?` card). An old note outside the export that
+  is not UTF-8 answers 409 `<path> is not UTF-8…` rather than lose its bytes.
+  A deck note from before the marker gets the refusal above first. Where rg
+  cannot read the whole vault to look, the import
   answers 503 `The vault could not be read whole…` and writes nothing.
 * A media file whose path is already taken answers 409 the same way for a deck
-  imported the first time. A deck merged into its note keeps the file it finds
-  and does not count it.
+  imported the first time, unless the file holds the same bytes, as one a
+  killed import left does: the import keeps it and does not count it. A deck
+  merged into its note keeps the file it finds and does not count it.
 * With `carry`, a collection whose `col` row holds no creation time answers 400.
 * A body over 1GiB answers 413 `That file is over the 1 GiB limit`.
 * With `upload`, an id no upload holds answers 404 `No such upload`, and one

@@ -134,3 +134,39 @@ export async function moveLeftover(id: number, amount: string, today: string): P
   });
   if (!response.ok) throw failed("Moving the leftover", error, response.status);
 }
+
+export type Contract = components["schemas"]["ContractOut"];
+export type Contracts = components["schemas"]["ContractsOut"];
+
+/** Write each contract note's next cancel-by todo where none is open, then list them all. */
+export async function fetchContracts(today: string): Promise<Contracts> {
+  const written = await client.POST("/api/finance/contracts/reminders", {
+    params: { query: { today } },
+  });
+  if (!written.response.ok) {
+    throw failed("Writing the cancel-by todos", written.error, written.response.status);
+  }
+  const { data, error, response } = await client.GET("/api/finance/contracts", {
+    params: { query: { today } },
+  });
+  if (!data) throw failed("GET /api/finance/contracts", error, response.status);
+  return data;
+}
+
+/** Start the contract note for a plan; a proposal is confirmed as a plan first. */
+export async function makeContract(from: Plan | Proposal, today: string): Promise<Contract> {
+  let id = "id" in from ? from.id : undefined;
+  if (id === undefined) {
+    const made = await client.POST("/api/finance/plans", {
+      body: planOf(from as Proposal),
+      params: { query: { today } },
+    });
+    if (!made.data) throw failed("Saving the plan", made.error, made.response.status);
+    id = made.data.id;
+  }
+  const { data, error, response } = await client.POST("/api/finance/contracts", {
+    body: { plan_id: id },
+  });
+  if (!data) throw failed("Writing the contract note", error, response.status);
+  return data;
+}

@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: Finance reads past the boundary
-description: Why a token reads the finance pane's summaries and single bookings, why the summaries are the pane's own figures, why nothing writes, and what a leaked token now exposes.
+description: Why a token reads the finance pane's summaries and single bookings, why the summaries are the pane's own figures, why nothing writes to finance, and what a leaked token now exposes.
 tags: [agent, tokens, security, finance]
 status: stable
 ---
@@ -17,10 +17,13 @@ a great deal it can expose.
 What they are: the finance pane's own summaries (free to spend, the budget
 table, the goals, the forecast, the sync status), a page of single bookings
 with filters, one booking whole with its raw bank record, and a list of the
-accounts, categories and payees. All of them read. No tool and no route under
-`/agent/finance/` writes, so an agent cannot sort a booking, move money into a
-goal or make a plan. Those stay in the pane, where the person doing them sees
-the figures change.
+accounts, categories and payees, and the contract notes with their next
+cancel-by dates. No tool and no route under `/agent/finance/` writes to the
+finance database, so an agent cannot sort a booking, move money into a goal or
+make a plan. Those stay in the pane, where the person doing them sees the
+figures change. The one write is the contracts' reminder pass, which adds a
+cancel-by todo to a contract note in the vault, as `save_note` could, so an
+agent closing the day need not wait for the Plans & goals tab to open.
 
 The first design gave agents totals and nothing else: summary views, and a
 database role with no grant on the bookings. It was dropped on 2026-10-25.
@@ -62,5 +65,5 @@ token there exposes no more than the vault.
 ## Related
 
 * [The agent boundary](/explanation/the-agent-boundary.md): the eleven capabilities on the vault, and the gate in front of them all
-* [Agent routes](/reference/agent-api/routes.md#the-finance-reads): the finance routes and the tools beside them
+* [Agent finance routes](/reference/agent-api/finance.md): the finance routes and the tools beside them
 * [Finance in Postgres](/explanation/finance-in-postgres.md): why money lives outside the vault

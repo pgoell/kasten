@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from kasten_backend.finance_order_models import ShopOrder
+    from kasten_backend.finance_orders.models import ShopOrder
 
 _PAYPAL_SHOP = re.compile(r"(?:^|/)\s*\.\s*([^/]*?),\s*ihr einkauf bei\s*([^/]*)")
 """The two names a PayPal debit gives its shop.

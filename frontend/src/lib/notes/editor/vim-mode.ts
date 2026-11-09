@@ -1,9 +1,11 @@
+import { isolateHistory } from "@codemirror/commands";
 import {
-  type EditorState,
+  EditorState,
   type Extension,
   Facet,
   StateEffect,
   StateField,
+  Transaction,
 } from "@codemirror/state";
 import { type EditorView, ViewPlugin, type ViewUpdate } from "@codemirror/view";
 import { getCM } from "@replit/codemirror-vim";
@@ -93,4 +95,95 @@ const bridge = ViewPlugin.fromClass(
 
 export function vimModeState(): Extension {
   return [vimModeField, bridge];
+}
+
+type Insert = { insert: boolean; joins: boolean };
+
+/** Vim entering insert mode (joins when its key already changed the text) or leaving it. */
+const insertMode = StateEffect.define<Insert>();
+
+/** Whether vim is inserting, and whether a typed change joins the last undo event, it being this insert's own. */
+const insertField = StateField.define<Insert>({
+  create: () => ({ insert: false, joins: false }),
+  update(value, tr) {
+    for (const effect of tr.effects) {
+      if (effect.is(insertMode)) value = effect.value;
+    }
+    if (!value.insert) return value;
+    // An undo, a redo, a step kept apart (the table line-up) or a cursor moved by a click or a key
+    // ends the undo step there, as vim's insert does.
+    const apart = tr.annotation(isolateHistory) !== undefined;
+    const moved =
+      tr.isUserEvent("undo") || tr.isUserEvent("redo") || apart || (tr.selection && !tr.docChanged);
+    if (moved) return { insert: true, joins: false };
+    const kept = tr.annotation(Transaction.addToHistory) !== false;
+    return tr.docChanged && kept ? { insert: true, joins: true } : value;
+  },
+});
+
+/**
+ * Makes one insert one undo event, as vim does (#1662). `o` moves the cursor after its newline,
+ * and the history never joins typing onto an event with a cursor move behind it, nor after a pause.
+ * vim's own trick: `input.type.compose` always joins.
+ */
+const joinTyping = EditorState.transactionFilter.of((tr) => {
+  if (!tr.startState.field(insertField).joins) return tr;
+  if (!tr.isUserEvent("input.type") || tr.isUserEvent("input.type.compose")) return tr;
+  return {
+    changes: tr.changes,
+    selection: tr.selection,
+    effects: tr.effects,
+    scrollIntoView: tr.scrollIntoView,
+    userEvent: "input.type.compose",
+  };
+});
+
+/** Tells the field as vim enters and leaves insert mode. */
+const insertWatch = ViewPlugin.fromClass(
+  class {
+    private cm: ReturnType<typeof getCM>;
+    // The entering key's change comes before the mode signal, in the same task.
+    private changedThisTask = false;
+    private destroyed = false;
+    private readonly onChange: (event: { mode: string }) => void;
+
+    constructor(view: EditorView) {
+      this.cm = getCM(view);
+      this.onChange = ({ mode }) => {
+        const next = {
+          insert: mode === "insert",
+          joins: mode === "insert" && this.changedThisTask,
+        };
+        // Deferred, as in the bridge above: vim signals from inside its own dispatch.
+        queueMicrotask(() => {
+          if (!this.destroyed) view.dispatch({ effects: insertMode.of(next) });
+        });
+      };
+      this.cm?.on("vim-mode-change", this.onChange);
+    }
+
+    update(update: ViewUpdate) {
+      if (update.docChanged && !this.changedThisTask) {
+        this.changedThisTask = true;
+        queueMicrotask(() => {
+          this.changedThisTask = false;
+        });
+      }
+      const cm = getCM(update.view);
+      if (cm === this.cm) return;
+      this.cm?.off("vim-mode-change", this.onChange);
+      this.cm = cm;
+      this.cm?.on("vim-mode-change", this.onChange);
+    }
+
+    destroy() {
+      this.destroyed = true;
+      this.cm?.off("vim-mode-change", this.onChange);
+    }
+  },
+);
+
+/** One undo event per vim insert. Goes beside `vim()`. */
+export function vimInsertUndo(): Extension {
+  return [insertField, joinTyping, insertWatch];
 }

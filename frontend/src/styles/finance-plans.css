@@ -178,10 +178,25 @@
   font-size: var(--k-text-13);
 }
 
-.finance-plans-row > button {
+.finance-plans-rise {
+  grid-column: 1 / 4;
+  grid-row: 3;
+  color: var(--k-warn);
+  font-size: var(--k-text-13);
+  font-variant-numeric: tabular-nums;
+}
+
+.finance-plans-row > button,
+.finance-plans-buttons {
   grid-column: 4;
   grid-row: 1 / 3;
   align-self: center;
+}
+
+.finance-plans-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .finance-plans-tick {
@@ -372,6 +387,7 @@
   }
 
   .finance-plans-aside,
+  .finance-plans-rise,
   .finance-goal-aside,
   .finance-goal-accounts,
   .finance-goal-leftover,

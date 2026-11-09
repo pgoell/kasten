@@ -1,8 +1,8 @@
 ---
 type: How-to Guide
 title: Install kasten on your phone
-description: Put kasten on a phone's home screen, reach the capture page from its icon, and replace the capture app an earlier release installed.
-tags: [phone, install, android, ios, capture]
+description: Put kasten on a phone's home screen, reach the capture page from its icon, replace the capture app an earlier release installed, and get todo reminders pushed to it.
+tags: [phone, install, android, ios, capture, push]
 status: stable
 ---
 
@@ -58,6 +58,25 @@ manifest names `/` as the start page, and Safari is reported to follow that
 over the page on screen. This has not been tried on an iPhone, and Apple
 documents neither answer. If you want the capture page, open the icon and go to
 `/capture`, or keep `/capture` as a Safari bookmark.
+
+
+## Get reminders on this device
+
+A todo with `⏰ 2026-11-12 09:00` sends a push to each subscribed device at that
+time, even with kasten closed. The server needs `KASTEN_PUSH_PRIVATE_KEY`
+([Configuration: push reminders](/reference/configuration/push-reminders.md));
+without it `/settings` says push is not set up.
+
+1. On Android, open kasten in Chrome. On an iPhone, open it from its home screen
+   icon: iOS 16.4 and later send web push only to an app added there.
+2. Open `/settings` and press **Send reminders to this device**, then allow
+   notifications.
+3. Add `⏰` and a time a minute or two ahead to a todo, and wait for the push.
+   A tap opens the todo's note.
+
+Each device subscribes on its own, and `/settings` lists them all. **Remove**
+takes one off; on the device in your hand it also turns off the browser's
+subscription.
 
 ## Related
 

@@ -5,22 +5,24 @@ into their terms and back. Nothing here commits.
 """
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import delete, exists, func, select, true
 from sqlalchemy.dialects.postgresql import insert
 
 from kasten_backend import finance_models as tables
-from kasten_backend.finance_ledger import ZERO, Account, Scope, scope_of
+from kasten_backend.finance_ledger import ZERO, Account, Scope, add_months, scope_of
 from kasten_backend.finance_plan_models import Goal, GoalLeftover, Plan, PlanMatch
 from kasten_backend.finance_plans import Book, Booking, GoalPlan, match
 from kasten_backend.finance_plans import Plan as Rule
-from kasten_backend.finance_proposals import Seen
+from kasten_backend.finance_proposals import Seen, price_rise
 
 if TYPE_CHECKING:
     import datetime as dt
+    from collections.abc import Sequence
     from decimal import Decimal
 
+    from sqlalchemy import Select
     from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -60,6 +62,29 @@ async def scopes(session: AsyncSession) -> dict[int, Scope | None]:
     return {a.id: scope_of(Account(a.shared, a.kind)) for a in rows}
 
 
+def _bookings(first: dt.date, accounts: set[int]) -> Select[tuple[Any, ...]]:
+    """The accounts' bookings from `first` on that no transfer is, as `_booking_of` reads them."""
+    booking = tables.Transaction
+    return select(
+        booking.id,
+        booking.account_id,
+        booking.booking_date,
+        booking.amount,
+        booking.payee_id,
+        booking.purpose,
+        booking.counterparty_name,
+    ).where(
+        booking.transfer_group.is_(None),
+        booking.booking_date >= first,
+        booking.account_id.in_(accounts),
+    )
+
+
+def _booking_of(row: Sequence[Any]) -> Booking:
+    id_, account, day, amount, payee, purpose, name = row[:7]
+    return Booking(id_, account, day, amount, payee, f"{purpose or ''} {name or ''}".casefold())
+
+
 async def run_matching(session: AsyncSession, ids: list[int] | None = None) -> int:
     """Match every period of every plan that has no booking yet; how many matched.
 
@@ -72,29 +97,14 @@ async def run_matching(session: AsyncSession, ids: list[int] | None = None) -> i
     plans = await rules(session)
     if not plans:
         return 0
-    booking = tables.Transaction
     first = min(plan.start for plan in plans).replace(day=1)
     rows = await session.execute(
-        select(
-            booking.id,
-            booking.account_id,
-            booking.booking_date,
-            booking.amount,
-            booking.payee_id,
-            booking.purpose,
-            booking.counterparty_name,
-        ).where(
-            booking.transfer_group.is_(None),
-            booking.booking_date >= first,
-            booking.account_id.in_({plan.account for plan in plans}),
-            ~exists().where(PlanMatch.transaction_id == booking.id),
-            true() if ids is None else booking.id.in_(ids),
+        _bookings(first, {plan.account for plan in plans}).where(
+            ~exists().where(PlanMatch.transaction_id == tables.Transaction.id),
+            true() if ids is None else tables.Transaction.id.in_(ids),
         )
     )
-    bookings = [
-        Booking(id_, account, day, amount, payee, f"{purpose or ''} {name or ''}".casefold())
-        for id_, account, day, amount, payee, purpose, name in rows
-    ]
+    bookings = [_booking_of(row) for row in rows]
     matched = {
         (p, at) for p, at in await session.execute(select(PlanMatch.plan_id, PlanMatch.period))
     }
@@ -106,6 +116,29 @@ async def run_matching(session: AsyncSession, ids: list[int] | None = None) -> i
             .on_conflict_do_nothing()
         )
     return len(found)
+
+
+async def rises(
+    session: AsyncSession, plan_ids: set[int], today: dt.date
+) -> dict[int, tuple[Decimal, Decimal]]:
+    """Each of these plans' price rise, from its bookings that no other plan holds."""
+    plans = [p for p in await rules(session) if p.id in plan_ids and p.every is not None]
+    if not plans:
+        return {}
+    # Six periods back find the two newest paid ones past a few unpaid.
+    first = min(add_months(today.replace(day=1), -6 * (p.every or 1)) for p in plans)
+    rows = await session.execute(
+        _bookings(first, {p.account for p in plans})
+        .add_columns(PlanMatch.plan_id)
+        .outerjoin(PlanMatch, PlanMatch.transaction_id == tables.Transaction.id)
+    )
+    held = [(_booking_of(row), row[-1]) for row in rows]
+    found = {}
+    for plan in plans:
+        rise = price_rise(plan, [b for b, holder in held if holder in {None, plan.id}], today)
+        if rise is not None:
+            found[plan.id] = rise
+    return found
 
 
 async def forget_matches(session: AsyncSession, plan_id: int) -> None:

@@ -1,8 +1,8 @@
 """The finance reads, served as MCP tools beside the vault's eight.
 
 Thin wrappers over the pane's route functions, so a tool answers what the pane shows.
-All of them only read. Their docstrings are what models read, since the MCP
-instructions are close to the 2KiB Claude Code keeps.
+All read but `write_contract_reminders`, which writes notes. Their docstrings are what
+models read, since the MCP instructions are close to the 2KiB Claude Code keeps.
 """
 
 import logging
@@ -14,6 +14,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 from sqlalchemy.exc import SQLAlchemyError
 
 from kasten_backend import agent_finance, db
+from kasten_backend.config import get_settings
 from kasten_backend.routes import (
     finance_budget,
     finance_drill,
@@ -200,6 +201,28 @@ async def finance_lookup() -> dict[str, Any]:
     return await _read(agent_finance.lookup)
 
 
+async def list_contracts(today: date) -> dict[str, Any]:
+    """Every contract note by its `cancel_by`, the last day notice can arrive, with `renews`.
+
+    At the close of a day, name each contract whose `cancel_by` falls in the next
+    14 days. `problem` names a missing field or a plan gone. `today` is the local date.
+    """
+    settings = get_settings()
+    return await _read(lambda s: finance_plans.read_contracts(s, settings, today.isoformat()))
+
+
+async def write_contract_reminders(today: date) -> list[str]:
+    """Write each contract note's next cancel-by todo where none is open; the paths written.
+
+    The pass the Plans & goals tab runs on opening; once a todo is done or
+    rejected it writes the next term's. `today` is the user's local date.
+    """
+    try:
+        return await finance_plans.write_reminders(get_settings(), today.isoformat())
+    except HTTPException as refused:
+        raise ToolError(str(refused.detail)) from refused
+
+
 TOOLS = (
     free_to_spend,
     monthly_by_category,
@@ -210,8 +233,10 @@ TOOLS = (
     list_transactions,
     read_transaction,
     finance_lookup,
+    list_contracts,
+    write_contract_reminders,
 )
-"""The finance reads, in the order the reference page lists them."""
+"""The finance tools, in the order the reference page lists them."""
 
-READING = frozenset(tool.__name__ for tool in TOOLS)
-"""Every one of them, since none writes."""
+READING = frozenset(tool.__name__ for tool in TOOLS) - {"write_contract_reminders"}
+"""Every one of them but the reminder pass, which writes todos into contract notes."""

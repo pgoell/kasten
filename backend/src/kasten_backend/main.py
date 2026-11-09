@@ -10,7 +10,7 @@ from fastapi import Depends, FastAPI
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from kasten_backend import agent_mcp, food, log, token_activity, uploads
+from kasten_backend import agent_mcp, db, food, log, push, token_activity, uploads
 from kasten_backend.agent import ConflictError, EmptyCaptureError, TooLargeError
 from kasten_backend.agent_oauth import router as oauth_router
 from kasten_backend.agent_routes import (
@@ -103,6 +103,11 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     await purge_trash(settings.vault_path, settings.trash_days)
     uploads.wipe(settings.upload_path)
     sweeping = asyncio.create_task(uploads.sweeping(settings.upload_sweep_seconds))
+    pushing = (
+        None
+        if settings.push_private_key is None
+        else asyncio.create_task(push.running(db.engine, settings))
+    )
     # After the backfill and guides, so the first index sees the vault as this start leaves it.
     indexing = indexer.start(settings)
     try:
@@ -112,6 +117,8 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
             yield
     finally:
         sweeping.cancel()
+        if pushing is not None:
+            pushing.cancel()
         if indexing is not None:
             indexing.cancel()
         # After requests close, so only a running import is left to stop.
@@ -185,6 +192,7 @@ app.include_router(web.router)
 app.include_router(queries.router)
 app.include_router(search.router)
 app.include_router(pieces_route.router)
+app.include_router(push.router)
 app.include_router(books_route.router)
 app.include_router(github.router)
 app.include_router(model_use.router)

@@ -557,6 +557,50 @@
         }
       }
     },
+    "/agent/finance/contracts": {
+      "get": {
+        "tags": [
+          "agent"
+        ],
+        "summary": "Read Contracts",
+        "description": "Every contract note in the contracts folder, by its next cancel-by date.",
+        "operationId": "read_contracts_agent_finance_contracts_get",
+        "parameters": [
+          {
+            "name": "today",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+              "title": "Today"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractsOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/agent/finance/goals": {
       "get": {
         "tags": [
@@ -786,6 +830,54 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/BookingDrillOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agent/finance/contracts/reminders": {
+      "post": {
+        "tags": [
+          "agent"
+        ],
+        "summary": "Write Reminders",
+        "description": "Write each contract note's next cancel-by todo where it has none open; the paths written.",
+        "operationId": "write_reminders_agent_finance_contracts_reminders_post",
+        "parameters": [
+          {
+            "name": "today",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+              "title": "Today"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Response Write Reminders Agent Finance Contracts Reminders Post"
                 }
               }
             }
@@ -2328,6 +2420,97 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/push": {
+      "get": {
+        "summary": "Read Push",
+        "description": "The public key and every device, oldest first.",
+        "operationId": "read_push_api_push_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/push/devices": {
+      "post": {
+        "summary": "Write Device",
+        "description": "Subscribe a device; the same endpoint again updates its keys and name, as one device.",
+        "operationId": "write_device_api_push_devices_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/push/devices/{device_id}": {
+      "delete": {
+        "summary": "Delete Device",
+        "description": "Remove a device, so no push goes to it again.",
+        "operationId": "delete_device_api_push_devices__device_id__delete",
+        "parameters": [
+          {
+            "name": "device_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Device Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
           },
           "422": {
             "description": "Validation Error",
@@ -4445,6 +4628,129 @@
                     "$ref": "#/components/schemas/ProposalOut"
                   },
                   "title": "Response Read Proposals Api Finance Plans Proposals Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/contracts": {
+      "get": {
+        "summary": "Read Contracts",
+        "description": "Every contract note in the contracts folder, by its next cancel-by date.",
+        "operationId": "read_contracts_api_finance_contracts_get",
+        "parameters": [
+          {
+            "name": "today",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+              "title": "Today"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractsOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Write Contract",
+        "description": "Start a contract note for a plan, its id filled in and its terms left to fill.",
+        "operationId": "write_contract_api_finance_contracts_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContractIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/contracts/reminders": {
+      "post": {
+        "summary": "Write Reminders",
+        "description": "Write each contract note's next cancel-by todo where it has none open; the paths written.",
+        "operationId": "write_reminders_api_finance_contracts_reminders_post",
+        "parameters": [
+          {
+            "name": "today",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+              "title": "Today"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Response Write Reminders Api Finance Contracts Reminders Post"
                 }
               }
             }
@@ -9264,6 +9570,186 @@
         "title": "ConfirmIn",
         "description": "The booking the receipt paid and, with a line, the mark to set on it."
       },
+      "ContractIn": {
+        "properties": {
+          "plan_id": {
+            "type": "integer",
+            "title": "Plan Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "plan_id"
+        ],
+        "title": "ContractIn",
+        "description": "The plan a new contract note is for."
+      },
+      "ContractOut": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "plan_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Id"
+          },
+          "plan_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Name"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "every_months": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Every Months"
+          },
+          "yearly": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Yearly"
+          },
+          "cancel_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancel By"
+          },
+          "renews": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Renews"
+          },
+          "ends": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ends"
+          },
+          "problem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Problem"
+          },
+          "rise": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RiseOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "name",
+          "plan_id",
+          "plan_name",
+          "amount",
+          "every_months",
+          "yearly",
+          "cancel_by",
+          "renews",
+          "ends",
+          "problem",
+          "rise"
+        ],
+        "title": "ContractOut",
+        "description": "A contract note, its plan, its cost a year and its next cancel-by date.\n\n`problem` names what keeps a date or a cost from it: a field missing, or a plan gone.\n`rise` is set once the plan's two newest paid periods in a row cost more than it allows."
+      },
+      "ContractsOut": {
+        "properties": {
+          "contracts": {
+            "items": {
+              "$ref": "#/components/schemas/ContractOut"
+            },
+            "type": "array",
+            "title": "Contracts"
+          },
+          "yearly": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Yearly"
+          }
+        },
+        "type": "object",
+        "required": [
+          "contracts",
+          "yearly"
+        ],
+        "title": "ContractsOut",
+        "description": "Every contract note by cancel-by date, and what they cost a year together."
+      },
       "ContributionOut": {
         "properties": {
           "planned": {
@@ -9454,6 +9940,62 @@
         ],
         "title": "Delete",
         "description": "Which line goes, with its parts, and the digest of the list the caller read."
+      },
+      "DeviceIn": {
+        "properties": {
+          "endpoint": {
+            "type": "string",
+            "pattern": "^https://",
+            "title": "Endpoint"
+          },
+          "keys": {
+            "$ref": "#/components/schemas/Keys"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "endpoint",
+          "keys",
+          "name"
+        ],
+        "title": "DeviceIn",
+        "description": "A browser's `PushSubscription` as `toJSON` gives it, and a name to list it by."
+      },
+      "DeviceOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "endpoint": {
+            "type": "string",
+            "title": "Endpoint"
+          },
+          "created": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "endpoint",
+          "created"
+        ],
+        "title": "DeviceOut",
+        "description": "A subscribed device, without its keys."
       },
       "DueOut": {
         "properties": {
@@ -10987,6 +11529,27 @@
         ],
         "title": "ItemOut",
         "description": "One line of a charge."
+      },
+      "Keys": {
+        "properties": {
+          "p256dh": {
+            "type": "string",
+            "minLength": 1,
+            "title": "P256Dh"
+          },
+          "auth": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Auth"
+          }
+        },
+        "type": "object",
+        "required": [
+          "p256dh",
+          "auth"
+        ],
+        "title": "Keys",
+        "description": "The subscription's keys: the browser's public key and the shared secret."
       },
       "Layout": {
         "properties": {
@@ -12942,6 +13505,35 @@
         "title": "ProposalOut",
         "description": "A plan read from history, ready to post as it is, and what it was read from."
       },
+      "PushOut": {
+        "properties": {
+          "public_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Key"
+          },
+          "devices": {
+            "items": {
+              "$ref": "#/components/schemas/DeviceOut"
+            },
+            "type": "array",
+            "title": "Devices"
+          }
+        },
+        "type": "object",
+        "required": [
+          "public_key",
+          "devices"
+        ],
+        "title": "PushOut",
+        "description": "The key a browser subscribes with, or None where push is not set up, and the devices."
+      },
       "Ran": {
         "properties": {
           "changed": {
@@ -13560,6 +14152,27 @@
         ],
         "title": "ReviewLimits",
         "description": "The daily limits a deck falls back on, None meaning no limit."
+      },
+      "RiseOut": {
+        "properties": {
+          "old": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Old"
+          },
+          "new": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "New"
+          }
+        },
+        "type": "object",
+        "required": [
+          "old",
+          "new"
+        ],
+        "title": "RiseOut",
+        "description": "A price rise: the plan's amount, and the newest booking's, dearer past the tolerance."
       },
       "RuleIn": {
         "properties": {

@@ -9,10 +9,11 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from kasten_backend import (  # noqa: F401  (registers the finance, rsvp and token tables)
     finance_budget_models,
     finance_models,
-    finance_order_models,
+    finance_orders,
     finance_plan_models,
     finance_sync_models,
     finance_tax_models,
+    push,
     rsvp,
     token_activity,
 )

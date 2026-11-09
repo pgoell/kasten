@@ -1,6 +1,7 @@
 """Routes that import an Anki deck, from a file or a shared link, as one note per deck."""
 
 import asyncio
+from dataclasses import replace
 from functools import partial
 from typing import TYPE_CHECKING, Annotated
 
@@ -12,8 +13,8 @@ from pydantic import BaseModel
 
 from kasten_backend import ankiweb, files, uploads
 from kasten_backend.anki import media_path, read_apkg
-from kasten_backend.anki_merge import marked_cards, merge
-from kasten_backend.anki_note import as_note, card_count, note_cards
+from kasten_backend.anki_merge import joined, marked_cards, merge, taken
+from kasten_backend.anki_note import as_note, card_count, deck_tag, note_cards
 from kasten_backend.change import vault_change, vault_write
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.files import store
@@ -185,15 +186,22 @@ def _new_media(deck: Deck, settings: Settings, *, fresh: bool) -> list[tuple[str
         if asset.exists():
             # A merged deck's media is most likely this import's own
             # from last time, and a card links it by name either way.
-            if not fresh:
+            if not fresh or _same(asset, data):
                 continue
             raise HTTPException(status_code=409, detail=f"{path} is already in the vault")
         media.append((path, data))
     return media
 
 
-async def _marked_elsewhere(settings: Settings, own: set[str]) -> dict[tuple[int, int], set[str]]:
-    """Which notes outside `own` hold each marked card, the archive left out as the review does."""
+def _same(asset: Path, data: bytes) -> bool:
+    """Whether `asset` holds `data` already, as a hard-killed import leaves it (#1311)."""
+    return asset.is_file() and asset.stat().st_size == len(data) and asset.read_bytes() == data
+
+
+async def _marked_elsewhere(
+    settings: Settings, own: set[str]
+) -> tuple[dict[tuple[int, int], set[str]], dict[str, str]]:
+    """Which notes outside `own` hold each marked card, and their text, archive left out."""
     try:
         paths = await notes_holding(settings.vault_path, "<!--anki:", skip=settings.archive_path)
     except SearchError as error:
@@ -214,7 +222,7 @@ async def _marked_elsewhere(settings: Settings, own: set[str]) -> dict[tuple[int
     for path, text in texts.items():
         for key in marked_cards(text):
             elsewhere.setdefault(key, set()).add(path)
-    return elsewhere
+    return elsewhere, texts
 
 
 def _read_all(root: Path, paths: list[str]) -> dict[str, str]:
@@ -228,6 +236,109 @@ def _read_all(root: Path, paths: list[str]) -> dict[str, str]:
         except FileNotFoundError:
             continue
     return texts
+
+
+def _moves(
+    settings: Settings,
+    decks: list[Deck],
+    paths: dict[str, str],
+    texts: dict[str, str],
+    elsewhere: dict[tuple[int, int], set[str]],
+) -> tuple[dict[str, str], dict[str, dict[tuple[int, int], list[str]]]]:
+    """The notes that cards Anki moved to a deck of the export leave, cut, and what each deck gains.
+
+    A card moves out of another deck's own note: one in the export, or one at its deck's path
+    under its deck's tag. A note under the importing deck's tag is a split part, refused (#1177).
+    """
+    held = {path: marked_cards(text) for path, text in texts.items()}
+    leaving: dict[str, list[tuple[int, int]]] = {}
+    into: dict[tuple[int, int], str] = {}
+    for deck in decks:
+        target = paths[deck.name]
+        froms = {
+            (card.nid, card.ord): sorted(
+                elsewhere.get((card.nid, card.ord), set())
+                | {path for path in paths.values() if (card.nid, card.ord) in held.get(path, ())}
+            )
+            for card in note_cards(deck)
+            if (card.nid, card.ord) not in held.get(target, ())
+        }
+        keys = {(card.nid, card.ord) for card in note_cards(deck)}
+        # A part sits under the deck's tag, or holds only its cards with no deck's note
+        # its own, as a moved note whose tag an older import wrote differently.
+        parts = sorted(
+            {
+                p
+                for f in froms.values()
+                for p in f
+                if _tagged(texts[p], deck.name)
+                or (held[p] <= keys and not _deck_note(settings, p, texts, paths))
+            }
+        )
+        if parts:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"{deck.name} already has cards in {', '.join(parts)}. An import merges "
+                    f"a deck into one note, {target}, so it would add them to it a second "
+                    f"time. Join those notes into {target}, then import again."
+                ),
+            )
+        for key, found in froms.items():
+            if len(found) > 1 or (found and not _deck_note(settings, found[0], texts, paths)):
+                raise _stuck(deck.name, found, target)
+            if found:
+                leaving.setdefault(found[0], []).append(key)
+                into[key] = deck.name
+    cut: dict[str, str] = {}
+    gains: dict[str, dict[tuple[int, int], list[str]]] = {}
+    for path, keys in leaving.items():
+        name = into[keys[0]]
+        text = texts[path] if path in paths.values() else _strict(settings, path, name)
+        result = taken(text, keys)
+        if result is None:
+            raise _stuck(name, [path], paths[name])
+        cut[path] = result[0]
+        for key, lines in result[1].items():
+            gains.setdefault(into[key], {})[key] = lines
+    return cut, gains
+
+
+def _strict(settings: Settings, path: str, deck: str) -> str:
+    """The text of `path` read strictly, as a card cut out of it is written back over it."""
+    try:
+        return (settings.vault_path / path).read_text(encoding="utf-8")
+    except UnicodeDecodeError as error:
+        raise HTTPException(
+            status_code=409,
+            detail=f"{path} is not UTF-8, so {deck}'s cards cannot move out of it. "
+            "Save it as UTF-8, then import again.",
+        ) from error
+
+
+def _tagged(text: str, deck: str) -> bool:
+    """Whether `text` has the tag line `as_note` heads the note of `deck` with."""
+    return deck_tag(deck) in {line.rstrip() for line in text.split("\n")}
+
+
+def _deck_note(settings: Settings, path: str, texts: dict[str, str], paths: dict[str, str]) -> bool:
+    """Whether `path` is a deck's own note: the export's, or at its deck's path under its tag."""
+    folder = f"{settings.flashcards_path}/"
+    name = path.removeprefix(folder).removesuffix(".md")
+    own = path == f"{folder}{name}.md" and _tagged(texts[path], name)
+    return path in paths.values() or own
+
+
+def _stuck(deck: str, notes: list[str], target: str) -> HTTPException:
+    """The refusal for cards of `deck` in `notes` that no move can tell apart safely (#1178)."""
+    return HTTPException(
+        status_code=409,
+        detail=(
+            f"{deck} has cards in {', '.join(notes)} that the import cannot move into "
+            f"{target} safely, as no other deck's own note holds them, or they were edited "
+            f"over several lines. Move each card's lines into {target}, then import again."
+        ),
+    )
 
 
 async def _import_bytes(body: bytes, settings: Settings, *, carry: bool, limit: int) -> AnkiImport:
@@ -251,49 +362,54 @@ async def _import_bytes(body: bytes, settings: Settings, *, carry: bool, limit: 
         media: list[tuple[str, bytes]] = []
         notes: list[str] = []
         added = updated = kept = removed = 0
-        homes = [
-            (deck, resolve_path(settings.vault_path, f"{settings.flashcards_path}/{deck.name}.md"))
-            for deck in decks
-        ]
-        own = {relative_path(settings.vault_path, home) for _, home in homes if home is not None}
-        elsewhere = await _marked_elsewhere(settings, own)
-        for deck, note in homes:
+        homes: list[tuple[Deck, Path]] = []
+        for deck in decks:
+            note = resolve_path(settings.vault_path, f"{settings.flashcards_path}/{deck.name}.md")
             if note is None:
                 raise HTTPException(status_code=400, detail=f"The vault will not take {deck.name}")
-            target = relative_path(settings.vault_path, note)
-            notes.append(target)
-            fresh = not note.exists()
-            old = "" if fresh else note.read_text(encoding="utf-8")
-            merged = None if fresh else merge(old, deck)
+            homes.append((deck, note))
+        paths = {deck.name: relative_path(settings.vault_path, note) for deck, note in homes}
+        olds = {
+            paths[deck.name]: note.read_text(encoding="utf-8")
+            for deck, note in homes
+            if note.exists()
+        }
+        for deck, _ in homes:
             # A note from before the marker gets the refusal it always got: the
-            # "Join" advice below would only lead to its cards doubled.
-            if not fresh and merged is None:
+            # "Join" advice of `_moves` would only lead to its cards doubled.
+            if paths[deck.name] in olds and not marked_cards(olds[paths[deck.name]]):
                 raise HTTPException(status_code=409, detail=f"{deck.name} is already in the vault")
-            # Only a card the note does not mark yet would be a second copy. The
-            # other notes hold a split deck's parts, so merging here adds them twice.
-            adding = {(card.nid, card.ord) for card in note_cards(deck)} - marked_cards(old)
-            others = sorted({path for key in adding for path in elsewhere.get(key, ())})
-            if others:
-                raise HTTPException(
-                    status_code=409,
-                    detail=(
-                        f"{deck.name} already has cards in {', '.join(others)}. An import merges "
-                        f"a deck into one note, {target}, so it would add them to it a second "
-                        f"time. Join those notes into {target}, then import again."
-                    ),
-                )
-            if merged is None:
+        elsewhere, texts = await _marked_elsewhere(settings, set(paths.values()))
+        cut, gains = _moves(settings, [deck for deck, _ in homes], paths, olds | texts, elsewhere)
+        for deck, note in homes:
+            target = paths[deck.name]
+            notes.append(target)
+            disk = olds.get(target)
+            fresh = disk is None
+            moved = gains.get(deck.name, {})
+            if fresh and not moved:
                 targets.append((note, as_note(deck), None))
                 added += len(note_cards(deck))
             else:
+                fresh_cards = [c for c in note_cards(deck) if (c.nid, c.ord) not in moved]
+                base = as_note(replace(deck, cards=fresh_cards)) if fresh else cut.get(target, disk)
+                merged = merge(joined(base, list(moved.values())) if moved else base, deck)
                 # Unchanged, it is not written: a stamp would date the note today.
-                if merged.text != old:
-                    targets.append((note, merged.text, old))
-                added += merged.added
+                if merged.text != disk:
+                    targets.append((note, merged.text, disk))
+                # A fresh note's other cards are new, though `merge` found them in `base`.
+                new = len(fresh_cards) if fresh else 0
+                added += merged.added + new
                 updated += merged.updated
-                kept += merged.kept
+                kept += merged.kept - new
                 removed += merged.removed
             media += _new_media(deck, settings, fresh=fresh)
+        # A card's old note outside the export loses its lines in the same change.
+        targets += [
+            (settings.vault_path / path, text, texts[path])
+            for path, text in cut.items()
+            if path not in olds
+        ]
 
         # One change for the import rather than one per deck, the way the type
         # backfill takes one for its pass.

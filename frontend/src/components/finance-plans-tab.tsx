@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { type RefObject, useState } from "react";
+import { Contracts } from "@/components/finance-contracts";
 import { Forecast } from "@/components/finance-forecast";
 import { GoalBar, GoalForm, NotReserved } from "@/components/finance-goals";
 import { MoveLeftover } from "@/components/finance-leftover";
@@ -19,6 +20,7 @@ import {
   fetchUpcoming,
   type Goal,
   type Goals,
+  makeContract,
   type Plan,
   type PlanIn,
   type Proposal,
@@ -47,14 +49,45 @@ function day(date: string): string {
   });
 }
 
+/** A proposal that cannot be posted as it is, with no payee or text to match by. */
+function unmatchable(proposal: Proposal): boolean {
+  return proposal.payee_id == null && !proposal.text;
+}
+
+/** A row's button that starts the contract note for its plan. */
+function ContractButton({
+  name,
+  onPress,
+  disabled = false,
+}: {
+  name: string;
+  onPress: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      className="finance-pane-button finance-small"
+      aria-label={`Make a contract note for ${name}`}
+      title={disabled ? "Confirm it as a plan first: it has nothing to match by" : undefined}
+      disabled={disabled}
+      onClick={onPress}
+    >
+      Contract
+    </button>
+  );
+}
+
 function Proposals({
   proposals,
   busy,
   onConfirm,
+  onContract,
 }: {
   proposals: Proposal[];
   busy: boolean;
   onConfirm: (p: Proposal) => void;
+  onContract: (p: Proposal) => void;
 }) {
   if (proposals.length === 0) return null;
   return (
@@ -68,15 +101,22 @@ function Proposals({
             <span className="finance-muted finance-plans-aside">
               {`${scheduleName(proposal.every_months)}, ${proposal.source === "bill" ? "a Firefly bill" : "a recurring payee"}, ${proposal.seen === 1 ? "seen once" : `seen ${proposal.seen} times`}, last ${day(proposal.last)}`}
             </span>
-            <button
-              type="button"
-              className="finance-pane-button finance-small"
-              aria-label={`Confirm ${proposal.name}`}
-              disabled={busy}
-              onClick={() => onConfirm(proposal)}
-            >
-              {index < PROPOSAL_KEYS.length ? <kbd>{PROPOSAL_KEYS[index]}</kbd> : null} Confirm
-            </button>
+            <span className="finance-plans-buttons">
+              <button
+                type="button"
+                className="finance-pane-button finance-small"
+                aria-label={`Confirm ${proposal.name}`}
+                disabled={busy}
+                onClick={() => onConfirm(proposal)}
+              >
+                {index < PROPOSAL_KEYS.length ? <kbd>{PROPOSAL_KEYS[index]}</kbd> : null} Confirm
+              </button>
+              <ContractButton
+                name={proposal.name}
+                onPress={() => onContract(proposal)}
+                disabled={busy || unmatchable(proposal)}
+              />
+            </span>
           </li>
         ))}
       </ul>
@@ -126,10 +166,12 @@ function Plans({
   plans,
   onEdit,
   onNew,
+  onContract,
 }: {
   plans: Plan[];
   onEdit: (p: Plan) => void;
   onNew: () => void;
+  onContract: (p: Plan) => void;
 }) {
   return (
     <section aria-label="Plans" className="finance-plans-group">
@@ -142,14 +184,17 @@ function Plans({
             <span className="finance-muted finance-plans-aside">
               {`${scheduleName(plan.every_months)}${plan.reserves ? `, reserves ${money(plan.share)} a month when set aside in time` : ""}`}
             </span>
-            <button
-              type="button"
-              className="finance-pane-button finance-small"
-              aria-label={`Edit ${plan.name}`}
-              onClick={() => onEdit(plan)}
-            >
-              Edit
-            </button>
+            <span className="finance-plans-buttons">
+              <button
+                type="button"
+                className="finance-pane-button finance-small"
+                aria-label={`Edit ${plan.name}`}
+                onClick={() => onEdit(plan)}
+              >
+                Edit
+              </button>
+              <ContractButton name={plan.name} onPress={() => onContract(plan)} />
+            </span>
           </li>
         ))}
       </ul>
@@ -401,6 +446,7 @@ export function FinancePlans({ month, today, keys, onNotice, refocus }: TabProps
   const categories = useQuery({ queryKey: ["finance", "categories"], queryFn: fetchCategories });
   const [editing, setEditing] = useState<Editing>();
   const [busy, setBusy] = useState(false);
+  const [made, setMade] = useState<string>();
   const [cursor, setCursor] = useState(0);
   const goalRows = goals.data?.goals ?? [];
   const at = Math.max(0, Math.min(cursor, goalRows.length - 1));
@@ -439,12 +485,14 @@ export function FinancePlans({ month, today, keys, onNotice, refocus }: TabProps
   };
   /** Post a proposal as it is, or open the form for one with nothing to match by. */
   const confirm = (proposal: Proposal) => {
-    if (proposal.payee_id == null && !proposal.text) {
+    if (unmatchable(proposal)) {
       setEditing({ kind: "plan", draft: planOf(proposal) });
       return;
     }
     void run(() => writePlan(planOf(proposal), today));
   };
+  const contract = (from: Plan | Proposal) =>
+    void run(async () => setMade((await makeContract(from, today)).path));
   const cancel = () => {
     setEditing(undefined);
     refocus();
@@ -495,12 +543,19 @@ export function FinancePlans({ month, today, keys, onNotice, refocus }: TabProps
           <Upcoming dues={dues.data ?? []} month={month} />
         </div>
         <div className="finance-plans-column">
-          <Proposals proposals={proposals.data ?? []} busy={busy} onConfirm={confirm} />
+          <Proposals
+            proposals={proposals.data ?? []}
+            busy={busy}
+            onConfirm={confirm}
+            onContract={contract}
+          />
           <Plans
             plans={plans.data ?? []}
             onEdit={(plan) => setEditing({ kind: "plan", id: plan.id })}
             onNew={() => setEditing({ kind: "plan" })}
+            onContract={contract}
           />
+          <Contracts today={today} made={made} />
         </div>
       </div>
       <Forecast today={today} />

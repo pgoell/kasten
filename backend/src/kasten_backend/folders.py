@@ -7,7 +7,7 @@ Both halves live here so that rule has one copy. The vault itself only resolves,
 import re
 from typing import TYPE_CHECKING
 
-from kasten_backend.vault import SUFFIX, write_note
+from kasten_backend.vault import SUFFIX, temporary_name, write_note
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -16,12 +16,14 @@ if TYPE_CHECKING:
 def create_note(path: Path, content: str) -> None:
     """Write a new note at a path `resolve_path` returned.
 
-    Straight to the target, not through `write_note`, whose temp file protects text already on
-    disk. The folders on the way are made first. Nothing is written under the frontmatter: the
-    file name is the title, so any extra line would be a word the user did not type.
+    Through a hidden temp and a rename, so a hard kill leaves no cut note (#1311). The folders on
+    the way are made first. Nothing is written under the frontmatter: the file name is the title,
+    so any extra line would be a word the user did not type.
     """
     made = make_folders(path.parent)
-    path.write_text(content, encoding="utf-8")
+    temporary = path.with_name(temporary_name(path.name))
+    temporary.write_text(content, encoding="utf-8")
+    temporary.replace(path)
     write_listings(made)
 
 

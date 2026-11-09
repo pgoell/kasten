@@ -112,6 +112,14 @@ A recurring todo carrying no date at all is ticked like any other and writes no
 copy. There is nothing to count from, and a copy with no date is the same todo
 written twice.
 
+## Reminder
+
+`⏰ 2026-11-12 09:00`, as the obsidian-reminder plugin writes it, sends a push
+to every subscribed device at that time, read in `KASTEN_TIMEZONE`. The editor
+keeps it as plain words, as Obsidian Tasks does, so a `⏰` inside a `🔁` value
+runs with that value. Only an open todo reminds. What is sent and when:
+[HTTP API: todos](/reference/http-api/todos.md#reminders).
+
 ## The done log
 
 Ticking a todo done writes a line under `## Done` in today's daily note:
