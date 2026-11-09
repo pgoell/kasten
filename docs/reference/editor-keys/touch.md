@@ -45,8 +45,8 @@ a touch screen.
 
 A row along the bottom edge, under the status bar. When the buttons do not all
 fit on one line, the row wraps and the rest go to a second line. Ten buttons at
-44px fit no phone, so `timers` always sits on a second line, with `pane` beside
-it once the tab holds a split.
+44px fit no phone, so the last ones always do: `timers` on a 412px phone, `chat`
+and `timers` on a 360px or 390px one, and `pane` too once the tab holds a split.
 
 | Button | Does | Command | Key |
 | --- | --- | --- | --- |
