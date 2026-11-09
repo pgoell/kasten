@@ -104,6 +104,8 @@ async def test_a_reminder_in_or_running_into_quiet_hours_sends_at_their_end(
 TODAY = """\
 - [ ] pay rent 📅 2026-11-12
 - [ ] book train ⏳ 2026-11-12
+- [ ] call mum 📅 2026-11-12 ⏰ 2026-11-12 09:00 ^abc1
+- [ ] first date wins 📅 2026-11-01 📅 2026-11-12
 - [x] done already 📅 2026-11-12
 - [ ] next week 📅 2026-11-19
 - [ ] someday
@@ -124,7 +126,7 @@ async def test_the_morning_push_sends_today_once_a_day(
         assert await tick(push_db, served, http, _at(12, 12, 0)) == 0
     [(_, message)] = service.sent
     assert message["title"] == "Today"
-    assert message["body"] == "pay rent\nbook train"
+    assert message["body"] == "pay rent\nbook train\ncall mum"
     assert message["path"] == "01 Periodic/00 Daily/2026-11-12.md"
 
 
@@ -156,3 +158,17 @@ async def test_a_morning_push_inside_quiet_hours_waits_for_their_end(
         assert await tick(push_db, served, http, _at(12, 6, 0)) == 0
         assert await tick(push_db, served, http, _at(12, 7, 0)) == 1
     assert len(service.sent) == 1
+
+
+async def test_a_device_the_morning_push_finds_gone_gets_no_reminder_that_tick(
+    client: httpx.AsyncClient, served: Settings, push_db: AsyncEngine
+) -> None:
+    service = PushService()
+    await subscribe(client, service, "phone", "old")
+    service.status["https://push.example/old"] = 410
+    await _set(client, morning="07:30")
+    note(served, TODAY + "- [ ] stretch ⏰ 2026-11-12 07:30\n", "Plans.md")
+    async with service.client() as http:
+        assert await tick(push_db, served, http, _at(12, 7, 30)) == 2
+    old = [message["title"] for endpoint, message in service.sent if endpoint.endswith("/old")]
+    assert old == ["Today"]

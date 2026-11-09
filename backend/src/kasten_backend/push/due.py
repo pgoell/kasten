@@ -54,9 +54,15 @@ def reminder_of(hit: Hit, zone: ZoneInfo) -> Reminder | None:
         due = dt.datetime.fromisoformat(f"{found[1]}T{found[2]}").replace(tzinfo=zone)
     except ValueError:
         return None
-    rest = todo_fields.BLOCK_ID.sub("", rest[: found.start()] + rest[found.end() :])
-    words = todo_fields.words(rest)
-    return Reminder(hit.path, hit.line, " ".join(words.split()), due)
+    return Reminder(hit.path, hit.line, _spoken(rest), due)
+
+
+def _spoken(rest: str) -> str:
+    """A todo's words as a push shows them: no fields, no `⏰` and no block id."""
+    found = ALARM.search(todo_fields.mask(rest))
+    if found is not None:
+        rest = rest[: found.start()] + rest[found.end() :]
+    return " ".join(todo_fields.words(todo_fields.BLOCK_ID.sub("", rest)).split())
 
 
 def reminders(hits: list[Hit], zone: ZoneInfo) -> list[Reminder]:
@@ -113,7 +119,8 @@ def today_todos(hits: list[Hit], today: dt.date) -> list[str]:
             continue
         rest = todo[2] or ""
         masked = todo_fields.mask(rest)
-        dates = [m[1] for field in todo_fields.FIELDS[:2] for m in field.finditer(masked)]
+        # The first of each field counts, as on the board.
+        dates = [m[1] for field in todo_fields.FIELDS[:2] if (m := field.search(masked))]
         if day in dates:
-            found.append(" ".join(todo_fields.words(rest).split()))
+            found.append(_spoken(rest))
     return found

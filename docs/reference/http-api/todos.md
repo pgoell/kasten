@@ -146,7 +146,7 @@ subscribed here. The devices sit in the `push_devices` table in Postgres, and
 each reminder sent in `push_sent`. A loop in the backend wakes each minute; only
 the worker holding a Postgres advisory lock sends. It sends what fell due in the
 last hour and was not sent yet, so a missed reminder goes out late when it is
-under an hour old and never after. A sent reminder is known by its note, time
+under an hour old and never after, bar quiet hours as below. A sent reminder is known by its note, time
 and words, so a restart or a line moved within its note does not send it again.
 
 Only an open todo reminds: not `[x]`, `[X]` or `[-]`, nor one in a fence, a

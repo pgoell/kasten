@@ -68,6 +68,7 @@ async def _send_due(
     due = [found for found in reminders(hits, zone) if sendable(found.due, now, quiet, zone)]
     morning = _morning(settings, now, hours.morning, quiet, hits)
     sent = await _send_morning(session, client, key, morning)
+    devices = list(await session.scalars(select(PushDevice)))
     for reminder in due:
         if await session.get(PushSent, reminder.key) is not None:
             continue
