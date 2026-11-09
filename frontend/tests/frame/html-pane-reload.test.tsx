@@ -432,3 +432,10 @@ it("a page another test file writes under the same name does not change the page
 it("pageServed answers at once for a path no route serves", async () => {
   await expect(browser.pageServed("/api/html/never-served.html")).resolves.toBeUndefined();
 });
+
+it("pageServed names the path of a routed page no frame asks for", async () => {
+  await browser.servePage("never-asked.html", report("unasked"));
+  await expect(browser.pageServed("/api/html/never-asked.html")).rejects.toThrow(
+    "pageServed: /api/html/never-asked.html was not answered within 10000 ms",
+  );
+});

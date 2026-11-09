@@ -145,6 +145,8 @@ function keyHelpOf(): HTMLElement | null {
 
 /** Waits for the page's own script to say hello, which it does once it has run. */
 async function ready(frame: HTMLIFrameElement) {
+  // The page's render, a subprocess per request, is the route's time, not the page's (#1692).
+  await browser.pageServed(new URL(frame.src).pathname);
   await expect
     .poll(() => heard.some((h) => h.source === frame.contentWindow && h.data.kasten === "hello"))
     .toBe(true);
@@ -275,6 +277,7 @@ it("a window the page opens posting kasten keys opens nothing", async () => {
   await userEvent.click(frame);
 
   frame.contentWindow?.postMessage({ fixture: "open" }, "*");
+  await browser.pageServed(`/api/html/${HOSTILE_PATH}`);
   await expect.poll(() => heard.some((h) => h.data.fixture === "popup")).toBe(true);
   const popup = heard.find((h) => h.data.fixture === "popup")?.source as Window | null;
   try {
