@@ -131,6 +131,8 @@ async def test_with_no_key_push_is_not_set_up(
         assert (await client.get("/api/push")).json() == {"public_key": None, "devices": []}
         answer = await client.post("/api/push/devices", json=PushService().device("phone"))
         assert answer.status_code == 503
+        timer = {"label": "Washer", "due": NOW.isoformat()}
+        assert (await client.post("/api/push/timers", json=timer)).status_code == 503
     finally:
         app.dependency_overrides.pop(get_settings)
     async with PushService().client() as http:

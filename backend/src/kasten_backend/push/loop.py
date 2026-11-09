@@ -184,9 +184,7 @@ async def _send_morning(
     if morning is None or await session.get(PushSent, morning[0].key) is not None:
         return 0
     record, message = morning
-    for device in list(await session.scalars(select(PushDevice))):
-        if await _post(client, device, message, key) in GONE:
-            await session.execute(delete(PushDevice).where(PushDevice.id == device.id))
+    await _fan_out(session, client, message, key)
     session.add(record)
     await session.commit()
     return 1

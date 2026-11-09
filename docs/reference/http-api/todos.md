@@ -237,8 +237,8 @@ Starts a timer: `{"label", "due", "every"?, "until"?}`. `label` is 1 to 200
 characters, `due` and `until` are times with an offset, `every` is seconds, at
 least 60. A `due` of now rings on the next wake. Answers `201` with the timer
 as `GET` lists it, or `422` for an empty label, a time with no offset, an
-`every` under 60, or an `until` before `due`. It does not need push set up; a
-timer without it rings nowhere.
+`every` under 60, or an `until` before `due`, and `503` when push is not set
+up, since the sender that rings and clears timers never starts then.
 
 ## DELETE /api/push/timers/{timer_id}
 

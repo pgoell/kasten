@@ -170,8 +170,7 @@ async function fetchKept(request, cache) {
   return response;
 }
 
-/** A todo's reminder shows as a notification; a click opens the note it is in. */
-// A todo's push names its note and line; a timer's names neither and opens the app.
+/** A push shows as a notification; a todo's opens its note and line, a timer's opens the app. */
 self.addEventListener("push", (event) => {
   const { title, body, path, line, tag, renotify } = event.data.json();
   const url = path ? `/?note=${encodeURIComponent(path)}&line=${line}` : "/";

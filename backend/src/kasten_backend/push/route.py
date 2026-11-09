@@ -183,8 +183,11 @@ async def read_timers(session: Session) -> list[TimerOut]:
 
 
 @router.post("/timers", status_code=201)
-async def write_timer(body: TimerIn, session: Session) -> TimerOut:
+async def write_timer(body: TimerIn, session: Session, settings: VaultSettings) -> TimerOut:
     """Start a timer; the sender pushes it to every device when it falls due."""
+    # Without a key the sender never runs, so a timer would stay listed forever.
+    if settings.push_private_key is None:
+        raise HTTPException(503, "Push is not set up: no KASTEN_PUSH_PRIVATE_KEY")
     timer = PushTimer(label=body.label, due=body.due, every=body.every, until=body.until)
     session.add(timer)
     await session.commit()
