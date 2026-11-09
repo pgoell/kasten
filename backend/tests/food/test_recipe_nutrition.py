@@ -201,3 +201,25 @@ async def test_a_vault_without_foods_matches_nothing(client: AsyncClient, vault:
     recipe = await nutrition(client, CHILI)
     assert {item["status"] for item in recipe["ingredients"]} == {"no_match", "no_amount"}
     assert recipe["total"] == {"kcal": None, "protein": None, "carbs": None, "fat": None}
+
+
+async def test_a_pin_open_food_facts_lacks_is_asked_once_an_hour(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen: list[httpx.Request] = []
+
+    def missing(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(404, text="{}")
+
+    transport = httpx.MockTransport(missing)
+    monkeypatch.setattr(food, "_client", lambda: httpx.AsyncClient(transport=transport))
+    food._cache.clear()
+    food._reads.clear()
+    for _ in range(2):
+        recipe = await nutrition(client, PORRIDGE)
+        assert recipe["ingredients"][2]["status"] == "no_match"
+    assert len(seen) == 1
+    response = await client.get("/api/food/barcode/3017624010701")
+    assert response.status_code == 404
+    assert len(seen) == 1

@@ -171,6 +171,17 @@ describe("the recipe card", () => {
     expect(readRecipe).toHaveBeenCalledTimes(2);
   });
 
+  it("sends nothing again for an edit taken back before the pause ends", async () => {
+    vi.mocked(readRecipe).mockResolvedValue(CHILI);
+    const view = mount(NOTE);
+    await vi.runAllTimersAsync();
+    const end = view.state.doc.length;
+    view.dispatch({ changes: { from: end, insert: "x" } });
+    view.dispatch({ changes: { from: end, to: end + 1 } });
+    await vi.advanceTimersByTimeAsync(RECIPE_PAUSE_MS * 2);
+    expect(readRecipe).toHaveBeenCalledTimes(1);
+  });
+
   it("draws nothing and asks nothing on a note that is no recipe", async () => {
     const view = mount("# Chili\n\n## Zutaten\n- 500 g Kidneybohnen\n");
     await vi.runAllTimersAsync();

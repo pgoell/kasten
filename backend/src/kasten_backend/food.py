@@ -49,6 +49,8 @@ SEARCH_CACHE_SECONDS = 24 * 60 * 60
 """A search is kept a day. The same search comes back often, and a catalogue changes slowly."""
 BARCODE_CACHE_SECONDS = 3 * 24 * 60 * 60
 """A found barcode is kept three days. A label changes rarely; a read is the tighter limit."""
+MISSING_CACHE_SECONDS = 60 * 60
+"""A barcode OFF has no product for is kept an hour: a recipe card asks after every pause."""
 CACHE_MAX_ENTRIES = 1000
 """The most answers held at once. Past it the oldest is dropped, so memory stays bounded."""
 SEARCH_MIN, SEARCH_MAX = 2, 100
@@ -85,7 +87,7 @@ class Food(BaseModel):
 
 
 _cache: dict[tuple[str, str], tuple[float, list[Food]]] = {}
-"""Answers by `("search", q)` or `("barcode", code)`, each with the time it was taken."""
+"""Answers by `("search", q)`, `("barcode", code)` or `("missing", code)`, each with its time."""
 _searches: deque[float] = deque()
 _reads: deque[float] = deque()
 """The times of the calls made to OFF in the window, one queue for each limit."""
@@ -202,7 +204,9 @@ def _food(code: str, item: dict[str, Any]) -> Food:
 
 
 def _lifetime(key: tuple[str, str]) -> float:
-    """How long an answer under `key` is kept: a search a day, a barcode three days."""
+    """How long an answer under `key` is kept: a search a day, a barcode 3 days, none an hour."""
+    if key[0] == "missing":
+        return MISSING_CACHE_SECONDS
     return SEARCH_CACHE_SECONDS if key[0] == "search" else BARCODE_CACHE_SECONDS
 
 
@@ -292,12 +296,15 @@ async def product(code: str, contact: str) -> Food | None:
     held = _held(("barcode", code))
     if held is not None:
         return held[0]
+    if _held(("missing", code)) is not None:
+        return None
 
     _admit(_reads, PRODUCT_READS_PER_MINUTE, f"{PRODUCT_READS_PER_MINUTE} product reads")
     response = await _get(PRODUCT_URL.format(code=code), {"fields": FIELDS}, contact)
     # A redirect means the product sits in another OFF database, which is not food.
     # Redirects are not followed, so a 3xx comes back here as it was sent.
     if response.status_code == HTTPStatus.NOT_FOUND or response.status_code in REDIRECTS:
+        _store(("missing", code), [])
         return None
     if not response.is_success:
         raise HTTPException(status_code=502, detail=UNANSWERED)
@@ -305,6 +312,7 @@ async def product(code: str, contact: str) -> Food | None:
     if not isinstance(body, dict):
         raise HTTPException(status_code=502, detail=UNANSWERED)
     if body.get("status") == 0:
+        _store(("missing", code), [])
         return None
     product = body.get("product")
     if not isinstance(product, dict):

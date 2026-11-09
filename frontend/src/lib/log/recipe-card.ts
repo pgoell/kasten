@@ -222,6 +222,7 @@ const asker = ViewPlugin.fromClass(
   class {
     private timer: ReturnType<typeof setTimeout> | undefined;
     private pending: AbortController | undefined;
+    private asked: string | undefined;
     private readonly view: EditorView;
 
     constructor(view: EditorView) {
@@ -240,16 +241,21 @@ const asker = ViewPlugin.fromClass(
     }
 
     ask(): void {
+      const text = this.view.state.doc.toString();
+      // An edit typed and taken back sends nothing, since the answer would be the same.
+      if (text === this.asked) return;
+      this.asked = text;
       this.pending?.abort();
       const controller = new AbortController();
       this.pending = controller;
-      readRecipe(this.view.state.doc.toString(), controller.signal).then(
+      readRecipe(text, controller.signal).then(
         (recipe) => {
           if (!controller.signal.aborted) this.view.dispatch({ effects: arrived.of(recipe) });
         },
         (error: unknown) => {
           if (controller.signal.aborted) return;
           if (!(error instanceof Error)) throw error;
+          this.asked = undefined;
           this.view.dispatch({ effects: failed.of(error.message) });
         },
       );

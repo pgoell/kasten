@@ -189,10 +189,12 @@ product API has no full-text search, so it cannot find a food by its name.
 Answers are kept in memory, so a restart forgets them:
 
 * a search is kept for 24 hours, keyed by `q` in lower case;
-* a barcode that was found is kept for 3 days, keyed by the code.
+* a barcode that was found is kept for 3 days, keyed by the code;
+* a barcode Open Food Facts has no product for (a `404`, a redirect or
+  `status: 0`) is kept for an hour, so a recipe card that asks after every
+  pause in typing reads it once. A product added later is found after the hour.
 
-A barcode with no product is not kept, so a product added to Open Food Facts
-later is found on the next read.
+A failed read is not kept.
 
 ## Requests
 

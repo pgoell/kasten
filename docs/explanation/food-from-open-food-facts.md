@@ -73,7 +73,8 @@ Food Facts counts it too.
 
 ## Why the cache is in memory
 
-A search is kept for a day and a found barcode for three days. The cache lives
+A search is kept for a day, a found barcode for three days, and a barcode with
+no product for an hour. The cache lives
 in memory, not in Postgres, for two reasons.
 
 * No food is a record. The record is the line the log writes into the daily
