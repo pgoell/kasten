@@ -8,6 +8,7 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import type { BrowserContext } from "playwright";
 import type { BrowserCommand, BrowserCommandContext } from "vitest/node";
 
 /** Where `kasten_backend.html_page` runs from, so `uv` finds the backend's environment. */
@@ -22,6 +23,20 @@ const PAGES = path.resolve(import.meta.dirname, "../../node_modules/.cache/kaste
 let served = 0;
 
 /**
+ * Each context's routed pages by pathname: how many requests the route has answered,
+ * and a promise that settles on the next. A render can outlast a poll on a slow
+ * runner, so `ready` waits on this first (#1692).
+ */
+type Answers = { count: number; next: Promise<void>; settle: () => void };
+const answered = new WeakMap<BrowserContext, Map<string, Answers>>();
+
+function nextAnswer(answers: Answers) {
+  answers.next = new Promise<void>((done) => {
+    answers.settle = done;
+  });
+}
+
+/**
  * Routes `/api/html/<pagePath>` to the backend's own page writer, so the page a
  * frame test draws is the one the app serves: the script first, the theme and
  * palette from the request's query when the page opts in. The sandbox line is
@@ -31,9 +46,14 @@ let served = 0;
  * these tests do not start.
  */
 async function routePage({ context }: BrowserCommandContext, pagePath: string, file: string) {
+  const pathname = `/api/html/${encodeURI(pagePath)}`;
+  const answers: Answers = { count: 0, next: Promise.resolve(), settle: () => {} };
+  nextAnswer(answers);
+  const pages = answered.get(context) ?? new Map<string, Answers>();
+  answered.set(context, pages.set(pathname, answers));
   await context.route(
-    (url) => url.pathname === `/api/html/${encodeURI(pagePath)}`,
-    (route) => {
+    (url) => url.pathname === pathname,
+    async (route) => {
       const query = new URL(route.request().url()).searchParams;
       const theme = query.get("theme");
       const palette = query.get("palette");
@@ -50,7 +70,7 @@ async function routePage({ context }: BrowserCommandContext, pagePath: string, f
         ],
         { cwd: BACKEND },
       );
-      return route.fulfill({
+      await route.fulfill({
         status: 200,
         contentType: "text/html",
         headers: {
@@ -61,8 +81,46 @@ async function routePage({ context }: BrowserCommandContext, pagePath: string, f
         },
         body,
       });
+      // A waiter that wakes and still wants more must find the next promise already there.
+      const { settle } = answers;
+      answers.count += 1;
+      nextAnswer(answers);
+      settle();
     },
   );
+}
+
+/** Under the frame project's 15 s test timeout, so a page never asked for fails with its path named. */
+const SERVED_WITHIN = 10_000;
+
+/**
+ * Waits until the page at `pathname` has been answered `times` times since it was
+ * served, so a page opened again can be waited on too; a path no route serves passes at once.
+ */
+export const pageServed: BrowserCommand<[string, number?]> = async (
+  { context },
+  pathname,
+  times = 1,
+) => {
+  const answers = answered.get(context)?.get(pathname);
+  if (!answers) return;
+  let timer: NodeJS.Timeout | undefined;
+  const late = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(lateMessage(pathname, answers.count, times))),
+      SERVED_WITHIN,
+    );
+  });
+  try {
+    while (answers.count < times) await Promise.race([answers.next, late]);
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
+function lateMessage(pathname: string, count: number, times: number): string {
+  const shortfall = times === 1 ? "" : ` (answered ${count} of ${times} times)`;
+  return `pageServed: ${pathname} was not answered within ${SERVED_WITHIN} ms${shortfall}: no frame asked for it, or its render queued that long`;
 }
 
 /**
@@ -126,4 +184,15 @@ export const serveSlowly: BrowserCommand<[string, number]> = async ({ context },
 export const unservePages: BrowserCommand<[]> = async ({ context }) => {
   // A late answer `serveSlowly` still owes a frame the test has removed has nowhere to go.
   await context.unrouteAll({ behavior: "ignoreErrors" });
+  answered.delete(context);
+};
+
+/** The commands this file gives the frame project, for `vite.config.ts` to register. */
+export const serveCommands = {
+  hideResizeObserver,
+  pageServed,
+  serveFile,
+  servePage,
+  serveSlowly,
+  unservePages,
 };

@@ -106,6 +106,8 @@ const OPTED_IN = `<meta name="kasten-theme" content="tokens">${STATE}`;
 
 /** The page a link inside the frame goes to, and what it reports on arriving. */
 const OTHER = "other.html";
+/** Awaited before a poll for `ARRIVED`, so its render does not count against the poll's 1 s (#1695). */
+const otherServed = () => commands.pageServed(`/api/html/${OTHER}`);
 const ARRIVED = `${OPTED_IN}<script>parent.postMessage({ fixture: "arrived", search: location.search, theme: document.documentElement.dataset.theme }, "*");</script>`;
 
 /** A page with a link to `OTHER`, which its own script clicks when the test says "click". */
@@ -221,6 +223,7 @@ it("in a tab of its own, the script stops no default and posts nothing", async (
   };
   window.addEventListener("message", hear);
   try {
+    await commands.pageServed(`/api/html/${PAGE}`);
     await expect.poll(() => heard.some((m) => m.fixture === "i3")).toBe(true);
     expect(heard.find((m) => m.fixture === "i3")?.prevented).toBe(false);
     expect(heard.filter((m) => m.kasten !== undefined)).toEqual([]);
@@ -368,6 +371,7 @@ it("a link to another vault page inside the frame keeps the theme query", async 
   await mount(atStart(LINKING), "?theme=dark&palette=pansy");
 
   sendToPage("click");
+  await otherServed();
 
   await expect.poll(() => messages.some((m) => m.fixture === "arrived")).toBe(true);
   const arrived = messages.find((m) => m.fixture === "arrived");
@@ -408,6 +412,7 @@ it.each(
   await expect.poll(keysSent).toEqual([" "]);
 
   sendToPage("click");
+  await otherServed();
 
   await expect
     .poll(() => messages.find((m) => m.fixture === "arrived")?.search)

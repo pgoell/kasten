@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: "HTTP API: todos"
-description: The route that finds every todo line in the vault and the project each belongs to, the devices a todo reminder is pushed to, and the timers that push.
+description: The route that finds every todo line in the vault and the project each belongs to, the devices a todo reminder is pushed to, when pushes go, and the timers that push.
 resource: backend/src/kasten_backend/routes/queries.py
 tags: [api, backend, openapi]
 status: stable
@@ -147,7 +147,7 @@ each reminder sent in `push_sent`. A loop in the backend wakes every 15
 seconds and reads the vault for reminders on every fourth wake, so each minute;
 only the worker holding a Postgres advisory lock sends. It sends what fell due in the
 last hour and was not sent yet, so a missed reminder goes out late when it is
-under an hour old and never after. A sent reminder is known by its note, time
+under an hour old and never after, bar quiet hours as below. A sent reminder is known by its note, time
 and words, so a restart or a line moved within its note does not send it again.
 
 Only an open todo reminds: not `[x]`, `[X]` or `[-]`, nor one in a fence, a
@@ -157,6 +157,18 @@ encrypted for the device (RFC 8291) and carries `{"title", "body", "path",
 a tap opens `/?note=<path>&line=<line>`. A push service that answers `404` or
 `410` drops that device; any other failure keeps it and is logged.
 
+Quiet hours, set in `/settings`, hold every reminder and the morning push, but
+not a timer, which you started yourself. At a tick inside them nothing
+goes and nothing is recorded. At their end a reminder goes when it fell due
+inside them, or up to an hour before they began, so its late hour starts again
+from their end. Quiet hours whose start is after their end run across midnight.
+
+The morning push, when its time is set, sends one message at that time with
+every open todo due (`📅`) or scheduled (`⏳`) today: title `Today`, body the
+todos' words one per line, and a tap opens today's daily note. It goes once a
+day, recorded in `push_sent`, keeps the same late hour, waits out quiet hours,
+and does not go on a day with nothing due.
+
 ## GET /api/push
 
 The key a browser subscribes with, `null` when `KASTEN_PUSH_PRIVATE_KEY` is not
@@ -165,6 +177,22 @@ set, and every device, oldest first. The device's keys are never sent back.
 ```json
 { "public_key": "BP4z9KsN6nGRTbVYI_c7…", "devices": [{ "id": 1, "name": "Android Chrome", "endpoint": "https://fcm.googleapis.com/fcm/send/…", "created": "2026-11-08T21:40:02Z" }] }
 ```
+
+## GET /api/push/settings
+
+When pushes go: the morning push's time and the quiet hours, each `HH:MM` or
+`null` for off. All three are `null` until first saved. The one row sits in the
+`push_settings` table.
+
+```json
+{ "morning": "07:30", "quiet_start": "22:00", "quiet_end": "07:00" }
+```
+
+## PUT /api/push/settings
+
+Stores the same body and answers it back; the sender reads it on its next tick.
+`422` when only one end of the quiet hours is set, when they start where they
+end, or for a time that is not one.
 
 ## POST /api/push/devices
 
@@ -187,8 +215,8 @@ one rings within 15 seconds of its time. A one-off timer is deleted once it
 rings. A repeat, one with `every`, moves its `due` on by that many seconds
 instead, to the first step after now, and is deleted once that step would pass
 `until`. One down for more than an hour is moved on or deleted without a push,
-as a missed todo reminder is. A timer rings, moves on or goes even when no
-device is subscribed.
+as a missed todo reminder is. A timer rings through quiet hours, and rings,
+moves on or goes even when no device is subscribed.
 
 The message carries `{"title", "body", "tag", "renotify"}`: `body` is the label,
 `tag` is `timer-<id>`, so a repeat's next push replaces its last one, and

@@ -90,6 +90,7 @@ async def push_db(scratch_database: str) -> AsyncIterator[AsyncEngine]:
         await connection.execute(text("DELETE FROM push_sent"))
         await connection.execute(text("DELETE FROM push_devices"))
         await connection.execute(text("DELETE FROM push_timers"))
+        await connection.execute(text("DELETE FROM push_settings"))
     yield engine
     await engine.dispose()
 

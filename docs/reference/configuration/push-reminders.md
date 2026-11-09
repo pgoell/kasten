@@ -34,7 +34,8 @@ has to subscribe again in `/settings`.
 
 The zone a todo's `⏰ 2026-11-12 09:00` is read in. Default `Europe/Berlin`.
 The server's clock runs in UTC, so the zone is named here rather than taken
-from it. Any name in the IANA database works.
+from it. Any name in the IANA database works. The morning push and the quiet
+hours set in `/settings` are read in it too.
 
 ## Related
 

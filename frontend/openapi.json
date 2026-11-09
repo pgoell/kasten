@@ -1355,6 +1355,91 @@
         }
       }
     },
+    "/agent/posts": {
+      "get": {
+        "tags": [
+          "agent"
+        ],
+        "summary": "Published Posts",
+        "description": "Every note marked `publish: true`, newest first, without its body.",
+        "operationId": "published_posts_agent_posts_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PostMeta"
+                  },
+                  "type": "array",
+                  "title": "Response Published Posts Agent Posts Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agent/posts/{slug}": {
+      "get": {
+        "tags": [
+          "agent"
+        ],
+        "summary": "Published Post",
+        "description": "One published post by its slug, in `lang` when there is one in it.",
+        "operationId": "published_post_agent_posts__slug__get",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lang"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/health": {
       "get": {
         "summary": "Health",
@@ -2361,6 +2446,62 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PushOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/push/settings": {
+      "get": {
+        "summary": "Read Hours",
+        "description": "When pushes go, as `HH:MM`; all None until first saved.",
+        "operationId": "read_hours_api_push_settings_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushHours-Output"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Write Hours",
+        "description": "Store when pushes go; the sender reads it on its next tick.",
+        "operationId": "write_hours_api_push_settings_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushHours-Input"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushHours-Output"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -13285,6 +13426,131 @@
         "title": "PlanOut",
         "description": "A plan as stored, what it sets aside a month when it reserves, and since when it counts."
       },
+      "Post": {
+        "properties": {
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "date": {
+            "type": "string",
+            "title": "Date"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "lang": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lang"
+          },
+          "translation_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Translation Key"
+          },
+          "body": {
+            "type": "string",
+            "title": "Body"
+          }
+        },
+        "type": "object",
+        "required": [
+          "slug",
+          "title",
+          "date",
+          "description",
+          "lang",
+          "translation_key",
+          "body"
+        ],
+        "title": "Post",
+        "description": "One post with its body: markdown, the block and a leading `# title` taken off."
+      },
+      "PostMeta": {
+        "properties": {
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "date": {
+            "type": "string",
+            "title": "Date"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "lang": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lang"
+          },
+          "translation_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Translation Key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "slug",
+          "title",
+          "date",
+          "description",
+          "lang",
+          "translation_key"
+        ],
+        "title": "PostMeta",
+        "description": "What the blog's list shows of a post. No path: a note's folder stays private."
+      },
       "ProposalOut": {
         "properties": {
           "key": {
@@ -13387,6 +13653,99 @@
         ],
         "title": "ProposalOut",
         "description": "A plan read from history, ready to post as it is, and what it was read from."
+      },
+      "PushHours-Input": {
+        "properties": {
+          "morning": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Morning"
+          },
+          "quiet_start": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quiet Start"
+          },
+          "quiet_end": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quiet End"
+          }
+        },
+        "type": "object",
+        "required": [
+          "morning",
+          "quiet_start",
+          "quiet_end"
+        ],
+        "title": "PushHours",
+        "description": "The morning push's time and the quiet hours, None for off; quiet hours need both ends."
+      },
+      "PushHours-Output": {
+        "properties": {
+          "morning": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Morning"
+          },
+          "quiet_start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quiet Start"
+          },
+          "quiet_end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quiet End"
+          }
+        },
+        "type": "object",
+        "required": [
+          "morning",
+          "quiet_start",
+          "quiet_end"
+        ],
+        "title": "PushHours",
+        "description": "The morning push's time and the quiet hours, None for off; quiet hours need both ends."
       },
       "PushOut": {
         "properties": {

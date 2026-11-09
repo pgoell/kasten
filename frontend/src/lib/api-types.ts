@@ -522,6 +522,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/agent/posts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Published Posts
+         * @description Every note marked `publish: true`, newest first, without its body.
+         */
+        get: operations["published_posts_agent_posts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent/posts/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Published Post
+         * @description One published post by its slug, in `lang` when there is one in it.
+         */
+        get: operations["published_post_agent_posts__slug__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -1216,6 +1256,30 @@ export interface paths {
          */
         get: operations["read_push_api_push_get"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/push/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Hours
+         * @description When pushes go, as `HH:MM`; all None until first saved.
+         */
+        get: operations["read_hours_api_push_settings_get"];
+        /**
+         * Write Hours
+         * @description Store when pushes go; the sender reads it on its next tick.
+         */
+        put: operations["write_hours_api_push_settings_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -5737,6 +5801,44 @@ export interface components {
             confirmed: string;
         };
         /**
+         * Post
+         * @description One post with its body: markdown, the block and a leading `# title` taken off.
+         */
+        Post: {
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /** Date */
+            date: string;
+            /** Description */
+            description: string | null;
+            /** Lang */
+            lang: string | null;
+            /** Translation Key */
+            translation_key: string | null;
+            /** Body */
+            body: string;
+        };
+        /**
+         * PostMeta
+         * @description What the blog's list shows of a post. No path: a note's folder stays private.
+         */
+        PostMeta: {
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /** Date */
+            date: string;
+            /** Description */
+            description: string | null;
+            /** Lang */
+            lang: string | null;
+            /** Translation Key */
+            translation_key: string | null;
+        };
+        /**
          * ProposalOut
          * @description A plan read from history, ready to post as it is, and what it was read from.
          */
@@ -5776,6 +5878,30 @@ export interface components {
              * Format: date
              */
             last: string;
+        };
+        /**
+         * PushHours
+         * @description The morning push's time and the quiet hours, None for off; quiet hours need both ends.
+         */
+        "PushHours-Input": {
+            /** Morning */
+            morning: string | null;
+            /** Quiet Start */
+            quiet_start: string | null;
+            /** Quiet End */
+            quiet_end: string | null;
+        };
+        /**
+         * PushHours
+         * @description The morning push's time and the quiet hours, None for off; quiet hours need both ends.
+         */
+        "PushHours-Output": {
+            /** Morning */
+            morning: string | null;
+            /** Quiet Start */
+            quiet_start: string | null;
+            /** Quiet End */
+            quiet_end: string | null;
         };
         /**
          * PushOut
@@ -7692,6 +7818,59 @@ export interface operations {
             };
         };
     };
+    published_posts_agent_posts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PostMeta"][];
+                };
+            };
+        };
+    };
+    published_post_agent_posts__slug__get: {
+        parameters: {
+            query?: {
+                lang?: string | null;
+            };
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Post"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     health_api_health_get: {
         parameters: {
             query?: never;
@@ -8402,6 +8581,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PushOut"];
+                };
+            };
+        };
+    };
+    read_hours_api_push_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushHours-Output"];
+                };
+            };
+        };
+    };
+    write_hours_api_push_settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PushHours-Input"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushHours-Output"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

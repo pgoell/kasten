@@ -128,7 +128,12 @@ you ask for hidden books, and anything else does not, so a book shown again
 carries `hidden: false`. The library writes both by `PUT` like everything else in
 this half, so a hand edit to either counts the same.
 
-kasten reads one field it never writes: `aliases`, the other names a note goes
+kasten reads a few more fields it never writes. `publish: true` makes a note a
+blog post for pgoell.com, and `date`, `slug`, `title`, `description`, `lang` and
+`translation_key` shape it; [`GET /agent/posts`](/reference/agent-api.md#get-agentposts)
+says how. Anything but `true` or `yes` in `publish` keeps the note private.
+
+Another is `aliases`, the other names a note goes
 by. [Unlinked mentions](/reference/http-api/finding.md#get-apimentions) look for each
 of them beside the note's title, and nothing else reads them, so `[[alias]]`
 does not reach the note. Three spellings work:

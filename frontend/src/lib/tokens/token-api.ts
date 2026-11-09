@@ -7,7 +7,7 @@ export type TokenUse = components["schemas"]["TokenUse"];
 /** One request a token made: when, what it asked for and what the vault answered. */
 export type TokenAction = components["schemas"]["TokenActionRead"];
 
-/** What a token opens: `reading` is `GET /agent/reading` alone, `agent` all of `/agent/`. */
+/** What a token opens: `reading` the site reads, `/agent/reading` and `/agent/posts`; `agent` all of `/agent/`. */
 export type Scope = components["schemas"]["TokenName"]["scope"];
 
 /** One agent token as it is handed over, secret and all, exactly once. */

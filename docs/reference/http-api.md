@@ -9,8 +9,8 @@ status: stable
 
 # HTTP API
 
-The backend serves one hundred and forty-one endpoints under `/api/`.
-Seventy-eight read, sixty-two write, and one streams. The interactive schema is at `/docs` while the backend
+The backend serves one hundred and forty-three endpoints under `/api/`.
+Seventy-nine read, sixty-three write, and one streams. The interactive schema is at `/docs` while the backend
 runs, and the machine-readable one at `/openapi.json`.
 
 The agent's routes sit under `/agent/`, and they are documented on their own page,
@@ -31,7 +31,7 @@ including the check that refuses a cross-site `POST` with a `403`.
 * [Trash and history](/reference/http-api/trash-and-history.md): delete into the trash, restore, and read a note's jj history
 * [Assets and books](/reference/http-api/assets-and-books.md): images, sounds, books, the library of book notes and the chunked uploads
 * [Finding](/reference/http-api/finding.md): search, tags, mentions, notes like this one, the link graph and the folder layout
-* [Todos](/reference/http-api/todos.md): the route that lists every todo and its project, the devices a todo's `⏰` reminder is pushed to, and the timers that push
+* [Todos](/reference/http-api/todos.md): the route that lists every todo and its project, the devices a todo's `⏰` reminder is pushed to, when pushes go, and the timers that push
 * [Log](/reference/http-api/log.md): the day's water, coffee, alcohol and food, and their totals
 * [Food](/reference/http-api/food.md): search Open Food Facts for a food, or read one by its barcode
 * [Finance](/reference/http-api/finance.md): the accounts, balances and bookings host jobs write, the splits under a booking, and the reads, with a `503` when there is no database

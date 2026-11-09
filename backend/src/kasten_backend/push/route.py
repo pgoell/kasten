@@ -1,17 +1,17 @@
-"""The devices push reminders go to, and the timers that push: list, add and remove each."""
+"""The devices push reminders go to, when pushes go, and the timers that push."""
 
-from datetime import datetime  # noqa: TC003  pydantic reads it at runtime
+from datetime import datetime, time  # noqa: TC003  pydantic reads it at runtime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response
-from pydantic import AwareDatetime, BaseModel, Field, model_validator
+from pydantic import AwareDatetime, BaseModel, Field, field_serializer, model_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.db import get_session
 from kasten_backend.push import webpush
-from kasten_backend.push.models import PushDevice, PushTimer
+from kasten_backend.push.models import PushDevice, PushSettings, PushTimer
 
 router = APIRouter(prefix="/api/push")
 
@@ -102,6 +102,51 @@ async def read_push(session: Session, settings: VaultSettings) -> PushOut:
         public_key=None if key is None else webpush.public_key(key.get_secret_value()),
         devices=[_out(device) for device in devices],
     )
+
+
+class PushHours(BaseModel):
+    """The morning push's time and the quiet hours, None for off; quiet hours need both ends."""
+
+    morning: time | None
+    quiet_start: time | None
+    quiet_end: time | None
+
+    @model_validator(mode="after")
+    def _whole_quiet_hours(self) -> PushHours:
+        if (self.quiet_start is None) != (self.quiet_end is None):
+            raise ValueError("quiet hours need a start and an end")
+        if self.quiet_start is not None and self.quiet_start == self.quiet_end:
+            raise ValueError("quiet hours end where they start")
+        return self
+
+    @field_serializer("morning", "quiet_start", "quiet_end")
+    def _minutes(self, value: time | None) -> str | None:
+        return None if value is None else value.strftime("%H:%M")
+
+
+@router.get("/settings")
+async def read_hours(session: Session) -> PushHours:
+    """When pushes go, as `HH:MM`; all None until first saved."""
+    hours = await session.get(PushSettings, 1) or PushSettings()
+    return PushHours(
+        morning=hours.morning, quiet_start=hours.quiet_start, quiet_end=hours.quiet_end
+    )
+
+
+@router.put("/settings")
+async def write_hours(body: PushHours, session: Session) -> PushHours:
+    """Store when pushes go; the sender reads it on its next tick."""
+    hours = await session.get(PushSettings, 1)
+    if hours is None:
+        hours = PushSettings(id=1)
+        session.add(hours)
+    hours.morning, hours.quiet_start, hours.quiet_end = (
+        body.morning,
+        body.quiet_start,
+        body.quiet_end,
+    )
+    await session.commit()
+    return body
 
 
 @router.post("/devices", status_code=201)

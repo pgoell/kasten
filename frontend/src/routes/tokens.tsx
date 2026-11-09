@@ -135,7 +135,8 @@ function Tokens() {
                 checked={reading}
                 onChange={(event) => setReading(event.target.checked)}
               />
-              Reading only: opens <code className="font-mono">/agent/reading</code> alone
+              Website only: opens <code className="font-mono">/agent/reading</code> and{" "}
+              <code className="font-mono">/agent/posts</code> alone
             </label>
           </form>
         </header>
@@ -318,7 +319,7 @@ function TokenRow({
           <span className="min-w-0 truncate font-medium font-mono text-k-13">
             {token.name}
             {token.scope === "reading" && (
-              <span className="font-normal font-sans text-k-12 text-k-muted"> reading only</span>
+              <span className="font-normal font-sans text-k-12 text-k-muted"> website only</span>
             )}
           </span>
           <span className="text-k-13 text-k-muted tabular-nums">

@@ -14,7 +14,7 @@ import { relationCompletions, relationNames, vaultRelations } from "@/lib/notes/
  * A copy here would go stale the first time a relation is added to that file,
  * and this test would go on passing over text the vault no longer holds.
  */
-const SHIPPED = readFileSync("../backend/src/kasten_backend/ontology.md", "utf-8");
+const SHIPPED = readFileSync("../backend/src/kasten_backend/guides/ontology.md", "utf-8");
 
 describe("relationNames", () => {
   it("reads the seven the shipped note lists, in order", () => {

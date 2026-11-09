@@ -4,9 +4,12 @@ import { useState } from "react";
 import {
   currentEndpoint,
   type Device,
+  fetchHours,
   fetchPush,
+  type PushHours,
   pushSupported,
   removeDevice,
+  saveHours,
   subscribeHere,
   unsubscribeHere,
 } from "@/lib/app/push/push";
@@ -23,8 +26,11 @@ function messageOf(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
 
+const TIME_INPUT =
+  "min-h-11 rounded border border-k-rule bg-k-bg px-2 text-k-13 tabular-nums pointer-fine:min-h-8";
+
 /**
- * The settings page: for now only the todo reminders a browser gets as a push. Each device that
+ * The settings page: the todo reminders a browser gets as a push, and when they may go. Each device that
  * subscribed is listed, and removing one stops its pushes; this browser's own subscription is
  * dropped too when it is the device removed.
  */
@@ -96,8 +102,127 @@ function Settings() {
             />
           )}
         </section>
+
+        <HoursSection />
       </div>
     </main>
+  );
+}
+
+/** The morning push's time and the quiet hours, loaded once and saved with one button. */
+function HoursSection() {
+  const queryClient = useQueryClient();
+  const hours = useQuery({ queryKey: ["push", "settings"], queryFn: fetchHours });
+  const save = useMutation({
+    mutationFn: saveHours,
+    onSuccess: (stored) => queryClient.setQueryData(["push", "settings"], stored),
+  });
+
+  return (
+    <section
+      aria-labelledby="hours-heading"
+      className="flex flex-col gap-4 rounded-[var(--k-radius-8)] border border-k-rule bg-k-paper p-4 md:p-5"
+    >
+      <h2 id="hours-heading" className="font-serif text-k-19">
+        When reminders go
+      </h2>
+      {hours.isError && <p className="text-k-13 text-k-muted">Could not load the times.</p>}
+      {hours.data !== undefined && (
+        <HoursForm
+          stored={hours.data}
+          pending={save.isPending}
+          saved={save.isSuccess}
+          failed={save.isError ? messageOf(save.error, "could not save the times") : null}
+          onSave={(body) => save.mutate(body)}
+        />
+      )}
+    </section>
+  );
+}
+
+/** One `HH:MM` input; empty means off. */
+function TimeField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <input
+      type="time"
+      aria-label={label}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      className={TIME_INPUT}
+    />
+  );
+}
+
+/** The three times as the user edits them, sent as null where left empty. */
+function HoursForm({
+  stored,
+  pending,
+  saved,
+  failed,
+  onSave,
+}: {
+  stored: PushHours;
+  pending: boolean;
+  saved: boolean;
+  failed: string | null;
+  onSave: (body: PushHours) => void;
+}) {
+  const [morning, setMorning] = useState(stored.morning ?? "");
+  const [start, setStart] = useState(stored.quiet_start ?? "");
+  const [end, setEnd] = useState(stored.quiet_end ?? "");
+
+  return (
+    <form
+      className="flex flex-col gap-4"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSave({ morning: morning || null, quiet_start: start || null, quiet_end: end || null });
+      }}
+    >
+      <div className="flex flex-col gap-1">
+        <span className="flex flex-wrap items-center gap-2 text-k-13 font-medium">
+          Morning push at
+          <TimeField label="Morning push time" value={morning} onChange={setMorning} />
+        </span>
+        <span className="text-k-12 text-k-muted">
+          Today's due and scheduled todos, once a day. Leave empty for none.
+        </span>
+      </div>
+      <div className="flex flex-col gap-1">
+        <span className="flex flex-wrap items-center gap-2 text-k-13 font-medium">
+          Quiet from
+          <TimeField label="Quiet hours start" value={start} onChange={setStart} />
+          to
+          <TimeField label="Quiet hours end" value={end} onChange={setEnd} />
+        </span>
+        <span className="text-k-12 text-k-muted">
+          A reminder due in them waits until they end. Leave both empty for none.
+        </span>
+      </div>
+      {failed !== null && (
+        <p role="alert" className="text-k-13 text-k-danger">
+          {failed}
+        </p>
+      )}
+      <div className="flex items-center gap-3">
+        <button
+          type="submit"
+          disabled={pending}
+          className={`${ROW_BUTTON} border-k-ink bg-k-ink text-k-bg hover:opacity-85`}
+        >
+          Save times
+        </button>
+        {saved && <span className="text-k-13 text-k-muted">Saved</span>}
+      </div>
+    </form>
   );
 }
 

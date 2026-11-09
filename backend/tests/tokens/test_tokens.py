@@ -193,7 +193,7 @@ async def test_a_reading_token_lives_in_its_own_file(tmp_path: Path) -> None:
     assert await tokens.verify(store, minted.secret) is None
 
 
-async def test_a_reading_token_opens_only_the_reading_route(
+async def test_a_reading_token_opens_only_the_site_routes(
     client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
 ) -> None:
     minted = await client.post("/api/tokens", json={"name": "website", "scope": "reading"})
@@ -202,6 +202,7 @@ async def test_a_reading_token_opens_only_the_reading_route(
 
     assert (await client.get("/agent/reading", headers=reader)).status_code == 204
     assert (await client.get("/agent/reading", headers=bearer)).status_code == 204
+    assert (await client.get("/agent/posts", headers=reader)).json() == []
     refused = await client.get("/agent/notes/index.md", headers=reader)
     assert refused.status_code == 401
     assert refused.json() == {"detail": "That is not a token this vault knows"}

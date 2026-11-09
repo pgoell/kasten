@@ -45,17 +45,15 @@ _NOBR_END = re.compile(r"</nobr[\t\n\f\r />]", re.IGNORECASE)
 _POINT_END = re.compile(r"</(desc|title|m[ionst]|mtext|annotation-xml)[\t\n\f\r />]", re.IGNORECASE)
 _SCOPE = _MARKERS | {"html", "table"}
 """With the points, the elements that bound the spec's "in scope" (#1657)."""
-# A value follows an attribute name and `=`; a quote anywhere else is a plain character.
-_START_TAG = re.compile(
-    r"""<[^\s/>]++(?:[\s/]++|[^\s/>=]++(?:\s*+=\s*+(?:"[^"]*+"|'[^']*+'|[^\s>]*+))?+)*+>"""
-)
 # As the tokenizer reads it: a name after a space or a quote may start with `=`, a name followed
 # by `=` takes a value, and an unquoted value never starts with a quote, so a cut quoted value
 # matches no tag.
-_END_TAG = re.compile(
-    r"""</[^\s/>]++(?:[\s/]++|(?<=[\s/"'])=?+[^\s/>=]*+"""
+_ATTRIBUTES = (
+    r"""(?:[\s/]++|(?<=[\s/"'])=?+[^\s/>=]*+"""
     r"""(?:\s*+=\s*+(?:"[^"]*+"|'[^']*+'|(?!["'])[^\s>]*+)|(?!\s*=)))*+>"""
 )
+_START_TAG = re.compile(r"<[^\s/>]++" + _ATTRIBUTES)
+_END_TAG = re.compile(r"</[^\s/>]++" + _ATTRIBUTES)
 
 _TAG = ((">", False), ('">', False), ("'>", False), ("]]>", False))
 """What may end a tag, a doctype or a CDATA section, the shortest first, each with whether it

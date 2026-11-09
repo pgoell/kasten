@@ -9,11 +9,10 @@ status: stable
 # The agent boundary
 
 Before `/agent/` existed, every route the backend served sat behind the login
-gate in front of it, which on the maintainer's box is `import oauth2_auth` in
-the Caddyfile and redirects a caller with no session to a browser sign-in page. A headless agent
-cannot complete that flow. So the only agent that
-could touch the vault was one running in the shell container, launched from
-inside the app, or one holding an SSH key to the whole VPS.
+gate, which on the maintainer's box is `import oauth2_auth` in the Caddyfile and
+redirects a caller with no session to a browser sign-in page. A headless agent
+cannot complete that flow. So the only agent that could touch the vault was one
+running in the shell container or one holding an SSH key to the whole VPS.
 
 The vault's own guide note said otherwise. It opens by telling an agent it may
 be working on a machine outside the box and then teaches it curls against an API
@@ -27,7 +26,7 @@ server to file a sentence into a daily note.
 ## Why not a token on the existing API
 
 The first design published the twenty-four `/api/*` routes to bearer callers.
-It did not survive review, and the reasons are worth keeping written down:
+It did not survive review, and the reasons are worth keeping:
 
 * `DELETE /api/folders/{path}` removes a whole subtree from the live vault.
 * `PATCH /api/folders/{path}` rewrites wikilinks across every note there is. A
@@ -64,8 +63,8 @@ There is no Anki import, no trash and no terminal. Each is a specific hazard,
 named above on purpose. The asset upload and the page fetch were on that list
 too, until the eighth capability below took a narrow piece of each.
 
-Every token grants all eleven but a reading token, which opens one route. There
-is no expiry, a cut made for effort rather than a considered design. What a
+Every token grants all eleven but a reading token, which opens only what
+pgoell.com shows: the book and the published posts. There is no expiry, a cut made for effort rather than a considered design. What a
 token does have is a name and a revoke button, and that is the thing a single
 environment variable cannot buy at any price: losing a laptop costs one revoke
 rather than rotating a secret every agent shares.
