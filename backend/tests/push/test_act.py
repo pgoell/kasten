@@ -8,7 +8,8 @@ import pytest
 
 from backend.tests.push.conftest import PushService, note, subscribe
 from kasten_backend.push import tick
-from kasten_backend.push.due import put_off
+from kasten_backend.push.due import put_off, reminders
+from kasten_backend.todos import find_todos
 
 if TYPE_CHECKING:
     import httpx
@@ -64,6 +65,19 @@ async def test_1682_tomorrow_moves_the_alarm_a_day_on_where_the_line_moved(
     tomorrow = (_today() + dt.timedelta(days=1)).isoformat()
     assert _read(served) == f"# Errands\n\nnew line\n- [ ] call the dentist ⏰ {tomorrow} 09:00\n"
     assert _daily(served) == ""
+
+
+async def test_1705_a_crlf_reminder_sends_text_its_tomorrow_finds(
+    client: httpx.AsyncClient, served: Settings
+) -> None:
+    note(served, f"# Errands\r\n\r\n{LINE}\r\n", PATH)
+    [sent] = reminders(await find_todos(served.vault_path), ZoneInfo("Europe/Berlin"))
+    assert sent.text == LINE
+    assert await _act(client, "tomorrow", sent.text) == 204
+    tomorrow = (_today() + dt.timedelta(days=1)).isoformat()
+    landed = (served.vault_path / PATH).read_bytes().decode()
+    assert landed.endswith(f"\r\n- [ ] call the dentist ⏰ {tomorrow} 09:00\r\n")
+    assert landed.count("\n") == landed.count("\r\n")
 
 
 @pytest.mark.parametrize("action", ["done", "tomorrow"])
