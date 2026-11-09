@@ -8,8 +8,8 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
 from kasten_backend.config import Settings, get_settings
-from kasten_backend.log import DATE_PATTERN
 from kasten_backend.model_use_notes import months, note_path, read_month
+from kasten_backend.periodic import DATE_PATTERN
 from kasten_backend.routes.queries import day_range
 
 if TYPE_CHECKING:

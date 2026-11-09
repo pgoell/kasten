@@ -6,8 +6,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
 from kasten_backend.config import Settings, get_settings
-from kasten_backend.log import DATE_PATTERN, date_range
-from kasten_backend.periodic import day_sections
+from kasten_backend.periodic import DATE_PATTERN, date_range, day_sections
 from kasten_backend.training.lines import TrainingEntry, parse_line
 
 router = APIRouter()

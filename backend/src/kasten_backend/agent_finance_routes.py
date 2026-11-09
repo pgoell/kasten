@@ -11,7 +11,7 @@ from fastapi import APIRouter, Query
 
 from kasten_backend import agent_finance
 from kasten_backend.finance_ledger import Scope  # noqa: TC001  FastAPI reads it at runtime
-from kasten_backend.log import DATE_PATTERN
+from kasten_backend.periodic import DATE_PATTERN
 from kasten_backend.routes import (
     finance_budget,
     finance_drill,

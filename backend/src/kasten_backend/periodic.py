@@ -9,6 +9,8 @@ import re
 from datetime import date, timedelta
 from typing import TYPE_CHECKING
 
+from fastapi import HTTPException
+
 from kasten_backend import vault
 from kasten_backend.code_spans import code_spans, fence_open, inside
 from kasten_backend.config import DEFAULTS
@@ -41,6 +43,12 @@ Not every heading: a `###` inside the dump is part of what was dumped. `log.py` 
 
 DAY_NOTE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}\.md")
 """A daily note's name. A pattern, since `date.fromisoformat` also takes `20261020`."""
+
+DATE_PATTERN = r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+"""The shape of `from` and `to`.
+
+Pydantic's date mode would read `0` as a day, so the route reads the text itself.
+"""
 
 ANY_HEADING = re.compile(r"^#{1,6} ")
 """Where a section `append_under` writes ends: any heading, as `sectionEnd` in `note-section.ts`."""
@@ -273,3 +281,14 @@ def day_sections(
         if lines is not None:
             found.append((day, path, lines))
     return found
+
+
+def date_range(start: str, end: str) -> tuple[date, date]:
+    """`from` and `to` as dates: 422 for a day that does not exist, 400 when out of order."""
+    try:
+        first, last = date.fromisoformat(start), date.fromisoformat(end)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail="`from` and `to` must be real dates") from error
+    if first > last:
+        raise HTTPException(status_code=400, detail="`from` is after `to`")
+    return first, last

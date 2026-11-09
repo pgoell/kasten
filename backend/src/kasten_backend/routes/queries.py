@@ -12,8 +12,8 @@ from kasten_backend.config import Settings, get_settings
 from kasten_backend.graph import MOST_DEPTH, Graph, GraphError
 from kasten_backend.graph_query import query_graph
 from kasten_backend.history import HistoryError, list_changes, plain, read_version
-from kasten_backend.log import DATE_PATTERN
 from kasten_backend.mentions import find_mentions
+from kasten_backend.periodic import DATE_PATTERN
 from kasten_backend.search_meta import (
     cached_tags,
     day_of,

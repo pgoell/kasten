@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from kasten_backend import finance, finance_orders, finance_plan_reads, finance_sorting
 from kasten_backend.db import get_session
 from kasten_backend.finance_models import Kind  # noqa: TC001  pydantic reads it at runtime
-from kasten_backend.log import DATE_PATTERN
+from kasten_backend.periodic import DATE_PATTERN
 
 router = APIRouter(prefix="/api/finance")
 

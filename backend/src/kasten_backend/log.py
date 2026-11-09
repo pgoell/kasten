@@ -5,21 +5,21 @@ Nothing is stored: the line is the record. The format is `docs/reference/log-for
 """
 
 import re
-from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING, Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from kasten_backend import vault
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.log_config import Kind, parse_config, parse_kind_line
-from kasten_backend.periodic import day_sections
+from kasten_backend.periodic import DATE_PATTERN, date_range, day_sections
 from kasten_backend.todo_fields import mask
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+    from datetime import date
 
 router = APIRouter()
 
@@ -38,12 +38,6 @@ _NUMBER = r"[0-9]{1,9}(?:[.,][0-9]{1,9})?"
 """A number: up to nine digits, then an optional point or comma and up to nine more.
 
 `[0-9]`, not the Unicode digit class. The cap keeps the arithmetic exact in a float.
-"""
-
-DATE_PATTERN = r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
-"""The shape of `from` and `to`.
-
-Pydantic's date mode would read `0` as a day, so the route reads the text itself.
 """
 
 MAX_STRENGTH = 100
@@ -363,17 +357,6 @@ def read_log(
     # A plain `def`, not `async`: FastAPI runs it in its thread pool, so the file
     # reads and the markdown parse do not hold up the event loop.
     return read_days(settings, *date_range(start, end))
-
-
-def date_range(start: str, end: str) -> tuple[date, date]:
-    """`from` and `to` as dates: 422 for a day that does not exist, 400 when out of order."""
-    try:
-        first, last = date.fromisoformat(start), date.fromisoformat(end)
-    except ValueError as error:
-        raise HTTPException(status_code=422, detail="`from` and `to` must be real dates") from error
-    if first > last:
-        raise HTTPException(status_code=400, detail="`from` is after `to`")
-    return first, last
 
 
 def read_days(settings: Settings, first: date, last: date) -> list[Day]:

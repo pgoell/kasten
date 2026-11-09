@@ -18,7 +18,7 @@ from kasten_backend.finance_flow import Role, month_flow
 from kasten_backend.finance_free import Free, Part, free_to_spend
 from kasten_backend.finance_ledger import SPENDING_KINDS
 from kasten_backend.finance_models import Category
-from kasten_backend.log import DATE_PATTERN
+from kasten_backend.periodic import DATE_PATTERN
 from kasten_backend.routes.finance import (  # noqa: TC001  FastAPI reads both at runtime
     Money,
     Session,
