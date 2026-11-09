@@ -75,6 +75,36 @@ test("the finder's Enter opens the row it ranks first, not the text typed", asyn
   await expect(page.getByRole("tab", { name: "Garden", selected: true })).toBeVisible();
 });
 
+test("the finder lists a pdf beside its note as its own row, and its preview names the pane", async ({
+  page,
+}) => {
+  // Every file the finder fetches: a pdf read as a note would show here.
+  const read: string[] = [];
+  page.on("request", (request) => {
+    const url = decodeURIComponent(request.url());
+    if (url.includes("/api/files/")) read.push(url);
+  });
+  // A fake clock that still runs, so the preview's delay can be run out on demand.
+  await page.clock.install();
+  await openApp(page);
+  await leader(page, "ff");
+  const finder = page.getByRole("dialog", { name: "Find note" });
+  await page.keyboard.type("primer");
+  const note = finder.getByRole("option", { name: /Primer\.md/ });
+  const pdf = finder.getByRole("option", { name: /Primer\.pdf/ });
+  await expect(note).toHaveText("04 Books/Primer.md");
+  await expect(pdf).toHaveText(/^04 Books\/Primer\.pdf\s*PDF$/);
+  await expect(finder.getByRole("option")).toHaveCount(2);
+
+  await page.keyboard.type(".pdf");
+  await expect(pdf).toHaveAttribute("aria-selected", "true");
+  await expect(finder.getByTestId("preview")).toHaveText("pdf, opens in the pdf pane");
+  // Past the delay a note row waits before its read, so a read of the pdf has begun.
+  await page.clock.runFor(1_000);
+  await expect(finder.getByTestId("preview")).toHaveText("pdf, opens in the pdf pane");
+  expect(read.filter((url) => url.endsWith("Primer.pdf"))).toEqual([]);
+});
+
 test("Escape closes the finder and opens nothing", async ({ page }) => {
   await openApp(page);
   const tabs = await page.getByRole("tab").count();
