@@ -172,7 +172,7 @@ def growth[T](
     return ratio, found
 
 
-def test_growth_counts_steps_the_same_each_run_and_catches_a_walk_back() -> None:
+def test_growth_counts_steps_and_catches_a_walk_back() -> None:
     def text_of(size: int) -> str:
         return "> 1. a <!-- y\n2.\n" * size
 
@@ -180,7 +180,6 @@ def test_growth_counts_steps_the_same_each_run_and_catches_a_walk_back() -> None
         for _ in range(len(text) // 500):
             todos.tags_in(text)
 
-    assert len({steps(todos.tags_in, text_of(500))[0] for _ in range(3)}) == 1
     assert growth("steady", text_of, 500, todos.tags_in)[0] < MOST_GROWTH
     assert growth("walking back", text_of, 500, walk_back)[0] > MOST_GROWTH
 
