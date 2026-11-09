@@ -1,4 +1,4 @@
-"""The devices a push goes to, when it may go, and the reminders sent: device state, so Postgres."""
+"""The devices a push goes to, when it may go, the reminders sent and the timers: Postgres."""
 
 from datetime import datetime, time  # noqa: TC003  SQLAlchemy reads `Mapped[...]` at runtime
 
@@ -45,5 +45,20 @@ class PushSent(Base):
     path: Mapped[str] = mapped_column(Text, nullable=False)
     due: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     sent: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class PushTimer(Base):
+    """A timer that pushes its label at `due`; with `every` it repeats that many seconds on."""
+
+    __tablename__ = "push_timers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    label: Mapped[str] = mapped_column(Text, nullable=False)
+    due: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    every: Mapped[int | None] = mapped_column(Integer)
+    until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

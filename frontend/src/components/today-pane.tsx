@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { TryAgain } from "@/components/review-answer";
+import { TimersRow } from "@/lib/app/push/timers-row";
 import { fetchTodos, type TodoHit } from "@/lib/core/api";
 import { readClock } from "@/lib/core/clock";
 import { noteName } from "@/lib/notes/links/note-path";
@@ -28,8 +29,8 @@ function dayOf(stamp: string): string {
 }
 
 /**
- * The home screen an empty pane shows: the date, then what is today, what was
- * written lately, and what is due. Every column reads an answer the app already
+ * The home screen an empty pane shows: the date, the timers, then what is today,
+ * what was written lately, and what is due. Every column reads an answer the app already
  * asks for, under the same keys, so opening a pane costs no new request.
  */
 export function TodayPane({
@@ -85,6 +86,7 @@ export function TodayPane({
           Overview
         </button>
       </div>
+      <TimersRow />
       <div className="mt-8 grid gap-12 @[776px]:grid-cols-3">
         <div data-today-column className="flex min-w-0 flex-col gap-2">
           <h2 className="font-sans text-k-13 text-k-muted tracking-k-label">Today</h2>

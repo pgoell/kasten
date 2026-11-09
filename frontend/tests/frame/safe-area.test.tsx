@@ -118,8 +118,8 @@ describe("the safe area on a phone", () => {
     await device(PORTRAIT.width, PORTRAIT.height, PORTRAIT.insets);
     await mount(<Frame phone={true} />);
 
-    // With a split: eight commands, the next pane and the space button.
-    expect(document.querySelectorAll('[role="toolbar"] button').length).toBe(10);
+    // With a split: nine commands, the next pane and the space button.
+    expect(document.querySelectorAll('[role="toolbar"] button').length).toBe(11);
     expect(outside(bars(), PORTRAIT.insets)).toEqual([]);
     const toolbar = document.querySelector('[role="toolbar"]') as HTMLElement;
     expect(getComputedStyle(toolbar).paddingBottom).toBe("34px");
@@ -130,7 +130,7 @@ describe("the safe area on a phone", () => {
     await mount(<Frame phone={true} />);
 
     const buttons = [...document.querySelectorAll<HTMLElement>('[role="toolbar"] button')];
-    expect(buttons).toHaveLength(10);
+    expect(buttons).toHaveLength(11);
     expect(outside(buttons, NONE)).toEqual([]);
     for (const button of buttons) {
       const rect = button.getBoundingClientRect();

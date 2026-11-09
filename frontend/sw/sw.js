@@ -170,16 +170,17 @@ async function fetchKept(request, cache) {
   return response;
 }
 
-/** A todo's reminder shows as a notification; a click opens the note it is in. */
+/** A push shows as a notification; a todo's opens its note and line, a timer's opens the app. */
 self.addEventListener("push", (event) => {
-  const { title, body, path, line, tag, text } = event.data.json();
-  const url = `/?note=${encodeURIComponent(path)}&line=${line}`;
+  const { title, body, path, line, tag, renotify, text } = event.data.json();
+  const url = path ? `/?note=${encodeURIComponent(path)}&line=${line}` : "/";
   // Only a reminder names its line, and only where the browser shows buttons: not iOS.
   const acts = text !== undefined && self.Notification?.maxActions > 0;
   event.waitUntil(
     self.registration.showNotification(title, {
       body,
       tag,
+      renotify: Boolean(renotify),
       data: acts ? { url, path, text } : { url },
       ...(acts && { actions: ACTIONS }),
     }),

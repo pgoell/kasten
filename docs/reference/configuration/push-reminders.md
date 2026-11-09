@@ -16,7 +16,7 @@ hold here too.
 
 The VAPID private key every push is signed with: 32 bytes in unpadded
 base64url, the form `web-push generate-vapid-keys` prints. Unset by default,
-which turns push off: the sender never starts, `GET /api/push` answers
+which turns push off: the sender never starts, so no reminder or timer rings, `GET /api/push` answers
 `"public_key": null`, and `/settings` says push is not set up.
 
 The public key a browser subscribes with is derived from it, so there is no

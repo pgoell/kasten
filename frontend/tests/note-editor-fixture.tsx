@@ -90,6 +90,7 @@ function OpenNote({ path }: { path: string }) {
       createTab: () => {},
       openTerminal: () => {},
       openChat: () => {},
+      openTimers: () => {},
       importPage: () => {},
       captureDump: () => {},
       splitRight: () => {},

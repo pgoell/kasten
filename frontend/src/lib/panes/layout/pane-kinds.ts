@@ -74,6 +74,8 @@ export interface Pane {
   graph?: { around?: string };
   /** Set on the chat pane, absent otherwise. A boolean: every chat pane views one session. */
   chat?: boolean;
+  /** Set on the timers pane, absent otherwise. */
+  timers?: boolean;
 }
 
 /** The icon a pane's tab and header draw for it. Most kinds draw a page. */
@@ -166,6 +168,7 @@ export const PANE_KINDS: { [K in KindField]: Row<K> } = {
     clears: true,
   },
   chat: flag("chat"),
+  timers: flag("timers"),
 };
 
 const FIELDS = Object.keys(PANE_KINDS) as KindField[];

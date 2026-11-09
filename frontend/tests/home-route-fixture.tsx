@@ -227,11 +227,11 @@ export async function renderApp(entry = "/") {
       Object.defineProperty(input, "files", { value: files, configurable: true });
       fireEvent.change(input);
     },
-    /** The prompt's input, while one is open. */
-    prompt: () => container.querySelector("input") as HTMLInputElement,
+    /** The prompt's input, while one is open; an empty pane's timer fields are not it. */
+    prompt: () => container.querySelector("input:not([data-timer-field])") as HTMLInputElement,
     /** Type a path into the open prompt and take it. */
     fill: (value: string) => {
-      const input = container.querySelector("input") as HTMLInputElement;
+      const input = container.querySelector("input:not([data-timer-field])") as HTMLInputElement;
       fireEvent.change(input, { target: { value } });
       fireEvent.keyDown(input, { key: "Enter" });
     },

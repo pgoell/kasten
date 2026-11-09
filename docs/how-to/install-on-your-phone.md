@@ -1,7 +1,7 @@
 ---
 type: How-to Guide
 title: Install kasten on your phone
-description: Put kasten on a phone's home screen, reach the capture page from its icon, replace the capture app an earlier release installed, and get todo reminders pushed to it.
+description: Put kasten on a phone's home screen, reach the capture page from its icon, replace the capture app an earlier release installed, get todo reminders pushed to it, set a timer that rings on it, and get reminded to drink water through the day.
 tags: [phone, install, android, ios, capture, push]
 status: stable
 ---
@@ -78,12 +78,42 @@ without it `/settings` says push is not set up.
 
 Under **When reminders go** on the same page, a morning time sends one push
 with the day's due and scheduled todos, a log goals time sends one push for
-each `min` goal of the log not met yet that day, and quiet hours hold every push
-until they end. Leave a field empty to turn it off, then press **Save times**.
+each `min` goal of the log not met yet that day, and quiet hours hold those
+pushes and todo reminders until they end. A timer still rings in quiet hours,
+since you started it yourself. Leave a field empty to turn it off, then press **Save times**.
 
 Each device subscribes on its own, and `/settings` lists them all. **Remove**
 takes one off; on the device in your hand it also turns off the browser's
 subscription.
+
+## Set a timer
+
+A timer rings on every device that gets reminders, so subscribe first, as
+above.
+
+1. Tap `timers` in the toolbar, or open an empty pane, which shows Today.
+2. Under **Timers**, type a name such as `Washer` and a duration such as
+   `1h 25m`, `1:25` or `85`, and press **Start**.
+3. Wait: the row counts down, and when it ends each device gets a push with the
+   name. A tap opens kasten.
+
+The timer then shows as a button under the form, and a tap starts it again. To
+cancel one, press **Stop** beside it.
+
+## Get reminded to drink water
+
+Subscribe first, as above: the reminders go to every device that gets them.
+
+1. Tap `timers` in the toolbar, or open an empty pane, which shows Today.
+2. Under **Timers**, check the gap after **every**, `1h 30m` at first, and the
+   stop time after **until**, `21:00` at first. The gap reads like a timer's
+   duration.
+3. Press **Remind me to drink water**.
+
+The first push, "Drink water", comes within a minute, then one each
+gap until the stop time. The reminders then show as a timer with
+**Stop** beside it, and the button hides until they end. This device keeps the
+gap and stop time for the next morning.
 
 ## Related
 

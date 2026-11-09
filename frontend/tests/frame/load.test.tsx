@@ -99,6 +99,7 @@ const INERT: TreeCommands = {
   createTab: () => {},
   openTerminal: () => {},
   openChat: () => {},
+  openTimers: () => {},
   importPage: () => {},
   captureDump: () => {},
   splitRight: () => {},

@@ -124,6 +124,7 @@ export function usePaneCommands({
       | "openReview"
       | "createTab"
       | "openChat"
+      | "openTimers"
       | "splitRight"
       | "splitDown"
       | "nextPane"
@@ -174,6 +175,7 @@ export function usePaneCommands({
       openReview: () => replace({ review: true }),
       // Closing the pane later ends nothing; the runner owns the chat.
       openChat: () => replace({ chat: true }),
+      openTimers: () => replace({ timers: true }),
       openGraph: () => replace({ graph: {} }),
       // A phone has no room beside the note: a sheet there.
       openLocalGraph: () => {

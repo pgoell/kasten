@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: "HTTP API: todos"
-description: The route that finds every todo line in the vault and the project each belongs to, the devices a todo reminder is pushed to, and when pushes go.
+description: The route that finds every todo line in the vault and the project each belongs to, the devices a todo reminder is pushed to, when pushes go, and the timers that push.
 resource: backend/src/kasten_backend/routes/queries.py
 tags: [api, backend, openapi]
 status: stable
@@ -144,8 +144,9 @@ checkout still serves.
 
 A todo with `⏰ YYYY-MM-DD HH:MM` sends a web push at that time to every device
 subscribed here. The devices sit in the `push_devices` table in Postgres, and
-each reminder sent in `push_sent`. A loop in the backend wakes each minute; only
-the worker holding a Postgres advisory lock sends. It sends what fell due in the
+each reminder sent in `push_sent`. A loop in the backend wakes every 15
+seconds and reads the vault for reminders on every fourth wake, so each minute;
+only the worker holding a Postgres advisory lock sends. It sends what fell due in the
 last hour and was not sent yet, so a missed reminder goes out late when it is
 under an hour old and never after, bar quiet hours as below. A sent reminder is known by its note, time
 and words, so a restart or a line moved within its note does not send it again.
@@ -163,8 +164,9 @@ its `204`, a redirect to sign-in or no answer within 4 seconds included, opens
 the note at its line instead. A push service that answers `404` or
 `410` drops that device; any other failure keeps it and is logged.
 
-Quiet hours, set in `/settings`, hold every push. At a tick inside them nothing
-goes and nothing is recorded. At their end a reminder goes when it fell due
+Quiet hours, set in `/settings`, hold every reminder, the morning push and
+the goals push, but not a timer, which you started yourself. At a tick inside
+them nothing goes and nothing is recorded. At their end a reminder goes when it fell due
 inside them, or up to an hour before they began, so its late hour starts again
 from their end. Quiet hours whose start is after their end run across midnight.
 
@@ -222,7 +224,6 @@ it, or `503` when push is not set up.
 Removes a device, so no push goes to it again. `204`, or `404` for an id no
 device has.
 
-
 ## POST /api/push/act
 
 A button on a reminder: `{"path", "text", "action"}`, where `text` is the todo
@@ -237,3 +238,41 @@ Today is read in `KASTEN_TIMEZONE`, and the history names the writer `push`.
 the note read `text`, or the line is no open todo with a `⏰`. `422` and nothing
 written for `done` where the pane writes more than a tick: a recurring todo or
 part, a `🆔` another todo carries, or a `🆔` a `⛔` names.
+
+## Timers
+
+A timer pushes its label to every subscribed device when it falls due. Timers
+sit in the `push_timers` table and the same loop sends them, on every wake, so
+one rings within 15 seconds of its time. A one-off timer is deleted once it
+rings. A repeat, one with `every`, moves its `due` on by that many seconds
+instead, to the first step after now, and is deleted once that step would pass
+`until`. One down for more than an hour is moved on or deleted without a push,
+as a missed todo reminder is. A timer rings through quiet hours, and rings,
+moves on or goes even when no device is subscribed.
+
+The message carries `{"title", "body", "tag", "renotify"}`: `body` is the label,
+`tag` is `timer-<id>`, so a repeat's next push replaces its last one, and
+`renotify` is `true`, so that replacement still sounds. With no `path`, a tap
+opens `/`.
+
+## GET /api/push/timers
+
+Every running timer, the next to ring first. `due` is when it rings next.
+
+```json
+[{ "id": 4, "label": "Washer", "due": "2026-11-12T08:42:13Z", "every": null, "until": null, "created": "2026-11-12T07:17:13Z" }]
+```
+
+## POST /api/push/timers
+
+Starts a timer: `{"label", "due", "every"?, "until"?}`. `label` is 1 to 200
+characters, `due` and `until` are times with an offset, `every` is seconds, at
+least 60. A `due` of now rings on the next wake. Answers `201` with the timer
+as `GET` lists it, or `422` for an empty label, a time with no offset, an
+`every` under 60, or an `until` before `due`, and `503` when push is not set
+up, since the sender that rings and clears timers never starts then.
+
+## DELETE /api/push/timers/{timer_id}
+
+Stops a timer, or a repeat, before it rings again. `204`, or `404` for an id no
+timer has.

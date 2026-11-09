@@ -1,4 +1,4 @@
-"""The devices push reminders go to: list them, subscribe one, remove one; and when pushes go."""
+"""The devices push reminders go to, when pushes go, the timers that push, and reminder buttons."""
 
 import datetime as dt
 from datetime import datetime, time
@@ -6,7 +6,7 @@ from typing import Annotated, Literal
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Response
-from pydantic import BaseModel, Field, field_serializer, model_validator
+from pydantic import AwareDatetime, BaseModel, Field, field_serializer, model_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,7 +15,7 @@ from kasten_backend.config import Settings, get_settings
 from kasten_backend.db import get_session
 from kasten_backend.push import webpush
 from kasten_backend.push.due import ALARM, CLOSED, put_off
-from kasten_backend.push.models import PushDevice, PushSettings
+from kasten_backend.push.models import PushDevice, PushSettings, PushTimer
 
 router = APIRouter(prefix="/api/push")
 
@@ -52,6 +52,43 @@ class DeviceIn(BaseModel):
     endpoint: str = Field(pattern=r"^https://")
     keys: Keys
     name: str = Field(min_length=1, max_length=200)
+
+
+class TimerIn(BaseModel):
+    """A timer to start: its label, when it rings, and for a repeat its seconds apart and end."""
+
+    label: str = Field(min_length=1, max_length=200)
+    due: AwareDatetime
+    every: int | None = Field(default=None, ge=60)
+    until: AwareDatetime | None = None
+
+    @model_validator(mode="after")
+    def _ends_after_it_starts(self) -> TimerIn:
+        if self.until is not None and self.until < self.due:
+            raise ValueError("until is before due")
+        return self
+
+
+class TimerOut(BaseModel):
+    """A running timer; `due` is when it rings next."""
+
+    id: int
+    label: str
+    due: datetime
+    every: int | None
+    until: datetime | None
+    created: datetime
+
+
+def _timer_out(timer: PushTimer) -> TimerOut:
+    return TimerOut(
+        id=timer.id,
+        label=timer.label,
+        due=timer.due,
+        every=timer.every,
+        until=timer.until,
+        created=timer.created,
+    )
 
 
 def _out(device: PushDevice) -> DeviceOut:
@@ -146,6 +183,37 @@ async def delete_device(device_id: int, session: Session) -> Response:
     if device is None:
         raise HTTPException(404, "No such device")
     await session.delete(device)
+    await session.commit()
+    return Response(status_code=204)
+
+
+@router.get("/timers")
+async def read_timers(session: Session) -> list[TimerOut]:
+    """Every running timer, the next to ring first."""
+    timers = await session.scalars(select(PushTimer).order_by(PushTimer.due, PushTimer.id))
+    return [_timer_out(timer) for timer in timers]
+
+
+@router.post("/timers", status_code=201)
+async def write_timer(body: TimerIn, session: Session, settings: VaultSettings) -> TimerOut:
+    """Start a timer; the sender pushes it to every device when it falls due."""
+    # Without a key the sender never runs, so a timer would stay listed forever.
+    if settings.push_private_key is None:
+        raise HTTPException(503, "Push is not set up: no KASTEN_PUSH_PRIVATE_KEY")
+    timer = PushTimer(label=body.label, due=body.due, every=body.every, until=body.until)
+    session.add(timer)
+    await session.commit()
+    await session.refresh(timer)
+    return _timer_out(timer)
+
+
+@router.delete("/timers/{timer_id}", status_code=204)
+async def delete_timer(timer_id: int, session: Session) -> Response:
+    """Stop a timer before it rings, or stop a repeat."""
+    timer = await session.get(PushTimer, timer_id)
+    if timer is None:
+        raise HTTPException(404, "No such timer")
+    await session.delete(timer)
     await session.commit()
     return Response(status_code=204)
 

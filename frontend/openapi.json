@@ -2581,6 +2581,99 @@
         }
       }
     },
+    "/api/push/timers": {
+      "get": {
+        "summary": "Read Timers",
+        "description": "Every running timer, the next to ring first.",
+        "operationId": "read_timers_api_push_timers_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TimerOut"
+                  },
+                  "type": "array",
+                  "title": "Response Read Timers Api Push Timers Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Write Timer",
+        "description": "Start a timer; the sender pushes it to every device when it falls due.",
+        "operationId": "write_timer_api_push_timers_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TimerIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimerOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/push/timers/{timer_id}": {
+      "delete": {
+        "summary": "Delete Timer",
+        "description": "Stop a timer before it rings, or stop a repeat.",
+        "operationId": "delete_timer_api_push_timers__timer_id__delete",
+        "parameters": [
+          {
+            "name": "timer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Timer Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/push/act": {
       "post": {
         "summary": "Act",
@@ -15534,6 +15627,108 @@
         ],
         "title": "Tick",
         "description": "Which line to tick or untick, and the digest of the list the caller read."
+      },
+      "TimerIn": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Label"
+          },
+          "due": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Due"
+          },
+          "every": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 60.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Every"
+          },
+          "until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Until"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "due"
+        ],
+        "title": "TimerIn",
+        "description": "A timer to start: its label, when it rings, and for a repeat its seconds apart and end."
+      },
+      "TimerOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "due": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Due"
+          },
+          "every": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Every"
+          },
+          "until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Until"
+          },
+          "created": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "due",
+          "every",
+          "until",
+          "created"
+        ],
+        "title": "TimerOut",
+        "description": "A running timer; `due` is when it rings next."
       },
       "ToSort": {
         "properties": {

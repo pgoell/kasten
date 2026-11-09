@@ -111,6 +111,8 @@ export interface EditorCommands {
   openTerminal(): void;
   /** Open the chat with Claude Code in the focused pane. */
   openChat(): void;
+  /** Open the timers in the focused pane. */
+  openTimers(): void;
   /** Ask for a web address, and put the page it names in the inbox as a note. */
   importPage(): void;
   /** Ask for one thought, and put it in the `## Dump` of today's note. */
