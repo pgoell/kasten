@@ -1,6 +1,7 @@
 """Foods of your own, read from `99 Misc/01 Config/foods.md` as `my-foods.ts` reads them.
 
-The grammar is in `docs/reference/food/log-format.md#the-foods-note`.
+The grammar is in `docs/reference/food/log-format.md#the-foods-note`; both readers run
+`backend/tests/food/foods_cases.json`.
 """
 
 import re

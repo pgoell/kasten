@@ -1,11 +1,13 @@
 """The German ingredient line parser against its table of cases, and the recipe note's parts."""
 
 import json
+from dataclasses import asdict
 from pathlib import Path
 
 import pytest
 
 from kasten_backend.recipes import parse_amount
+from kasten_backend.recipes.foods import parse_my_food
 from kasten_backend.recipes.note import parse_recipe
 
 CASES = json.loads((Path(__file__).parent / "ingredient_cases.json").read_text(encoding="utf-8"))
@@ -69,3 +71,14 @@ def test_a_recipe_note_has_its_fields_lines_groups_and_steps() -> None:
 @pytest.mark.parametrize("value", ["0", "-2", "vier", "", "4000"])
 def test_servings_that_are_no_number_above_zero_are_none(value: str) -> None:
     assert parse_recipe(f"---\nservings: {value}\n---\n").servings is None
+
+
+FOODS = json.loads((Path(__file__).parent / "foods_cases.json").read_text(encoding="utf-8"))
+
+
+@pytest.mark.parametrize("case", FOODS, ids=[case["line"] for case in FOODS])
+def test_foods_note_line(case: dict) -> None:
+    """The same rows run in `frontend/tests/my-foods.test.ts`, so the two readers agree."""
+    found = parse_my_food(case["line"])
+    want = case["food"]
+    assert (None if found is None else asdict(found)) == want

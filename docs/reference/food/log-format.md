@@ -294,8 +294,9 @@ serving step. It writes the name without field markers, `🏷` and line breaks,
 the serving and figures to a tenth. Two foods with the same name both list.
 Nothing edits or removes a line but you, in the note.
 
-`frontend/src/lib/log/my-foods.ts` reads and writes the note, and `food-add.ts` holds the add form. The backend does not
-read it.
+`frontend/src/lib/log/my-foods.ts` reads and writes the note, and `food-add.ts` holds the add form. The backend reads it
+in `backend/src/kasten_backend/recipes/foods.py`, to match [recipe](/reference/food/recipe-note.md) lines, and writes
+nothing. Both readers run the rows of `backend/tests/food/foods_cases.json`, so they cannot part ways unnoticed.
 
 ## Two parsers
 
