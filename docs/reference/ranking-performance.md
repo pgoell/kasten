@@ -55,7 +55,7 @@ Three tasks name those projects. None of them runs all three.
 
 | Task | Projects | Where it runs |
 | --- | --- | --- |
-| `fe:test` | `unit`, `perf` | CI's Test job, and lefthook before a push |
+| `fe:test` | `unit`, `perf` | CI's Unit and Test jobs, and lefthook before a push |
 | `fe:frame` | `frame` | CI's Perf job. Needs a Chromium install |
 | `fe:bench` | `perf` | local only, and gates nothing |
 
