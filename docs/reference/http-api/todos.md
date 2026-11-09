@@ -152,8 +152,14 @@ and words, so a restart or a line moved within its note does not send it again.
 Only an open todo reminds: not `[x]`, `[X]` or `[-]`, nor one in a fence, a
 code span or the archive. The time is read in `KASTEN_TIMEZONE`. The message is
 encrypted for the device (RFC 8291) and carries `{"title", "body", "path",
-"line", "tag"}`: `body` is the todo's words without its box, fields and `⏰`, and
-a tap opens `/?note=<path>&line=<line>`. A push service that answers `404` or
+"line", "tag", "text"}`: `body` is the todo's words without its box, fields and
+`⏰`, `text` the todo line as the note holds it, and a tap opens
+`/?note=<path>&line=<line>`. Where the browser shows notification buttons
+(`Notification.maxActions` above 0, as Android Chrome; not iOS), a reminder
+gets **Done** and **Tomorrow**, which call
+[POST /api/push/act](#post-apipushact) with `path` and `text`. Any answer but
+its `204`, a redirect to sign-in or no answer within 4 seconds included, opens
+the note at its line instead. A push service that answers `404` or
 `410` drops that device; any other failure keeps it and is logged.
 
 Quiet hours, set in `/settings`, hold every push. At a tick inside them nothing
@@ -167,6 +173,15 @@ todos' words one per line, and a tap opens today's daily note. It goes once a
 day, recorded in `push_sent`, keeps the same late hour, waits out quiet hours,
 and does not go on a day with nothing due.
 
+The goals push, when its time is set, sends one message at that time for each
+`min` goal of the [log config](/reference/log-format.md) that today's `## Log`
+falls short of, read as the log pane reads goals: the built-in kinds, your own
+kinds (a `last` kind with no line today counts as not met) and the food fields.
+Title `Goal`, body such as `💧 water: 500 of 2000 ml`, and a tap opens today's
+daily note. A `max` goal sends nothing. Each goal goes once a day, recorded in
+`push_sent`, with the same late hour and quiet hours as the morning push; none
+goes when every `min` goal is met.
+
 ## GET /api/push
 
 The key a browser subscribes with, `null` when `KASTEN_PUSH_PRIVATE_KEY` is not
@@ -178,17 +193,18 @@ set, and every device, oldest first. The device's keys are never sent back.
 
 ## GET /api/push/settings
 
-When pushes go: the morning push's time and the quiet hours, each `HH:MM` or
-`null` for off. All three are `null` until first saved. The one row sits in the
+When pushes go: the morning push's time, the quiet hours and the goals push's
+time, each `HH:MM` or `null` for off. All four are `null` until first saved. The one row sits in the
 `push_settings` table.
 
 ```json
-{ "morning": "07:30", "quiet_start": "22:00", "quiet_end": "07:00" }
+{ "morning": "07:30", "quiet_start": "22:00", "quiet_end": "07:00", "goals": "20:00" }
 ```
 
 ## PUT /api/push/settings
 
 Stores the same body and answers it back; the sender reads it on its next tick.
+`goals` may be left out, which stores `null`.
 `422` when only one end of the quiet hours is set, when they start where they
 end, or for a time that is not one.
 
