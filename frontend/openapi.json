@@ -2581,6 +2581,38 @@
         }
       }
     },
+    "/api/push/act": {
+      "post": {
+        "summary": "Act",
+        "description": "`Done` or `Tomorrow` on a reminder, written as the todo pane writes a tick.",
+        "operationId": "act_api_push_act_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/library": {
       "get": {
         "summary": "Read Library",
@@ -8177,6 +8209,36 @@
         ],
         "title": "AccountStatus",
         "description": "Where an account stands: its last good window, and the newest booking stored."
+      },
+      "ActIn": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Path"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Text"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "done",
+              "tomorrow"
+            ],
+            "title": "Action"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "text",
+          "action"
+        ],
+        "title": "ActIn",
+        "description": "A button on a reminder: the note, the todo line's text as pushed, and what to do."
       },
       "Add": {
         "properties": {

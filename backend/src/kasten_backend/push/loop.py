@@ -78,6 +78,7 @@ async def _send_due(
             "path": reminder.path,
             "line": reminder.line,
             "tag": reminder.key,
+            "text": reminder.text,
         }
         for device in devices:
             status = await _post(client, device, message, key)

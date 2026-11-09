@@ -1327,6 +1327,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/push/act": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Act
+         * @description `Done` or `Tomorrow` on a reminder, written as the todo pane writes a tick.
+         */
+        post: operations["act_api_push_act_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/library": {
         parameters: {
             query?: never;
@@ -3774,6 +3794,21 @@ export interface components {
             days_since_success: number | null;
             /** Newest Booking */
             newest_booking: string | null;
+        };
+        /**
+         * ActIn
+         * @description A button on a reminder: the note, the todo line's text as pushed, and what to do.
+         */
+        ActIn: {
+            /** Path */
+            path: string;
+            /** Text */
+            text: string;
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "done" | "tomorrow";
         };
         /**
          * Add
@@ -8596,6 +8631,37 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    act_api_push_act_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             204: {

@@ -26,12 +26,13 @@ CLOSED = "xX-"
 
 
 class Reminder(NamedTuple):
-    """A todo's reminder: its note and line, its words, and when it falls due."""
+    """A todo's reminder: its note and line, its words, when it falls due, and its line's text."""
 
     path: str
     line: int
     words: str
     due: dt.datetime
+    text: str = ""
 
     @property
     def key(self) -> str:
@@ -54,7 +55,7 @@ def reminder_of(hit: Hit, zone: ZoneInfo) -> Reminder | None:
         due = dt.datetime.fromisoformat(f"{found[1]}T{found[2]}").replace(tzinfo=zone)
     except ValueError:
         return None
-    return Reminder(hit.path, hit.line, _spoken(rest), due)
+    return Reminder(hit.path, hit.line, _spoken(rest), due, hit.text)
 
 
 def _spoken(rest: str) -> str:
@@ -63,6 +64,21 @@ def _spoken(rest: str) -> str:
     if found is not None:
         rest = rest[: found.start()] + rest[found.end() :]
     return " ".join(todo_fields.words(todo_fields.BLOCK_ID.sub("", rest)).split())
+
+
+def put_off(line: str, today: dt.date) -> str | None:
+    """`line` with the `⏰` the reader takes moved to the day after `today`, its time kept.
+
+    None for a line that is no open todo or reads no reminder, so nothing is written.
+    """
+    todo = todos.LINE.fullmatch(line.removesuffix("\r"))
+    if todo is None or todo[2] is None or line[len(todo[1]) + 3] in CLOSED:
+        return None
+    found = ALARM.search(todo_fields.mask(todo[2]))
+    if found is None:
+        return None
+    start, day = todo.start(2), (today + dt.timedelta(days=1)).isoformat()
+    return line[: start + found.start(1)] + day + line[start + found.end(1) :]
 
 
 def reminders(hits: list[Hit], zone: ZoneInfo) -> list[Reminder]:
