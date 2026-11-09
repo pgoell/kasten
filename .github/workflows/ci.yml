@@ -118,16 +118,54 @@ jobs:
       - name: Backend tests
         run: mise run test:py
 
-  test:
-    name: Test
+  # The unit project in four slices side by side: in one job it took five
+  # minutes (#959). Test merges their reports and stays the required check.
+  unit:
+    name: Unit (${{ matrix.shard }}/4)
     needs: [changes, gate]
     if: ${{ !cancelled() && needs.changes.outputs.changed != 'false' && needs.gate.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup-mise
-      - name: Frontend tests
-        run: mise run fe:test
+      - name: Unit tests
+        working-directory: frontend
+        run: node_modules/.bin/vitest run --project unit --shard=${{ matrix.shard }}/4 --reporter=default --reporter=blob
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: unit-report-${{ matrix.shard }}
+          path: frontend/.vitest-reports/
+          include-hidden-files: true
+          retention-days: 1
+
+  test:
+    name: Test
+    needs: [changes, gate, unit]
+    if: ${{ !cancelled() && needs.changes.outputs.changed != 'false' && needs.gate.outputs.skip != 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      # `!cancelled()` above lets this job run after a slice failed or was
+      # cancelled, and a merge of the reports that came back would then pass.
+      - name: Every slice passed
+        run: test "${{ needs.unit.result }}" = success
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup-mise
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: unit-report-*
+          path: frontend/.vitest-reports/
+          merge-multiple: true
+      - name: Unit results from the four slices
+        working-directory: frontend
+        run: node_modules/.bin/vitest run --merge-reports
+      - name: Perf tests
+        working-directory: frontend
+        run: node_modules/.bin/vitest run --project perf
       - name: Chat runner tests
         run: mise run shell:test
 
