@@ -18,6 +18,7 @@ from kasten_backend.graph import read_graph
 from kasten_backend.tags import find_tags
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
     import pytest
@@ -128,36 +129,81 @@ async def test_find_tags_reads_whole_only_the_notes_a_line_cannot_say(
     assert 0 < len(whole) < NOTES // 2
 
 
+MOST_GROWTH = 8
+"""A note four times longer may cost at most this many times more: linear is 4, a walk back 16.
+
+A ratio, not a time, since a slow or loaded runner slows both lengths alike (#1708).
+"""
+
+
+def growth(label: str, text_of: Callable[[int], str], size: int, read=todos.tags_in) -> float:
+    """How many times the CPU `read` spends on `text_of(size)` exceeds that on a quarter of it.
+
+    Best of 3 on this thread's clock, which no other thread or reaped child adds to.
+    """
+
+    def best(length: int) -> float:
+        text = text_of(length)
+        spent = []
+        for _ in range(3):
+            start = time.thread_time()
+            read(text)
+            spent.append(time.thread_time() - start)
+        return min(spent)
+
+    full = best(size)
+    ratio = full / best(size // 4)
+    print(f"\n{label}: {full * 1000:.0f}ms cpu, {ratio:.1f} times a quarter")
+    return ratio
+
+
+def test_growth_ignores_a_slow_runner_and_catches_a_walk_back() -> None:
+    def slow(text: str) -> None:
+        for _ in range(6):
+            todos.tags_in(text)
+
+    def walk_back(text: str) -> None:
+        for _ in range(len(text) // 500):
+            todos.tags_in(text)
+
+    def text_of(size: int) -> str:
+        return "> 1. a <!-- y\n2.\n" * size
+
+    assert growth("six times slower", text_of, 500, slow) < MOST_GROWTH
+    assert growth("walking back", text_of, 500, walk_back) > MOST_GROWTH
+
+
 def test_1544_long_notes_of_open_comments_and_lazy_items_read_in_bounded_time() -> None:
     """A comment closes per paragraph and a lazy line asks the list stack: neither may walk back."""
     notes = {
-        "open comments": "a <!-- y\n" * 20_000,
-        "lazy quote": "> a <!-- y\n" + "2. x\n" * 20_000 + "#t -->",
-        "lazy items": "- a <!-- y\n" + "- \n2. x\nz\n" * 7_000,
-        "nested lists": "".join("  " * (i % 30) + "- a <!-- y\n" for i in range(20_000)),
+        "open comments": (lambda n: "a <!-- y\n" * n, 20_000),
+        "lazy quote": (lambda n: "> a <!-- y\n" + "2. x\n" * n + "#t -->", 20_000),
+        "lazy items": (lambda n: "- a <!-- y\n" + "- \n2. x\nz\n" * n, 7_000),
+        "nested lists": (
+            lambda n: "".join("  " * (i % 30) + "- a <!-- y\n" for i in range(n)),
+            20_000,
+        ),
     }
-    for label, text in notes.items():
-        start = cpu_seconds()
-        found = todos.tags_in(text)
-        spent = cpu_seconds() - start
-        print(f"\n{label}: {spent * 1000:.0f}ms cpu")
-        assert spent < MOST_SECONDS, label
-        assert len(found) <= 1
+    for label, (text_of, size) in notes.items():
+        assert growth(label, text_of, size) < MOST_GROWTH, label
+        assert len(todos.tags_in(text_of(size))) <= 1
 
 
 def test_1594_long_notes_of_spans_in_comments_empty_items_and_lazy_quote_items() -> None:
     """The comment walk passes spans by bisect, and a quote's lazy items cost one parse more."""
     notes = {
-        "spans in a comment": "a <!-- y " + "`x <!--` " * 20_000 + "-->",
-        "spans opening comments": "`<!--` x " * 20_000 + "\n" + "a <!-- `--` y " * 5_000,
-        "empty items": "-\n\n" * 20_000 + "    #t",
-        "lazy items of the other kind": "> - a <!-- y\n" + "2.\n" * 20_000 + "> #t -->",
-        "lazy items that cut": "> 1. a <!-- y\n2.\n" * 5_000,
-        "quote and lazy lines in turn": "> - a <!-- y\n2.\n> b\n" * 7_000,
+        "spans in a comment": (lambda n: "a <!-- y " + "`x <!--` " * n + "-->", 20_000),
+        "spans opening comments": (
+            lambda n: "`<!--` x " * n + "\n" + "a <!-- `--` y " * (n // 4),
+            20_000,
+        ),
+        "empty items": (lambda n: "-\n\n" * n + "    #t", 20_000),
+        "lazy items of the other kind": (
+            lambda n: "> - a <!-- y\n" + "2.\n" * n + "> #t -->",
+            20_000,
+        ),
+        "lazy items that cut": (lambda n: "> 1. a <!-- y\n2.\n" * n, 5_000),
+        "quote and lazy lines in turn": (lambda n: "> - a <!-- y\n2.\n> b\n" * n, 7_000),
     }
-    for label, text in notes.items():
-        start = cpu_seconds()
-        todos.tags_in(text)
-        spent = cpu_seconds() - start
-        print(f"\n{label}: {spent * 1000:.0f}ms cpu")
-        assert spent < MOST_SECONDS, label
+    for label, (text_of, size) in notes.items():
+        assert growth(label, text_of, size) < MOST_GROWTH, label
