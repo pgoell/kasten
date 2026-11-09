@@ -17,7 +17,9 @@
  */
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { act } from "react";
 import { createRoot } from "react-dom/client";
+import { page } from "vitest/browser";
 import { NoteFinder } from "@/components/finder/note-finder";
 import type * as Fuzzy from "@/lib/search/fuzzy";
 import { syntheticVault } from "../../bench/fixtures";
@@ -40,8 +42,10 @@ vi.mock("@/lib/search/fuzzy", async (importOriginal) => {
 // inside the timed window would be measuring the network. It never fires during
 // a run, the delay outlasting the gap between keystrokes, but a stub is what
 // makes that a fact rather than a hope.
+const { fetchNote } = vi.hoisted(() => ({ fetchNote: vi.fn(() => Promise.resolve("")) }));
 vi.mock("@/lib/core/api", () => ({
-  fetchNote: () => Promise.resolve(""),
+  // A spy, so a file row can be shown never to be read as a note.
+  fetchNote,
   // Named because the module is replaced whole: the editor behind the preview
   // imports these, and a factory short of a name breaks the import itself.
   fetchImages: () => Promise.resolve([]),
@@ -265,5 +269,38 @@ describe("the note finder's list", () => {
 
     expect(finder.rows()).toEqual([]);
     expect(finder.hint()).toBe("the vault has no notes");
+  });
+});
+
+describe("the note finder over files", () => {
+  const FILES = ["lit/DDIA.epub", "notes/page.html"];
+
+  // The frame opens at a phone's width, which mounts no preview.
+  beforeEach(() => page.viewport(1440, 900));
+
+  it("gives an epub and an html row their kind", () => {
+    const finder = renderFinder(PATHS, undefined, { files: FILES });
+
+    expect(finder.option("lit/DDIA.epub")).toHaveTextContent(/EPUB$/);
+    expect(finder.option("notes/page.html")).toHaveTextContent(/HTML$/);
+  });
+
+  it.each([
+    ["an epub with a note", "lit/DDIA.epub", ["lit/DDIA.md"], "epub, opens in the reader"],
+    ["an epub with no note", "lit/DDIA.epub", [], "epub, opens in a new tab"],
+    ["an html page", "notes/page.html", [], "html, opens as a page"],
+  ])("previews %s by where it opens, not by reading it", (_, path, vaultNotes, opens) => {
+    fetchNote.mockClear();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const finder = renderFinder(PATHS, undefined, { files: [path], vaultNotes });
+
+    finder.type(path);
+
+    expect(finder.highlighted()).toMatch(new RegExp(`^${path}`));
+    expect(finder.preview()).toBe(opens);
+    // Past the preview's delay, so a read of the file would have begun.
+    act(() => vi.advanceTimersByTime(1_000));
+    vi.useRealTimers();
+    expect(fetchNote).not.toHaveBeenCalled();
   });
 });
