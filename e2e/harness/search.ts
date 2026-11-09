@@ -1,8 +1,15 @@
 import { expect, type Page, type Route } from "@playwright/test";
 import { leader, localDate, openApp } from "./app.ts";
 
-/** A matched line; a note with no date in its name or frontmatter answers `date: null`. */
-export type Hit = { path: string; line: number; text: string; date: string | null; tags: string[] };
+/** A matched line; a note with no date in its name or frontmatter answers `date: null`. A file's line carries its `place`. */
+export type Hit = {
+  path: string;
+  line: number;
+  text: string;
+  date: string | null;
+  tags: string[];
+  place?: { kind: "pdf" | "epub" | "html"; label: string; page?: number; anchor?: string };
+};
 
 /** The date `days` before today on this box, as a hit carries it. */
 export function daysAgo(days: number): string {

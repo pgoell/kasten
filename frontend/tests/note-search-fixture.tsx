@@ -7,7 +7,7 @@ import { fetchMentions, fetchNote, fetchTodos, searchNotes } from "@/lib/core/ap
 // Standing in for the module rather than for `fetch`, the way the finder's
 // tests do: what this component owns is what it asks the vault for and how
 // often, not the HTTP underneath.
-export const HITS = [
+const HITS = [
   { path: "projects/kasten.md", line: 12, text: "Postgres holds a derived index." },
   { path: "reference/deploy.md", line: 88, text: "postgres runs in its own container" },
 ];
@@ -27,33 +27,6 @@ export function searchHooks() {
     vi.mocked(fetchTodos).mockResolvedValue([]);
     vi.mocked(fetchMentions).mockResolvedValue([]);
   });
-}
-
-export function renderSearch() {
-  const onOpen = vi.fn();
-  const onClose = vi.fn();
-
-  render(
-    <QueryClientProvider client={new QueryClient()}>
-      <NoteSearch onOpen={onOpen} onClose={onClose} />
-    </QueryClientProvider>,
-  );
-
-  const input = screen.getByLabelText("search notes") as HTMLInputElement;
-
-  return {
-    input,
-    onOpen,
-    onClose,
-    type: (value: string) => fireEvent.change(input, { target: { value } }),
-    press: (key: string, init?: KeyboardEventInit) => fireEvent.keyDown(input, { key, ...init }),
-    rows: () => screen.queryAllByRole("option").map((row) => row.textContent),
-    hint: () => screen.getByRole("status").textContent,
-    preview: () => screen.queryByTestId("preview")?.textContent ?? "",
-    lineNumbers: () =>
-      [...document.querySelectorAll(".cm-gutterElement")].map((n) => n.textContent ?? ""),
-    markedLine: () => document.querySelector(".cm-searchHit")?.textContent ?? "",
-  };
 }
 
 export const PATHS = ["archive/notes.md", "index.md", "kafka.md", "reading/borges.md"];
