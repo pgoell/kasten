@@ -30,6 +30,8 @@ test("a split right and a split down make three panes, one beside and one below"
 }) => {
   await openApp(page);
   await openFromTree(page, "Welcome");
+  // Keys sent before the editor holds the focus are lost (#1738).
+  await expect(page.locator(".cm-content:focus")).toHaveCount(1);
   await leader(page, "%");
   await expect(panes(page)).toHaveCount(2);
   await leader(page, '"');
@@ -52,6 +54,8 @@ test("a split right and a split down make three panes, one beside and one below"
 test("a close takes the empty pane away and leaves Welcome", async ({ page }) => {
   await openApp(page);
   await openFromTree(page, "Welcome");
+  // Keys sent before the editor holds the focus are lost (#1738).
+  await expect(page.locator(".cm-content:focus")).toHaveCount(1);
   await leader(page, "%");
   await expect(panes(page)).toHaveCount(2);
   // The new pane is empty, so the first q closes it.
@@ -63,6 +67,8 @@ test("a close takes the empty pane away and leaves Welcome", async ({ page }) =>
 test("the panes and their notes are back after a reload", async ({ page }) => {
   await openApp(page);
   await openFromTree(page, "Welcome");
+  // Keys sent before the editor holds the focus are lost (#1738).
+  await expect(page.locator(".cm-content:focus")).toHaveCount(1);
   await leader(page, "%");
   await findNote(page, "Garden");
   await expect(page.locator(".cm-editor", { hasText: "water the tomatoes" })).toBeVisible();
@@ -75,6 +81,8 @@ test("the panes and their notes are back after a reload", async ({ page }) => {
 test("q in the tree hands the keys to the focused pane, the second of two", async ({ page }) => {
   await openApp(page);
   await openFromTree(page, "Welcome");
+  // Keys sent before the editor holds the focus are lost (#1738).
+  await expect(page.locator(".cm-content:focus")).toHaveCount(1);
   await leader(page, "%");
   const today = page.getByRole("region", { name: "Today" });
   await expect(today).toBeVisible();
@@ -109,6 +117,8 @@ test("Escape in the tree hands the keys to the focused pane, the second of two",
 }) => {
   await openApp(page);
   await openFromTree(page, "Welcome");
+  // Keys sent before the editor holds the focus are lost (#1738).
+  await expect(page.locator(".cm-content:focus")).toHaveCount(1);
   await leader(page, "%");
   const today = page.getByRole("region", { name: "Today" });
   await expect(today).toBeVisible();
@@ -127,6 +137,8 @@ test("Escape in the tree with vim off types into the focused pane, the second of
 }) => {
   await openApp(page);
   await openFromTree(page, "Welcome");
+  // Keys sent before the editor holds the focus are lost (#1738).
+  await expect(page.locator(".cm-content:focus")).toHaveCount(1);
   await leader(page, "%");
   const today = page.getByRole("region", { name: "Today" });
   await expect(today).toBeVisible();
