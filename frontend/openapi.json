@@ -2349,6 +2349,97 @@
         }
       }
     },
+    "/api/push": {
+      "get": {
+        "summary": "Read Push",
+        "description": "The public key and every device, oldest first.",
+        "operationId": "read_push_api_push_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/push/devices": {
+      "post": {
+        "summary": "Write Device",
+        "description": "Subscribe a device; the same endpoint again updates its keys and name, as one device.",
+        "operationId": "write_device_api_push_devices_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/push/devices/{device_id}": {
+      "delete": {
+        "summary": "Delete Device",
+        "description": "Remove a device, so no push goes to it again.",
+        "operationId": "delete_device_api_push_devices__device_id__delete",
+        "parameters": [
+          {
+            "name": "device_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Device Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/library": {
       "get": {
         "summary": "Read Library",
@@ -9765,6 +9856,62 @@
         "title": "Delete",
         "description": "Which line goes, with its parts, and the digest of the list the caller read."
       },
+      "DeviceIn": {
+        "properties": {
+          "endpoint": {
+            "type": "string",
+            "pattern": "^https://",
+            "title": "Endpoint"
+          },
+          "keys": {
+            "$ref": "#/components/schemas/Keys"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "endpoint",
+          "keys",
+          "name"
+        ],
+        "title": "DeviceIn",
+        "description": "A browser's `PushSubscription` as `toJSON` gives it, and a name to list it by."
+      },
+      "DeviceOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "endpoint": {
+            "type": "string",
+            "title": "Endpoint"
+          },
+          "created": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "endpoint",
+          "created"
+        ],
+        "title": "DeviceOut",
+        "description": "A subscribed device, without its keys."
+      },
       "DueOut": {
         "properties": {
           "plan_id": {
@@ -11297,6 +11444,27 @@
         ],
         "title": "ItemOut",
         "description": "One line of a charge."
+      },
+      "Keys": {
+        "properties": {
+          "p256dh": {
+            "type": "string",
+            "minLength": 1,
+            "title": "P256Dh"
+          },
+          "auth": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Auth"
+          }
+        },
+        "type": "object",
+        "required": [
+          "p256dh",
+          "auth"
+        ],
+        "title": "Keys",
+        "description": "The subscription's keys: the browser's public key and the shared secret."
       },
       "Layout": {
         "properties": {
@@ -13126,6 +13294,35 @@
         ],
         "title": "ProposalOut",
         "description": "A plan read from history, ready to post as it is, and what it was read from."
+      },
+      "PushOut": {
+        "properties": {
+          "public_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Key"
+          },
+          "devices": {
+            "items": {
+              "$ref": "#/components/schemas/DeviceOut"
+            },
+            "type": "array",
+            "title": "Devices"
+          }
+        },
+        "type": "object",
+        "required": [
+          "public_key",
+          "devices"
+        ],
+        "title": "PushOut",
+        "description": "The key a browser subscribes with, or None where push is not set up, and the devices."
       },
       "Ran": {
         "properties": {

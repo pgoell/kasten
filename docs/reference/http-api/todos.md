@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: "HTTP API: todos"
-description: The route that finds every todo line in the vault, and works out which project each one belongs to.
+description: The route that finds every todo line in the vault and the project each belongs to, and the devices a todo reminder is pushed to.
 resource: backend/src/kasten_backend/routes/queries.py
 tags: [api, backend, openapi]
 status: stable
@@ -138,4 +138,43 @@ are read whole, which adds 15 to 20 ms to the answer.
 
 A vault directory that does not exist reads as an empty one, so a fresh
 checkout still serves.
+
+## Reminders
+
+A todo with `⏰ YYYY-MM-DD HH:MM` sends a web push at that time to every device
+subscribed here. The devices sit in the `push_devices` table in Postgres, and
+each reminder sent in `push_sent`. A loop in the backend wakes each minute; only
+the worker holding a Postgres advisory lock sends. It sends what fell due in the
+last hour and was not sent yet, so a missed reminder goes out late when it is
+under an hour old and never after. A sent reminder is known by its note, time
+and words, so a restart or a line moved within its note does not send it again.
+
+Only an open todo reminds: not `[x]`, `[X]` or `[-]`, nor one in a fence, a
+code span or the archive. The time is read in `KASTEN_TIMEZONE`. The message is
+encrypted for the device (RFC 8291) and carries `{"title", "body", "path",
+"line", "tag"}`: `body` is the todo's words without its box, fields and `⏰`, and
+a tap opens `/?note=<path>&line=<line>`. A push service that answers `404` or
+`410` drops that device; any other failure keeps it and is logged.
+
+## GET /api/push
+
+The key a browser subscribes with, `null` when `KASTEN_PUSH_PRIVATE_KEY` is not
+set, and every device, oldest first. The device's keys are never sent back.
+
+```json
+{ "public_key": "BP4z9KsN6nGRTbVYI_c7…", "devices": [{ "id": 1, "name": "Android Chrome", "endpoint": "https://fcm.googleapis.com/fcm/send/…", "created": "2026-11-08T21:40:02Z" }] }
+```
+
+## POST /api/push/devices
+
+Subscribes a device. The body is the browser's `PushSubscription.toJSON()`
+plus a `name`: `{"endpoint", "keys": {"p256dh", "auth"}, "name"}`. The endpoint
+must be `https://`. The same endpoint again updates that device's keys and name
+rather than adding a second one. Answers `201` with the device as `GET` lists
+it, or `503` when push is not set up.
+
+## DELETE /api/push/devices/{device_id}
+
+Removes a device, so no push goes to it again. `204`, or `404` for an id no
+device has.
 

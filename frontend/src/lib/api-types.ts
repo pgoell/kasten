@@ -1203,6 +1203,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/push": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Push
+         * @description The public key and every device, oldest first.
+         */
+        get: operations["read_push_api_push_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/push/devices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write Device
+         * @description Subscribe a device; the same endpoint again updates its keys and name, as one device.
+         */
+        post: operations["write_device_api_push_devices_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/push/devices/{device_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Device
+         * @description Remove a device, so no push goes to it again.
+         */
+        delete: operations["delete_device_api_push_devices__device_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/library": {
         parameters: {
             query?: never;
@@ -4308,6 +4368,34 @@ export interface components {
             sha: string;
         };
         /**
+         * DeviceIn
+         * @description A browser's `PushSubscription` as `toJSON` gives it, and a name to list it by.
+         */
+        DeviceIn: {
+            /** Endpoint */
+            endpoint: string;
+            keys: components["schemas"]["Keys"];
+            /** Name */
+            name: string;
+        };
+        /**
+         * DeviceOut
+         * @description A subscribed device, without its keys.
+         */
+        DeviceOut: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Endpoint */
+            endpoint: string;
+            /**
+             * Created
+             * Format: date-time
+             */
+            created: string;
+        };
+        /**
          * DueOut
          * @description A date a plan falls due in the month, and the booking that met it, if one did.
          */
@@ -4900,6 +4988,16 @@ export interface components {
             text: string;
             /** Amount */
             amount: string;
+        };
+        /**
+         * Keys
+         * @description The subscription's keys: the browser's public key and the shared secret.
+         */
+        Keys: {
+            /** P256Dh */
+            p256dh: string;
+            /** Auth */
+            auth: string;
         };
         /**
          * Layout
@@ -5634,6 +5732,16 @@ export interface components {
              * Format: date
              */
             last: string;
+        };
+        /**
+         * PushOut
+         * @description The key a browser subscribes with, or None where push is not set up, and the devices.
+         */
+        PushOut: {
+            /** Public Key */
+            public_key: string | null;
+            /** Devices */
+            devices: components["schemas"]["DeviceOut"][];
         };
         /**
          * Ran
@@ -8181,6 +8289,88 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["SimilarAnswer"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_push_api_push_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushOut"];
+                };
+            };
+        };
+    };
+    write_device_api_push_devices_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeviceIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_device_api_push_devices__device_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                device_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

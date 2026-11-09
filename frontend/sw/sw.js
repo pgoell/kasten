@@ -170,6 +170,31 @@ async function fetchKept(request, cache) {
   return response;
 }
 
+/** A todo's reminder shows as a notification; a click opens the note it is in. */
+self.addEventListener("push", (event) => {
+  const { title, body, path, line, tag } = event.data.json();
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      tag,
+      data: { url: `/?note=${encodeURIComponent(path)}&line=${line}` },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(openNote(event.notification.data.url));
+});
+
+/** Point an open window of this origin at `url`, or open one when none is open. */
+async function openNote(url) {
+  const [open] = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+  if (!open) return self.clients.openWindow(url);
+  await open.focus();
+  await open.navigate(url);
+}
+
 /**
  * A share from the phone goes to the backend, which keeps its files as receipts and opens
  * `/capture`. With no signal, or files over the backend's size cap (a 413), the text still

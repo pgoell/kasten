@@ -59,6 +59,9 @@ function navigation(pathname: string): Request {
   return request;
 }
 
+/** A window of this origin as `clients.matchAll` lists it. */
+type WindowClient = { focus: () => Promise<unknown>; navigate: (url: string) => Promise<unknown> };
+
 /** The built worker, run against a fake `self`, `caches` and `fetch`. */
 function boot() {
   const listeners = new Map<string, Listener>();
@@ -68,7 +71,12 @@ function boot() {
     location: { origin: ORIGIN },
     addEventListener: (type: string, listener: Listener) => listeners.set(type, listener),
     skipWaiting: vi.fn(async () => {}),
-    clients: { claim: vi.fn(async () => {}) },
+    clients: {
+      claim: vi.fn(async () => {}),
+      matchAll: vi.fn(async (): Promise<WindowClient[]> => []),
+      openWindow: vi.fn(async () => null),
+    },
+    registration: { showNotification: vi.fn(async () => {}) },
   };
   const source = renderServiceWorker(ASSETS);
   // `new Function` rather than node:vm: a vm context has its own TypeError, and
@@ -77,11 +85,17 @@ function boot() {
   const version = /const VERSION = "([^"]+)"/.exec(source)?.[1];
   if (!version) throw new Error("the built worker names no version");
 
-  async function lifecycle(type: "install" | "activate") {
+  /** Fires one event at the worker and waits for every promise it handed to `waitUntil`. */
+  async function dispatch(type: string, event: Record<string, unknown> = {}) {
     const pending: Promise<unknown>[] = [];
-    listeners.get(type)?.({ waitUntil: (promise: Promise<unknown>) => pending.push(promise) });
+    listeners.get(type)?.({
+      ...event,
+      waitUntil: (promise: Promise<unknown>) => pending.push(promise),
+    });
     await Promise.all(pending);
   }
+
+  const lifecycle = (type: "install" | "activate") => dispatch(type);
 
   /** The response the worker answered with, or `undefined` when it left the request alone. */
   async function request(request: Request): Promise<Response | undefined> {
@@ -95,7 +109,7 @@ function boot() {
     return (await caches.open(`kasten-${version}`)).match(url);
   }
 
-  return { self, caches, fetch, version, lifecycle, request, cached };
+  return { self, caches, fetch, version, lifecycle, dispatch, request, cached };
 }
 
 /** A worker that has installed with a shell reading `old shell`. */
@@ -321,6 +335,45 @@ describe("the service worker", () => {
 
     expect(answer?.status).toBe(303);
     expect(answer?.headers.get("location")).toBe(`${ORIGIN}/capture?text=keep+me&toolarge=2`);
+  });
+
+  it("a push shows its todo as a notification that opens the note at its line", async () => {
+    const sw = await installed();
+    const payload = {
+      title: "Todo due",
+      body: "Pay the rent",
+      path: "20 Notes/Rent.md",
+      line: 7,
+      tag: "todo-3",
+    };
+    await sw.dispatch("push", { data: { json: () => payload } });
+    expect(sw.self.registration.showNotification).toHaveBeenCalledWith("Todo due", {
+      body: "Pay the rent",
+      tag: "todo-3",
+      data: { url: "/?note=20%20Notes%2FRent.md&line=7" },
+    });
+  });
+
+  it("a click on a notification focuses the open window and navigates it to the note", async () => {
+    const sw = await installed();
+    const window = { focus: vi.fn(async () => {}), navigate: vi.fn(async () => {}) };
+    sw.self.clients.matchAll.mockResolvedValue([window]);
+    const close = vi.fn();
+    await sw.dispatch("notificationclick", {
+      notification: { close, data: { url: "/?note=x&line=1" } },
+    });
+    expect(close).toHaveBeenCalled();
+    expect(window.focus).toHaveBeenCalled();
+    expect(window.navigate).toHaveBeenCalledWith("/?note=x&line=1");
+    expect(sw.self.clients.openWindow).not.toHaveBeenCalled();
+  });
+
+  it("a click on a notification with no window open opens the note in one", async () => {
+    const sw = await installed();
+    await sw.dispatch("notificationclick", {
+      notification: { close: vi.fn(), data: { url: "/?note=x&line=1" } },
+    });
+    expect(sw.self.clients.openWindow).toHaveBeenCalledWith("/?note=x&line=1");
   });
 
   it("activate deletes the caches of an older version", async () => {

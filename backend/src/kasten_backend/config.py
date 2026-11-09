@@ -202,6 +202,15 @@ class Settings(BaseSettings):
     leaves it to its own list.
     """
 
+    push_private_key: SecretStr | None = None
+    """The VAPID private key push reminders are signed with, base64url; None turns push off.
+
+    `python -m kasten_backend.push` prints a pair. The public key is derived from it.
+    """
+
+    timezone: str = "Europe/Berlin"
+    """The zone a todo's `⏰ 2026-11-12 09:00` is read in, since the server's clock runs in UTC."""
+
     share_host: str = ""
     """The `Host` the shared lists app is served on, or empty for none.
 
