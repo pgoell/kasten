@@ -164,9 +164,9 @@ its `204`, a redirect to sign-in or no answer within 4 seconds included, opens
 the note at its line instead. A push service that answers `404` or
 `410` drops that device; any other failure keeps it and is logged.
 
-Quiet hours, set in `/settings`, hold every reminder and the morning push, but
-not a timer, which you started yourself. At a tick inside them nothing
-goes and nothing is recorded. At their end a reminder goes when it fell due
+Quiet hours, set in `/settings`, hold every reminder, the morning push and
+the goals push, but not a timer, which you started yourself. At a tick inside
+them nothing goes and nothing is recorded. At their end a reminder goes when it fell due
 inside them, or up to an hour before they began, so its late hour starts again
 from their end. Quiet hours whose start is after their end run across midnight.
 
