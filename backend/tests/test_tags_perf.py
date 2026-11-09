@@ -10,6 +10,7 @@ still lands under the bound. That regression is the count in
 
 import os
 import statistics
+import sys
 import time
 from typing import TYPE_CHECKING
 
@@ -129,56 +130,59 @@ async def test_find_tags_reads_whole_only_the_notes_a_line_cannot_say(
     assert 0 < len(whole) < NOTES // 2
 
 
-MOST_GROWTH = 8
-"""A note four times longer may cost at most this many times more: linear is 4, a walk back 16.
+MOST_GROWTH = 6
+"""A note four times longer may take at most this many times the steps: linear is 4, a walk back 16.
 
-A ratio, not a time, since a slow or loaded runner slows both lengths alike (#1708).
+Steps, not time, since a slow or loaded runner changes time and not steps (#1708).
 """
 
-
-def growth(label: str, text_of: Callable[[int], str], size: int, read=todos.tags_in) -> float:
-    """How many times the CPU `read` spends on `text_of(size)` exceeds that on a quarter of it.
-
-    Best of 3 on this thread's clock, which no other thread or reaped child adds to. The
-    lengths take turns, so a burst of load slows both alike.
-    """
-    texts = [text_of(size), text_of(size // 4)]
-    best = [float("inf"), float("inf")]
-    for _ in range(3):
-        for index, text in enumerate(texts):
-            start = time.thread_time()
-            read(text)
-            best[index] = min(best[index], time.thread_time() - start)
-    full = best[0]
-    ratio = full / best[1]
-    print(f"\n{label}: {full * 1000:.0f}ms cpu, {ratio:.1f} times a quarter")
-    return ratio
+STEPS_TOOL = 4
+"""A `sys.monitoring` tool id no debugger, coverage tool or profiler claims."""
 
 
-def test_growth_ignores_a_slow_runner_and_catches_a_walk_back() -> None:
-    def slow(text: str) -> None:
-        for _ in range(6):
-            todos.tags_in(text)
+def steps[T](read: Callable[[str], T], text: str) -> tuple[int, T]:
+    """The calls and loop turns `read(text)` makes, Python and C, and what it returns."""
+    count = 0
 
-    lengths: list[int] = []
+    def hit(*_: object) -> None:
+        nonlocal count
+        count += 1
+
+    events = sys.monitoring.events
+    sys.monitoring.use_tool_id(STEPS_TOOL, "steps")
+    try:
+        sys.monitoring.register_callback(STEPS_TOOL, events.CALL, hit)
+        sys.monitoring.register_callback(STEPS_TOOL, events.JUMP, hit)
+        sys.monitoring.set_events(STEPS_TOOL, events.CALL | events.JUMP)
+        found = read(text)
+    finally:
+        sys.monitoring.set_events(STEPS_TOOL, 0)
+        sys.monitoring.free_tool_id(STEPS_TOOL)
+    return count, found
+
+
+def growth[T](
+    label: str, text_of: Callable[[int], str], size: int, read: Callable[[str], T]
+) -> tuple[float, T]:
+    """How many times the steps of `read(text_of(size))` exceed a quarter's, and its result."""
+    full, found = steps(read, text_of(size))
+    quarter, _ = steps(read, text_of(size // 4))
+    ratio = full / quarter
+    print(f"\n{label}: {full} steps, {ratio:.2f} times a quarter")
+    return ratio, found
+
+
+def test_growth_counts_steps_the_same_each_run_and_catches_a_walk_back() -> None:
+    def text_of(size: int) -> str:
+        return "> 1. a <!-- y\n2.\n" * size
 
     def walk_back(text: str) -> None:
         for _ in range(len(text) // 500):
             todos.tags_in(text)
 
-    def text_of(size: int) -> str:
-        return "> 1. a <!-- y\n2.\n" * size
-
-    assert growth("six times slower", text_of, 500, slow) < MOST_GROWTH
-
-    # In turn, so a burst of load slows both lengths, not only the first one read.
-    def recording(text: str) -> None:
-        lengths.append(len(text))
-        todos.tags_in(text)
-
-    growth("in turn", text_of, 2_000, recording)
-    assert lengths == [len(text_of(2_000)), len(text_of(500))] * 3
-    assert growth("walking back", text_of, 500, walk_back) > MOST_GROWTH
+    assert len({steps(todos.tags_in, text_of(500))[0] for _ in range(3)}) == 1
+    assert growth("steady", text_of, 500, todos.tags_in)[0] < MOST_GROWTH
+    assert growth("walking back", text_of, 500, walk_back)[0] > MOST_GROWTH
 
 
 def test_1544_long_notes_of_open_comments_and_lazy_items_read_in_bounded_time() -> None:
@@ -193,8 +197,9 @@ def test_1544_long_notes_of_open_comments_and_lazy_items_read_in_bounded_time() 
         ),
     }
     for label, (text_of, size) in notes.items():
-        assert growth(label, text_of, size) < MOST_GROWTH, label
-        assert len(todos.tags_in(text_of(size))) <= 1
+        ratio, found = growth(label, text_of, size, todos.tags_in)
+        assert ratio < MOST_GROWTH, label
+        assert len(found) <= 1
 
 
 def test_1594_long_notes_of_spans_in_comments_empty_items_and_lazy_quote_items() -> None:
@@ -214,4 +219,4 @@ def test_1594_long_notes_of_spans_in_comments_empty_items_and_lazy_quote_items()
         "quote and lazy lines in turn": (lambda n: "> - a <!-- y\n2.\n> b\n" * n, 7_000),
     }
     for label, (text_of, size) in notes.items():
-        assert growth(label, text_of, size) < MOST_GROWTH, label
+        assert growth(label, text_of, size, todos.tags_in)[0] < MOST_GROWTH, label
