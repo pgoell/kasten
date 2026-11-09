@@ -16,6 +16,10 @@
 # the same one and only the checksum differs between them.
 ARG JJ_VERSION=0.37.0
 ARG RG_VERSION=14.1.1
+# Overridden only by backend/tests/ci/test_image_downloads.py, which serves the
+# files from a local server that fails first.
+ARG JJ_RELEASES=https://github.com/jj-vcs/jj/releases/download
+ARG RG_RELEASES=https://github.com/BurntSushi/ripgrep/releases/download
 
 FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim AS builder
 WORKDIR /app
@@ -47,18 +51,28 @@ RUN uv sync --frozen --no-dev --no-editable --package kasten-backend --package k
 # One stage per architecture, each with the checksum of its own asset, and the
 # version has to match the one in mise.toml: host and container work on the
 # same repo.
-FROM debian:bookworm-slim AS jj-amd64
+#
+# curl rather than ADD, because ADD fails the build on one 5xx from GitHub's
+# release downloads (#1689). --fail keeps an error page off the tarball path.
+FROM debian:bookworm-slim AS fetcher
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+FROM fetcher AS jj-amd64
 ARG JJ_VERSION
+ARG JJ_RELEASES
 ARG JJ_SHA256=7fd8e28d65106768054becbc1e0b929bed7c4c963d598f9f9a629bfa92eb7171
-ADD https://github.com/jj-vcs/jj/releases/download/v${JJ_VERSION}/jj-v${JJ_VERSION}-x86_64-unknown-linux-musl.tar.gz /tmp/jj.tar.gz
-RUN echo "${JJ_SHA256}  /tmp/jj.tar.gz" | sha256sum -c - \
+RUN curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 -o /tmp/jj.tar.gz "${JJ_RELEASES}/v${JJ_VERSION}/jj-v${JJ_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
+    && echo "${JJ_SHA256}  /tmp/jj.tar.gz" | sha256sum -c - \
     && tar -xzf /tmp/jj.tar.gz -C /usr/local/bin ./jj
 
-FROM debian:bookworm-slim AS jj-arm64
+FROM fetcher AS jj-arm64
 ARG JJ_VERSION
+ARG JJ_RELEASES
 ARG JJ_SHA256=f42164567abbcc0b13354eeb1ecd11f4245d7dce4de849bf794a4d5e1b615c62
-ADD https://github.com/jj-vcs/jj/releases/download/v${JJ_VERSION}/jj-v${JJ_VERSION}-aarch64-unknown-linux-musl.tar.gz /tmp/jj.tar.gz
-RUN echo "${JJ_SHA256}  /tmp/jj.tar.gz" | sha256sum -c - \
+RUN curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 -o /tmp/jj.tar.gz "${JJ_RELEASES}/v${JJ_VERSION}/jj-v${JJ_VERSION}-aarch64-unknown-linux-musl.tar.gz" \
+    && echo "${JJ_SHA256}  /tmp/jj.tar.gz" | sha256sum -c - \
     && tar -xzf /tmp/jj.tar.gz -C /usr/local/bin ./jj
 
 FROM jj-${TARGETARCH} AS jj
@@ -66,21 +80,23 @@ FROM jj-${TARGETARCH} AS jj
 # rg answers `GET /api/search` by reading the vault on every query, so the
 # binary is as much a dependency as jj is. Pinned and checksummed the same way,
 # and the version has to match mise.toml for the same reason.
-FROM debian:bookworm-slim AS rg-amd64
+FROM fetcher AS rg-amd64
 ARG RG_VERSION
+ARG RG_RELEASES
 ARG RG_SHA256=4cf9f2741e6c465ffdb7c26f38056a59e2a2544b51f7cc128ef28337eeae4d8e
-ADD https://github.com/BurntSushi/ripgrep/releases/download/${RG_VERSION}/ripgrep-${RG_VERSION}-x86_64-unknown-linux-musl.tar.gz /tmp/rg.tar.gz
-RUN echo "${RG_SHA256}  /tmp/rg.tar.gz" | sha256sum -c - \
+RUN curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 -o /tmp/rg.tar.gz "${RG_RELEASES}/${RG_VERSION}/ripgrep-${RG_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
+    && echo "${RG_SHA256}  /tmp/rg.tar.gz" | sha256sum -c - \
     && tar -xzf /tmp/rg.tar.gz -C /usr/local/bin --strip-components=1 \
        ripgrep-${RG_VERSION}-x86_64-unknown-linux-musl/rg
 
 # ripgrep publishes no musl build for aarch64, so this is the glibc one. It
 # links glibc dynamically, which the bookworm runtime carries.
-FROM debian:bookworm-slim AS rg-arm64
+FROM fetcher AS rg-arm64
 ARG RG_VERSION
+ARG RG_RELEASES
 ARG RG_SHA256=c827481c4ff4ea10c9dc7a4022c8de5db34a5737cb74484d62eb94a95841ab2f
-ADD https://github.com/BurntSushi/ripgrep/releases/download/${RG_VERSION}/ripgrep-${RG_VERSION}-aarch64-unknown-linux-gnu.tar.gz /tmp/rg.tar.gz
-RUN echo "${RG_SHA256}  /tmp/rg.tar.gz" | sha256sum -c - \
+RUN curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 -o /tmp/rg.tar.gz "${RG_RELEASES}/${RG_VERSION}/ripgrep-${RG_VERSION}-aarch64-unknown-linux-gnu.tar.gz" \
+    && echo "${RG_SHA256}  /tmp/rg.tar.gz" | sha256sum -c - \
     && tar -xzf /tmp/rg.tar.gz -C /usr/local/bin --strip-components=1 \
        ripgrep-${RG_VERSION}-aarch64-unknown-linux-gnu/rg
 
