@@ -14,8 +14,8 @@ QUANTITY = re.compile(
     rf"|(?P<number>{NUMBER})"
 )
 """A number, a fraction (`1/2`, `½`) or a whole number and a fraction (`1 1/2`, `1½`)."""
-RANGE = re.compile(r"[ \t]*(?:-|\u2013|bis[ \t])[ \t]*(?:[0-9]+(?:[.,/][0-9]+)?|[½¼¾⅓⅔⅛])")
-"""The upper end of a range, `2-3` or `2 bis 3`, which is passed over: the lower end counts."""
+RANGE = re.compile(r"[ \t]*(?:-|\u2013|bis[ \t])[ \t]*")
+"""What joins a range, `2-3` or `2 bis 3`. The lower end counts; the view keeps the upper."""
 WORDS = {"ein": 1.0, "eine": 1.0, "einen": 1.0, "einer": 1.0, "zwei": 2.0, "drei": 3.0}
 NO_AMOUNT = re.compile(
     r"(?:etwas|ein[ \t]+wenig|wenig|n\.[ \t]*b\.|nach[ \t]+(?:belieben|geschmack))(?!\w)[ \t]*",
@@ -76,33 +76,42 @@ class Amount:
     """What follows the first comma, as `abgetropft`."""
     rest: str
     """The line after its quantity, unit included, so a view can scale the number alone."""
+    quantity_to: float | None = None
+    """The upper end of a range, as 3 in `2-3 Zwiebeln`, or None."""
 
 
 def _number(text: str) -> float:
     return float(text.replace(",", "."))
 
 
-def _quantity(text: str) -> tuple[float | None, str]:
-    """The quantity at the start of `text`, and what follows it."""
+def _one(text: str) -> tuple[float, int] | None:
+    """The number, fraction or mixed number at the start of `text`, and where it ends."""
     found = QUANTITY.match(text)
     if found is None:
+        return None
+    if found["number"] is not None:
+        return _number(found["number"]), found.end()
+    part = (
+        VULGAR[found["vulgar"]]
+        if found["vulgar"] is not None
+        else int(found["over"]) / max(int(found["under"]), 1)
+    )
+    return (_number(found["whole"]) if found["whole"] is not None else 0) + part, found.end()
+
+
+def _quantity(text: str) -> tuple[float | None, float | None, str]:
+    """The quantity at the start of `text`, the upper end of a range, and what follows them."""
+    first = _one(text)
+    if first is None:
         word, _, rest = text.partition(" ")
         if word.lower() in WORDS:
-            return WORDS[word.lower()], rest
-        return None, text
-    if found["number"] is not None:
-        value = _number(found["number"])
-    else:
-        part = (
-            VULGAR[found["vulgar"]]
-            if found["vulgar"] is not None
-            else int(found["over"]) / max(int(found["under"]), 1)
-        )
-        value = (_number(found["whole"]) if found["whole"] is not None else 0) + part
-    rest = text[found.end() :]
-    if over := RANGE.match(rest):
-        rest = rest[over.end() :]
-    return value, rest
+            return WORDS[word.lower()], None, rest
+        return None, None, text
+    value, at = first
+    rest = text[at:]
+    if (joined := RANGE.match(rest)) is not None and (upper := _one(rest[joined.end() :])):
+        return value, upper[0], rest[joined.end() + upper[1] :]
+    return value, None, rest
 
 
 def parse_amount(text: str) -> Amount:
@@ -110,12 +119,13 @@ def parse_amount(text: str) -> Amount:
     text = text.strip()
     whole = text
     quantity: float | None = None
+    upper: float | None = None
     unit: str | None = None
     grams: float | None = None
     if (none := NO_AMOUNT.match(text)) is not None:
         text = text[none.end() :]
     else:
-        quantity, text = _quantity(text)
+        quantity, upper, text = _quantity(text)
         text = text.lstrip()
         whole = text if quantity is not None else whole
         if quantity is not None and (found := UNIT.match(text)) is not None:
@@ -132,4 +142,5 @@ def parse_amount(text: str) -> Amount:
         food=" ".join(food.split()),
         note=note.strip() or None,
         rest=whole,
+        quantity_to=upper,
     )

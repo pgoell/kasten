@@ -42,6 +42,8 @@ class Ingredient(BaseModel):
     """The line as the note holds it, its bullet taken off."""
     group: str | None
     quantity: float | None
+    quantity_to: float | None
+    """The upper end of a range, as 3 in `2-3 Zwiebeln`. Only `quantity` is counted."""
     unit: str | None
     food: str
     note: str | None
@@ -149,6 +151,7 @@ async def _ingredient(
         text=item.text,
         group=item.group,
         quantity=amount.quantity,
+        quantity_to=amount.quantity_to,
         unit=amount.unit,
         food=amount.food,
         note=amount.note,

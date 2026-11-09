@@ -84,7 +84,7 @@ A line is read from the left, in this order:
 2. The amount: a number (`500`, `1,5`, `0.5`), a fraction (`1/2`, `½`), or a
    whole number and a fraction (`1 1/2`, `1½`). `ein`, `eine`, `einen`, `einer`
    are 1, `zwei` 2 and `drei` 3. A range, `2-3` or `2 bis 3`, counts its lower
-   end.
+   end, and the card keeps both.
 3. `etwas`, `wenig`, `ein wenig`, `n. B.`, `nach Belieben` or `nach Geschmack`
    in place of an amount means the line has none.
 4. The unit, after an amount, in any case, with an optional point:
@@ -168,9 +168,11 @@ A recipe note in live preview shows a card under its title. From the top:
 * a stepper, `−` and `+`, with the servings it shows. It scales each amount and
   each line's kcal in the card, and the note keeps its own number. Off the
   note's number, it says `the note says 4`;
-* the ingredient lines in order, under their group, each as written with its
-  quantity scaled and any `🏷` barcode left out, and its kcal or why it is not
-  counted. A line matched to a food
+* the ingredient lines in order, under their group, each with its kcal or why it
+  is not counted. At the note's servings a line shows as written, any `🏷`
+  barcode left out. Stepped, it shows the scaled number, both ends of a range
+  scaled, then the rest of the line: `2-3 Zwiebeln` at 1.5 times is
+  `3-4.5 Zwiebeln`, and `½ TL` at 2 times is `1 TL`. A line matched to a food
   of another name shows that name on hover;
 * `N of M lines counted`.
 

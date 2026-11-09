@@ -11701,6 +11701,17 @@
             ],
             "title": "Quantity"
           },
+          "quantity_to": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quantity To"
+          },
           "unit": {
             "anyOf": [
               {
@@ -11780,6 +11791,7 @@
           "text",
           "group",
           "quantity",
+          "quantity_to",
           "unit",
           "food",
           "note",

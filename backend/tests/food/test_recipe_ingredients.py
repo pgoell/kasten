@@ -20,6 +20,7 @@ def test_ingredient_line(case: dict) -> None:
     assert amount.food == case["food"]
     assert amount.note == case["note"]
     assert amount.rest == case.get("rest", amount.rest)
+    assert amount.quantity_to == pytest.approx(case.get("quantity_to"))
 
 
 NOTE = """---

@@ -102,7 +102,7 @@ POST /api/recipe/nutrition
   "ingredients": [
     {
       "line": 8, "text": "500 g Kidneybohnen", "group": null,
-      "quantity": 500.0, "unit": "g", "food": "Kidneybohnen", "note": null,
+      "quantity": 500.0, "quantity_to": null, "unit": "g", "food": "Kidneybohnen", "note": null,
       "rest": "g Kidneybohnen", "grams": 500.0,
       "match": { "source": "mine", "name": "Kidneybohnen", "code": null },
       "status": "counted",
@@ -110,7 +110,7 @@ POST /api/recipe/nutrition
     },
     {
       "line": 9, "text": "1 TL Kreuzkümmel", "group": null,
-      "quantity": 1.0, "unit": "TL", "food": "Kreuzkümmel", "note": null,
+      "quantity": 1.0, "quantity_to": null, "unit": "TL", "food": "Kreuzkümmel", "note": null,
       "rest": "TL Kreuzkümmel", "grams": null, "match": null, "status": "no_match", "nutrients": null
     }
   ],
@@ -125,7 +125,8 @@ POST /api/recipe/nutrition
 * `ingredients` holds one entry per line under `## Zutaten`, in order. `line`
   counts from one, `text` is the line without its bullet, `group` is the `###`
   heading above it. `quantity`, `unit`, `food` and `note` are what the parser
-  read. `rest` is the line after its quantity, a pinned barcode taken out, or
+  read. `quantity_to` is the upper end of a range, as 3 in `2-3 Zwiebeln`, and
+  `null` otherwise; only `quantity` counts. `rest` is the line after its quantity, a pinned barcode taken out, or
   the whole line when it has no quantity, so a view can scale the number alone. `grams` is what the line weighs, and `nutrients` what it adds, each
   rounded to a tenth.
 * `status` is `counted`, `no_match`, `no_amount`, `no_weight` or `unreached`;

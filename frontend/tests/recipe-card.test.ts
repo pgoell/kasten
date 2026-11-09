@@ -15,6 +15,7 @@ function line(over: Partial<Ingredient>): Ingredient {
     text: "500 g Kidneybohnen",
     group: null,
     quantity: 500,
+    quantity_to: null,
     unit: "g",
     food: "Kidneybohnen",
     note: null,
@@ -109,7 +110,22 @@ describe("the recipe card", () => {
     expect(scaledLine(line({ quantity: 2, rest: "Dosen Tomaten (je 400 g), gehackt" }), 1.5)).toBe(
       "3 Dosen Tomaten (je 400 g), gehackt",
     );
-    expect(scaledLine(line({ quantity: null, rest: "etwas Mehl" }), 2)).toBe("etwas Mehl");
+    expect(scaledLine(line({ quantity: null, text: "etwas Mehl", rest: "etwas Mehl" }), 2)).toBe(
+      "etwas Mehl",
+    );
+  });
+
+  it("keeps a line as written at the note's servings, and scales both ends of a range", () => {
+    const range = line({ text: "2-3 Zwiebeln", quantity: 2, quantity_to: 3, rest: "Zwiebeln" });
+    expect(scaledLine(range, 1)).toBe("2-3 Zwiebeln");
+    expect(scaledLine(range, 1.5)).toBe("3-4.5 Zwiebeln");
+    const pinned = line({
+      text: "½ TL Kurkuma 🏷 4337256380081",
+      quantity: 0.5,
+      rest: "TL Kurkuma",
+    });
+    expect(scaledLine(pinned, 1)).toBe("½ TL Kurkuma");
+    expect(scaledLine(pinned, 2)).toBe("1 TL Kurkuma");
   });
 
   it("shows the numbers per serving, and says why a line is not counted", async () => {

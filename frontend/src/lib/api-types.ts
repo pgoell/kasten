@@ -5125,6 +5125,8 @@ export interface components {
             group: string | null;
             /** Quantity */
             quantity: number | null;
+            /** Quantity To */
+            quantity_to: number | null;
             /** Unit */
             unit: string | null;
             /** Food */

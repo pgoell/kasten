@@ -45,10 +45,17 @@ export function shown(value: number, places = 1): string {
   return String(Number(value.toFixed(places)));
 }
 
-/** The line with its quantity times `factor`, as `750 g Kidneybohnen, abgetropft`. */
+/** A `🏷` barcode pinned to a line, which the card leaves out, as the backend's `PIN` does. */
+const PIN = /[ \t]*🏷️?[ \t]*[0-9]{8,14}\b/u;
+
+/**
+ * The line as written at the note's own servings; otherwise its quantity, and the upper end of
+ * a range, times `factor`, as `3-4.5 Zwiebeln`.
+ */
 export function scaledLine(item: Ingredient, factor: number): string {
-  if (item.quantity === null) return item.rest;
-  return `${shown(item.quantity * factor, 2)} ${item.rest}`.trim();
+  if (factor === 1 || item.quantity === null) return item.text.replace(PIN, "").trim();
+  const upper = item.quantity_to === null ? "" : `-${shown(item.quantity_to * factor, 2)}`;
+  return `${shown(item.quantity * factor, 2)}${upper} ${item.rest}`.trim();
 }
 
 interface Chosen {
