@@ -392,8 +392,10 @@ it("a page left and opened again at its top reloads at its top", async () => {
   await ready(frameOf(mounted, 0));
   await scrollBy(frameOf(mounted, 0), 900);
   render([OTHER], {});
+  await browser.pageServed(`/api/html/${OTHER}`);
   await expect.poll(async () => titleOf(frameOf(mounted, 0))).toBe("other");
   render([PATH], {});
+  await browser.pageServed(`/api/html/${PATH}`, 2);
   await expect.poll(async () => titleOf(frameOf(mounted, 0))).toBe("old");
 
   await rewrite(PATH, report("new"), 0);
@@ -431,6 +433,24 @@ it("a page another test file writes under the same name does not change the page
 
 it("pageServed answers at once for a path no route serves", async () => {
   await expect(browser.pageServed("/api/html/never-served.html")).resolves.toBeUndefined();
+});
+
+it("pageServed waits for a page's second answer when asked for two", async () => {
+  await browser.servePage("twice.html", report("twice"));
+  await fetch("/api/html/twice.html");
+  await fetch("/api/html/twice.html");
+  await expect(browser.pageServed("/api/html/twice.html", 2)).resolves.toBeUndefined();
+});
+
+// Served again, as `swap` does, the page counts its answers from none.
+it("pageServed names the path and the shortfall of a page answered fewer times than asked", async () => {
+  await browser.servePage("once.html", report("before"));
+  await fetch("/api/html/once.html");
+  await browser.servePage("once.html", report("once"));
+  await fetch("/api/html/once.html");
+  await expect(browser.pageServed("/api/html/once.html", 2)).rejects.toThrow(
+    "pageServed: /api/html/once.html was not answered within 10000 ms (answered 1 of 2 times)",
+  );
 });
 
 it("pageServed names the path of a routed page no frame asks for", async () => {
