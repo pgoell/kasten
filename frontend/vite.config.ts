@@ -20,13 +20,7 @@ import { buildId } from "./build-id.ts";
 import { devPolicy } from "./src/lib/app/csp.ts";
 import { serviceWorker } from "./sw/plugin.ts";
 import { emulateMedia } from "./tests/frame/emulate-media.ts";
-import {
-  hideResizeObserver,
-  serveFile,
-  servePage,
-  serveSlowly,
-  unservePages,
-} from "./tests/frame/serve-page.ts";
+import { serveCommands } from "./tests/frame/serve-page.ts";
 import { mouseDrag, touchDrag, touches, wheel } from "./tests/frame/touch-input.ts";
 
 const BACKEND = process.env.KASTEN_DEV_BACKEND ?? "http://localhost:8000";
@@ -438,15 +432,11 @@ export default defineConfig({
             provider: playwright({ contextOptions: { viewport: { width: 1440, height: 900 } } }),
             instances: [{ browser: "chromium" }],
             commands: {
+              ...serveCommands,
               emulateMedia,
-              hideResizeObserver,
               mouseDrag,
-              serveFile,
-              servePage,
-              serveSlowly,
               touchDrag,
               touches,
-              unservePages,
               wheel,
             },
           },

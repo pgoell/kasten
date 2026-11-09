@@ -117,6 +117,8 @@ export function frameOf(mounted: Mounted, index: number): HTMLIFrameElement {
 
 /** Waits for the page's own script to say hello, which it does once it has run. */
 export async function ready(frame: HTMLIFrameElement) {
+  // The page's render, a subprocess per request, is the route's time, not the page's (#1692).
+  await browser.pageServed(new URL(frame.src).pathname);
   await expect
     .poll(() => heard.some((h) => h.source === frame.contentWindow && h.data.kasten === "hello"))
     .toBe(true);
