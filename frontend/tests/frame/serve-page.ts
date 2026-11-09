@@ -8,6 +8,7 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import type { BrowserContext } from "playwright";
 import type { BrowserCommand, BrowserCommandContext } from "vitest/node";
 
 /** Where `kasten_backend.html_page` runs from, so `uv` finds the backend's environment. */
@@ -22,6 +23,12 @@ const PAGES = path.resolve(import.meta.dirname, "../../node_modules/.cache/kaste
 let served = 0;
 
 /**
+ * Each context's routed pages by pathname, settled once the route has answered one.
+ * A render can outlast a poll on a slow runner, so `ready` waits on this first (#1692).
+ */
+const answered = new WeakMap<BrowserContext, Map<string, Promise<void>>>();
+
+/**
  * Routes `/api/html/<pagePath>` to the backend's own page writer, so the page a
  * frame test draws is the one the app serves: the script first, the theme and
  * palette from the request's query when the page opts in. The sandbox line is
@@ -31,9 +38,16 @@ let served = 0;
  * these tests do not start.
  */
 async function routePage({ context }: BrowserCommandContext, pagePath: string, file: string) {
+  const pathname = `/api/html/${encodeURI(pagePath)}`;
+  let resolve = () => {};
+  const promise = new Promise<void>((done) => {
+    resolve = done;
+  });
+  const pages = answered.get(context) ?? new Map<string, Promise<void>>();
+  answered.set(context, pages.set(pathname, promise));
   await context.route(
-    (url) => url.pathname === `/api/html/${encodeURI(pagePath)}`,
-    (route) => {
+    (url) => url.pathname === pathname,
+    async (route) => {
       const query = new URL(route.request().url()).searchParams;
       const theme = query.get("theme");
       const palette = query.get("palette");
@@ -50,7 +64,7 @@ async function routePage({ context }: BrowserCommandContext, pagePath: string, f
         ],
         { cwd: BACKEND },
       );
-      return route.fulfill({
+      await route.fulfill({
         status: 200,
         contentType: "text/html",
         headers: {
@@ -61,9 +75,15 @@ async function routePage({ context }: BrowserCommandContext, pagePath: string, f
         },
         body,
       });
+      resolve();
     },
   );
 }
+
+/** Waits until the page at `pathname` has been answered once; a path no route serves passes at once. */
+export const pageServed: BrowserCommand<[string]> = async ({ context }, pathname) => {
+  await answered.get(context)?.get(pathname);
+};
 
 /**
  * Serves `html` as the page at `pagePath`, written to a file first, as the backend reads one.
@@ -126,4 +146,15 @@ export const serveSlowly: BrowserCommand<[string, number]> = async ({ context },
 export const unservePages: BrowserCommand<[]> = async ({ context }) => {
   // A late answer `serveSlowly` still owes a frame the test has removed has nowhere to go.
   await context.unrouteAll({ behavior: "ignoreErrors" });
+  answered.delete(context);
+};
+
+/** The commands this file gives the frame project, for `vite.config.ts` to register. */
+export const serveCommands = {
+  hideResizeObserver,
+  pageServed,
+  serveFile,
+  servePage,
+  serveSlowly,
+  unservePages,
 };
