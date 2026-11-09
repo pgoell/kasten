@@ -237,7 +237,6 @@ describe("the note finder's list", () => {
   });
 
   it("mounts the twenty best-ranked notes and no more", () => {
-    // MANY_PATHS ranks its last five first, so a cut before the ranking drops them.
     const finder = renderFinder(MANY_PATHS);
 
     finder.type("no");
