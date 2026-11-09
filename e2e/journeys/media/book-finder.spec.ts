@@ -189,6 +189,8 @@ test.describe("with vim off", () => {
     await openOnShelf(page, stack.vault);
     await page.keyboard.press("Control+Shift+P");
     await page.getByRole("option", { name: /^Find a book/ }).click();
+    const finder = page.getByRole("dialog", { name: "Find book" });
+    await expect(finder.getByRole("option", { selected: true })).toContainText("Contents");
 
     await page.keyboard.press("Enter");
 
