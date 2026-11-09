@@ -4,12 +4,15 @@ import type { ReactNode } from "react";
 import type { TodoHit } from "@/lib/core/api";
 import { useTodoActions } from "@/lib/todo/use-todo-actions";
 
-const { cycleTodoInVault } = vi.hoisted(() => ({ cycleTodoInVault: vi.fn() }));
+const { cycleTodoInVault, toggleTimerInVault } = vi.hoisted(() => ({
+  cycleTodoInVault: vi.fn(),
+  toggleTimerInVault: vi.fn(),
+}));
 vi.mock("@/lib/todo/todo-api", () => ({
   agentTodoIn: vi.fn(),
   cycleTodoAside: vi.fn(),
   cycleTodoInVault,
-  toggleTimerInVault: vi.fn(),
+  toggleTimerInVault,
 }));
 
 const ALPHA: TodoHit = { path: "a.md", line: 2, text: "- [/] alpha", project: null, shared: false };
@@ -20,9 +23,9 @@ function mount() {
   const client = new QueryClient();
   client.setQueryData(["todos", false], [ALPHA, BRAVO]);
   const landings: (() => void)[] = [];
-  cycleTodoInVault.mockImplementation(
-    () => new Promise<void>((resolve) => landings.push(() => resolve())),
-  );
+  const held = () => new Promise<void>((resolve) => landings.push(() => resolve()));
+  cycleTodoInVault.mockImplementation(held);
+  toggleTimerInVault.mockImplementation(held);
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
   );
@@ -42,7 +45,7 @@ function mount() {
   const land = async (index: number) => {
     await act(async () => landings[index]?.());
   };
-  return { press: result.current.cycleTodo, rows, stale, land };
+  return { press: result.current.cycleTodo, timer: result.current.toggleTimer, rows, stale, land };
 }
 
 describe("a press on the todo list", () => {
@@ -75,6 +78,20 @@ describe("a press on the todo list", () => {
     await pane.land(0);
     expect(pane.stale()).toBe(false);
     await pane.land(1);
+    expect(pane.stale()).toBe(true);
+  });
+
+  it("waits for a press of x when a press of t on another row lands first", async () => {
+    const pane = mount();
+
+    await act(async () => {
+      pane.press(ALPHA);
+      pane.timer(BRAVO);
+    });
+
+    await pane.land(1);
+    expect(pane.stale()).toBe(false);
+    await pane.land(0);
     expect(pane.stale()).toBe(true);
   });
 });

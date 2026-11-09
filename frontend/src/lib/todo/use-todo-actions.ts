@@ -142,14 +142,24 @@ export function useTodoActions({
     void queryClient.invalidateQueries({ queryKey: ["files"] });
   }, [queryClient]);
 
+  /** Presses not yet settled, of every kind, so they share the one refetch below. */
+  const unsettled = useRef(0);
+
   /**
    * A pane press has settled. The list is asked even if a write failed after an earlier one landed,
    * since `endPress` mutes the echoes of the landed writes and nothing else would redraw them.
    */
   const settled = useCallback(() => {
-    todosWritten();
+    unsettled.current -= 1;
+    // Asked once the last press lands: an earlier answer would draw a later press back.
+    if (unsettled.current === 0) todosWritten();
     endPress();
   }, [todosWritten]);
+
+  const begun = useCallback(() => {
+    unsettled.current += 1;
+    beginPress();
+  }, []);
 
   /**
    * Follow a `<leader>x` into the vault. The buffer already carries the note's own lines, so this moves only the `## Done` log and dependents.
@@ -168,8 +178,6 @@ export function useTodoActions({
     [data, todosWritten, setNotice],
   );
 
-  /** Presses not yet settled. The list is asked once the last lands: an earlier answer would draw a later press back. */
-  const unsettled = useRef(0);
 
   /**
    * Walk one todo on in the vault, from the pane's `x` or a card drop, or set the state a key named.
@@ -180,17 +188,12 @@ export function useTodoActions({
       setNotice(undefined);
       const press = { today: readClock(new Date()).date, id: newId(), state };
       void drawPressed(queryClient, hit, press);
-      beginPress();
-      unsettled.current += 1;
+      begun();
       void cycleTodoInVault(hit, press.today, data ?? [], state, twins, press.id)
         .catch((error: unknown) => setNotice(nothingMoved(error)))
-        .finally(() => {
-          unsettled.current -= 1;
-          if (unsettled.current === 0) todosWritten();
-          endPress();
-        });
+        .finally(settled);
     },
-    [queryClient, data, todosWritten, setNotice],
+    [queryClient, data, settled, setNotice],
   );
 
   /**
@@ -200,7 +203,7 @@ export function useTodoActions({
   const toggleTimer = useCallback(
     (hit: SearchHit, twins?: number[]) => {
       setNotice(undefined);
-      beginPress();
+      begun();
       void toggleTimerInVault(hit, readClock(new Date()), data ?? [], twins)
         .catch((error: unknown) => setNotice(nothingMoved(error)))
         .finally(settled);
@@ -277,7 +280,7 @@ export function useTodoActions({
   );
   const agentTodo = useCallback(
     (hit: SearchHit, twins?: number[]) => {
-      beginPress();
+      begun();
       return tagTodo(hit, twins).finally(settled);
     },
     [tagTodo, settled],
@@ -288,7 +291,7 @@ export function useTodoActions({
    */
   const editTodo = useCallback(
     (hit: SearchHit, line: string) => {
-      beginPress();
+      begun();
       // The vault refused the write, or the note moved out from under the row.
       // The list stays as it is, and the settle below asks for it anyway.
       void editTodoInVault(hit, line)
@@ -304,7 +307,7 @@ export function useTodoActions({
    */
   const blockTodo = useCallback(
     (hit: SearchHit, blocker: SearchHit) => {
-      beginPress();
+      begun();
       void blockTodoInVault(hit, blocker)
         .catch((error: unknown) => setNotice(nothingMoved(error)))
         .finally(settled);
@@ -432,7 +435,7 @@ export function useTodoActions({
   );
   const refileTodo = useCallback(
     (hit: TodoHit, lane?: string) => {
-      beginPress();
+      begun();
       return moveTodo(hit, lane).finally(settled);
     },
     [moveTodo, settled],
