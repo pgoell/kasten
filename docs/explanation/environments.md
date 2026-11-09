@@ -262,12 +262,12 @@ download: jj and rg in the backend, and ttyd, herdr, jj, rg and starship in the
 shell. Each has one stage per architecture with its own URL and its own pinned
 checksum, and `FROM <tool>-${TARGETARCH}` picks the stage, so a build only
 fetches its own. The amd64 stages pin the same binaries they did before arm64
-was added, which is why an amd64 host gets what it always did. The backend
-fetches with curl, which retries a 5xx from GitHub's release downloads five
-times before it fails the build; the shell still uses `ADD`, which fails on the
-first. The one asymmetry is rg: ripgrep publishes no static musl build
-for aarch64, so the arm64 image carries the glibc build, which runs against the
-glibc the Debian base already has.
+was added, which is why an amd64 host gets what it always did. Both images
+fetch with curl, which retries a 5xx from GitHub's release downloads five times
+before it fails the build, where `ADD` failed on the first. The one asymmetry
+is rg: ripgrep publishes no static musl build for aarch64, so the arm64 image
+carries the glibc build, which runs against the glibc the Debian base already
+has.
 
 Each architecture builds on a runner of its own kind, `ubuntu-latest` and
 `ubuntu-24.04-arm`, rather than on one runner with QEMU. Under emulation every

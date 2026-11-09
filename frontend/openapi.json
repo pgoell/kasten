@@ -2674,6 +2674,38 @@
         }
       }
     },
+    "/api/push/act": {
+      "post": {
+        "summary": "Act",
+        "description": "`Done` or `Tomorrow` on a reminder, written as the todo pane writes a tick.",
+        "operationId": "act_api_push_act_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/library": {
       "get": {
         "summary": "Read Library",
@@ -8271,6 +8303,36 @@
         "title": "AccountStatus",
         "description": "Where an account stands: its last good window, and the newest booking stored."
       },
+      "ActIn": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Path"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Text"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "done",
+              "tomorrow"
+            ],
+            "title": "Action"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "text",
+          "action"
+        ],
+        "title": "ActIn",
+        "description": "A button on a reminder: the note, the todo line's text as pushed, and what to do."
+      },
       "Add": {
         "properties": {
           "text": {
@@ -13691,6 +13753,18 @@
               }
             ],
             "title": "Quiet End"
+          },
+          "goals": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Goals"
           }
         },
         "type": "object",
@@ -13700,7 +13774,7 @@
           "quiet_end"
         ],
         "title": "PushHours",
-        "description": "The morning push's time and the quiet hours, None for off; quiet hours need both ends."
+        "description": "When the morning and goals pushes go and the quiet hours, None for off.\n\nQuiet hours need both ends."
       },
       "PushHours-Output": {
         "properties": {
@@ -13736,6 +13810,17 @@
               }
             ],
             "title": "Quiet End"
+          },
+          "goals": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Goals"
           }
         },
         "type": "object",
@@ -13745,7 +13830,7 @@
           "quiet_end"
         ],
         "title": "PushHours",
-        "description": "The morning push's time and the quiet hours, None for off; quiet hours need both ends."
+        "description": "When the morning and goals pushes go and the quiet hours, None for off.\n\nQuiet hours need both ends."
       },
       "PushOut": {
         "properties": {

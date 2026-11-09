@@ -34,8 +34,9 @@ has to subscribe again in `/settings`.
 
 The zone a todo's `⏰ 2026-11-12 09:00` is read in. Default `Europe/Berlin`.
 The server's clock runs in UTC, so the zone is named here rather than taken
-from it. Any name in the IANA database works. The morning push and the quiet
-hours set in `/settings` are read in it too.
+from it. Any name in the IANA database works. The morning push, the goals push
+and the quiet hours set in `/settings` are read in it too, and so is the day a
+reminder's **Done** stamps and **Tomorrow** moves to.
 
 ## Related
 

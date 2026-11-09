@@ -24,7 +24,7 @@ class PushDevice(Base):
 
 
 class PushSettings(Base):
-    """When a push may go: the morning push's time and the quiet hours, None for off; one row."""
+    """When a push may go: the morning and goals pushes' times and the quiet hours, None for off."""
 
     __tablename__ = "push_settings"
     __table_args__ = (CheckConstraint("id = 1", name="push_settings_one_row"),)
@@ -33,6 +33,7 @@ class PushSettings(Base):
     morning: Mapped[time | None] = mapped_column(Time)
     quiet_start: Mapped[time | None] = mapped_column(Time)
     quiet_end: Mapped[time | None] = mapped_column(Time)
+    goals: Mapped[time | None] = mapped_column(Time)
 
 
 class PushSent(Base):

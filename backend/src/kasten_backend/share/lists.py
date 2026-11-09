@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
-from kasten_backend import agent, done_log, todo_fields, vault
+from kasten_backend import agent, done_log, todo_fields, todos, vault
 from kasten_backend.share.lines import (
     CLOSED,
     TASK,
@@ -293,23 +293,16 @@ async def tick(  # noqa: PLR0913  the route's body, field by field, and the tick
         return _shape(name, raw)
 
     indent, rest, eol = match.group(1), match.group(3), match.group(4)
-    parts = descendants(lines, line) if done else []
-    if done and any(_recurs(lines[number]) for number in [line, *parts]):
-        raise TickInKastenError(TICK_IN_KASTEN)
     path = f"{settings.share_folder}/{name}.md"
-    if settings.share_logs_done:
-        twin = await done_log.other_todo_with_id(settings, path, lines, line, rest)
-        if twin is not None:
-            raise TickInKastenError(twin)
-
     # One day for the stamp and the daily note: the ticker's, else the server's (#1300).
     today = day or date.today()
     if done:
-        rest = ticked(rest, today)
-        lines[line] = f"{indent}- [x] {rest}{eol}"
-        for number in parts:
-            lines[number] = taken_along(lines[number], today)
+        rest = await tick_task(settings, path, lines, line, today, twins=settings.share_logs_done)
     else:
+        if settings.share_logs_done:
+            twin = await done_log.other_todo_with_id(settings, path, lines, line, rest)
+            if twin is not None:
+                raise TickInKastenError(twin)
         lines[line] = f"{indent}- [ ] {undone(rest)}{eol}"
 
     saved = await _save(settings, name, "\n".join(lines), sha)
@@ -322,6 +315,32 @@ async def tick(  # noqa: PLR0913  the route's body, field by field, and the tick
             await done_log.unlog(settings, path, rest)
 
     return saved
+
+
+async def tick_task(  # noqa: PLR0913  the note, its lines, the line, the day and the twin check
+    settings: Settings, path: str, lines: list[str], line: int, today: date, *, twins: bool
+) -> str:
+    """Tick the open todo on `line` of `lines` in place, its open parts along; its new words.
+
+    Raises `TickInKastenError` where kasten writes more than a tick: a recurring item or part,
+    and, with `twins`, an id another todo carries.
+    """
+    todo = todos.LINE.fullmatch(lines[line].removesuffix("\r"))
+    assert todo is not None  # noqa: S101  the caller found a todo there
+    indent, rest = todo[1], todo[2] or ""
+    eol = "\r" if lines[line].endswith("\r") else ""
+    parts = descendants(lines, line)
+    if any(_recurs(lines[number]) for number in [line, *parts]):
+        raise TickInKastenError(TICK_IN_KASTEN)
+    if twins:
+        twin = await done_log.other_todo_with_id(settings, path, lines, line, rest)
+        if twin is not None:
+            raise TickInKastenError(twin)
+    rest = ticked(rest, today)
+    lines[line] = f"{indent}- [x] {rest}{eol}"
+    for number in parts:
+        lines[number] = taken_along(lines[number], today)
+    return rest
 
 
 async def assign(

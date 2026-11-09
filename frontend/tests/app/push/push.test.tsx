@@ -214,26 +214,33 @@ describe("the settings page's push times", () => {
   }
 
   it("shows the stored morning time and quiet hours after a reload", async () => {
-    serveHours({ morning: "07:30", quiet_start: "22:00", quiet_end: "07:00" });
+    serveHours({ morning: "07:30", quiet_start: "22:00", quiet_end: "07:00", goals: "20:00" });
     await renderPage();
 
     expect(await screen.findByLabelText("Morning push time")).toHaveValue("07:30");
     expect(screen.getByLabelText("Quiet hours start")).toHaveValue("22:00");
     expect(screen.getByLabelText("Quiet hours end")).toHaveValue("07:00");
+    expect(screen.getByLabelText("Log goals push time")).toHaveValue("20:00");
   });
 
   it("saves the times, sending an emptied one as null for off", async () => {
-    const put = serveHours({ morning: "07:30", quiet_start: null, quiet_end: null });
+    const put = serveHours({
+      morning: "07:30",
+      quiet_start: null,
+      quiet_end: null,
+      goals: "20:00",
+    });
     await renderPage();
 
     fireEvent.change(await screen.findByLabelText("Morning push time"), { target: { value: "" } });
     fireEvent.change(screen.getByLabelText("Quiet hours start"), { target: { value: "22:00" } });
     fireEvent.change(screen.getByLabelText("Quiet hours end"), { target: { value: "07:00" } });
+    fireEvent.change(screen.getByLabelText("Log goals push time"), { target: { value: "" } });
     fireEvent.click(screen.getByRole("button", { name: "Save times" }));
 
     expect(await screen.findByText("Saved")).toBeInTheDocument();
     expect(put).toHaveBeenCalledWith("/api/push/settings", {
-      body: { morning: null, quiet_start: "22:00", quiet_end: "07:00" },
+      body: { morning: null, quiet_start: "22:00", quiet_end: "07:00", goals: null },
     });
   });
 

@@ -229,10 +229,26 @@ async def test_1555_a_fence_under_a_nested_item_hides_its_todo(
     response = await client.get("/api/todos")
 
     assert sorted((hit["path"], hit["line"], hit["text"]) for hit in response.json()) == [
-        ("crlf.md", 8, "- [ ] kept\r"),
+        ("crlf.md", 8, "- [ ] kept"),
         ("deep.md", 6, "- [ ] after"),
         ("plain.md", 3, "- [ ] shown"),
     ]
+
+
+async def test_1705_a_crlf_note_answers_the_lines_of_its_lf_twin(
+    client: AsyncClient, vault: Path
+) -> None:
+    note = "# top\n- [ ] r\n- plain\n## Other\n  - [ ] far\n```\n- [ ] code\n```\n1. after\n"
+    write(vault, "lf.md", note)
+    write(vault, "crlf.md", note.replace("\n", "\r\n"))
+
+    response = await client.get("/api/todos")
+
+    hits = {(hit["path"], hit["line"], hit["text"], hit["project"]) for hit in response.json()}
+    assert {hit[1:] for hit in hits if hit[0] == "crlf.md"} == {
+        hit[1:] for hit in hits if hit[0] == "lf.md"
+    }
+    assert ("crlf.md", 4, "## Other", None) in hits
 
 
 def test_1555_fenced_lines_reads_an_opener_under_a_nested_item() -> None:

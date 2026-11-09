@@ -389,6 +389,55 @@ describe("the service worker", () => {
     expect(sw.self.clients.openWindow).toHaveBeenCalledWith("/?note=x&line=1");
   });
 
+  it("#1682 A3 I7 a reminder gets Done and Tomorrow only where the browser shows buttons", async () => {
+    const reminder = {
+      title: "kasten",
+      body: "b",
+      path: "N.md",
+      line: 3,
+      tag: "t",
+      text: "- [ ] b",
+    };
+    for (const [maxActions, payload, buttons] of [
+      [2, reminder, true],
+      [0, reminder, false],
+      [undefined, reminder, false],
+      [2, { ...reminder, text: undefined }, false],
+    ] as const) {
+      const sw = await installed();
+      Object.assign(sw.self, { Notification: { maxActions } });
+      await sw.dispatch("push", { data: { json: () => payload } });
+      const [, options] = sw.self.registration.showNotification.mock.calls[0] as unknown as [
+        string,
+        { actions?: { action: string }[] },
+      ];
+      expect(options.actions?.map((a) => a.action)).toEqual(
+        buttons ? ["done", "tomorrow"] : undefined,
+      );
+    }
+  });
+
+  it.each([
+    [204, false],
+    [409, true],
+    [0, true],
+  ])("#1682 I2 a button answered %s opens the note: %s", async (status, opens) => {
+    const sw = await installed();
+    sw.fetch.mockResolvedValue({ status } as Response);
+    const data = { url: "/?note=N.md&line=3", path: "N.md", text: "- [ ] b" };
+    await sw.dispatch("notificationclick", {
+      action: "done",
+      notification: { close: vi.fn(), data },
+    });
+    const [url, init] = sw.fetch.mock.calls[0] as unknown as [string, RequestInit];
+    expect([url, init.redirect, JSON.parse(String(init.body))]).toEqual([
+      "/api/push/act",
+      "manual",
+      { action: "done", path: "N.md", text: "- [ ] b" },
+    ]);
+    expect(sw.self.clients.openWindow).toHaveBeenCalledTimes(opens ? 1 : 0);
+  });
+
   it("activate deletes the caches of an older version", async () => {
     const sw = await installed();
     await sw.caches.open("kasten-0ld");

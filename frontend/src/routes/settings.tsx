@@ -109,7 +109,7 @@ function Settings() {
   );
 }
 
-/** The morning push's time and the quiet hours, loaded once and saved with one button. */
+/** The morning and goals pushes' times and the quiet hours, loaded once, saved with one button. */
 function HoursSection() {
   const queryClient = useQueryClient();
   const hours = useQuery({ queryKey: ["push", "settings"], queryFn: fetchHours });
@@ -161,7 +161,7 @@ function TimeField({
   );
 }
 
-/** The three times as the user edits them, sent as null where left empty. */
+/** The four times as the user edits them, sent as null where left empty. */
 function HoursForm({
   stored,
   pending,
@@ -178,13 +178,19 @@ function HoursForm({
   const [morning, setMorning] = useState(stored.morning ?? "");
   const [start, setStart] = useState(stored.quiet_start ?? "");
   const [end, setEnd] = useState(stored.quiet_end ?? "");
+  const [goals, setGoals] = useState(stored.goals ?? "");
 
   return (
     <form
       className="flex flex-col gap-4"
       onSubmit={(event) => {
         event.preventDefault();
-        onSave({ morning: morning || null, quiet_start: start || null, quiet_end: end || null });
+        onSave({
+          morning: morning || null,
+          quiet_start: start || null,
+          quiet_end: end || null,
+          goals: goals || null,
+        });
       }}
     >
       <div className="flex flex-col gap-1">
@@ -194,6 +200,15 @@ function HoursForm({
         </span>
         <span className="text-k-12 text-k-muted">
           Today's due and scheduled todos, once a day. Leave empty for none.
+        </span>
+      </div>
+      <div className="flex flex-col gap-1">
+        <span className="flex flex-wrap items-center gap-2 text-k-13 font-medium">
+          Log goals push at
+          <TimeField label="Log goals push time" value={goals} onChange={setGoals} />
+        </span>
+        <span className="text-k-12 text-k-muted">
+          One push for each min goal of the log not met yet that day. Leave empty for none.
         </span>
       </div>
       <div className="flex flex-col gap-1">
