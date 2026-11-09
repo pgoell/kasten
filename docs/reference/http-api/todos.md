@@ -205,3 +205,18 @@ it, or `503` when push is not set up.
 Removes a device, so no push goes to it again. `204`, or `404` for an id no
 device has.
 
+
+## POST /api/push/act
+
+A button on a reminder: `{"path", "text", "action"}`, where `text` is the todo
+line as the push carried it and `action` is `done` or `tomorrow`. The line is
+found by its text in the note, since its number may have moved. `done` ticks it
+as the share tick and the todo pane do: `✅` and today's date, a `🆔` when it
+has none, its open parts taken along, and a `- ✅` line under `## Done` in
+today's daily note. `tomorrow` moves its `⏰` to the day after today, time kept.
+Today is read in `KASTEN_TIMEZONE`, and the history names the writer `push`.
+
+`204` once written. `409` and nothing written when no line or two lines of
+the note read `text`, or the line is no open todo with a `⏰`. `422` and nothing
+written for `done` where the pane writes more than a tick: a recurring todo or
+part, a `🆔` another todo carries, or a `🆔` a `⛔` names.
