@@ -23,8 +23,10 @@ under this cursor, and the bare `x` is the key that acts on a row.
 Enter opens the note into this pane, which is what clicking a row in the file
 tree already does, and `<leader>gt` brings the list back in one press.
 
-`x` writes the vault rather than a buffer. The note the row names is read again
-first. A root todo a write above has shifted is found by its words; a row whose
+`x` writes the vault rather than a buffer. The row shows the new state at
+once, the list and the board alike, before the vault has the write; the list's
+next answer from the vault, after the press, stands, a refused write included.
+The note the row names is read again first. A root todo a write above has shifted is found by its words; a row whose
 todo cannot be found cycles nothing, and the notice says so. The note redraws
 in whatever pane is showing it. Ticking one done also writes the
 [done log](/reference/todo-format/time-and-repeats.md#the-done-log) line into today's daily note,
@@ -38,7 +40,8 @@ drawn in: a row checked off stays where it was, struck through, and a todo
 written elsewhere meanwhile joins the end of its group. The order goes once the
 focus leaves the pane, the pane closes or the page reloads, and `d`, `n`, `v`,
 `c`, `b`, `i`, `s` and the filter draw the list afresh too. A press redraws the
-list once, after its last write, whether every write landed or not; the vault's
+list once, after its last write, whether every write landed or not, and
+`x` and state-key presses that overlap redraw it once, after the last lands; the vault's
 word on a note the press wrote asks again only where the note now holds other
 text than the press wrote (#947).
 
