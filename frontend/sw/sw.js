@@ -172,20 +172,50 @@ async function fetchKept(request, cache) {
 
 /** A todo's reminder shows as a notification; a click opens the note it is in. */
 self.addEventListener("push", (event) => {
-  const { title, body, path, line, tag } = event.data.json();
+  const { title, body, path, line, tag, text } = event.data.json();
+  const url = `/?note=${encodeURIComponent(path)}&line=${line}`;
+  // Only a reminder names its line, and only where the browser shows buttons: not iOS.
+  const acts = text !== undefined && self.Notification?.maxActions > 0;
   event.waitUntil(
     self.registration.showNotification(title, {
       body,
       tag,
-      data: { url: `/?note=${encodeURIComponent(path)}&line=${line}` },
+      data: acts ? { url, path, text } : { url },
+      ...(acts && { actions: ACTIONS }),
     }),
   );
 });
 
+const ACTIONS = [
+  { action: "done", title: "Done" },
+  { action: "tomorrow", title: "Tomorrow" },
+];
+/** How long a button waits on the backend, so opening the note still counts as the tap's. */
+const ACT_WAIT = 4000;
+
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  event.waitUntil(openNote(event.notification.data.url));
+  const { url, path, text } = event.notification.data;
+  event.waitUntil(event.action ? act(event.action, path, text, url) : openNote(url));
 });
+
+/** Write a button through the backend; any answer but its 204 opens the note instead. */
+async function act(action, path, text, url) {
+  let answer;
+  try {
+    answer = await fetch("/api/push/act", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, path, text }),
+      // A lapsed sign-in answers a redirect, which must not read as done.
+      redirect: "manual",
+      signal: AbortSignal.timeout(ACT_WAIT),
+    });
+  } catch (error) {
+    if (!(error instanceof TypeError || error?.name === "TimeoutError")) throw error;
+  }
+  if (answer?.status !== 204) await openNote(url);
+}
 
 /** Point an open window of this origin at `url`, or open one when none is open. */
 async function openNote(url) {
