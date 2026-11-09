@@ -1,8 +1,8 @@
-"""The devices a push goes to and the reminders already sent: device state, so Postgres."""
+"""The devices a push goes to, when it may go, and the reminders sent: device state, so Postgres."""
 
-from datetime import datetime  # noqa: TC003  SQLAlchemy reads `Mapped[...]` at runtime
+from datetime import datetime, time  # noqa: TC003  SQLAlchemy reads `Mapped[...]` at runtime
 
-from sqlalchemy import DateTime, Integer, Text, func
+from sqlalchemy import CheckConstraint, DateTime, Integer, Text, Time, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from kasten_backend.db import Base
@@ -21,6 +21,18 @@ class PushDevice(Base):
     created: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+
+class PushSettings(Base):
+    """When a push may go: the morning push's time and the quiet hours, None for off; one row."""
+
+    __tablename__ = "push_settings"
+    __table_args__ = (CheckConstraint("id = 1", name="push_settings_one_row"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    morning: Mapped[time | None] = mapped_column(Time)
+    quiet_start: Mapped[time | None] = mapped_column(Time)
+    quiet_end: Mapped[time | None] = mapped_column(Time)
 
 
 class PushSent(Base):

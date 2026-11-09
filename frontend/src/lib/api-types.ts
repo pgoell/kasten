@@ -1263,6 +1263,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/push/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Hours
+         * @description When pushes go, as `HH:MM`; all None until first saved.
+         */
+        get: operations["read_hours_api_push_settings_get"];
+        /**
+         * Write Hours
+         * @description Store when pushes go; the sender reads it on its next tick.
+         */
+        put: operations["write_hours_api_push_settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/push/devices": {
         parameters: {
             query?: never;
@@ -5812,6 +5836,30 @@ export interface components {
             last: string;
         };
         /**
+         * PushHours
+         * @description The morning push's time and the quiet hours, None for off; quiet hours need both ends.
+         */
+        "PushHours-Input": {
+            /** Morning */
+            morning: string | null;
+            /** Quiet Start */
+            quiet_start: string | null;
+            /** Quiet End */
+            quiet_end: string | null;
+        };
+        /**
+         * PushHours
+         * @description The morning push's time and the quiet hours, None for off; quiet hours need both ends.
+         */
+        "PushHours-Output": {
+            /** Morning */
+            morning: string | null;
+            /** Quiet Start */
+            quiet_start: string | null;
+            /** Quiet End */
+            quiet_end: string | null;
+        };
+        /**
          * PushOut
          * @description The key a browser subscribes with, or None where push is not set up, and the devices.
          */
@@ -8448,6 +8496,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PushOut"];
+                };
+            };
+        };
+    };
+    read_hours_api_push_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushHours-Output"];
+                };
+            };
+        };
+    };
+    write_hours_api_push_settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PushHours-Input"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushHours-Output"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

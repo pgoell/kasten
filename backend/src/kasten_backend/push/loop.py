@@ -1,4 +1,4 @@
-"""The sender: each minute, every reminder due in the last hour goes to every device, once.
+"""The sender: each minute, every reminder due in its late hour goes to every device, once.
 
 One worker sends, the one holding the advisory lock. A reminder is recorded as sent in the
 same transaction as its send, so a restart neither repeats one nor drops it.
@@ -6,6 +6,7 @@ same transaction as its send, so a restart neither repeats one nor drops it.
 
 import asyncio
 import datetime as dt
+import hashlib
 import logging
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
@@ -15,20 +16,20 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
+from kasten_backend.periodic import daily_path
 from kasten_backend.push import webpush
-from kasten_backend.push.due import reminders
-from kasten_backend.push.models import PushDevice, PushSent
+from kasten_backend.push.due import Quiet, reminders, sendable, today_todos
+from kasten_backend.push.models import PushDevice, PushSent, PushSettings
 from kasten_backend.todos import find_todos
 
 if TYPE_CHECKING:
     from kasten_backend.config import Settings
+    from kasten_backend.search import Hit
 
 logger = logging.getLogger(__name__)
 
 PUSH_LOCK = 0x6B70_7573
 """The advisory lock one sender holds for a tick, `kpus` in ASCII, apart from the finance locks."""
-LATE = dt.timedelta(hours=1)
-"""How late a missed reminder may still go out; an older one is dropped."""
 GONE = {404, 410}
 REFUSED = 300
 EVERY_SECONDS = 60
@@ -60,9 +61,13 @@ async def _send_due(
     if not devices:
         return 0
     zone = ZoneInfo(settings.timezone)
+    hours = await session.get(PushSettings, 1) or PushSettings()
+    start, end = hours.quiet_start, hours.quiet_end
+    quiet = None if start is None or end is None else Quiet(start, end)
     hits = await find_todos(settings.vault_path, settings.archive_path)
-    due = [found for found in reminders(hits, zone) if now - LATE < found.due <= now]
-    sent = 0
+    due = [found for found in reminders(hits, zone) if sendable(found.due, now, quiet, zone)]
+    morning = _morning(settings, now, hours.morning, quiet, hits)
+    sent = await _send_morning(session, client, key, morning)
     for reminder in due:
         if await session.get(PushSent, reminder.key) is not None:
             continue
@@ -82,6 +87,46 @@ async def _send_due(
         await session.commit()
         sent += 1
     return sent
+
+
+def _morning(
+    settings: Settings,
+    now: dt.datetime,
+    morning: dt.time | None,
+    quiet: Quiet | None,
+    hits: list[Hit],
+) -> tuple[PushSent, dict] | None:
+    """Today's morning push and its record, keyed on the day; None when off, not yet, or empty."""
+    zone = ZoneInfo(settings.timezone)
+    today = now.astimezone(zone).date()
+    if morning is None:
+        return None
+    at = dt.datetime.combine(today, morning, tzinfo=zone)
+    words = today_todos(hits, today)
+    if not words or not sendable(at, now, quiet, zone):
+        return None
+    path = daily_path(today, settings.periodic_path)
+    key = hashlib.sha256(f"morning\0{today.isoformat()}".encode()).hexdigest()
+    message = {"title": "Today", "body": "\n".join(words), "path": path, "line": 1, "tag": key}
+    return PushSent(key=key, path=path, due=at), message
+
+
+async def _send_morning(
+    session: AsyncSession,
+    client: httpx.AsyncClient,
+    key: str,
+    morning: tuple[PushSent, dict] | None,
+) -> int:
+    """Send the morning push to every device unless it went today already."""
+    if morning is None or await session.get(PushSent, morning[0].key) is not None:
+        return 0
+    record, message = morning
+    for device in list(await session.scalars(select(PushDevice))):
+        if await _post(client, device, message, key) in GONE:
+            await session.execute(delete(PushDevice).where(PushDevice.id == device.id))
+    session.add(record)
+    await session.commit()
+    return 1
 
 
 async def _post(
