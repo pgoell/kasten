@@ -35,6 +35,24 @@ export async function startTimer(label: string, seconds: number, now = new Date(
   return data;
 }
 
+/** Start a repeat that rings at once, then every `every` seconds until `until`. */
+export async function startRepeat(
+  label: string,
+  every: number,
+  until: Date,
+  now = new Date(),
+): Promise<Timer> {
+  const { data, error, response } = await client.POST("/api/push/timers", {
+    body: { label, due: now.toISOString(), every, until: until.toISOString() },
+  });
+
+  if (!data) {
+    throw new Error(reason(error) ?? `POST /api/push/timers failed with ${response.status}`);
+  }
+
+  return data;
+}
+
 /** Stop a timer before it rings. */
 export async function stopTimer(id: number): Promise<void> {
   const { response } = await client.DELETE("/api/push/timers/{timer_id}", {

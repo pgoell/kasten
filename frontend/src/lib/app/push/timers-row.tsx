@@ -12,6 +12,7 @@ import {
   stopTimer,
   type Timer,
 } from "@/lib/app/push/timers";
+import { WaterSwitch } from "@/lib/app/push/water";
 
 const SMALL_BUTTON =
   "rounded-[var(--k-radius-6)] border px-2 py-1 font-sans text-k-13 transition-colors duration-(--k-hover) disabled:opacity-50 pointer-coarse:min-h-11 pointer-coarse:px-3";
@@ -128,6 +129,8 @@ export function TimersRow() {
         </button>
       </form>
 
+      <WaterSwitch running={running} onStarted={changed} />
+
       {recent.length > 0 && (
         <div className="flex flex-wrap gap-2 px-2">
           {recent.map((timer) => (
@@ -171,9 +174,9 @@ function TimerLine({
   return (
     <li
       data-timer
-      className="flex items-baseline justify-between gap-3 px-2 py-1 font-sans text-k-15 text-k-ink"
+      className="flex flex-wrap items-baseline justify-between gap-x-3 px-2 py-1 font-sans text-k-15 text-k-ink"
     >
-      <span className="min-w-0 truncate">{timer.label}</span>
+      <span className="min-w-28 flex-1 truncate">{timer.label}</span>
       <span className="ml-auto shrink-0 text-k-13 text-k-muted tabular-nums">
         {timer.every ? `every ${durationLabel(timer.every)} · next ${at}` : `ends ${at}`}
       </span>

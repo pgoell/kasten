@@ -1,7 +1,7 @@
 ---
 type: How-to Guide
 title: Install kasten on your phone
-description: Put kasten on a phone's home screen, reach the capture page from its icon, replace the capture app an earlier release installed, get todo reminders pushed to it, and set a timer that rings on it.
+description: Put kasten on a phone's home screen, reach the capture page from its icon, replace the capture app an earlier release installed, get todo reminders pushed to it, set a timer that rings on it, and get reminded to drink water through the day.
 tags: [phone, install, android, ios, capture, push]
 status: stable
 ---
@@ -91,6 +91,21 @@ above.
 
 The timer then shows as a button under the form, and a tap starts it again. To
 cancel one, press **Stop** beside it.
+
+## Get reminded to drink water
+
+Subscribe first, as above: the reminders go to every device that gets them.
+
+1. Open an empty pane, which shows Today.
+2. Under **Timers**, check the gap after **every**, `1h 30m` at first, and the
+   stop time after **until**, `21:00` at first. The gap reads like a timer's
+   duration.
+3. Press **Remind me to drink water**.
+
+The first push, "Drink water", comes within a minute, then one each
+gap until the stop time. The reminders then show as a timer with
+**Stop** beside it, and the button hides until they end. This device keeps the
+gap and stop time for the next morning.
 
 ## Related
 
