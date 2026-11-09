@@ -133,6 +133,8 @@ async def test_the_morning_push_sends_today_once_a_day(
     assert message["title"] == "Today"
     assert message["body"] == "pay rent\nbook train\ncall mum"
     assert message["path"] == "01 Periodic/00 Daily/2026-11-12.md"
+    # No line of its own, so no Done or Tomorrow buttons (#1682 I7).
+    assert "text" not in message
 
 
 @pytest.mark.parametrize(("morning", "body"), [(None, TODAY), ("07:30", "- [ ] someday\n")])

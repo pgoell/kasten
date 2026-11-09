@@ -55,6 +55,7 @@ async def test_1682_one_push_per_min_goal_not_met_read_as_the_log_pane_reads_the
         assert await tick(push_db, served, http, AT - dt.timedelta(minutes=1)) == 0
         assert await tick(push_db, served, http, AT) == 3
     messages = sorted((m["body"], m["title"], m["path"]) for _, m in service.sent)
+    assert not any("text" in m for _, m in service.sent)
     assert messages == [
         ("⚖ weight: 0 of 60 kg", "Goal", DAY),
         ("🍽 protein: 40 of 100 g", "Goal", DAY),
