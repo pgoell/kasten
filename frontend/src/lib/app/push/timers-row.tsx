@@ -106,6 +106,7 @@ export function TimersRow() {
 
       <form onSubmit={submit} className="flex flex-wrap items-center gap-2 px-2">
         <input
+          data-timer-field
           aria-label="Timer name"
           placeholder="Washer"
           value={label}
@@ -113,6 +114,7 @@ export function TimersRow() {
           className={`${FIELD} w-40 flex-1`}
         />
         <input
+          data-timer-field
           aria-label="Duration"
           placeholder="1h 25m"
           inputMode="text"

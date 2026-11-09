@@ -227,11 +227,11 @@ export async function renderApp(entry = "/") {
       Object.defineProperty(input, "files", { value: files, configurable: true });
       fireEvent.change(input);
     },
-    /** The prompt's input, while one is open. */
-    prompt: () => promptOf(container),
+    /** The prompt's input, while one is open; an empty pane's timer fields are not it. */
+    prompt: () => container.querySelector("input:not([data-timer-field])") as HTMLInputElement,
     /** Type a path into the open prompt and take it. */
     fill: (value: string) => {
-      const input = promptOf(container);
+      const input = container.querySelector("input:not([data-timer-field])") as HTMLInputElement;
       fireEvent.change(input, { target: { value } });
       fireEvent.keyDown(input, { key: "Enter" });
     },
@@ -457,10 +457,4 @@ export function somebodyElseWrote() {
     vi.advanceTimersByTime(800);
   });
   vi.mocked(saveNote).mockClear();
-}
-
-/** The first input outside an empty pane's timers form, which is the open prompt's. */
-function promptOf(container: HTMLElement): HTMLInputElement {
-  const inputs = [...container.querySelectorAll("input")];
-  return inputs.find((input) => !input.closest("[data-today-timers]")) as HTMLInputElement;
 }
