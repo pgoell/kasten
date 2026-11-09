@@ -343,10 +343,11 @@ describe("the note finder's preview", () => {
     const finder = renderFinder();
 
     // Settled first: the pending pane must not pass for the error one.
-    await vi.waitFor(() =>
-      expect(finder.queryClient.getQueryState(["note", PATHS[0]])?.status).toBe("error"),
-    );
-    expect(finder.preview()).toBe("could not read this note");
+    // Both in one poll: the cache turns `error` a macrotask before the pane draws it.
+    await vi.waitFor(() => {
+      expect(finder.queryClient.getQueryState(["note", PATHS[0]])?.status).toBe("error");
+      expect(finder.preview()).toBe("could not read this note");
+    });
     expect(finder.rows()).toEqual(PATHS);
     finder.press("Enter");
     expect(finder.onOpen).toHaveBeenCalledWith(PATHS[0]);
