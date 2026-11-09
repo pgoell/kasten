@@ -328,6 +328,7 @@ it.each([
   ["finance", (c: Commands) => c.openFinance(), { finance: true }],
   ["review", (c: Commands) => c.openReview(), { review: true }],
   ["chat", (c: Commands) => c.openChat(), { chat: true }],
+  ["timers", (c: Commands) => c.openTimers(), { timers: true }],
   ["graph", (c: Commands) => c.openGraph(), { graph: {} }],
   ["exam", (c: Commands) => c.openExam(), { exam: NOTE }],
 ])(

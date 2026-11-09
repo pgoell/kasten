@@ -171,7 +171,9 @@ name starts "Timer". The last four timers started on this device follow as
 buttons that start the same timer again; the browser keeps them, so each device
 has its own. When a timer rings, the server pushes it to every subscribed device
 ([Timers](/reference/http-api/todos.md#timers)), and the row shows Done until
-the server drops it a few seconds later.
+the server drops it a few seconds later. The same row fills a pane of its own,
+the timers tab, which `<leader>gT` and the phone toolbar's `timers` open; there
+`i` moves to the name field and Escape back out.
 
 The three columns:
 

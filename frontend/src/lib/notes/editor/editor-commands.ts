@@ -70,6 +70,7 @@ export function forwardCommands(get: () => EditorCommands | undefined): Extensio
     createTab: () => get()?.createTab(),
     openTerminal: () => get()?.openTerminal(),
     openChat: () => get()?.openChat(),
+    openTimers: () => get()?.openTimers(),
     importPage: () => get()?.importPage(),
     captureDump: () => get()?.captureDump(),
     splitRight: () => get()?.splitRight(),

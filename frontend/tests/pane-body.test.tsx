@@ -19,6 +19,7 @@ import { ReviewPane } from "@/components/review-pane";
 import { TerminalPane } from "@/components/terminal-pane";
 import { TodoPane } from "@/components/todo-pane";
 import { VideoPane } from "@/components/video-pane";
+import { TimersPane } from "@/lib/app/push/timers-pane";
 import { type KindField, PANE_KINDS, type Pane } from "@/lib/panes/layout/pane-kinds";
 import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
 import { stubCommands } from "./stub-commands";
@@ -52,6 +53,7 @@ const EXPECTED: { [K in KindField]: Expected } = {
   history: { value: "n.md", draws: HistoryPane },
   graph: { value: { around: "a.md" }, draws: GraphPane, archive: true, open: "line" },
   chat: { value: true, draws: ChatPane },
+  timers: { value: true, draws: TimersPane },
 };
 
 function shared(): PaneShared {

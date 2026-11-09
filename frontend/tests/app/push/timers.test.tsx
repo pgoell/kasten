@@ -9,8 +9,10 @@ import {
   remaining,
   type Timer,
 } from "@/lib/app/push/timers";
+import { TimersPane } from "@/lib/app/push/timers-pane";
 import { TimersRow } from "@/lib/app/push/timers-row";
 import { client } from "@/lib/core/api-client";
+import { stubCommands } from "../../stub-commands";
 
 const NOW = new Date("2026-11-12T08:00:00Z");
 
@@ -164,5 +166,28 @@ describe("the Today page's timers", () => {
     expect(del).toHaveBeenCalledWith("/api/push/timers/{timer_id}", {
       params: { path: { timer_id: 4 } },
     });
+  });
+});
+
+describe("the timers tab", () => {
+  it("takes the focus, sends i to the name field and Escape back", async () => {
+    vi.spyOn(client, "GET").mockResolvedValue({
+      data: [],
+      response: new Response(null, { status: 200 }),
+    } as never);
+    const queries = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    await act(async () => {
+      render(
+        <QueryClientProvider client={queries}>
+          <TimersPane commands={stubCommands()} focusSignal={1} />
+        </QueryClientProvider>,
+      );
+    });
+    const pane = screen.getByRole("region", { name: "timers pane" });
+    expect(pane).toHaveFocus();
+    fireEvent.keyDown(pane, { key: "i" });
+    expect(screen.getByLabelText("Timer name")).toHaveFocus();
+    fireEvent.keyDown(screen.getByLabelText("Timer name"), { key: "Escape" });
+    expect(pane).toHaveFocus();
   });
 });

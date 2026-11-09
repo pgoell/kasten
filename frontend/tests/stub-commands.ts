@@ -58,6 +58,7 @@ export function stubCommands() {
     createTab: vi.fn(),
     openTerminal: vi.fn(),
     openChat: vi.fn(),
+    openTimers: vi.fn(),
     importPage: vi.fn(),
     captureDump: vi.fn(),
     splitRight: vi.fn(),

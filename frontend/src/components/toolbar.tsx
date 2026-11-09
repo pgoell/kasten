@@ -21,6 +21,8 @@ const BUTTONS: readonly { command: LeaderCommand; label: string; name: string }[
   // fit neither 360 nor 390, so the row wraps and the ninth goes to a second
   // row rather than off the screen.
   { command: "openChat", label: "chat", name: "Open the chat with Claude Code" },
+  // Ten with space fit no phone, so this row always wraps to a second one.
+  { command: "openTimers", label: "timers", name: "Open the timers" },
 ];
 
 /** The look every button of the row shares, a finger's 44px square among them. */
