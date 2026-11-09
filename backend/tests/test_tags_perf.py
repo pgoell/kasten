@@ -10,6 +10,7 @@ still lands under the bound. That regression is the count in
 
 import os
 import statistics
+import sys
 import time
 from typing import TYPE_CHECKING
 
@@ -18,6 +19,7 @@ from kasten_backend.graph import read_graph
 from kasten_backend.tags import find_tags
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
     import pytest
@@ -128,36 +130,94 @@ async def test_find_tags_reads_whole_only_the_notes_a_line_cannot_say(
     assert 0 < len(whole) < NOTES // 2
 
 
+MOST_GROWTH = 6
+"""A note four times longer may take at most this many times the steps: linear is 4, a walk back 16.
+
+Steps, not time, since a slow or loaded runner changes time and not steps (#1708). A step
+is a Python call or loop turn, so a walk back inside one C call (a regex, a str method) goes
+unseen.
+"""
+
+STEPS_TOOL = 4
+"""A `sys.monitoring` tool id no debugger, coverage tool or profiler claims."""
+
+
+def steps[T](read: Callable[[str], T], text: str) -> tuple[int, T]:
+    """The calls and loop turns `read(text)` makes, Python and C, and what it returns."""
+    count = 0
+
+    def hit(*_: object) -> None:
+        nonlocal count
+        count += 1
+
+    events = sys.monitoring.events
+    sys.monitoring.use_tool_id(STEPS_TOOL, "steps")
+    try:
+        sys.monitoring.register_callback(STEPS_TOOL, events.CALL, hit)
+        sys.monitoring.register_callback(STEPS_TOOL, events.JUMP, hit)
+        sys.monitoring.set_events(STEPS_TOOL, events.CALL | events.JUMP)
+        found = read(text)
+    finally:
+        sys.monitoring.set_events(STEPS_TOOL, 0)
+        sys.monitoring.free_tool_id(STEPS_TOOL)
+    return count, found
+
+
+def growth[T](
+    label: str, text_of: Callable[[int], str], size: int, read: Callable[[str], T]
+) -> tuple[float, T]:
+    """How many times the steps of `read(text_of(size))` exceed a quarter's, and its result."""
+    full, found = steps(read, text_of(size))
+    quarter, _ = steps(read, text_of(size // 4))
+    ratio = full / quarter
+    print(f"\n{label}: {full} steps, {ratio:.2f} times a quarter")
+    return ratio, found
+
+
+def test_growth_counts_steps_and_catches_a_walk_back() -> None:
+    def text_of(size: int) -> str:
+        return "> 1. a <!-- y\n2.\n" * size
+
+    def walk_back(text: str) -> None:
+        for _ in range(len(text) // 500):
+            todos.tags_in(text)
+
+    assert growth("steady", text_of, 500, todos.tags_in)[0] < MOST_GROWTH
+    assert growth("walking back", text_of, 500, walk_back)[0] > MOST_GROWTH
+
+
 def test_1544_long_notes_of_open_comments_and_lazy_items_read_in_bounded_time() -> None:
-    """A comment closes per paragraph and a lazy line asks the list stack: neither may walk back."""
+    """A comment closes per paragraph, a lazy line asks the list stack: no Python walks back."""
     notes = {
-        "open comments": "a <!-- y\n" * 20_000,
-        "lazy quote": "> a <!-- y\n" + "2. x\n" * 20_000 + "#t -->",
-        "lazy items": "- a <!-- y\n" + "- \n2. x\nz\n" * 7_000,
-        "nested lists": "".join("  " * (i % 30) + "- a <!-- y\n" for i in range(20_000)),
+        "open comments": (lambda n: "a <!-- y\n" * n, 20_000),
+        "lazy quote": (lambda n: "> a <!-- y\n" + "2. x\n" * n + "#t -->", 20_000),
+        "lazy items": (lambda n: "- a <!-- y\n" + "- \n2. x\nz\n" * n, 7_000),
+        "nested lists": (
+            lambda n: "".join("  " * (i % 30) + "- a <!-- y\n" for i in range(n)),
+            20_000,
+        ),
     }
-    for label, text in notes.items():
-        start = cpu_seconds()
-        found = todos.tags_in(text)
-        spent = cpu_seconds() - start
-        print(f"\n{label}: {spent * 1000:.0f}ms cpu")
-        assert spent < MOST_SECONDS, label
+    for label, (text_of, size) in notes.items():
+        ratio, found = growth(label, text_of, size, todos.tags_in)
+        assert ratio < MOST_GROWTH, label
         assert len(found) <= 1
 
 
 def test_1594_long_notes_of_spans_in_comments_empty_items_and_lazy_quote_items() -> None:
     """The comment walk passes spans by bisect, and a quote's lazy items cost one parse more."""
     notes = {
-        "spans in a comment": "a <!-- y " + "`x <!--` " * 20_000 + "-->",
-        "spans opening comments": "`<!--` x " * 20_000 + "\n" + "a <!-- `--` y " * 5_000,
-        "empty items": "-\n\n" * 20_000 + "    #t",
-        "lazy items of the other kind": "> - a <!-- y\n" + "2.\n" * 20_000 + "> #t -->",
-        "lazy items that cut": "> 1. a <!-- y\n2.\n" * 5_000,
-        "quote and lazy lines in turn": "> - a <!-- y\n2.\n> b\n" * 7_000,
+        "spans in a comment": (lambda n: "a <!-- y " + "`x <!--` " * n + "-->", 20_000),
+        "spans opening comments": (
+            lambda n: "`<!--` x " * n + "\n" + "a <!-- `--` y " * (n // 4),
+            20_000,
+        ),
+        "empty items": (lambda n: "-\n\n" * n + "    #t", 20_000),
+        "lazy items of the other kind": (
+            lambda n: "> - a <!-- y\n" + "2.\n" * n + "> #t -->",
+            20_000,
+        ),
+        "lazy items that cut": (lambda n: "> 1. a <!-- y\n2.\n" * n, 5_000),
+        "quote and lazy lines in turn": (lambda n: "> - a <!-- y\n2.\n> b\n" * n, 7_000),
     }
-    for label, text in notes.items():
-        start = cpu_seconds()
-        todos.tags_in(text)
-        spent = cpu_seconds() - start
-        print(f"\n{label}: {spent * 1000:.0f}ms cpu")
-        assert spent < MOST_SECONDS, label
+    for label, (text_of, size) in notes.items():
+        assert growth(label, text_of, size, todos.tags_in)[0] < MOST_GROWTH, label
