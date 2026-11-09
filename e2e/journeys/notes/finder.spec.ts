@@ -1,3 +1,6 @@
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import type { Page } from "@playwright/test";
 import { findNote, leader, openApp, phone } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 
@@ -149,6 +152,122 @@ test("a content search opens the note on the line it matches", async ({ page }) 
   });
   await expect(line).toBeInViewport();
   await expect(page.locator(".cm-activeLine")).toContainText("reply to the far away letter");
+});
+
+/**
+ * Writes each file into the test's vault, then loads the app and waits for its asset listing,
+ * so the book finder opens on the shelf and not on the empty list it shows while that loads.
+ */
+async function openOnShelf(page: Page, vault: string, files: string[]): Promise<void> {
+  await Promise.all(files.map((file) => writeFile(join(vault, file), "not a real epub")));
+  const listed = page.waitForResponse((response) => response.url().endsWith("/api/vault-assets"));
+  await openApp(page);
+  await listed;
+}
+
+test("the book finder lists the notes with an epub beside them and walks them with its keys", async ({
+  page,
+  stack,
+}) => {
+  const read: string[] = [];
+  page.on("request", (request) => {
+    const url = decodeURIComponent(request.url());
+    if (url.includes("/api/files/")) read.push(url);
+  });
+  // A fake clock that still runs, so the preview's delay can be run out on demand.
+  await page.clock.install();
+  // Primer has a pdf beside it, Quote an epub spelt in capitals, and Orphan no note at all.
+  await openOnShelf(page, stack.vault, [
+    "02 Projects/Garden.epub",
+    "02 Projects/Home.epub",
+    "Long note.epub",
+    "01 Notes/Quote.EPUB",
+    "Orphan.epub",
+  ]);
+  const tabs = await page.getByRole("tab").count();
+  await leader(page, "fb");
+  const finder = page.getByRole("dialog", { name: "Find book" });
+  const input = finder.getByLabel("find book");
+  await expect(input).toBeFocused();
+  const options = finder.getByRole("option");
+  // Each row as its name and its folder; the root's book has none.
+  const rows = () =>
+    options.evaluateAll((all) =>
+      all.map((row) => [...row.children].map((part) => part.textContent)),
+    );
+  await expect
+    .poll(async () => (await rows()).sort())
+    .toEqual([
+      ["Garden", "02 Projects"],
+      ["Home", "02 Projects"],
+      ["Long note", ""],
+    ]);
+
+  // Read, not assumed: the walk holds whatever order the finder ranks in.
+  const names = (await rows()).map(([name]) => name);
+  const selected = finder.getByRole("option", { selected: true }).locator("span").first();
+  const walk: [string, number][] = [
+    ["Control+j", 1],
+    ["Control+k", 0],
+    ["ArrowUp", 0],
+    ["ArrowDown", 1],
+    ["ArrowDown", 2],
+    ["ArrowDown", 2],
+    ["ArrowUp", 1],
+  ];
+  for (const [key, row] of walk) {
+    await page.keyboard.press(key);
+    await expect(selected, key).toHaveText(names[row] ?? "");
+  }
+  // Past the delay the note finder waits before it reads, with a row highlighted.
+  await page.clock.runFor(1_000);
+  await expect(finder.getByTestId("preview")).toHaveCount(0);
+  expect(read.filter((url) => /\/(Garden|Home|Long note)\.md$/.test(url))).toEqual([]);
+
+  // All three read into `e`, so a highlight left on the second row would stay there.
+  await page.keyboard.type("e");
+  await expect
+    .poll(async () => [await selected.textContent(), (await rows())[0]?.[0]])
+    .toEqual([names[0], names[0]]);
+  await input.fill("gar");
+  await expect.poll(rows).toEqual([["Garden", "02 Projects"]]);
+  // A bare j or k is a letter of a name, not a move.
+  await input.fill("");
+  await page.keyboard.type("jk");
+  await expect(input).toHaveValue("jk");
+  await expect(finder.getByRole("status")).toHaveText("no books match");
+  await expect(options).toHaveCount(0);
+  await page.keyboard.press("Enter");
+  await expect(finder).toBeVisible();
+  await expect(page.getByRole("tab")).toHaveCount(tabs);
+
+  await page.keyboard.press("Escape");
+  await expect(finder).toBeHidden();
+  await expect(page.getByRole("tab")).toHaveCount(tabs);
+  await expect(page.locator(".cm-content:focus")).toHaveCount(1);
+
+  // A click beside the panel closes it too.
+  await leader(page, "fb");
+  const panel = await finder.locator("> div").boundingBox();
+  await page.mouse.click((panel?.x ?? 0) / 2, (panel?.y ?? 0) + 10);
+  await expect(finder).toBeHidden();
+  await expect(page.getByRole("tab")).toHaveCount(tabs);
+});
+
+test("the book finder says the vault has no books, and Enter opens nothing", async ({
+  page,
+  stack,
+}) => {
+  // Quote.md's book would be `Quote.epub` spelt so, and Orphan.epub has no note.
+  await openOnShelf(page, stack.vault, ["01 Notes/Quote.EPUB", "Orphan.epub"]);
+  const tabs = await page.getByRole("tab").count();
+  await leader(page, "fb");
+  const finder = page.getByRole("dialog", { name: "Find book" });
+  await expect(finder.getByRole("status")).toHaveText("the vault has no books");
+  await expect(finder.getByRole("option")).toHaveCount(0);
+  await page.keyboard.press("Enter");
+  await expect(finder).toBeVisible();
+  await expect(page.getByRole("tab")).toHaveCount(tabs);
 });
 
 test.describe("on a phone", () => {
