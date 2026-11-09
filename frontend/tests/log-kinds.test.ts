@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import cases from "@/lib/log/log-config-cases.json";
+import cases from "@/lib/log/cases/log-config-cases.json";
 import {
   DEFAULT_CONFIG,
   type FoodGoals,

@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import cases from "@/lib/log/log-cases.json";
+import cases from "@/lib/log/cases/log-cases.json";
 import {
   amountLine,
   drinkTotals,

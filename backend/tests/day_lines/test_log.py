@@ -17,10 +17,12 @@ if TYPE_CHECKING:
     from httpx import AsyncClient
 
 CASES = json.loads(
-    (Path(__file__).parents[2] / "frontend/src/lib/log/log-cases.json").read_text(encoding="utf-8")
+    (Path(__file__).parents[3] / "frontend/src/lib/log/cases/log-cases.json").read_text(
+        encoding="utf-8"
+    )
 )
 DAY_CASES = json.loads(
-    (Path(__file__).parents[2] / "frontend/src/lib/log/log-config-cases.json").read_text(
+    (Path(__file__).parents[3] / "frontend/src/lib/log/cases/log-config-cases.json").read_text(
         encoding="utf-8"
     )
 )["days"]

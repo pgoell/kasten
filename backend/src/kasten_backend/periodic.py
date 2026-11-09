@@ -7,10 +7,14 @@ server needs its own copy of the day's template for the capture route, so
 
 import re
 from datetime import date, timedelta
+from typing import TYPE_CHECKING
 
 from kasten_backend.code_spans import code_spans, fence_open, inside
 from kasten_backend.config import DEFAULTS
 from kasten_backend.frontmatter import body_start
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 DAILY = "00 Daily"
 """Where the day's notes live, inside `KASTEN_PERIODIC_PATH`.
@@ -33,6 +37,9 @@ SECTION_END = re.compile(r"^#{1,2} ")
 Not every heading: a `###` inside the dump is part of what was dumped. `log.py` ends a
 `## Log` section by the same rule.
 """
+
+DAY_NOTE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}\.md")
+"""A daily note's name. A pattern, since `date.fromisoformat` also takes `20261020`."""
 
 ANY_HEADING = re.compile(r"^#{1,6} ")
 """Where a section `append_under` writes ends: any heading, as `sectionEnd` in `note-section.ts`."""
@@ -194,3 +201,47 @@ def append_under(text: str, heading: str, line: str) -> str:
         return f"{text}\n{line}"
 
     return "\n".join([*lines[:end], line, *lines[end:]])
+
+
+def day_notes(folder: Path, first: date, last: date) -> list[date]:
+    """The days from `first` to `last` that have a daily note in `folder`, in order."""
+    # Zero-padded names sort in date order, so the sort is the chronology.
+    found: list[date] = []
+    for name in sorted(item.name for item in folder.iterdir()):
+        if DAY_NOTE.fullmatch(name) is None:
+            continue
+        try:
+            day = date.fromisoformat(name.removesuffix(".md"))
+        except ValueError:
+            # Shaped like a date and no real one, such as 2026-02-30.
+            continue
+        if first <= day <= last:
+            found.append(day)
+    return found
+
+
+def heading_lines(text: str, heading: str) -> list[tuple[int, str]] | None:
+    """The lines under every `heading` section of `text`, numbered, or None with no section.
+
+    Each line is judged by its start offset. A fence `code_spans` finds, and the frontmatter
+    `body_start` skips, hold no heading and no entry. `## Log` and `## Training` are read so.
+    """
+    body = body_start(text)
+    # Fences are found in the body alone, so a fence the frontmatter seems to open
+    # hides nothing below it.
+    spans = [(start + body, end + body) for start, end in code_spans(text[body:])]
+    lines: list[tuple[int, str]] = []
+    seen = False
+    within = False
+    offset = 0
+    for number, line in enumerate(text.split("\n"), 1):
+        start, offset = offset, offset + len(line) + 1
+        if start < body or inside(start, spans):
+            continue
+        # The heading matches the section end too, so the flag is set from it here.
+        if SECTION_END.match(line):
+            within = line.rstrip() == heading
+            seen = seen or within
+        elif within:
+            lines.append((number, line))
+    return lines if seen else None

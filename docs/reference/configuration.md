@@ -311,10 +311,11 @@ It also bounds the `Origin` check on the
 [consent `POST`](/reference/agent-api/oauth.md#get-and-post-apioauthauthorize):
 `https://{value}` is accepted there as well as the request's own origin.
 
-## The shared lists and push
+## The shared lists, push and GitHub
 
 `KASTEN_SHARE_HOST` and `KASTEN_SHARE_LOGS_DONE`: [The shared lists](/reference/configuration/shared-lists.md).
 `KASTEN_PUSH_PRIVATE_KEY` and `KASTEN_TIMEZONE`: [Push reminders](/reference/configuration/push-reminders.md).
+`KASTEN_GITHUB_USER`, `KASTEN_GITHUB_TOKEN` and `KASTEN_GITHUB_CACHE_PATH`: [GitHub settings](/reference/configuration/github-settings.md).
 
 ## KASTEN_HERDR_SESSIONS_PATH
 

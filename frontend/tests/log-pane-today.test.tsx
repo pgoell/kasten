@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import logCases from "@/lib/log/log-cases.json";
+import logCases from "@/lib/log/cases/log-cases.json";
 import {
   CONFIG_NOTE,
   logDays,
