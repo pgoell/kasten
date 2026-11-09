@@ -225,6 +225,7 @@ test("the outgoing links panel lists the note's links, opens one, and says when 
 }) => {
   await openApp(page);
   await openFromTree(page, "Welcome");
+  await expect(page.locator(".cm-content:focus")).toHaveCount(1);
   await leader(page, "go");
   const panel = page.getByRole("dialog", { name: "Outgoing links" });
   await expect(panel.getByLabel("links out")).toBeFocused();
