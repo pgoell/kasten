@@ -235,6 +235,73 @@ button:not(.words, .menu button):active:not(:disabled) {
   border-radius: var(--k-radius-6);
 }
 
+/* A finger pulls the row left over Löschen in the danger colour, which fills once a lift would delete. */
+.swipe {
+  position: relative;
+  border-radius: var(--k-radius-6);
+}
+
+.swipe[data-swiping="true"] {
+  background: color-mix(in srgb, var(--k-danger) 35%, var(--k-bg));
+}
+
+.swipe[data-armed="true"] {
+  background: var(--k-danger);
+}
+
+.swipe[data-swiping="true"]::before {
+  content: "Löschen";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: var(--k-space-16);
+  display: flex;
+  align-items: center;
+  color: var(--k-paper);
+  font-size: var(--k-text-13);
+  font-weight: 600;
+}
+
+.swipe > .row {
+  position: relative;
+  background: var(--k-bg);
+  transform: translateX(var(--swipe, 0px));
+  touch-action: pan-y;
+}
+
+/* Back into place on its own curve; while the finger holds it, it follows with no lag. */
+.swipe[data-swiping="false"] > .row {
+  transition: transform var(--k-press-out) var(--k-ease-out);
+}
+
+/* The mouse's way to delete: a × that shows on the row under the pointer, or with the focus on it.
+   A finger has none to hover with, and pulls the row instead. */
+.remove {
+  flex: none;
+  width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--k-muted);
+  font-size: var(--k-text-19);
+  opacity: 0;
+}
+
+.row:hover .remove,
+.remove:focus-visible {
+  opacity: 1;
+}
+
+.remove:hover {
+  color: var(--k-danger);
+}
+
+@media (pointer: coarse) {
+  .remove {
+    display: none;
+  }
+}
+
 /* A press on the words tints the row. The row does not move. */
 .row:has(.words:active) {
   background: var(--k-surface);

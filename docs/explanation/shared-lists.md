@@ -64,8 +64,11 @@ its assignee and its dates. The fields go after the new words, so a tag that
 sat after a field moves in front of it. This is why an edit is a route of its
 own and not a delete and an add, which would lose the line's fields.
 
-While the words are open, Löschen stands where the chip was. It takes the item
-off the screen at once, with its parts, and shows "gelöscht" with Rückgängig for
+Three ways delete an item without a dialog. On a phone, pull the row left: it
+slides over Löschen, which turns solid past 96 px, and letting go there deletes
+it, while a shorter pull lets the row snap back. With a mouse, a × shows at the
+end of the row under the pointer. And while the words are open, Löschen stands
+where the chip was. Each takes the item off the screen at once, with its parts, and shows "gelöscht" with Rückgängig for
 five seconds before the delete is sent. An undo in place of a confirm dialog
 keeps a slip cheap without asking every time. A delete still waiting is sent
 when the next one comes or the app closes its screen, not dropped. A part goes
