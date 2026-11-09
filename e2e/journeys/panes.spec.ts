@@ -4,6 +4,12 @@ import { expect, test } from "../harness/stack.ts";
 
 const panes = (page: Page): Locator => page.locator("[data-pane]:visible");
 
+/** Opens a note from the tree and waits for its editor's focus: keys sent sooner are lost (#1738). */
+async function openNote(page: Page, name: string) {
+  await openFromTree(page, name);
+  await expect(page.locator(".cm-content:focus")).toHaveCount(1);
+}
+
 /** The panes' boxes, leftmost first, once each has settled on screen. */
 async function boxes(page: Page) {
   const found = await Promise.all((await panes(page).all()).map((pane) => pane.boundingBox()));
@@ -29,9 +35,7 @@ test("a split right and a split down make three panes, one beside and one below"
   page,
 }) => {
   await openApp(page);
-  await openFromTree(page, "Welcome");
-  // Keys sent before the editor holds the focus are lost (#1738).
-  await expect(page.locator(".cm-content:focus")).toHaveCount(1);
+  await openNote(page, "Welcome");
   await leader(page, "%");
   await expect(panes(page)).toHaveCount(2);
   await leader(page, '"');
@@ -53,9 +57,7 @@ test("a split right and a split down make three panes, one beside and one below"
 
 test("a close takes the empty pane away and leaves Welcome", async ({ page }) => {
   await openApp(page);
-  await openFromTree(page, "Welcome");
-  // Keys sent before the editor holds the focus are lost (#1738).
-  await expect(page.locator(".cm-content:focus")).toHaveCount(1);
+  await openNote(page, "Welcome");
   await leader(page, "%");
   await expect(panes(page)).toHaveCount(2);
   // The new pane is empty, so the first q closes it.
@@ -66,9 +68,7 @@ test("a close takes the empty pane away and leaves Welcome", async ({ page }) =>
 
 test("the panes and their notes are back after a reload", async ({ page }) => {
   await openApp(page);
-  await openFromTree(page, "Welcome");
-  // Keys sent before the editor holds the focus are lost (#1738).
-  await expect(page.locator(".cm-content:focus")).toHaveCount(1);
+  await openNote(page, "Welcome");
   await leader(page, "%");
   await findNote(page, "Garden");
   await expect(page.locator(".cm-editor", { hasText: "water the tomatoes" })).toBeVisible();
@@ -80,9 +80,7 @@ test("the panes and their notes are back after a reload", async ({ page }) => {
 
 test("q in the tree hands the keys to the focused pane, the second of two", async ({ page }) => {
   await openApp(page);
-  await openFromTree(page, "Welcome");
-  // Keys sent before the editor holds the focus are lost (#1738).
-  await expect(page.locator(".cm-content:focus")).toHaveCount(1);
+  await openNote(page, "Welcome");
   await leader(page, "%");
   const today = page.getByRole("region", { name: "Today" });
   await expect(today).toBeVisible();
@@ -116,9 +114,7 @@ test("Escape in the tree hands the keys to the focused pane, the second of two",
   page,
 }) => {
   await openApp(page);
-  await openFromTree(page, "Welcome");
-  // Keys sent before the editor holds the focus are lost (#1738).
-  await expect(page.locator(".cm-content:focus")).toHaveCount(1);
+  await openNote(page, "Welcome");
   await leader(page, "%");
   const today = page.getByRole("region", { name: "Today" });
   await expect(today).toBeVisible();
@@ -136,9 +132,7 @@ test("Escape in the tree with vim off types into the focused pane, the second of
   page,
 }) => {
   await openApp(page);
-  await openFromTree(page, "Welcome");
-  // Keys sent before the editor holds the focus are lost (#1738).
-  await expect(page.locator(".cm-content:focus")).toHaveCount(1);
+  await openNote(page, "Welcome");
   await leader(page, "%");
   const today = page.getByRole("region", { name: "Today" });
   await expect(today).toBeVisible();
