@@ -91,7 +91,8 @@ above it at its indent, as the
 [writes end them](/reference/todo-format/state-changes.md#subtasks). A
 session line is no todo, has `project: null` and is nobody's parent, and so is
 a line the editor does not read as a todo, such as one holding a lone `\r`,
-U+2028 or U+2029. Done, rejected and archived todos follow the same rule.
+U+2028 or U+2029. A CRLF line comes without its `\r`, as the note read
+`GET /api/files/{path}` answers it, so it is the todo its LF twin is. Done, rejected and archived todos follow the same rule.
 
 How a tag names a folder:
 

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { useRef, useState } from "react";
 import { TodoPane } from "@/components/todo-pane";
 import { fetchFiles } from "@/lib/core/api";
@@ -38,9 +38,10 @@ vi.mock("@/lib/core/api-client", async (importOriginal) => {
           // Every answer comes back in another order, the way the vault's search
           // does not promise one, so a list that is redrawn from it reorders.
           const hits = Object.entries(vault.notes).flatMap(([path, text]) =>
-            lf(text)
+            // rg keeps a CRLF line's `\r`, and `find_todos` cuts it.
+            text
               .split("\n")
-              .map((line, index) => ({ path, line: index + 1, text: line }))
+              .map((line, index) => ({ path, line: index + 1, text: line.replace(/\r$/, "") }))
               .filter((hit) => hit.text.startsWith("- [")),
           );
           vault.answers += 1;
@@ -88,6 +89,12 @@ vi.mock("@/lib/core/api-client", async (importOriginal) => {
 /** A note's text as the backend reads it out: every CRLF as an LF. */
 function lf(text: string): string {
   return text.replace(/\r\n/g, "\n");
+}
+
+/** Every note in CRLF, as one written on Windows. */
+function crlf() {
+  for (const [path, text] of Object.entries(vault.notes))
+    vault.notes[path] = text.replace(/\n/g, "\r\n");
 }
 
 /** Let the clock run on by `ms`, with whatever is due then. */
@@ -516,10 +523,7 @@ describe("the todo pane holds the order it is drawn in while a press is made", (
   });
 
   it("#947 B7 a press on a note with CRLF line endings fetches the list once", async () => {
-    // Every note keeps CRLF line endings, as a note written on Windows does.
-    for (const path of Object.keys(vault.notes)) {
-      vault.notes[path] = (vault.notes[path] ?? "").replace(/\n/g, "\r\n");
-    }
+    crlf();
     const client = await mount();
     const fetches = countFetches(client);
     const pressed = noteOf(rowOf(order()[0] ?? ""));
@@ -540,6 +544,22 @@ describe("the todo pane holds the order it is drawn in while a press is made", (
     });
     await settle();
     expect(fetches()).toBe(1);
+  });
+
+  it("#1705 a CRLF note shows its LF twin's rows, and x keeps it CRLF", async () => {
+    await mount();
+    const twin = [...order()].sort();
+    cleanup();
+    crlf();
+    await mount();
+    expect([...order()].sort()).toEqual(twin);
+
+    const name = order()[0] ?? "";
+    press("x");
+    await settle();
+    const text = vault.notes[noteOf(rowOf(name))] ?? "";
+    expect(text).toContain(`- [x] ${name}`);
+    expect(text).not.toMatch(/[^\r]\n/);
   });
 
   it("#947 I3 a refused press keeps the notice and the row where it was", async () => {

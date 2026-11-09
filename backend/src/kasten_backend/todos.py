@@ -143,7 +143,8 @@ async def find_todos(root: Path, skip: str | None = None) -> list[Hit]:
     found = await scan_vault(root, ("-e", TODO_PATTERN), MOST_TODOS, skip)
     by_note: dict[str, list[Hit]] = {}
     for hit in found:
-        by_note.setdefault(hit.path, []).append(hit)
+        # rg keeps a CRLF line's `\r`; the note read answers it as LF, and so do we (#1705).
+        by_note.setdefault(hit.path, []).append(hit._replace(text=hit.text.removesuffix("\r")))
     return [hit for note, hits in by_note.items() for hit in _whole(root, note, hits)]
 
 
