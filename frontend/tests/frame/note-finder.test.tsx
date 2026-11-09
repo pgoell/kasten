@@ -21,6 +21,7 @@ import { createRoot } from "react-dom/client";
 import { NoteFinder } from "@/components/finder/note-finder";
 import type * as Fuzzy from "@/lib/search/fuzzy";
 import { syntheticVault } from "../../bench/fixtures";
+import { MANY_PATHS, PATHS, renderFinder } from "../note-finder-fixture";
 
 // Counted, not timed: a keystroke that ranks twice is caught with no clock.
 const ranks = vi.hoisted(() => ({ calls: 0 }));
@@ -225,4 +226,45 @@ describe("one keystroke in the note finder", () => {
       `the finder, 50,000 notes: ${onOpen} options on open, ${[...counts].join("/")} while typing`,
     );
   }, 600_000);
+});
+
+describe("the note finder's list", () => {
+  it("opens on the whole vault", () => {
+    const finder = renderFinder();
+
+    expect(finder.input).toHaveValue("");
+    expect(finder.rows()).toEqual(PATHS);
+  });
+
+  it("mounts the twenty best-ranked notes and no more", () => {
+    // MANY_PATHS ranks its last five first, so a cut before the ranking drops them.
+    const finder = renderFinder(MANY_PATHS);
+
+    finder.type("no");
+
+    const rows = finder.rows();
+    expect(rows).toHaveLength(VISIBLE_NOTES);
+    expect(rows.slice(0, 5)).toEqual([
+      "notes-0.md",
+      "notes-1.md",
+      "notes-2.md",
+      "notes-3.md",
+      "notes-4.md",
+    ]);
+  });
+
+  it("narrows to the notes the query reads into", () => {
+    const finder = renderFinder();
+
+    finder.type("api");
+
+    expect(finder.rows()).toEqual(["projects/kasten/api-design.md"]);
+  });
+
+  it("says the vault is empty when it holds no notes", () => {
+    const finder = renderFinder([]);
+
+    expect(finder.rows()).toEqual([]);
+    expect(finder.hint()).toBe("the vault has no notes");
+  });
 });
