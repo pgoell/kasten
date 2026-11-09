@@ -304,3 +304,98 @@ describe("the note finder over files", () => {
     expect(fetchNote).not.toHaveBeenCalled();
   });
 });
+
+describe("the note finder's preview", () => {
+  beforeEach(() => page.viewport(1440, 900));
+
+  afterEach(() => {
+    vi.useRealTimers();
+    fetchNote.mockClear();
+  });
+
+  const pane = () => document.querySelector('[data-testid="preview"]');
+
+  it("renders the highlighted note's markdown rather than its syntax", async () => {
+    fetchNote.mockResolvedValueOnce("# a note\n\nwith **bold** in it");
+    const finder = renderFinder();
+
+    await vi.waitFor(() => expect(finder.preview()).toContain("with bold in it"));
+    expect(fetchNote).toHaveBeenCalledWith(PATHS[0]);
+    expect(finder.preview()).not.toContain("#");
+    expect(finder.preview()).not.toContain("**");
+    expect(pane()?.querySelector(".cm-strong")).toHaveTextContent("bold");
+  });
+
+  it("says it is reading the note until the read comes back", async () => {
+    let answer: (text: string) => void = () => {};
+    fetchNote.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
+    const finder = renderFinder();
+
+    // Before the delay the query is pending too, so wait for the read itself.
+    await vi.waitFor(() => expect(fetchNote).toHaveBeenCalledTimes(1));
+    expect(finder.preview()).toBe("reading the note");
+    answer("# a note");
+    await vi.waitFor(() => expect(finder.preview()).toBe("a note"));
+  });
+
+  it("says so when the note cannot be read, and still opens it on Enter", async () => {
+    fetchNote.mockRejectedValueOnce(new Error("GET /api/files/x failed with 500"));
+    const finder = renderFinder();
+
+    await vi.waitFor(() => expect(finder.preview()).toBe("could not read this note"));
+    expect(finder.rows()).toEqual(PATHS);
+    finder.press("Enter");
+    expect(finder.onOpen).toHaveBeenCalledWith(PATHS[0]);
+  });
+
+  it("reads one note when the highlight is walked and brought back", () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const finder = renderFinder();
+
+    // A held key repeats faster than the preview's delay.
+    for (const key of ["ArrowDown", "ArrowDown", "ArrowUp", "ArrowUp"]) {
+      finder.press(key);
+      act(() => vi.advanceTimersByTime(50));
+    }
+    act(() => vi.advanceTimersByTime(1_000));
+    expect(fetchNote).toHaveBeenCalledTimes(1);
+    expect(fetchNote).toHaveBeenCalledWith(PATHS[0]);
+  });
+
+  it("shows a note the cache already holds without reading it", async () => {
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(["note", PATHS[0]], "# already open");
+    const finder = renderFinder(PATHS, queryClient);
+
+    await vi.waitFor(() => expect(finder.preview()).toBe("already open"));
+    expect(fetchNote).not.toHaveBeenCalled();
+  });
+
+  it("shows an empty pane for an empty note rather than the reading message", async () => {
+    fetchNote.mockResolvedValueOnce("");
+    const finder = renderFinder();
+
+    await vi.waitFor(() => expect(fetchNote).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(finder.preview()).toBe(""));
+  });
+
+  it("shows no pane when nothing is highlighted", () => {
+    const finder = renderFinder();
+
+    finder.type("zzz");
+
+    expect(pane()).toBeNull();
+    expect(fetchNote).not.toHaveBeenCalled();
+  });
+
+  it("reads and draws no preview in a narrow window", async () => {
+    await page.viewport(375, 812);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const finder = renderFinder();
+
+    expect(finder.highlighted()).toBe(PATHS[0]);
+    act(() => vi.advanceTimersByTime(1_000));
+    expect(pane()).toBeNull();
+    expect(fetchNote).not.toHaveBeenCalled();
+  });
+});

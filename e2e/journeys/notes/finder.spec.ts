@@ -105,6 +105,27 @@ test("the finder lists a pdf beside its note as its own row, and its preview nam
   expect(read.filter((url) => url.endsWith("Primer.pdf"))).toEqual([]);
 });
 
+test("the finder previews the highlighted note as the editor draws it, and reads it once", async ({
+  page,
+}) => {
+  const read: string[] = [];
+  page.on("request", (request) => {
+    const url = decodeURIComponent(request.url());
+    if (url.includes("/api/files/")) read.push(url);
+  });
+  await openApp(page);
+  await leader(page, "ff");
+  const finder = page.getByRole("dialog", { name: "Find note" });
+  await page.keyboard.type("grdn");
+  await expect(finder.getByRole("option", { selected: true })).toHaveText("02 Projects/Garden.md");
+  const preview = finder.getByTestId("preview");
+  await expect(preview).toContainText("water the tomatoes");
+  // `# Garden` drawn as a heading, its mark hidden as the editor hides it.
+  await expect(preview).toContainText("Garden");
+  await expect(preview).not.toContainText("#");
+  expect(read.filter((url) => url.endsWith("Garden.md"))).toHaveLength(1);
+});
+
 test("Escape closes the finder and opens nothing", async ({ page }) => {
   await openApp(page);
   const tabs = await page.getByRole("tab").count();
@@ -157,6 +178,10 @@ test.describe("on a phone", () => {
     await commands.getByRole("button", { name: "Find a note" }).tap();
     const list = page.getByRole("dialog", { name: "Find note" }).getByRole("listbox");
     await expect(list.getByRole("option").first()).toBeVisible();
+    // A row is highlighted, yet a phone has no room for the preview beside the list.
+    await expect(
+      page.getByRole("dialog", { name: "Find note" }).getByTestId("preview"),
+    ).toHaveCount(0);
     const [listWidth, panelWidth] = await list.evaluate((el) => [
       el.getBoundingClientRect().width,
       el.parentElement?.getBoundingClientRect().width ?? 0,
