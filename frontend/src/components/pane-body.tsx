@@ -18,6 +18,7 @@ import { TerminalPane } from "@/components/terminal-pane";
 import { type AgentRow, TodoPane } from "@/components/todo-pane";
 import type { PaneMoves } from "@/components/use-pane-moves";
 import { VideoPane } from "@/components/video-pane";
+import { TimersPane } from "@/lib/app/push/timers-pane";
 import type { SearchHit } from "@/lib/core/api";
 import { readClock } from "@/lib/core/clock";
 import type { LogActions } from "@/lib/log/use-log-actions";
@@ -347,6 +348,7 @@ const BODIES: { [K in KindField]: Body<K> } = {
     />
   ),
   chat: (_, { shared, signal }) => <ChatPane commands={shared.commands} focusSignal={signal} />,
+  timers: (_, { shared, signal }) => <TimersPane commands={shared.commands} focusSignal={signal} />,
 };
 
 /**

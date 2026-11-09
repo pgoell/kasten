@@ -88,6 +88,7 @@ The file pickers that `<leader>cm` and `<leader>cb` open wait until you let go o
 | `<leader>ge` | Sit the open note as a practice exam |
 | `<leader>gs` | Put the review in the focused pane |
 | `<leader>gt` | Put the todo list in the focused pane |
+| `<leader>gT` | Put the timers in the focused pane |
 | `<leader>gf` | Put the food log in the focused pane |
 | `<leader>gk` | Put the finance pane in the focused pane |
 | `<leader>ga` | Put the overview in the focused pane |

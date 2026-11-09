@@ -11,6 +11,7 @@ const BUTTONS = [
   ["Open the todo pane", "openTodos"],
   ["Open the log", "openLog"],
   ["Open the chat with Claude Code", "openChat"],
+  ["Open the timers", "openTimers"],
   ["Move to the next pane", "nextPane"],
 ] as const;
 
@@ -29,8 +30,8 @@ describe("Toolbar", () => {
   it("offers the next pane only where the tab holds one", () => {
     render(<Toolbar commands={stubCommands()} split={false} />);
 
-    // Eight commands and the space button, which opens the leader on every phone.
-    expect(screen.getAllByRole("button")).toHaveLength(9);
+    // Nine commands and the space button, which opens the leader on every phone.
+    expect(screen.getAllByRole("button")).toHaveLength(10);
     expect(screen.queryByRole("button", { name: "Move to the next pane" })).toBeNull();
   });
 

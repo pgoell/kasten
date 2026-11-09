@@ -345,6 +345,7 @@ describe("workspace", () => {
     history: "h.md",
     graph: { around: "g.md" },
     chat: true,
+    timers: true,
   };
   const WHERE = ["line", "jump", "anchor"];
   const kinds = () => Object.keys(EVERY).filter((key) => !WHERE.includes(key));
@@ -431,6 +432,7 @@ describe("workspace", () => {
       ["history", "history of h", "page", "h.md"],
       ["graph", "graph of g", "graph", "g.md"],
       ["chat", "chat", "page", undefined],
+      ["timers", "timers", "page", undefined],
     ]);
   });
 

@@ -111,6 +111,7 @@ export function Harness({
         createTab: () => {},
         openTerminal: () => {},
         openChat: () => {},
+        openTimers: () => {},
         importPage: () => {},
         captureDump: () => {},
         splitRight: () => {},

@@ -44,8 +44,9 @@ a touch screen.
 ### The toolbar
 
 A row along the bottom edge, under the status bar. When the buttons do not all
-fit on one line, the row wraps and the rest go to a second line, which happens
-on a 360px or 390px phone once the tab holds a split.
+fit on one line, the row wraps and the rest go to a second line. Ten buttons at
+44px fit no phone, so `timers` always sits on a second line, with `pane` beside
+it once the tab holds a split.
 
 | Button | Does | Command | Key |
 | --- | --- | --- | --- |
@@ -57,6 +58,7 @@ on a 360px or 390px phone once the tab holds a split.
 | `todos` | Open the todo pane | `openTodos` | `<leader>gt` |
 | `log` | Open the log | `openLog` | `<leader>gf` |
 | `chat` | Open the chat with Claude Code | `openChat` | `<leader>cc` |
+| `timers` | Open the timers | `openTimers` | `<leader>gT` |
 | `pane` | Move to the next pane. Drawn only while the tab holds more than one | `nextPane` | `<leader>o` |
 | `space` | Open the which-key panel, as Space does | none | `Space` |
 
