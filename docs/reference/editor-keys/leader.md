@@ -250,7 +250,7 @@ opens.
 
 With no config note the kinds are `Log water`, `Log coffee` and `Log alcohol`,
 writing `- 💧 250 ml`, `- ☕ 1` or `- 🍺 1`. With
-[`log.md`](/reference/log-format.md#the-config-note) they are exactly the kinds
+[`log.md`](/reference/food/log-format.md#the-config-note) they are exactly the kinds
 it names, each writing its tap line, so `- 🍵 tea: 1 cup` adds `Log tea`, which
 writes `- 🍵 1 cup`, and a note without a `☕` line offers no `Log coffee`. The
 list follows an edit to the note without a reload. Each writes its line
@@ -259,7 +259,7 @@ the note as `<leader>gd` would, where there is none. With today's note in the
 focused pane the line goes into its buffer, so `u` takes it back; otherwise it
 is written to the vault and the status bar says so, or says `Nothing logged:`
 while today's note holds unsaved text or is being saved. See
-[Log format](/reference/log-format.md#the-card).
+[Log format](/reference/food/log-format.md#the-card).
 
 `frontend/src/lib/ui/palette.ts` builds both lists from the tables in
 `leader-keys.ts` and `notes/editor/buffer-keys.ts`, so a new leader binding appears in the palette and in the

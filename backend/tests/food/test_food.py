@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
     from httpx import AsyncClient
 
-FIXTURES = Path(__file__).parent / "fixtures" / "off"
+FIXTURES = Path(__file__).parent.parent / "fixtures" / "off"
 FIELDS = "code,product_name,brands,serving_size,serving_quantity,nutriments"
 DAY = 24 * 60 * 60
 NO_NUTRIENTS = {"kcal": None, "protein": None, "carbs": None, "fat": None}

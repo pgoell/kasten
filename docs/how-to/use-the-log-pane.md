@@ -11,7 +11,7 @@ status: stable
 The log card on a daily note is the quick way to log a drink or a food. The log
 pane is where you look back over the days, fix an entry and log for a day that
 has gone. Every entry stays a line under `## Log` in its daily note, as
-[Log format](/reference/log-format.md) describes, so the pane writes nothing
+[Log format](/reference/food/log-format.md) describes, so the pane writes nothing
 the note does not show.
 
 ## Open the pane

@@ -177,7 +177,7 @@ day, recorded in `push_sent`, keeps the same late hour, waits out quiet hours,
 and does not go on a day with nothing due.
 
 The goals push, when its time is set, sends one message at that time for each
-`min` goal of the [log config](/reference/log-format.md) that today's `## Log`
+`min` goal of the [log config](/reference/food/log-format.md) that today's `## Log`
 falls short of, read as the log pane reads goals: the built-in kinds, your own
 kinds (a `last` kind with no line today counts as not met) and the food fields.
 Title `Goal`, body such as `💧 water: 500 of 2000 ml`, and a tap opens today's

@@ -287,7 +287,7 @@ async def _search(text: str, contact: str) -> list[Food]:
     return foods
 
 
-async def _product(code: str, contact: str) -> Food | None:
+async def product(code: str, contact: str) -> Food | None:
     """The food with barcode `code`: from the cache or OFF, or None when OFF has no such product."""
     held = _held(("barcode", code))
     if held is not None:
@@ -327,7 +327,7 @@ async def search_food(q: str, settings: Annotated[Settings, Depends(get_settings
         detail = f"`q` must be {SEARCH_MIN} to {SEARCH_MAX} characters"
         raise HTTPException(status_code=422, detail=detail)
     if re.fullmatch(BARCODE, text):
-        food = await _product(text, settings.food_contact)
+        food = await product(text, settings.food_contact)
         return [] if food is None else [food]
 
     key = ("search", text.lower())
@@ -346,7 +346,7 @@ async def read_barcode(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> Food:
     """The food with barcode `code`, as Open Food Facts has it."""
-    food = await _product(code, settings.food_contact)
+    food = await product(code, settings.food_contact)
     if food is None:
         detail = f"No food with barcode {code} on Open Food Facts"
         raise HTTPException(status_code=404, detail=detail)

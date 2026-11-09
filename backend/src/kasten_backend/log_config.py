@@ -1,6 +1,6 @@
 """The log config note, `99 Misc/01 Config/log.md`, read the way the card reads it.
 
-The grammar is in `docs/reference/log-format.md`. Its cases run in both test suites, and
+The grammar is in `docs/reference/food/log-format.md`. Its cases run in both test suites, and
 `log-kinds.ts` is the other reader, so a rule changed here changes there too.
 """
 

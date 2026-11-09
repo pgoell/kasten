@@ -55,3 +55,21 @@ export async function fetchLog(from: string, to: string): Promise<LogDay[]> {
 
   return data;
 }
+
+/** A recipe's ingredient lines matched to foods, each with its status, and the sums per serving. */
+export type Recipe = components["schemas"]["Recipe"];
+export type Ingredient = components["schemas"]["Ingredient"];
+
+/** The recipe the note `text` holds, worked out by the backend from the open buffer. */
+export async function readRecipe(text: string, signal?: AbortSignal): Promise<Recipe> {
+  const { data, error, response } = await client.POST("/api/recipe/nutrition", {
+    body: { text },
+    signal,
+  });
+
+  if (!data) {
+    throw new Error(reason(error) ?? `POST /api/recipe/nutrition failed with ${response.status}`);
+  }
+
+  return data;
+}

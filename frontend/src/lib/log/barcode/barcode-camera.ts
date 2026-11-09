@@ -1,6 +1,6 @@
 /** The camera a barcode scan holds. Every track stops on every path that ends a scan. */
 
-import { type Decoder, decoderFor } from "@/lib/log/barcode";
+import { type Decoder, decoderFor } from "@/lib/log/barcode/barcode";
 
 export const NO_CAMERA = "No camera here; type the barcode instead";
 

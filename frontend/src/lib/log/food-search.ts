@@ -4,7 +4,7 @@
  */
 
 import { shiftDay } from "@/lib/core/clock";
-import { NO_CAMERA, startCamera, torchButton } from "@/lib/log/barcode-camera";
+import { NO_CAMERA, startCamera, torchButton } from "@/lib/log/barcode/barcode-camera";
 import { addForm } from "@/lib/log/food-add";
 import { type Food, fetchLog, readBarcode, searchFood } from "@/lib/log/food-api";
 import { type Choice, make, recentFoods } from "@/lib/log/food-math";

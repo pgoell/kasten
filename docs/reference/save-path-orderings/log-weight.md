@@ -9,7 +9,7 @@ status: stable
 
 # Save path orderings: the log card's weight kind
 
-Part of [save path orderings](/reference/save-path-orderings.md). The columns are explained in [How to read the table](/reference/save-path-orderings.md#how-to-read-the-table). Rows keep their numbers on every page. The rows before these are in [the log card](/reference/save-path-orderings/log-card.md). The format of the lines is [Log format](/reference/log-format.md).
+Part of [save path orderings](/reference/save-path-orderings.md). The columns are explained in [How to read the table](/reference/save-path-orderings.md#how-to-read-the-table). Rows keep their numbers on every page. The rows before these are in [the log card](/reference/save-path-orderings/log-card.md). The format of the lines is [Log format](/reference/food/log-format.md).
 
 ## Orderings
 

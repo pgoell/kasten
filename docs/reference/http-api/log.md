@@ -44,7 +44,7 @@ GET /api/log?from=2026-10-20&to=2026-10-20
 Every field of an entry is there, `null` where its kind has none. Every total
 is there too, zero where nothing was logged, or `null` for a last kind with no
 line that day. The lines are read as
-[the log format](/reference/log-format.md) describes them.
+[the log format](/reference/food/log-format.md) describes them.
 
 ### Kinds of your own
 

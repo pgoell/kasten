@@ -3014,6 +3014,45 @@
         }
       }
     },
+    "/api/recipe/nutrition": {
+      "post": {
+        "summary": "Read Recipe",
+        "description": "The recipe's ingredient lines, each matched to a food or saying why not, and the sums.\n\nA barcode pinned to a line is looked up on Open Food Facts, inside its limits; a line it\ncould not reach says `unreached` and the rest still count.",
+        "operationId": "read_recipe_api_recipe_nutrition_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecipeText"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Recipe"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/anki": {
       "post": {
         "summary": "Import Anki",
@@ -11630,6 +11669,129 @@
         "title": "Ingested",
         "description": "What a batch of bookings did: new rows, rows already there, and transfers paired."
       },
+      "Ingredient": {
+        "properties": {
+          "line": {
+            "type": "integer",
+            "title": "Line"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "group": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quantity"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "food": {
+            "type": "string",
+            "title": "Food"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "rest": {
+            "type": "string",
+            "title": "Rest"
+          },
+          "grams": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grams"
+          },
+          "match": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Match"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "counted",
+              "no_match",
+              "no_amount",
+              "no_weight",
+              "unreached"
+            ],
+            "title": "Status"
+          },
+          "nutrients": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Nutrients"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "line",
+          "text",
+          "group",
+          "quantity",
+          "unit",
+          "food",
+          "note",
+          "rest",
+          "grams",
+          "match",
+          "status",
+          "nutrients"
+        ],
+        "title": "Ingredient",
+        "description": "One ingredient line, what kasten read from it, and what it adds to the recipe."
+      },
       "Item": {
         "properties": {
           "line": {
@@ -12281,6 +12443,41 @@
         ],
         "title": "MarkOut",
         "description": "A mark as stored, and whether its receipt is attached, missing or not needed."
+      },
+      "Match": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "mine",
+              "off"
+            ],
+            "title": "Source"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "name",
+          "code"
+        ],
+        "title": "Match",
+        "description": "The food a line was matched to: one of yours or an Open Food Facts product."
       },
       "MatchOut": {
         "properties": {
@@ -14334,6 +14531,105 @@
         "type": "object",
         "title": "ReceiptPatch",
         "description": "Link the receipt to a booking, take it off one with null, or put it aside."
+      },
+      "Recipe": {
+        "properties": {
+          "servings": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Servings"
+          },
+          "time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
+          },
+          "ingredients": {
+            "items": {
+              "$ref": "#/components/schemas/Ingredient"
+            },
+            "type": "array",
+            "title": "Ingredients"
+          },
+          "steps": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Steps"
+          },
+          "total": {
+            "$ref": "#/components/schemas/Nutrients"
+          },
+          "per_serving": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Nutrients"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "servings",
+          "time",
+          "source",
+          "tags",
+          "ingredients",
+          "steps",
+          "total",
+          "per_serving"
+        ],
+        "title": "Recipe",
+        "description": "A recipe's ingredients with their numbers, the sum, and the sum per serving."
+      },
+      "RecipeText": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 200000,
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "RecipeText",
+        "description": "A recipe note as the editor holds it."
       },
       "RequestOut": {
         "properties": {
