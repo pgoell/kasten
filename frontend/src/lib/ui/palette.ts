@@ -165,6 +165,9 @@ export function paletteEntries(
         commands.logFood();
       },
     },
+    // Pages of their own, reached otherwise only by typing the address.
+    { label: "Open the settings", run: () => window.location.assign("/settings") },
+    { label: "Open the agent tokens", run: () => window.location.assign("/tokens") },
     { label: "Toggle vim keys", run: toggleVim },
     { label: "Toggle light and dark mode", run: toggleTheme },
     { label: "Accent palette: Vandar Poel's blue", run: () => pickPalette("poel") },
