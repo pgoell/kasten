@@ -1,7 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Locator, Page } from "@playwright/test";
-import { findNote, leader, noteText, openApp, phone } from "../../../harness/app.ts";
+import { findNote, leader, noteText, openApp, phone, tapHeight } from "../../../harness/app.ts";
 import { type Hit, hit, lineOf, openPanel } from "../../../harness/search.ts";
 import { expect, test } from "../../../harness/stack.ts";
 
@@ -371,7 +371,7 @@ test.describe("unlinked mentions", () => {
 
       const button = panel(page).getByRole("button", { name: "link" }).first();
       // A thumb's height, as the rows of the finder are on a phone.
-      expect((await button.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+      expect(await tapHeight(button)).toBeGreaterThanOrEqual(44);
       await button.tap();
       await expect
         .poll(() => noteText(stack.vault, SEEDS), { timeout: 15_000 })

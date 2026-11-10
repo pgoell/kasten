@@ -45,6 +45,15 @@ export async function openFromTree(page: Page, name: string): Promise<void> {
 /** A phone as `test.use` takes it: 414 px wide, a finger for a pointer, so vim starts off. */
 export const phone = { viewport: { width: 414, height: 896 }, hasTouch: true, isMobile: true };
 
+/**
+ * A box's height to the 1/64 px the browser lays out in. A translated box's corners come back as float32,
+ * so a 44 px box low on the page can read 43.99994 (#1852); a box a layout unit short still reads short.
+ */
+export async function tapHeight(target: Locator): Promise<number | undefined> {
+  const height = (await target.boundingBox())?.height;
+  return height === undefined ? undefined : Math.round(height * 64) / 64;
+}
+
 /** A local date as `YYYY-MM-DD`, the way the browser names a daily note. */
 export function localDate(at: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
