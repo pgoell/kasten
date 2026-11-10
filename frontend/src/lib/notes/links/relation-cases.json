@@ -318,6 +318,18 @@
     "links": []
   },
   {
+    "id": "close-bracket-in-name",
+    "line": "[[a]b]]",
+    "relation": null,
+    "links": []
+  },
+  {
+    "id": "close-bracket-in-target",
+    "line": "depends-on:: [[a]b]]",
+    "relation": null,
+    "links": []
+  },
+  {
     "id": "aliases-headings-embeds",
     "line": "[[Louise Nong|Louise]] [[plan#Risks]] [[#Top]] ![[plan.pdf]] [[a]]",
     "relation": null,
