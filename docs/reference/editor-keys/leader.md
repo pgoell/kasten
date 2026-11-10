@@ -328,7 +328,7 @@ under **Screens you type**.
 | Address | What it is |
 | --- | --- |
 | `/tokens` | Mint and revoke the [tokens](/reference/agent-api.md) an agent reaches the vault with |
-| `/settings` | Send todo reminders to this device, and remove a device; the version sits at its foot |
+| `/settings` | Send todo reminders to this device, choose when they go, and remove a device; the version sits at its foot |
 | `/review` | The review, on a page of its own, sized for a phone |
 | `/capture` | Capture a thought into today's dump, sized for a phone |
 

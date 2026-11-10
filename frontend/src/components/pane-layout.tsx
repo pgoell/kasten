@@ -1,7 +1,7 @@
 import { type CSSProperties, type ReactNode, type RefObject, useLayoutEffect, useRef } from "react";
-import { KindIcon, kindLabel, paneKind, panePath } from "@/components/kind-icons";
+import { KindIcon } from "@/components/kind-icons";
 import type { PaneRect } from "@/lib/panes/layout/pane-direction";
-import { heldKind } from "@/lib/panes/layout/pane-kinds";
+import { heldKind, kindLabel, paneKind, panePath } from "@/lib/panes/layout/pane-kinds";
 import { isSplit, type Pane, type PaneNode, panesOf, type Split } from "@/lib/panes/layout/panes";
 import { Leaving, useBlurWhenLeaving, useLeaving } from "@/lib/ui/motion/leaving";
 import { SPRINGS, Spring } from "@/lib/ui/motion/spring";

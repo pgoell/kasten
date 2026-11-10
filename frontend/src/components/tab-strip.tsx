@@ -1,7 +1,8 @@
 import { type KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { KindIcon, paneKind } from "@/components/kind-icons";
+import { KindIcon } from "@/components/kind-icons";
 import { focusedOf, tabLabel } from "@/components/tab-label";
 import type { SaveStatus } from "@/lib/notes/note/use-autosave";
+import { paneKind } from "@/lib/panes/layout/pane-kinds";
 import { activeTab, isEmptyTab, type Layout, panesOf, type Tab } from "@/lib/panes/layout/panes";
 import { TAB_MAX_WIDTH, useTabGeometry } from "@/lib/panes/tabs/use-tab-geometry";
 import type { HeldRow } from "@/lib/saving/held-text";
