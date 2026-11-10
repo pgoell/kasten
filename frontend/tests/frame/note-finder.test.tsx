@@ -326,6 +326,14 @@ describe("the note finder's preview", () => {
     expect(pane()?.querySelector(".cm-strong")).toHaveTextContent("bold");
   });
 
+  it("leaves the frontmatter out, as the note's header shows it", async () => {
+    fetchNote.mockResolvedValueOnce("---\nid: 1\ntype: Concept\n---\n\nthe words");
+    const finder = renderFinder();
+
+    await vi.waitFor(() => expect(finder.preview()).toContain("the words"));
+    expect(finder.preview()).not.toContain("Concept");
+  });
+
   it("says it is reading the note until the read comes back", async () => {
     let answer: (text: string) => void = () => {};
     fetchNote.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));

@@ -55,10 +55,10 @@ export function renderFinder(
     // `fireEvent` returns false when a handler called `preventDefault`, which
     // is how a test pins that the browser's own answer to the key never ran.
     press: (key: string, init?: KeyboardEventInit) => fireEvent.keyDown(input, { key, ...init }),
-    rows: () => screen.queryAllByRole("option").map((row) => row.textContent),
-    option: (path: string) =>
-      screen.queryAllByRole("option").find((row) => row.textContent?.startsWith(path)),
-    highlighted: () => screen.queryByRole("option", { selected: true })?.textContent,
+    // By path: a note's row shows its name and folder apart.
+    rows: () => screen.queryAllByRole("option").map((row) => row.dataset.path),
+    option: (path: string) => screen.queryAllByRole("option").find((row) => row.dataset.path === path),
+    highlighted: () => screen.queryByRole("option", { selected: true })?.dataset.path,
     hint: () => screen.getByRole("status").textContent,
   };
 }
