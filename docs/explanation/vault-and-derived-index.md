@@ -56,11 +56,20 @@ documents, links, tags and search vectors, all derived.
 Postgres holds one such index now: the [pieces index](/explanation/models-on-the-vps/the-pieces-index.md),
 the first derived index kasten has. It cuts each note into pieces, with a
 bge-m3 vector and a BM25 index for each. It passes the test: drop it, rebuild
-it from the vault, and the rows come out the same. No search reads it yet.
-Search still runs ripgrep over the notes on every query, which at 10,000 notes
-takes under 20ms and cannot go stale. The backlinks panel is a search for the
-note's name, and the tag list reads the notes too. See
-[What is not decided yet](#what-is-not-decided-yet).
+it from the vault, and the rows come out the same.
+
+Two searches read it: find by meaning (`GET /api/ranked`) and the notes like
+this one under the local graph (`GET /api/similar`), and the agent's search by
+meaning calls the same two. They answer from the index, so a note saved a
+moment ago may not be in them yet, and each answer says how many notes the
+index holds beside how many the vault has. See
+[HTTP API: finding](/reference/http-api/finding.md#get-apiranked).
+
+Everything else still reads the files with ripgrep on every query, so it cannot
+go stale: the line search (`GET /api/search`), which at 10,000 notes takes
+under 20ms; the backlinks panel, which is a line search for the note's name
+beside the unlinked mentions (`GET /api/mentions`); the tag list; and the
+graph. See [What is not decided yet](#what-is-not-decided-yet).
 
 The test for whether something belongs in the database is simple. Outside
 `finance` and the two tables below, if losing it would lose information, it
@@ -108,8 +117,8 @@ when it was last used and what it did. The tokens themselves live in
 
 ## What is not decided yet
 
-Whether search, backlinks and tags move into the index. The pieces index
-answers how it gets rebuilt: a sweep on startup, then the file watcher, as
+Whether the line search, backlinks, tags and the graph move into an index as
+well. The pieces index answers how one gets rebuilt: a sweep on startup, then the file watcher, as
 [The pieces index](/explanation/models-on-the-vps/the-pieces-index.md) says. The rule above still
 applies to whatever comes next. Whatever does the indexing must be able to run
 from an empty database against a full vault and arrive at the same state.
