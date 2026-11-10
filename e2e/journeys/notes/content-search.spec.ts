@@ -1,5 +1,5 @@
 import type { Page, Route } from "@playwright/test";
-import { openApp } from "../../harness/app.ts";
+import { leader, openApp } from "../../harness/app.ts";
 import { answer, bars, daysAgo, type Hit, hit, openSearch } from "../../harness/search.ts";
 import { expect, test } from "../../harness/stack.ts";
 
@@ -159,6 +159,23 @@ test("Tab, Shift+Tab, Ctrl+N, Ctrl+P and the arrows walk the lines, a bare lette
   await expect(input).toHaveValue("postgresn");
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog", { name: "Search notes" })).toHaveCount(0);
+});
+
+test("a click above the panel closes the search, in a wide window and a narrow one (#1782)", async ({
+  page,
+}) => {
+  await openSearch(page);
+  const search = page.getByRole("dialog", { name: "Search notes" });
+  await search.getByRole("combobox", { name: "search notes" }).click();
+  await expect(search).toBeVisible();
+  await page.mouse.click(10, 10);
+  await expect(search).toHaveCount(0);
+
+  await page.setViewportSize({ width: 700, height: 800 });
+  await leader(page, "fg");
+  await expect(search).toBeVisible();
+  await page.mouse.click(350, 40);
+  await expect(search).toHaveCount(0);
 });
 
 test("a click on a bar leaves the focus in the input, and the arrows and Enter open a line of its week", async ({
