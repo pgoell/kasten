@@ -153,8 +153,10 @@ test.describe("a pane act whose write is held while the focus moves", () => {
     const { release, sent } = await held(page, stack.vault, "tab");
     await page.getByRole("button", { name: "Third", exact: true }).click();
     await sent();
-    await page.getByRole("tab", { name: "Long note" }).click();
-    await longNote(page).click();
+    // A click on the tab raced the tab's own focus on CI; Escape hands the keys from the tree back.
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".cm-content:focus")).toContainText("typed before");
+    await leader(page, "tl");
     await typeRight(page);
     release();
     await expect
