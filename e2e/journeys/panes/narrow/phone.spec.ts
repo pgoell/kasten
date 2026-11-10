@@ -1,6 +1,6 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { Locator, Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { phone } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
 import { bothTexts, OUTSIDE, sign, welcome } from "../conflict/conflicted.ts";
@@ -13,11 +13,9 @@ async function load(page: Page) {
   await expect(page.locator(".cm-content").first()).toBeVisible({ timeout: 15_000 });
 }
 
-/** A tap on the sheet around a panel, clear of the panel, which is its way out. */
-async function tapSheet(sheet: Locator) {
-  const box = await sheet.boundingBox();
-  // The bottom corner: a phone's search panel fills the top of the screen.
-  await sheet.tap({ position: { x: 4, y: (box?.height ?? 8) - 4 } });
+/** A finger on the strip of sheet above a panel, its way out; whatever lies there takes the tap. */
+async function tapSheet(page: Page) {
+  await page.touchscreen.tap(207, 40);
 }
 
 test.describe("the toolbar under a mouse", () => {
@@ -64,18 +62,31 @@ test.describe("on a phone", () => {
     const palette = page.getByRole("dialog", { name: "Run a command" });
     // The way to vim's keys on a phone, which no key reaches with vim off.
     await expect(palette.getByRole("option", { name: "Toggle vim keys" })).toBeVisible();
-    await tapSheet(palette);
+    await tapSheet(page);
     await expect(page.getByRole("dialog")).toHaveCount(0);
 
     await page.getByRole("button", { name: "Find a note" }).tap();
-    await tapSheet(page.getByRole("dialog", { name: "Find note" }));
+    await expect(page.getByRole("dialog", { name: "Find note" })).toBeVisible();
+    await tapSheet(page);
     await expect(page.getByRole("dialog")).toHaveCount(0);
 
     await page.getByRole("button", { name: "Search note content" }).tap();
-    // The search fills a phone's screen, so no finger reaches its backdrop (#1782): the press goes there itself.
-    const search = page.getByRole("dialog", { name: "Search notes" });
-    for (const type of ["mousedown", "mouseup", "click"]) await search.dispatchEvent(type);
+    await expect(page.getByRole("dialog", { name: "Search notes" })).toBeVisible();
+    await tapSheet(page);
     await expect(page.getByRole("dialog")).toHaveCount(0);
+  });
+
+  test("a tap inside the search shuts nothing, and the whole panel stays on the screen (#1782)", async ({
+    page,
+  }) => {
+    await load(page);
+    await page.getByRole("button", { name: "Search note content" }).tap();
+    const search = page.getByRole("dialog", { name: "Search notes" });
+    await search.getByRole("combobox", { name: "search notes" }).tap();
+    await search.getByRole("button", { name: "Filters" }).tap();
+    await expect(search).toBeVisible();
+    const panel = await search.locator("> div").boundingBox();
+    expect(panel !== null && panel.y > 0 && panel.y + panel.height <= 896).toBe(true);
   });
 
   test("the palette lists the accent rows, and a tap on one turns the page and stores it", async ({
