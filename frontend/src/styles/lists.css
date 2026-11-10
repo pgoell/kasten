@@ -96,6 +96,24 @@ button:not(.words, .menu button):active:not(:disabled) {
   gap: var(--k-space-12);
 }
 
+/* The way back to kasten, beside the label and in its small capitals; the auto margin keeps
+   the chips at the right. A finger's 44 px tall. */
+.home {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-inline-end: auto;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--k-muted);
+  text-underline-offset: 2px;
+}
+
+.home:hover {
+  color: var(--k-accent);
+}
+
 /* The todo pane's label: small capitals in the muted ink, as "todos" is. */
 .top h1 {
   margin: 0;

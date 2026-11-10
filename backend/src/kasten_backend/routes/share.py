@@ -122,6 +122,8 @@ class Me(BaseModel):
 
     me: str | None
     people: list[str]
+    home: str | None = Field(default=None, exclude_if=lambda home: home is None)
+    """kasten's address, for its owner only: the other person's gate would refuse them there."""
 
 
 def _found(found: share.Checklist | None) -> share.Checklist:
@@ -140,7 +142,10 @@ async def _answer(settings: Settings, found: share.Checklist | None) -> share.Ch
 @router.get("/me")
 async def me(request: Request, settings: Annotated[Settings, Depends(get_settings)]) -> Me:
     """The person behind the proxy's address, and the people the lists offer in the menu."""
-    return Me(me=person_of(settings, request), people=people_of(settings))
+    person = person_of(settings, request)
+    owner = person is not None and person == settings.share_owner and settings.agent_host
+    home = f"https://{settings.agent_host}/" if owner else None
+    return Me(me=person, people=people_of(settings), home=home)
 
 
 @router.get("/lists")

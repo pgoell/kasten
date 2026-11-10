@@ -163,6 +163,12 @@ function Lists({ store }: { store: ListsStore }) {
       <header className="top">
         <div className="title">
           <h1>Listen</h1>
+          {/* Only kasten's owner gets an address: the other person's sign-in stops at its gate. */}
+          {snap.home !== null && (
+            <a className="home" href={snap.home}>
+              kasten
+            </a>
+          )}
           {/* biome-ignore lint/a11y/useSemanticElements: a pair of filter chips, not a form group */}
           <div className="filters" role="group" aria-label="Anzeige">
             <button type="button" aria-pressed={!mine} onClick={() => setMine(false)}>

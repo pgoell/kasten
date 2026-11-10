@@ -31,7 +31,7 @@ is there and do not teach; for that, read a [tutorial](/tutorials/index.md) or a
 * [Configuration](configuration.md): every backend setting and compose variable with its default, the finance receipts folder among them, the folders a vault can name for itself, the startup type pass, and the shell container: the `JJ_USER` and `JJ_EMAIL` it reads, the uid it runs as and the Claude Code it installs on first start
 * [Reverse-proxy routes](reverse-proxy-routes.md): every path the proxy in front of kasten routes, which carry the login gate, and the event stream and WebSocket rules
 * [The self-host stack](configuration/self-host-stack.md): the variables `deploy/selfhost/compose.yaml` reads from its `.env`, and the two files beside it
-* [The shared lists](configuration/shared-lists.md): the host the lists app is served on and whether its ticks write the done log line
+* [The shared lists](configuration/shared-lists.md): the host the lists app is served on, whose header links back to kasten, and whether its ticks write the done log line
 * [Push reminders](configuration/push-reminders.md): the VAPID key push reminders are signed with, and the zone a reminder time is read in
 * [GitHub settings](configuration/github-settings.md): the three `KASTEN_GITHUB_*` settings that switch on the year and week review's GitHub section, and the cache of the days read
 * [Requirements](requirements.md): the machine, ports, memory and disk the self-host stack needs

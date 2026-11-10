@@ -226,6 +226,12 @@ class Settings(BaseSettings):
     stored lowercase, since the proxy's header is compared that way.
     """
 
+    share_owner: str = ""
+    """The person of `share_people` who owns kasten, or empty for none.
+
+    The lists app links that person, and nobody else, back to kasten at `agent_host`.
+    """
+
     food_contact: str = "https://github.com/pgoell/kasten"
     """How Open Food Facts can reach whoever is asking, sent in every request's `User-Agent`.
 
@@ -269,6 +275,14 @@ class Settings(BaseSettings):
         `share` with no error.
         """
         return {address.strip().lower(): name for address, name in value.items()}
+
+    @model_validator(mode="after")
+    def _owner_among_the_people(self) -> Self:
+        """Refuse an owner who is not one of the people, whose link would never show."""
+        if self.share_owner and self.share_owner not in self.share_people.values():
+            msg = f"KASTEN_SHARE_OWNER {self.share_owner!r} is not a name in KASTEN_SHARE_PEOPLE"
+            raise ValueError(msg)
+        return self
 
     @model_validator(mode="after")
     def _uploads_outside_the_vault(self) -> Self:

@@ -3,7 +3,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.html_page import KASTEN_THEME, serve_page
@@ -19,13 +19,17 @@ router = APIRouter()
 
 
 class Layout(BaseModel):
-    """The folders the editor files into or looks in, each a path from the vault root."""
+    """The folders the editor files into or looks in, each a path from the vault root.
+
+    With them the shared lists app's address, which the editor links to.
+    """
 
     inbox: str
     periodic: str
     archive: str
     images: str
     config: str
+    lists: str | None = Field(default=None, exclude_if=lambda lists: lists is None)
 
 
 @router.get("/api/layout")
@@ -41,6 +45,7 @@ async def read_layout(settings: Annotated[Settings, Depends(get_settings)]) -> L
         archive=settings.archive_path,
         images=settings.images_path,
         config=settings.config_path,
+        lists=f"https://{settings.share_host}/" if settings.share_host else None,
     )
 
 

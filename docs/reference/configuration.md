@@ -312,7 +312,7 @@ It also bounds the `Origin` check on the
 
 ## The shared lists and push
 
-`KASTEN_SHARE_HOST` and `KASTEN_SHARE_LOGS_DONE`: [The shared lists](/reference/configuration/shared-lists.md).
+`KASTEN_SHARE_HOST`, `_OWNER`, `_LOGS_DONE`: [The shared lists](/reference/configuration/shared-lists.md).
 `KASTEN_PUSH_PRIVATE_KEY` and `KASTEN_TIMEZONE`: [Push reminders](/reference/configuration/push-reminders.md).
 `KASTEN_GITHUB_*`: [GitHub settings](/reference/configuration/github-settings.md).
 

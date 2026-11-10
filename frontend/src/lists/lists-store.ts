@@ -25,9 +25,9 @@ export type Item = {
 /** `kept` comes on a read that named a text: what an add of it shows as. */
 export type ListData = { name: string; sha: string | null; items: Item[]; kept?: string };
 
-/** Who is using the app, and the people an item can be for. */
-type Who = { me: string | null; people: string[] };
-const NOBODY: Who = { me: null, people: [] };
+/** Who is using the app, the people an item can be for, and kasten's address for its owner. */
+type Who = { me: string | null; people: string[]; home: string | null };
+const NOBODY: Who = { me: null, people: [], home: null };
 
 /**
  * A write the phone has made and the server has not yet taken. `before` counts
@@ -50,6 +50,8 @@ export type Snapshot = {
   me: string | null;
   /** The names an item can be assigned to, in menu order. Empty when the read failed. */
   people: string[];
+  /** kasten's address, given to its owner alone, or null. */
+  home: string | null;
   /** Writes not yet taken, oldest first. Kept in localStorage. */
   queue: Op[];
   /** Every item text each list has held, for suggestions. Kept in localStorage. */
@@ -203,6 +205,7 @@ function exclusive(run: () => Promise<void>): Promise<void> {
 export function createListsStore(): ListsStore {
   let snap: Snapshot = {
     lists: {},
+    ...NOBODY,
     ...load<Who>(WHO_KEY, NOBODY),
     queue: load<Op[]>(QUEUE_KEY, []),
     seen: load<Record<string, string[]>>(SEEN_KEY, {}),
@@ -318,8 +321,10 @@ export function createListsStore(): ListsStore {
    */
   async function refreshWho(): Promise<void> {
     if (whoRead) return;
-    const who = await readWho();
-    if (who === null) return;
+    const read = await readWho();
+    if (read === null) return;
+    // The server leaves `home` out for all but the owner, so a stored one must not outlive that.
+    const who: Who = { ...read, home: read.home ?? null };
     whoRead = true;
     localStorage.setItem(WHO_KEY, JSON.stringify(who));
     update(who);

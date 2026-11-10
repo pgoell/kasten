@@ -44,6 +44,9 @@ export let FOODS_NOTE = "99 Misc/01 Config/foods.md";
  */
 export let MODEL_USE_FOLDER = "99 Misc/01 Config/Model use";
 
+/** The shared lists app's address, or null on a box that serves none. */
+export let LISTS_URL: string | null = null;
+
 /** Take the folders the backend named, from here on. */
 export function applyLayout(layout: Layout): void {
   INBOX = layout.inbox;
@@ -57,4 +60,5 @@ export function applyLayout(layout: Layout): void {
   LOG_NOTE = `${layout.config}/log.md`;
   FOODS_NOTE = `${layout.config}/foods.md`;
   MODEL_USE_FOLDER = `${layout.config}/Model use`;
+  LISTS_URL = layout.lists ?? null;
 }

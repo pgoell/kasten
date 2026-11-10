@@ -142,6 +142,11 @@ The same list on a desktop:
 
 ![The Einkauf list on a desktop](/assets/shared-lists/lists-desktop-light.png)
 
+For kasten's owner the header carries a `kasten` link beside the title, and
+kasten links back with `lists` in the palette and atop its pages of their own.
+The other person does not see the link: the main host's gate admits the owner
+alone, so for anyone else it would lead to a refusal.
+
 ## Why a second gate, not a second user
 
 kasten has no users. The gate in front of it admits pgoell, and every `/api/`
