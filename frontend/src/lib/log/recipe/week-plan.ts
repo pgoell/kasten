@@ -123,13 +123,19 @@ function shoppingButton(view: EditorView, plan: MealPlan, said: string | null): 
   if (button.disabled) button.title = "Plane ein Gericht mit cook [[Rezept]] xN";
   button.addEventListener("click", () => {
     button.disabled = true;
+    // A message equal to the last one redraws nothing, so the button enables itself again.
+    const again = () => {
+      button.disabled = plan.ingredients === 0;
+    };
     writeShopping(view.state.doc.toString()).then(
       (done) => {
+        again();
         const parts = [`${done.added} neu`, `${done.merged} ergänzt`];
         if (done.skipped > 0) parts.push(`${done.skipped} schon da`);
         view.dispatch({ effects: told.of(`Einkauf: ${parts.join(", ")}`) });
       },
       (error: unknown) => {
+        again();
         if (!(error instanceof Error)) throw error;
         view.dispatch({ effects: told.of(error.message) });
       },

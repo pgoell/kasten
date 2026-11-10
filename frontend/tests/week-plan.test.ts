@@ -121,6 +121,10 @@ describe("the week plan's words", () => {
 
   it("names the week, the cells and the bands as the mock does", () => {
     expect(weekTitle(PLAN)).toBe("Woche 46 · 9.–15. Nov");
+    const across = days.map((d, at) => ({ ...d, date: at === 0 ? "2026-10-26" : "2026-11-01" }));
+    expect(weekTitle({ ...PLAN, week: "2026-W44", days: across })).toBe(
+      "Woche 44 · 26. Okt – 1. Nov",
+    );
     expect(cellText(PLAN.meals[0] as PlannedMeal)).toBe("Linsen-Dal kochen ×4");
     expect(cellText(PLAN.meals[1] as PlannedMeal)).toBe("Linsen-Dal");
     expect(plainText("Essen bei [[Mama|Mama]] 👤 [[Pascal]]")).toBe("Essen bei Mama 👤 Pascal");
@@ -189,6 +193,12 @@ describe("the week plan card", () => {
     await vi.advanceTimersByTimeAsync(0);
     expect(writeShopping).toHaveBeenCalledWith(view.state.doc.toString());
     expect(view.dom.querySelector(".cm-plan-said")?.textContent).toBe("Einkauf: 6 neu, 1 ergänzt");
+    // A second press with the same answer redraws nothing; the button must still work.
+    const same = view.dom.querySelector<HTMLButtonElement>(".cm-plan-shop");
+    same?.click();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(writeShopping).toHaveBeenCalledTimes(2);
+    expect(same?.disabled).toBe(false);
   });
 
   it("stays away from a note that is no week plan", async () => {

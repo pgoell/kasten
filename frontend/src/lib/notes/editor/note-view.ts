@@ -79,6 +79,11 @@ export interface NoteListings {
  */
 const preview = new Compartment();
 
+/** What the preview compartment holds when on: the live preview and the cards under a title. */
+function previewExtensions(): Extension[] {
+  return [livePreview(), weatherCard, logCard, recipeCard, weekPlanCard, readMode.of(true)];
+}
+
 /**
  * Holds vim, so the setting can take it out and put it back. Rebuilding would drop text
  * typed in the autosave's second of lag.
@@ -276,11 +281,7 @@ export function createNoteView(o: {
           toggle: () => latest.current.commands?.togglePreview(),
           outline: (outline) => latest.current.onOutline?.(outline),
         }),
-        preview.of(
-          o.preview
-            ? [livePreview(), weatherCard, logCard, recipeCard, weekPlanCard, readMode.of(true)]
-            : [],
-        ),
+        preview.of(o.preview ? previewExtensions() : []),
         // Outside the preview compartment: the source of a table is marked in
         // Edit too, where preview is off, and the line-up has to be there either way.
         tableSource,
@@ -327,14 +328,7 @@ export function setPreview(view: EditorView, on: boolean): void {
   // or un-drawn changes the heights above the line at the top, which would
   // otherwise move that line off the top.
   view.dispatch({
-    effects: [
-      view.scrollSnapshot(),
-      preview.reconfigure(
-        on
-          ? [livePreview(), weatherCard, logCard, recipeCard, weekPlanCard, readMode.of(true)]
-          : [],
-      ),
-    ],
+    effects: [view.scrollSnapshot(), preview.reconfigure(on ? previewExtensions() : [])],
   });
 }
 

@@ -130,3 +130,10 @@ async def test_the_button_writes_einkauf(client: AsyncClient, notes: Path) -> No
     again = await client.post("/api/meal-plan/shopping", json={"text": PLAN})
     assert again.json()["added"] == 0
     assert notes.read_text(encoding="utf-8") == text  # noqa: ASYNC240
+
+
+def test_a_crlf_list_keeps_its_endings() -> None:
+    needs = shopping.needs([("Linsen-Dal", parse_recipe(DAL), 4)])
+    merged = shopping.merge("---\r\ntype: Checklist\r\n---\r\n- [ ] Milch\r\n", needs)
+    assert "\n" not in merged.text.replace("\r\n", "")
+    assert merged.text.endswith("([[Linsen-Dal]])\r\n")

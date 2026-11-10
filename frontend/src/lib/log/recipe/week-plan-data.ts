@@ -38,15 +38,18 @@ export async function writeShopping(text: string): Promise<ShoppingWritten> {
   return data;
 }
 
-/** `Woche 46 · 9.–15. Nov`, or `Woche` alone for a plan that names no week. */
+/** `Woche 46 · 9.–15. Nov`, `Woche 44 · 26. Okt – 1. Nov` across a month, or `Woche` alone. */
 export function weekTitle(plan: MealPlan): string {
   const first = plan.days[0]?.date;
   const last = plan.days[6]?.date;
   if (plan.week === null || !first || !last) return "Woche";
-  const [, , day1 = "1"] = first.split("-");
-  const [, month = "1", day7 = "1"] = last.split("-");
+  const [, month1 = "1", day1 = "1"] = first.split("-");
+  const [, month7 = "1", day7 = "1"] = last.split("-");
   const number = Number(plan.week.split("W")[1]);
-  return `Woche ${number} · ${Number(day1)}.–${Number(day7)}. ${MONTHS[Number(month) - 1]}`;
+  const end = `${Number(day7)}. ${MONTHS[Number(month7) - 1]}`;
+  const start =
+    month1 === month7 ? `${Number(day1)}.–` : `${Number(day1)}. ${MONTHS[Number(month1) - 1]} – `;
+  return `Woche ${number} · ${start}${end}`;
 }
 
 /** The meal's words without its link brackets: `[[Linsen-Dal|Dal]]` reads `Dal`. */

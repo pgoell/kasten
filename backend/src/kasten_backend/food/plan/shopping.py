@@ -175,23 +175,26 @@ def _section_end(lines: list[str], name: str) -> int | None:
 def merge(text: str, wanted: list[Need]) -> Merged:
     """`text` with each need added, by aisle in aisle order, or merged into its open line."""
     lines = text.split("\n")
+    # A CRLF list keeps its endings on the lines added to it.
+    ending = "\r" if "\r\n" in text else ""
     result = Merged(text)
     fresh: dict[str, list[str]] = {}
     for need in wanted:
         at = _open_lines(lines).get(need.key)
         if at is None:
-            fresh.setdefault(aisle(need), []).append(_new_line(need))
+            fresh.setdefault(aisle(need), []).append(_new_line(need) + ending)
             continue
         lines[at], changed = _topped(lines[at], need)
         result.merged += changed
         result.skipped += not changed
-    while lines and lines[-1] == "":
+    while lines and lines[-1] in ("", "\r"):
         lines.pop()
     for name in ORDER:
         for line in fresh.get(name, []):
             end = _section_end(lines, name)
             if end is None:
-                lines += ["", f"## {name}"] if lines else [f"## {name}"]
+                heading = f"## {name}{ending}"
+                lines += [ending, heading] if lines else [heading]
                 end = len(lines)
             lines.insert(end, line)
             result.added += 1
