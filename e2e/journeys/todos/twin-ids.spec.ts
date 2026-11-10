@@ -158,26 +158,6 @@ test("<leader>x in today's note on a todo whose 🆔 another note carries moves 
     ]);
 });
 
-test("two quick <leader>x into done in one note both log in today's note, a then b", async ({
-  page,
-  stack,
-}) => {
-  await vaultWith(stack.vault, { "Two.md": "- [/] job a 🆔 kt-aaaaaa\n- [/] job b 🆔 kt-bbbbbb\n" });
-  await openApp(page);
-  await findNote(page, "Two");
-  await leader(page, "x");
-  await page.keyboard.press("j");
-  await leader(page, "x");
-  await expect
-    .poll(async () => (await daily(stack.vault)).split("\n").filter((l) => l.startsWith("- ✅")), {
-      timeout: 15_000,
-    })
-    .toEqual([
-      expect.stringMatching(/^- ✅ \S+ job a \[\[Two\]\] kt-aaaaaa$/),
-      expect.stringMatching(/^- ✅ \S+ job b \[\[Two\]\] kt-bbbbbb$/),
-    ]);
-});
-
 test("b in the todo pane picking a twinned blocker writes nothing and names the other", async ({
   page,
   stack,

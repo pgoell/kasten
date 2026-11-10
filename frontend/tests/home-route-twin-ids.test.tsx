@@ -272,6 +272,23 @@ describe("the route", () => {
         return app;
       }
 
+      it("#538 A3 two quick <leader>x into done with vim on both log", async () => {
+        const app = await twoTodos();
+        app.click(TWO);
+        await settle();
+
+        // Both presses inside one round trip: nothing settles between them.
+        app.leader("x");
+        app.press("j");
+        app.leader("x");
+        await hashed();
+        await settle();
+
+        expect(app.text()).toMatch(/a ✅ .*b ✅ /);
+        expect(logLines()).toEqual(LOGGED);
+        expect(app.notice()).toBeNull();
+      });
+
       it("#538 A3 two quick palette cycles into done with vim off in a narrow window both log", async () => {
         stubMatchMedia({ [NARROW]: true });
         localStorage.setItem("kasten.vim", "off");
