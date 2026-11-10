@@ -168,6 +168,8 @@ function tidyText(line: Line, tidy: Tidy): void {
 export const LETTER_MARK = /[a-z][.)]/;
 /** A list item's line: its indent, its mark, and the spaces after the mark. */
 const ITEM = new RegExp(`^(\\s*)([-*+]|\\d{1,9}[.)]|${LETTER_MARK.source})( +|$)`);
+/** A thematic break: three or more of one of `-`, `*` or `_`, spaces allowed between. */
+const RULE = /^\s*([-*_])(\s*\1){2,}\s*$/;
 const TODO_BOX = /^\[.\]( |$)/;
 
 type ListStyle = "bullet" | "number" | "letter";
@@ -222,7 +224,7 @@ function itemLineAt(doc: Text, n: number): number | null {
     const text = doc.line(at).text;
     if (ITEM.test(text)) return at;
     // A heading, fence or rule is no item's continuation, so the list above it is another block.
-    if (text.trim() === "" || HEADING.test(text) || FENCE.test(text) || /^\s*---+\s*$/.test(text))
+    if (text.trim() === "" || HEADING.test(text) || FENCE.test(text) || RULE.test(text))
       return null;
   }
   return null;

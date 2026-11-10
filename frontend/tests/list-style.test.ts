@@ -93,6 +93,7 @@ describe("cycleListStyle", () => {
 
   it("does not reach past a heading for the list above it", () => {
     expect(cycled(["- a", "# Title"], 2)).toEqual(["- a", "# Title"]);
+    expect(cycled(["- a", "***", "text"], 3)).toEqual(["- a", "***", "text"]);
   });
 
   it("goes to bullets rather than past z", () => {
