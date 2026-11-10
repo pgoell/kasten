@@ -42,6 +42,9 @@ test("the finder's keys walk the list, and Enter opens the row the highlight is 
   await expect(options.nth(2)).toBeVisible();
   // Read, not assumed: the walk holds whatever order the vault ranks in.
   const names = await options.allTextContents();
+  const paths = await options.evaluateAll((rows) =>
+    rows.map((row) => row.getAttribute("data-path")),
+  );
   const walk: [string, number][] = [
     ["ArrowDown", 1],
     ["Control+n", 2],
@@ -67,7 +70,7 @@ test("the finder's keys walk the list, and Enter opens the row the highlight is 
   await expect(selected).toHaveText(names[0]);
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Enter");
-  const name = (await options.nth(1).getAttribute("data-path"))?.replace(/^.*\//, "").replace(/\.md$/, "");
+  const name = (paths[1] ?? "").replace(/^.*\//, "").replace(/\.md$/, "");
   await expect(page.getByRole("tab", { name, selected: true })).toBeVisible();
 });
 
@@ -123,7 +126,7 @@ test("the finder previews the highlighted note as the editor draws it, and reads
   await leader(page, "ff");
   const finder = page.getByRole("dialog", { name: "Find note" });
   await page.keyboard.type("grdn");
-  await expect(finder.getByRole("option", { selected: true })).toHaveText("02 Projects/Garden.md");
+  await expect(finder.getByRole("option", { selected: true })).toHaveText("Garden 02 Projects");
   const preview = finder.getByTestId("preview");
   await expect(preview).toContainText("water the tomatoes");
   // `# Garden` drawn as a heading, its mark hidden as the editor hides it.
