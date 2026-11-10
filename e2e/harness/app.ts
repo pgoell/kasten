@@ -105,7 +105,8 @@ export const inbox = async (vault: string): Promise<string[]> =>
     .filter((name) => name !== "index.md")
     .sort();
 
-const TODO_ROW = '[data-row*=".md:"]';
+/** A todo row, keyed by its line as "Home.md:12"; the file tree's rows are not. */
+export const TODO_ROW = '[data-row*=".md:"]';
 
 /** Presses j or k until the todo list's cursor sits on the `nth` row whose text holds `words`. */
 export async function cursorTo(page: Page, words: string, nth = 0): Promise<void> {

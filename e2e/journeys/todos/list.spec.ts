@@ -1,10 +1,8 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { cursorTo, leader, noteText, openApp, phone } from "../../harness/app.ts";
+import { cursorTo, leader, noteText, openApp, phone, TODO_ROW } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 
-// A todo row is keyed by its line, "Home.md:12"; the file tree's rows are not.
-const TODO_ROW = '[data-row*=".md:"]';
 const HOME_TODOS = [
   "empty the dishwasher",
   "fold the laundry",

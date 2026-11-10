@@ -6,6 +6,7 @@ import {
   noteText,
   openApp,
   phone,
+  TODO_ROW,
   today,
   vaultWith,
 } from "../../harness/app.ts";
@@ -17,7 +18,6 @@ const NOTES = {
   "Twins.md": `${LINE}\n${LINE}\n`,
   "Deps.md": "- [b] wait on the twin ⛔ kt-aaaaaa\n",
 };
-const ROW = '[data-row*=".md:"]';
 const notice = (page: Page) => page.getByTestId("notice");
 const daily = (vault: string) => noteText(vault, `01 Periodic/00 Daily/${today()}.md`);
 
@@ -50,7 +50,7 @@ async function paneOnSecond(page: Page, vault: string) {
   await vaultWith(vault, NOTES);
   await openApp(page);
   await leader(page, "gt");
-  await expect(page.locator(ROW, { hasText: "twin task" })).toHaveCount(2);
+  await expect(page.locator(TODO_ROW, { hasText: "twin task" })).toHaveCount(2);
   await cursorTo(page, "twin task", 1);
 }
 
