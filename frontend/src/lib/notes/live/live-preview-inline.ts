@@ -173,13 +173,15 @@ function drawContent(
     return true;
   }
   // `[[folder/note]]` reads as its last part, as the tree names it; the cursor shows the path.
-  const hash = target.indexOf("#");
-  const slash = target.lastIndexOf("/", (hash === -1 ? target.length : hash) - 2);
+  const named = target.split("|")[0] ?? target;
+  const hash = named.indexOf("#");
+  const slash = named.lastIndexOf("/", (hash === -1 ? named.length : hash) - 2);
   if (node.name === "WikiLink" && slash !== -1 && !revealed) {
     const shown = open.to + slash + 1;
-    decorations.push(Decoration.mark({ class: className }).range(shown, close.from));
+    const end = open.to + named.length;
+    decorations.push(Decoration.mark({ class: className }).range(shown, end));
     walk.hide(open.from, shown);
-    walk.hide(close.from, close.to);
+    walk.hide(end, close.to);
     return true;
   }
   decorations.push(Decoration.mark({ class: className }).range(open.to, close.from));
