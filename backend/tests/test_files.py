@@ -9,7 +9,14 @@ import pytest
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.main import app
 from kasten_backend.routes import listing, notes
-from kasten_backend.vault import list_assets, list_html, list_images, list_markdown_files, scan
+from kasten_backend.vault import (
+    Listings,
+    list_assets,
+    list_html,
+    list_images,
+    list_markdown_files,
+    scan,
+)
 
 if TYPE_CHECKING:
     from httpx import AsyncClient
@@ -147,15 +154,27 @@ async def test_a_page_load_walks_the_vault_once(
     assert [response.json() for response in responses] == list(scan(vault))
 
 
-async def test_a_listing_after_a_write_sees_it(client: AsyncClient, vault: Path) -> None:
-    first = asyncio.ensure_future(client.get("/api/files"))
-    await asyncio.sleep(listing.BATCH_SECONDS * 2)
-    (vault / "new.md").write_text("")
+async def test_a_listing_after_a_write_sees_it(
+    client: AsyncClient, vault: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    walked, release = threading.Event(), threading.Event()
 
-    later = await client.get("/api/files")
+    def held(root: Path) -> Listings:
+        found = scan(root)
+        walked.set()
+        release.wait(5)
+        return found
+
+    monkeypatch.setattr(listing, "scan", held)
+    first = asyncio.ensure_future(client.get("/api/files"))
+    await asyncio.to_thread(walked.wait, 5)
+    (vault / "new.md").write_text("")
+    later = asyncio.ensure_future(client.get("/api/files"))
+    await asyncio.sleep(listing.BATCH_SECONDS * 2)
+    release.set()
 
     assert (await first).json() == []
-    assert later.json() == ["new.md"]
+    assert (await later).json() == ["new.md"]
 
 
 async def test_a_walk_that_fails_fails_its_batch_and_the_next_walks_again(
