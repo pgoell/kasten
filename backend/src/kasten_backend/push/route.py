@@ -2,9 +2,10 @@
 
 import datetime as dt
 from datetime import datetime, time
-from typing import Annotated, Literal
+from typing import TYPE_CHECKING, Annotated, Literal
 from zoneinfo import ZoneInfo
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import AwareDatetime, BaseModel, Field, field_serializer, model_validator
 from sqlalchemy import select
@@ -15,12 +16,25 @@ from kasten_backend.config import Settings, get_settings
 from kasten_backend.db import get_session
 from kasten_backend.push import webpush
 from kasten_backend.push.due import ALARM, CLOSED, put_off
+from kasten_backend.push.loop import deliver
 from kasten_backend.push.models import PushDevice, PushSettings, PushTimer
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 router = APIRouter(prefix="/api/push")
 
 Session = Annotated[AsyncSession, Depends(get_session)]
 VaultSettings = Annotated[Settings, Depends(get_settings)]
+
+
+async def push_client() -> AsyncIterator[httpx.AsyncClient]:
+    """The client a test push goes out on; the tests put a fake push service in its place."""
+    async with httpx.AsyncClient(timeout=10) as client:
+        yield client
+
+
+PushClient = Annotated[httpx.AsyncClient, Depends(push_client)]
 
 
 class DeviceOut(BaseModel):
@@ -185,6 +199,33 @@ async def delete_device(device_id: int, session: Session) -> Response:
     await session.delete(device)
     await session.commit()
     return Response(status_code=204)
+
+
+class TestOut(BaseModel):
+    """What the push service answered a test push; `status` is None when it could not be reached."""
+
+    status: int | None
+    reason: str | None
+    gone: bool
+
+
+TEST_MESSAGE = {"title": "kasten", "body": "Test push: this device gets reminders", "tag": "test"}
+
+
+@router.post("/devices/{device_id}/test")
+async def test_device(
+    device_id: int, session: Session, settings: VaultSettings, client: PushClient
+) -> TestOut:
+    """Push a test message to one device now; a gone device is removed, as the sender does."""
+    if settings.push_private_key is None:
+        raise HTTPException(503, "Push is not set up: no KASTEN_PUSH_PRIVATE_KEY")
+    device = await session.get(PushDevice, device_id)
+    if device is None:
+        raise HTTPException(404, "No such device")
+    key = settings.push_private_key.get_secret_value()
+    delivery = await deliver(session, client, device, TEST_MESSAGE, key)
+    await session.commit()
+    return TestOut(status=delivery.status, reason=delivery.reason, gone=delivery.gone)
 
 
 @router.get("/timers")

@@ -44,6 +44,8 @@ let current: ReturnType<typeof subscriptionAt> | null;
 let subscribe: Mock<(options: PushSubscriptionOptionsInit) => Promise<unknown>>;
 /** The backend's list, which a POST and a DELETE change as the real one does. */
 let state: PushOut;
+/** What the push service answers a test push. */
+let tested: components["schemas"]["TestOut"];
 /** The backend's stored times, which a PUT replaces. */
 let hours: PushHours;
 
@@ -60,7 +62,10 @@ function serve(push: PushOut) {
           : state,
     response: new Response(null, { status: 200 }),
   }));
-  const post = vi.fn(async (_path: string, init: { body: { endpoint: string; name: string } }) => {
+  const post = vi.fn(async (path: string, init: { body: { endpoint: string; name: string } }) => {
+    if (path === "/api/push/devices/{device_id}/test") {
+      return { data: tested, response: new Response(null, { status: 200 }) };
+    }
     const device = {
       id: 3,
       name: init.body.name,
@@ -186,6 +191,31 @@ describe("the settings page's reminders", () => {
       params: { path: { device_id: 2 } },
     });
   });
+
+  it.each([
+    [{ status: 201, reason: null, gone: false }, "Sent to Linux Firefox."],
+    [{ status: 403, reason: "BadJwtToken", gone: false }, "refused the push with 403: BadJwtToken"],
+    [
+      { status: null, reason: "ConnectTimeout", gone: false },
+      "could not be reached (ConnectTimeout)",
+    ],
+    [{ status: 410, reason: null, gone: true }, "Subscribe that device again."],
+  ])(
+    "Test pushes to that device and says what the push service answered: %j",
+    async (result, words) => {
+      const { post } = serve({ public_key: "-_8", devices: DEVICES });
+      tested = result;
+      await renderPage();
+
+      await screen.findByText("Linux Firefox");
+      fireEvent.click(within(rowOf("Linux Firefox")).getByRole("button", { name: "Test" }));
+
+      expect(await screen.findByRole("status")).toHaveTextContent(words);
+      expect(post).toHaveBeenCalledWith("/api/push/devices/{device_id}/test", {
+        params: { path: { device_id: 2 } },
+      });
+    },
+  );
 
   it("removing the device this browser is on also unsubscribes the browser", async () => {
     const { del } = serve({ public_key: "-_8", devices: DEVICES });

@@ -97,6 +97,12 @@ def warn_unsafe(settings: Settings) -> None:
         )
 
 
+def _push_stopped(task: asyncio.Task[None]) -> None:
+    """Log the error that ended the push sender, which would otherwise stop every push unseen."""
+    if not task.cancelled() and (error := task.exception()) is not None:
+        logger.error("push sender stopped; no push goes out until a restart", exc_info=error)
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """Write the vault's guides and types, and purge old trash.
@@ -118,6 +124,8 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         if settings.push_private_key is None
         else asyncio.create_task(push.running(db.engine, settings))
     )
+    if pushing is not None:
+        pushing.add_done_callback(_push_stopped)
     # After the backfill and guides, so the first index sees the vault as this start leaves it.
     indexing = indexer.start(settings)
     try:

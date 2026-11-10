@@ -9,6 +9,7 @@ import datetime as dt
 import hashlib
 import itertools
 import logging
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
@@ -36,6 +37,7 @@ PUSH_LOCK = 0x6B70_7573
 """The advisory lock one sender holds for a tick, `kpus` in ASCII, apart from the finance locks."""
 GONE = {404, 410}
 REFUSED = 300
+REASON_CHARS = 200
 EVERY_SECONDS = 15
 """A timer rings this close to its time."""
 TODOS_EVERY = 4
@@ -119,9 +121,7 @@ async def _fan_out(
     """Send one message to every device and drop the ones gone; whether any device was there."""
     devices = list(await session.scalars(select(PushDevice)))
     for device in devices:
-        status = await _post(client, device, message, key)
-        if status in GONE:
-            await session.execute(delete(PushDevice).where(PushDevice.id == device.id))
+        await deliver(session, client, device, message, key)
     return bool(devices)
 
 
@@ -222,20 +222,33 @@ async def _send_once(
     return 1
 
 
-async def _post(
-    client: httpx.AsyncClient, device: PushDevice, message: dict, key: str
-) -> int | None:
-    """One device's send; a failure other than a gone device is logged and the device kept."""
+@dataclass(frozen=True)
+class Delivery:
+    """What a push service answered: its status, or None unreached; why, when it refused."""
+
+    status: int | None
+    reason: str | None
+    gone: bool
+
+
+async def deliver(
+    session: AsyncSession, client: httpx.AsyncClient, device: PushDevice, message: dict, key: str
+) -> Delivery:
+    """Send one device a message; a gone device is deleted uncommitted, other failures logged."""
     try:
-        status = await webpush.send(
+        response = await webpush.send(
             client, device.endpoint, device.p256dh, device.auth, message=message, key=key
         )
     except httpx.HTTPError as error:
         logger.warning("push to device %s failed: %s", device.id, error)
-        return None
-    if status >= REFUSED and status not in GONE:
-        logger.warning("push to device %s answered %s", device.id, status)
-    return status
+        return Delivery(status=None, reason=str(error) or type(error).__name__, gone=False)
+    status = response.status_code
+    reason = (response.text.strip()[:REASON_CHARS] or None) if status >= REFUSED else None
+    if status in GONE:
+        await session.execute(delete(PushDevice).where(PushDevice.id == device.id))
+    elif status >= REFUSED:
+        logger.warning("push to device %s answered %s: %s", device.id, status, reason)
+    return Delivery(status=status, reason=reason, gone=status in GONE)
 
 
 async def running(engine: AsyncEngine, settings: Settings) -> None:
