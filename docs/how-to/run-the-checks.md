@@ -56,13 +56,14 @@ its own copy of the fixture vault, its own database and its own backend, and
 teardown removes the containers. Unlike `fe:e2e`, it stubs no API.
 
 The journeys sit in `e2e/journeys/`: `panes.spec.ts` and `review.spec.ts` at
-the top, notes, the finder and saving in `notes/`, the todo list and the board
+the top, notes and the finder in `notes/`, with saving in `notes/saving/` (edits,
+the backlinks panel's mention links, held text), the todo list and the board
 in `todos/`, capture and the log in `day/`, and the book and video panes in
 `media/`. `harness.spec.ts` checks the harness itself. Each journey is a
-thing done daily, and each one that writes checks the file on disk. Twelve files
+thing done daily, and each one that writes checks the file on disk. Fourteen files
 also run journeys at phone width, 414 px with touch, where the editor starts
-without vim: `review.spec.ts`; `notes/saving.spec.ts`, `notes/finder.spec.ts`
-and the three `notes/content-search-*.spec.ts`; `todos/list.spec.ts`; `day/capture.spec.ts` and `day/log.spec.ts`; and
+without vim: `review.spec.ts`; `notes/saving/edits.spec.ts`, `notes/saving/mentions.spec.ts`, `notes/finder.spec.ts`
+and the three `notes/content-search-*.spec.ts`; `todos/list.spec.ts` and `todos/twin-ids.spec.ts`; `day/capture.spec.ts` and `day/log.spec.ts`; and
 `media/book.spec.ts`, `media/book-finder.spec.ts` and `media/video.spec.ts`.
 `phone` in `e2e/harness/app.ts` sets that up, and
 `git grep -l 'test.use(phone)' e2e/journeys` lists them.
