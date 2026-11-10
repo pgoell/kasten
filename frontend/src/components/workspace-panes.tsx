@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { type Dispatch, type SetStateAction, useEffect, useState } from "react";
+import { type Dispatch, type SetStateAction, useState } from "react";
 import { PaneBody, type PaneExtras } from "@/components/pane-body";
 import { PaneLayout } from "@/components/pane-layout";
 import { isUnsaved, TabStrip } from "@/components/tab-strip";
@@ -82,18 +82,6 @@ export function WorkspacePanes({
   const [restored, setRestored] = useState<string | null>(tab.focus);
   if (restored !== null && restored !== tab.focus) setRestored(null);
   const signal = focusSignal + (restored === null ? 0 : 1);
-  // Focus outside that pane, as in the tree, ends it too, or a file opened there later would take it.
-  useEffect(() => {
-    if (restored === null) return;
-    const left = (event: FocusEvent) => {
-      const inside =
-        event.target instanceof Element &&
-        event.target.closest(`[data-pane="${CSS.escape(restored)}"]`);
-      if (!inside) setRestored(null);
-    };
-    document.addEventListener("focusin", left);
-    return () => document.removeEventListener("focusin", left);
-  }, [restored]);
   const rsvpAsk = useRsvpAsked();
   const { data, archive } = listings;
   const queryClient = useQueryClient();
