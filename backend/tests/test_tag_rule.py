@@ -16,7 +16,6 @@ from kasten_backend.config import get_settings
 from kasten_backend.graph import read_graph
 from kasten_backend.graph_query import query_graph
 from kasten_backend.tags import find_tags
-from kasten_backend.vault import read_note
 
 if TYPE_CHECKING:
     import pytest
@@ -108,17 +107,17 @@ def test_1474_a_todo_comment_holding_dashes_hides_no_tag() -> None:
 async def test_b_note_gone_between_scan_and_read_is_skipped(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # A fence in each, as only a note that may hold one is read whole.
     write(tmp_path, "gone.md", "#gone\n~~~\n~~~\n")
     write(tmp_path, "kept.md", "#kept\n~~~\n~~~\n")
+    real = Path.read_bytes
 
-    def read(root: Path, path: str) -> str | None:
-        # As though the note were deleted after rg named it.
-        if path == "gone.md":
+    def read(path: Path) -> bytes:
+        # As though the note were deleted after the walk named it.
+        if path.name == "gone.md":
             raise FileNotFoundError(path)
-        return read_note(root, path)
+        return real(path)
 
-    monkeypatch.setattr(tags, "read_note", read)
+    monkeypatch.setattr(Path, "read_bytes", read)
 
     assert await tags.find_tags(tmp_path) == ["#kept"]
 

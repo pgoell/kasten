@@ -17,7 +17,6 @@ from kasten_backend.periodic import DATE_PATTERN
 from kasten_backend.search_meta import (
     cached_tags,
     day_of,
-    forget_except,
     stamp,
 )
 from kasten_backend.share import inside
@@ -31,6 +30,7 @@ from kasten_backend.todos import (
     projects_of,
 )
 from kasten_backend.vault import (
+    Stamp,
     list_markdown_files,
     read_note,
     relative_path,
@@ -334,13 +334,13 @@ def _on_range(day: str, low: str, high: str) -> bool:
 
 def _dated(
     root: Path, paths: list[str], first: date, last: date
-) -> list[tuple[str, str, str | None, tuple[int, int] | None]]:
+) -> list[tuple[str, str, str | None, Stamp | None]]:
     """Each of `paths` that counts on a day in the range, with its day, text and stamp.
 
     The text is read once, so a note's day and tags come off the same read.
     """
     low, high = _bounds(first, last)
-    found: list[tuple[str, str, str | None, tuple[int, int] | None]] = []
+    found: list[tuple[str, str, str | None, Stamp | None]] = []
     for path in paths:
         # Stamped before the read: an edit in between is then seen as a change on the
         # next read, where a stamp taken after it would keep the old tags for the new text.
@@ -365,7 +365,6 @@ def _written_notes(
     root: Path, paths: list[str], folders: dict[str, str], first: date, last: date
 ) -> list[WrittenNote]:
     """The notes that count on a day in the range, with their tags and project, by day then path."""
-    forget_except(root, paths)
     notes: list[WrittenNote] = []
     for path, day, text, moment in _dated(root, paths, first, last):
         tags = [] if text is None else cached_tags(root, path, text, moment)

@@ -14,10 +14,12 @@ eight top folders, and a new folder every eight notes below that. Paths are not
 byte-identical to the TypeScript generator's and do not need to be. The shape
 is what the cost tracks, and both produce 842 folders at 10,000 notes.
 
-The save case at the end times one `PUT /api/files/{path}` in a jj repo the same
-way, and splits it into the write and the jj commands it runs.
+The save case times one `PUT /api/files/{path}` in a jj repo the same way, and
+splits it into the write and the jj commands it runs. The last case times the
+per-note cache of #1758: tags after a save, and the graph.
 """
 
+import asyncio
 import math
 import statistics
 import time
@@ -27,6 +29,7 @@ import pytest
 
 from backend.tests.conftest import JJ, descriptions, jj
 from kasten_backend import vcs
+from kasten_backend.graph import read_graph
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -244,4 +247,76 @@ async def test_saves_one_note_in_a_versioned_vault(
         f"best of {SAVES} saves: {best['total']:.1f}ms "
         f"(write {best['write']:.1f}, jj log {best['log']:.1f}, "
         f"jj new {best['new']:.1f}, jj status {best['status']:.1f})"
+    )
+
+
+def linked_note(index: int) -> str:
+    """A note of PR #1825's bench shape: 40 lines, 5 links and 4 tagged todos."""
+    lines = ["---", "type: Concept", f"id: {index}", "---", f"# Note {index}"]
+    for line in range(35):
+        if line % 7 == 0:
+            lines.append(f"See [[Note {(index * 7 + line) % NOTES}]] for more, page {line}.")
+        elif line % 9 == 2:
+            lines.append(f"- [ ] task {line} #tag{(index + line) % 40} #area/{index % 8}")
+        else:
+            lines.append(f"Plain prose line {line} with nothing in it but words and more words.")
+    return "\n".join(lines) + "\n"
+
+
+async def test_tags_after_one_save_and_the_graph_at_ten_thousand_notes(
+    client: AsyncClient, vault: Path
+) -> None:
+    """`GET /api/tags` after a one-note save, the longest loop hold, and `read_graph` (#1758).
+
+    Recorded on a 16-thread box, best of 5: tags 40 ms after a save (main 553), the longest
+    loop hold 6 ms (main 212), `read_graph` 355 ms (main 907). The first read parses every note.
+    """
+    for index in range(NOTES):
+        folder = vault / f"folder {index % 50}"
+        folder.mkdir(exist_ok=True)
+        (folder / f"Note {index}.md").write_text(linked_note(index), encoding="utf-8")
+    started = time.perf_counter()
+    cold = await client.get("/api/tags")
+    cold_ms = (time.perf_counter() - started) * 1000
+
+    gaps: list[float] = []
+    stop = asyncio.Event()
+
+    async def tick() -> None:
+        last = time.perf_counter()
+        while not stop.is_set():
+            await asyncio.sleep(0.001)
+            now = time.perf_counter()
+            gaps.append((now - last) * 1000 - 1)
+            last = now
+
+    times = []
+    for run in range(5):
+        saved = await client.put(
+            "/api/files/folder 7/Note 7.md", json={"content": f"Saved #saved{run}\n"}
+        )
+        assert saved.status_code == 200
+        ticker = asyncio.create_task(tick())
+        await asyncio.sleep(0.005)
+        gaps.clear()
+        started = time.perf_counter()
+        response = await client.get("/api/tags")
+        times.append((time.perf_counter() - started) * 1000)
+        stop.set()
+        await ticker
+        stop.clear()
+        assert f"#saved{run}" in response.json()
+
+    graphs = []
+    for _ in range(5):
+        started = time.perf_counter()
+        graph = await read_graph(vault)
+        graphs.append((time.perf_counter() - started) * 1000)
+
+    assert cold.status_code == 200
+    assert len(graph.nodes) == NOTES
+    print(
+        f"\nGET /api/tags at {NOTES} notes: cold {cold_ms:.0f}ms, best of 5 after a save "
+        f"{min(times):.1f}ms, longest loop hold {max(gaps):.1f}ms; "
+        f"read_graph best of 5 {min(graphs):.0f}ms"
     )
