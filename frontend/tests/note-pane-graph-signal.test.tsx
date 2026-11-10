@@ -15,7 +15,8 @@ vi.mock("@/lib/core/api", async (importOriginal) => ({
   fetchNote,
   fetchMentions,
 }));
-vi.mock("@/lib/graph/graph-api", () => ({
+vi.mock("@/lib/graph/graph-api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/graph/graph-api")>()),
   fetchGraph: vi.fn().mockResolvedValue({
     nodes: [],
     edges: [],
