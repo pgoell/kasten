@@ -332,7 +332,7 @@ const live = StateField.define<Live>({
  */
 const nudgeSelection = EditorState.transactionFilter.of((tr) => {
   // Leaving insert mode hides the marks the cursor may sit in, with no selection to nudge.
-  // Read off the new state, as the old one still shows them: `#|# Styles` and Escape drew `#tyles`.
+  // Read the hidden marks off the new state; the old one still shows them.
   if (!tr.selection && tr.effects.some((effect) => effect.is(setVimMode))) {
     const { selection } = tr.startState;
     const nudged = nudgeOutOfHidden(selection, selection, tr.state.field(live).hidden, tr.newDoc);
