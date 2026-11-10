@@ -72,6 +72,18 @@ phone, `run` and then `Open the log` does the same.
 | `q` | Close the pane |
 | `Escape` | Leave the edit without writing |
 
+## Cook mode
+
+`Cook` on a recipe note's card opens cook mode;
+[Recipe note](/reference/food/recipe-note.md#cook-mode) says what it shows.
+
+| Key | Does |
+| --- | --- |
+| `→` | Show the next step |
+| `←` | Show the step before |
+| `Escape` | Close cook mode |
+| `Tab`, `Shift+Tab` | Move round its buttons, never out to the page behind |
+
 ## The finance pane
 
 `<leader>gk` puts the finance pane in the focused pane, in place of whatever it

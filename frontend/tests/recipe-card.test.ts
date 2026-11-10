@@ -2,7 +2,8 @@ import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type Ingredient, type Recipe, readRecipe } from "@/lib/log/food-api";
-import { isRecipe, RECIPE_PAUSE_MS, recipeCard, scaledLine, shown } from "@/lib/log/recipe-card";
+import { isRecipe, RECIPE_PAUSE_MS, recipeCard } from "@/lib/log/recipe/recipe-card";
+import { scaledLine, shown } from "@/lib/log/recipe/recipe-steps";
 
 vi.mock("@/lib/log/food-api", () => ({ readRecipe: vi.fn() }));
 
@@ -34,6 +35,7 @@ const CHILI: Recipe = {
   source: null,
   tags: [],
   steps: [],
+  cooked: [],
   ingredients: [
     line({}),
     line({
@@ -79,6 +81,7 @@ afterEach(() => {
     view.dom.parentElement?.remove();
   }
   vi.useRealTimers();
+  for (const open of document.querySelectorAll(".k-cook")) open.remove();
 });
 
 function mount(doc: string): EditorView {
@@ -198,5 +201,49 @@ describe("the recipe card", () => {
     const view = mount(NOTE);
     await vi.runAllTimersAsync();
     expect(card(view)?.textContent).toContain("failed with 500");
+  });
+
+  it("shows the facts and the last meals cooked, newest first", async () => {
+    vi.setSystemTime(new Date(2026, 10, 10, 12));
+    vi.mocked(readRecipe).mockResolvedValue({
+      ...CHILI,
+      tags: ["prep", "vegetarisch"],
+      time: "70 min",
+      source: "https://www.chefkoch.de/rezepte/123",
+      cooked: [
+        { line: 12, date: "2026-10-02", verdict: null, note: "mit Limette" },
+        { line: 13, date: "2026-10-29", verdict: "gern wieder", note: "mehr Chili" },
+        { line: 14, date: "2026-10-15", verdict: "geht so", note: null },
+        { line: 15, date: "2026-09-01", verdict: "lieber nicht", note: "zu scharf" },
+      ],
+    });
+    const view = mount(NOTE);
+    await vi.runAllTimersAsync();
+    expect(view.dom.querySelector(".cm-recipe-facts")?.textContent).toBe(
+      "gern wieder · cooked 4×, last 12 days ago · 70 min · chefkoch.de",
+    );
+    const notes = [...view.dom.querySelectorAll(".cm-recipe-note")].map((row) => row.textContent);
+    expect(notes).toEqual([
+      "29 Oct · gern wieder · mehr Chili",
+      "15 Oct · geht so",
+      "2 Oct · mit Limette",
+    ]);
+  });
+
+  it("opens cook mode at the servings the stepper shows, and only when there are steps", async () => {
+    vi.mocked(readRecipe).mockResolvedValue(CHILI);
+    const view = mount(NOTE);
+    await vi.runAllTimersAsync();
+    const cook = () => view.dom.querySelector<HTMLButtonElement>(".cm-recipe-cook");
+    expect(cook()?.disabled).toBe(true);
+
+    vi.mocked(readRecipe).mockResolvedValue({ ...CHILI, steps: ["Bohnen 5 Minuten kochen."] });
+    view.dispatch({ changes: { from: view.state.doc.length, insert: "\n## Schritte\n" } });
+    await vi.advanceTimersByTimeAsync(RECIPE_PAUSE_MS);
+    view.dom.querySelector<HTMLButtonElement>("button[aria-label='More servings']")?.click();
+    cook()?.click();
+    const open = document.querySelector<HTMLElement>(".k-cook");
+    expect(open?.getAttribute("aria-label")).toBe("Cook Chili sin carne");
+    expect(open?.querySelector(".k-cook-item")?.textContent).toBe("625 g Kidneybohnen");
   });
 });

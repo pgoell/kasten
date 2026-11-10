@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Recipe note
-description: The note a dish is written in, its frontmatter, the ingredient and step sections, how a German ingredient line is read for its amount and unit, how a line finds its food, the kcal and macros per serving, the card that shows them, and why a line is not counted.
+description: The note a dish is written in, its frontmatter, the ingredient, step and cooked sections, how a German ingredient line is read for its amount and unit, how a line finds its food, the kcal and macros per serving, the card that shows them, cook mode, and why a line is not counted.
 resource: backend/tests/food/ingredient_cases.json
 tags: [vault, recipes, food, format, backend]
 status: stable
@@ -39,6 +39,10 @@ tags: [prep, friert-ein, vegetarisch]
 ## Schritte
 1. Zwiebeln würfeln und im Öl glasig braten.
 2. Bohnen und Tomaten dazu, 30 Minuten köcheln.
+
+## Gekocht
+- 2026-10-27 gern wieder · mehr Chili, Reis war zu weich
+- 2026-10-02 geht so
 ```
 
 ## Where a recipe sits
@@ -70,10 +74,31 @@ Without `servings`, the numbers are for the whole recipe and the card says so.
    line still counts.
 3. `## Schritte` (or `## Zubereitung`, `## Steps`) holds the steps, one numbered
    line each: `1. ` or `1) `.
-4. Headings read in any case. A line inside a fenced code block is neither an
+4. `## Gekocht` (or `## Cooked`) holds one line per time the dish was cooked;
+   see [The meals cooked](#the-meals-cooked).
+5. Headings read in any case. A line inside a fenced code block is neither an
    ingredient nor a step, and the frontmatter is no section.
 
 The raw line stays the truth. kasten reads it and never rewrites it.
+
+## The meals cooked
+
+Each line under `## Gekocht` is a bullet, the day as `YYYY-MM-DD`, then
+optionally the answer to "wieder kochen?" and a note after a `·`:
+
+```markdown
+- 2026-11-09 gern wieder · mehr Würze, Beilage anders
+- 2026-10-27 geht so
+- 2026-10-02 · mit Limette
+```
+
+1. The answer is `lieber nicht`, `geht so` or `gern wieder`, in any case, right
+   after the day. Any other words there are the note.
+2. The note is whatever follows, its leading `·` taken off.
+3. A line with no day, or a day that does not exist such as `2026-02-30`, is
+   passed over.
+
+The card and cook mode read these lines; nothing in kasten writes them yet.
 
 ## Reading a line
 
@@ -163,6 +188,11 @@ Every line shows, counted or not, and one that adds nothing says why:
 
 A recipe note in live preview shows a card under its title. From the top:
 
+* a line of facts: the newest answer from
+  `## Gekocht`, how often the dish was cooked and how long ago it was last,
+  `time`, and the site `source` names, as
+  `gern wieder · cooked 6×, last 12 days ago · 70 min · chefkoch.de`. A fact
+  the note does not give is left out;
 * the kcal, protein, carbs and fat per serving, or for the whole recipe without
   `servings`;
 * a stepper, `−` and `+`, with the servings it shows. It scales each amount and
@@ -174,9 +204,40 @@ A recipe note in live preview shows a card under its title. From the top:
   scaled, then the rest of the line: `2-3 Zwiebeln` at 1.5 times is
   `3-4.5 Zwiebeln`, and `½ TL` at 2 times is `1 TL`. A line matched to a food
   of another name shows that name on hover;
-* `N of M lines counted`.
+* `N of M lines counted`;
+* under `Last cooked`, the three newest lines of `## Gekocht`, as
+  `27 Oct · gern wieder · mehr Chili`;
+* `Cook`, which opens cook mode at the servings the stepper shows. With no
+  steps it is greyed out.
 
 The card sends the open text 0.6 s after typing pauses, so the numbers follow
 an edit before it is saved. An answer that a later request overtook is dropped.
-A failed request is named in the card. `frontend/src/lib/log/recipe-card.ts`
+A failed request is named in the card. `frontend/src/lib/log/recipe/recipe-card.ts`
 draws it.
+
+## Cook mode
+
+Cook mode covers the whole window in the dark theme and shows one step at a
+time. `frontend/src/lib/log/recipe/cook-mode.ts` draws it.
+
+* The screen stays on: cook mode holds a screen wake lock while it is open, and
+  takes it again when you come back to the tab. The top right says
+  `Screen stays on`, or `The screen may turn off` where the browser refuses,
+  as it may on low battery.
+* A bar of one segment per step shows how far you are, over
+  `Chili sin carne · Step 3 of 6` and the step in large serif type.
+* Under `For this step · 6 servings`, the ingredients the step names, scaled to
+  the servings. A step names an ingredient when one of its capitalised words
+  is a word of the food or its last part after at least three letters, with a
+  plural ending taken off both: `Bohnen` finds `Kidneybohnen`, `Öl` finds
+  `Olivenöl`, `Zwiebeln` finds `Zwiebel`, and `Ei` does not find `Reis`.
+* A step that names a time gets a timer button, `Start 8:00 timer`. The first
+  time in the step counts: `8 Minuten`, `30 Min.`, `1,5 Stunden`, `2 Std.`,
+  `45 Sekunden`, and for a range such as `10-12 Minuten` its lower end. A press
+  pauses and resumes it. One timer runs at a time, so starting another replaces
+  it. Away from its step, a chip at the top shows the time
+  left and leads back. At zero the phone vibrates and a tone plays.
+* `Last time:` and the newest note from `## Gekocht`.
+* `Back` and `Next step`, 64px high; on the last step `Next step` reads `Done`
+  and closes. The arrow keys move too, and Escape closes; see
+  [Editor keys](/reference/editor-keys.md#cook-mode).

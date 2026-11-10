@@ -12,6 +12,9 @@ from pydantic import BaseModel
 
 from kasten_backend import food
 from kasten_backend.food.recipes.amounts import parse_amount
+from kasten_backend.food.recipes.note import (
+    Cooked,  # noqa: TC001  pydantic reads the annotation at runtime
+)
 
 if TYPE_CHECKING:
     from kasten_backend.food.recipes.foods import MyFood
@@ -64,6 +67,8 @@ class Recipe(BaseModel):
     tags: list[str]
     ingredients: list[Ingredient]
     steps: list[str]
+    cooked: list[Cooked]
+    """The lines under `## Gekocht`, in the note's order."""
     total: food.Nutrients
     """Over the counted lines. A field no counted line gives is null."""
     per_serving: food.Nutrients | None
@@ -198,6 +203,7 @@ async def recipe_nutrition(recipe: RecipeNote, foods: list[MyFood], contact: str
         tags=recipe.tags,
         ingredients=[ingredient for ingredient, _ in read],
         steps=recipe.steps,
+        cooked=recipe.cooked,
         total=_rounded(total),
         per_serving=per_serving,
     )

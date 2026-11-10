@@ -6,7 +6,7 @@ import { EditorView, keymap, lineNumbers } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
 import { basicSetup } from "codemirror";
 import { logCard } from "@/lib/log/log-card";
-import { recipeCard } from "@/lib/log/recipe-card";
+import { recipeCard } from "@/lib/log/recipe/recipe-card";
 import { noteLanguage } from "@/lib/markdown/note-language";
 import { tagCompletions, vaultTags } from "@/lib/markdown/tag";
 import { backticks } from "@/lib/notes/editor/backticks";

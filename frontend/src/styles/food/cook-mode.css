@@ -1,0 +1,154 @@
+/* Cook mode: over the whole window and always dark, with the step in large serif type and
+   buttons big enough for a floury thumb. It carries data-theme="dark", so the tokens are dark. */
+.k-cook {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: var(--k-space-16);
+  padding: max(var(--k-space-16), env(safe-area-inset-top)) var(--k-space-16)
+    max(var(--k-space-16), env(safe-area-inset-bottom));
+  background: var(--k-bg);
+  color: var(--k-ink);
+  font-family: var(--k-sans);
+}
+
+.k-cook-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--k-space-8);
+}
+
+.k-cook-lock {
+  color: var(--k-muted);
+  font-size: var(--k-text-13);
+}
+
+.k-cook button {
+  min-height: 48px;
+  padding: 0 var(--k-space-16);
+  border: 1px solid var(--k-rule);
+  border-radius: var(--k-radius-8);
+  background: var(--k-paper);
+  color: var(--k-ink);
+  font: inherit;
+  font-size: var(--k-text-15);
+}
+
+.k-cook button:disabled {
+  opacity: 0.4;
+}
+
+.k-cook-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-16);
+  width: 100%;
+  max-width: var(--k-measure);
+  margin: 0 auto;
+  overflow-y: auto;
+}
+
+.k-cook-progress {
+  display: flex;
+  gap: 4px;
+}
+
+.k-cook-segment {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--k-rule);
+}
+
+.k-cook-segment.is-done {
+  background: var(--k-accent);
+}
+
+.k-cook-where,
+.k-cook-label {
+  margin: 0;
+  color: var(--k-accent);
+  font-size: var(--k-text-13);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.k-cook-label {
+  color: var(--k-muted);
+}
+
+.k-cook-step {
+  margin: 0;
+  font-family: var(--k-serif);
+  font-size: clamp(var(--k-text-27), 6vw, var(--k-text-36));
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.k-cook-list {
+  margin: var(--k-space-8) 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--k-rule-strong);
+}
+
+.k-cook-item {
+  padding: var(--k-space-8) 0;
+  border-bottom: 1px solid var(--k-rule);
+  font-size: var(--k-text-19);
+  font-variant-numeric: tabular-nums;
+}
+
+.k-cook .k-cook-timer {
+  min-height: 64px;
+  border-color: var(--k-accent);
+  background: var(--k-accent-wash);
+  font-size: var(--k-text-19);
+  font-variant-numeric: tabular-nums;
+}
+
+.k-cook .k-cook-timer.is-up,
+.k-cook .k-cook-chip {
+  border-color: var(--k-warn);
+  color: var(--k-warn);
+  font-variant-numeric: tabular-nums;
+}
+
+.k-cook-last {
+  margin: 0;
+  color: var(--k-muted);
+  font-size: var(--k-text-15);
+}
+
+.k-cook-foot {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: var(--k-space-12);
+  width: 100%;
+  max-width: var(--k-measure);
+  margin: 0 auto;
+}
+
+.k-cook .k-cook-back,
+.k-cook .k-cook-next {
+  min-height: 64px;
+  font-size: var(--k-text-19);
+}
+
+.k-cook .k-cook-next {
+  border-color: var(--k-accent);
+  background: var(--k-accent);
+  color: var(--k-bg);
+  font-weight: 600;
+}
+
+[hidden].k-cook-timer,
+[hidden].k-cook-chip,
+[hidden].k-cook-last {
+  display: none;
+}

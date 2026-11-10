@@ -1,0 +1,124 @@
+/* The recipe card under a recipe note's title. The stepper's buttons are 44px, as the log card's;
+   rows wrap, so an ingredient's words and its kcal never push the card past a phone's width. */
+.cm-recipe {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  max-width: var(--k-measure);
+  padding: 6px 24px 14px 0;
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  cursor: default;
+}
+
+.cm-recipe-macros,
+.cm-recipe-servings {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 16px;
+}
+
+.cm-recipe-label,
+.cm-recipe-own,
+.cm-recipe-foot,
+.cm-recipe-wait,
+.cm-recipe-group {
+  color: var(--k-muted);
+  font-size: var(--k-text-13);
+}
+
+.cm-recipe-kcal {
+  color: var(--k-ink);
+  font-size: var(--k-text-23);
+  font-weight: 600;
+}
+
+.cm-recipe-step {
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid var(--k-rule);
+  border-radius: 6px;
+  background: var(--k-paper);
+  color: var(--k-ink);
+  font: inherit;
+  font-size: var(--k-text-15);
+}
+
+.cm-recipe-step:disabled {
+  opacity: 0.4;
+}
+
+.cm-recipe-lines {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cm-recipe-line {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 2px 12px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--k-rule);
+}
+
+.cm-recipe-words {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.cm-recipe-what {
+  color: var(--k-muted);
+  font-size: var(--k-text-13);
+}
+
+/* A line that adds nothing says so in the warning colour, so a gap in the sum is never quiet. */
+.cm-recipe-no-match .cm-recipe-what,
+.cm-recipe-no-weight .cm-recipe-what,
+.cm-recipe-unreached .cm-recipe-what {
+  color: var(--k-warn);
+}
+
+.cm-recipe-group {
+  padding-top: 6px;
+  font-weight: 600;
+}
+
+.cm-recipe-facts {
+  color: var(--k-muted);
+  font-size: var(--k-text-13);
+}
+
+.cm-recipe-cooked {
+  display: grid;
+  gap: 4px;
+}
+
+.cm-recipe-note {
+  padding: 4px 0;
+  border-bottom: 1px solid var(--k-rule);
+  font-family: var(--k-serif);
+  overflow-wrap: anywhere;
+}
+
+/* 44px, as the stepper, so the way into cook mode is easy to hit with a wet finger. */
+.cm-recipe-cook {
+  min-height: 44px;
+  padding: 0 24px;
+  justify-self: start;
+  border: 0;
+  border-radius: var(--k-radius-6);
+  background: var(--k-accent);
+  color: var(--k-paper);
+  font: inherit;
+  font-size: var(--k-text-15);
+  font-weight: 600;
+}
+
+.cm-recipe-cook:disabled {
+  opacity: 0.4;
+}

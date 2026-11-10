@@ -115,6 +115,7 @@ POST /api/recipe/nutrition
     }
   ],
   "steps": [],
+  "cooked": [],
   "total": { "kcal": 500.0, "protein": 35.0, "carbs": 60.0, "fat": 2.5 },
   "per_serving": { "kcal": 125.0, "protein": 8.8, "carbs": 15.0, "fat": 0.6 }
 }
@@ -135,6 +136,11 @@ POST /api/recipe/nutrition
 * `match` names the food: `source` is `mine` for a line of `foods.md` and `off`
   for an Open Food Facts product, with its `name` and barcode `code`.
 * `steps` are the numbered lines under `## Schritte`.
+* `cooked` holds one entry per line under `## Gekocht`, in the note's order:
+  its `line`, the `date` as `YYYY-MM-DD`, the `verdict` (`lieber nicht`,
+  `geht so`, `gern wieder` or `null`) and the `note` after it, or `null`.
+  [Recipe note](/reference/food/recipe-note.md#the-meals-cooked) gives the
+  format.
 * `total` sums the counted lines, each field over the lines that give it, and is
   `null` in a field no counted line gives. `per_serving` is `total` over
   `servings`, or `null` with no servings. Both round to a tenth once, after the
