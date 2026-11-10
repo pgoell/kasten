@@ -239,7 +239,7 @@ test("Enter opens the backlink drawn first and ArrowDown walks to the one drawn 
 });
 
 const preview = (page: Page) => page.getByTestId("preview");
-/** The preview's line numbers, which are the note's own; the gutter's hidden spacer holds one too, so read the smallest. */
+/** The preview's line numbers, the note's own; the gutter's hidden spacer adds one, so callers take the smallest. */
 const numbers = (page: Page) =>
   preview(page).evaluate((pane) =>
     [...pane.querySelectorAll(".cm-gutterElement")]
@@ -262,7 +262,7 @@ test("the preview shows the note around the highlighted backlink, numbered as th
     hit(long, far, "far [[Garden]]"),
     hit(long, near, "near [[Garden]]"),
   ]);
-  // One poll: the marked line, its neighbours and the window's first and last numbers.
+  // One poll: the marked line, its neighbours and the window's first number.
   await expect
     .poll(async () => {
       const shown = await numbers(page);
