@@ -126,6 +126,8 @@ describe("the recipe card", () => {
     });
     expect(scaledLine(pinned, 1)).toBe("½ TL Kurkuma");
     expect(scaledLine(pinned, 2)).toBe("1 TL Kurkuma");
+    const twice = line({ text: "1 Dose Mais 🏷 4337256380081 🏷 40084015", quantity: 1 });
+    expect(scaledLine(twice, 1)).toBe("1 Dose Mais");
   });
 
   it("shows the numbers per serving, and says why a line is not counted", async () => {

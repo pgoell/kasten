@@ -45,8 +45,8 @@ export function shown(value: number, places = 1): string {
   return String(Number(value.toFixed(places)));
 }
 
-/** A `🏷` barcode pinned to a line, which the card leaves out, as the backend's `PIN` does. */
-const PIN = /[ \t]*🏷️?[ \t]*[0-9]{8,14}\b/u;
+/** Every `🏷` barcode pinned to a line, which the card leaves out, as the backend's `PIN` does. */
+const PIN = /[ \t]*🏷️?[ \t]*[0-9]{8,14}\b/gu;
 
 /**
  * The line as written at the note's own servings; otherwise its quantity, and the upper end of
