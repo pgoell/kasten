@@ -114,7 +114,9 @@ describe("the phone board's column swipe (#811 A8 I1 I2)", () => {
     hand.down();
     hand.move(300);
 
-    expect(col.style.transform).toBe(`translateX(${rubberBand(100, 390)}px)`);
+    // jsdom, like a browser, keeps six significant digits of the shift.
+    const shift = Number(/translateX\((.*)px\)/.exec(col.style.transform)?.[1]);
+    expect(shift).toBeCloseTo(rubberBand(100, 390), 3);
   });
 
   it("#811 A8 a vertical drag leaves the column to the page", async () => {
