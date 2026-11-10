@@ -145,20 +145,6 @@
   }
 }
 
-/* Under a finger with vim off the line numbers mean nothing and cost a column.
-   The body then takes 16 px on both sides. */
-@media (pointer: coarse) {
-  .k-reader .cm-editor.cm-plain .cm-gutters {
-    display: none;
-  }
-
-  @container k-reader (width < 776px) {
-    .k-reader .cm-plain .cm-content {
-      margin-inline: var(--k-space-16);
-    }
-  }
-}
-
 /* The colour changes at the same speed as the press, and the transform stays in
    the list, so a press still gives under the finger. Nothing here moves on scroll. */
 .k-margin-row,
@@ -219,3 +205,16 @@
   }
 }
 
+/* Under a finger with vim off the line numbers mean nothing and cost a column.
+   The body then takes 16 px on both sides. */
+@media (pointer: coarse) {
+  .k-reader .cm-editor.cm-plain .cm-gutters {
+    display: none;
+  }
+
+  @container k-reader (width < 776px) {
+    .k-reader .cm-plain .cm-content {
+      margin-inline: var(--k-space-16);
+    }
+  }
+}
