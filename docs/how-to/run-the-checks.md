@@ -59,9 +59,13 @@ The journeys sit in `e2e/journeys/`: `panes.spec.ts` and `review.spec.ts` at
 the top, notes, the finder and saving in `notes/`, the todo list and the board
 in `todos/`, capture and the log in `day/`, and the book and video panes in
 `media/`. `harness.spec.ts` checks the harness itself. Each journey is a
-thing done daily, and each one that writes checks the file on disk. The todo,
-capture and review files also run a journey at phone width, 414 px with touch,
-where the editor starts without vim; `phone` in `e2e/harness/app.ts` sets that up.
+thing done daily, and each one that writes checks the file on disk. Twelve files
+also run journeys at phone width, 414 px with touch, where the editor starts
+without vim: `review.spec.ts`; `notes/saving.spec.ts`, `notes/finder.spec.ts`
+and the three `notes/content-search-*.spec.ts`; `todos/list.spec.ts`; `day/capture.spec.ts` and `day/log.spec.ts`; and
+`media/book.spec.ts`, `media/book-finder.spec.ts` and `media/video.spec.ts`.
+`phone` in `e2e/harness/app.ts` sets that up, and
+`git grep -l 'test.use(phone)' e2e/journeys` lists them.
 A runner has no YouTube, so the video journey serves a fake player for each
 embed (`fakeYouTube` in `e2e/harness/youtube.ts`) and aborts any other request
 that would leave the box.

@@ -1,7 +1,7 @@
-import { readdir } from "node:fs/promises";
+import { mkdir, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Page } from "@playwright/test";
-import { findNote, leader, noteText, openApp } from "../../harness/app.ts";
+import { findNote, leader, noteText, openApp, openFromTree } from "../../harness/app.ts";
 import { type Hit, hit, lineOf, openPanel } from "../../harness/search.ts";
 import { expect, test } from "../../harness/stack.ts";
 
@@ -321,4 +321,126 @@ test("in a narrow window the backlinks read and draw no preview", async ({ page 
   // Past the delay the pane waits before it reads.
   await page.clock.runFor(500);
   await expect.poll(async () => [await preview(page).count(), reads]).toEqual([0, 0]);
+});
+
+test.describe("following a link with an alias or a heading", () => {
+  /** Frontmatter first, so the heading's line counts the block above the body. */
+  const BORGES = "---\nid: 01\n---\n# Borges\n\n[[borges#Life]]\n\n## Life\n\nborn 1899\n";
+  const SELF = "[[#Below]]\n\ntext\n\n## Below\n";
+
+  /** Writes Borges and each note of `notes` into the vault, then loads the app. */
+  async function vaultWith(page: Page, vault: string, notes: Record<string, string>) {
+    await mkdir(join(vault, "reading"), { recursive: true });
+    await writeFile(join(vault, "reading/borges.md"), BORGES);
+    for (const [path, text] of Object.entries(notes)) await writeFile(join(vault, path), text);
+    await openApp(page);
+  }
+
+  /** gf with the cursor on `line`, then the note's tab and the cursor's line, marks hidden, in one poll. */
+  async function follow(page: Page, line: number, tab: string, at: string) {
+    await page.keyboard.type(`${line}Ggf`);
+    await expect
+      .poll(async () => [
+        await page.getByRole("tab", { selected: true }).textContent(),
+        await page.locator(".cm-content:focus .cm-activeLine").textContent(),
+      ])
+      .toEqual([expect.stringContaining(tab), at]);
+  }
+
+  /** The notes made in the inbox, past the index the folder starts with. */
+  const inbox = async (vault: string) =>
+    (await readdir(join(vault, "00 Inbox")).catch(() => []))
+      .filter((name) => name !== "index.md")
+      .sort();
+
+  test("gf on a link with an alias, a heading, both or a heading the note lacks opens the note there, again on a second gf, and makes no note", async ({
+    page,
+    stack,
+  }) => {
+    const links = "[[borges|Jorge]]\n[[borges#Life]]\n[[borges#life|his life]]\n[[borges#Death]]\n";
+    await vaultWith(page, stack.vault, { "Links.md": links });
+    for (const [line, at] of [
+      // Where any note opens: the body's first line, under the frontmatter.
+      [4, "Borges"],
+      [1, "Borges"],
+      [2, "Life"],
+      [3, "Life"],
+    ] as const) {
+      await findNote(page, "Links");
+      await follow(page, line, "borges", at);
+    }
+    // The pane already holds Borges at Life, so only a fresh open says to move.
+    await page.keyboard.type("6G");
+    await expect(page.locator(".cm-content:focus .cm-activeLine")).toContainText("borges#Life");
+    await follow(page, 6, "borges", "Life");
+    expect(await inbox(stack.vault)).toEqual([]);
+    expect(await noteText(stack.vault, "reading/borges.md")).toBe(BORGES);
+  });
+
+  test("gf on a link to a heading of its own note jumps there, again on a second gf, by the text on screen", async ({
+    page,
+    stack,
+  }) => {
+    await vaultWith(page, stack.vault, { "Self.md": SELF });
+    await findNote(page, "Self");
+    await follow(page, 1, "Self", "Below");
+    await follow(page, 1, "Self", "Below");
+    // A copy of the link pasted under it, which moves the heading a line down from where the
+    // vault has it; a jump to the vault's line would land on the blank line above.
+    await page.keyboard.type("ggyyp");
+    await follow(page, 2, "Self", "Below");
+    expect(await inbox(stack.vault)).toEqual([]);
+  });
+
+  test("gf on a missing note behind an alias or a heading makes it in the inbox under its name", async ({
+    page,
+    stack,
+  }) => {
+    await vaultWith(page, stack.vault, { "Missing.md": "[[cortazar|Julio]]\n[[rayuela#One]]\n" });
+    await findNote(page, "Missing");
+    await page.keyboard.type("1Ggf");
+    await expect.poll(() => inbox(stack.vault)).toEqual(["cortazar.md"]);
+    // The new folder takes the focus into the tree, so the editor is clicked back first.
+    await expect(page.getByRole("tab", { name: "cortazar", selected: true })).toBeVisible();
+    await page.locator(".cm-content").click();
+    await page.keyboard.press("Escape");
+    await findNote(page, "Missing");
+    await page.keyboard.type("2Ggf");
+    await expect.poll(() => inbox(stack.vault)).toEqual(["cortazar.md", "rayuela.md"]);
+  });
+
+  test("a jump to a heading is dropped when another note opened while the heading was read", async ({
+    page,
+    stack,
+  }) => {
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let answered = () => {};
+    const done = new Promise<void>((resolve) => {
+      answered = resolve;
+    });
+    // Borges is read from disk at once and handed over only once kafka is open.
+    const borges = (url: URL) =>
+      decodeURIComponent(url.pathname) === "/api/files/reading/borges.md";
+    await page.route(borges, async (route) => {
+      if (route.request().method() !== "GET") return route.fallback();
+      const response = await route.fetch();
+      await held;
+      await route.fulfill({ response });
+      answered();
+    });
+    await vaultWith(page, stack.vault, {
+      "Race.md": "[[borges#Life]]\n",
+      "kafka.md": "the trial\n",
+    });
+    await findNote(page, "Race");
+    await page.keyboard.type("gf");
+    await openFromTree(page, "kafka");
+    release();
+    await done;
+    await expect(page.getByRole("tab", { name: "kafka", selected: true })).toBeVisible();
+    await expect(page.locator(".cm-content:focus")).toHaveText("the trial");
+  });
 });

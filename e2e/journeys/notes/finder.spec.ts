@@ -1,8 +1,11 @@
-import { writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { copyFile, mkdir, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import type { Page } from "@playwright/test";
 import { findNote, leader, openApp, phone } from "../../harness/app.ts";
+import { root } from "../../harness/paths.ts";
 import { expect, test } from "../../harness/stack.ts";
+
+const EPUB = join(root, "frontend/tests/fixtures/contents.epub");
 
 test("the finder opens the note it finds", async ({ page }) => {
   await openApp(page);
@@ -270,6 +273,130 @@ test("the book finder says the vault has no books, and Enter opens nothing", asy
   await expect(page.getByRole("tab")).toHaveCount(tabs);
 });
 
+test.describe("opening a file from the finder", () => {
+  const PRIMER = "04 Books/Primer.pdf";
+  const pdfPane = (page: Page, path: string) => page.locator(`[data-pdf-pane="${path}"]`);
+
+  /** Copies each file from its source, in the vault or absolute; records each window.open; loads the app. */
+  async function vaultWith(page: Page, vault: string, files: Record<string, string>) {
+    for (const [path, from] of Object.entries(files)) {
+      await mkdir(join(vault, dirname(path)), { recursive: true });
+      await copyFile(from.startsWith("/") ? from : join(vault, from), join(vault, path));
+    }
+    // A new tab would leave the box, so the page keeps the addresses it was asked to open.
+    await page.addInitScript(() => {
+      const opened: string[] = [];
+      Object.assign(window, { opened, open: (url: string) => opened.push(url) && null });
+    });
+    await openApp(page);
+  }
+
+  /** Opens the finder with Space f f, waits for its input's focus, and types `query`. */
+  async function find(page: Page, query: string) {
+    await leader(page, "ff");
+    const input = page.getByRole("dialog", { name: "Find note" }).getByRole("combobox");
+    await expect(input).toBeFocused();
+    await input.fill(query);
+  }
+
+  const selected = (page: Page) => page.getByRole("option", { selected: true });
+
+  test("Enter on a pdf row opens it at page 1 in place of the editor, its suffix in any case", async ({
+    page,
+    stack,
+  }) => {
+    await vaultWith(page, stack.vault, { "x/Plan.PDF": PRIMER });
+    await find(page, "Primer.pdf");
+    await expect(selected(page)).toContainText(PRIMER);
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("dialog", { name: "Find note" })).toBeHidden();
+    await expect(pdfPane(page, PRIMER)).toBeVisible();
+    expect([
+      await pdfPane(page, PRIMER).getAttribute("data-page"),
+      await page.locator(".cm-content").count(),
+    ]).toEqual([null, 0]);
+
+    await find(page, "x/plan.pdf");
+    await expect(selected(page)).toHaveText(/^x\/Plan\.PDF\s*PDF$/);
+    await page.keyboard.press("Enter");
+    await expect(pdfPane(page, "x/Plan.PDF")).toBeVisible();
+  });
+
+  test("a tap on an html row opens the html pane", async ({ page, stack }) => {
+    await vaultWith(page, stack.vault, { "notes/page.html": "Welcome.md" });
+    await find(page, "page.html");
+    await page.getByRole("option", { name: /notes\/page\.html/ }).click();
+    await expect(page.locator('[data-html-pane] iframe[title="notes/page.html"]')).toBeVisible();
+  });
+
+  test("Enter on an epub with a note opens the book over the focused pane, and one with no note in a new tab", async ({
+    page,
+    stack,
+  }) => {
+    const read: string[] = [];
+    page.on("request", (request) => {
+      const url = decodeURIComponent(request.url());
+      if (url.includes("/api/books/")) read.push(url.replace(/^.*\/api\/books\//, ""));
+    });
+    await vaultWith(page, stack.vault, {
+      "lit/DDIA.md": "Welcome.md",
+      "lit/DDIA.epub": EPUB,
+      "lit/Solo.epub": EPUB,
+    });
+    await find(page, "DDIA.epub");
+    await expect(selected(page)).toContainText("lit/DDIA.epub");
+    await page.keyboard.press("Enter");
+    await expect(page.locator("[data-book-pane]")).toBeVisible({ timeout: 15_000 });
+    expect([await page.locator("[data-pane]").count(), read]).toEqual([1, ["lit/DDIA.md"]]);
+
+    await find(page, "Solo.epub");
+    await expect(selected(page)).toContainText("lit/Solo.epub");
+    await page.keyboard.press("Enter");
+    await expect
+      .poll(() => page.evaluate(() => (window as unknown as { opened: string[] }).opened))
+      .toEqual(["/api/assets/lit/Solo.epub"]);
+    expect(read).toEqual(["lit/DDIA.md"]);
+  });
+
+  test("an archived pdf stays off the finder until Space a shows the archive", async ({
+    page,
+    stack,
+  }) => {
+    await vaultWith(page, stack.vault, { "98 Archive/old.pdf": PRIMER });
+    const names = page.getByRole("option");
+    await find(page, ".pdf");
+    // One poll: the pdf outside the archive listed while the archived one is not.
+    await expect
+      .poll(async () => (await names.allTextContents()).map((name) => name.replace(/\s*PDF$/, "")))
+      .toEqual([PRIMER]);
+    await page.keyboard.press("Escape");
+    await leader(page, "a");
+    await find(page, ".pdf");
+    await expect.poll(async () => (await names.allTextContents()).length).toBe(2);
+    await expect(page.getByRole("option", { name: /98 Archive\/old\.pdf/ })).toBeVisible();
+  });
+
+  test.describe("with vim off", () => {
+    test.beforeEach(async ({ page }) => {
+      await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
+    });
+
+    test("the palette's Find a note opens the finder, and Enter on a pdf row opens it", async ({
+      page,
+    }) => {
+      await openApp(page);
+      await page.keyboard.press("Control+Shift+P");
+      await page.getByRole("option", { name: /^Find a note/ }).click();
+      const input = page.getByRole("dialog", { name: "Find note" }).getByRole("combobox");
+      await expect(input).toBeFocused();
+      await input.fill("Primer.pdf");
+      await expect(selected(page)).toContainText(PRIMER);
+      await page.keyboard.press("Enter");
+      await expect(pdfPane(page, PRIMER)).toBeVisible();
+    });
+  });
+});
+
 test.describe("on a phone", () => {
   test.use(phone);
 
@@ -312,5 +439,15 @@ test.describe("on a phone", () => {
       .first()
       .evaluate((el) => getComputedStyle(el).minHeight);
     expect(minHeight).toBe("44px");
+  });
+  test("a tap on run, Find a note and a pdf row opens the pdf", async ({ page }) => {
+    await page.goto("/");
+    const commands = page.getByRole("toolbar", { name: "Commands" });
+    await expect(commands).toBeVisible({ timeout: 15_000 });
+    await commands.getByRole("button", { name: "Run a command by name" }).tap();
+    await page.getByRole("option", { name: /^Find a note/ }).tap();
+    await page.getByRole("dialog", { name: "Find note" }).getByRole("combobox").fill("Primer.pdf");
+    await page.getByRole("option", { name: /04 Books\/Primer\.pdf/ }).tap();
+    await expect(page.locator('[data-pdf-pane="04 Books/Primer.pdf"]')).toBeVisible();
   });
 });
