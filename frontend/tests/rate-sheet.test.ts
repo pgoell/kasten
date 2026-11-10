@@ -46,6 +46,7 @@ describe("the rating sheet", () => {
     expect(cookedLineFor("2026-11-09", "lieber nicht", [], "")).toBe("- 2026-11-09 lieber nicht");
     expect(mealFacts(MEAL.line)).toBe("lunch · 540 kcal");
     expect(mealFacts("- 🍽 Toast")).toBe("");
+    expect(mealFacts("- 🍽️ Dinner: Dal 🔥 612,5 kcal")).toBe("dinner · 613 kcal");
   });
 
   it("asks once a face is picked, and appends the line under ## Gekocht", async () => {
@@ -66,6 +67,19 @@ describe("the rating sheet", () => {
     expect(written).toBe(`${NOTE}\n## Gekocht\n- 2026-11-09 gern wieder · mehr Würze\n`);
     expect(document.querySelector(".k-rate")).toBeNull();
     expect(localStorage.getItem("kasten.rate.pending")).toBeNull();
+  });
+
+  it("dates the line by the daily note the meal went on", async () => {
+    let written = "";
+    vi.mocked(updateNote).mockImplementation(async (_path, change) => {
+      written = change(NOTE) ?? "";
+      return null;
+    });
+    openRateSheet({ ...MEAL, day: "2026-11-08" });
+    face("geht so")?.click();
+    press(".k-rate-done");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(written).toContain("- 2026-11-08 geht so\n");
   });
 
   it("keeps the sheet and says why when the write fails", async () => {

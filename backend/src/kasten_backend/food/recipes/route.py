@@ -18,6 +18,7 @@ from kasten_backend.config import Settings, get_settings
 from kasten_backend.food.recipes.foods import FOODS_NOTE, MyFood, parse_my_foods
 from kasten_backend.food.recipes.note import parse_recipe
 from kasten_backend.food.recipes.nutrition import Recipe, recipe_nutrition
+from kasten_backend.frontmatter import body_start
 from kasten_backend.graph import typed_notes
 
 router = APIRouter()
@@ -81,7 +82,7 @@ async def list_recipes(settings: Annotated[Settings, Depends(get_settings)]) -> 
         if text is None:
             continue
         recipe = await recipe_nutrition(parse_recipe(text), foods, settings.food_contact)
-        title = TITLE.search(text)
+        title = TITLE.search(text, body_start(text))
         entries.append(
             RecipeEntry(
                 path=path,

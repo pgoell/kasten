@@ -7,7 +7,7 @@ import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { fireEvent } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fetchLog, searchFood } from "@/lib/log/food-api";
+import { fetchLog, type LogDay, searchFood } from "@/lib/log/food-api";
 import { logCard } from "@/lib/log/log-card";
 import { fetchMyFoods } from "@/lib/log/my-foods";
 import { openRateSheet } from "@/lib/log/recipe/rate-sheet";
@@ -119,7 +119,21 @@ describe("recipes in the food search", () => {
       path: "Rezepte/Chili.md",
       title: "Chili sin carne",
       line,
+      day: "2026-10-20",
     });
+  });
+
+  it("lists a recipe logged lately once, as the recipe", async () => {
+    const day = {
+      date: "2026-10-19",
+      path: "01 Periodic/00 Daily/2026-10-19.md",
+      entries: [{ line: 5, text: "", kind: "food", words: "Chili sin carne", kcal: 540 }],
+    } as unknown as LogDay;
+    vi.mocked(fetchLog).mockResolvedValue([day]);
+    const view = mount();
+    await openFood(view);
+    expect(results(view)).not.toContain("Recent");
+    expect(results(view).match(/Chili sin carne/g)).toHaveLength(1);
   });
 
   it("says nothing and lists no recipes when they cannot be read", async () => {

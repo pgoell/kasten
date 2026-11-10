@@ -106,7 +106,10 @@ export function foodPanel(day: string | null, hooks: PanelHooks): FoodPanel {
       stopScan();
       const cooked = recipe;
       hooks.log(line);
-      if (cooked !== null) openRateSheet({ path: cooked.path, title: cooked.title, line });
+      if (cooked !== null) {
+        const on = day === null ? {} : { day };
+        openRateSheet({ path: cooked.path, title: cooked.title, line, ...on });
+      }
     },
     back: () => showSearch(),
     today: hooks.today,
@@ -170,8 +173,12 @@ export function foodPanel(day: string | null, hooks: PanelHooks): FoodPanel {
     const ours = mine.filter(
       (food) => food.name.toLowerCase().includes(typed) || food.code === typed,
     );
-    // A food of your own logged lately is the same food, so it is listed once, as yours.
-    const names = new Set(mine.map((food) => food.name.toLowerCase()));
+    // A food of your own or a recipe logged lately is the same food, so it is listed once.
+    const names = new Set(
+      [...mine.map((food) => food.name), ...recipes.map((entry) => entry.title)].map((name) =>
+        name.toLowerCase(),
+      ),
+    );
     const matches = recents.filter(
       (choice) =>
         choice.name.toLowerCase().includes(typed) && !names.has(choice.name.toLowerCase()),

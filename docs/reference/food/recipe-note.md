@@ -261,7 +261,8 @@ Once the line is in, the rating sheet rises and asks `<title>, cook again?`:
   own;
 * `Done` writes the line at the end of the recipe's `## Gekocht`, making the
   section at the end of the note when there is none:
-  `- 2026-11-09 gern wieder · mehr Würze, Beilage anders`. It reads the note
+  `- 2026-11-09 gern wieder · mehr Würze, Beilage anders`, dated by the daily
+  note the meal went on. It reads the note
   from the vault first and writes only over what it read. A write that fails
   says why in the sheet and leaves it open.
 

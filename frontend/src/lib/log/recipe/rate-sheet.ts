@@ -7,6 +7,7 @@
 import { updateNote } from "@/lib/core/api";
 import { readClock } from "@/lib/core/clock";
 import { make } from "@/lib/log/food-math";
+import { parseFood } from "@/lib/log/log-lines";
 import { appendUnder } from "@/lib/notes/text/note-section";
 
 export const COOKED_HEADING = "## Gekocht";
@@ -29,9 +30,12 @@ export interface RateMeal {
   title: string;
   /** The food line the log took, which the sheet reads its meal and kcal from. */
   line: string;
+  /** The daily note the line went on, which dates the rating; today when left out. */
+  day?: string;
 }
 
 interface Pending extends RateMeal {
+  /** The day the sheet first showed, which decides whether it may come back. */
   date: string;
   /** Whether the evening's second showing has happened, after which a skip drops it. */
   returned: boolean;
@@ -50,9 +54,9 @@ export function cookedLineFor(
 
 /** `lunch · 540 kcal` from a food line, for the sheet's top line. */
 export function mealFacts(line: string): string {
-  const meal = /^- 🍽 ([a-z]+):/.exec(line)?.[1];
-  const kcal = /🔥 (\d+) kcal/.exec(line)?.[1];
-  return [meal, kcal === undefined ? undefined : `${kcal} kcal`].filter(Boolean).join(" · ");
+  const food = parseFood(line);
+  const kcal = food?.kcal === undefined ? undefined : `${Math.round(food.kcal)} kcal`;
+  return [food?.meal, kcal].filter(Boolean).join(" · ");
 }
 
 function readPending(): Pending | null {
@@ -233,7 +237,7 @@ function show(pending: Pending): void {
 
   done.addEventListener("click", () => {
     if (verdict === null) return;
-    const line = cookedLineFor(pending.date, verdict, [...chosen], own.value);
+    const line = cookedLineFor(pending.day ?? pending.date, verdict, [...chosen], own.value);
     done.disabled = true;
     why.textContent = "";
     updateNote(pending.path, (text) => appendUnder(text, COOKED_HEADING, line)).then(

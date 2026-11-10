@@ -174,7 +174,7 @@ the same limits and cache.
 ]
 ```
 
-* `title` is the note's first `# ` heading, or its file name without `.md`.
+* `title` is the first `# ` heading below the note's frontmatter, or its file name without `.md`.
 * `per_serving` is `null` when the note names no servings; `total` is then the
   whole dish.
 * A note that cannot be read as UTF-8 is left out. The route writes nothing.

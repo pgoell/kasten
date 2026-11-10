@@ -25,7 +25,8 @@ def notes(vault: Path) -> None:
         encoding="utf-8",
     )
     (recipes / "Dal.md").write_text(
-        "---\ntype: recipe\n---\nNo heading here.\n\n## Zutaten\n- 100 g Kidneybohnen\n",
+        "---\ntype: recipe\n# todo: check\n---\nNo heading here.\n\n"
+        "## Zutaten\n- 100 g Kidneybohnen\n",
         encoding="utf-8",
     )
     (recipes / "not-a-recipe.md").write_text("---\ntype: Concept\n---\n# Bohnen\n", "utf-8")
