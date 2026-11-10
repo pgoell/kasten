@@ -49,7 +49,9 @@ tags: [prep, friert-ein, vegetarisch]
 
 Any note whose frontmatter says `type: Recipe`, in any case, is a recipe. The
 folder is yours to choose; a recipes folder per dish is the plan. A note
-without that line shows no card, whatever its sections hold.
+without that line shows no card, whatever its sections hold. A
+[week plan](/reference/food/meal-plan.md) links recipes by name to cook them in
+batches and to shop for them.
 
 ## The frontmatter
 

@@ -7,6 +7,7 @@ import { vim } from "@replit/codemirror-vim";
 import { basicSetup } from "codemirror";
 import { logCard } from "@/lib/log/log-card";
 import { recipeCard } from "@/lib/log/recipe/recipe-card";
+import { weekPlanCard } from "@/lib/log/recipe/week-plan";
 import { noteLanguage } from "@/lib/markdown/note-language";
 import { tagCompletions, vaultTags } from "@/lib/markdown/tag";
 import { backticks } from "@/lib/notes/editor/backticks";
@@ -276,7 +277,9 @@ export function createNoteView(o: {
           outline: (outline) => latest.current.onOutline?.(outline),
         }),
         preview.of(
-          o.preview ? [livePreview(), weatherCard, logCard, recipeCard, readMode.of(true)] : [],
+          o.preview
+            ? [livePreview(), weatherCard, logCard, recipeCard, weekPlanCard, readMode.of(true)]
+            : [],
         ),
         // Outside the preview compartment: the source of a table is marked in
         // Edit too, where preview is off, and the line-up has to be there either way.
@@ -327,7 +330,9 @@ export function setPreview(view: EditorView, on: boolean): void {
     effects: [
       view.scrollSnapshot(),
       preview.reconfigure(
-        on ? [livePreview(), weatherCard, logCard, recipeCard, readMode.of(true)] : [],
+        on
+          ? [livePreview(), weatherCard, logCard, recipeCard, weekPlanCard, readMode.of(true)]
+          : [],
       ),
     ],
   });

@@ -1,0 +1,51 @@
+{
+  "order": [
+    "Obst & Gemüse",
+    "Brot & Backwaren",
+    "Kühlregal",
+    "Fleisch & Fisch",
+    "Vorrat",
+    "Gewürze & Öl",
+    "Tiefkühl",
+    "Getränke",
+    "Sonstiges"
+  ],
+  "units": {
+    "Dose": "Vorrat",
+    "Glas": "Vorrat",
+    "Packung": "Vorrat"
+  },
+  "words": {
+    "Obst & Gemüse": [
+      "apfel", "äpfel", "aubergine", "avocado", "banane", "birne", "blumenkohl", "grüne bohnen",
+      "brokkoli", "champignon", "chili", "erbse", "frühlingszwiebel", "gurke", "ingwer",
+      "karotte", "kartoffel", "knoblauch", "kohl", "koriander", "kräuter", "kürbis", "lauch",
+      "limette", "mais", "mango", "möhre", "paprika", "petersilie", "pilz", "porree", "rucola",
+      "salat", "schalotte", "sellerie", "spinat", "süßkartoffel", "tomate", "zitrone",
+      "zucchini", "zwiebel", "beeren", "basilikum", "minze", "schnittlauch", "radieschen"
+    ],
+    "Brot & Backwaren": ["brot", "brötchen", "toast", "tortilla", "wrap", "fladenbrot", "baguette"],
+    "Kühlregal": [
+      "butter", "ei", "eier", "feta", "frischkäse", "joghurt", "käse", "milch", "mozzarella",
+      "parmesan", "quark", "sahne", "schmand", "skyr", "tofu", "halloumi", "crème fraîche",
+      "creme fraiche", "ricotta", "kokosjoghurt"
+    ],
+    "Fleisch & Fisch": [
+      "fleisch", "hack", "hähnchen", "huhn", "pute", "rind", "schwein", "speck", "schinken",
+      "lachs", "fisch", "thunfisch", "garnele", "wurst", "chorizo"
+    ],
+    "Vorrat": [
+      "bohnen", "linsen", "kichererbsen", "reis", "nudeln", "pasta", "spaghetti", "mehl",
+      "zucker", "haferflocken", "brühe", "tomatenmark", "passata", "kokosmilch", "couscous",
+      "bulgur", "quinoa", "nüsse", "mandeln", "erdnuss", "sojasauce", "sojasoße", "senf",
+      "honig", "essig", "polenta", "gnocchi", "linse", "kidney", "dosentomaten"
+    ],
+    "Gewürze & Öl": [
+      "öl", "salz", "pfeffer", "kreuzkümmel", "kurkuma", "paprikapulver", "zimt", "curry",
+      "garam masala", "oregano", "thymian", "rosmarin", "lorbeer", "muskat", "chiliflocken",
+      "kümmel", "koriandersamen", "gewürz"
+    ],
+    "Tiefkühl": ["tk-", "tiefkühl", "gefroren"],
+    "Getränke": ["wein", "bier", "saft"]
+  }
+}
