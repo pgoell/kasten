@@ -41,6 +41,20 @@ describe("live preview", () => {
     expect(table.querySelector(".cm-wikilink-dead")).toBeNull();
   });
 
+  it("draws a link with a folder in a cell as the note's own name", () => {
+    const lines = [
+      "before",
+      "",
+      "| day |",
+      "| --- |",
+      "| [[01 Periodic/00 Daily/2026-11-09#Log]] |",
+    ];
+    const { container } = renderEditor(<Editor initialDoc={lines.join("\n")} />);
+
+    const table = container.querySelector(".cm-table-grid") as HTMLTableElement;
+    expect(table.querySelector("tbody .cm-wikilink")?.textContent).toBe("2026-11-09#Log");
+  });
+
   it("leaves the prose under a table out of it", () => {
     // GFM ends a table at a blank line, so a paragraph written straight under
     // one parses as rows of a single cell. The cursor starts on line one, so

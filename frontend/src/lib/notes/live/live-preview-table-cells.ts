@@ -54,12 +54,19 @@ function firstMarks(node: SyntaxNode, name: string): SyntaxNode[] {
 function wikiLinkSpans(state: EditorState, text: string, className: string): Span[] {
   const paths = state.facet(vaultPaths);
   const dead = paths !== null && !wikiLinkLands(text, paths);
-  const alias = splitTarget(text).alias;
+  const { name, heading, alias } = splitTarget(text);
+  // `[[folder/note]]` reads as its last part, as it does off a table.
+  const slash = name.lastIndexOf("/");
+  const short = `${name.slice(slash + 1)}${heading === null ? "" : `#${heading}`}`;
   // The bar's backslash is the table's, so the target is the one the same
   // link hands on off a table.
   const target = text.replace("\\|", "|").trim();
   return [
-    { text: alias ?? text, class: dead ? `${className} cm-wikilink-dead` : className, target },
+    {
+      text: alias ?? (slash === -1 ? text : short),
+      class: dead ? `${className} cm-wikilink-dead` : className,
+      target,
+    },
   ];
 }
 
