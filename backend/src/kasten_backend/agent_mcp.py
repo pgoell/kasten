@@ -26,7 +26,7 @@ from kasten_backend.graph import MOST_DEPTH, GraphError
 from kasten_backend.tokens import identify
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncGenerator, AsyncIterator
 
     from mcp.server.mcpserver.context import Context
     from starlette.types import ASGIApp, Receive, Scope, Send
@@ -426,7 +426,7 @@ def build() -> tuple[ASGIApp, MCPServer]:
 
 
 @asynccontextmanager
-async def serving() -> AsyncIterator[None]:
+async def serving() -> AsyncGenerator[None]:
     """Build the endpoint and run its session manager for as long as the app is up."""
     app, server = build()
     _serving.append(app)

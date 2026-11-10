@@ -220,12 +220,12 @@ async def test_a_blank_query_answers_nothing_and_embeds_nothing(
     client: AsyncClient, indexed: Indexer
 ) -> None:
     model = await indexed._model_loaded()
-    before = len(model.embedded)  # ty: ignore[unresolved-attribute]
+    before = len(model.embedded)  # ty: ignore[missing-attribute]
 
     answer = await _ask(client, "   ")
 
     assert answer["hits"] == []
-    assert len(model.embedded) == before  # ty: ignore[unresolved-attribute]
+    assert len(model.embedded) == before  # ty: ignore[missing-attribute]
     assert answer["meaning"] is True
 
 

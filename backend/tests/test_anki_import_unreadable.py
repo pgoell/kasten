@@ -99,7 +99,7 @@ UNREADABLE = {
 def directory_reads(monkeypatch: pytest.MonkeyPatch) -> list[zipfile.ZipFile]:
     """Every zip whose directory zipfile reads from here on, an object built per entry."""
     reads: list[zipfile.ZipFile] = []
-    real = zipfile.ZipFile._RealGetContents  # ty: ignore[unresolved-attribute]
+    real = zipfile.ZipFile._RealGetContents  # ty: ignore[missing-attribute]
 
     def counted(self: zipfile.ZipFile) -> None:
         reads.append(self)
@@ -195,7 +195,7 @@ async def test_i1_a_zip64_record_that_understates_its_count_is_refused_all_the_s
     directory_reads.clear()  # the rewrite's own read of CAT_EXPORT
     struct.pack_into("<2Q", export, len(export) - 22 - 20 - 56 + 24, 1, 1)
     # So only the walk can refuse it: the record zipfile resolves counts 1.
-    end = zipfile._EndRecData(io.BytesIO(bytes(export)))  # ty: ignore[unresolved-attribute]
+    end = zipfile._EndRecData(io.BytesIO(bytes(export)))  # ty: ignore[missing-attribute]
     assert (end[0], end[4]) == (b"PK\x06\x06", 1)
     monkeypatch.setattr(anki, "MEMBER_COUNT_LIMIT", 2, raising=False)
 

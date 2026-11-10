@@ -20,7 +20,7 @@ from sqlalchemy.orm import DeclarativeBase
 from kasten_backend.config import get_settings
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Callable
+    from collections.abc import AsyncGenerator, Callable
 
 
 logger = logging.getLogger(__name__)
@@ -46,7 +46,7 @@ engine = make_engine(get_settings().database_url)
 session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
 
-async def get_session() -> AsyncIterator[AsyncSession]:
+async def get_session() -> AsyncGenerator[AsyncSession]:
     """FastAPI dependency: a connected session, closed with the request.
 
     Connecting here makes a 503 mean only that no database answered.
@@ -65,7 +65,7 @@ async def get_session() -> AsyncIterator[AsyncSession]:
         yield session
 
 
-sessions: Callable[[], AsyncIterator[AsyncSession]] = get_session
+sessions: Callable[[], AsyncGenerator[AsyncSession]] = get_session
 """`session()`'s source: the routes' own dependency, so with no database a tool refuses in
 the routes' words. The one name a test patches to point every caller at its rows."""
 
