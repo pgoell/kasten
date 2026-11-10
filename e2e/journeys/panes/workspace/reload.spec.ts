@@ -1,10 +1,9 @@
 import type { Page } from "@playwright/test";
 import { leader, openApp, openNote, panes, phone } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
-import { COARSE, FINE, load, saved, seed, stored } from "./stored.ts";
+import { COARSE, FINE, load, saved, seed, selectedTab, stored } from "./stored.ts";
 
 const tree = (page: Page) => page.getByRole("navigation", { name: "Vault" });
-const selectedTab = (page: Page) => page.getByRole("tab", { selected: true }).textContent();
 const NARROW = { width: 700, height: 800 };
 
 /** Reloads and waits for the editor holding `text`, then hands it the keys. */
@@ -85,7 +84,7 @@ test.describe("the workspace across a reload", () => {
     await openApp(page);
     await expect(tree(page)).toBeVisible();
     await page.goto("about:blank");
-    // A second window, narrow from its first load, as jsdom's stubbed reload was: no live resize.
+    // A second window, narrow from its first load: a live resize shuts the tree for good (#1755).
     const narrow = await context.newPage();
     await narrow.setViewportSize(NARROW);
     await narrow.goto("/");

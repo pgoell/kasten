@@ -92,3 +92,7 @@ export function puts(page: Page): string[] {
   });
   return paths;
 }
+
+/** The text of the selected tab. */
+export const selectedTab = (page: Page) =>
+  page.getByRole("tab", { selected: true }).textContent();

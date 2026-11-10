@@ -1,10 +1,9 @@
 import type { Page } from "@playwright/test";
 import { panes } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
-import { beside, focusedPane, layout, load, normal, saved, seed } from "./stored.ts";
+import { beside, focusedPane, layout, load, normal, saved, seed, selectedTab } from "./stored.ts";
 
 const LONG = "Long note.md";
-const selectedTab = (page: Page) => page.getByRole("tab", { selected: true }).textContent();
 const todos = (page: Page) => page.locator("[aria-label='Todos']");
 const row = (page: Page, path: string) =>
   page.getByRole("navigation", { name: "Vault" }).locator(`[title='${path}']`);
