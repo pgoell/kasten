@@ -1,7 +1,15 @@
-import { copyFile, mkdir, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import type { Page } from "@playwright/test";
-import { findNote, leader, openApp, phone } from "../../harness/app.ts";
+import {
+  findNote,
+  leader,
+  opened,
+  openApp,
+  phone,
+  recordOpens,
+  vaultWith,
+} from "../../harness/app.ts";
 import { root } from "../../harness/paths.ts";
 import { expect, test } from "../../harness/stack.ts";
 
@@ -278,16 +286,13 @@ test.describe("opening a file from the finder", () => {
   const pdfPane = (page: Page, path: string) => page.locator(`[data-pdf-pane="${path}"]`);
 
   /** Copies each file from its source, in the vault or absolute; records each window.open; loads the app. */
-  async function vaultWith(page: Page, vault: string, files: Record<string, string>) {
-    for (const [path, from] of Object.entries(files)) {
-      await mkdir(join(vault, dirname(path)), { recursive: true });
-      await copyFile(from.startsWith("/") ? from : join(vault, from), join(vault, path));
-    }
-    // A new tab would leave the box, so the page keeps the addresses it was asked to open.
-    await page.addInitScript(() => {
-      const opened: string[] = [];
-      Object.assign(window, { opened, open: (url: string) => opened.push(url) && null });
-    });
+  async function loadWith(page: Page, vault: string, files: Record<string, string>) {
+    const read = (from: string) => readFile(from.startsWith("/") ? from : join(vault, from));
+    const bodies = Object.entries(files).map(
+      async ([path, from]) => [path, await read(from)] as const,
+    );
+    await vaultWith(vault, Object.fromEntries(await Promise.all(bodies)));
+    await recordOpens(page);
     await openApp(page);
   }
 
@@ -305,7 +310,7 @@ test.describe("opening a file from the finder", () => {
     page,
     stack,
   }) => {
-    await vaultWith(page, stack.vault, { "x/Plan.PDF": PRIMER });
+    await loadWith(page, stack.vault, { "x/Plan.PDF": PRIMER });
     await find(page, "Primer.pdf");
     await expect(selected(page)).toContainText(PRIMER);
     await page.keyboard.press("Enter");
@@ -323,7 +328,7 @@ test.describe("opening a file from the finder", () => {
   });
 
   test("a tap on an html row opens the html pane", async ({ page, stack }) => {
-    await vaultWith(page, stack.vault, { "notes/page.html": "Welcome.md" });
+    await loadWith(page, stack.vault, { "notes/page.html": "Welcome.md" });
     await find(page, "page.html");
     await page.getByRole("option", { name: /notes\/page\.html/ }).click();
     await expect(page.locator('[data-html-pane] iframe[title="notes/page.html"]')).toBeVisible();
@@ -338,7 +343,7 @@ test.describe("opening a file from the finder", () => {
       const url = decodeURIComponent(request.url());
       if (url.includes("/api/books/")) read.push(url.replace(/^.*\/api\/books\//, ""));
     });
-    await vaultWith(page, stack.vault, {
+    await loadWith(page, stack.vault, {
       "lit/DDIA.md": "Welcome.md",
       "lit/DDIA.epub": EPUB,
       "lit/Solo.epub": EPUB,
@@ -352,9 +357,7 @@ test.describe("opening a file from the finder", () => {
     await find(page, "Solo.epub");
     await expect(selected(page)).toContainText("lit/Solo.epub");
     await page.keyboard.press("Enter");
-    await expect
-      .poll(() => page.evaluate(() => (window as unknown as { opened: string[] }).opened))
-      .toEqual(["/api/assets/lit/Solo.epub"]);
+    await expect.poll(() => opened(page)).toEqual(["/api/assets/lit/Solo.epub"]);
     expect(read).toEqual(["lit/DDIA.md"]);
   });
 
@@ -362,7 +365,7 @@ test.describe("opening a file from the finder", () => {
     page,
     stack,
   }) => {
-    await vaultWith(page, stack.vault, { "98 Archive/old.pdf": PRIMER });
+    await loadWith(page, stack.vault, { "98 Archive/old.pdf": PRIMER });
     const names = page.getByRole("option");
     await find(page, ".pdf");
     // One poll: the pdf outside the archive listed while the archived one is not.
