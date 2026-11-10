@@ -5,9 +5,10 @@ Everything goes straight to the filesystem: Postgres answers none of these quest
 
 import os
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
     from pathlib import Path
 
 SUFFIX = ".md"
@@ -77,7 +78,7 @@ write raise rather than answer.
 
 def list_markdown_files(root: Path) -> list[str]:
     """Return every markdown file under `root`, as sorted relative POSIX paths."""
-    return _list_files(root, (SUFFIX,))
+    return _list_files(root, KINDS[0])
 
 
 def list_images(root: Path) -> list[str]:
@@ -86,12 +87,12 @@ def list_images(root: Path) -> list[str]:
     What the editor completes `![](` against. Walked like the notes, so an image dropped in
     over the terminal completes too.
     """
-    return _list_files(root, IMAGE_SUFFIXES, ignore_case=True)
+    return _list_files(root, KINDS[1])
 
 
 def list_html(root: Path) -> list[str]:
     """Return every HTML page under `root`, as sorted relative POSIX paths."""
-    return _list_files(root, (HTML_SUFFIX,), ignore_case=True)
+    return _list_files(root, KINDS[2])
 
 
 def fits(suffix: str, head: bytes) -> bool:
@@ -101,22 +102,62 @@ def fits(suffix: str, head: bytes) -> bool:
 
 def list_assets(root: Path) -> list[str]:
     """Return every image, sound and book under `root`, as sorted relative POSIX paths."""
-    return _list_files(root, tuple(ASSET_MAGIC), ignore_case=True)
+    return _list_files(root, KINDS[3])
 
 
-def _list_files(root: Path, suffixes: tuple[str, ...], *, ignore_case: bool = False) -> list[str]:
-    """Return every file under `root` whose name ends in one of `suffixes`.
+class Listings(NamedTuple):
+    """What one walk of the vault finds, each part sorted as its own `list_*` returns it."""
+
+    notes: list[str]
+    images: list[str]
+    html: list[str]
+    assets: list[str]
+
+
+KINDS: tuple[tuple[tuple[str, ...], bool], ...] = (
+    ((SUFFIX,), False),
+    (IMAGE_SUFFIXES, True),
+    ((HTML_SUFFIX,), True),
+    (tuple(ASSET_MAGIC), True),
+)
+"""The suffixes and case rule of each `Listings` field, in its order: the one place they live."""
+
+
+def scan(root: Path) -> Listings:
+    """Return the notes, images, pages and assets under `root` from one walk.
+
+    What a page load asks for in four requests (#1761), so they need not walk four times.
+    """
+    found: list[list[str]] = [[] for _ in KINDS]
+    for name, path in _walk(root):
+        lower = name.lower()
+        for (suffixes, ignore_case), paths in zip(KINDS, found, strict=True):
+            if (lower if ignore_case else name).endswith(suffixes):
+                paths.append(path)
+    return Listings(*(sorted(paths) for paths in found))
+
+
+def _list_files(root: Path, kind: tuple[tuple[str, ...], bool]) -> list[str]:
+    """Return every file under `root` of one of the `KINDS`."""
+    return sorted(path for name, path in _walk(root) if _is(kind, name))
+
+
+def _is(kind: tuple[tuple[str, ...], bool], name: str) -> bool:
+    suffixes, ignore_case = kind
+    return (name.lower() if ignore_case else name).endswith(suffixes)
+
+
+def _walk(root: Path) -> Iterator[tuple[str, str]]:
+    """Yield the name and relative POSIX path of every file under `root`.
 
     Hidden entries and their walks are skipped: the jj repo beside the notes holds thousands
     of files. Links are not followed, so a link cannot loop or list what lies outside the
-    vault. A folder named `notes.md` is walked, never listed.
+    vault. A folder named `notes.md` is walked, never yielded.
     """
     if not root.is_dir():
-        return []
+        return
 
-    found: list[str] = []
-
-    def walk(directory: str, prefix: str) -> None:
+    def walk(directory: str, prefix: str) -> Iterator[tuple[str, str]]:
         with os.scandir(directory) as entries:
             for entry in entries:
                 if entry.name.startswith("."):
@@ -124,12 +165,11 @@ def _list_files(root: Path, suffixes: tuple[str, ...], *, ignore_case: bool = Fa
                 # Not followed: a link to an ancestor would loop forever, and a link out of
                 # the vault would list what is on the other side.
                 if entry.is_dir(follow_symlinks=False):
-                    walk(entry.path, f"{prefix}{entry.name}/")
-                elif (entry.name.lower() if ignore_case else entry.name).endswith(suffixes):
-                    found.append(f"{prefix}{entry.name}")
+                    yield from walk(entry.path, f"{prefix}{entry.name}/")
+                else:
+                    yield entry.name, f"{prefix}{entry.name}"
 
-    walk(str(root), "")
-    return sorted(found)
+    yield from walk(str(root), "")
 
 
 def legal_name(part: str) -> bool:

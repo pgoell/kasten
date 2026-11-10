@@ -1,21 +1,46 @@
 """Routes that list what the vault holds, and the folders and pages it keeps."""
 
-from typing import Annotated
+import asyncio
+from typing import TYPE_CHECKING, Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, Field
 
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.html_page import KASTEN_THEME, serve_page
-from kasten_backend.vault import (
-    list_assets,
-    list_html,
-    list_images,
-    list_markdown_files,
-    resolve_html,
-)
+from kasten_backend.vault import Listings, resolve_html, scan
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 router = APIRouter()
+
+BATCH_SECONDS = 0.005
+"""How long a listing waits for the others a page load sends with it, so they share a walk."""
+
+_batches: dict[Path, asyncio.Task[Listings]] = {}
+"""The walk each vault's open batch will share, until its walk starts."""
+
+
+async def _listings(root: Path) -> Listings:
+    """Walk `root` once for every listing request that arrives inside one batch window.
+
+    A batch closes before its walk starts, so no request is answered from a walk begun
+    before it arrived, and a write it follows is in the answer.
+    """
+    batch = _batches.get(root)
+    if batch is None:
+        batch = _batches[root] = asyncio.create_task(_walk_after_batch(root))
+    # Shielded, so a client that hangs up does not cancel the walk the others wait on.
+    return await asyncio.shield(batch)
+
+
+async def _walk_after_batch(root: Path) -> Listings:
+    try:
+        await asyncio.sleep(BATCH_SECONDS)
+    finally:
+        del _batches[root]
+    return await asyncio.to_thread(scan, root)
 
 
 class Layout(BaseModel):
@@ -55,7 +80,7 @@ async def list_files(settings: Annotated[Settings, Depends(get_settings)]) -> li
 
     The client folds these into a folder tree; the server stays flat.
     """
-    return list_markdown_files(settings.vault_path)
+    return (await _listings(settings.vault_path)).notes
 
 
 @router.get("/api/images")
@@ -66,7 +91,7 @@ async def list_vault_images(settings: Annotated[Settings, Depends(get_settings)]
     the search and the link rewrite all read: an image is not a note and has no
     business in any of those. The editor reads this one to complete a `![](`.
     """
-    return list_images(settings.vault_path)
+    return (await _listings(settings.vault_path)).images
 
 
 @router.get("/api/html")
@@ -76,7 +101,7 @@ async def list_vault_html(settings: Annotated[Settings, Depends(get_settings)]) 
     Its own listing for the reason the images have theirs: a page is a row of
     the tree and nothing else the notes feed.
     """
-    return list_html(settings.vault_path)
+    return (await _listings(settings.vault_path)).html
 
 
 @router.get("/api/vault-assets")
@@ -89,7 +114,7 @@ async def list_vault_assets(settings: Annotated[Settings, Depends(get_settings)]
     file nobody named, and a listing beside it would be the same URL meaning two
     things.
     """
-    return list_assets(settings.vault_path)
+    return (await _listings(settings.vault_path)).assets
 
 
 HTML_POLICY = "; ".join(
@@ -132,16 +157,23 @@ async def read_html(
     apart. `theme` and `palette` are the frame's colours for a page that opts in
     with the kasten-theme meta; `serve_page` says what they do.
     """
-    page = resolve_html(settings.vault_path, path)
-    if page is None:
+    served = await asyncio.to_thread(_serve_html, settings.vault_path, path, theme, palette)
+    if served is None:
         raise HTTPException(status_code=404, detail="No such page")
 
-    content, charset = serve_page(page.read_bytes(), theme, palette)
+    content, charset = served
     return Response(
         content,
         media_type=f"text/html; charset={charset}",
         headers={"Content-Security-Policy": HTML_POLICY},
     )
+
+
+def _serve_html(
+    root: Path, path: str, theme: str | None, palette: str | None
+) -> tuple[bytes, str] | None:
+    page = resolve_html(root, path)
+    return None if page is None else serve_page(page.read_bytes(), theme, palette)
 
 
 @router.get("/api/kasten-theme.css", response_class=Response)
@@ -167,7 +199,10 @@ async def list_terminals(settings: Annotated[Settings, Depends(get_settings)]) -
     container need not be up for the notebook to work, so the prompt falls back
     to a name typed by hand.
     """
-    root = settings.herdr_sessions_path
+    return await asyncio.to_thread(_terminals, settings.herdr_sessions_path)
+
+
+def _terminals(root: Path) -> list[str]:
     if not root.is_dir():
         return []
     return sorted(entry.name for entry in root.iterdir() if entry.is_dir())

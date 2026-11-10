@@ -26,6 +26,12 @@ hidden directory is skipped without being walked into, so the jj repo beside the
 notes costs nothing. A vault directory that does not exist reads as an empty
 one, so a fresh checkout still serves.
 
+This route, `GET /api/images`, `GET /api/html` and `GET /api/vault-assets`
+share one walk, run in a worker thread. A request waits 5 ms for the others a
+page load sends with it, and every request that lands in that window gets its
+part of the same walk. A walk never answers a request that arrived after it
+began, so a listing asked for after a write sees that write.
+
 A directory is walked and never listed, whatever its name ends in. Reading one
 is a `404`, so a folder called `notes.md` would otherwise be a row in the tree
 that answered nothing when you opened it.
