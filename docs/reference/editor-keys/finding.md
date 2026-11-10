@@ -163,12 +163,14 @@ letters scores above the same letters scattered, a letter opening a folder name
 scores above one buried in it, and a letter landing in the note's own name
 scores above one that only matched the folder, so `arch` finds
 `kasten/architecture.md` before `archive/march.md`. Typing a folder still
-narrows, which is what `kasten/arch` is for.
+narrows, which is what `kasten/arch` is for. A note's row shows its name, and
+its folder dimmed at the right.
 
 The list also holds the vault's pdf, epub and html files, beside the notes, whatever the case of the suffix. Each file row carries its kind on the row, `PDF`, `EPUB` or `HTML`. A note beside a file of the same name, such as `x.md` beside `x.pdf`, is two rows, because the note and the file open differently. Enter, or a tap, opens a pdf in the pdf pane at page 1, over the focused pane. An html file opens in the page pane, and an epub opens in the reader through its note, or in a new tab when it has no note. The preview of a file row says what the file is and where Enter opens it, and it does not read the file as a note. The archive rule applies to files too: a file in the archive stays out of the list unless `<leader>a` is on.
 
 Beside the list sits the note under the highlight, rendered the way the editor
-renders it: headings sized, lists drawn, marks hidden. The pane shows the note
+renders it: headings sized, lists drawn, marks hidden, and the frontmatter left
+out. The pane shows the note
 as opening it will, which is what makes two notes easy to tell apart. Nothing
 in it can be typed into, and the keys stay with the input. The text arrives a
 moment after the highlight stops moving, which is
@@ -177,7 +179,7 @@ read says `could not read this note`, and Enter still opens it.
 
 The line underneath says `no notes match` for a query that reads into nothing,
 and `the vault has no notes` for a vault with nothing in it yet. Enter does
-nothing in either case.
+nothing in either case. With nothing to say, the line is gone.
 
 ### The book finder
 
@@ -278,6 +280,6 @@ tree's archive toggle.
 | `Enter`, or a click or tap on a row | Open the note at its top |
 | `Escape` | Close |
 
-The line underneath says how much of the index answered: "index holds 481 of
-625 notes, still filling" during the first indexing, "by words only" while the
+The line underneath says how much of the index answered: "481 of 625 notes
+indexed so far" during the first indexing, "matching words only" while the
 model loads, and "searching" while an answer is on its way.

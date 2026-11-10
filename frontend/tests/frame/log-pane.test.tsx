@@ -248,13 +248,21 @@ beforeEach(() => {
   writes.saved.length = 0;
 });
 
+/** The palette's `Open the log` row, which a phone reaches through `run`. */
+function logRow(): HTMLElement | null {
+  const rows = document.querySelectorAll<HTMLElement>("[role='option']");
+  return [...rows].find((row) => row.textContent?.startsWith("Open the log")) ?? null;
+}
+
 it("#624 the log pane at 414 by touch", async () => {
   stubMatchMedia({ [NARROW]: true, [COARSE]: true });
   await mount(414, 896);
   await expect
-    .poll(() => document.querySelector("button[aria-label='Open the log']"))
+    .poll(() => document.querySelector("button[aria-label='Run a command by name']"))
     .not.toBeNull();
-  await tap(document.querySelector<HTMLElement>("button[aria-label='Open the log']"));
+  await tap(document.querySelector<HTMLElement>("button[aria-label='Run a command by name']"));
+  await expect.poll(logRow).not.toBeNull();
+  await tap(logRow());
   await expect.poll(pane).not.toBeNull();
 
   expect(smallButtons()).toEqual([]);

@@ -1,14 +1,12 @@
 /**
  * The which-key panel in a real browser: how it leaves, how Space catches it on
- * the way out, whether narrowing moves it, where it sits in a split, and how it
- * is a sheet on a phone. Each assertion reads the DOM the way the screen shows
+ * the way out, whether narrowing moves it and where it sits in a split. Each assertion reads the DOM the way the screen shows
  * it: the opacity and transform the spring writes, frame by frame.
  */
 
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
-import { commands, page } from "vitest/browser";
-import { Toolbar } from "@/components/toolbar";
+import { page } from "vitest/browser";
 import { WhichKey } from "@/components/which-key";
 import { beginLeader, paneOpener } from "@/lib/ui/keys/which-key";
 import "@/styles/app.css";
@@ -18,7 +16,7 @@ let host: HTMLDivElement;
 let root: Root;
 
 /** A note's pane, with the opener in it, and a second pane when `split` is set. */
-function Fixture({ phone, split }: { phone: boolean; split: boolean }) {
+function Fixture({ split }: { split: boolean }) {
   return (
     <div className="flex h-dvh">
       {split && (
@@ -29,16 +27,16 @@ function Fixture({ phone, split }: { phone: boolean; split: boolean }) {
       <div data-pane className="min-w-0 flex-1">
         <button type="button">Note</button>
       </div>
-      <WhichKey phone={phone} />
+      <WhichKey />
     </div>
   );
 }
 
 const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+const _wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-function mount(phone: boolean, split = false) {
-  flushSync(() => root.render(<Fixture phone={phone} split={split} />));
+function mount(split = false) {
+  flushSync(() => root.render(<Fixture split={split} />));
 }
 
 /** The opener, focused as a pane leaves it when Space is pressed. */
@@ -60,41 +58,8 @@ function panelOf(): HTMLElement | null {
   return document.querySelector<HTMLElement>("[role='dialog'][aria-label='Leader keys']");
 }
 
-/** The sheet's offset in px, read from its inline transform. NaN once it is gone. */
-function offsetOf(panel: HTMLElement | null): number {
-  const match = /,\s*(-?[\d.e+-]+)px/.exec(panel?.style.transform ?? "");
-  return match ? Number(match[1]) : Number.NaN;
-}
-
 function key(target: Element, key: string) {
   target.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
-}
-
-/** A pointer event as a finger or a mouse sends it. The button is held from down to move. */
-function pointer(
-  target: Element,
-  type: "pointerdown" | "pointermove" | "pointerup",
-  x: number,
-  y: number,
-) {
-  target.dispatchEvent(
-    new PointerEvent(type, {
-      pointerId: 1,
-      pointerType: "mouse",
-      isPrimary: true,
-      button: 0,
-      buttons: type === "pointerup" ? 0 : 1,
-      clientX: x,
-      clientY: y,
-      bubbles: true,
-      cancelable: true,
-    }),
-  );
-}
-
-function centreOf(element: Element): { x: number; y: number } {
-  const box = element.getBoundingClientRect();
-  return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
 }
 
 /** The opacity the panel shows, one reading a frame, for as many frames as asked. */
@@ -117,11 +82,10 @@ afterEach(async () => {
   flushSync(() => root.unmount());
   host.remove();
   await page.viewport(1440, 900);
-  await commands.emulateMedia({});
 });
 
 it("on a desktop Esc fades the panel out and then it is gone", async () => {
-  mount(false);
+  mount();
   const panel = await openPanel();
 
   key(panel, "Escape");
@@ -134,7 +98,7 @@ it("on a desktop Esc fades the panel out and then it is gone", async () => {
 });
 
 it("Space while the panel fades catches it and brings it back", async () => {
-  mount(false);
+  mount();
   const panel = await openPanel();
 
   key(panel, "Escape");
@@ -172,7 +136,7 @@ it("Space while the panel fades catches it and brings it back", async () => {
 });
 
 it("narrowing keeps the element and its opacity", async () => {
-  mount(false);
+  mount();
   const panel = await openPanel();
 
   key(panel, "g");
@@ -185,7 +149,7 @@ it("narrowing keeps the element and its opacity", async () => {
 });
 
 it("in a split the panel sits at the foot of the focused pane", async () => {
-  mount(false, true);
+  mount(true);
   const panel = await openPanel();
 
   const pane = opener().closest("[data-pane]") as HTMLElement;
@@ -194,86 +158,4 @@ it("in a split the panel sits at the foot of the focused pane", async () => {
   expect(Math.abs(shown.left - rect.left)).toBeLessThan(1);
   expect(Math.abs(shown.width - rect.width)).toBeLessThan(1);
   expect(Math.abs(shown.bottom - rect.bottom)).toBeLessThan(1);
-});
-
-it("on a phone the panel is the sheet with a grabber, and Esc slides it down", async () => {
-  await page.viewport(390, 844);
-  await commands.emulateMedia({ touch: true });
-  mount(true);
-  const panel = await openPanel();
-
-  expect(panel.querySelector("[data-sheet-drag]")).not.toBeNull();
-  await expect.poll(() => offsetOf(panel), { timeout: 3000 }).toBe(0);
-
-  key(panel, "Escape");
-  await expect.poll(() => offsetOf(panel), { timeout: 2000 }).toBeGreaterThan(0);
-  await expect.poll(() => panelOf(), { timeout: 3000 }).toBeNull();
-});
-
-it("on a phone a flick down closes the panel", async () => {
-  await page.viewport(390, 844);
-  await commands.emulateMedia({ touch: true });
-  mount(true);
-  const panel = await openPanel();
-  await expect.poll(() => offsetOf(panel), { timeout: 3000 }).toBe(0);
-
-  const grabber = panel.querySelector("[data-sheet-drag]") as HTMLElement;
-  const start = centreOf(grabber);
-  pointer(grabber, "pointerdown", start.x, start.y);
-  pointer(grabber, "pointermove", start.x, start.y + 40);
-  // A few ms apart, so the release reads as a speed and not as no movement at all.
-  await wait(5);
-  pointer(grabber, "pointermove", start.x, start.y + 80);
-  pointer(grabber, "pointerup", start.x, start.y + 80);
-
-  await expect.poll(() => panelOf(), { timeout: 3000 }).toBeNull();
-});
-
-it("on a phone the toolbar's space button opens the panel", async () => {
-  await page.viewport(390, 844);
-  await commands.emulateMedia({ touch: true });
-  flushSync(() => {
-    root.render(
-      <>
-        <button type="button">Note</button>
-        <Toolbar commands={stubCommands()} split={false} />
-        <WhichKey phone />
-      </>,
-    );
-  });
-  await nextFrame();
-  opener().focus();
-
-  const space = document.querySelector<HTMLButtonElement>(
-    "button[aria-label='Show the leader keys']",
-  ) as HTMLButtonElement;
-  const at = centreOf(space);
-  pointer(space, "pointerdown", at.x, at.y);
-  pointer(space, "pointerup", at.x, at.y);
-  space.click();
-
-  await expect.poll(() => panelOf(), { timeout: 2000 }).not.toBeNull();
-  expect(panelOf()?.querySelector("[data-sheet-drag]")).not.toBeNull();
-});
-
-it("on a phone Tab stays inside the sheet", async () => {
-  await page.viewport(390, 844);
-  await commands.emulateMedia({ touch: true });
-  mount(true);
-  const panel = await openPanel();
-  await expect.poll(() => offsetOf(panel), { timeout: 3000 }).toBe(0);
-
-  const rows = panel.querySelectorAll<HTMLButtonElement>("button");
-  const first = rows[0] as HTMLButtonElement;
-  const last = rows[rows.length - 1] as HTMLButtonElement;
-
-  last.focus();
-  key(last, "Tab");
-  expect(first).toHaveFocus();
-
-  // Shift Tab from the first row goes round to the last.
-  first.dispatchEvent(
-    new KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true, cancelable: true }),
-  );
-  expect(last).toHaveFocus();
 });

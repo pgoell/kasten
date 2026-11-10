@@ -164,8 +164,28 @@ describe("#793 phone chrome: the tab strip", () => {
   });
 });
 
-describe("#793 phone chrome: the top bar", () => {
-  // The bar's own commands are the only ones it runs, so the rest are stubs.
+describe("phone chrome: new note at the end of the strip", () => {
+  it("draws a + named New note that runs the handler, where the route passes one", () => {
+    const onNewNote = vi.fn();
+    render(strip(emptyLayout(), { onNewNote }));
+
+    const button = screen.getByRole("button", { name: "New note" });
+    expect(button.textContent).toBe("");
+    expect(button.querySelector("svg")).not.toBeNull();
+    expect(button).toHaveClass("w-11");
+
+    fireEvent.click(button);
+    expect(onNewNote).toHaveBeenCalledTimes(1);
+  });
+
+  it("draws none where the top bar offers New note", () => {
+    render(strip(emptyLayout()));
+
+    expect(screen.queryByRole("button", { name: "New note" })).toBeNull();
+  });
+});
+
+describe("#793 the top bar", () => {
   const commands = {
     createNote: vi.fn(),
     findNote: vi.fn(),
@@ -174,40 +194,21 @@ describe("#793 phone chrome: the top bar", () => {
     searchNotes: vi.fn(),
   } as unknown as TreeCommands;
 
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  it("#793 A1 on a phone the top bar's new note button is a + named New note and runs createNote", () => {
-    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
-
+  it("#793 A1 reads New note and runs createNote", () => {
     render(<TopBar commands={commands} count={2} />);
-    const button = screen.getByRole("button", { name: "New note" });
-    expect(button.textContent).toBe("");
-    expect(button.querySelector("svg")).not.toBeNull();
 
+    const button = screen.getByRole("button", { name: "New note" });
+    expect(button.textContent).toBe("New note");
     fireEvent.click(button);
     expect(commands.createNote).toHaveBeenCalledTimes(1);
   });
 
-  it("#793 A1 on a desktop the top bar still reads New note", () => {
+  it("#793 A3 its field is 13 px, and at least 44 px tall under a finger", () => {
     render(<TopBar commands={commands} count={2} />);
 
-    expect(screen.getByRole("button", { name: "New note" }).textContent).toBe("New note");
-  });
-
-  it("#793 A3 on a phone the top bar's field is 15 px and at least 44 px tall under a finger", () => {
-    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
-
-    render(<TopBar commands={commands} count={2} />);
-
-    const field = screen.getByRole("button", { name: "Search 2 notes" });
-    expect(field).toHaveClass("text-k-15", "pointer-coarse:min-h-11");
-  });
-
-  it("#793 A3 on a desktop the top bar's field stays 13 px", () => {
-    render(<TopBar commands={commands} count={2} />);
-
-    expect(screen.getByRole("button", { name: "Search 2 notes" })).toHaveClass("text-k-13");
+    expect(screen.getByRole("button", { name: "Search 2 notes" })).toHaveClass(
+      "text-k-13",
+      "pointer-coarse:min-h-11",
+    );
   });
 });

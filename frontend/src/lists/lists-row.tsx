@@ -2,6 +2,7 @@ import {
   type CSSProperties,
   type KeyboardEvent,
   type MouseEvent,
+  type PointerEvent as ReactPointerEvent,
   useEffect,
   useRef,
   useState,
@@ -9,9 +10,71 @@ import {
 import { personOf } from "./lists-person";
 import type { Item } from "./lists-store";
 
+/** How far a finger must pull a row left, in px, before letting go deletes it. */
+const SWIPE_DELETE = 96;
+
+/** How far a finger moves before the row decides it is a swipe and not a tap or a scroll. */
+const SWIPE_SLOP = 10;
+
 /**
- * One item or part: the tick, the words, which a tap opens for editing, and the assignee chip.
- * In editing, Löschen stands where the chip was. A button may not hold a button, so all sit side by side.
+ * A row a finger pulls left to delete. Touch only: a mouse has the × instead. The row takes
+ * pan-y, so the page still scrolls up and down and the sideways move reaches us.
+ */
+function useSwipe(onDelete: () => void) {
+  const [dx, setDx] = useState(0);
+  const start = useRef<{ x: number; y: number; id: number } | null>(null);
+  const swiping = useRef(false);
+  // Set by a swipe, so the click its lift fires opens no edit and ticks nothing.
+  const moved = useRef(false);
+
+  function end(): void {
+    start.current = null;
+    swiping.current = false;
+    setDx(0);
+  }
+
+  return {
+    dx,
+    handlers: {
+      onPointerDown(event: ReactPointerEvent<HTMLElement>) {
+        if (event.pointerType !== "touch") return;
+        start.current = { x: event.clientX, y: event.clientY, id: event.pointerId };
+        moved.current = false;
+      },
+      onPointerMove(event: ReactPointerEvent<HTMLElement>) {
+        const from = start.current;
+        if (!from || from.id !== event.pointerId) return;
+        const x = event.clientX - from.x;
+        const y = event.clientY - from.y;
+        if (!swiping.current) {
+          if (Math.abs(y) > SWIPE_SLOP) return end();
+          if (x > -SWIPE_SLOP) return;
+          swiping.current = true;
+          moved.current = true;
+          event.currentTarget.setPointerCapture(event.pointerId);
+        }
+        setDx(Math.min(0, x));
+      },
+      onPointerUp() {
+        const pulled = swiping.current && dx <= -SWIPE_DELETE;
+        end();
+        if (pulled) onDelete();
+      },
+      onPointerCancel: end,
+      onClickCapture(event: MouseEvent<HTMLElement>) {
+        if (!moved.current) return;
+        moved.current = false;
+        event.preventDefault();
+        event.stopPropagation();
+      },
+    },
+  };
+}
+
+/**
+ * One item or part: the tick, the words, which a tap opens for editing, the assignee chip and
+ * the ×. A finger pulls the row left to delete it. In editing, Löschen stands where the chip was.
+ * A button may not hold a button, so all sit side by side.
  */
 export function Row({
   item,
@@ -50,6 +113,7 @@ export function Row({
   onPart?: () => void;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
+  const swipe = useSwipe(onDelete);
   // Set once Enter, Escape or Löschen ends the edit, so the blur the field's removal may fire saves nothing.
   const ended = useRef(false);
 
@@ -67,94 +131,110 @@ export function Row({
     setDraft(item.text);
   }
 
+  const pulled = swipe.dx <= -SWIPE_DELETE;
   return (
-    <div className="row" data-done={item.done} style={{ "--depth": item.depth } as CSSProperties}>
-      {/* biome-ignore lint/a11y/useSemanticElements: a round tick, drawn as the list's own */}
-      <button
-        type="button"
-        role="checkbox"
-        aria-checked={item.done}
-        aria-label={item.text}
-        className="tick"
-        onClick={onToggle}
+    <div className="swipe" data-swiping={swipe.dx < 0} data-armed={pulled}>
+      <div
+        className="row"
+        data-done={item.done}
+        style={{ "--depth": item.depth, "--swipe": `${swipe.dx}px` } as CSSProperties}
+        {...(draft === null ? swipe.handlers : {})}
       >
-        <span className="check" aria-hidden="true" />
-      </button>
-      <div className="line">
-        {draft === null ? (
-          <button
-            type="button"
-            className="words"
-            aria-label={`${item.text} bearbeiten`}
-            onClick={start}
-          >
-            <span className="text">{item.text}</span>
-            {count && <span className="parts">{count}</span>}
-          </button>
-        ) : (
-          <input
-            className="edit"
-            aria-label="Wörter"
-            enterKeyHint="done"
-            autoComplete="off"
-            // biome-ignore lint/a11y/noAutofocus: the tap on the words asked for this field
-            autoFocus
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            onBlur={() => finish(true)}
-            onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
-              if (event.nativeEvent.isComposing) return;
-              if (event.key === "Enter") finish(true);
-              if (event.key === "Escape") finish(false);
-            }}
-          />
-        )}
-        {tick && <p className="by">{tick}</p>}
-      </div>
-      {draft !== null ? (
+        {/* biome-ignore lint/a11y/useSemanticElements: a round tick, drawn as the list's own */}
         <button
           type="button"
-          className="delete"
-          // Held off the field's blur, which would save the words first.
-          onPointerDown={(event) => event.preventDefault()}
-          onClick={() => {
-            finish(false);
-            onDelete();
-          }}
+          role="checkbox"
+          aria-checked={item.done}
+          aria-label={item.text}
+          className="tick"
+          onClick={onToggle}
         >
-          Löschen
+          <span className="check" aria-hidden="true" />
         </button>
-      ) : (
-        <>
-          {count && (
+        <div className="line">
+          {draft === null ? (
             <button
               type="button"
-              className="fold"
-              aria-expanded={!folded}
-              aria-label={`Teile von ${item.text}`}
-              onClick={onFold}
+              className="words"
+              aria-label={`${item.text} bearbeiten`}
+              onClick={start}
+            >
+              <span className="text">{item.text}</span>
+              {count && <span className="parts">{count}</span>}
+            </button>
+          ) : (
+            <input
+              className="edit"
+              aria-label="Wörter"
+              enterKeyHint="done"
+              autoComplete="off"
+              // biome-ignore lint/a11y/noAutofocus: the tap on the words asked for this field
+              autoFocus
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              onBlur={() => finish(true)}
+              onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
+                if (event.nativeEvent.isComposing) return;
+                if (event.key === "Enter") finish(true);
+                if (event.key === "Escape") finish(false);
+              }}
             />
           )}
-          {onPart && (
+          {tick && <p className="by">{tick}</p>}
+        </div>
+        {draft !== null ? (
+          <button
+            type="button"
+            className="delete"
+            // Held off the field's blur, which would save the words first.
+            onPointerDown={(event) => event.preventDefault()}
+            onClick={() => {
+              finish(false);
+              onDelete();
+            }}
+          >
+            Löschen
+          </button>
+        ) : (
+          <>
+            {count && (
+              <button
+                type="button"
+                className="fold"
+                aria-expanded={!folded}
+                aria-label={`Teile von ${item.text}`}
+                onClick={onFold}
+              />
+            )}
+            {onPart && (
+              <button
+                type="button"
+                className="part"
+                aria-label={`Teil zu ${item.text}`}
+                onClick={onPart}
+              >
+                +
+              </button>
+            )}
+            <PersonChip
+              item={item}
+              me={me}
+              people={people}
+              open={open}
+              onMenu={onMenu}
+              onPick={onPick}
+            />
             <button
               type="button"
-              className="part"
-              aria-label={`Teil zu ${item.text}`}
-              onClick={onPart}
+              className="remove"
+              aria-label={`${item.text} löschen`}
+              onClick={onDelete}
             >
-              +
+              ×
             </button>
-          )}
-          <PersonChip
-            item={item}
-            me={me}
-            people={people}
-            open={open}
-            onMenu={onMenu}
-            onPick={onPick}
-          />
-        </>
-      )}
+          </>
+        )}
+      </div>
     </div>
   );
 }

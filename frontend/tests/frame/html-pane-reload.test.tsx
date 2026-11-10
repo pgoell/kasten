@@ -257,8 +257,8 @@ describe.each(KINDS)("$name", ({ phone, vim }) => {
     expect(y).toBe(end);
   });
 
-  // The page script must still say hello, take a passage and open the leader on a
-  // browser with no ResizeObserver.
+  // The page script must still say hello, take a passage and, on a desktop, open the
+  // leader on a browser with no ResizeObserver.
   it("without ResizeObserver the page script still sends Space to kasten and takes a passage", async () => {
     await browser.hideResizeObserver(NO_OBSERVER);
     await browser.servePage(NO_OBSERVER, report("no observer"));
@@ -269,6 +269,8 @@ describe.each(KINDS)("$name", ({ phone, vim }) => {
     await userEvent.keyboard("y");
     await expect.poll(() => api.dumps.length).toBe(1);
 
+    // A phone mounts no which-key panel, so only a desktop opens one.
+    if (phone) return;
     await userEvent.click(frameOf(mounted, 0));
     await userEvent.keyboard(" ");
     await expect.poll(panelOf).not.toBeNull();

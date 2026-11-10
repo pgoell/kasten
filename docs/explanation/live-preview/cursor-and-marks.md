@@ -50,7 +50,10 @@ throughout. Typing is all a plain editor does, so the line under the cursor
 always shows its source and every other line renders. The reading state is
 lost, and that is the price of an editor a finger can use: an on-screen
 keyboard has no Escape to get back to it. The gutter counts from the top there,
-a distance from the cursor being a number only a counted motion wants.
+a distance from the cursor being a number only a counted motion wants. On a
+touch screen with vim off it goes altogether: nothing there takes a line
+number, and the column costs the text width. An iPad with vim turned on keeps
+its numbers.
 
 A table, a mermaid diagram, a `$$` math block and an inline `<svg>` block are
 the exception to the whole of this section: each flips on the cursor being in

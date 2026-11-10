@@ -20,7 +20,8 @@ A bar 56 px tall, sticky at the top of the window, with a frosted background.
 It holds the wordmark, Vault, Graph and Search, a search field that says how
 many notes it covers, and a New note button. Vault, Graph and Search are hidden
 below 768 px of window width. There the search field opens the note finder
-instead, and a + button makes a new note; a screen reader still hears "New note".
+instead. A phone draws no top bar: `find` on the toolbar opens the finder, and
+a + at the end of the tab strip makes a new note.
 
 ## The note pane
 
@@ -73,8 +74,13 @@ it, by `gg` or `k` from the first line, shows the YAML, as live preview shows
 the markup of the line under the cursor. The closing `---` stays a line of its
 own, drawn empty, so an edit from the body that reaches it (Backspace at the
 start of the first line, `dk`) shows the YAML at once and `u` puts it back. In
-Edit the block is always drawn as YAML. A new note still opens its cursor on
-the first line below the block.
+Edit the block is always drawn as YAML.
+
+Read gives no height either to the blank lines between the block and the text,
+or to a `# ` heading that only repeats the title in the header. Each comes back
+while the cursor is on it. `j` and `k` step over them as over a fold, so `dk`
+from the first line of text takes them with the fence. A note opened with no
+saved place puts its cursor on the first line past them.
 
 ## The outline
 
@@ -172,7 +178,7 @@ buttons that start the same timer again; the browser keeps them, so each device
 has its own. When a timer rings, the server pushes it to every subscribed device
 ([Timers](/reference/http-api/todos.md#timers)), and the row shows Done until
 the server drops it a few seconds later. The same row fills a pane of its own,
-the timers tab, which `<leader>gT` and the phone toolbar's `timers` open; there
+the timers tab, which `<leader>gT` and the palette's `Open the timers` open; there
 `i` moves to the name field and Escape back out.
 
 The three columns:

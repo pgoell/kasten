@@ -12,23 +12,20 @@ authors = [
 requires-python = ">=3.14"
 dependencies = [
     "alembic>=1.14",
-    "fastapi[standard]>=0.135",
+    "fastapi[standard]>=0.162.0",
     # Reached for directly by `/api/fetch`, and not only through the test
     # client fastapi's standard extra brings it in for.
     "httpcore>=1.0",
     "httpx>=0.28",
     "justhtml==3.16.0",
     "markdown-it-py>=3.0",
-    # Pinned exactly, not floored. There is no dependabot or renovate in
-    # `.github/`, so a bump is something a person does on purpose; the pin plus
-    # the round-trip test in `test_mcp.py` is what turns one into a CI answer
-    # rather than a production discovery. The SDK renamed its server class
-    # between major versions and moved the option names with it.
+    # Pinned exactly, so a bump is its own pull request, where `test_mcp.py`'s
+    # round trip catches the SDK's renames before production does.
     "mcp==2.2.0",
     "numpy>=2.3",
     "onnxruntime>=1.23",
     "pgvector>=0.4",
-    "psycopg[binary]>=3.3",
+    "psycopg[binary]>=3.3.8",
     "pydantic-settings>=2.7",
     "pypdfium2>=4.30",
     "sqlalchemy[asyncio]>=2.0.35",
@@ -38,5 +35,5 @@ dependencies = [
 ]
 
 [build-system]
-requires = ["uv_build>=0.9,<0.12.0"]
+requires = ["uv_build>=0.13.7,<0.14.0"]
 build-backend = "uv_build"

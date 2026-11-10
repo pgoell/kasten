@@ -84,6 +84,7 @@
   --k-radius-6: 6px;
   --k-radius-8: 8px;
   --k-measure: 680px;
+  --k-todo-measure: 52rem;
 
   /* Springs are a response time and a damping. Damping 1 settles without
      overshoot; 0.8 is for a flick only. */

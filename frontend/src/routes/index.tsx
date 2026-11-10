@@ -62,7 +62,7 @@ interface HomeSearch {
   week?: string;
 }
 
-// Narrow only: the bar says which pane of the stack has the focus.
+// Narrow only: the bar, or a phone's toolbar, names the focused pane of the stack.
 function stackLabel(narrow: boolean, panes: { id: string }[], focused: string) {
   if (!narrow || panes.length <= 1) return undefined;
   return `${panes.findIndex((each) => each.id === focused) + 1}/${panes.length}`;
@@ -218,9 +218,7 @@ function Home() {
   // The focused todo pane's cursor row, which only that pane writes.
   const todoRow = useRef<AgentRow | null>(null);
   // One sentence about an upload that failed, drawn at the foot of the window.
-  // Cleared on the next press of the key rather than on a timer: a timer is a
-  // third clearing mechanism nobody asked for, and one sentence in a corner is
-  // information rather than litter.
+  // Cleared on the next key press, not on a timer: one sentence in a corner is not litter.
   const [notice, setNotice] = useState<string>();
 
   useVaultEvents(focusedNote, decline);
@@ -366,10 +364,11 @@ function Home() {
     [],
   );
 
+  const stack = stackLabel(narrow, panes, pane.id);
   // `clip`, not `hidden`: `hidden` makes a scroll box, and the sticky tabs would scroll away.
   return (
     <main ref={frame} className="safe-frame flex h-dvh flex-col overflow-x-clip bg-k-bg">
-      <TopBar commands={commands} count={data?.length ?? 0} inert={inert} />
+      {!phone && <TopBar commands={commands} count={data?.length ?? 0} inert={inert} />}
       {/* min-h-0 lets the editor scroll instead of pushing the bar off-screen. */}
       <div className="flex min-h-0 flex-1">
         <FileExplorer
@@ -407,6 +406,7 @@ function Home() {
           playSignal={playSignal}
           graphAsk={graphAsk}
           graphSheet={phone ? openGraphSheet : undefined}
+          newNote={phone ? commands.createNote : undefined}
           preview={preview}
           listings={{ data, archive, linkable, images, tags, relations }}
           opening={opening}
@@ -434,16 +434,17 @@ function Home() {
         notice={notice}
         version={version}
         zoom={tab.zoom}
-        pane={stackLabel(narrow, panes, pane.id)}
+        pane={stack}
         inert={inert}
         foot={!phone}
+        quiet={phone}
         onWrite={() => void save()}
         onTakeVault={buffer.takeVault}
         conflict={buffer.conflict}
       />
-      {phone && <Toolbar commands={commands} split={panes.length > 1} inert={inert} />}
+      {phone && <Toolbar commands={commands} pane={stack} inert={inert} />}
       {helpOpen && <KeyHelp onClose={() => setHelpOpen(false)} />}
-      <WhichKey phone={phone} />
+      {!phone && <WhichKey />}
       <Sheet open={graphSheet.open} onClose={closeGraphSheet} label="Local graph">
         {/* The sheet's paper runs to the screen's edges, so the graph and lists keep off them. */}
         <div className="px-4 pb-6">

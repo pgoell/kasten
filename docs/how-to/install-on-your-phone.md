@@ -84,14 +84,20 @@ since you started it yourself. Leave a field empty to turn it off, then press **
 
 Each device subscribes on its own, and `/settings` lists them all. **Remove**
 takes one off; on the device in your hand it also turns off the browser's
-subscription.
+subscription. **Test** sends that device a push now and says what its push
+service answered. When the answer is that it was sent but nothing shows, the
+device holds it back: allow notifications for kasten in the browser's site
+settings, and on Android in the system's settings for Chrome too. A timer
+rings only on the devices listed here, so the Timers block says so while
+there are none.
 
 ## Set a timer
 
 A timer rings on every device that gets reminders, so subscribe first, as
 above.
 
-1. Tap `timers` in the toolbar, or open an empty pane, which shows Today.
+1. Tap `Today` at the start of the tab strip, which shows the timers, or tap
+   `run` and choose `Open the timers`.
 2. Under **Timers**, type a name such as `Washer` and a duration such as
    `1h 25m`, `1:25` or `85`, and press **Start**.
 3. Wait: the row counts down, and when it ends each device gets a push with the
@@ -104,7 +110,8 @@ cancel one, press **Stop** beside it.
 
 Subscribe first, as above: the reminders go to every device that gets them.
 
-1. Tap `timers` in the toolbar, or open an empty pane, which shows Today.
+1. Tap `Today` at the start of the tab strip, which shows the timers, or tap
+   `run` and choose `Open the timers`.
 2. Under **Timers**, check the gap after **every**, `1h 30m` at first, and the
    stop time after **until**, `21:00` at first. The gap reads like a timer's
    duration.

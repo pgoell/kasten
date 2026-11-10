@@ -7,7 +7,7 @@ import path from "node:path";
  * Read here and stamped into the bundle, because the browser has no repo to
  * ask. Read out of `.git` rather than run through `git`, which the build image
  * has not got. Production copies only `frontend/` into that image, so there is
- * nothing to read there and the status bar shows the backend's release alone.
+ * nothing to read there and the settings page shows the backend's release alone.
  */
 export function buildId(): string {
   const git = path.resolve(import.meta.dirname, "..", ".git");

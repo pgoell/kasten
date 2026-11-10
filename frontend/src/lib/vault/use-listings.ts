@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { useVersion } from "@/lib/app/build";
 import {
   fetchAssets,
   fetchFiles,
@@ -7,7 +8,6 @@ import {
   fetchImages,
   fetchNote,
   fetchTags,
-  fetchVersion,
 } from "@/lib/core/api";
 import { ONTOLOGY_NOTE, relationNames } from "@/lib/notes/links/ontology";
 import { visible } from "@/lib/search/archive";
@@ -21,12 +21,7 @@ export type Listings = ReturnType<typeof useListings>;
 /** Every listing the route draws from, with the archive filter applied, and the toggle for it. */
 export function useListings() {
   const { data } = useQuery({ queryKey: ["files"], queryFn: fetchFiles });
-  // Fetched once. The bundle's stamp is from tab load, and a newer backend would mix versions.
-  const { data: version } = useQuery({
-    queryKey: ["version"],
-    queryFn: fetchVersion,
-    staleTime: Number.POSITIVE_INFINITY,
-  });
+  const version = useVersion();
   // Beside the notes, not in them: images are tree rows, and `![](` completes to their paths.
   // A `listing` event refetches them, since it fires for any change that is not a note.
   const { data: images } = useQuery({ queryKey: ["images"], queryFn: fetchImages });

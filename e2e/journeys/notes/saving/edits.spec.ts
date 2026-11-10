@@ -63,7 +63,7 @@ test.describe("on a phone", () => {
   test("an edit typed by touch reaches the file on disk", async ({ page, stack }) => {
     // A phone opens on the Today page, so the note comes from the finder.
     await page.goto("/");
-    await page.getByRole("button", { name: /^Search \d+ notes$/ }).tap({ timeout: 15_000 });
+    await page.getByRole("button", { name: "Find a note" }).tap({ timeout: 15_000 });
     await page.getByRole("combobox").fill("Welcome");
     await page
       .getByRole("option", { name: /Welcome/ })

@@ -1,5 +1,5 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { expect, type Locator, type Page } from "@playwright/test";
 
 /** Loads the app and waits until the tree lists the vault and the editor holds the focus. */
@@ -9,7 +9,8 @@ export async function openApp(page: Page): Promise<void> {
   await expect(page.getByRole("button", { name: "Welcome", exact: true })).toBeVisible({
     timeout: 15_000,
   });
-  await page.locator(".cm-content").first().click();
+  // A line, not the content's middle: in a short note that sits under the note's header.
+  await page.locator(".cm-content").first().locator(".cm-line:visible").last().click();
   await page.keyboard.press("Escape");
 }
 
@@ -75,3 +76,51 @@ export async function openNote(page: Page, name: string): Promise<void> {
 /** A note's text without the id and stamps the vault writes into its frontmatter. */
 export const unstamped = (text: string): string =>
   text.replace(/^(id|created|modified): .*\n/gm, "");
+
+/** Writes each file into the vault, making the folders above it. */
+export async function vaultWith(
+  vault: string,
+  notes: Record<string, string | Buffer>,
+): Promise<void> {
+  for (const [path, body] of Object.entries(notes)) {
+    await mkdir(dirname(join(vault, path)), { recursive: true });
+    await writeFile(join(vault, path), body);
+  }
+}
+
+/** Keeps each address the page asks window.open for, as a new tab would leave the box. Call before the page loads. */
+export async function recordOpens(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const opened: string[] = [];
+    Object.assign(window, { opened, open: (url: string) => opened.push(url) && null });
+  });
+}
+
+/** The addresses the page asked window.open for since `recordOpens`. */
+export const opened = (page: Page): Promise<string[]> =>
+  page.evaluate(() => (window as unknown as { opened: string[] }).opened);
+
+/** The notes made in the inbox, sorted; the `index.md` kasten gives each folder it makes is left out. */
+export const inbox = async (vault: string): Promise<string[]> =>
+  (await readdir(join(vault, "00 Inbox")).catch(() => []))
+    .filter((name) => name !== "index.md")
+    .sort();
+
+/** A todo row, keyed by its line as "Home.md:12"; the file tree's rows are not. */
+export const TODO_ROW = '[data-row*=".md:"]';
+
+/** Presses j or k until the todo list's cursor sits on the `nth` row whose text holds `words`. */
+export async function cursorTo(page: Page, words: string, nth = 0): Promise<void> {
+  const { from, to } = await page.locator(TODO_ROW).evaluateAll(
+    (rows, [text, n]) => ({
+      from: rows.findIndex((row) => (row as HTMLElement).tabIndex === 0),
+      to: rows
+        .map((row, i) => ((row.textContent ?? "").includes(text as string) ? i : -1))
+        .filter((i) => i >= 0)[n as number],
+    }),
+    [words, nth] as const,
+  );
+  const key = (to ?? 0) > from ? "j" : "k";
+  for (let i = 0; i < Math.abs((to ?? 0) - from); i++) await page.keyboard.press(key);
+  await expect(page.locator(`${TODO_ROW}[tabindex="0"]`)).toContainText(words);
+}

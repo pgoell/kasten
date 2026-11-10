@@ -88,7 +88,7 @@ function Tokens() {
         <PageNav here="/tokens" />
         <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between md:gap-8">
           <div className="flex min-w-0 flex-col gap-1">
-            <h1 className="font-serif text-k-27">agent tokens</h1>
+            <h1 className="font-serif text-k-27">Agent tokens</h1>
             <p className="text-k-13 text-k-muted">
               {tokens === undefined ? (
                 list.isPending && "Loading"
@@ -121,7 +121,7 @@ function Tokens() {
                 id="token-name"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                placeholder="laptop"
+                placeholder="e.g. laptop"
                 className="min-h-11 w-full min-w-0 rounded border border-k-rule bg-k-surface px-3 font-mono text-k-13 outline-none placeholder:text-k-muted focus:border-k-ink pointer-coarse:text-base pointer-fine:min-h-9"
               />
             </label>
@@ -131,14 +131,18 @@ function Tokens() {
             >
               Mint
             </button>
-            <label className="flex basis-full items-center gap-2 text-k-13 text-k-muted">
+            <label className="flex basis-full items-start gap-2 text-k-13 text-k-muted">
               <input
                 type="checkbox"
                 checked={reading}
                 onChange={(event) => setReading(event.target.checked)}
+                className="mt-1"
               />
-              Website only: opens <code className="font-mono">/agent/reading</code> and{" "}
-              <code className="font-mono">/agent/posts</code> alone
+              {/* One span, or each code and each run of words wraps as its own flex item. */}
+              <span>
+                Website only: opens <code className="font-mono">/agent/reading</code> and{" "}
+                <code className="font-mono">/agent/posts</code> alone
+              </span>
             </label>
           </form>
         </header>

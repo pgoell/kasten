@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { BUILD, useVersion, versionText } from "@/lib/app/build";
 import {
   currentEndpoint,
   type Device,
@@ -11,6 +12,8 @@ import {
   removeDevice,
   saveHours,
   subscribeHere,
+  testDevice,
+  testWords,
   unsubscribeHere,
 } from "@/lib/app/push/push";
 import { PageNav } from "./-pages";
@@ -61,6 +64,21 @@ function Settings() {
   });
 
   const devices = push.data?.devices ?? [];
+  const [tested, setTested] = useState<string | null>(null);
+  const test = useMutation({
+    mutationFn: testDevice,
+    onMutate: () => {
+      setFailed(null);
+      setTested(null);
+    },
+    onSuccess: (result, id) => {
+      const name = devices.find((device) => device.id === id)?.name ?? "That device";
+      setTested(testWords(name, result));
+      if (result.gone) changed();
+    },
+    onError: (error) => setFailed(messageOf(error, "could not send a test push")),
+  });
+
   const here = endpoint.data ?? null;
   const subscribed = devices.some((device) => device.endpoint === here);
 
@@ -68,7 +86,7 @@ function Settings() {
     <main className="safe-frame safe-foot min-h-dvh bg-k-bg font-sans text-k-ink">
       <div className="mx-auto flex max-w-[720px] flex-col gap-6 px-4 py-6 md:px-6 md:py-9">
         <PageNav here="/settings" />
-        <h1 className="font-serif text-k-27">settings</h1>
+        <h1 className="font-serif text-k-27">Settings</h1>
 
         <section
           aria-labelledby="reminders-heading"
@@ -99,15 +117,34 @@ function Settings() {
             <DeviceList
               devices={devices}
               here={here}
-              pending={remove.isPending}
+              pending={remove.isPending || test.isPending}
               onRemove={(device) => remove.mutate(device)}
+              onTest={(device) => test.mutate(device.id)}
             />
+          )}
+
+          {tested !== null && (
+            <p role="status" className="text-k-13">
+              {tested}
+            </p>
           )}
         </section>
 
         <HoursSection />
+        <Version />
       </div>
     </main>
+  );
+}
+
+/** The code this page runs: the release, or in development the commit of each half. */
+function Version() {
+  const version = useVersion();
+  if (version === undefined) return null;
+  return (
+    <p data-testid="version" className="text-k-12 text-k-muted tabular-nums">
+      Version {versionText(version, BUILD)}
+    </p>
   );
 }
 
@@ -280,17 +317,19 @@ function ThisDevice({
   );
 }
 
-/** The subscribed devices, oldest first, each with its own Remove. */
+/** The subscribed devices, oldest first, each with its own Test and Remove. */
 function DeviceList({
   devices,
   here,
   pending,
   onRemove,
+  onTest,
 }: {
   devices: Device[];
   here: string | null;
   pending: boolean;
   onRemove: (device: Device) => void;
+  onTest: (device: Device) => void;
 }) {
   if (devices.length === 0) {
     return <p className="text-k-13 text-k-muted">No device gets reminders yet.</p>;
@@ -313,14 +352,24 @@ function DeviceList({
               added {new Date(device.created).toISOString().slice(0, 10)}
             </span>
           </div>
-          <button
-            type="button"
-            disabled={pending}
-            onClick={() => onRemove(device)}
-            className={`${ROW_BUTTON} border-transparent`}
-          >
-            Remove
-          </button>
+          <div className="flex shrink-0 gap-1">
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => onTest(device)}
+              className={`${ROW_BUTTON} border-transparent`}
+            >
+              Test
+            </button>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => onRemove(device)}
+              className={`${ROW_BUTTON} border-transparent`}
+            >
+              Remove
+            </button>
+          </div>
         </li>
       ))}
     </ul>

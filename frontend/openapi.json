@@ -2581,6 +2581,46 @@
         }
       }
     },
+    "/api/push/devices/{device_id}/test": {
+      "post": {
+        "summary": "Test Device",
+        "description": "Push a test message to one device now; a gone device is removed, as the sender does.",
+        "operationId": "test_device_api_push_devices__device_id__test_post",
+        "parameters": [
+          {
+            "name": "device_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Device Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/push/timers": {
       "get": {
         "summary": "Read Timers",
@@ -15976,6 +16016,44 @@
         ],
         "title": "SyncStatus",
         "description": "The open request, the last run, the last success, and every account."
+      },
+      "TestOut": {
+        "properties": {
+          "status": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "gone": {
+            "type": "boolean",
+            "title": "Gone"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "reason",
+          "gone"
+        ],
+        "title": "TestOut",
+        "description": "What the push service answered a test push; `status` is None when it could not be reached."
       },
       "Tick": {
         "properties": {

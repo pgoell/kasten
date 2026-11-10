@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useEffect, useState } from "react";
+import { fetchPush } from "@/lib/app/push/push";
 import {
   durationLabel,
   FIELD,
@@ -41,6 +42,8 @@ export function TimersRow() {
     refetchInterval: (query) =>
       (query.state.data ?? []).some((timer) => new Date(timer.due) <= new Date()) ? 5000 : 60000,
   });
+  // A timer rings to the subscribed devices only, so with none it would end without a sound.
+  const push = useQuery({ queryKey: ["push"], queryFn: fetchPush });
   const running = timers.data ?? [];
   const now = useNow(running.length > 0);
   const [recent, setRecent] = useState<Recent[]>(readRecent);
@@ -87,6 +90,16 @@ export function TimersRow() {
         <p className="px-2 font-sans text-k-13 text-k-muted">Could not load the timers.</p>
       )}
 
+      {push.data?.public_key && push.data.devices.length === 0 && (
+        <p data-timers-unheard className="px-2 font-sans text-k-13 text-k-muted">
+          No device gets timer pushes yet. Turn them on in{" "}
+          <a href="/settings" className="text-k-ink underline hover:text-k-accent">
+            settings
+          </a>
+          .
+        </p>
+      )}
+
       {running.length > 0 && (
         <ul className="flex flex-col">
           {running.map((timer) => (
@@ -105,7 +118,7 @@ export function TimersRow() {
         <input
           data-timer-field
           aria-label="Timer name"
-          placeholder="Washer"
+          placeholder="Name, e.g. Washer"
           value={label}
           onChange={(event) => setLabel(event.target.value)}
           className={`${FIELD} w-40 flex-1`}
@@ -113,7 +126,7 @@ export function TimersRow() {
         <input
           data-timer-field
           aria-label="Duration"
-          placeholder="1h 25m"
+          placeholder="e.g. 1h 25m"
           inputMode="text"
           value={duration}
           onChange={(event) => setDuration(event.target.value)}

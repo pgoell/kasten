@@ -2,6 +2,7 @@ import {
   type EditorState,
   type Extension,
   Facet,
+  RangeSet,
   StateEffect,
   StateField,
   type Text,
@@ -10,6 +11,8 @@ import {
   Decoration,
   type DecorationSet,
   EditorView,
+  type GutterMarker,
+  gutterLineClass,
   ViewPlugin,
   type ViewUpdate,
 } from "@codemirror/view";
@@ -19,6 +22,7 @@ import { noteName } from "@/lib/notes/links/note-path";
 import { type Relation, readRelation } from "@/lib/notes/links/relation";
 import { type Outline, outlinePlugin, proseLines, tagText } from "@/lib/notes/note/note-outline";
 import { noteBody, readField } from "@/lib/notes/text/note-frontmatter";
+import { flatLeadLines, flatTheme, flatten } from "@/lib/notes/text/note-lead";
 import { tagsOf } from "@/lib/notes/text/tag-rule";
 import { notePath } from "@/lib/todo/todo-commands";
 
@@ -77,6 +81,7 @@ type Drawn = Head & { read: boolean; open: boolean };
 interface Hiding {
   frontEnd: number;
   decorations: DecorationSet;
+  gutter: RangeSet<GutterMarker>;
 }
 
 /** The end of the frontmatter's closing line, or 0 where there is no block. */
@@ -502,24 +507,43 @@ export function noteHead(o: {
       if (!changed && !tr.selection) return value;
       return hiding(tr.state, tr.docChanged ? frontEndOf(tr.state.doc) : value.frontEnd);
     },
-    provide: (field) => EditorView.decorations.from(field, (value) => value.decorations),
+    provide: (field) => [
+      EditorView.decorations.from(field, (value) => value.decorations),
+      gutterLineClass.from(field, (value) => value.gutter),
+    ],
   });
   const head = ViewPlugin.define((view) => new HeadPlugin(view, o.toggle));
-  return [propertiesOpen, frontmatter, headTheme, head, outlinePlugin(o.outline, bodyLineOf)];
+  return [
+    propertiesOpen,
+    frontmatter,
+    headTheme,
+    flatTheme,
+    head,
+    outlinePlugin(o.outline, bodyLineOf),
+  ];
 }
 
-/** The hiding for one frontmatter, in the read or edit state the view is in now. */
+/** What Read hides now: the frontmatter, and the lines `leadLines` names. */
 function hiding(state: EditorState, frontEnd: number): Hiding {
-  if (!hidesBlock(state, frontEnd)) return { frontEnd, decorations: Decoration.none };
-  // The closing fence stays a line of its own, so a vim motion or a delete counts it as
-  // one. Its text is hidden inline, and the lines above it are hidden as one block.
+  const path = state.facet(notePath);
   const fence = state.doc.lineAt(frontEnd);
+  const below = frontEnd === 0 ? 1 : fence.number + 1;
+  const lead =
+    path === undefined || !state.facet(readMode) ? [] : flatLeadLines(state, below, noteName(path));
+  const block = hidesBlock(state, frontEnd);
+  // The closing fence stays a drawn line: vim's j and k skip lines with no height, and
+  // would carry `dk` into the hidden block above it.
+  const flat = flatten(state.doc, lead);
+  const replaced = block
+    ? [
+        Decoration.replace({ block: true }).range(0, fence.from - 1),
+        Decoration.replace({}).range(fence.from, fence.to),
+      ]
+    : [];
   return {
     frontEnd,
-    decorations: Decoration.set([
-      Decoration.replace({ block: true }).range(0, fence.from - 1),
-      Decoration.replace({}).range(fence.from, fence.to),
-    ]),
+    decorations: Decoration.set([...replaced, ...flat.decorations], true),
+    gutter: RangeSet.of(flat.gutter, true),
   };
 }
 

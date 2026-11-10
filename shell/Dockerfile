@@ -32,7 +32,7 @@ ARG STARSHIP_RELEASES=https://github.com/starship/starship/releases/download
 
 # curl rather than ADD, because ADD fails the build on one 5xx from GitHub's
 # release downloads (#1699). --fail keeps an error page off the binary's path.
-FROM debian:bookworm-slim AS fetcher
+FROM debian:bookworm-slim@sha256:734a72b3d6142a71993b4bc580ca01d8ca687f77a2c422d96a961d3376b179bc AS fetcher
 RUN apt-get update \
     && apt-get install --no-install-recommends -y curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
@@ -171,14 +171,14 @@ FROM starship-${TARGETARCH} AS starship
 # browser login, a DeepSeek API key read from the environment or `~/.dsh/.env`,
 # and `~/.dsh` sits in the home volume beside `~/.claude` and `~/.codex`, so a
 # key set once outlives a release.
-FROM node:24-bookworm-slim AS agents
+FROM node:26-bookworm-slim@sha256:add5c17c14752c54d2f3d519ec46a3815684d41c33f198bcb09fb998f7dcbf68 AS agents
 ENV NPM_CONFIG_PREFIX=/opt/npm
 RUN apt-get update \
     && apt-get install --no-install-recommends -y python3 make g++ \
     && rm -rf /var/lib/apt/lists/*
 RUN npm install -g @openai/codex@0.147.0 @deepseek-ai/dsh@0.1.0-rc.6
 
-FROM node:24-bookworm-slim AS runtime
+FROM node:26-bookworm-slim@sha256:add5c17c14752c54d2f3d519ec46a3815684d41c33f198bcb09fb998f7dcbf68 AS runtime
 
 # curl and jq are for the backend: an agent in here completes a todo through
 # `PUT /api/files`, which the vault's own `99 Misc/01 Config/01 Agents` note

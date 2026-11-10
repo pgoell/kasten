@@ -1,7 +1,4 @@
-import { EditorView } from "@codemirror/view";
 import { useEffect, useState } from "react";
-import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
-import { beginLeader, editorOpener, paneOpener } from "@/lib/ui/keys/which-key";
 
 /**
  * Whether a key typed here belongs to the text in front of it. In a note's editor `?` stays vim's
@@ -33,14 +30,4 @@ export function useKeyHelp() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
   return [helpOpen, setHelpOpen] as const;
-}
-
-/**
- * Opens the which-key panel from the toolbar's space button. Focus stays where the reader last
- * typed, since the toolbar's buttons never take it.
- */
-export function leaderFromFocus(commands: EditorCommands) {
-  const focused = document.activeElement;
-  const view = focused instanceof HTMLElement ? EditorView.findFromDOM(focused) : null;
-  beginLeader(view ? editorOpener(view, commands) : paneOpener(commands));
 }

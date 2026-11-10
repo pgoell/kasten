@@ -225,7 +225,14 @@ export function LibraryPane({
           )}
           {library.isSuccess && order.length === 0 && (
             <p className="px-4 text-k-13 text-k-muted">
-              {books.length === 0 ? "No note is typed Book yet" : "No book matches"}
+              {books.length === 0 ? (
+                <>
+                  No books yet.
+                  <span className="pointer-coarse:hidden"> Add one with Space c b.</span>
+                </>
+              ) : (
+                "No book matches"
+              )}
             </p>
           )}
           {groups.map((group) => (

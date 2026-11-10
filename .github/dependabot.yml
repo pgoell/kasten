@@ -1,4 +1,7 @@
 version: 2
+# For uv, bun and docker one pull request a week carries the minor and patch
+# bumps; a major bump comes alone, since it is the one that may need code to
+# change. Actions stay one pull request per bump.
 updates:
   - package-ecosystem: github-actions
     directory: /
@@ -8,3 +11,44 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: ci
+  # One uv.lock at the root holds the backend and jobs workspace.
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: build
+    groups:
+      uv-minor-patch:
+        update-types: [minor, patch]
+  - package-ecosystem: bun
+    directories: [/frontend, /e2e]
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: build
+    groups:
+      bun-minor-patch:
+        update-types: [minor, patch]
+  # The FROM lines name image:tag@digest, so Dependabot moves the digest when
+  # the tag is rebuilt, and the tag with it on a new release.
+  - package-ecosystem: docker
+    directories: [/backend, /frontend, /shell, /deploy/postgres]
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: build
+    groups:
+      docker-minor-patch:
+        update-types: [minor, patch]
+    # A postgres major cannot start on a data directory from the last one, so
+    # it moves by hand with pg_upgrade.
+    ignore:
+      - dependency-name: postgres
+        update-types: [version-update:semver-major]

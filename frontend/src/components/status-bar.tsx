@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { SaveSign } from "@/components/save-sign";
 import { Clock } from "@/components/status-clock";
 import { StatusDetail } from "@/components/status-detail";
-import { BUILD } from "@/lib/app/build";
+import { BUILD, outOfStep, versionText } from "@/lib/app/build";
 import { lineDiff } from "@/lib/history/diff";
 import type { SaveStatus } from "@/lib/notes/note/use-autosave";
 
@@ -81,18 +81,18 @@ function noteName(path: string) {
 }
 
 /**
- * Production ships one release tag, so the backend's version answers alone. Development also shows
- * the bundle, since a tab left open across a rebase can run older code than the backend.
+ * Only a tab whose bundle and backend differ, as one left open across a rebase, shows the pair here;
+ * the settings page always names it.
  */
 function Version({ backend }: { backend: string }) {
+  if (!outOfStep(backend, BUILD)) return null;
   return (
-    // Gone below `md`. Development's two readings alone are wider than a third
-    // of a phone, and of everything in the bar this is the last thing wanted there.
+    // Gone below `md`, where the two readings alone are wider than a third of a phone.
     <span
       data-testid="version"
       className="shrink-0 text-[11px] text-k-muted tabular-nums max-md:hidden"
     >
-      {BUILD === "" ? backend : `be ${backend} fe ${BUILD}`}
+      {versionText(backend, BUILD)}
     </span>
   );
 }
@@ -148,6 +148,11 @@ interface StatusBarProps {
    * not read the buffer on every render. Read each render, so the diff follows the edits.
    */
   conflict?: () => { vault: string; mine: string } | undefined;
+  /**
+   * A phone's bar: drawn only while it holds something to act on or a mode to remember,
+   * and without the clock or the pane count.
+   */
+  quiet?: boolean;
   /** Write the buffer over the vault, which is `:w`. */
   onWrite?: () => void;
   /** Throw the buffer away for the vault's text, which is `:e!`. */
@@ -251,13 +256,35 @@ function HeldSigns({ failed, conflicts, heldDetail, conflictDetail, open }: Held
   );
 }
 
+/** Whether a phone's quiet bar has anything to say: a notice, a held note, a mode or a failed write. */
+function worthShowing({
+  notice,
+  held,
+  archive,
+  status,
+}: Pick<StatusBarProps, "notice" | "archive" | "status"> & { held: readonly HeldNote[] }) {
+  if (notice !== undefined || held.length > 0 || archive === true) return true;
+  return status !== undefined && SAVE_FIX[status] !== undefined;
+}
+
+/**
+ * The strip along the foot of the window, or nothing on a phone while it has nothing to say.
+ * Kept apart from the bar so a bar that comes back opens as a fresh one.
+ */
+export function StatusBar(props: StatusBarProps) {
+  const { quiet, notice, held = [], archive, status } = props;
+  if (quiet && !worthShowing({ notice, held, archive, status })) return null;
+  // A phone's toolbar shows the pane count instead.
+  return <Bar {...props} pane={quiet ? undefined : props.pane} />;
+}
+
 /**
  * The strip along the foot of the window.
  *
  * It runs the full width, under the file tree as well as the editor, and wears
  * the panel's colour with no rule above it so the two read as one surface.
  */
-export function StatusBar({
+function Bar({
   status,
   reason,
   flash,
@@ -268,6 +295,7 @@ export function StatusBar({
   pane,
   inert,
   foot,
+  quiet,
   held = [],
   conflict,
   onWrite,
@@ -364,7 +392,7 @@ export function StatusBar({
       />
       {/* The held list crowds the clock out on a phone as a notice does: it
           is the one reading there that loses text if nobody acts on it. */}
-      <Clock crowded={notice !== undefined || held.length > 0} />
+      <Clock crowded={notice !== undefined || held.length > 0} gone={quiet} />
       <div className="flex min-w-0 items-center justify-end gap-2 justify-self-end whitespace-nowrap">
         <HeldSigns
           failed={failed}

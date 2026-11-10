@@ -1327,6 +1327,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/push/devices/{device_id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Device
+         * @description Push a test message to one device now; a gone device is removed, as the sender does.
+         */
+        post: operations["test_device_api_push_devices__device_id__test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/push/timers": {
         parameters: {
             query?: never;
@@ -6709,6 +6729,18 @@ export interface components {
             accounts: components["schemas"]["AccountStatus"][];
         };
         /**
+         * TestOut
+         * @description What the push service answered a test push; `status` is None when it could not be reached.
+         */
+        TestOut: {
+            /** Status */
+            status: number | null;
+            /** Reason */
+            reason: string | null;
+            /** Gone */
+            gone: boolean;
+        };
+        /**
          * Tick
          * @description Which line to tick or untick, and the digest of the list the caller read.
          */
@@ -8932,6 +8964,37 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    test_device_api_push_devices__device_id__test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                device_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestOut"];
+                };
             };
             /** @description Validation Error */
             422: {

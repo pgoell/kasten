@@ -86,7 +86,7 @@ function Fixture({ phone, path }: { phone: boolean; path: string }) {
           <HtmlPane path={path} commands={stubCommands()} onFocus={() => {}} />
         </div>
       </div>
-      <WhichKey phone={phone} />
+      {!phone && <WhichKey />}
     </div>
   );
 }

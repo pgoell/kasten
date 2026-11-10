@@ -1,8 +1,8 @@
 /*
- * The lists app, on kasten's own tokens so it reads as kasten does in both
- * schemes and in each palette. Colour, type, space, radius and motion come only
- * from the `--k-*` tokens. The one value the tokens lack, a round end, is named
- * where it is used.
+ * The lists app, drawn as kasten's todo pane is: a small label for a title, tabs
+ * with an accent line, pill chips, flat rows on the page, rounded square ticks.
+ * Colour, type, space, radius and motion come only from the `--k-*` tokens; the
+ * few values they lack are named where they are used.
  */
 
 @import "./kasten-theme.css";
@@ -62,8 +62,7 @@ button:not(.words, .menu button):active:not(:disabled) {
   top: 0;
   z-index: 1;
   display: grid;
-  gap: var(--k-space-8);
-  padding: calc(var(--k-space-12) + env(safe-area-inset-top)) var(--k-space-16) var(--k-space-8);
+  padding: env(safe-area-inset-top) var(--k-space-12) 0;
   /* Glass, as the main app's tab strip is: the list shows through, blurred. */
   background-color: color-mix(in srgb, var(--k-bg) 84%, transparent);
   backdrop-filter: blur(18px) saturate(1.4);
@@ -94,16 +93,19 @@ button:not(.words, .menu button):active:not(:disabled) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--k-space-8);
+  gap: var(--k-space-12);
 }
 
-/* The way back to kasten: a finger's 44 px tall, quiet beside the title. */
+/* The way back to kasten, beside the label and in its small capitals; the auto margin keeps
+   the chips at the right. A finger's 44 px tall. */
 .home {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
-  padding-inline: var(--k-space-4);
-  font-size: var(--k-text-13);
+  margin-inline-end: auto;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   color: var(--k-muted);
   text-underline-offset: 2px;
 }
@@ -112,38 +114,73 @@ button:not(.words, .menu button):active:not(:disabled) {
   color: var(--k-accent);
 }
 
+/* The todo pane's label: small capitals in the muted ink, as "todos" is. */
 .top h1 {
   margin: 0;
-  font-size: var(--k-text-23);
-  font-weight: 600;
-  line-height: var(--k-leading-title);
-  letter-spacing: var(--k-track-title);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--k-muted);
 }
 
-/* The track is the surface and the chosen segment the accent, which clears 3:1 against it in both schemes. */
-.segment {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--k-space-4);
-  padding: var(--k-space-4);
-  border-radius: var(--k-radius-8);
-  background: var(--k-surface);
+.filters {
+  display: flex;
+  gap: var(--k-space-8);
 }
 
-.segment button {
-  min-height: 44px;
-  border: 0;
-  border-radius: var(--k-radius-6);
+/* The todo pane's chip: a pill with a rule around it, the accent wash when it is the one pressed. */
+.filters button,
+.suggest {
+  flex: none;
+  margin-block: var(--k-space-8);
+  padding: 2px 10px;
+  /* A round end, which kasten's tokens do not name: the pill's ends are half its height. */
+  border: 1px solid var(--k-rule);
+  border-radius: 999px;
   background: transparent;
-  color: var(--k-ink-soft);
-  font-size: var(--k-text-15);
-  font-weight: 500;
-  letter-spacing: var(--k-track-label);
+  color: var(--k-muted);
+  font-size: var(--k-text-12);
+  white-space: nowrap;
 }
 
-.segment button[aria-pressed="true"] {
-  background: var(--k-accent);
-  color: var(--k-paper);
+/* A finger gets a 44 px pill, as the pane's chips do under a coarse pointer. */
+@media (pointer: coarse) {
+  .filters button,
+  .suggest {
+    min-height: 44px;
+    margin-block: 0;
+    padding: 0 var(--k-space-12);
+  }
+}
+
+.filters button[aria-pressed="true"] {
+  border-color: var(--k-accent);
+  background: var(--k-accent-wash);
+  color: var(--k-ink);
+}
+
+/* The board's tabs: muted words, the chosen one in ink on an accent line that sits on the bar's rule. */
+.tabs {
+  display: flex;
+  margin-inline: calc(-1 * var(--k-space-12));
+  padding-inline: var(--k-space-4);
+}
+
+.tabs button {
+  min-height: 44px;
+  margin-bottom: -1px;
+  padding: 0 var(--k-space-8);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--k-muted);
+  font-size: var(--k-text-15);
+}
+
+.tabs button[aria-pressed="true"] {
+  border-bottom-color: var(--k-accent);
+  color: var(--k-ink);
 }
 
 /* Tabular figures keep the open count from shifting as it goes 9 to 10. */
@@ -153,9 +190,9 @@ button:not(.words, .menu button):active:not(:disabled) {
 }
 
 .status {
-  margin: var(--k-space-4) 0 0;
+  margin: 0 0 var(--k-space-8);
   text-align: center;
-  font-size: var(--k-text-13);
+  font-size: var(--k-text-12);
   color: var(--k-muted);
 }
 
@@ -197,26 +234,12 @@ button:not(.words, .menu button):active:not(:disabled) {
 
 .lists {
   flex: 1;
-  padding: var(--k-space-8) var(--k-space-16) var(--k-space-16);
+  padding: var(--k-space-4) var(--k-space-4) var(--k-space-16);
 }
 
+/* Flat on the page, as the todo pane's rows are: no card, no rule between rows. */
 .group {
   position: relative;
-  border: 1px solid var(--k-rule);
-  border-radius: var(--k-radius-8);
-  background: var(--k-paper);
-}
-
-/* No clipping: a chip's menu hangs past the row and past the group's last row. The
-   corners the group would have clipped are the first and last row's own. */
-.group > .row:first-child {
-  border-start-start-radius: var(--k-radius-8);
-  border-start-end-radius: var(--k-radius-8);
-}
-
-.group > .row:last-child {
-  border-end-start-radius: var(--k-radius-8);
-  border-end-end-radius: var(--k-radius-8);
 }
 
 .row {
@@ -226,12 +249,75 @@ button:not(.words, .menu button):active:not(:disabled) {
   gap: var(--k-space-4);
   min-height: 44px;
   /* A part sits one step in per level under its item, as the todo pane draws it. */
-  padding: var(--k-space-8) var(--k-space-8) var(--k-space-8)
-    calc(var(--k-space-4) + var(--depth, 0) * var(--k-space-24));
+  padding: 0 var(--k-space-4) 0 calc(var(--depth, 0) * var(--k-space-24));
+  border-radius: var(--k-radius-6);
 }
 
-.row + .row {
-  border-top: 1px solid var(--k-rule);
+/* A finger pulls the row left over Löschen in the danger colour, which fills once a lift would delete. */
+.swipe {
+  position: relative;
+  border-radius: var(--k-radius-6);
+}
+
+.swipe[data-swiping="true"] {
+  background: color-mix(in srgb, var(--k-danger) 35%, var(--k-bg));
+}
+
+.swipe[data-armed="true"] {
+  background: var(--k-danger);
+}
+
+.swipe[data-swiping="true"]::before {
+  content: "Löschen";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: var(--k-space-16);
+  display: flex;
+  align-items: center;
+  color: var(--k-paper);
+  font-size: var(--k-text-13);
+  font-weight: 600;
+}
+
+.swipe > .row {
+  position: relative;
+  background: var(--k-bg);
+  transform: translateX(var(--swipe, 0px));
+  touch-action: pan-y;
+}
+
+/* Back into place on its own curve; while the finger holds it, it follows with no lag. */
+.swipe[data-swiping="false"] > .row {
+  transition: transform var(--k-press-out) var(--k-ease-out);
+}
+
+/* The mouse's way to delete: a × that shows on the row under the pointer, or with the focus on it.
+   A finger has none to hover with, and pulls the row instead. */
+.remove {
+  flex: none;
+  width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--k-muted);
+  font-size: var(--k-text-19);
+  opacity: 0;
+}
+
+.row:hover .remove,
+.remove:focus-visible {
+  opacity: 1;
+}
+
+.remove:hover {
+  color: var(--k-danger);
+}
+
+@media (pointer: coarse) {
+  .remove {
+    display: none;
+  }
 }
 
 /* A press on the words tints the row. The row does not move. */
@@ -259,7 +345,7 @@ button:not(.words, .menu button):active:not(:disabled) {
 }
 
 .part {
-  color: var(--k-link);
+  color: var(--k-muted);
   font-size: var(--k-text-19);
 }
 
@@ -298,22 +384,22 @@ button:not(.words, .menu button):active:not(:disabled) {
   flex: none;
   display: grid;
   place-items: center;
-  width: var(--k-space-24);
-  height: var(--k-space-24);
-  border: 2px solid var(--k-rule-strong);
-  border-radius: 50%;
+  width: var(--k-space-16);
+  height: var(--k-space-16);
+  border: 1.5px solid var(--k-muted);
+  border-radius: var(--k-radius-4);
   transition: transform var(--k-press-out) var(--k-ease-out);
 }
 
-/* The fill is a disc under the tick, so the tick reads on it. It fills with the
+/* The todo pane's done box: a green square under a paper tick. It fills with the
    ease-out curve, and only its transform and opacity change. */
 .check::before {
   content: "";
   position: absolute;
-  inset: 0;
+  inset: -1.5px;
   z-index: -1;
-  border-radius: 50%;
-  background: var(--k-surface);
+  border-radius: var(--k-radius-4);
+  background: var(--k-ok);
   transform: scale(0);
   opacity: 0;
   transition:
@@ -324,11 +410,11 @@ button:not(.words, .menu button):active:not(:disabled) {
 /* The tick is drawn with borders, so no svg (and no title for it) is needed. */
 .check::after {
   content: "";
-  width: 5px;
-  height: 9px;
+  width: 4px;
+  height: 8px;
   margin-top: -2px;
-  border: solid var(--k-ink);
-  border-width: 0 2px 2px 0;
+  border: solid var(--k-paper);
+  border-width: 0 1.5px 1.5px 0;
   transform: rotate(45deg);
   opacity: 0;
   transition: opacity var(--k-spring-response) var(--k-ease-out);
@@ -337,6 +423,10 @@ button:not(.words, .menu button):active:not(:disabled) {
 .tick[aria-checked="true"] .check::before {
   transform: scale(1);
   opacity: 1;
+}
+
+.tick[aria-checked="true"] .check {
+  border-color: var(--k-ok);
 }
 
 .tick[aria-checked="true"] .check::after {
@@ -387,33 +477,41 @@ button:not(.words, .menu button):active:not(:disabled) {
 }
 
 .done {
-  margin-top: var(--k-space-24);
+  margin-top: var(--k-space-16);
 }
 
+/* The todo pane's group heading: small capitals in the muted ink, the count beside it. */
 .group-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 var(--k-space-4) var(--k-space-8);
+  min-height: 32px;
+  padding: var(--k-space-8) var(--k-space-8) 0;
   color: var(--k-muted);
 }
 
 .group-head h2 {
   margin: 0;
-  font-size: var(--k-text-13);
-  font-weight: 600;
+  font-size: var(--k-text-12);
+  font-weight: 400;
   letter-spacing: var(--k-track-label);
+  text-transform: uppercase;
+}
+
+.group-head .count {
+  font-size: inherit;
 }
 
 .group-head h2 button,
 .group-head > button {
   min-height: 44px;
-  padding: 0 var(--k-space-4);
+  padding: 0;
   border: 0;
   background: none;
   color: var(--k-link);
-  font-size: var(--k-text-13);
-  font-weight: 600;
+  font-size: var(--k-text-12);
+  letter-spacing: inherit;
+  text-transform: inherit;
 }
 
 .group-head h2 button {
@@ -459,11 +557,12 @@ button:not(.words, .menu button):active:not(:disabled) {
   flex: none;
 }
 
+/* Wide enough for most names and set to the end, so each row's + lines up with the next. */
 .chip {
   display: flex;
   align-items: center;
-  justify-content: center;
-  min-width: 44px;
+  justify-content: flex-end;
+  min-width: 64px;
   min-height: 44px;
   padding: 0;
   border: 0;
@@ -474,10 +573,10 @@ button:not(.words, .menu button):active:not(:disabled) {
   display: block;
   max-width: 12em;
   overflow: hidden;
-  padding: var(--k-space-4) var(--k-space-12);
+  padding: 1px var(--k-space-8);
   border-radius: 999px;
   border: 1px solid transparent;
-  font-size: var(--k-text-13);
+  font-size: var(--k-text-12);
   line-height: var(--k-leading-ui);
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -542,11 +641,16 @@ button:not(.words, .menu button):active:not(:disabled) {
   bottom: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--k-space-8);
-  padding: var(--k-space-8) var(--k-space-16) calc(var(--k-space-12) + env(safe-area-inset-bottom));
+  gap: var(--k-space-4);
+  padding: var(--k-space-4) var(--k-space-12) calc(var(--k-space-4) + env(safe-area-inset-bottom));
   /* Solid: glass is kept for the top bar only (#798). */
   background: var(--k-bg);
   border-top: 1px solid var(--k-rule);
+}
+
+/* The field has no box, so the bar's rule takes the accent while it is typed in. */
+.composer:focus-within {
+  border-top-color: var(--k-accent);
 }
 
 /* A delete waits here for Rückgängig before it is sent. */
@@ -600,31 +704,21 @@ button:not(.words, .menu button):active:not(:disabled) {
   scrollbar-width: none;
 }
 
-.suggest {
-  flex: none;
-  min-height: 44px;
-  padding: 0 var(--k-space-16);
-  border: 1px solid var(--k-rule);
-  border-radius: 999px;
-  background: var(--k-paper);
-  color: var(--k-ink);
-  white-space: nowrap;
-}
-
 .entry {
   display: flex;
   gap: var(--k-space-8);
 }
 
+/* The todo pane's filter line: no box, the words on the bar itself. */
 .field {
   flex: 1;
   min-width: 0;
   min-height: 44px;
-  padding: 0 var(--k-space-12);
-  border: 1px solid var(--k-rule);
-  border-radius: var(--k-radius-8);
-  background: var(--k-paper);
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--k-ink);
+  outline: none;
   /* 16px or more stops Safari zooming the page when the field takes focus, and no
      token is that size. The 15 px step is the one items use, so this is the floor. */
   font-size: max(16px, var(--k-text-15));
@@ -634,15 +728,14 @@ button:not(.words, .menu button):active:not(:disabled) {
   color: var(--k-muted);
 }
 
+/* A word in the link colour, as the pane's + is a mark: the accent stays for what is chosen. */
 .add {
   min-height: 44px;
-  padding: 0 var(--k-space-16);
+  padding: 0 var(--k-space-4);
   border: 0;
-  border-radius: var(--k-radius-8);
-  background: var(--k-accent);
-  color: var(--k-paper);
+  background: none;
+  color: var(--k-link);
   font-size: var(--k-text-15);
-  font-weight: 500;
 }
 
 /* The reader who asked for less motion gets none: no press, no fill, no transition. */

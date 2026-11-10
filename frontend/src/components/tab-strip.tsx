@@ -1,7 +1,8 @@
 import { type KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { KindIcon, paneKind } from "@/components/kind-icons";
+import { KindIcon } from "@/components/kind-icons";
 import { focusedOf, tabLabel } from "@/components/tab-label";
 import type { SaveStatus } from "@/lib/notes/note/use-autosave";
+import { paneKind } from "@/lib/panes/layout/pane-kinds";
 import { activeTab, isEmptyTab, type Layout, panesOf, type Tab } from "@/lib/panes/layout/panes";
 import { TAB_MAX_WIDTH, useTabGeometry } from "@/lib/panes/tabs/use-tab-geometry";
 import type { HeldRow } from "@/lib/saving/held-text";
@@ -13,6 +14,8 @@ interface TabStripProps {
   onSelect: (index: number) => void;
   onClose: (index: number) => void;
   onHome: () => void;
+  /** Makes a note from a plus at the end, drawn where no top bar offers New note. */
+  onNewNote?: () => void;
   /** Whether a tab has text that is not in the vault yet, which the dot says. */
   unsaved: (tab: Tab) => boolean;
   /**
@@ -182,14 +185,16 @@ function StripTab({ tab, index, selected, folded, cap, dirty, onSelect, onClose 
 }
 
 /**
- * The strip of open tabs, under the top bar. Today is the home button, outside the numbered
- * tabs. Tabs that do not fit fold behind "N more"; the active tab is always drawn.
+ * The strip of open tabs, under the top bar, or at the top of a phone. Today is the home
+ * button, outside the numbered tabs. Tabs that do not fit fold behind "N more"; the active
+ * tab is always drawn.
  */
 export function TabStrip({
   layout,
   onSelect,
   onClose,
   onHome,
+  onNewNote,
   unsaved,
   narrow = false,
 }: TabStripProps) {
@@ -411,6 +416,26 @@ export function TabStrip({
             </div>
           )}
         </div>
+      )}
+      {onNewNote && (
+        <button
+          type="button"
+          aria-label="New note"
+          onClick={() => onNewNote()}
+          className="flex min-h-11 w-11 shrink-0 items-center justify-center border-k-rule border-l text-k-accent hover:bg-k-accent-wash"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            className="size-5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.75"
+            strokeLinecap="round"
+          >
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+        </button>
       )}
     </div>
   );

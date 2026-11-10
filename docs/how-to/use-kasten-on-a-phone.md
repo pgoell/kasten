@@ -11,8 +11,9 @@ status: stable
 You have kasten open in a phone's browser, or installed from
 [Install kasten on your phone](/how-to/install-on-your-phone.md), and you want
 to do by touch what the keys do at a desk. A row of buttons runs along the
-bottom edge: `files`, `find`, `search`, `run`, `today`, `todos`, `chat` and
-`space`. Every recipe below starts there.
+bottom edge: `files`, `find`, `today`, `todos`, `chat` and `run`.
+Every recipe below starts there. The tab strip is the top row, with a + at its
+end for a new note.
 
 [Editor keys](/reference/editor-keys/touch.md#what-counts-as-a-phone) says which
 devices draw the row. Where there is none, use `Ctrl+Shift+P` on a keyboard, or
@@ -28,7 +29,8 @@ To close the tree without opening anything, tap the page beside it.
 
 ## Find a note, or a line in one
 
-1. Tap `find` for a note by name, or `search` for a line of text.
+1. Tap `find` for a note by name. For a line of text, tap `run` and choose
+   `Search note content`.
 2. Type a few letters.
 3. Tap a row.
 
@@ -48,22 +50,12 @@ Commands worth knowing by name:
 
 | To | Type |
 | --- | --- |
-| Make a note | `Create a note` |
+| Make a note | `Create a note`, or tap + at the end of the tab strip |
 | Rename or move the open note | `Rename the note` |
 | Delete the open note | `Delete the note` |
 | Split the window | `Split the pane left and right` |
 | Close what is on screen | `Close the note, then the pane, then the tab` |
 | See every key and command | `Show the keys` |
-
-## See the keys after Space
-
-1. Tap `space`. The which-key panel rises from the foot of the screen, one
-   column at full width under the titles Find, Create, Go to, Tabs, Panes and
-   This note. It shows only the keys that do something in the pane you are in.
-2. Tap a row to run it. A row that ends in `…`, such as Go to …, opens its
-   group; tap the `Space` chip at the top to go back.
-
-To close the panel, flick its grabber down.
 
 ## Turn vim on
 
@@ -78,13 +70,13 @@ time per browser. The same row turns vim off again.
 
 A phone stacks the panes of a split, top and bottom, each with a header row. The
 focused pane has a line under its header. While the keyboard is up, only the
-focused pane shows, at full height. The status bar says how many panes the tab
-holds, as `pane 1/2`.
+focused pane shows, at full height. A button at the end of the toolbar says
+which pane is in view of how many, as `1/2`.
 
-1. Tap a pane to focus it, or tap `pane` to move the focus to the next one.
-2. Tap `pane` again to go on, round to the first.
+1. Tap a pane to focus it, or tap `1/2` to move the focus to the next one.
+2. Tap it again to go on, round to the first.
 
-The `pane` button shows only while the tab holds more than one pane.
+The button shows only while the tab holds more than one pane.
 
 ## Tick a todo
 
@@ -110,7 +102,8 @@ choose `Cycle the todo on this line`.
 
 ## Settle a note that changed on disk
 
-The status bar says `Changed on disk` when something else wrote the note while
+The status bar, which a phone draws only when it has something to say, appears
+with `Changed on disk` when something else wrote the note while
 it held text you had not saved. Nothing is written until you choose.
 
 1. Read what differs, which opens above the bar by itself: a `-` line is only
@@ -149,7 +142,7 @@ again to let go without sending anything.
 ## Close a panel
 
 Tap the dimmed page outside it. That closes the palette, the finder, the
-search, key help, the which-key panel and a prompt you have not typed into.
+search, key help and a prompt you have not typed into.
 On a phone, key help is a full-height sheet, and dragging its grabber down
 closes it too.
 

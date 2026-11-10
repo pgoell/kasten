@@ -137,7 +137,7 @@ export function renderPanes(mounted: Mounted, panes: PaneSpec[]) {
             </div>
           ))}
         </div>
-        <WhichKey phone={false} />
+        <WhichKey />
       </QueryClientProvider>,
     ),
   );

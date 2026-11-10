@@ -113,19 +113,19 @@ async function swipe(target: HTMLElement, from: number, to: number) {
 }
 
 describe("#793 the phone's pinned frame and its gestures", () => {
-  it("#793 A14 at 390 the top bar and the tab strip stay put while a long note scrolls", async () => {
+  it("#793 A14 at 390 the tab strip is the top row and stays put while a long note scrolls", async () => {
     const mounted = await mountTabs(TOUCH, "light", twoTabs());
     try {
-      const bar = need(mounted.host.querySelector<HTMLElement>("[data-top-bar]"), "top bar");
+      expect(mounted.host.querySelector("[data-top-bar]")).toBeNull();
       const strip = stripOf(mounted.host);
       const scroller = scrollerOf(mounted.host);
-      const before = [rectOf(bar), rectOf(strip)];
+      const before = rectOf(strip);
 
       scroller.scrollTop = 600;
       await expect.poll(() => scroller.scrollTop, PATIENCE).toBe(600);
       await nextFrame();
 
-      expect([rectOf(bar), rectOf(strip)]).toEqual(before);
+      expect(rectOf(strip)).toEqual(before);
     } finally {
       await unmount(mounted);
     }

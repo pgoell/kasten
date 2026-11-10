@@ -11,6 +11,7 @@ import {
   somebodyElseWrote,
   theRoute,
 } from "./home-route-fixture";
+import { finderRow } from "./home-route-panes";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 
 defineFoliateFake();
@@ -146,7 +147,7 @@ describe("the which-key panel on the route", () => {
     app.leader("f", "f");
     await settle();
 
-    expect(screen.getByRole("option", { name: "other.md" })).toBeInTheDocument();
+    expect(finderRow("other.md")).toBeInTheDocument();
   });
 
   it("? on the file tree opens key help with the filter focused", async () => {

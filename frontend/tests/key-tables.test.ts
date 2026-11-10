@@ -252,5 +252,9 @@ describe("what the which-key panel leaves out", () => {
   it("with no pane to go by, as from the file tree's page in a test, every key shows", () => {
     expect(panelRows("", { tab: [] }, LEADER_EDITS).hidden).toBe(false);
     expect(panelRows("g", { tab: ["path", "todos"] }, []).hidden).toBe(false);
+    // From the tree a note's keys show, but the pane moves still follow the tab.
+    const tree = drawn("", { tab: ["finance"] }, []);
+    expect(tree).toEqual(expect.arrayContaining(["p", "w", "r"]));
+    expect(tree).not.toContain("h");
   });
 });

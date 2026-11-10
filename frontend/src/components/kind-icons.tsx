@@ -1,21 +1,6 @@
 import type { ReactNode } from "react";
 import type { PaneKind } from "@/lib/panes/layout/pane-kinds";
 
-export { paneKind, panePath } from "@/lib/panes/layout/pane-kinds";
-
-const LABELS: Record<PaneKind, string> = {
-  page: "Note",
-  pdf: "PDF",
-  book: "Book",
-  review: "Review",
-  graph: "Graph",
-  video: "Video",
-};
-
-export function kindLabel(kind: PaneKind): string {
-  return LABELS[kind];
-}
-
 const STROKE = {
   viewBox: "0 0 24 24",
   fill: "none",
@@ -63,6 +48,43 @@ const SHAPES: Record<PaneKind, ReactNode> = {
     <>
       <rect x="3" y="5" width="18" height="14" rx="3" />
       <path d="M10 9.5v5l4.5-2.5z" />
+    </>
+  ),
+  todos: (
+    <>
+      <rect x="4" y="4" width="16" height="16" rx="3" />
+      <path d="m8.5 12 2.5 2.5 4.5-5" />
+    </>
+  ),
+  timers: (
+    <>
+      <circle cx="12" cy="13" r="8" />
+      <path d="M12 9v4l2.5 2.5M10 2h4" />
+    </>
+  ),
+  log: <path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01" />,
+  finance: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M15 8.5a3.5 3.5 0 1 0 0 7M7.5 11h5M7.5 13.5h5" />
+    </>
+  ),
+  overview: (
+    <>
+      <rect x="4" y="4" width="7" height="7" rx="1.5" />
+      <rect x="13" y="4" width="7" height="7" rx="1.5" />
+      <rect x="4" y="13" width="7" height="7" rx="1.5" />
+      <rect x="13" y="13" width="7" height="7" rx="1.5" />
+    </>
+  ),
+  library: <path d="M5 4v16M10 4v16M15 5l4 14.5" />,
+  chat: (
+    <path d="M5 5h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-8l-4 3.5V16H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" />
+  ),
+  terminal: (
+    <>
+      <path d="m5 8 4 4-4 4" />
+      <path d="M12 17h7" />
     </>
   ),
 };

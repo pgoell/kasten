@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import type { Dispatch, SetStateAction } from "react";
+import { type Dispatch, type SetStateAction, useState } from "react";
 import { PaneBody, type PaneExtras } from "@/components/pane-body";
 import { PaneLayout } from "@/components/pane-layout";
 import { isUnsaved, TabStrip } from "@/components/tab-strip";
@@ -36,6 +36,7 @@ export function WorkspacePanes({
   playSignal,
   graphAsk,
   graphSheet,
+  newNote,
   preview,
   listings,
   opening,
@@ -62,6 +63,8 @@ export function WorkspacePanes({
   playSignal: number;
   graphAsk: PaneExtras["graphAsk"];
   graphSheet?: PaneExtras["graphSheet"];
+  /** Drawn as a plus at the strip's end where the top bar is not, on a phone. */
+  newNote?: () => void;
   preview: boolean;
   listings: PaneExtras["listings"];
   opening: PaneExtras["opening"];
@@ -77,6 +80,11 @@ export function WorkspacePanes({
   onNotice: Dispatch<SetStateAction<string | undefined>>;
 }) {
   const tab = activeTab(layout);
+  // The pane a reload restored takes the focus as if a key moved it there, until the focus
+  // moves: a click into another pane must not see the signal rise and pull the focus back.
+  const [restored, setRestored] = useState<string | null>(tab.focus);
+  if (restored !== null && restored !== tab.focus) setRestored(null);
+  const signal = focusSignal + (restored === null ? 0 : 1);
   const rsvpAsk = useRsvpAsked();
   const { data, archive } = listings;
   const queryClient = useQueryClient();
@@ -119,6 +127,7 @@ export function WorkspacePanes({
         onSelect={(index) => moveTo((previous) => goToTab(previous, index))}
         onClose={(index) => moveTo((previous) => closeTab(previous, index))}
         onHome={() => moveTo((previous) => homeTab(previous))}
+        onNewNote={newNote}
         unsaved={(each) => isUnsaved(each, each.id === tab.id, buffer.held, status)}
       />
       <div className="flex min-h-0 flex-1">
@@ -149,7 +158,13 @@ export function WorkspacePanes({
             <PaneBody
               shown={shown}
               focused={focused}
-              shared={{ commands, focusSignal, archive, openInPane: opening.openInPane, onNotice }}
+              shared={{
+                commands,
+                focusSignal: signal,
+                archive,
+                openInPane: opening.openInPane,
+                onNotice,
+              }}
               extras={{
                 paths: data,
                 setLayout,
