@@ -56,7 +56,7 @@
 @keyframes finance-tabs-fade {
   0%,
   95% {
-    mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+    mask-image: linear-gradient(to right, black calc(100% - 40px), transparent);
   }
   100% {
     mask-image: none;
