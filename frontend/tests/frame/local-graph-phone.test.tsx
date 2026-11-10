@@ -63,7 +63,7 @@ it("on a phone, Space g l opens the local graph as a sheet and no pane", async (
 
     await waitFor(() => expect(sheet()).not.toBeNull(), { timeout: 5000 });
     expect(host.querySelectorAll("[role='tab']").length).toBe(tabsBefore);
-    expect(host.textContent).not.toContain("graph of Lesson");
+    expect(host.textContent).not.toContain("Graph of Lesson");
   } finally {
     await act(async () => root.unmount());
     host.remove();

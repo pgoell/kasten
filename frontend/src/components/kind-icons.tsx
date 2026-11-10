@@ -1,28 +1,7 @@
 import type { ReactNode } from "react";
 import type { PaneKind } from "@/lib/panes/layout/pane-kinds";
 
-export { paneKind, panePath } from "@/lib/panes/layout/pane-kinds";
-
-const LABELS: Record<PaneKind, string> = {
-  page: "Note",
-  pdf: "PDF",
-  book: "Book",
-  review: "Review",
-  graph: "Graph",
-  video: "Video",
-  todos: "Todos",
-  timers: "Timers",
-  log: "Log",
-  finance: "Finance",
-  overview: "Overview",
-  library: "Library",
-  chat: "Chat",
-  terminal: "Terminal",
-};
-
-export function kindLabel(kind: PaneKind): string {
-  return LABELS[kind];
-}
+export { kindLabel, paneKind, panePath } from "@/lib/panes/layout/pane-kinds";
 
 const STROKE = {
   viewBox: "0 0 24 24",

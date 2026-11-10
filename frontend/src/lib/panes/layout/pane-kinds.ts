@@ -78,7 +78,7 @@ export interface Pane {
   timers?: boolean;
 }
 
-/** The icon a pane's tab and header draw for it. Most kinds draw a page. */
+/** The icon a pane's tab and header draw for it. A note, a file and an empty pane draw a page. */
 export type PaneKind =
   | "page"
   | "pdf"
@@ -94,6 +94,28 @@ export type PaneKind =
   | "library"
   | "chat"
   | "terminal";
+
+/** The word a pane's header and a flag pane's tab name its kind by. */
+const LABELS: Record<PaneKind, string> = {
+  page: "Note",
+  pdf: "PDF",
+  book: "Book",
+  review: "Review",
+  graph: "Graph",
+  video: "Video",
+  todos: "Todos",
+  timers: "Timers",
+  log: "Log",
+  finance: "Finance",
+  overview: "Overview",
+  library: "Library",
+  chat: "Chat",
+  terminal: "Terminal",
+};
+
+export function kindLabel(kind: PaneKind): string {
+  return LABELS[kind];
+}
 
 /** The fields that say what a pane holds. `line`, `jump` and `anchor` only say where in it. */
 export type KindField = Exclude<keyof Pane, "id" | "line" | "jump" | "anchor">;
@@ -118,10 +140,10 @@ const isTrue: Check = (value) => value === true;
 const within = (value: Record<string, unknown>, keys: string[]) =>
   Object.keys(value).every((key) => keys.includes(key));
 
-const flag = (tab: string, icon: PaneKind): Row<KindField> => ({
+const flag = (icon: PaneKind): Row<KindField> => ({
   saved: isTrue,
   icon,
-  tab: () => tab,
+  tab: () => LABELS[icon],
   clears: true,
 });
 const named = (icon: PaneKind = "page"): Row<KindField> => ({
@@ -144,15 +166,15 @@ export const PANE_KINDS: { [K in KindField]: Row<K> } = {
   path: { ...named(), clears: false },
   // A terminal names its herdr session, which is the thing you named it.
   term: { saved: isString, icon: "terminal", tab: (session) => session, clears: true },
-  todos: flag("Todos", "todos"),
-  log: flag("Log", "log"),
-  overview: flag("Overview", "overview"),
-  finance: flag("Finance", "finance"),
-  library: flag("Library", "library"),
+  todos: flag("todos"),
+  log: flag("log"),
+  overview: flag("overview"),
+  finance: flag("finance"),
+  library: flag("library"),
   // A reader, a player, an exam and a card are each named by the note they sit beside (#363).
   book: named("book"),
   exam: named("review"),
-  review: flag("Review", "review"),
+  review: flag("review"),
   // A pdf, an image and a page are files and not notes, so named by the file (#361).
   image: file(),
   pdf: {
@@ -181,8 +203,8 @@ export const PANE_KINDS: { [K in KindField]: Row<K> } = {
     path: ({ around }) => around,
     clears: true,
   },
-  chat: flag("Chat", "chat"),
-  timers: flag("Timers", "timers"),
+  chat: flag("chat"),
+  timers: flag("timers"),
 };
 
 const FIELDS = Object.keys(PANE_KINDS) as KindField[];
