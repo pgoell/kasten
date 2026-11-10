@@ -6,7 +6,7 @@ The format is in `docs/reference/food/recipe-note.md`.
 import re
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Literal
+from typing import Literal, cast, get_args
 
 from pydantic import BaseModel
 
@@ -15,7 +15,8 @@ from kasten_backend import frontmatter
 INGREDIENTS = frozenset({"zutaten", "ingredients"})
 STEPS = frozenset({"schritte", "zubereitung", "steps"})
 COOKED = frozenset({"gekocht", "cooked"})
-VERDICTS = ("lieber nicht", "geht so", "gern wieder")
+Verdict = Literal["lieber nicht", "geht so", "gern wieder"]
+VERDICTS: tuple[Verdict, ...] = get_args(Verdict)
 SECTION = re.compile(r"## (.+?)[ \t]*")
 GROUP = re.compile(r"### (.+?)[ \t]*")
 INGREDIENT = re.compile(r"[-*+] (?:\[[ xX]\] )?(.*\S)[ \t]*")
@@ -35,9 +36,6 @@ class IngredientLine:
     line: int
     text: str
     group: str | None
-
-
-Verdict = Literal["lieber nicht", "geht so", "gern wieder"]
 
 
 class Cooked(BaseModel):
@@ -131,7 +129,7 @@ def _cooked(line: int, text: str) -> Cooked | None:
     verdict: Verdict | None = None
     rest = found[2]
     if (said := VERDICT.match(rest)) is not None:
-        verdict = next(v for v in VERDICTS if v == said[1].lower())
+        verdict = cast("Verdict", said[1].lower())
         rest = said[2]
     note = rest.removeprefix("·").strip()
     return Cooked(line=line, date=day.isoformat(), verdict=verdict, note=note or None)

@@ -228,8 +228,9 @@ time. `frontend/src/lib/log/recipe/cook-mode.ts` draws it.
   `Chili sin carne · Step 3 of 6` and the step in large serif type.
 * Under `For this step · 6 servings`, the ingredients the step names, scaled to
   the servings. A step names an ingredient when one of its capitalised words
-  ends a word of the food, with a plural ending taken off both: `Bohnen` finds
-  `Kidneybohnen`, `Öl` finds `Olivenöl`, `Zwiebeln` finds `Zwiebel`.
+  is a word of the food or its last part after at least three letters, with a
+  plural ending taken off both: `Bohnen` finds `Kidneybohnen`, `Öl` finds
+  `Olivenöl`, `Zwiebeln` finds `Zwiebel`, and `Ei` does not find `Reis`.
 * A step that names a time gets a timer button, `Start 8:00 timer`. The first
   time in the step counts: `8 Minuten`, `30 Min.`, `1,5 Stunden`, `2 Std.`,
   `45 Sekunden`, and for a range such as `10-12 Minuten` its lower end. A press
@@ -238,4 +239,5 @@ time. `frontend/src/lib/log/recipe/cook-mode.ts` draws it.
   left and leads back. At zero the phone vibrates and a tone plays.
 * `Last time:` and the newest note from `## Gekocht`.
 * `Back` and `Next step`, 64px high; on the last step `Next step` reads `Done`
-  and closes. The arrow keys move too, and Escape closes.
+  and closes. The arrow keys move too, and Escape closes; see
+  [Editor keys](/reference/editor-keys.md#cook-mode).

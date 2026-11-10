@@ -27,9 +27,15 @@ function food(name: string): Ingredient {
   };
 }
 
-const FOODS = ["Sojagranulat", "rote Paprika", "Olivenöl", "Kidneybohnen", "Zwiebel", "Salz"].map(
-  food,
-);
+const FOODS = [
+  "Sojagranulat",
+  "rote Paprika",
+  "Olivenöl",
+  "Kidneybohnen",
+  "Zwiebel",
+  "Salz",
+  "Reis",
+].map(food);
 
 describe("the ingredients a step names", () => {
   it.each([
@@ -38,6 +44,8 @@ describe("the ingredients a step names", () => {
     ["Bohnen dazu und mit Salz abschmecken.", ["Kidneybohnen", "Salz"]],
     ["Alles 30 Minuten köcheln lassen.", []],
     ["den topf vom herd nehmen", []],
+    ["Das Ei unterheben.", []],
+    ["Den Reis waschen.", ["Reis"]],
   ])("%s", (step, names) => {
     expect(stepIngredients(step, FOODS).map((item) => item.food)).toEqual(names);
   });

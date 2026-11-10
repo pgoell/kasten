@@ -39,9 +39,16 @@ function stem(word: string): string {
 /** A capitalised word: in German that is a noun, the only kind of word that names a food. */
 const NOUN = /\p{Lu}[\p{L}-]*/gu;
 
+/** The shortest first part of a compound, so `Ei` finds `Rührei` but not the `rei` of `Reis`. */
+const COMPOUND_HEAD = 3;
+
+function names(word: string, noun: string): boolean {
+  return word === noun || (word.endsWith(noun) && word.length - noun.length >= COMPOUND_HEAD);
+}
+
 /**
- * The ingredients `step` names, in the recipe's order. A noun of the step names a food when the
- * food's word ends in it, so `Bohnen` finds `Kidneybohnen` and `Öl` finds `Olivenöl`.
+ * The ingredients `step` names, in the recipe's order. A noun of the step names a food when it is
+ * the food's word or that word's last part, so `Bohnen` finds `Kidneybohnen` and `Öl` `Olivenöl`.
  */
 export function stepIngredients(step: string, ingredients: Ingredient[]): Ingredient[] {
   const nouns = [...step.matchAll(NOUN)].map((found) => stem(found[0]));
@@ -50,7 +57,7 @@ export function stepIngredients(step: string, ingredients: Ingredient[]): Ingred
       .split(/[\s-]+/)
       .filter(Boolean)
       .map(stem);
-    return words.some((word) => nouns.some((noun) => word.endsWith(noun)));
+    return words.some((word) => nouns.some((noun) => names(word, noun)));
   });
 }
 

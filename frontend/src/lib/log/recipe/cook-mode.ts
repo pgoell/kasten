@@ -123,6 +123,8 @@ export function openCookMode({ title, recipe, servings }: CookInput): () => void
   root.setAttribute("role", "dialog");
   root.setAttribute("aria-modal", "true");
   root.setAttribute("aria-label", `Cook ${title}`);
+  // Focusable, so a click on the step text keeps the keys below inside cook mode.
+  root.tabIndex = -1;
 
   const close = () => {
     clearInterval(tick);
@@ -239,7 +241,23 @@ export function openCookMode({ title, recipe, servings }: CookInput): () => void
     next.textContent = index === steps.length - 1 ? "Done" : "Next step";
   }
 
+  /** Tab and Shift+Tab go round the buttons, never out to the page behind. */
+  function trap(event: KeyboardEvent): void {
+    const buttons = [...root.querySelectorAll("button")].filter(
+      (each) => !each.hidden && !each.disabled,
+    );
+    const [first] = buttons;
+    const last = buttons.at(-1);
+    if (first === undefined || last === undefined) return;
+    const at = document.activeElement;
+    if (event.shiftKey && (at === first || at === root)) last.focus();
+    else if (!event.shiftKey && at === last) first.focus();
+    else return;
+    event.preventDefault();
+  }
+
   root.addEventListener("keydown", (event) => {
+    if (event.key === "Tab") return trap(event);
     if (event.key === "Escape") close();
     else if (event.key === "ArrowRight") go(index + 1);
     else if (event.key === "ArrowLeft") go(index - 1);

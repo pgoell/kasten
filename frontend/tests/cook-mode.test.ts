@@ -122,4 +122,16 @@ describe("cook mode", () => {
     root?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     expect(document.querySelector(".k-cook")).toBeNull();
   });
+
+  it("keeps Tab among its own buttons", () => {
+    openCookMode({ title: "Chili", recipe: CHILI, servings: 4 });
+    const root = document.querySelector<HTMLElement>(".k-cook");
+    expect(root?.tabIndex).toBe(-1);
+    $(".k-cook-next")?.focus();
+    root?.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true }));
+    expect(document.activeElement).toBe($(".k-cook-close"));
+    const back = new KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true });
+    root?.dispatchEvent(back);
+    expect(document.activeElement).toBe($(".k-cook-next"));
+  });
 });
