@@ -142,3 +142,15 @@ async def test_the_dump_lands_in_the_configured_daily_folder(
 
     assert response.json()["path"] == "Journal/00 Daily/2026-09-29.md"
     assert (agent_vault / "Journal/00 Daily/2026-09-29.md").is_file()
+
+
+async def test_names_the_shared_lists_address_when_there_is_a_share_host(
+    client: AsyncClient, vault: Path
+) -> None:
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        vault_path=vault, share_host="liste.example"
+    )
+
+    response = await client.get("/api/layout")
+
+    assert response.json()["lists"] == "https://liste.example/"

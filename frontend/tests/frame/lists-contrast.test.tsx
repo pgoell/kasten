@@ -95,18 +95,16 @@ describe("the lists app contrast", () => {
     await page.viewport(1280, 900);
   });
 
-  it("the chosen list stands out from its track at 3:1", async () => {
+  it("the chosen tab and its line stand out from the page", async () => {
     const measure = async (dark: boolean) => {
       await draw(dark);
-      const segment = document.querySelector(".segment") as HTMLElement;
-      const chosen = segment.querySelector('[aria-pressed="true"]') as HTMLElement;
-      const other = segment.querySelector('[aria-pressed="false"]') as HTMLElement;
-      const track = solid(getComputedStyle(segment).backgroundColor, bodyColor());
-      const thumb = parse(getComputedStyle(chosen).backgroundColor);
+      const chosen = need('.tabs [aria-pressed="true"]');
+      const other = need('.tabs [aria-pressed="false"]');
+      const page = bodyColor();
       const result = {
-        thumb: grade(ratio(thumb, track), 3),
-        chosenLabel: grade(ratio(parse(getComputedStyle(chosen).color), thumb), 4.5),
-        otherLabel: grade(ratio(parse(getComputedStyle(other).color), track), 4.5),
+        line: grade(ratio(parse(getComputedStyle(chosen).borderBottomColor), page), 3),
+        chosenLabel: grade(ratio(parse(getComputedStyle(chosen).color), page), 4.5),
+        otherLabel: grade(ratio(parse(getComputedStyle(other).color), page), 4.5),
       };
       cleanup();
       return result;
@@ -114,19 +112,42 @@ describe("the lists app contrast", () => {
     const light = await measure(false);
     const dark = await measure(true);
     expect({ light, dark }).toEqual({
-      light: { thumb: "ok", chosenLabel: "ok", otherLabel: "ok" },
-      dark: { thumb: "ok", chosenLabel: "ok", otherLabel: "ok" },
+      light: { line: "ok", chosenLabel: "ok", otherLabel: "ok" },
+      dark: { line: "ok", chosenLabel: "ok", otherLabel: "ok" },
     });
   }, 30_000);
 
-  it("done text reads at 4.5:1 on its card", async () => {
+  it("the pressed filter chip reads on its wash", async () => {
+    const measure = async (dark: boolean) => {
+      await draw(dark);
+      const chosen = need('.filters [aria-pressed="true"]');
+      const other = need('.filters [aria-pressed="false"]');
+      const page = bodyColor();
+      const wash = solid(getComputedStyle(chosen).backgroundColor, page);
+      const result = {
+        chosen: grade(ratio(parse(getComputedStyle(chosen).color), wash), 4.5),
+        edge: grade(ratio(parse(getComputedStyle(chosen).borderTopColor), page), 3),
+        other: grade(ratio(parse(getComputedStyle(other).color), page), 4.5),
+      };
+      cleanup();
+      return result;
+    };
+    const light = await measure(false);
+    const dark = await measure(true);
+    expect({ light, dark }).toEqual({
+      light: { chosen: "ok", edge: "ok", other: "ok" },
+      dark: { chosen: "ok", edge: "ok", other: "ok" },
+    });
+  }, 30_000);
+
+  it("done text reads at 4.5:1 on the page", async () => {
     const measure = async (dark: boolean) => {
       await draw(dark);
       const eier = screen.getByRole("checkbox", { name: "Eier" });
       const milch = screen.getByRole("checkbox", { name: "Milch" });
-      const card = parse(getComputedStyle(eier.closest(".group") as HTMLElement).backgroundColor);
-      // The disc is the fill behind the tick (#810 A1), so it is the pseudo-element that is measured.
-      const disc = parse(
+      const card = bodyColor();
+      // The fill behind the tick is the pseudo-element, so that is what is measured.
+      const fill = parse(
         getComputedStyle(eier.querySelector(".check") as HTMLElement, "::before").backgroundColor,
       );
       const ring = parse(
@@ -138,12 +159,11 @@ describe("the lists app contrast", () => {
       const tick = parse(
         getComputedStyle(eier.querySelector(".check") as HTMLElement, "::after").borderBottomColor,
       );
-      // The disc is the surface, which sits near the card in tone on purpose (#810 A1). The
-      // state is the ink tick on it, and the ring around it, which are the 3:1 pairs.
+      // The open box's edge on the page, and the paper tick on the green fill, are the 3:1 pairs.
       const result = {
         text: grade(ratio(text, card), 4.5),
         ring: grade(ratio(ring, card), 3),
-        tick: grade(ratio(tick, disc), 3),
+        tick: grade(ratio(tick, fill), 3),
       };
       cleanup();
       return result;
@@ -159,7 +179,7 @@ describe("the lists app contrast", () => {
   it("the Erledigt heading reads at 4.5:1 on the page", async () => {
     const measure = async (dark: boolean) => {
       await draw(dark);
-      const head = document.querySelector(".group-head") as HTMLElement;
+      const head = need(".done .group-head");
       const count = head.querySelector(".count") as HTMLElement;
       const result = {
         heading: grade(ratio(parse(getComputedStyle(head).color), bodyColor()), 4.5),
@@ -180,14 +200,12 @@ describe("the lists app contrast", () => {
     const result = await everyLook(() => {
       const linked = need(".chip.linked .chip-name");
       const unlinked = need(".chip.unlinked .chip-name");
-      const card = parse(
-        getComputedStyle(unlinked.closest(".group") as HTMLElement).backgroundColor,
-      );
+      const card = bodyColor();
       return {
         linked: grade(
           ratio(
             parse(getComputedStyle(linked).color),
-            parse(getComputedStyle(linked).backgroundColor),
+            solid(getComputedStyle(linked).backgroundColor, bodyColor()),
           ),
           4.5,
         ),
@@ -197,52 +215,37 @@ describe("the lists app contrast", () => {
     expect(result).toEqual(allOk(["linked", "unlinked"]));
   }, 60_000);
 
-  it("#810 A7 the abgehakt line reads at 4.5:1 on its card in every palette and both schemes", async () => {
+  it("#810 A7 the abgehakt line reads at 4.5:1 on the page in every palette and both schemes", async () => {
     const result = await everyLook(() => {
       const line = need(".by");
-      const card = parse(getComputedStyle(line.closest(".group") as HTMLElement).backgroundColor);
-      return { line: grade(ratio(parse(getComputedStyle(line).color), card), 4.5) };
+      return { line: grade(ratio(parse(getComputedStyle(line).color), bodyColor()), 4.5) };
     });
     expect(result).toEqual(allOk(["line"]));
   }, 60_000);
 
-  it("#810 A3 the counts and the chosen list read in every palette and both schemes", async () => {
+  it("#810 A3 the counts and the chosen tab's line read in every palette and both schemes", async () => {
     const result = await everyLook(() => {
-      const segment = document.querySelector(".segment") as HTMLElement;
-      const chosen = segment.querySelector('[aria-pressed="true"]') as HTMLElement;
-      const track = parse(getComputedStyle(segment).backgroundColor);
-      const thumb = parse(getComputedStyle(chosen).backgroundColor);
+      const page = bodyColor();
+      const chosen = need('.tabs [aria-pressed="true"]');
       return {
         chosenCount: grade(
-          ratio(
-            parse(getComputedStyle(need('.segment [aria-pressed="true"] .count')).color),
-            thumb,
-          ),
+          ratio(parse(getComputedStyle(need('.tabs [aria-pressed="true"] .count')).color), page),
           4.5,
         ),
         otherCount: grade(
-          ratio(
-            parse(getComputedStyle(need('.segment [aria-pressed="false"] .count')).color),
-            track,
-          ),
+          ratio(parse(getComputedStyle(need('.tabs [aria-pressed="false"] .count')).color), page),
           4.5,
         ),
-        thumb: grade(ratio(thumb, track), 3),
+        line: grade(ratio(parse(getComputedStyle(chosen).borderBottomColor), page), 3),
       };
     });
-    expect(result).toEqual(allOk(["chosenCount", "otherCount", "thumb"]));
+    expect(result).toEqual(allOk(["chosenCount", "otherCount", "line"]));
   }, 60_000);
 
-  it("#810 A8 Hinzufügen reads at 4.5:1 on its accent in every palette and both schemes", async () => {
-    const result = await everyLook(() => {
-      const add = need(".add");
-      return {
-        add: grade(
-          ratio(parse(getComputedStyle(add).color), parse(getComputedStyle(add).backgroundColor)),
-          4.5,
-        ),
-      };
-    });
+  it("#810 A8 Hinzufügen reads at 4.5:1 on the page in every palette and both schemes", async () => {
+    const result = await everyLook(() => ({
+      add: grade(ratio(parse(getComputedStyle(need(".add")).color), bodyColor()), 4.5),
+    }));
     expect(result).toEqual(allOk(["add"]));
   }, 60_000);
 

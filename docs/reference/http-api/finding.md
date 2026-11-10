@@ -22,9 +22,15 @@ read off the [folder settings](/reference/configuration.md#the-vaults-folders).
   "periodic": "01 Periodic",
   "archive": "98 Archive",
   "images": "99 Misc/02 Assets/01 Images",
-  "config": "99 Misc/01 Config"
+  "config": "99 Misc/01 Config",
+  "lists": "https://liste.example.com/"
 }
 ```
+
+`lists` is the address of the [shared lists](/explanation/shared-lists.md) app,
+read off [`KASTEN_SHARE_HOST`](/reference/configuration/shared-lists.md#kasten_share_host),
+and is left out when that is empty. The palette and the row atop `/settings`,
+`/tokens`, `/review` and `/capture` link to it.
 
 The editor makes notes and images by itself, so it has to know where they go.
 It asks once when the page loads and keeps the answer. Until the answer

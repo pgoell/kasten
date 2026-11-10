@@ -156,7 +156,7 @@ describe("the shared lists app's rows on screen", () => {
     await page.viewport(1280, 900);
   });
 
-  // The colours are the tokens now (#810 A1): the ink, the muted ink, and the surface disc.
+  // The todo pane's boxes: an open box edged in the muted ink, a done box filled green.
   it("open and done rows differ in light", async () => {
     const { open, done } = await drawRows(false);
     expect({
@@ -171,8 +171,9 @@ describe("the shared lists app's rows on screen", () => {
       doneStrike: "line-through",
       doneText: "rgb(102, 102, 99)",
       openDisc: "rgba(0, 0, 0, 0)",
-      openRing: "2px",
-      doneDisc: "rgb(235, 235, 232)",
+      // Chromium at scale 1 draws the 1.5 px edge as 1 px.
+      openRing: "1px",
+      doneDisc: "rgb(36, 123, 75)",
     });
   }, 30_000);
 
@@ -183,8 +184,8 @@ describe("the shared lists app's rows on screen", () => {
     expect(done.text.color).toBe("rgb(154, 153, 149)");
     expect(open.check.backgroundColor).toBe("rgba(0, 0, 0, 0)");
     expect([open.check.borderTopWidth, done.fill.backgroundColor]).toEqual([
-      "2px",
-      "rgb(35, 35, 35)",
+      "1px",
+      "rgb(122, 205, 151)",
     ]);
   }, 30_000);
 });

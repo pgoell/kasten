@@ -4,6 +4,7 @@ import { ReviewDecks } from "@/components/review-decks";
 import { ReviewParked } from "@/components/review-parked";
 import { ReviewSession } from "@/components/review-session";
 import type { Deck } from "@/lib/review/review";
+import { PageNav } from "./-pages";
 
 export const Route = createFileRoute("/review")({
   component: Review,
@@ -24,30 +25,35 @@ function Review() {
 
   return (
     // All four insets: nothing here writes the frame's bottom padding.
-    <main className="safe-frame safe-foot h-dvh w-full">
-      {screen.at === "decks" ? (
-        <ReviewDecks
-          onPick={(deck) => setScreen({ at: "sitting", deck })}
-          onParked={() => setScreen({ at: "parked" })}
-        />
-      ) : screen.at === "parked" ? (
-        <ReviewParked
-          onLeave={() => setScreen({ at: "decks" })}
-          // The page proper, which reads the note out of the URL. A phone has
-          // no panes to open one in, so opening a note leaves the review.
-          onOpen={(note) => void navigate({ to: "/", search: { note } })}
-        />
-      ) : (
-        <ReviewSession
-          deck={screen.deck}
-          onLeave={() => setScreen({ at: "decks" })}
-          // The page proper, opened at the card's line. Leaves the review the
-          // way a parked note does, since a phone has no pane to open it in.
-          onOpen={(note, line) =>
-            void navigate({ to: "/", search: line === undefined ? { note } : { note, line } })
-          }
-        />
-      )}
+    <main className="safe-frame safe-foot flex h-dvh w-full flex-col">
+      {screen.at === "decks" && <PageNav here="/review" className="bg-k-bg px-4 pt-2" />}
+      <div className="min-h-0 flex-1">{body()}</div>
     </main>
   );
+
+  function body() {
+    return screen.at === "decks" ? (
+      <ReviewDecks
+        onPick={(deck) => setScreen({ at: "sitting", deck })}
+        onParked={() => setScreen({ at: "parked" })}
+      />
+    ) : screen.at === "parked" ? (
+      <ReviewParked
+        onLeave={() => setScreen({ at: "decks" })}
+        // The page proper, which reads the note out of the URL. A phone has
+        // no panes to open one in, so opening a note leaves the review.
+        onOpen={(note) => void navigate({ to: "/", search: { note } })}
+      />
+    ) : (
+      <ReviewSession
+        deck={screen.deck}
+        onLeave={() => setScreen({ at: "decks" })}
+        // The page proper, opened at the card's line. Leaves the review the
+        // way a parked note does, since a phone has no pane to open it in.
+        onOpen={(note, line) =>
+          void navigate({ to: "/", search: line === undefined ? { note } : { note, line } })
+        }
+      />
+    );
+  }
 }

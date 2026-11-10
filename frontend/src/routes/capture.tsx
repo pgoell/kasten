@@ -5,6 +5,7 @@ import { type Dump, flush, keep, type State, start, subscribe } from "@/lib/capt
 import { firstAddress, type Shared, sharedDraft } from "@/lib/capture/share";
 import { fetchFiles } from "@/lib/core/api";
 import { readClock } from "@/lib/core/clock";
+import { PageNav } from "./-pages";
 
 export const Route = createFileRoute("/capture")({
   component: Capture,
@@ -223,6 +224,7 @@ function Capture() {
     // All four insets: nothing here writes the frame's bottom padding.
     <main className="safe-frame safe-foot min-h-dvh bg-k-bg font-mono text-k-ink">
       <div className="mx-auto flex max-w-xl flex-col gap-4 p-4">
+        <PageNav here="/capture" className="font-sans" />
         <header className="flex items-baseline gap-3">
           <h1 className="text-[15px]">dump</h1>
           <span className="text-[12px] text-k-muted">

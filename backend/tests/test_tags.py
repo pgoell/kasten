@@ -96,6 +96,17 @@ async def test_629_no_tag_found_only_in_a_link(client: AsyncClient, vault: Path)
     assert response.json() == ["#wiki"]
 
 
+async def test_1759_links_with_no_hash_leave_the_tags_beside_them(
+    client: AsyncClient, vault: Path
+) -> None:
+    # The line pass prints each link too; one with no hash is skipped unread.
+    write(vault, "one.md", "[[One]] and [[Two]]\nabout #real, [[Three|#not]] and #more\n")
+
+    response = await client.get("/api/tags")
+
+    assert response.json() == ["#more", "#real"]
+
+
 async def test_implied_4_tag_at_the_start_after_a_paren_and_non_ascii(
     client: AsyncClient, vault: Path
 ) -> None:

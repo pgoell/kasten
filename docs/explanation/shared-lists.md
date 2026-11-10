@@ -64,8 +64,11 @@ its assignee and its dates. The fields go after the new words, so a tag that
 sat after a field moves in front of it. This is why an edit is a route of its
 own and not a delete and an add, which would lose the line's fields.
 
-While the words are open, Löschen stands where the chip was. It takes the item
-off the screen at once, with its parts, and shows "gelöscht" with Rückgängig for
+Three ways delete an item without a dialog. On a phone, pull the row left: it
+slides over Löschen, which turns solid past 96 px, and letting go there deletes
+it, while a shorter pull lets the row snap back. With a mouse, a × shows at the
+end of the row under the pointer. And while the words are open, Löschen stands
+where the chip was. Each takes the item off the screen at once, with its parts, and shows "gelöscht" with Rückgängig for
 five seconds before the delete is sent. An undo in place of a confirm dialog
 keeps a slip cheap without asking every time. A delete still waiting is sent
 when the next one comes or the app closes its screen, not dropped. A part goes
@@ -117,7 +120,10 @@ left out, whatever filter is chosen.
 ## How it looks
 
 The lists page draws with the tokens of the main app, so its colours, type and
-spacing match the rest of kasten. It is light by default and follows the phone's
+spacing match the rest of kasten, and it takes its shapes from the todo pane: a
+small label for a title, tabs on an accent line for Einkauf and Todo, pill chips
+for Alle and Meine, flat rows under small headings, and the pane's rounded
+square boxes, edged when open and filled green when done. It is light by default and follows the phone's
 colour scheme, changing when the phone does. It does not read the choice made in
 the main app, which is stored under the main host's address and is not this
 page's to read. The page keeps the default accent and does not pick a palette.
@@ -135,6 +141,11 @@ Erledigt with its ticks and their lines, in the dark scheme:
 The same list on a desktop:
 
 ![The Einkauf list on a desktop](/assets/shared-lists/lists-desktop-light.png)
+
+For kasten's owner the header carries a `kasten` link beside the title, and
+kasten links back with `lists` in the palette and atop its pages of their own.
+The other person does not see the link: the main host's gate admits the owner
+alone, so for anyone else it would lead to a refusal.
 
 ## Why a second gate, not a second user
 

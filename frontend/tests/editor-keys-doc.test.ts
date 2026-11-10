@@ -131,6 +131,7 @@ const LEADER_GROUPS: Record<string, string[]> = {
     "p",
     "v",
     "=",
+    "-",
     "x",
     "i",
     "@",

@@ -161,6 +161,7 @@ The file pickers that `<leader>cm` and `<leader>cb` open wait until you let go o
 | `<leader>p` | Turn live preview off, or back on |
 | `<leader>v` | Play or pause a video from any pane: the focused video pane's, else the one playing this note's video, else the tab's first video pane. Nothing when the tab has none |
 | `<leader>=` | Tidy the markdown in this note |
+| `<leader>-` | Cycle the list under the cursor between bullets, `1.` and `a)` |
 | `<leader>x` | Cycle the todo on this line |
 | `<leader>i` | Stamp an id on the todo on this line |
 | `<leader>@` | Send this todo to the agent, or take it back |
@@ -264,8 +265,9 @@ the four formatting marks, the inserts below, and the commands vim spells at
 its prompt: the write, the two rereads, the three copies and `gf`. Opened over
 a pane with no note, it lists the leader commands only, as the rest act on a
 note. Both lists end with `Go to tab 1` to `Go to tab 10`, `Open the settings`
-and `Open the agent tokens` (the pages `/settings` and `/tokens`, each with a
-link back to the notes), `Toggle vim keys`,
+and `Open the agent tokens` (the pages `/settings` and `/tokens`, below),
+`Open the shared lists` (only on a box with
+[`KASTEN_SHARE_HOST`](/reference/configuration/shared-lists.md#kasten_share_host) set), `Toggle vim keys`,
 `Toggle light and dark mode` (see [the design tokens](/reference/design-tokens.md#light-and-dark)),
 the four `Accent palette: …` rows (see [Accent palettes](/reference/accent-palettes.md)),
 one `Log <name>` per kind of the log config note, and `Log food`, none of
@@ -334,9 +336,16 @@ under **Screens you type**.
 
 None of the four opens from a leader key. `/tokens`, `/settings` and `/review`
 are visited a few times a year, and a key is worth spending on something
-pressed daily. `/tokens` and `/settings` have palette rows instead, and each
-links back to the notes. `/capture` is the phone's; at a desk the same capture
-is `<leader>cd`.
+pressed daily. `/tokens` and `/settings` have palette rows instead, which `run`
+on the phone's toolbar reaches too. `/capture` is the phone's; at a desk the
+same capture is `<leader>cd`.
+
+Each of the four starts with one row of links: `← notes`, then the other three
+and `lists`, the [shared lists](/explanation/shared-lists.md) app, when the box
+serves one. The page it is on is named but not linked. The row is the way off
+these pages in the installed app, which has no address bar. On `/review` it
+shows over the decks and leaves a sitting and the parked cards to their own
+`← Decks`.
 
 `/review` is the phone's shell around the review; at a desk the same three
 screens are in a pane behind `<leader>gs`.

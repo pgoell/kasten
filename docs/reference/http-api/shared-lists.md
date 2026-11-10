@@ -71,6 +71,12 @@ Answers who is asking and who the app offers:
 `me` is who is writing, below, or `null`. `people` is every name in
 `KASTEN_SHARE_PEOPLE`, in its order, each once.
 
+When `me` is the person
+[`KASTEN_SHARE_OWNER`](/reference/configuration/shared-lists.md#kasten_share_owner)
+names and `KASTEN_AGENT_HOST` is set, the answer also carries `home`, kasten's
+address, `https://<KASTEN_AGENT_HOST>/`. The app links to it from its header.
+Anyone else gets no `home`.
+
 ### Who is writing
 
 The share host's oauth2-proxy sends the signed-in address as
