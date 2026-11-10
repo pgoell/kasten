@@ -1,13 +1,5 @@
-/**
- * The home route's size in a `vite build --manifest --sourcemap` output:
- * `index.html`'s entry and the `src/routes/index.tsx` chunk with their static
- * imports, raw and gzip at level 9, summed per file as
- * docs/reference/phone-performance.md "The bundle" counts it: js in the total,
- * css apart. gzip comes from Python's zlib, which made the doc's numbers: node's
- * and bun's zlib pack the same file into other byte counts (#1828).
- *
- *   node scripts/home-route-size.ts dist
- */
+/** The home route's size as docs/reference/phone-performance.md "The bundle" counts it.
+ * gzip comes from Python's zlib, the only one that reproduces the doc's numbers (#1828). */
 import { execFileSync } from "node:child_process";
 import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
