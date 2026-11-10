@@ -12012,6 +12012,17 @@
           "config": {
             "type": "string",
             "title": "Config"
+          },
+          "lists": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lists"
           }
         },
         "type": "object",
@@ -12023,7 +12034,7 @@
           "config"
         ],
         "title": "Layout",
-        "description": "The folders the editor files into or looks in, each a path from the vault root."
+        "description": "The folders the editor files into or looks in, each a path from the vault root.\n\nWith them the shared lists app's address, which the editor links to."
       },
       "LeftoverIn": {
         "properties": {
@@ -12625,6 +12636,17 @@
             },
             "type": "array",
             "title": "People"
+          },
+          "home": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Home"
           }
         },
         "type": "object",

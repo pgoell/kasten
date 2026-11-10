@@ -71,6 +71,30 @@ async def test_810_a9_me_is_null_for_an_address_not_listed_or_no_header(
     assert nobody.json() == {"me": None, "people": ["Pascal", "Alicia"]}
 
 
+@pytest.fixture
+def owner(monkeypatch: pytest.MonkeyPatch, people: None) -> None:
+    """Pascal owns kasten, which answers on its own host."""
+    monkeypatch.setenv("KASTEN_SHARE_OWNER", "Pascal")
+    monkeypatch.setenv("KASTEN_AGENT_HOST", "kasten.example.test")
+    get_settings.cache_clear()
+
+
+@pytest.mark.usefixtures("owner")
+async def test_me_gives_the_owner_the_way_back_to_kasten(client: AsyncClient) -> None:
+    response = await client.get("/share/me", headers=PASCAL)
+
+    assert response.json()["home"] == "https://kasten.example.test/"
+
+
+@pytest.mark.usefixtures("owner")
+async def test_me_gives_nobody_else_the_way_back(client: AsyncClient) -> None:
+    alicia = await client.get("/share/me", headers=ALICIA)
+    nobody = await client.get("/share/me")
+
+    assert "home" not in alicia.json()
+    assert "home" not in nobody.json()
+
+
 @pytest.mark.usefixtures("people")
 async def test_810_a9_a_write_names_the_listed_person_in_the_history(
     client: AsyncClient, folder: Path

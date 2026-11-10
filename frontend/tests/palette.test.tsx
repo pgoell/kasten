@@ -7,6 +7,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { CommandPalette } from "@/components/command-palette";
 import { readClock } from "@/lib/core/clock";
+import { applyLayout, type Layout } from "@/lib/core/layout";
 import { logCard } from "@/lib/log/log-card";
 import { parseConfig } from "@/lib/log/log-kinds";
 import { editorCommands } from "@/lib/notes/editor/editor-commands";
@@ -20,6 +21,15 @@ vi.mock("@/lib/log/food-api", () => ({
   readBarcode: vi.fn(),
   fetchLog: vi.fn(async () => []),
 }));
+
+/** The default layout, which the lists row test sets back after giving it an address. */
+const LAYOUT: Layout = {
+  inbox: "00 Inbox",
+  periodic: "01 Periodic",
+  archive: "98 Archive",
+  images: "99 Misc/02 Assets/01 Images",
+  config: "99 Misc/01 Config",
+};
 
 function viewOf(doc: string, cursor = doc.length) {
   return new EditorView({ state: EditorState.create({ doc, selection: { anchor: cursor } }) });
@@ -126,6 +136,22 @@ describe("the palette", () => {
       entries.find((entry) => entry.label === "Open the agent tokens")?.run();
       expect(assign.mock.calls).toEqual([["/settings"], ["/tokens"]]);
     } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("lists the shared lists only on a box that serves them", () => {
+    const assign = vi.fn();
+    vi.stubGlobal("location", { ...window.location, assign });
+    const row = () =>
+      paletteEntries(stubCommands(), null).find((entry) => entry.label === "Open the shared lists");
+    try {
+      expect(row()).toBeUndefined();
+      applyLayout({ ...LAYOUT, lists: "https://liste.example/" });
+      row()?.run();
+      expect(assign).toHaveBeenCalledWith("https://liste.example/");
+    } finally {
+      applyLayout(LAYOUT);
       vi.unstubAllGlobals();
     }
   });

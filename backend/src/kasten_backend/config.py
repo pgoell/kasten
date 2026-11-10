@@ -226,6 +226,12 @@ class Settings(BaseSettings):
     stored lowercase, since the proxy's header is compared that way.
     """
 
+    share_owner: str = ""
+    """The person of `share_people` who owns kasten, or empty for none.
+
+    The lists app links that person, and nobody else, back to kasten at `agent_host`.
+    """
+
     food_contact: str = "https://github.com/pgoell/kasten"
     """How Open Food Facts can reach whoever is asking, sent in every request's `User-Agent`.
 

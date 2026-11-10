@@ -90,6 +90,28 @@ button:not(.words, .menu button):active:not(:disabled) {
   }
 }
 
+.title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--k-space-8);
+}
+
+/* The way back to kasten: a finger's 44 px tall, quiet beside the title. */
+.home {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding-inline: var(--k-space-4);
+  font-size: var(--k-text-13);
+  color: var(--k-muted);
+  text-underline-offset: 2px;
+}
+
+.home:hover {
+  color: var(--k-accent);
+}
+
 .top h1 {
   margin: 0;
   font-size: var(--k-text-23);

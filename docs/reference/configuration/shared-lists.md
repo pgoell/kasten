@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: "Configuration: the shared lists"
-description: Two settings of the shared lists app, the host it is served on and whether its ticks write the done log line. KASTEN_SHARE_FOLDER stays in the main table.
+description: Three settings of the shared lists app, the host it is served on, whose header links back to kasten, and whether its ticks write the done log line. KASTEN_SHARE_FOLDER stays in the main table.
 resource: backend/src/kasten_backend/config.py
 tags: [config, share]
 status: stable
@@ -16,6 +16,14 @@ and defaults hold here too.
 
 The `Host` of the shared lists app, `liste.pgoell.com` on the box; empty, the
 default, turns the check off. There the backend answers `404` outside `/share/`, before any route runs. That is the [second lock](/explanation/shared-lists.md#two-locks).
+
+## KASTEN_SHARE_OWNER
+
+The person of `KASTEN_SHARE_PEOPLE` who owns kasten, such as `Pascal`; empty, the
+default, names nobody. That person, and nobody else, gets a `kasten` link in the
+app's header, to `https://<KASTEN_AGENT_HOST>/`, through the `home` of
+[GET /share/me](/reference/http-api/shared-lists.md#get-shareme). Anyone else
+would meet the main host's gate, which admits only the owner.
 
 ## KASTEN_SHARE_LOGS_DONE
 

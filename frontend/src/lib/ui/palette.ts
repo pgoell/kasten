@@ -3,6 +3,7 @@ import { type CompletionContext, type CompletionResult, snippet } from "@codemir
 import { Facet } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { getCM, Vim } from "@replit/codemirror-vim";
+import { LISTS_URL } from "@/lib/core/layout";
 import { askOnCard, openFoodSearch } from "@/lib/log/log-card";
 import { DEFAULT_CONFIG, type LogKind, tapLine } from "@/lib/log/log-kinds";
 import { logDrinkInView } from "@/lib/log/log-write";
@@ -129,6 +130,7 @@ export function paletteEntries(
   view: EditorView | null,
   kinds: readonly LogKind[] = DEFAULT_CONFIG.kinds,
 ): PaletteEntry[] {
+  const lists = LISTS_URL;
   const routed: PaletteEntry[] = [
     ...LEADER.filter(({ command }) => command !== "openPalette").map(({ key, label, command }) => ({
       label,
@@ -165,9 +167,12 @@ export function paletteEntries(
         commands.logFood();
       },
     },
-    // Pages of their own, reached otherwise only by typing the address.
+    // Pages of their own; each one links to the others and back.
     { label: "Open the settings", run: () => window.location.assign("/settings") },
     { label: "Open the agent tokens", run: () => window.location.assign("/tokens") },
+    ...(lists === null
+      ? []
+      : [{ label: "Open the shared lists", run: () => window.location.assign(lists) }]),
     { label: "Toggle vim keys", run: toggleVim },
     { label: "Toggle light and dark mode", run: toggleTheme },
     { label: "Accent palette: Vandar Poel's blue", run: () => pickPalette("poel") },

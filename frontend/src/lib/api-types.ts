@@ -5223,6 +5223,8 @@ export interface components {
         /**
          * Layout
          * @description The folders the editor files into or looks in, each a path from the vault root.
+         *
+         *     With them the shared lists app's address, which the editor links to.
          */
         Layout: {
             /** Inbox */
@@ -5235,6 +5237,8 @@ export interface components {
             images: string;
             /** Config */
             config: string;
+            /** Lists */
+            lists?: string | null;
         };
         /**
          * LeftoverIn
@@ -5467,6 +5471,8 @@ export interface components {
             me: string | null;
             /** People */
             people: string[];
+            /** Home */
+            home?: string | null;
         };
         /**
          * Meaning

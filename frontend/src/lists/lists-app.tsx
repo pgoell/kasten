@@ -161,7 +161,15 @@ function Lists({ store }: { store: ListsStore }) {
   return (
     <div className="app">
       <header className="top">
-        <h1>Listen</h1>
+        <div className="title">
+          <h1>Listen</h1>
+          {/* Only kasten's owner gets an address: the other person's sign-in stops at its gate. */}
+          {snap.home !== null && (
+            <a className="home" href={snap.home}>
+              kasten
+            </a>
+          )}
+        </div>
         {/* biome-ignore lint/a11y/useSemanticElements: a segmented control, not a form group */}
         <div className="segment" role="group" aria-label="Liste">
           {LISTS.map((name) => (

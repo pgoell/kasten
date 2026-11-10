@@ -188,4 +188,27 @@ describe("the lists app", () => {
     );
     expect(screen.getByRole("heading", { name: "Erledigt 1" })).toBeInTheDocument();
   });
+
+  it("links kasten's owner back to kasten, and nobody else", async () => {
+    const share = fakeShare({ Einkauf: [] });
+    const answer = (body: unknown) =>
+      new Response(JSON.stringify(body), { headers: { "Content-Type": "application/json" } });
+    vi.stubGlobal("fetch", (url: string, init?: RequestInit) =>
+      url === "/share/me"
+        ? answer({ me: "Pascal", people: ["Pascal"], home: "https://kasten.example/" })
+        : share.fetch(url, init),
+    );
+    const { unmount } = render(<ListsApp />);
+
+    expect(await screen.findByRole("link", { name: "kasten" })).toHaveAttribute(
+      "href",
+      "https://kasten.example/",
+    );
+    unmount();
+    localStorage.clear();
+
+    open({ Einkauf: [] });
+    await screen.findByText("Nichts auf der Liste");
+    expect(screen.queryByRole("link", { name: "kasten" })).toBeNull();
+  });
 });
