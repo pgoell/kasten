@@ -11,13 +11,13 @@ import { defineFoliateFake, resetFoliateFake } from "./foliate-fake";
 import {
   act,
   FakeEventSource,
-  finderRow,
   pageHooks,
   renderApp,
   settle,
   stream,
   VAULT,
 } from "./home-route-fixture";
+import { finderRow } from "./home-route-panes";
 
 defineFoliateFake();
 

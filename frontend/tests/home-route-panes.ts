@@ -25,3 +25,7 @@ export function paletteRow(name: RegExp): Element | undefined {
   const rows = document.querySelectorAll("[role='listbox'][aria-label='Commands'] [role='option']");
   return [...rows].find((row) => name.test(row.textContent ?? ""));
 }
+
+/** A note finder row by its path, as its text shows the name and folder apart. */
+export const finderRow = (path: string) =>
+  document.querySelector(`[role="option"][data-path="${path}"]`);

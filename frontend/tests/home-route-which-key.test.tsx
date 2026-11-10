@@ -5,13 +5,13 @@ import { defineFoliateFake } from "./foliate-fake";
 import {
   baseOf,
   editing,
-  finderRow,
   pageHooks,
   renderApp,
   settle,
   somebodyElseWrote,
   theRoute,
 } from "./home-route-fixture";
+import { finderRow } from "./home-route-panes";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 
 defineFoliateFake();

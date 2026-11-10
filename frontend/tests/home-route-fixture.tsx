@@ -288,10 +288,6 @@ export async function settle() {
 }
 
 /** Every anchor a download clicked, caught before jsdom tries to follow one. */
-/** A note finder row by its path, as its text shows the name and folder apart. */
-export const finderRow = (path: string) =>
-  document.querySelector(`[role="option"][data-path="${path}"]`);
-
 export function clicked(): HTMLAnchorElement[] {
   const caught: HTMLAnchorElement[] = [];
   vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (
