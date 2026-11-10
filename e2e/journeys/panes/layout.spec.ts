@@ -80,6 +80,18 @@ test("the panes and their notes are back after a reload", async ({ page }) => {
   await expect(panes(page).filter({ hasText: "water the tomatoes" })).toHaveCount(1);
 });
 
+test("a timers pane restored by a reload holds the focus, so the leader key works", async ({
+  page,
+}) => {
+  await openApp(page);
+  await leader(page, "gT");
+  await expect(page.getByLabel("timers pane")).toBeFocused();
+  await page.reload();
+  await expect(page.getByLabel("timers pane")).toBeFocused();
+  await leader(page, "gt");
+  await expect(page.getByLabel("Todos", { exact: true })).toBeVisible();
+});
+
 test("q in the tree hands the keys to the focused pane, the second of two", async ({ page }) => {
   await openApp(page);
   await openNote(page, "Welcome");
