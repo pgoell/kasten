@@ -149,6 +149,12 @@ is started before it and a snapshot taken after. Changes are one per note, not
 one per save, and named `vault: <path>`, so `jj log` reads as the list of notes
 you worked on while `jj op log` still holds every individual save.
 
+The route answers once the file is on disk. The snapshot runs after the answer
+and still holds the vault lock, so the next write and the next history read
+wait for it (#1827). If the backend stops before the snapshot, the next jj
+command takes the write up: the next save's change starts with a snapshot. A
+snapshot that fails is logged, and the file stays as written.
+
 A body may carry `restored_from`, the short id of the change whose text it
 restores, in jj's change-id letters `k` to `z`, or the answer is `422`. The
 change is then named `vault: <path> (restored from <id>)`, so the restore gets

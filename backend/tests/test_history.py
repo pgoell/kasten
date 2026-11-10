@@ -6,6 +6,7 @@ import pytest
 
 from backend.tests.conftest import JJ, jj
 from kasten_backend import history
+from kasten_backend.change import settled
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -163,6 +164,7 @@ async def test_writes_no_operation_to_the_repo(client: AsyncClient, versioned_va
     # A plain `jj log` snapshots and records an operation. The read path must not,
     # and an edit made outside kasten must stay unrecorded too.
     await client.post("/api/files/index.md")
+    await settled()
     (versioned_vault / "index.md").write_text("# edited outside\n")
     before = op_count(versioned_vault)
 
@@ -180,6 +182,7 @@ async def test_runs_every_jj_call_read_only_as_a_list(
     client: AsyncClient, versioned_vault: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     await client.post("/api/files/index.md")
+    await settled()
     commit = commit_of(versioned_vault, "@")
     calls: list[tuple[str, ...]] = []
     spawn = asyncio.create_subprocess_exec
@@ -361,6 +364,7 @@ async def test_answers_404_for_a_commit_or_a_path_jj_does_not_have(
     client: AsyncClient, versioned_vault: Path
 ) -> None:
     await client.post("/api/files/index.md")
+    await settled()
     commit = commit_of(versioned_vault, "@")
 
     # The note at its own commit answers, so the 404s below are about the input.

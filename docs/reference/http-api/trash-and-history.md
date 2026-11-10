@@ -33,8 +33,9 @@ while another was removed is not followed. A rename out of `.trash`, which a res
 not followed. The walk stops after 20 renames.
 
 The working-copy change is listed like any other, as of the last snapshot,
-which every save takes. No call here snapshots or writes to the repo: each
-passes `--ignore-working-copy`.
+which every save takes after it answers. A call here first waits for a snapshot
+still running, so a save that has answered is in the list. No call here
+snapshots or writes to the repo: each passes `--ignore-working-copy`.
 
 A vault that is not a jj repo, or a box with no jj, answers
 `{ "versioned": false, "changes": [] }`. A jj that fails or runs over ten

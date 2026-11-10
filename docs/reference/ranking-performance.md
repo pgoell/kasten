@@ -15,8 +15,8 @@ every keystroke, and both go through one scorer in `frontend/src/lib/search/fuzz
 This page states the bar that work is held to, the three harnesses that measure
 it, and the numbers each one recorded.
 
-Every figure here comes from one machine, a 16-thread desktop, except the save,
-which comes from a 4-core VPS. `ubuntu-latest`
+Every figure here comes from one machine, a 16-thread desktop, except the save's
+first table, which comes from a 4-core VPS. `ubuntu-latest`
 is about 2.0x slower, so the ranking gates count work and do not time it. See
 [What the gates assert](#what-the-gates-assert).
 
@@ -278,16 +278,35 @@ pays that and the request both.
 ### The save
 
 One `PUT /api/files/{path}` at 10,000 notes in a colocated jj repo, from
-`backend/tests/test_files_perf.py`. Machine: 4-core VPS, jj 0.37.0, recorded
-2026-11-10. Not gated.
+`backend/tests/test_files_perf.py` (repeat:
+`cd backend && uv run pytest tests/test_files_perf.py::test_saves_one_note_in_a_versioned_vault -s`).
+Not gated.
+
+First recorded on a 4-core VPS with jj 0.37.0 on 2026-11-10, when the save
+answered only after its snapshot:
 
 | save | total | rest (write, HTTP) | jj log | jj new | jj status |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | first, runs `jj new` | 461.5 ms | 92.9 | 65.4 | 136.3 | 166.8 |
 | best of 5 | 230.5 ms | 3.1 | 61.6 | 0.0 | 165.8 |
 
-All times are in milliseconds. Over the issue's 100 ms bar, so #1827 holds the two options. Almost all of the save is jj. `jj log` and
-`jj status` both read all 10,000 files, and both run inside the vault lock.
+Since #1827 the save answers after the write, and `jj status` runs after the
+answer as a background task that still holds the vault lock. Measured on the
+16-thread box, jj 0.37.0, 2026-11-10, best of 5 in each of three runs, main
+against the branch:
+
+| save | main | #1827 |
+| --- | ---: | ---: |
+| best of 5, the answer | 225.5 ms | 65.1 ms |
+| of that, `jj log` | 62.0 | 62.2 |
+| `jj status`, after the answer | in the answer | 161.4 |
+| a save sent right behind another | 225.5 ms | 224.3 ms |
+
+All times are in milliseconds. A lone save now clears the 100 ms bar. What is
+left is `jj log` in `vcs.begin_change`, which snapshots the whole working copy
+before the write. A save sent while the last one's snapshot still runs waits
+for it, so back to back saves cost what they did; the editor writes after 800
+ms of quiet (`use-autosave.ts`), so a typing user gets the lone figure.
 
 ### Tags, todos and the graph after a save
 

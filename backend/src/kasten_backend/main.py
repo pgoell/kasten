@@ -32,6 +32,7 @@ from kasten_backend.agent_routes import (
 from kasten_backend.agent_routes import router as agent_router
 from kasten_backend.books import route as books_route
 from kasten_backend.build import build_id
+from kasten_backend.change import settled
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.events import KEEPALIVE, format_retry, format_sse, watch_vault
 from kasten_backend.files import RefusedError
@@ -141,6 +142,8 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
             indexing.cancel()
         # After requests close, so only a running import is left to stop.
         await anki_imports.stop()
+        # Last, so the history holds every save this process answered.
+        await settled()
 
 
 app = FastAPI(title="kasten", version=version("kasten-backend"), lifespan=lifespan)

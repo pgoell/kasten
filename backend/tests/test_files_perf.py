@@ -15,8 +15,9 @@ byte-identical to the TypeScript generator's and do not need to be. The shape
 is what the cost tracks, and both produce 842 folders at 10,000 notes.
 
 The save case times one `PUT /api/files/{path}` in a jj repo the same way, and
-splits it into the write and the jj commands it runs. The last case times the
-per-note cache of #1758: tags after a save, and the graph.
+splits it into the write and the jj commands it runs; the snapshot runs after
+the answer (#1827). The last case times the per-note cache of #1758: tags after
+a save, and the graph.
 """
 
 import asyncio
@@ -29,6 +30,7 @@ import pytest
 
 from backend.tests.conftest import JJ, descriptions, jj
 from kasten_backend import vcs
+from kasten_backend.change import settled
 from kasten_backend.graph import read_graph
 
 if TYPE_CHECKING:
@@ -225,17 +227,27 @@ async def test_saves_one_note_in_a_versioned_vault(
         response = await client.put(f"/api/files/{target}", json={"content": text})
         total = (time.perf_counter() - started) * 1000
         assert response.status_code == 200
+        # The snapshot runs after the answer (#1827): waited for, so the next save starts clean.
+        await settled()
 
         jj_ms = {"log": 0.0, "new": 0.0, "status": 0.0}
         for name, ms in calls:
             jj_ms[name] += ms
-        return {"total": total, "write": total - sum(jj_ms.values()), **jj_ms}
+        return {"total": total, "write": total - jj_ms["log"] - jj_ms["new"], **jj_ms}
 
     first = await save("First save.\n")
     saves = [await save(f"Save {n}.\n") for n in range(SAVES)]
     best = min(saves, key=lambda run: run["total"])
 
-    assert "Save 4." in (versioned_vault / target).read_text(encoding="utf-8")
+    behind = []
+    for n in range(SAVES):
+        await client.put(f"/api/files/{target}", json={"content": f"Ahead {n}.\n"})
+        started = time.perf_counter()
+        await client.put(f"/api/files/{target}", json={"content": f"Behind {n}.\n"})
+        behind.append((time.perf_counter() - started) * 1000)
+        await settled()
+
+    assert "Behind 4." in (versioned_vault / target).read_text(encoding="utf-8")
     assert f"vault: {target}" in descriptions(versioned_vault)
 
     print(
@@ -246,8 +258,9 @@ async def test_saves_one_note_in_a_versioned_vault(
     print(
         f"best of {SAVES} saves: {best['total']:.1f}ms "
         f"(write {best['write']:.1f}, jj log {best['log']:.1f}, "
-        f"jj new {best['new']:.1f}, jj status {best['status']:.1f})"
+        f"jj new {best['new']:.1f}, jj status {best['status']:.1f} after the answer)"
     )
+    print(f"best of {SAVES} saves sent right behind another: {min(behind):.1f}ms")
 
 
 def linked_note(index: int) -> str:

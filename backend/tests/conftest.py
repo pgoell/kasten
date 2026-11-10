@@ -1,3 +1,4 @@
+import asyncio
 import os
 import shutil
 import subprocess
@@ -25,7 +26,7 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.pool import NullPool
 
 from backend.tests.anki_link_web import PUBLIC
-from kasten_backend import db, files
+from kasten_backend import change, db, files
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.db import get_session
 from kasten_backend.main import app
@@ -52,6 +53,13 @@ def no_git_env(monkeypatch: pytest.MonkeyPatch) -> None:
     for key in os.environ:
         if key.startswith("GIT_"):
             monkeypatch.delenv(key)
+
+
+@pytest.fixture(autouse=True)
+def fresh_lock(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A vault lock per test, since a lock that ever waited is bound to that test's loop."""
+    monkeypatch.setattr(change, "_lock", asyncio.Lock())
+    monkeypatch.setattr(change, "_snapshotting", None)
 
 
 @pytest.fixture(autouse=True)
