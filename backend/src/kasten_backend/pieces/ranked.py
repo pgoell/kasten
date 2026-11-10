@@ -60,7 +60,7 @@ def _outside(archive: str | None) -> ColumnElement[bool]:
     return true() if archive is None else ~Piece.path.startswith(f"{archive}/", autoescape=True)
 
 
-def bm25_select(query: str, index: str, archive: str | None) -> Select[tuple[str, int, float]]:
+def bm25_select(query: str, index: str, archive: str | None) -> Select[str, int, float]:
     """The pieces matching `query` through one BM25 index, best first."""
     # Both inline: pg_textsearch sees which index a query names only in constants,
     # and with a parameter the planner may scan the other index, which it refuses.
@@ -96,7 +96,7 @@ async def _nearest(
     return list(rows.tuples())
 
 
-def nearest_select(vector: list[float], archive: str | None) -> Select[tuple[str, int]]:
+def nearest_select(vector: list[float], archive: str | None) -> Select[str, int]:
     """The `DEPTH` pieces nearest `vector` through the HNSW index, those within `FARTHEST`."""
     distance = Piece.embedding.cosine_distance(vector).label("distance")
     # The floor goes outside, and LIMIT is a constant: either way the planner

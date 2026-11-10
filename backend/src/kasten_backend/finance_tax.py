@@ -178,12 +178,15 @@ async def entries(session: AsyncSession, year: int) -> list[Entry]:
         )
     ).all()
     ids = [booking.id for _, booking, _ in rows]
-    receipts: dict[int, list[int]] = {}
-    for receipt_id, transaction_id in await session.execute(
-        select(Receipt.id, Receipt.transaction_id)
-        .where(Receipt.transaction_id.in_(ids))
-        .order_by(Receipt.id)
-    ):
+    # Keyed by the nullable column, though `in_(ids)` lets no None through.
+    receipts: dict[int | None, list[int]] = {}
+    for receipt_id, transaction_id in (
+        await session.execute(
+            select(Receipt.id, Receipt.transaction_id)
+            .where(Receipt.transaction_id.in_(ids))
+            .order_by(Receipt.id)
+        )
+    ).tuples():
         receipts.setdefault(transaction_id, []).append(receipt_id)
     return [
         Entry(
