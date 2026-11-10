@@ -339,16 +339,32 @@ test.describe("a note changed on disk under text nobody saved", () => {
     await page.getByRole("tab").count(),
     await panes(page).count(),
   ];
+  const flashing = async (page: Page) =>
+    (await sign(page).getAttribute("class"))?.includes("animate-flash");
+
+  /**
+   * Runs `press` once the last flash is over, then waits for the flash only a refusal plays, so the
+   * state read after it is this press's, not the one before's.
+   */
+  async function refused(page: Page, vault: string, press: () => Promise<void>, at: unknown[]) {
+    await expect.poll(() => flashing(page)).toBe(false);
+    await press();
+    await expect
+      .poll(async () => [...(await state(page, vault)), await flashing(page)])
+      .toEqual([...at, true]);
+  }
 
   test("the refused write keeps the typing and reads no note over it, and q and the tree are refused and write nothing", async ({
     page,
     stack,
   }) => {
     await conflicted(page, stack.vault);
+    // q and the tree refuse with no flash, so the state alone is read; break 15 turns both red.
+    const at = ["Changed on disk", OUTSIDE, 1, 1, 1];
     await leader(page, "q");
-    await expect.poll(() => state(page, stack.vault)).toEqual(["Changed on disk", OUTSIDE, 1, 1, 1]);
+    await expect.poll(() => state(page, stack.vault)).toEqual(at);
     await page.getByRole("button", { name: "Long note", exact: true }).click();
-    await expect.poll(() => state(page, stack.vault)).toEqual(["Changed on disk", OUTSIDE, 1, 1, 1]);
+    await expect.poll(() => state(page, stack.vault)).toEqual(at);
     await expect(page.getByRole("tab", { name: "Welcome", selected: true })).toBeVisible();
   });
 
@@ -363,7 +379,9 @@ test.describe("a note changed on disk under text nobody saved", () => {
       await page.keyboard.press("Escape");
     });
     await leader(page, "q");
-    await expect.poll(() => state(page, stack.vault)).toEqual(["Changed on disk", OUTSIDE, 1, 1, 2]);
+    await expect
+      .poll(() => state(page, stack.vault))
+      .toEqual(["Changed on disk", OUTSIDE, 1, 1, 2]);
     await expect(page.getByTestId("held-conflict")).toHaveCount(0);
   });
 
@@ -378,17 +396,12 @@ test.describe("a note changed on disk under text nobody saved", () => {
       await expect(page.getByRole("tab", { name: "Welcome", selected: true })).toBeVisible();
       await expect(page.locator(".cm-content:focus")).toHaveCount(1);
     });
-    const flashing = async () => (await sign(page).getAttribute("class"))?.includes("animate-flash");
-    await leader(page, "ct");
-    await expect
-      .poll(async () => [...(await state(page, stack.vault)), await flashing()])
-      .toEqual(["Changed on disk", OUTSIDE, 1, 2, 1, true]);
+    const at = ["Changed on disk", OUTSIDE, 1, 2, 1];
+    await refused(page, stack.vault, () => leader(page, "ct"), at);
     // An unsaved tab draws its dot in the x's place until the pointer is over it.
     await page.getByRole("tab", { name: "Welcome (unsaved)" }).hover();
-    await page.getByRole("button", { name: "Close Welcome" }).click();
-    await expect
-      .poll(async () => [...(await state(page, stack.vault)), await flashing()])
-      .toEqual(["Changed on disk", OUTSIDE, 1, 2, 1, true]);
+    const close = page.getByRole("button", { name: "Close Welcome" });
+    await refused(page, stack.vault, () => close.click(), at);
 
     await page.locator(".cm-content").click();
     await page.keyboard.press("Escape");
@@ -403,7 +416,7 @@ test.describe("a note changed on disk under text nobody saved", () => {
     await expect(sign(page)).toHaveCount(0);
     await page.getByRole("tab", { name: "Welcome" }).click();
     await expect
-      .poll(async () => [await sign(page).getAttribute("aria-label"), await flashing()])
+      .poll(async () => [await sign(page).getAttribute("aria-label"), await flashing(page)])
       .toEqual(["Saved", false]);
   });
 

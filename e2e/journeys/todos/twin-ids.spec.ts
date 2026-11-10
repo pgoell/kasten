@@ -6,7 +6,10 @@ import { expect, test } from "../../harness/stack.ts";
 
 // Two todo lines carrying one 🆔, as a pasted copy leaves them, and a todo waiting on that id.
 const LINE = "- [/] twin task 🆔 kt-aaaaaa";
-const NOTES = { "Twins.md": `${LINE}\n${LINE}\n`, "Deps.md": "- [b] wait on the twin ⛔ kt-aaaaaa\n" };
+const NOTES = {
+  "Twins.md": `${LINE}\n${LINE}\n`,
+  "Deps.md": "- [b] wait on the twin ⛔ kt-aaaaaa\n",
+};
 const ROW = '[data-row*=".md:"]';
 const notice = (page: Page) => page.getByTestId("notice");
 const daily = (vault: string) => noteText(vault, `01 Periodic/00 Daily/${today()}.md`);
@@ -67,20 +70,22 @@ async function paneOnSecond(page: Page, vault: string) {
   await cursorTo(page, "twin task", 1);
 }
 
-test("t and X in the todo pane on the second of two twins write nothing and name the first", async ({
-  page,
-  stack,
-}) => {
-  await paneOnSecond(page, stack.vault);
-  const before = await disk(stack.vault);
-  const first = await names(stack.vault, "Twins.md", "twin task", 0);
-  for (const key of ["t", "X"]) {
+// One test per key, so each starts with no notice and the notice read is its own.
+for (const key of ["t", "X"]) {
+  test(`${key} in the todo pane on the second of two twins writes nothing and names the first`, async ({
+    page,
+    stack,
+  }) => {
+    await paneOnSecond(page, stack.vault);
+    const before = await disk(stack.vault);
+    const first = await names(stack.vault, "Twins.md", "twin task", 0);
+    await expect(notice(page)).toHaveCount(0);
     await page.keyboard.press(key);
     await expect
       .poll(async () => [await notice(page).textContent(), ...(await disk(stack.vault))])
       .toEqual([first, ...before]);
-  }
-});
+  });
+}
 
 test("t in the todo pane says Nothing moved and why when its search fails, and writes nothing", async ({
   page,
@@ -139,7 +144,9 @@ test("<leader>x in today's note on a todo whose 🆔 another note carries moves 
   await page.locator(".cm-content").click();
   await page.keyboard.press("Escape");
   await leader(page, "ft");
-  await expect(page.getByRole("dialog", { name: "Todos" }).getByRole("option").first()).toBeVisible();
+  await expect(
+    page.getByRole("dialog", { name: "Todos" }).getByRole("option").first(),
+  ).toBeVisible();
   await page.keyboard.press("Escape");
   await page.locator(".cm-line", { hasText: "daily twin" }).click();
   await page.keyboard.press("Escape");

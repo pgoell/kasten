@@ -374,14 +374,16 @@ test.describe("unlinked mentions", () => {
     page,
     stack,
   }) => {
-    await writtenBetween(page, stack.vault, (text, read) =>
-      read === 1 ? `${text}added by somebody else\n` : text,
+    await writtenBetween(page, stack.vault, (text, write) =>
+      write === 1 ? `${text}added by somebody else\n` : text,
     );
     await gardenMentions(page);
     await linkBeds(page);
     await expect
       .poll(() => noteText(stack.vault, SEEDS), { timeout: 15_000 })
-      .toMatch(/Order seeds for the \[\[Garden\]\] beds in March\.\n[^]*added by somebody else\n$/);
+      .toMatch(
+        /Order seeds for the \[\[Garden\]\] beds in March\.\n[\s\S]*added by somebody else\n$/,
+      );
     await expect(panel(page).getByRole("status")).not.toHaveText("The link was not written");
   });
 
@@ -389,8 +391,8 @@ test.describe("unlinked mentions", () => {
     page,
     stack,
   }) => {
-    let line = (text: string, _read: number) => text.replace("March", "April");
-    await writtenBetween(page, stack.vault, (text, read) => line(text, read));
+    let line = (text: string, _write: number) => text.replace("March", "April");
+    await writtenBetween(page, stack.vault, (text, write) => line(text, write));
     await gardenMentions(page);
     await linkBeds(page);
     const april = (await noteText(stack.vault, SEEDS)).replace("March", "April");
@@ -398,7 +400,7 @@ test.describe("unlinked mentions", () => {
       .poll(() => outcome(page, stack.vault))
       .toEqual(["That line has changed since it was listed", april]);
 
-    line = (text, read) => `${text}write ${read}\n`;
+    line = (text, write) => `${text}write ${write}\n`;
     await page.keyboard.type("fence");
     await expect(rows(page)).toHaveCount(1);
     await page.keyboard.press("Control+Enter");
