@@ -28,8 +28,8 @@ const layout = (page: Page) =>
   });
 
 /**
- * Holds every PUT of Welcome until `release`, loads the app with `files` in the vault, and opens
- * Welcome. `beside` makes the second place the focus goes to: a pane right of it, or a tab.
+ * Writes a note, an image, a page and a pdf into the vault, holds every PUT of Welcome until
+ * `release`, loads the app and opens Welcome. `beside` makes the second place the focus goes to: a pane right of it, or a tab.
  */
 async function held(page: Page, vault: string, beside: "pane" | "tab") {
   await writeFile(join(vault, "Third.md"), "the third note\n");

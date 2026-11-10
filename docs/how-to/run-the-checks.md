@@ -56,8 +56,8 @@ its own copy of the fixture vault, its own database and its own backend, and
 teardown removes the containers. Unlike `fe:e2e`, it stubs no API.
 
 The journeys sit in `e2e/journeys/`: `review.spec.ts` at the top, panes in
-`panes/` (layout and the top bar, the pane and tab keys, pane acts whose write is held while the focus moves, links to pages and assets, a note changed on disk under
-unsaved text, and a conflicted note reopened), notes and the finder in `notes/`, with saving in `notes/saving/` (edits,
+`panes/` (layout and the top bar, the pane and tab keys, pane acts whose write is held while the focus moves, links to pages and assets; a note changed on disk under
+unsaved text and a conflicted note reopened in `panes/conflict/`; the stored workspace across a reload, held text in a restored pane and a URL over a stored workspace in `panes/workspace/`), notes and the finder in `notes/`, with saving in `notes/saving/` (edits,
 the backlinks panel's mention links, held text), the todo list and the board
 in `todos/`, capture and the log in `day/`, and the book and video panes in
 `media/`. `harness.spec.ts` checks the harness itself. Each journey is a

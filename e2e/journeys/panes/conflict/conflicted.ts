@@ -1,8 +1,8 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Locator, Page } from "@playwright/test";
-import { openApp, openNote, unstamped } from "../../harness/app.ts";
-import { expect } from "../../harness/stack.ts";
+import { openApp, openNote, unstamped } from "../../../harness/app.ts";
+import { expect } from "../../../harness/stack.ts";
 
 export const OUTSIDE = "Somebody else wrote this.\n";
 export const sign = (page: Page) => page.getByTestId("save-status");
