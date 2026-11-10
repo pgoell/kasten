@@ -132,6 +132,25 @@ it("#1762 a terminal pane renders once its chunk loads", async () => {
   expect(await screen.findByTestId("terminal-pane")).toBeTruthy();
 });
 
+it("#1762 a terminal whose chunk does not load says so in its pane, not on the route's error screen", async () => {
+  vi.resetModules();
+  vi.doMock("@/components/terminal-pane", () => {
+    throw new TypeError("Failed to fetch dynamically imported module");
+  });
+  const fresh = await import("@/components/pane-body");
+  render(
+    fresh.PaneBody({
+      shown: { id: "pane-1", term: "main" },
+      focused: true,
+      shared: shared(),
+      extras,
+    }) as ReactElement,
+  );
+
+  expect(await screen.findByText(/The terminal could not load/)).toBeTruthy();
+  vi.doUnmock("@/components/terminal-pane");
+});
+
 it.each(Object.keys(PANE_KINDS) as KindField[])(
   "#980 I5 an unfocused %s pane gets the focus signal only where it did before",
   (kind) => {

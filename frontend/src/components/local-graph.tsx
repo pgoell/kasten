@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { INSET, LABEL } from "@/components/note-margins";
 import { fetchMentions, fetchSimilar, type SimilarAnswer } from "@/lib/core/api";
 import type { DrawnNode } from "@/lib/graph/graph";
-import { fetchGraph } from "@/lib/graph/graph-api";
+import { fetchGraph, GRAPH_LOST, loadGraphCanvas, lostLoad } from "@/lib/graph/graph-api";
 import type { GraphCanvas } from "@/lib/graph/graph-canvas";
 import { noteName } from "@/lib/notes/links/note-path";
 import { useViewport } from "@/lib/ui/input/use-viewport";
@@ -56,6 +56,7 @@ export function LocalGraph({ path, archive, onOpen, onFollow }: LocalGraphProps)
   const canvas = useRef<GraphCanvas | null>(null);
   /** The canvas once its chunk has loaded, so the effect that feeds it runs then. */
   const [drawing, setDrawing] = useState<GraphCanvas | null>(null);
+  const [lost, setLost] = useState(false);
 
   // Read through a ref so the canvas, made once, calls what this render was given.
   const { coarse } = useViewport();
@@ -88,40 +89,43 @@ export function LocalGraph({ path, archive, onOpen, onFollow }: LocalGraphProps)
     let watch: ResizeObserver | undefined;
     let cancelled = false;
 
-    // Loaded on demand: force-graph and d3 are heavy, and only a graph needs them.
-    import("@/lib/graph/graph-canvas").then(({ drawGraph }) => {
-      if (cancelled) return;
+    loadGraphCanvas().then(
+      ({ drawGraph }) => {
+        if (cancelled) return;
 
-      made = drawGraph(
-        element,
-        {
-          onOpen: (node: DrawnNode) => {
-            const name = node.path.replace(/\.md$/, "");
-            // A finger's hit area is wider than the ring, so a tap meant for the
-            // background can land on one. The tap asks, a mouse does not.
-            const ask = node.missing && opening.current.coarse;
-            setAsked(ask ? name : null);
-            if (ask) return;
-            if (node.missing) opening.current.onFollow(name);
-            else opening.current.onOpen(node.path);
+        made = drawGraph(
+          element,
+          {
+            onOpen: (node: DrawnNode) => {
+              const name = node.path.replace(/\.md$/, "");
+              // A finger's hit area is wider than the ring, so a tap meant for the
+              // background can land on one. The tap asks, a mouse does not.
+              const ask = node.missing && opening.current.coarse;
+              setAsked(ask ? name : null);
+              if (ask) return;
+              if (node.missing) opening.current.onFollow(name);
+              else opening.current.onOpen(node.path);
+            },
+            onBlank: () => setAsked(null),
+            coarse: () => opening.current.coarse,
+            onHover: (hovered) =>
+              setTip(
+                hovered === null ? null : { name: hovered.node.name, x: hovered.x, y: hovered.y },
+              ),
           },
-          onBlank: () => setAsked(null),
-          coarse: () => opening.current.coarse,
-          onHover: (hovered) =>
-            setTip(
-              hovered === null ? null : { name: hovered.node.name, x: hovered.x, y: hovered.y },
-            ),
-        },
-        { radial: true },
-      );
-      canvas.current = made;
-      setDrawing(made);
+          { radial: true },
+        );
+        canvas.current = made;
+        setDrawing(made);
 
-      watch = new ResizeObserver(([entry]) => {
-        if (entry) made?.resize(entry.contentRect.width, entry.contentRect.height);
-      });
-      watch.observe(element);
-    });
+        watch = new ResizeObserver(([entry]) => {
+          if (entry) made?.resize(entry.contentRect.width, entry.contentRect.height);
+        });
+        watch.observe(element);
+      },
+      // A closed pane drops the state, so no cancelled check is needed.
+      lostLoad(() => setLost(true)),
+    );
 
     return () => {
       cancelled = true;
@@ -196,6 +200,9 @@ export function LocalGraph({ path, archive, onOpen, onFollow }: LocalGraphProps)
         // sheet over it and only the vertical pan is given to the browser.
         className="relative aspect-square max-h-80 w-full min-h-0 touch-pan-y overflow-hidden"
       >
+        <p hidden={!lost} className="p-3 text-sm">
+          {GRAPH_LOST}
+        </p>
         {tip !== null && (
           <span
             role="tooltip"

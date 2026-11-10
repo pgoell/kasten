@@ -315,4 +315,19 @@ describe("GraphPane", () => {
     await new Promise((done) => setTimeout(done, 100));
     expect(canvas.handlers).toBeNull();
   });
+
+  it("#1762 a graph whose chunk does not load says so in the pane, and a second open asks again", async () => {
+    vi.spyOn(api, "fetchGraph").mockResolvedValue(WHOLE);
+    const load = vi
+      .spyOn(api, "loadGraphCanvas")
+      .mockRejectedValueOnce(new TypeError("Failed to fetch dynamically imported module"));
+    renderPane();
+
+    expect(await screen.findByText(api.GRAPH_LOST)).toBeVisible();
+    cleanup();
+    renderPane();
+    await waitFor(() => expect(canvas.update).toHaveBeenCalled());
+    expect(screen.getByText(api.GRAPH_LOST)).not.toBeVisible();
+    expect(load).toHaveBeenCalledTimes(2);
+  });
 });

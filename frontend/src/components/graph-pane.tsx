@@ -3,7 +3,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { cardOf, GraphPanel } from "@/components/graph-panel";
 import { GraphTouchRow } from "@/components/graph-touch-row";
 import { type DrawnNode, isNotePath, PLAIN, TYPE_COLOURS } from "@/lib/graph/graph";
-import { fetchGraph, type Graph } from "@/lib/graph/graph-api";
+import {
+  fetchGraph,
+  GRAPH_LOST,
+  type Graph,
+  loadGraphCanvas,
+  lostLoad,
+} from "@/lib/graph/graph-api";
 import type { GraphCanvas } from "@/lib/graph/graph-canvas";
 import { type GraphMode, readGraphMode, writeGraphMode } from "@/lib/graph/graph-mode";
 import { tagCounts, withoutTags } from "@/lib/graph/graph-tags";
@@ -68,6 +74,7 @@ export function GraphPane({
   const canvas = useRef<GraphCanvas | null>(null);
   /** The canvas once its chunk has loaded, so the effects that feed it run then. */
   const [drawing, setDrawing] = useState<GraphCanvas | null>(null);
+  const [lost, setLost] = useState(false);
   const [typed, setTyped] = useState("");
   const [query, setQuery] = useState("");
   const [depth, setDepth] = useState(DEPTH);
@@ -118,64 +125,66 @@ export function GraphPane({
     let watch: ResizeObserver | undefined;
     let cancelled = false;
 
-    // Loaded on demand: force-graph and d3 are heavy, and only a graph needs them.
-    import("@/lib/graph/graph-canvas").then(({ drawGraph }) => {
-      if (cancelled) return;
+    loadGraphCanvas().then(
+      ({ drawGraph }) => {
+        if (cancelled) return;
 
-      // In the vault graph a finger's tap picks a written note into the card,
-      // and a second tap on it opens it. A mouse click still opens at once.
-      const picks = (node: DrawnNode) => {
-        const { vault, coarse } = opening.current;
-        if (!vault || !coarse || node.missing || pick.current === node.path) return false;
-        pick.current = node.path;
-        setPicked(node.path);
-        return true;
-      };
+        // In the vault graph a finger's tap picks a written note into the card,
+        // and a second tap on it opens it. A mouse click still opens at once.
+        const picks = (node: DrawnNode) => {
+          const { vault, coarse } = opening.current;
+          if (!vault || !coarse || node.missing || pick.current === node.path) return false;
+          pick.current = node.path;
+          setPicked(node.path);
+          return true;
+        };
 
-      made = drawGraph(element, {
-        onOpen: (node) => {
-          const name = node.path.replace(/\.md$/, "");
-          // A finger's hit area is wider than the ring, so a tap meant for the
-          // background can land on one. The tap asks, a mouse does not.
-          const ask = node.missing && opening.current.coarse;
-          setAsked(ask ? name : null);
-          if (ask || picks(node)) return;
-          // An unwritten note is made, as following its link makes it.
-          if (node.missing) opening.current.onFollow(name);
-          else opening.current.onOpen(node.path);
-        },
-        onBlank: () => {
-          // A double tap on a note would be its pick and its open, so only the
-          // background takes one, and a finger's alone: a mouse has the f key.
-          if (opening.current.coarse) {
-            const now = performance.now();
-            if (now - blankTap.current < DOUBLE_TAP_MS) {
-              blankTap.current = Number.NEGATIVE_INFINITY;
-              canvas.current?.fit();
-            } else blankTap.current = now;
-          }
-          setAsked(null);
-          setHovered(null);
-          pick.current = null;
-          setPicked(null);
-        },
-        coarse: () => opening.current.coarse,
-        onHover: (hover) => {
-          if (opening.current.vault) setHovered(hover?.node.path ?? null);
-        },
-        // Only the touch row shows it, and a render per zoom frame costs a mouse for nothing.
-        onZoom: (scale) => {
-          if (opening.current.coarse) setZoom(Math.round(scale * 100));
-        },
-      });
-      canvas.current = made;
-      setDrawing(made);
+        made = drawGraph(element, {
+          onOpen: (node) => {
+            const name = node.path.replace(/\.md$/, "");
+            // A finger's hit area is wider than the ring, so a tap meant for the
+            // background can land on one. The tap asks, a mouse does not.
+            const ask = node.missing && opening.current.coarse;
+            setAsked(ask ? name : null);
+            if (ask || picks(node)) return;
+            // An unwritten note is made, as following its link makes it.
+            if (node.missing) opening.current.onFollow(name);
+            else opening.current.onOpen(node.path);
+          },
+          onBlank: () => {
+            // A double tap on a note would be its pick and its open, so only the
+            // background takes one, and a finger's alone: a mouse has the f key.
+            if (opening.current.coarse) {
+              const now = performance.now();
+              if (now - blankTap.current < DOUBLE_TAP_MS) {
+                blankTap.current = Number.NEGATIVE_INFINITY;
+                canvas.current?.fit();
+              } else blankTap.current = now;
+            }
+            setAsked(null);
+            setHovered(null);
+            pick.current = null;
+            setPicked(null);
+          },
+          coarse: () => opening.current.coarse,
+          onHover: (hover) => {
+            if (opening.current.vault) setHovered(hover?.node.path ?? null);
+          },
+          // Only the touch row shows it, and a render per zoom frame costs a mouse for nothing.
+          onZoom: (scale) => {
+            if (opening.current.coarse) setZoom(Math.round(scale * 100));
+          },
+        });
+        canvas.current = made;
+        setDrawing(made);
 
-      watch = new ResizeObserver(([entry]) => {
-        if (entry) made?.resize(entry.contentRect.width, entry.contentRect.height);
-      });
-      watch.observe(element);
-    });
+        watch = new ResizeObserver(([entry]) => {
+          if (entry) made?.resize(entry.contentRect.width, entry.contentRect.height);
+        });
+        watch.observe(element);
+      },
+      lostLoad(() => setLost(true)),
+    );
 
     return () => {
       cancelled = true;
@@ -391,7 +400,11 @@ export function GraphPane({
             // itself, but only where the browser reported a touch screen when the
             // pane was made.
             className={`relative min-h-0 flex-1 touch-none ${layout.canvas}`}
-          />
+          >
+            <p hidden={!lost} className="p-3 text-sm">
+              {GRAPH_LOST}
+            </p>
+          </div>
 
           {columns.length > 0 && (
             <GraphRows

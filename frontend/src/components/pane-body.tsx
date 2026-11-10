@@ -133,9 +133,21 @@ const note = ({ shown, focused, shared, extras }: At) => (
   />
 );
 
-// xterm is heavy (345 kB minified), so it loads when a terminal pane first opens, as pdf.js does.
+/** What a terminal shows when its chunk did not load, as on a tab left open across a release. */
+const TerminalLost = () => (
+  <p className="p-4 text-sm">The terminal could not load. Reload the page to open it.</p>
+);
+
+// xterm is heavy, so it loads when a terminal pane first opens, as pdf.js does. A failed load
+// rejects with an Error and shows in this pane alone, not as the route's error screen.
 const TerminalPane = lazy(() =>
-  import("@/components/terminal-pane").then(({ TerminalPane }) => ({ default: TerminalPane })),
+  import("@/components/terminal-pane").then(
+    ({ TerminalPane }) => ({ default: TerminalPane }),
+    (error: unknown) => {
+      if (!(error instanceof Error)) throw error;
+      return { default: TerminalLost };
+    },
+  ),
 );
 
 /** One body per kind of `PANE_KINDS`, so a kind with no body fails the type check. */
