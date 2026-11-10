@@ -21,7 +21,7 @@ ARG RG_VERSION=14.1.1
 ARG JJ_RELEASES=https://github.com/jj-vcs/jj/releases/download
 ARG RG_RELEASES=https://github.com/BurntSushi/ripgrep/releases/download
 
-FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim AS builder
+FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim@sha256:7cf77f594be8042dab6daa9fe326f90962252268b4f120a7f5dccce4d947e6c1 AS builder
 WORKDIR /app
 
 ENV UV_COMPILE_BYTECODE=1 \
@@ -54,7 +54,7 @@ RUN uv sync --frozen --no-dev --no-editable --package kasten-backend --package k
 #
 # curl rather than ADD, because ADD fails the build on one 5xx from GitHub's
 # release downloads (#1689). --fail keeps an error page off the tarball path.
-FROM debian:bookworm-slim AS fetcher
+FROM debian:bookworm-slim@sha256:734a72b3d6142a71993b4bc580ca01d8ca687f77a2c422d96a961d3376b179bc AS fetcher
 RUN apt-get update \
     && apt-get install --no-install-recommends -y curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
@@ -102,7 +102,7 @@ RUN curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 -o /tmp/rg.tar.gz "$
 
 FROM rg-${TARGETARCH} AS rg
 
-FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim AS runtime
+FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim@sha256:7cf77f594be8042dab6daa9fe326f90962252268b4f120a7f5dccce4d947e6c1 AS runtime
 WORKDIR /app
 
 # The base image still trusts emSign ECC Root CA - G3, which Mozilla dropped.
