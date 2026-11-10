@@ -92,7 +92,7 @@ def _make(model: FakeModel, root: Path, factory: async_sessionmaker[AsyncSession
         return model
 
     made = Indexer(root, factory, load, model_thread(), SKIP)
-    made.loads = loads  # ty: ignore[unresolved-attribute]
+    made.loads = loads  # ty: ignore[missing-attribute]
     return made
 
 
@@ -260,7 +260,7 @@ async def test_the_model_loads_once(
     await _drain(made)
     _write(tmp_path, "a.md", "changed")
     await made.index("a.md")
-    assert made.loads == [1]  # ty: ignore[unresolved-attribute]
+    assert made.loads == [1]  # ty: ignore[missing-attribute]
 
 
 async def test_embedding_never_blocks_the_event_loop(

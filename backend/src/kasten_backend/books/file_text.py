@@ -28,7 +28,7 @@ import pypdfium2
 from kasten_backend.vault import list_assets, list_html
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncGenerator
 
 MOST_CHARS = 1_000_000
 """How many characters of text are kept per file; the rest of a file is not searched.
@@ -328,7 +328,7 @@ async def _refresh_locked(root: Path, cache: Path, skip: str | None) -> None:
 
 
 @contextlib.asynccontextmanager
-async def fresh(root: Path, cache: Path, skip: str | None) -> AsyncIterator[None]:
+async def fresh(root: Path, cache: Path, skip: str | None) -> AsyncGenerator[None]:
     """Bring the cache into step, then hold it still while the caller reads it.
 
     A reader scans an entry's txt, then its json. A rewrite between the two would pair a new

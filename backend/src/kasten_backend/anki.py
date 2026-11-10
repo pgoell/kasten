@@ -197,7 +197,7 @@ def _count_members(data: bytes) -> None:
     """
     # `_EndRecData` is private and missing from typeshed, but it is stable: it finds the
     # record and resolves zip64. Fields 4, 5 and 9 are the entry count, size and location.
-    end = zipfile._EndRecData(io.BytesIO(data))  # ty: ignore[unresolved-attribute]
+    end = zipfile._EndRecData(io.BytesIO(data))  # ty: ignore[missing-attribute]
     if end is None:
         return
     count, size, stop = end[4], end[5], end[9]

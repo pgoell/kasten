@@ -72,7 +72,7 @@ from kasten_backend.trash import purge_trash
 from kasten_backend.vcs import is_versioned, write_ignores
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncGenerator, AsyncIterator
 
     from kasten_backend.events import VaultEvent
 
@@ -104,7 +104,7 @@ def _push_stopped(task: asyncio.Task[None]) -> None:
 
 
 @asynccontextmanager
-async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
     """Write the vault's guides and types, and purge old trash.
 
     The settings are read here because no request exists to inject them.

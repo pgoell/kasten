@@ -18,7 +18,7 @@ from kasten_backend import files
 from kasten_backend.files import RefusedError, amount, too_big
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncGenerator, AsyncIterator
     from pathlib import Path
 
 UPLOAD_IDLE_SECONDS = 3600
@@ -185,7 +185,7 @@ async def write(key: str, n: int, chunks: AsyncIterator[bytes]) -> None:
 
 
 @asynccontextmanager
-async def finished(key: str) -> AsyncIterator[Path]:
+async def finished(key: str) -> AsyncGenerator[Path]:
     """The joined file of upload `key`, which is gone once the block ends however it ends."""
     upload = _find(key)
     async with upload.lock:
@@ -202,7 +202,7 @@ async def finished(key: str) -> AsyncIterator[Path]:
 
 
 @asynccontextmanager
-async def taken(key: str) -> AsyncIterator[Path]:
+async def taken(key: str) -> AsyncGenerator[Path]:
     """The joined file of upload `key`, gone once the block ends well and kept if it raises.
 
     For the Anki import, whose failed upload the reader may finish again, so the minutes spent

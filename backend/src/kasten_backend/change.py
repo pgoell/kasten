@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 from kasten_backend.vcs import begin_change, snapshot
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncGenerator
     from pathlib import Path
 
 # ponytail: one lock for the whole vault, so every write in the process serialises.
@@ -30,7 +30,7 @@ Another task holding it would otherwise pass the check. A contextvar is per task
 
 
 @asynccontextmanager
-async def vault_write() -> AsyncIterator[None]:
+async def vault_write() -> AsyncGenerator[None]:
     """Hold the vault. Every mutation in this process runs inside one of these."""
     async with _lock:
         token = _held.set(True)
@@ -41,7 +41,7 @@ async def vault_write() -> AsyncIterator[None]:
 
 
 @asynccontextmanager
-async def vault_change(root: Path, label: str) -> AsyncIterator[None]:
+async def vault_change(root: Path, label: str) -> AsyncGenerator[None]:
     """Bracket one mutation in a jj change. Must run inside `vault_write`.
 
     Raised, not asserted, since ruff's `S101` bans `assert` outside tests. The jj calls stay

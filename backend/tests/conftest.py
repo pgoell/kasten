@@ -5,7 +5,7 @@ import sys
 from contextlib import contextmanager
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Self
 
 import httpcore
 import httpx
@@ -32,7 +32,7 @@ from kasten_backend.main import app
 from kasten_backend.tokens import mint
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Callable, Iterator
+    from collections.abc import AsyncGenerator, AsyncIterator, Callable, Generator, Iterator
 
 JJ = shutil.which("jj")
 """Where jj is, or None on a box without it, which every jj test skips on."""
@@ -114,7 +114,7 @@ async def finance_session() -> AsyncIterator[AsyncSession]:
     )
     app.dependency_overrides[get_session] = lambda: session
 
-    async def same() -> AsyncIterator[AsyncSession]:
+    async def same() -> AsyncGenerator[AsyncSession]:
         yield session
 
     # The MCP tools get no dependency, so the override above does not reach them.
@@ -211,7 +211,7 @@ def alembic(url: str, *args: str) -> None:
 
 
 @contextmanager
-def migrated_database(url: URL, name: str) -> Iterator[str]:
+def migrated_database(url: URL, name: str) -> Generator[str]:
     """Database `name` beside `url`'s, migrated to head, dropped on the way out.
 
     Dropped too when the migration fails, or every failing run would leave one
@@ -297,7 +297,7 @@ async def activity(
     factory = async_sessionmaker(engine, expire_on_commit=False)
     monkeypatch.setattr(db, "session_factory", factory)
 
-    async def sessions() -> AsyncIterator[AsyncSession]:
+    async def sessions() -> AsyncGenerator[AsyncSession]:
         async with factory() as session:
             yield session
 
@@ -454,8 +454,8 @@ class _Tomorrow(date):
     """A `date` whose today is the day after the real one, for #1315."""
 
     @classmethod
-    def today(cls) -> date:
-        return date.today() + timedelta(days=1)
+    def today(cls) -> Self:
+        return cls.fromordinal(date.today().toordinal() + 1)
 
 
 @pytest.fixture(autouse=True)
@@ -485,8 +485,8 @@ class _Pinned(date):
     """A `date` whose today is `PINNED_DAY`."""
 
     @classmethod
-    def today(cls) -> date:
-        return PINNED_DAY
+    def today(cls) -> Self:
+        return cls.fromordinal(PINNED_DAY.toordinal())
 
 
 @pytest.fixture

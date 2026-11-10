@@ -14,7 +14,7 @@ import numpy as np
 import onnxruntime as ort
 
 # A compiled module, which ty has no stubs for.
-from onnxruntime.capi.onnxruntime_pybind11_state import (  # ty: ignore[unresolved-import]
+from onnxruntime.capi.onnxruntime_pybind11_state import (  # ty: ignore[import-not-found]
     Fail,
     InvalidArgument,
     NoSuchFile,
