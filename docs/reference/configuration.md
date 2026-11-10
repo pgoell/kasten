@@ -209,8 +209,8 @@ refuses every bearer rather than failing to start.
 
 Reading tokens live in `tokens-reading.json` beside it. A revoked token's record
 moves to `tokens-revoked.json`, so the action log can still name its requests.
-All three sit in one directory and are written the same way. So does
-`vault.lock`, which every backend process flocks before it writes the vault.
+All three sit in one directory and are written the same way. `vault.lock`,
+which every backend process flocks before it writes the vault, sits there too.
 
 `tokens-revoked.json` keeps the last 50 records; [revoking a token](/reference/http-api/system.md) says why that, or a broken file, cannot let one back in.
 

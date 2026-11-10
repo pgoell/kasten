@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 # ponytail: one lock for the whole vault, so every write serialises.
 # Per-path locks are the upgrade when a slow write holds up a fast one.
 _lock = asyncio.Lock()
-"""Taken before the flock, so at most one thread per process waits on it."""
+"""Taken before the flock, so the loop's writers queue here rather than in threads."""
 
 _held: ContextVar[bool] = ContextVar("_held", default=False)
 """Whether *this* task holds the lock, which `Lock.locked()` cannot say.
