@@ -218,11 +218,16 @@ function markFor(style: ListStyle, count: number): string {
   return style === "number" ? `${count}.` : `${String.fromCharCode(96 + count)})`;
 }
 
+/** The line's list mark, or null. A rule wins, as in CommonMark: `* * *` is no item. */
+function itemOf(text: string): RegExpExecArray | null {
+  return RULE.test(text) ? null : ITEM.exec(text);
+}
+
 /** The line where the item holding line `n` starts, or null outside a list. */
 function itemLineAt(doc: Text, n: number): number | null {
   for (let at = n; at >= 1; at--) {
     const text = doc.line(at).text;
-    if (ITEM.test(text)) return at;
+    if (itemOf(text)) return at;
     // A heading, fence or rule is no item's continuation, so the list above it is another block.
     if (text.trim() === "" || HEADING.test(text) || FENCE.test(text) || RULE.test(text))
       return null;
@@ -255,7 +260,7 @@ function inList(line: Line | null, level: Level): boolean {
   if (line === null) return false;
   const width = indentWidth(line.text);
   if (width !== level.indent) return width > level.indent;
-  const item = ITEM.exec(line.text);
+  const item = itemOf(line.text);
   return item !== null && kindOf(item[2] ?? "") === level.kind;
 }
 
@@ -280,14 +285,14 @@ function listAt(doc: Text, n: number): ListItem[] | null {
   if (anchor === null) return null;
   const text = doc.line(anchor).text;
   const indent = indentWidth(text);
-  const level = { indent, kind: kindOf(ITEM.exec(text)?.[2] ?? "-") };
+  const level = { indent, kind: kindOf(itemOf(text)?.[2] ?? "-") };
 
   const items: ListItem[] = [];
   for (let at = firstItem(doc, anchor, level); at <= doc.lines; at++) {
     if (!continues(doc, at, 1, level)) break;
     const line = doc.line(at);
     if (line.text.trim() === "") continue;
-    const item = indentWidth(line.text) === indent ? ITEM.exec(line.text) : null;
+    const item = indentWidth(line.text) === indent ? itemOf(line.text) : null;
     if (item) {
       items.push({
         line,
