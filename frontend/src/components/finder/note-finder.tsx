@@ -351,7 +351,7 @@ export function NoteFinder({
 
         {/* An <output>: a live status with no role attribute needed. Empty, it takes no room but
             stays in the accessibility tree, so its first words are still read out. */}
-        <output className={`${STATUS} empty:p-0`}>
+        <output className={`${STATUS} empty:border-0 empty:p-0`}>
           {hint(listed.length, notes.length, outgoing, book)}
         </output>
       </div>
