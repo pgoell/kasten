@@ -4,8 +4,11 @@ import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
 import { useLeader } from "@/lib/ui/keys/use-leader";
 import { Composer } from "./composer";
 import { Markdown } from "./markdown";
-import { GHOST } from "./styles";
 import { rows, Turn, Working } from "./transcript";
+
+/** Everything else: quiet until hovered. */
+const GHOST =
+  "inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1 text-[13px] text-k-muted transition-colors hover:bg-k-surface hover:text-k-ink disabled:opacity-40 pointer-coarse:min-h-11 pointer-coarse:px-3";
 
 /** The two skills this pane exists to start, each one press away. */
 const SKILLS = [

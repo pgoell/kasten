@@ -1,5 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { Markdown } from "@/components/chat/markdown";
+import { rows } from "@/components/chat/transcript";
+import type { ChatItem } from "@/lib/terminal/chat";
 
 describe("Markdown", () => {
   it("draws lists, emphasis and code, not the marks that spell them", () => {
@@ -45,5 +47,17 @@ describe("Markdown", () => {
 
     expect(container.querySelectorAll("th")).toHaveLength(2);
     expect(container.querySelector("td")).toHaveTextContent("1");
+  });
+});
+
+describe("rows", () => {
+  it("puts tool calls in a row together, and starts a new row after text", () => {
+    const tool = (id: string): ChatItem => ({ kind: "tool", id, name: "Bash", input: {} });
+    const grouped = rows([tool("a"), tool("b"), { kind: "text", text: "so" }, tool("c")]);
+
+    expect(
+      grouped.map((row) => ("tools" in row ? row.tools.map((t) => t.id) : row.item.kind)),
+    ).toEqual([["a", "b"], "text", ["c"]]);
+    expect(grouped.map((row) => row.at)).toEqual([0, 2, 3]);
   });
 });

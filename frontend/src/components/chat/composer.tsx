@@ -1,6 +1,9 @@
 import type { RefObject } from "react";
 import { useViewport } from "@/lib/ui/input/use-viewport";
-import { CHIP } from "./styles";
+
+/** A skill to start, as a pill. */
+const CHIP =
+  "shrink-0 rounded-full border border-k-rule bg-k-paper px-3 py-1 font-mono text-[12px] text-k-ink-soft transition-colors hover:border-k-accent hover:text-k-accent pointer-coarse:min-h-11 pointer-coarse:px-4";
 
 interface ComposerProps {
   box: RefObject<HTMLTextAreaElement | null>;

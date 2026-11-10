@@ -69,7 +69,7 @@ function ToolCall({ item }: { item: Tool }) {
 
   return (
     <details className="group rounded-md text-[12.5px] open:bg-k-paper">
-      <summary className="flex cursor-pointer list-none items-center gap-2 rounded-md px-2 py-1 text-k-muted hover:bg-k-surface/70 pointer-coarse:min-h-10 [&::-webkit-details-marker]:hidden">
+      <summary className="flex cursor-pointer list-none items-center gap-2 rounded-md px-2 py-1 text-k-muted hover:bg-k-surface/70 pointer-coarse:min-h-11 [&::-webkit-details-marker]:hidden">
         <Mark state={item.result === undefined ? "running" : failed ? "failed" : "done"} />
         <span className="shrink-0 font-medium text-k-ink-soft">{item.name}</span>
         <span className="min-w-0 flex-1 truncate font-mono text-[11.5px]">

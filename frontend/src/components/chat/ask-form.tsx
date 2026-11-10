@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { answersFor, type ChatItem, type Pick } from "@/lib/terminal/chat";
-import { PRIMARY } from "./styles";
+
+/** The one action a moment asks for. `min-h-11` under a finger is the 44px the phone toolbar holds to. */
+const PRIMARY =
+  "inline-flex shrink-0 items-center justify-center gap-1 rounded-lg bg-k-accent px-3 py-1.5 font-medium text-[13px] text-k-paper transition-opacity hover:opacity-90 disabled:opacity-35 pointer-coarse:min-h-11 pointer-coarse:px-4 pointer-coarse:text-sm";
 
 type Ask = Extract<ChatItem, { kind: "ask" }>;
 
