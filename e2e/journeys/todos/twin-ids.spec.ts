@@ -1,7 +1,14 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
 import type { Page } from "@playwright/test";
-import { findNote, leader, noteText, openApp, phone, today } from "../../harness/app.ts";
+import {
+  cursorTo,
+  findNote,
+  leader,
+  noteText,
+  openApp,
+  phone,
+  today,
+  vaultWith,
+} from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 
 // Two todo lines carrying one 🆔, as a pasted copy leaves them, and a todo waiting on that id.
@@ -13,13 +20,6 @@ const NOTES = {
 const ROW = '[data-row*=".md:"]';
 const notice = (page: Page) => page.getByTestId("notice");
 const daily = (vault: string) => noteText(vault, `01 Periodic/00 Daily/${today()}.md`);
-
-async function vaultWith(vault: string, notes: Record<string, string>) {
-  for (const [path, text] of Object.entries(notes)) {
-    await mkdir(dirname(join(vault, path)), { recursive: true });
-    await writeFile(join(vault, path), text);
-  }
-}
 
 /** What a press names: the other twin's 1-based line in `path` as the disk now has it. */
 async function names(vault: string, path: string, words: string, nth: number) {
@@ -44,22 +44,6 @@ const blockDisk = async (vault: string) => [
   await noteText(vault, "Block.md"),
   await noteText(vault, "Twins.md"),
 ];
-
-/** Moves the pane's cursor to the `nth` row whose text holds `words`. */
-async function cursorTo(page: Page, words: string, nth = 0) {
-  const { from, to } = await page.locator(ROW).evaluateAll(
-    (rows, [text, n]) => ({
-      from: rows.findIndex((row) => (row as HTMLElement).tabIndex === 0),
-      to: rows
-        .map((row, i) => ((row.textContent ?? "").includes(text as string) ? i : -1))
-        .filter((i) => i >= 0)[n as number],
-    }),
-    [words, nth] as const,
-  );
-  const key = (to ?? 0) > from ? "j" : "k";
-  for (let i = 0; i < Math.abs((to ?? 0) - from); i++) await page.keyboard.press(key);
-  await expect(page.locator(`${ROW}[tabindex="0"]`)).toContainText(words);
-}
 
 /** The todo pane over the twins, its cursor on the second. */
 async function paneOnSecond(page: Page, vault: string) {

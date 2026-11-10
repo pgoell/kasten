@@ -1,7 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { Page } from "@playwright/test";
-import { leader, noteText, openApp, phone } from "../../harness/app.ts";
+import { cursorTo, leader, noteText, openApp, phone } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 
 // A todo row is keyed by its line, "Home.md:12"; the file tree's rows are not.
@@ -15,20 +14,6 @@ const HOME_TODOS = [
 ];
 
 const HOME = "02 Projects/Home.md";
-
-/** Presses j or k until the list's cursor sits on the row whose text holds `words`. */
-async function cursorTo(page: Page, words: string) {
-  const { from, to } = await page.locator(TODO_ROW).evaluateAll(
-    (rows, text) => ({
-      from: rows.findIndex((row) => (row as HTMLElement).tabIndex === 0),
-      to: rows.findIndex((row) => (row.textContent ?? "").includes(text)),
-    }),
-    words,
-  );
-  const key = to > from ? "j" : "k";
-  for (let i = 0; i < Math.abs(to - from); i++) await page.keyboard.press(key);
-  await expect(page.locator(`${TODO_ROW}[tabindex="0"]`)).toContainText(words);
-}
 
 test("checking off a todo in the todo pane changes the note's line", async ({ page, stack }) => {
   await openApp(page);
