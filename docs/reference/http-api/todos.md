@@ -162,7 +162,10 @@ gets **Done** and **Tomorrow**, which call
 [POST /api/push/act](#post-apipushact) with `path` and `text`. Any answer but
 its `204`, a redirect to sign-in or no answer within 4 seconds included, opens
 the note at its line instead. A push service that answers `404` or
-`410` drops that device; any other failure keeps it and is logged.
+`410` drops that device; any other failure keeps it and is logged with the
+first 200 characters of the push service's answer, such as Apple's
+`BadJwtToken`. Should the loop itself stop on an error it does not expect, the
+backend logs `push sender stopped` and no push goes out until it restarts.
 
 Quiet hours, set in `/settings`, hold every reminder, the morning push and
 the goals push, but not a timer, which you started yourself. At a tick inside
@@ -218,6 +221,19 @@ plus a `name`: `{"endpoint", "keys": {"p256dh", "auth"}, "name"}`. The endpoint
 must be `https://`. The same endpoint again updates that device's keys and name
 rather than adding a second one. Answers `201` with the device as `GET` lists
 it, or `503` when push is not set up.
+
+## POST /api/push/devices/{device_id}/test
+
+Sends one device the push `{"title": "kasten", "body": "Test push: this device
+gets reminders", "tag": "test"}` now and answers `200` with what its push
+service said: `{"status", "reason", "gone"}`. `status` is the push service's
+HTTP status, or `null` when it could not be reached, and then `reason` says
+why. On a status of `300` or more `reason` holds the start of the push
+service's answer, or `null` when it gave none. A `404` or `410` sets `gone`
+and removes the device, as the loop does. `404` for an id no device has, and
+`503` when push is not set up. A `2xx` means only that the push service took
+the message: a browser or phone that blocks this site's notifications still
+shows nothing.
 
 ## DELETE /api/push/devices/{device_id}
 

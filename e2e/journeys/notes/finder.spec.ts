@@ -50,6 +50,9 @@ test("the finder's keys walk the list, and Enter opens the row the highlight is 
   await expect(options.nth(2)).toBeVisible();
   // Read, not assumed: the walk holds whatever order the vault ranks in.
   const names = await options.allTextContents();
+  const paths = await options.evaluateAll((rows) =>
+    rows.map((row) => row.getAttribute("data-path")),
+  );
   const walk: [string, number][] = [
     ["ArrowDown", 1],
     ["Control+n", 2],
@@ -75,7 +78,7 @@ test("the finder's keys walk the list, and Enter opens the row the highlight is 
   await expect(selected).toHaveText(names[0]);
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Enter");
-  const name = names[1].replace(/^.*\//, "").replace(/\.md$/, "");
+  const name = (paths[1] ?? "").replace(/^.*\//, "").replace(/\.md$/, "");
   await expect(page.getByRole("tab", { name, selected: true })).toBeVisible();
 });
 
@@ -84,7 +87,7 @@ test("the finder's Enter opens the row it ranks first, not the text typed", asyn
   await leader(page, "ff");
   // `grdn` names no note; `02 Projects/Garden.md` reads into it.
   await page.keyboard.type("grdn");
-  await expect(page.getByRole("option", { selected: true })).toHaveText("02 Projects/Garden.md");
+  await expect(page.getByRole("option", { selected: true })).toHaveText("Garden 02 Projects");
   await page.keyboard.press("Enter");
   await expect(page.getByRole("tab", { name: "Garden", selected: true })).toBeVisible();
 });
@@ -104,9 +107,9 @@ test("the finder lists a pdf beside its note as its own row, and its preview nam
   await leader(page, "ff");
   const finder = page.getByRole("dialog", { name: "Find note" });
   await page.keyboard.type("primer");
-  const note = finder.getByRole("option", { name: /Primer\.md/ });
+  const note = finder.locator('[data-path="04 Books/Primer.md"]');
   const pdf = finder.getByRole("option", { name: /Primer\.pdf/ });
-  await expect(note).toHaveText("04 Books/Primer.md");
+  await expect(note).toHaveText("Primer 04 Books");
   await expect(pdf).toHaveText(/^04 Books\/Primer\.pdf\s*PDF$/);
   await expect(finder.getByRole("option")).toHaveCount(2);
 
@@ -131,7 +134,7 @@ test("the finder previews the highlighted note as the editor draws it, and reads
   await leader(page, "ff");
   const finder = page.getByRole("dialog", { name: "Find note" });
   await page.keyboard.type("grdn");
-  await expect(finder.getByRole("option", { selected: true })).toHaveText("02 Projects/Garden.md");
+  await expect(finder.getByRole("option", { selected: true })).toHaveText("Garden 02 Projects");
   const preview = finder.getByTestId("preview");
   await expect(preview).toContainText("water the tomatoes");
   // `# Garden` drawn as a heading, its mark hidden as the editor hides it.

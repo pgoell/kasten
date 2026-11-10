@@ -230,7 +230,11 @@ test("the outgoing links panel lists the note's links, opens one, and says when 
   const panel = page.getByRole("dialog", { name: "Outgoing links" });
   await expect(panel.getByLabel("links out")).toBeFocused();
   await expect
-    .poll(() => panel.getByRole("option").allTextContents())
+    .poll(() =>
+      panel
+        .getByRole("option")
+        .evaluateAll((rows) => rows.map((row) => row.getAttribute("data-path"))),
+    )
     .toEqual(["02 Projects/Garden.md", "Long note.md"]);
   await page.keyboard.type("gar");
   await page.keyboard.press("Enter");

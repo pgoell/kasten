@@ -6,7 +6,7 @@
 from kasten_backend.push.due import Reminder, reminders
 from kasten_backend.push.loop import running, tick
 from kasten_backend.push.models import PushDevice, PushSent, PushTimer
-from kasten_backend.push.route import router
+from kasten_backend.push.route import push_client, router
 from kasten_backend.push.webpush import new_keys
 
 __all__ = [
@@ -15,6 +15,7 @@ __all__ = [
     "PushTimer",
     "Reminder",
     "new_keys",
+    "push_client",
     "reminders",
     "router",
     "running",

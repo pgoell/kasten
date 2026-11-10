@@ -125,7 +125,7 @@ function Layout({ paths, phone = false }: { paths: string[]; phone?: boolean }) 
         ))}
       </div>
       {phone && <Toolbar commands={spy} pane={paths.length > 1 ? "1/2" : undefined} />}
-      <WhichKey phone={phone} />
+      {!phone && <WhichKey />}
     </div>
   );
 }

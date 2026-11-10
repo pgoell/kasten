@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { SaveSign } from "@/components/save-sign";
 import { Clock } from "@/components/status-clock";
 import { StatusDetail } from "@/components/status-detail";
-import { BUILD } from "@/lib/app/build";
+import { BUILD, outOfStep, versionText } from "@/lib/app/build";
 import { lineDiff } from "@/lib/history/diff";
 import type { SaveStatus } from "@/lib/notes/note/use-autosave";
 
@@ -81,18 +81,18 @@ function noteName(path: string) {
 }
 
 /**
- * Production ships one release tag, so the backend's version answers alone. Development also shows
- * the bundle, since a tab left open across a rebase can run older code than the backend.
+ * Only a tab whose bundle and backend differ, as one left open across a rebase, shows the pair here;
+ * the settings page always names it.
  */
 function Version({ backend }: { backend: string }) {
+  if (!outOfStep(backend, BUILD)) return null;
   return (
-    // Gone below `md`. Development's two readings alone are wider than a third
-    // of a phone, and of everything in the bar this is the last thing wanted there.
+    // Gone below `md`, where the two readings alone are wider than a third of a phone.
     <span
       data-testid="version"
       className="shrink-0 text-[11px] text-k-muted tabular-nums max-md:hidden"
     >
-      {BUILD === "" ? backend : `be ${backend} fe ${BUILD}`}
+      {versionText(backend, BUILD)}
     </span>
   );
 }

@@ -215,7 +215,7 @@ export function TodoRow({
         ...(enter === undefined ? {} : ({ "--i": enter } as React.CSSProperties)),
       }}
       // Blocked and waiting rows stay in their date group, with the state written on the line.
-      className={`k-row flex w-full min-w-0 max-w-[52rem] cursor-pointer items-start gap-2 px-3 py-[3px] text-left font-sans ${muted ? "text-k-muted" : "text-k-ink"} ${cursor ? CURSOR : ""} ${coarse ? "min-h-11" : ""} ${enter === undefined ? "" : "k-enter"}`}
+      className={`k-row flex w-full min-w-0 max-w-(--k-todo-measure) cursor-pointer items-start gap-2 px-3 py-[3px] text-left font-sans ${muted ? "text-k-muted" : "text-k-ink"} ${cursor ? CURSOR : ""} ${coarse ? "min-h-11" : ""} ${enter === undefined ? "" : "k-enter"}`}
     >
       {/* On touch the state button in front of the row carries the box instead. */}
       {/* Top-aligned with the words, the way the touch button is, so the box

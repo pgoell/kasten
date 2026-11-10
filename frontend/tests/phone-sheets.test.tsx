@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { KeyHelp } from "@/components/key-help";
 import { WhichKey } from "@/components/which-key";
 import { beginLeader, paneOpener } from "@/lib/ui/keys/which-key";
@@ -20,39 +20,11 @@ describe("phone sheets", () => {
     vi.unstubAllGlobals();
   });
 
-  it("#793 A8 on a phone the which-key sheet lays its rows in one column", () => {
-    phone();
-    render(
-      <>
-        <button type="button">Note</button>
-        <WhichKey phone />
-      </>,
-    );
-    const note = screen.getByRole("button", { name: "Note" });
-    note.focus();
-    act(() => {
-      beginLeader(paneOpener(stubCommands()));
-    });
-
-    const find = screen.getByRole("heading", { name: "Find" }).closest("section")?.parentElement;
-    expect(find).toHaveClass("grid-cols-1");
-    expect(find).not.toHaveClass("grid-cols-[repeat(auto-fit,minmax(10.5rem,1fr))]");
-    for (const row of within(screen.getByRole("dialog")).getAllByRole("button")) {
-      expect(row).toHaveClass("w-full");
-      expect(row).toHaveClass("pointer-coarse:min-h-11");
-    }
-
-    // After a key narrows the list it is still one column of rows.
-    fireEvent.keyDown(screen.getByRole("dialog"), { key: "g" });
-    const goTo = screen.getByRole("heading", { name: "Go to" }).closest("section")?.parentElement;
-    expect(goTo).toHaveClass("grid-cols-1");
-  });
-
   it("#793 A8 the desktop which-key panel sets its groups in columns", () => {
     render(
       <>
         <button type="button">Note</button>
-        <WhichKey phone={false} />
+        <WhichKey />
       </>,
     );
     const note = screen.getByRole("button", { name: "Note" });
@@ -87,86 +59,6 @@ describe("phone sheets", () => {
     expect(columns).toHaveClass("grid-cols-1");
     // A finger's word for the close, pinned under the list.
     expect(screen.getByText("Drag down or tap outside to close")).toBeInTheDocument();
-  });
-
-  it("#793 R3 a focus move the reader did not make keeps the phone sheet open", async () => {
-    phone();
-    render(
-      <>
-        <button type="button">Note</button>
-        <WhichKey phone />
-      </>,
-    );
-    const note = screen.getByRole("button", { name: "Note" });
-    note.focus();
-    act(() => {
-      beginLeader(paneOpener(stubCommands()));
-    });
-
-    // Nothing pressed: the focus lands on the note the way a pane's own focus does.
-    note.focus();
-    // The sheet's fade would end on this event if it had begun to leave.
-    fireEvent.transitionEnd(screen.getByRole("dialog", { name: "Leader keys" }), {
-      propertyName: "opacity",
-    });
-    // Lets a close that finished on that event take the sheet out of the DOM.
-    await act(async () => {});
-
-    expect(screen.getByRole("dialog", { name: "Leader keys" })).toBeInTheDocument();
-  });
-
-  it("#793 R5 a press inside the phone sheet then a focus move the reader did not make keeps it open", async () => {
-    phone();
-    render(
-      <>
-        <button type="button">Note</button>
-        <WhichKey phone />
-      </>,
-    );
-    const note = screen.getByRole("button", { name: "Note" });
-    note.focus();
-    act(() => {
-      beginLeader(paneOpener(stubCommands()));
-    });
-    const panel = screen.getByRole("dialog", { name: "Leader keys" });
-
-    // A touch scroll of the rows starts inside the sheet: that is not the reader leaving it.
-    fireEvent.pointerDown(within(panel).getByText("Toggle the file tree", { selector: "span" }));
-    note.focus();
-    fireEvent.transitionEnd(panel, { propertyName: "opacity" });
-    await act(async () => {});
-
-    expect(screen.getByRole("dialog", { name: "Leader keys" })).toBeInTheDocument();
-  });
-
-  it("#793 R5 a press outside the phone sheet still closes it", async () => {
-    phone();
-    const other = document.createElement("button");
-    other.type = "button";
-    document.body.append(other);
-    try {
-      render(
-        <>
-          <button type="button">Note</button>
-          <WhichKey phone />
-        </>,
-      );
-      const note = screen.getByRole("button", { name: "Note" });
-      note.focus();
-      act(() => {
-        beginLeader(paneOpener(stubCommands()));
-      });
-      const panel = screen.getByRole("dialog", { name: "Leader keys" });
-
-      fireEvent.pointerDown(other);
-      other.focus();
-      fireEvent.transitionEnd(panel, { propertyName: "opacity" });
-      await act(async () => {});
-
-      expect(screen.queryByRole("dialog", { name: "Leader keys" })).toBeNull();
-    } finally {
-      other.remove();
-    }
   });
 
   it("#793 R4 on a phone when the parent takes key help down, the focus goes back to the opener", () => {

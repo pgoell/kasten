@@ -135,6 +135,7 @@ where grey meta text sits inside a mark; the test names it as the exception.
 | `--k-space-4` … `--k-space-64` | 4, 8, 12, 16, 24, 32, 48, 64 px |
 | `--k-radius-4`, `--k-radius-6`, `--k-radius-8` | 4, 6, 8 px |
 | `--k-measure` | 680 px |
+| `--k-todo-measure` | 52 rem, the todo list's column and its rows |
 
 Each size also has a class, `text-k-12` to `text-k-64`, which carries its own
 leading and tracking, so a component names one class. The 46 and 64 px sizes
@@ -142,6 +143,10 @@ take the display pair, the 36 and 27 px sizes the title pair, the 23 px size the
 heading pair, the 19 px size the reading leading, the 15 px size the UI leading
 and body tracking, and the 12 and 13 px sizes the UI leading and label
 tracking. `tracking-k-kbd` and `tracking-k-label` set the tracking alone.
+
+A pane of text or a list keeps one column in the middle of the pane: a note at
+`--k-measure`, review at `--k-measure`, timers at 720 px and the todo list at
+`--k-todo-measure`. A dashboard, the log, finance and the overview, fills the pane.
 
 ## Motion
 

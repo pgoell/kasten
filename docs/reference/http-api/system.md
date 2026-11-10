@@ -35,7 +35,8 @@ nothing but whether the process is up.
 The frontend's own half of that reading is not here and cannot be: a bundle in
 a browser has no repo to ask, so `vite.config.ts` stamps it in at build time.
 [Two environments](/explanation/environments.md#which-one-you-are-looking-at-and-what-it-is-running)
-says what the status bar does with the pair.
+says where the pair shows: the settings page, and the status bar while the
+two differ.
 
 ## GET /api/terminals
 

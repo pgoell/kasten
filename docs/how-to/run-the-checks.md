@@ -54,8 +54,9 @@ on `frontend/bun.lock` and `e2e/bun.lock`. It fails on any known hole, and
 GitHub mails the failure to whoever last changed its cron. Run the same
 commands locally to see the list, or start it by hand from the Actions tab.
 On the same day Dependabot opens one pull request per ecosystem (uv, bun,
-docker, Actions) with the minor and patch bumps, and one of its own for each
-major bump, except postgres, whose major moves by hand with `pg_upgrade`.
+docker) with the minor and patch bumps, and one of its own for each major
+bump, except postgres, whose major moves by hand with `pg_upgrade`. Actions
+are not grouped: each Action bump comes as its own pull request.
 
 ## Run the end-to-end journeys
 

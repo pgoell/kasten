@@ -3,6 +3,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { NotePreview } from "@/components/note-preview";
 import { fetchNote } from "@/lib/core/api";
 import { noteName } from "@/lib/notes/links/note-path";
+import { noteBody } from "@/lib/notes/text/note-frontmatter";
 import { noteCandidates, rankCandidates } from "@/lib/search/fuzzy";
 import { useViewport } from "@/lib/ui/input/use-viewport";
 import {
@@ -75,7 +76,7 @@ function fileOpens(kind: FileKind, noted: boolean): string {
   return noted ? "epub, opens in the reader" : "epub, opens in a new tab";
 }
 
-/** The folder a book sits in, and nothing for one at the vault's root. */
+/** The folder a note sits in, and nothing for one at the vault's root. */
 function folderOf(path: string): string {
   const slash = path.lastIndexOf("/");
   return slash === -1 ? "" : path.slice(0, slash);
@@ -108,7 +109,7 @@ function namesOf(book: boolean, outgoing: boolean): { dialog: string; input: str
   return { dialog: "Find note", input: "find note" };
 }
 
-/** One ranked path: a book with its folder dimmed, a file with its kind, a note as its path. */
+/** One ranked path: a note or book by name with its folder dimmed, a file with its kind. */
 function FinderRow({
   id,
   path,
@@ -132,19 +133,16 @@ function FinderRow({
       // Out of the tab order: focus stays in the input; a click still opens it.
       tabIndex={-1}
       onClick={onOpen}
-      className={`${ROW} ${TAP} ${book || rowKind !== undefined ? "flex gap-3" : "truncate"} ${
-        selected ? "bg-k-surface text-k-accent" : "text-k-ink"
-      }`}
+      data-path={path}
+      className={`${ROW} ${TAP} flex gap-3 ${selected ? "bg-k-surface text-k-accent" : "text-k-ink"}`}
     >
-      {book ? (
+      {book || rowKind === undefined ? (
         // The folder, dimmed. It gives way first: an even split clipped short names
-        // on a phone.
+        // on a phone. The space keeps the two apart for a screen reader.
         <>
-          <span className="max-w-full shrink-0 truncate">{noteName(path)}</span>
+          <span className="max-w-full shrink-0 truncate">{noteName(path)}</span>{" "}
           <span className="ml-auto min-w-0 truncate text-k-muted">{folderOf(path)}</span>
         </>
-      ) : rowKind === undefined ? (
-        path
       ) : (
         // The kind, dimmed like a book's folder: it only says what Enter opens.
         <>
@@ -343,7 +341,7 @@ export function NoteFinder({
                 </p>
               ) : note.status === "success" ? (
                 // Keyed on the path, so opening another note builds a fresh view.
-                <NotePreview key={reading} text={note.data} />
+                <NotePreview key={reading} text={noteBody(note.data).replace(/^\s*\n/, "")} />
               ) : (
                 <p className={PANE_MESSAGE}>{previewText(note.status)}</p>
               )}
@@ -351,8 +349,11 @@ export function NoteFinder({
           )}
         </div>
 
-        {/* An <output>: a live status with no role attribute needed. */}
-        <output className={STATUS}>{hint(listed.length, notes.length, outgoing, book)}</output>
+        {/* An <output>: a live status with no role attribute needed. Empty, it takes no room but
+            stays in the accessibility tree, so its first words are still read out. */}
+        <output className={`${STATUS} empty:border-0 empty:p-0`}>
+          {hint(listed.length, notes.length, outgoing, book)}
+        </output>
       </div>
     </div>
   );
