@@ -12,6 +12,7 @@ authors = [
 requires-python = ">=3.14"
 dependencies = [
     "alembic>=1.20.1",
+    "curl-cffi==0.17.0",
     "fastapi[standard]>=0.162.0",
     # Reached for directly by `/api/fetch`, and not only through the test
     # client fastapi's standard extra brings it in for.
@@ -28,6 +29,7 @@ dependencies = [
     "psycopg[binary]>=3.3.8",
     "pydantic-settings>=2.7",
     "pypdfium2>=4.30",
+    "recipe-scrapers==15.13.0",
     "sqlalchemy[asyncio]>=2.1.8",
     "tokenizers>=0.22",
     "watchfiles>=1.0",

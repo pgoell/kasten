@@ -179,6 +179,51 @@ the same limits and cache.
   whole dish.
 * A note that cannot be read as UTF-8 is left out. The route writes nothing.
 
+## POST /api/recipes/import
+
+Writes a recipe note from a web page, or from a schema.org `Recipe` already
+read, such as the one the model makes of a pasted caption. Send one of the two:
+
+```json
+{ "url": "https://www.chefkoch.de/rezepte/1170311223132029/Chili-sin-Carne.html" }
+```
+
+```json
+{
+  "recipe": {
+    "name": "Feta-Pasta aus dem Ofen",
+    "recipeYield": "2",
+    "recipeIngredient": ["200 g Feta", "400 g Kirschtomaten"],
+    "recipeInstructions": ["Feta und Tomaten 25 Minuten backen."]
+  },
+  "source": "https://www.instagram.com/reel/C0abc/"
+}
+```
+
+It answers `201` with the note it wrote:
+
+```json
+{ "path": "Rezepte/Chili sin Carne.md", "title": "Chili sin Carne" }
+```
+
+* A `url` is fetched as `GET /api/fetch` fetches, public addresses only. When
+  the site answers `403`, `429` or `503`, kasten asks once more with a
+  browser's TLS fingerprint, still pinned to the address it checked.
+* The page's schema.org data is read with
+  [recipe-scrapers](https://github.com/hhursev/recipe-scrapers). A `recipe` is
+  checked first: `name`, a non-empty `recipeIngredient` and a non-empty
+  `recipeInstructions` must be there, each step text or a `HowToStep` with
+  `text`. It is then read the same way a page is.
+* The note is [the recipe note](/reference/food/recipe-note.md) with
+  `servings`, `time` and `source` where known, and `## Zutaten` and
+  `## Schritte`. It lands in `KASTEN_RECIPES_PATH`, named after the title; a
+  name already taken gets ` 2`, ` 3` and so on.
+
+It answers `422` for a body with neither or both, a `recipe` that fails the
+check, or a page with no recipe on it; `400` for an address that is not http
+or https or not on the internet; and `502` when the page cannot be read, with
+`paste the recipe` in the detail when the site turned both tries away.
+
 ## Errors
 
 The two food routes answer:

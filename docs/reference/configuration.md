@@ -94,6 +94,7 @@ editor, and the startup notes and the agent instructions spell them as set.
 | `KASTEN_ARCHIVE_PATH` | `98 Archive` | see [its own section](#kasten_archive_path) |
 | `KASTEN_SKILLS_PATH` | `.claude/skills` | the skills the agent's `list_skills`, `read_skill` and `GET /agent/skills` read, never write. A missing folder lists none |
 | `KASTEN_SHARE_FOLDER` | `05 Shared` | the [shared lists](/explanation/shared-lists.md), one note a list, and all the `/share/` routes reach |
+| `KASTEN_RECIPES_PATH` | `Rezepte` | a recipe [imported](/reference/http-api/food.md#post-apirecipesimport) from a page or a caption; `GET /api/layout` leaves it out |
 | `KASTEN_SHARE_PEOPLE` | `{}` | [who writes](/reference/http-api/shared-lists.md#who-is-writing) a shared list |
 
 Only the parent folders are settings. The subfolders under them keep their
