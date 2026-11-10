@@ -10,6 +10,7 @@ import json
 import unicodedata
 from typing import TYPE_CHECKING, NamedTuple
 
+from kasten_backend.change import settled
 from kasten_backend.vault import resolve_path
 from kasten_backend.vcs import is_versioned
 
@@ -77,6 +78,8 @@ async def _read(root: Path, *args: str) -> str:
     Unlike `vcs._run`, a failure is raised: nothing was saved here, so the reader is better told
     the history is out of reach.
     """
+    # A save answers before its snapshot, so the read waits for it to see that save.
+    await settled()
     try:
         process = await asyncio.create_subprocess_exec(
             "jj",

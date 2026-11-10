@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from backend.tests.conftest import JJ, changed_paths, descriptions, jj, moved_paths
+from kasten_backend.change import settled
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -107,6 +108,7 @@ async def test_puts_the_created_note_in_its_own_change(
     # Either call order names the change the same way, so the description
     # proves nothing. The order decides which change holds the note.
     await client.post("/api/files/index.md")
+    await settled()
 
     assert changed_paths(versioned_vault, "@") == ["index.md"]
 
@@ -118,19 +120,21 @@ async def test_keeps_each_created_note_out_of_the_change_before_it(
     # already in hand, so every note lands one change too early.
     await client.post("/api/files/index.md")
     await client.post("/api/files/daily/2026-08-05.md")
+    await settled()
 
     # The listing of the folder the note made is part of making it.
     assert changed_paths(versioned_vault, "@") == ["daily/2026-08-05.md", "daily/index.md"]
     assert changed_paths(versioned_vault, "@-") == ["index.md"]
 
 
-async def test_records_the_created_note_before_the_request_returns(
+async def test_records_the_created_note_once_its_snapshot_settles(
     client: AsyncClient, versioned_vault: Path
 ) -> None:
-    # The snapshot at the end of the create is what records the note. Drop it
-    # and the note only sits on disk until some later jj command notices, which
-    # folds whatever happened in between into the same snapshot.
+    # The snapshot after the create is what records the note. Drop it and the
+    # note only sits on disk until some later jj command notices, which folds
+    # whatever happened in between into the same snapshot.
     await client.post("/api/files/borges.md")
+    await settled()
 
     # `root:` because a bare path is read relative to the working directory,
     # which is the repo root only by luck. A new note holds its frontmatter and
@@ -166,6 +170,7 @@ async def test_records_a_move_as_one_rename(client: AsyncClient, versioned_vault
     await client.put("/api/files/inbox/borges.md", json={"content": "# borges"})
 
     await client.patch("/api/files/inbox/borges.md", json={"path": "reading/borges.md"})
+    await settled()
 
     assert moved_paths(versioned_vault, "@") == ["inbox/borges.md -> reading/borges.md"]
 
@@ -232,6 +237,7 @@ async def test_records_a_folder_move_as_a_rename_of_every_note(
     await client.put("/api/files/inbox/deep/kasten.md", json={"content": "# kasten"})
 
     await client.patch("/api/folders/inbox", json={"path": "reading"})
+    await settled()
 
     assert moved_paths(versioned_vault, "@") == [
         "inbox/borges.md -> reading/borges.md",
@@ -334,6 +340,7 @@ async def test_records_a_delete_as_a_rename_into_the_trash(
     (versioned_vault / "index.md").write_text("# index")
 
     entry = (await client.delete("/api/files/index.md")).json()["entry"]
+    await settled()
 
     assert moved_paths(versioned_vault, "@") == [f"index.md -> .trash/{entry}"]
 

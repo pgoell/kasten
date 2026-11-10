@@ -1,19 +1,22 @@
 """What the write lock is for: two writers, and neither one's edit in the other's change."""
 
 import asyncio
+import subprocess
 from typing import TYPE_CHECKING
 
 import pytest
+from asgi_lifespan import LifespanManager
+from httpx import ASGITransport, AsyncClient
 
 from backend.tests.anki_build import apkg
-from backend.tests.conftest import JJ, changed_paths, descriptions
-from kasten_backend import vcs
+from backend.tests.conftest import JJ, changed_paths, descriptions, jj
+from kasten_backend import change, vcs
 from kasten_backend.change import vault_change
+from kasten_backend.main import app
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
     from pathlib import Path
-
-    from httpx import AsyncClient
 
 pytestmark = pytest.mark.skipif(JJ is None, reason="jj is not installed")
 
@@ -147,3 +150,205 @@ async def test_an_agent_write_is_named_in_the_log(
         "vault: borges.md",
         "agent(laptop): borges.md",
     ]
+
+
+def saved_texts(vault: Path, path: str) -> set[str]:
+    """Every text of one note that some operation in `jj op log` recorded."""
+    ops = jj(vault, "op", "log", "--no-graph", "-T", 'id ++ "\\n"').split()
+    texts = set()
+    for op in ops:
+        shown = subprocess.run(  # noqa: S603
+            [
+                JJ or "jj",
+                "--repository",
+                str(vault),
+                "--ignore-working-copy",
+                "--at-op",
+                op,
+                "file",
+                "show",
+                "-r",
+                "@",
+                f"root:{path}",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if shown.returncode == 0:
+            # The body alone: a save stamps frontmatter onto the note.
+            texts.add(shown.stdout.rsplit("---\n", 1)[-1])
+    return texts
+
+
+@pytest.fixture
+def parked(monkeypatch: pytest.MonkeyPatch) -> Iterator[asyncio.Event]:
+    """Hold every snapshot until the test sets the event it hands back."""
+    release = asyncio.Event()
+    real = change.snapshot
+
+    async def parking(root: Path) -> None:
+        await release.wait()
+        await real(root)
+
+    monkeypatch.setattr(change, "snapshot", parking)
+    yield release
+    # Set on the way out too, so a failed test does not hang the app's shutdown.
+    release.set()
+
+
+async def test_1827_a_save_answers_before_its_snapshot(
+    client: AsyncClient, versioned_vault: Path, parked: asyncio.Event
+) -> None:
+    (versioned_vault / "a.md").write_text("# a")
+
+    answer = await asyncio.wait_for(client.put("/api/files/a.md", json={"content": "# new"}), 2.0)
+
+    assert answer.status_code == 200
+    assert (versioned_vault / "a.md").read_text().endswith("---\n# new")
+    parked.set()
+    await change.settled()
+    assert "# new" in saved_texts(versioned_vault, "a.md")
+
+
+async def test_1827_the_next_write_waits_for_the_snapshot(
+    client: AsyncClient, versioned_vault: Path, parked: asyncio.Event
+) -> None:
+    (versioned_vault / "a.md").write_text("# a")
+    await asyncio.wait_for(client.put("/api/files/a.md", json={"content": "# first"}), 2.0)
+
+    second = asyncio.create_task(client.put("/api/files/a.md", json={"content": "# second"}))
+    await asyncio.wait({second}, timeout=0.5)
+
+    assert not second.done()
+    assert (versioned_vault / "a.md").read_text().endswith("---\n# first")
+    parked.set()
+    assert (await second).status_code == 200
+    await change.settled()
+    assert {"# first", "# second"} <= saved_texts(versioned_vault, "a.md")
+
+
+async def test_1827_back_to_back_saves_each_land_in_the_op_log(
+    client: AsyncClient, versioned_vault: Path
+) -> None:
+    (versioned_vault / "a.md").write_text("# a")
+
+    for text in ("# one", "# two", "# three"):
+        assert (await client.put("/api/files/a.md", json={"content": text})).status_code == 200
+    await change.settled()
+
+    assert {"# one", "# two", "# three"} <= saved_texts(versioned_vault, "a.md")
+    assert descriptions(versioned_vault) == ["vault: a.md"]
+
+
+async def test_1827_two_racing_saves_of_one_note_both_land(
+    client: AsyncClient, versioned_vault: Path
+) -> None:
+    (versioned_vault / "a.md").write_text("# a")
+
+    answers = await asyncio.gather(
+        client.put("/api/files/a.md", json={"content": "# left"}),
+        client.put("/api/files/a.md", json={"content": "# right"}),
+    )
+    await change.settled()
+
+    assert [answer.status_code for answer in answers] == [200, 200]
+    assert {"# left", "# right"} <= saved_texts(versioned_vault, "a.md")
+    on_disk = (versioned_vault / "a.md").read_text()
+    assert jj(versioned_vault, "--ignore-working-copy", "file", "show", "root:a.md") == on_disk
+
+
+async def test_1827_a_lost_snapshot_is_taken_up_by_the_next(
+    client: AsyncClient, versioned_vault: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A no-op snapshot is the backend stopped after the answer: the task never ran.
+    (versioned_vault / "a.md").write_text("# a")
+    (versioned_vault / "b.md").write_text("# b")
+    real = change.snapshot
+
+    async def lost(_root: Path) -> None:
+        return None
+
+    monkeypatch.setattr(change, "snapshot", lost)
+    await client.put("/api/files/a.md", json={"content": "# answered"})
+    monkeypatch.setattr(change, "snapshot", real)
+
+    await client.put("/api/files/b.md", json={"content": "# b"})
+    await change.settled()
+
+    assert changed_paths(versioned_vault, 'description(substring:"vault: a.md")') == ["a.md"]
+    shown = jj(versioned_vault, "--ignore-working-copy", "file", "show", "-r", "@-", "root:a.md")
+    assert shown.endswith("---\n# answered")
+
+
+async def test_1827_a_snapshot_that_raises_logs_frees_the_lock_and_keeps_the_file(
+    client: AsyncClient,
+    versioned_vault: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    (versioned_vault / "a.md").write_text("# a")
+
+    async def broken(_root: Path) -> None:
+        raise RuntimeError("jj went away")
+
+    monkeypatch.setattr(change, "snapshot", broken)
+    await client.put("/api/files/a.md", json={"content": "# kept"})
+    await change.settled()
+    monkeypatch.setattr(change, "snapshot", vcs.snapshot)
+
+    assert (versioned_vault / "a.md").read_text().endswith("---\n# kept")
+    assert "jj snapshot failed" in caplog.text
+    after = await asyncio.wait_for(client.put("/api/files/a.md", json={"content": "# on"}), 5.0)
+    assert after.status_code == 200
+    await change.settled()
+    assert {"# kept", "# on"} <= saved_texts(versioned_vault, "a.md")
+
+
+async def test_1827_history_right_after_a_save_shows_it(
+    client: AsyncClient, versioned_vault: Path, parked: asyncio.Event
+) -> None:
+    await client.post("/api/files/a.md")
+    parked.set()
+    await change.settled()
+    parked.clear()
+    await client.put("/api/files/a.md", json={"content": "# fresh\n"})
+
+    listing = asyncio.create_task(client.get("/api/history", params={"path": "a.md"}))
+    await asyncio.wait({listing}, timeout=0.5)
+    assert not listing.done()
+    parked.set()
+    commit = (await listing).json()["changes"][0]["commit"]
+    version = await client.get("/api/history/version", params={"path": "a.md", "commit": commit})
+
+    assert version.json()["content"].endswith("---\n# fresh\n")
+
+
+async def test_1827_stopping_the_app_finishes_the_snapshot(
+    versioned_vault: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (versioned_vault / "a.md").write_text("# a")
+    real = change.snapshot
+
+    async def slow(root: Path) -> None:
+        await asyncio.sleep(0.3)
+        await real(root)
+
+    monkeypatch.setattr(change, "snapshot", slow)
+    async with (
+        LifespanManager(app, startup_timeout=None, shutdown_timeout=None),
+        AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as http,
+    ):
+        await http.put("/api/files/a.md", json={"content": "# before the stop"})
+
+    shown = jj(versioned_vault, "--ignore-working-copy", "file", "show", "-r", "@", "root:a.md")
+    assert shown.endswith("---\n# before the stop")
+
+
+async def test_1827_an_unversioned_vault_starts_no_snapshot(
+    client: AsyncClient, vault: Path
+) -> None:
+    await client.put("/api/files/a.md", json={"content": "# plain"})
+
+    assert change._snapshotting is None
+    assert not change._lock.locked()
