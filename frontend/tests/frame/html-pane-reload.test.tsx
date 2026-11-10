@@ -9,6 +9,7 @@ import "./html-take-api";
 import { commands as browser, page, userEvent } from "vitest/browser";
 import {
   late,
+  nextLoad,
   renderPanes,
   report,
   rewrite as rewriteIn,
@@ -393,12 +394,16 @@ it("a page left and opened again at its top reloads at its top", async () => {
   render([PATH], {});
   await ready(frameOf(mounted, 0));
   await scrollBy(frameOf(mounted, 0), 900);
+  const other = nextLoad(mounted, 0);
   render([OTHER], {});
   await browser.pageServed(`/api/html/${OTHER}`);
-  await expect.poll(async () => titleOf(frameOf(mounted, 0))).toBe("other");
+  await other();
+  expect(await titleOf(frameOf(mounted, 0))).toBe("other");
+  const back = nextLoad(mounted, 0);
   render([PATH], {});
   await browser.pageServed(`/api/html/${PATH}`, 2);
-  await expect.poll(async () => titleOf(frameOf(mounted, 0))).toBe("old");
+  await back();
+  expect(await titleOf(frameOf(mounted, 0))).toBe("old");
 
   await rewrite(PATH, report("new"), 0);
 
