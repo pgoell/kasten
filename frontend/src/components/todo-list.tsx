@@ -23,7 +23,7 @@ const GUTTER = 0.75;
 const HEADING_TEXT = "font-sans text-k-12 tracking-[var(--k-track-label)] text-k-muted uppercase";
 
 /** A group heading, capped at the width a row is, so its label stays by its rows. */
-const HEADING = `max-w-[52rem] px-3 pt-2 pb-1 ${HEADING_TEXT}`;
+const HEADING = `max-w-(--k-todo-measure) px-3 pt-2 pb-1 ${HEADING_TEXT}`;
 
 /** The touch state button's face: the state, or while it asks, what a second tap leaves and `?`. */
 function stateFace(asking: boolean, next: TodoState | undefined, state: TodoState) {
@@ -275,8 +275,12 @@ export function TodoList(p: {
   }
 
   return (
-    /* A list that moves under the finger has moved the armed row with it. */
-    <div className="flex-1 overflow-auto py-1" onScroll={() => onArm(null)}>
+    /* A list that moves under the finger has moved the armed row with it. The column sits in
+       the middle, as a text pane's does; the padding keeps the whole width scrollable. */
+    <div
+      className="flex-1 overflow-auto px-[max(0px,calc((100%-var(--k-todo-measure))/2))] py-1"
+      onScroll={() => onArm(null)}
+    >
       {empty !== null ? (
         <p className="px-3 py-1 text-k-13 text-k-muted">{empty}</p>
       ) : (
