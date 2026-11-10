@@ -58,3 +58,30 @@ describe("the clock in the bar", () => {
     expect(onTakeVault).toHaveBeenCalledOnce();
   });
 });
+
+describe("the quiet bar on a phone", () => {
+  it("draws nothing while there is nothing to act on", () => {
+    const { container } = render(<StatusBar quiet status="saved" version="1.0.0" />);
+
+    expect(container.querySelector("footer")).toBeNull();
+  });
+
+  it("draws nothing for a save that settles itself", () => {
+    const { container } = render(<StatusBar quiet status="saving" />);
+
+    expect(container.querySelector("footer")).toBeNull();
+  });
+
+  it.each([
+    ["a notice", { notice: "The vault refused it" }],
+    ["a failed write", { status: "error" as const }],
+    ["a conflict", { status: "conflict" as const }],
+    ["a held note", { held: [{ path: "a.md", reason: "refused" }] }],
+    ["the archive", { archive: true }],
+  ])("comes back for %s, without the clock", (_, props) => {
+    const { container } = render(<StatusBar quiet {...props} />);
+
+    expect(container.querySelector("footer")).not.toBeNull();
+    expect(container.querySelector("time")).toBeNull();
+  });
+});

@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: kasten on a phone
-description: Why vim is off under a finger, why a split stacks its panes, why a tap raises no keyboard, why the toolbar stays above the keyboard, why a todo takes two taps and has no Undo, why kasten installs as one app, why it opens with no signal, why the camera reads barcodes on the phone and stops when the app hides, what an open tab does across a release, and what no real phone has confirmed.
+description: Why vim is off under a finger, why a split stacks its panes, why a tap raises no keyboard, why a phone draws two bars, why the toolbar stays above the keyboard, why a todo takes two taps and has no Undo, why kasten installs as one app, why it opens with no signal, why the camera reads barcodes on the phone and stops when the app hides, what an open tab does across a release, and what no real phone has confirmed.
 tags: [design, phone, touch, vim, keyboard, frontend]
 status: stable
 ---
@@ -65,7 +65,8 @@ widens, as when a phone is turned on its side.
 
 The keyboard takes half the screen, and two stacked panes would leave neither
 room to type. So while it is up, the focused pane alone takes the full height.
-The status bar still says `pane 1/2`, since the other pane is hidden from view.
+The toolbar's next-pane button still says `1/2`, since the other pane is hidden
+from view.
 
 This follows the width alone. A thin desktop window stacks its panes too.
 
@@ -96,6 +97,11 @@ editor the focus is the safer of the two, and a wide screen has room for a
 keyboard.
 
 The rule leaves a terminal out: a shell is for typing.
+
+## Two bars, not four
+
+A phone keeps the tab strip and one toolbar row, 88px of 664. The rest only
+repeated: the top bar `find`, the clock the phone's own, Space a key's panel.
 
 ## The toolbar stays above the keyboard
 

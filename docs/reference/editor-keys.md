@@ -48,8 +48,8 @@ does not provide.
 ## The log pane
 
 `<leader>gf` puts the food log in the focused pane, in place of whatever it
-held. The pane opens on today, and the keys below move it from day to day. The
-toolbar's `log` button does the same.
+held. The pane opens on today, and the keys below move it from day to day. On a
+phone, `run` and then `Open the log` does the same.
 
 | Key | Does |
 | --- | --- |

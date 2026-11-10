@@ -54,7 +54,20 @@ test.describe("on a phone", () => {
     await expect(toolbar(page)).toHaveCount(0);
   });
 
-  test("the toolbar opens the palette, the finder and the search, and a tap on each sheet shuts it", async ({
+  test("draws no top bar or status bar while nothing needs them, and the tab strip makes notes", async ({
+    page,
+  }) => {
+    await load(page);
+    await expect
+      .poll(async () => [
+        // The top bar's New note would make two.
+        await page.getByRole("button", { name: "New note" }).count(),
+        await page.locator("footer").count(),
+      ])
+      .toEqual([1, 0]);
+  });
+
+  test("the toolbar opens the palette and the finder, the palette the search, and a tap on each sheet shuts it", async ({
     page,
   }) => {
     await load(page);
@@ -70,7 +83,8 @@ test.describe("on a phone", () => {
     await tapSheet(page);
     await expect(page.getByRole("dialog")).toHaveCount(0);
 
-    await page.getByRole("button", { name: "Search note content" }).tap();
+    await page.getByRole("button", { name: "Run a command by name" }).tap();
+    await page.getByRole("option", { name: /^Search note content/ }).tap();
     await expect(page.getByRole("dialog", { name: "Search notes" })).toBeVisible();
     await tapSheet(page);
     await expect(page.getByRole("dialog")).toHaveCount(0);
@@ -80,7 +94,8 @@ test.describe("on a phone", () => {
     page,
   }) => {
     await load(page);
-    await page.getByRole("button", { name: "Search note content" }).tap();
+    await page.getByRole("button", { name: "Run a command by name" }).tap();
+    await page.getByRole("option", { name: /^Search note content/ }).tap();
     const search = page.getByRole("dialog", { name: "Search notes" });
     await search.getByRole("combobox", { name: "search notes" }).tap();
     await search.getByRole("button", { name: "Filters" }).tap();
@@ -106,7 +121,7 @@ test.describe("on a phone", () => {
       .toEqual(["russet", "russet"]);
   });
 
-  test("the frame makes room for a keyboard that covers the page, the bar and toolbar inside it", async ({
+  test("the frame makes room for a keyboard that covers the page, the toolbar inside it", async ({
     page,
   }) => {
     // Headless Chromium draws no keyboard, so the visual viewport is one the page can shrink.
@@ -131,10 +146,9 @@ test.describe("on a phone", () => {
     await expect
       .poll(async () => [
         await frame.evaluate((main) => main.style.paddingBottom),
-        await frame.locator("footer").count(),
         await frame.getByRole("toolbar", { name: "Commands" }).count(),
       ])
-      .toEqual(["300px", 1, 1]);
+      .toEqual(["300px", 1]);
   });
 
   test("a conflict shows the diff, with both buttons under the part that scrolls, and writes nothing", async ({

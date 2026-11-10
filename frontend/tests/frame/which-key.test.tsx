@@ -8,7 +8,6 @@
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { commands, page } from "vitest/browser";
-import { Toolbar } from "@/components/toolbar";
 import { WhichKey } from "@/components/which-key";
 import { beginLeader, paneOpener } from "@/lib/ui/keys/which-key";
 import "@/styles/app.css";
@@ -227,33 +226,6 @@ it("on a phone a flick down closes the panel", async () => {
   pointer(grabber, "pointerup", start.x, start.y + 80);
 
   await expect.poll(() => panelOf(), { timeout: 3000 }).toBeNull();
-});
-
-it("on a phone the toolbar's space button opens the panel", async () => {
-  await page.viewport(390, 844);
-  await commands.emulateMedia({ touch: true });
-  flushSync(() => {
-    root.render(
-      <>
-        <button type="button">Note</button>
-        <Toolbar commands={stubCommands()} split={false} />
-        <WhichKey phone />
-      </>,
-    );
-  });
-  await nextFrame();
-  opener().focus();
-
-  const space = document.querySelector<HTMLButtonElement>(
-    "button[aria-label='Show the leader keys']",
-  ) as HTMLButtonElement;
-  const at = centreOf(space);
-  pointer(space, "pointerdown", at.x, at.y);
-  pointer(space, "pointerup", at.x, at.y);
-  space.click();
-
-  await expect.poll(() => panelOf(), { timeout: 2000 }).not.toBeNull();
-  expect(panelOf()?.querySelector("[data-sheet-drag]")).not.toBeNull();
 });
 
 it("on a phone Tab stays inside the sheet", async () => {

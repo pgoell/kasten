@@ -227,7 +227,13 @@ function expectNoSideways(): void {
   expect(root.scrollWidth, "the page's scroll width").toBeLessThanOrEqual(root.clientWidth);
 }
 
-/** The pane at a phone's size, by touch, opened from the toolbar's log button. */
+/** The palette's `Open the log` row, which a phone reaches through `run`. */
+function logRow(): HTMLElement | null {
+  const rows = document.querySelectorAll<HTMLElement>("[role='option']");
+  return [...rows].find((row) => row.textContent?.startsWith("Open the log")) ?? null;
+}
+
+/** The pane at a phone's size, by touch, opened from the palette's Open the log row. */
 async function openPhone(
   motion: "reduce" | "no-preference" = "no-preference",
 ): Promise<HTMLElement> {
@@ -235,9 +241,11 @@ async function openPhone(
   await commands.emulateMedia({ touch: true, reducedMotion: motion });
   await mount(390, 844);
   await expect
-    .poll(() => document.querySelector("button[aria-label='Open the log']"))
+    .poll(() => document.querySelector("button[aria-label='Run a command by name']"))
     .not.toBeNull();
-  await tap(document.querySelector<HTMLElement>("button[aria-label='Open the log']"));
+  await tap(document.querySelector<HTMLElement>("button[aria-label='Run a command by name']"));
+  await expect.poll(logRow).not.toBeNull();
+  await tap(logRow());
   await expect.poll(pane).not.toBeNull();
   return pane() as HTMLElement;
 }

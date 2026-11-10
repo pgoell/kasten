@@ -82,10 +82,9 @@ test.describe("the tree's drawer on a phone", () => {
       .toEqual([1, false, expect.stringContaining("Long note.md")]);
   });
 
-  test("the status bar is out of reach while the drawer is open", async ({ page }) => {
+  test("the toolbar is out of reach while the drawer is open", async ({ page }) => {
     await load(page);
-    // A footer, not a landmark: it sits inside the page's main.
-    const bar = page.locator("footer");
+    const bar = page.getByRole("toolbar", { name: "Commands" });
     await expect(bar).not.toHaveAttribute("inert");
 
     await openDrawer(page);
@@ -99,7 +98,7 @@ test.describe("the tree's drawer on a phone", () => {
   }) => {
     await load(page);
     await openDrawer(page);
-    // The top bar has a New note button too, so the drawer's own is found inside its aside.
+    // The tab strip has a New note button too, so the drawer's own is found inside its aside.
     await page.locator("aside").getByRole("button", { name: "New note" }).tap();
     const name = page.getByRole("dialog", { name: "New note" }).getByRole("combobox");
     await expect(name).toBeFocused();

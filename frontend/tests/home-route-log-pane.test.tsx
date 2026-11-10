@@ -270,16 +270,15 @@ describe("the log pane, on the route", () => {
     expect(savedToday()).not.toContain("- 💧 500 ml");
   });
 
-  it("#624 the phone toolbar's log button opens the pane and a tap on an entry then Delete removes its line", async () => {
+  it("#624 on a phone the palette's Open the log opens the pane and a tap on an entry then Delete removes its line", async () => {
     stubMatchMedia({ [NARROW]: true, [COARSE]: true });
     todayText = LOGGED_TEXT;
     fetchLog.mockResolvedValue([DAY]);
     const app = await renderApp(`/?note=${encodeURIComponent(TODAY)}`);
     await settle();
 
-    const toolbar = screen.queryByRole("button", { name: "Open the log" });
-    expect(toolbar).not.toBeNull();
-    fireEvent.click(toolbar as HTMLElement);
+    fireEvent.click(screen.getByRole("button", { name: "Run a command by name" }));
+    fireEvent.click(screen.getByRole("option", { name: /^Open the log/ }));
     await settle();
     const pane = logPane() as HTMLElement;
     expect(pane).not.toBeNull();

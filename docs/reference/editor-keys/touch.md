@@ -28,9 +28,9 @@ a phone turned on its side can stop being narrow.
 
 | Needs | What it brings |
 | --- | --- |
-| Narrow | [The file tree](/reference/editor-keys/file-tree.md#the-file-tree) as a drawer over the page, closed to begin with. A split stacks its panes top and bottom, and while the keyboard is up only the focused one shows. The status bar says `pane 1/2` and drops the weekday, the week, the version and `zoom`, as [Panes and tabs](/reference/editor-keys/panes-and-tabs.md#panes-and-tabs) says. [The note finder](/reference/editor-keys/finding.md#the-note-finder) and [the note search](/reference/editor-keys/finding.md#the-note-search) draw no preview |
+| Narrow | [The file tree](/reference/editor-keys/file-tree.md#the-file-tree) as a drawer over the page, closed to begin with. A split stacks its panes top and bottom, and while the keyboard is up only the focused one shows. The status bar says `pane 1/2` (on a phone the toolbar says `1/2`) and drops the weekday, the week, the version and `zoom`, as [Panes and tabs](/reference/editor-keys/panes-and-tabs.md#panes-and-tabs) says. [The note finder](/reference/editor-keys/finding.md#the-note-finder) and [the note search](/reference/editor-keys/finding.md#the-note-search) draw no preview |
 | Coarse | The editor starts [without vim](/reference/editor-keys.md#vim-on-or-off). Rows and buttons are 44px tall. Inputs are 16px. The frame makes room for [the on-screen keyboard](#the-on-screen-keyboard). A terminal draws [a row of keys](/reference/editor-keys/terminal.md#terminal). Each pane draws [its own buttons](#what-each-pane-answers) |
-| Narrow and coarse | [The toolbar](#the-toolbar). No rail beside the file tree |
+| Narrow and coarse | [The toolbar](#the-toolbar). No top bar, and a + at the end of the tab strip that makes a note. A status bar with no clock, drawn only while it holds a notice, a failed write, a note changed on disk, a held note or the archive. No rail beside the file tree |
 | Narrow, and the last input was a touch | The editor takes [no focus it was not asked for](#focus) |
 | A touch, whatever the window | A tap on a wikilink [follows it](/reference/editor-keys/links.md#wikilinks) |
 | Neither | A tap or a click [outside a panel](#closing-a-panel) closes it. A tap or a click on a notice in the status bar opens it out in full |
@@ -43,29 +43,22 @@ a touch screen.
 
 ### The toolbar
 
-A row along the bottom edge, under the status bar. When the buttons do not all
-fit on one line, the row wraps and the rest go to a second line. Ten buttons at
-44px fit no phone, so the last ones always do: `timers` on a 412px phone, `chat`
-and `timers` on a 360px or 390px one, and `pane` too once the tab holds a split.
+A single row along the bottom edge, under the status bar when there is one.
+Seven buttons at most, so each is 51px or wider on a 360px phone.
 
 | Button | Does | Command | Key |
 | --- | --- | --- | --- |
 | `files` | Open or close the file tree | `toggleTree` | `<leader>b` |
 | `find` | Open the note finder | `findNote` | `<leader>ff` |
-| `search` | Open search over note content | `searchNotes` | `<leader>fg` |
-| `run` | Open the command palette | `openPalette` | `<leader>:` |
 | `today` | Open today's note | `openDaily` | `<leader>gd` |
 | `todos` | Open the todo pane | `openTodos` | `<leader>gt` |
-| `log` | Open the log | `openLog` | `<leader>gf` |
 | `chat` | Open the chat with Claude Code | `openChat` | `<leader>cc` |
-| `timers` | Open the timers | `openTimers` | `<leader>gT` |
-| `pane` | Move to the next pane. Drawn only while the tab holds more than one | `nextPane` | `<leader>o` |
-| `space` | Open the which-key panel, as Space does | none | `Space` |
+| `run` | Open the command palette | `openPalette` | `<leader>:` |
+| `1/2` | Move to the next pane. Drawn only while the tab holds more than one, and reads which pane is in view of how many | `nextPane` | `<leader>o` |
 
-Each button runs the command its key runs and nothing more, and `space` opens
-the which-key panel and runs nothing. Every other leader
+Each button runs the command its key runs and nothing more. Every other leader
 command is a row of [the command palette](/reference/editor-keys/leader.md#the-command-palette), which `run`
-opens.
+opens: `Search note content`, `Open the log` and `Open the timers` among them.
 
 A tap on a button leaves the focus where it was. `run` tapped while you type in
 a note opens the palette over that note, with its inserts and edits listed, and

@@ -36,6 +36,7 @@ export function WorkspacePanes({
   playSignal,
   graphAsk,
   graphSheet,
+  newNote,
   preview,
   listings,
   opening,
@@ -62,6 +63,8 @@ export function WorkspacePanes({
   playSignal: number;
   graphAsk: PaneExtras["graphAsk"];
   graphSheet?: PaneExtras["graphSheet"];
+  /** Drawn as a plus at the strip's end where the top bar is not, on a phone. */
+  newNote?: () => void;
   preview: boolean;
   listings: PaneExtras["listings"];
   opening: PaneExtras["opening"];
@@ -119,6 +122,7 @@ export function WorkspacePanes({
         onSelect={(index) => moveTo((previous) => goToTab(previous, index))}
         onClose={(index) => moveTo((previous) => closeTab(previous, index))}
         onHome={() => moveTo((previous) => homeTab(previous))}
+        onNewNote={newNote}
         unsaved={(each) => isUnsaved(each, each.id === tab.id, buffer.held, status)}
       />
       <div className="flex min-h-0 flex-1">

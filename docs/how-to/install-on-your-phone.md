@@ -91,7 +91,8 @@ subscription.
 A timer rings on every device that gets reminders, so subscribe first, as
 above.
 
-1. Tap `timers` in the toolbar, or open an empty pane, which shows Today.
+1. Tap `Today` at the start of the tab strip, which shows the timers, or tap
+   `run` and choose `Open the timers`.
 2. Under **Timers**, type a name such as `Washer` and a duration such as
    `1h 25m`, `1:25` or `85`, and press **Start**.
 3. Wait: the row counts down, and when it ends each device gets a push with the
@@ -104,7 +105,8 @@ cancel one, press **Stop** beside it.
 
 Subscribe first, as above: the reminders go to every device that gets them.
 
-1. Tap `timers` in the toolbar, or open an empty pane, which shows Today.
+1. Tap `Today` at the start of the tab strip, which shows the timers, or tap
+   `run` and choose `Open the timers`.
 2. Under **Timers**, check the gap after **every**, `1h 30m` at first, and the
    stop time after **until**, `21:00` at first. The gap reads like a timer's
    duration.
