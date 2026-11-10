@@ -425,13 +425,24 @@ async def test_1768_a_save_waits_while_another_process_holds_the_flock(
 
 
 async def test_1768_the_flock_covers_the_snapshot(
-    client: AsyncClient, versioned_vault: Path, parked: asyncio.Event
+    client: AsyncClient, versioned_vault: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     (versioned_vault / "a.md").write_text("# a")
-    await asyncio.wait_for(client.put("/api/files/a.md", json={"content": "# a"}), 5.0)
-    assert not lock_is_free()
+    entered, release = asyncio.Event(), asyncio.Event()
 
-    parked.set()
+    async def parking(root: Path) -> None:
+        entered.set()
+        await release.wait()
+        await vcs.snapshot(root)
+
+    monkeypatch.setattr(change, "snapshot", parking)
+    try:
+        await asyncio.wait_for(client.put("/api/files/a.md", json={"content": "# a"}), 5.0)
+        await asyncio.wait_for(entered.wait(), 5.0)
+        assert not lock_is_free()
+    finally:
+        # Set on a failure too, or the app's shutdown waits on the parked snapshot.
+        release.set()
     await change.settled()
     assert lock_is_free()
 
