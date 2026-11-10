@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Log format
-description: How a daily note logs water, coffee, alcohol and food as lines under ## Log, every kind and its fields, the config note that sets the card's kinds and daily goals, what does not parse, how a day adds up, and the table of cases the parser is tested against.
+description: How a daily note logs water, coffee, alcohol and food as lines under ## Log, every kind and its fields, the config note that sets the card's kinds and daily goals, the goals of a training day, what does not parse, how a day adds up, and the table of cases the parser is tested against.
 resource: frontend/src/lib/log/cases/log-cases.json
 tags: [vault, log, format, backend]
 status: stable
@@ -176,6 +176,7 @@ field is left out of the answer.
 - 🍺 alcohol: 1, max 2
 - 🍵 tea: 1 cup, min 3
 - 🍽 food: kcal max 2200, protein min 120, carbs max 250, fat max 70
+- 🍽 training: kcal max 2600, protein min 160
 ```
 
 Only lines that start with `- ` at column 0 are read. The frontmatter and every
@@ -219,6 +220,16 @@ Its fields are kcal, protein, carbs and fat, each `min` or `max`, each at most
 once. It adds no button. It sets the food goals, and a food goal shows on the
 card before the first food.
 
+A food line named `training`, in any case, sets the goals of a training day
+instead: `- 🍽 training: kcal max 2600, protein min 160`. A day is a training
+day when its note's `## Training` section holds a line that reads as an entry
+(see [Training format](/reference/training-format.md)). On that day the card
+and the food sheet show each field the training line names in place of the
+everyday goal, and the everyday goal for the rest: with the two lines above, a
+training day's goals are kcal max 2600, protein min 160, carbs max 250 and fat
+max 70. The log pane, the overview and the evening reminder keep the everyday
+goals.
+
 These lines are broken, and the card skips them:
 
 - a line that does not match the forms above
@@ -230,7 +241,7 @@ These lines are broken, and the card skips them:
 - `last` with a tap (`- ⚖ weight: 80 kg, last`), on 💧, ☕ or 🍺, after a goal
   (`- ⚖ weight: kg, max 85, last`), or twice
 - an unknown or repeated food field
-- a second food line
+- a second food line, or a second `training` food line
 
 The card names each broken line as `Skipped line N of log.md: <text>`. The
 other lines still work.

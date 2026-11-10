@@ -10,10 +10,11 @@ import { rows, Turn, Working } from "./transcript";
 const GHOST =
   "inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1 text-[13px] text-k-muted transition-colors hover:bg-k-surface hover:text-k-ink disabled:opacity-40 pointer-coarse:min-h-11 pointer-coarse:px-3";
 
-/** The two skills this pane exists to start, each one press away. */
+/** The skills this pane exists to start, each one press away. kasten writes `/meal-planner` (#1728). */
 const SKILLS = [
   { name: "/close-day", what: "Wrap up today and plan tomorrow" },
   { name: "/process-meeting", what: "Turn a meeting into notes and todos" },
+  { name: "/meal-planner", what: "Draft next week's meal plan" },
 ];
 
 /** How long a pane waits before it asks a runner that was not there again. */
@@ -216,7 +217,7 @@ export function ChatPane({ commands, focusSignal }: ChatPaneProps) {
   );
 }
 
-/** What the pane says before anything is said: who is here, and the two skills as cards. */
+/** What the pane says before anything is said: who is here, and the skills as cards. */
 function Welcome({ send }: { send: (text: string) => void }) {
   return (
     <div className="flex min-h-[40vh] flex-col justify-center gap-5 py-6">

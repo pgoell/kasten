@@ -47,15 +47,17 @@ def test_769_a1_config_rows(row: dict[str, Any]) -> None:
     from kasten_backend.log_config import parse_config  # noqa: PLC0415
 
     config = parse_config(row["line"])
-    broken = row["kind"] is None and "food" not in row
+    broken = row["kind"] is None and "food" not in row and "training" not in row
 
     assert {
         "kinds": [as_row(kind) for kind in config.kinds],
         "food": {field: asdict(goal) for field, goal in config.food.items()},
+        "training": {field: asdict(goal) for field, goal in config.training.items()},
         "broken": [{"line": line, "text": text} for line, text in config.broken],
     } == {
         "kinds": [] if row["kind"] is None else [row["kind"]],
         "food": row.get("food", {}),
+        "training": row.get("training", {}),
         "broken": [{"line": 1, "text": row["line"]}] if broken else [],
     }
 
@@ -182,4 +184,20 @@ async def test_769_a2_built_in_kinds_count_whatever_the_config_says(
                 },
             }
         ],
+    }
+
+
+def test_1728_a_training_day_takes_its_own_goals_over_the_everyday_ones() -> None:
+    from kasten_backend.log_config import Goal, parse_config  # noqa: PLC0415
+
+    config = parse_config(
+        "- 🍽 food: kcal max 2200, protein min 120\n"
+        "- 🍽 training: protein min 160\n"
+        "- 🍽 training: kcal max 2800"
+    )
+    assert config.broken == [(3, "- 🍽 training: kcal max 2800")]
+    assert config.food_on(trained=False)["protein"] == Goal("floor", 120)
+    assert config.food_on(trained=True) == {
+        "kcal": Goal("ceiling", 2200),
+        "protein": Goal("floor", 160),
     }

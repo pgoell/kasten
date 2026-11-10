@@ -330,6 +330,7 @@ class Settings(BaseSettings):
             "config": self.config_path,
             "archive": self.archive_path,
             "skills": self.skills_path,
+            "share": self.share_folder,
         }
         for name, folder in folders.items():
             text = text.replace(f"{{{{{name}}}}}", folder)

@@ -146,7 +146,8 @@ async def read_meal_plan(
     training = await asyncio.to_thread(_training, settings, plan)
     protein = await _protein(settings, meals, recipes)
     config = parse_config(_read(settings, f"{settings.config_path}/{CONFIG_NOTE}"))
-    goal = config.food.get("protein")
+    # The card shows protein on training days, so the training goal applies where there is one.
+    goal = config.food_on(trained=True).get("protein")
     week = None if plan.monday is None else plan.monday.strftime("%G-W%V")
     return MealPlan(
         week=week,
