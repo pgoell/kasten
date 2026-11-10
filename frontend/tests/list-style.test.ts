@@ -68,6 +68,15 @@ describe("cycleListStyle", () => {
     expect(cycled(["plain"], 1)).toEqual(["plain"]);
   });
 
+  it("skips the letters for a list with lines under its items", () => {
+    // `a)` is paragraph text to CommonMark, so the child would parse as a list of its own.
+    expect(cycled(["1. one", "   - nested", "2. two"], 1)).toEqual([
+      "- one",
+      "   - nested",
+      "- two",
+    ]);
+  });
+
   it("goes to bullets rather than past z", () => {
     const long = Array.from({ length: 27 }, (_, i) => `${i + 1}. item`);
 

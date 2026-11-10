@@ -316,8 +316,10 @@ export function cycleListStyle(view: EditorView): boolean {
   const [head] = items;
   const start = head === undefined || styleOf(head.mark) === "bullet" ? 1 : startOf(head.mark);
   let style = NEXT_STYLE[styleOf(head?.mark ?? "-")];
-  // Past `z)` there is no letter, so a long list skips to bullets.
-  if (style === "letter" && start + items.length - 1 > 26) style = "bullet";
+  // Past `z)` there is no letter. And `a)` is paragraph text to CommonMark, so
+  // a child under it parses as a list of its own and draws at the wrong level.
+  const nested = items.some((item) => item.children.some((child) => child.text.trim() !== ""));
+  if (style === "letter" && (nested || start + items.length - 1 > 26)) style = "bullet";
 
   const changes: ChangeSpec[] = [];
   items.forEach((item, index) => {
