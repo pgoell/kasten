@@ -46,3 +46,8 @@ updates:
     groups:
       docker-minor-patch:
         update-types: [minor, patch]
+    # A postgres major cannot start on a data directory from the last one, so
+    # it moves by hand with pg_upgrade.
+    ignore:
+      - dependency-name: postgres
+        update-types: [version-update:semver-major]

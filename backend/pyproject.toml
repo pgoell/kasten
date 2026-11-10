@@ -19,11 +19,8 @@ dependencies = [
     "httpx>=0.28",
     "justhtml==3.16.0",
     "markdown-it-py>=3.0",
-    # Pinned exactly, not floored, so a bump only comes as its own pull
-    # request (Dependabot's, or a person's), where the round-trip test in
-    # `test_mcp.py` turns it into a CI answer rather than a production
-    # discovery. The SDK renamed its server class between major versions and
-    # moved the option names with it.
+    # Pinned exactly, so a bump is its own pull request, where `test_mcp.py`'s
+    # round trip catches the SDK's renames before production does.
     "mcp==2.2.0",
     "numpy>=2.3",
     "onnxruntime>=1.23",
