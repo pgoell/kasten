@@ -55,6 +55,14 @@ describe("live preview", () => {
     expect(table.querySelector("tbody .cm-wikilink")?.textContent).toBe("2026-11-09#Log");
   });
 
+  it("draws a cell's link as off a table: a trailing slash kept, an empty alias's bar gone", () => {
+    const lines = ["before", "", "| a | b |", "| --- | --- |", "| [[notes/]] | [[borges\\|]] |"];
+    const { container } = renderEditor(<Editor initialDoc={lines.join("\n")} />);
+
+    const links = container.querySelectorAll(".cm-table-grid tbody .cm-wikilink");
+    expect([...links].map((link) => link.textContent)).toEqual(["notes/", "borges"]);
+  });
+
   it("leaves the prose under a table out of it", () => {
     // GFM ends a table at a blank line, so a paragraph written straight under
     // one parses as rows of a single cell. The cursor starts on line one, so

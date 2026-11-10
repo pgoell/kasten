@@ -133,10 +133,10 @@ describe("live preview", () => {
     expect(container.querySelector(".cm-wikilink-dead")?.textContent).toBe("2026-11-09");
   });
 
-  it("drops the bar of an empty alias from a folder link", () => {
-    const { container } = renderEditor(<Editor initialDoc="[[reading/borges|]]" />);
+  it("drops the bar of an empty alias", () => {
+    const { container } = renderEditor(<Editor initialDoc="[[reading/borges|]] [[borges|]]" />);
 
-    expect(content(container)).toBe("borges");
+    expect(content(container)).toBe("borges borges");
   });
 
   it("shows the whole path again with the cursor in it in insert mode", async () => {
