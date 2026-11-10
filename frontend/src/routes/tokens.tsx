@@ -123,7 +123,7 @@ function Tokens() {
                 id="token-name"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                placeholder="laptop"
+                placeholder="e.g. laptop"
                 className="min-h-11 w-full min-w-0 rounded border border-k-rule bg-k-surface px-3 font-mono text-k-13 outline-none placeholder:text-k-muted focus:border-k-ink pointer-coarse:text-base pointer-fine:min-h-9"
               />
             </label>
