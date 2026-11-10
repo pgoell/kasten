@@ -83,3 +83,7 @@ export const TAP = "pointer-coarse:min-h-11 pointer-coarse:items-center";
 
 /** The line under the list, which is empty whenever the list speaks for itself. */
 export const STATUS = "border-t border-k-rule px-3 py-1 text-[11px] text-k-muted";
+
+/** The link from a page of its own, such as `/settings`, back to the notes. */
+export const BACK_LINK =
+  "self-start text-k-13 text-k-muted underline-offset-2 hover:text-k-accent hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center";
