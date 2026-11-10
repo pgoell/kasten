@@ -187,6 +187,8 @@ it("with vim off, Backspace at the start of the first body line in Read shows th
   localStorage.setItem("kasten.vim", "off");
   const { container } = render(<Editor initialDoc={DOC} path={PATH} commands={stubCommands()} />);
   const view = viewIn(container);
+  // Twice: the note opens on its text, and a cursor arriving from there steps past the `# `.
+  act(() => view.dispatch({ selection: { anchor: DOC.indexOf("# Reader") } }));
   act(() => view.dispatch({ selection: { anchor: DOC.indexOf("# Reader") } }));
 
   // The Backspace joins the closing fence to the heading, so the block no longer closes.

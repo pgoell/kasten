@@ -39,6 +39,20 @@ describe("live preview", () => {
     await waitFor(() => expect(content(container)).not.toContain("##"));
   });
 
+  it("steps the cursor out of the marks that escape hides again", async () => {
+    // Escape moves the cursor back one, into the `## ` it is about to hide.
+    const { container } = renderEditor(<Editor initialDoc="## Notes" />);
+    const editor = container.querySelector(".cm-content") as HTMLElement;
+
+    fireEvent.keyDown(editor, { key: "i" });
+    await waitFor(() => expect(content(container)).toContain("##"));
+    fireEvent.keyDown(editor, { key: "Escape" });
+    await waitFor(() => expect(content(container)).not.toContain("##"));
+    fireEvent.keyDown(editor, { key: "x" });
+
+    expect(content(container)).toBe("otes");
+  });
+
   it("renders inline emphasis with the marks hidden", () => {
     const { container } = renderEditor(
       <Editor initialDoc="**bold** and *italic* and `code` and ~~gone~~" />,
