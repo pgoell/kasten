@@ -34,6 +34,10 @@ updates:
     groups:
       bun-minor-patch:
         update-types: [minor, patch]
+    # Pinned and patched (frontend/patches), and 1.8 reads comments and empty
+    # list items unlike the backend's tag reader, which tag-cases.json holds both to.
+    ignore:
+      - dependency-name: "@lezer/markdown"
   # The FROM lines name image:tag@digest, so Dependabot moves the digest when
   # the tag is rebuilt, and the tag with it on a new release.
   - package-ecosystem: docker
