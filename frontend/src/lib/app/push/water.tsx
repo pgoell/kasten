@@ -137,7 +137,8 @@ export function WaterSwitch({
           type="time"
           value={until}
           onChange={(event) => setUntil(event.target.value)}
-          className={`${FIELD} w-28`}
+          // Its own width: a 12-hour clock's `PM` and picker icon cut a fixed one short.
+          className={`${FIELD} w-auto`}
         />
       </label>
       {failed !== null && (
