@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import {
   currentEndpoint,
@@ -66,6 +66,12 @@ function Settings() {
   return (
     <main className="min-h-dvh bg-k-bg font-sans text-k-ink">
       <div className="mx-auto flex max-w-[720px] flex-col gap-6 px-4 py-6 md:px-6 md:py-9">
+        <Link
+          to="/"
+          className="self-start text-k-13 text-k-muted underline-offset-2 hover:text-k-accent hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center"
+        >
+          ← Back to the notes
+        </Link>
         <h1 className="font-serif text-k-27">settings</h1>
 
         <section

@@ -263,7 +263,9 @@ Opened over a note, the palette lists every leader command, every leader edit,
 the four formatting marks, the inserts below, and the commands vim spells at
 its prompt: the write, the two rereads, the three copies and `gf`. Opened over
 a pane with no note, it lists the leader commands only, as the rest act on a
-note. Both lists end with `Go to tab 1` to `Go to tab 10`, `Toggle vim keys`,
+note. Both lists end with `Go to tab 1` to `Go to tab 10`, `Open the settings`
+and `Open the agent tokens` (the pages `/settings` and `/tokens`, each with a
+link back to the notes), `Toggle vim keys`,
 `Toggle light and dark mode` (see [the design tokens](/reference/design-tokens.md#light-and-dark)),
 the four `Accent palette: …` rows (see [Accent palettes](/reference/accent-palettes.md)),
 one `Log <name>` per kind of the log config note, and `Log food`, none of
