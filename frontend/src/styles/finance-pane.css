@@ -45,7 +45,8 @@
 }
 
 /* A row that scrolls fades at its right edge until scrolled to the end, so a cut name reads as
-   more to come. A row that fits has no scroll timeline, so the fade never applies. */
+   more to come. A row that fits has no scroll timeline, so the fade never applies. The second
+   mask layer keeps the bottom rule whole, as a mask covers the border too. */
 @supports (animation-timeline: scroll()) {
   .finance-pane-tabs {
     animation: finance-tabs-fade linear both;
@@ -56,7 +57,9 @@
 @keyframes finance-tabs-fade {
   0%,
   95% {
-    mask-image: linear-gradient(to right, black calc(100% - 40px), transparent);
+    mask-image:
+      linear-gradient(to right, black calc(100% - 40px), transparent),
+      linear-gradient(to top, black 1px, transparent 1px);
   }
   100% {
     mask-image: none;
