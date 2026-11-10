@@ -62,6 +62,7 @@ The target is read the way Obsidian reads it, bar first, then hash:
 | --- | --- | --- |
 | `[[note\|alias]]` | `alias` | `note` |
 | `[[note#Heading]]` | `note#Heading` | `note`, at the heading |
+| `[[folder/note]]` | `note` | `folder/note` |
 | `[[note#Heading\|alias]]` | `alias` | `note`, at the heading |
 | `[[#Heading]]` | `#Heading` | this note, at the heading |
 
