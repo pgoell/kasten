@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { tagVariable } from "@/lib/graph/graph";
 import type { Graph } from "@/lib/graph/graph-api";
 import type { GraphMode } from "@/lib/graph/graph-mode";
@@ -62,20 +63,33 @@ export function GraphPanel({
   card,
   onOpen,
 }: GraphPanelProps) {
+  // Under 640 px the panel folds to its counts and card, so a small pane keeps its canvas.
+  const [open, setOpen] = useState(false);
+  const folded = open ? "" : "@max-[640px]:hidden";
   return (
     <aside
       aria-label="graph panel"
       className="flex min-h-0 shrink-0 flex-col gap-4 overflow-y-auto font-sans border-l border-k-rule px-3 py-3 w-[300px] @max-[640px]:w-full @max-[640px]:max-h-[45%] pointer-coarse:@max-[640px]:max-h-none @max-[640px]:border-l-0 @max-[640px]:border-t"
     >
-      <h2 className="shrink-0 font-serif text-[17px] text-k-ink">Vault graph</h2>
+      <div className="flex shrink-0 items-baseline justify-between gap-3">
+        <h2 className="font-serif text-[17px] text-k-ink">Vault graph</h2>
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen(!open)}
+          className="text-k-13 text-k-accent @[640px]:hidden pointer-coarse:min-h-11"
+        >
+          {open ? "Less" : "Mode and tags"}
+        </button>
+      </div>
       <p className="shrink-0 text-[12px] text-k-ink">
         {`${notes} notes and ${links} links. ${archive ? "The archive is in." : "The archive is left out."}`}
       </p>
-      <p className="shrink-0 text-[12px] text-k-muted">{READING[mode]}</p>
+      <p className={`shrink-0 text-[12px] text-k-muted ${folded}`}>{READING[mode]}</p>
 
       <fieldset
         aria-label="mode"
-        className="shrink-0 flex self-start overflow-hidden rounded-[var(--k-radius-6)] border border-k-rule text-k-13"
+        className={`shrink-0 flex self-start overflow-hidden rounded-[var(--k-radius-6)] border border-k-rule text-k-13 ${folded}`}
       >
         {MODES.map((option) => (
           <button
@@ -90,7 +104,7 @@ export function GraphPanel({
         ))}
       </fieldset>
 
-      <section className="shrink-0 flex flex-col gap-1">
+      <section className={`shrink-0 flex flex-col gap-1 ${folded}`}>
         <p className={LABEL}>Tags</p>
         <ul aria-label="tags" className="flex flex-col">
           {tags.map(({ tag, key, count }) => {
