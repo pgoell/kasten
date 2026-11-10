@@ -310,8 +310,9 @@ async def test_1827_a_snapshot_that_raises_logs_frees_the_lock_and_keeps_the_fil
 async def test_1827_history_right_after_a_save_shows_it(
     client: AsyncClient, versioned_vault: Path, parked: asyncio.Event
 ) -> None:
-    await client.post("/api/files/a.md")
+    # Released for the create, so only the timed save below is parked under the read.
     parked.set()
+    await client.post("/api/files/a.md")
     await change.settled()
     parked.clear()
     await asyncio.wait_for(client.put("/api/files/a.md", json={"content": "# fresh\n"}), 2.0)
