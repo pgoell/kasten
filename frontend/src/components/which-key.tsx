@@ -1,33 +1,18 @@
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Sheet } from "@/components/sheet";
 import { trapTab } from "@/lib/ui/focus-trap";
-import {
-  heldModifier,
-  LEADER,
-  LEADER_COLUMNS,
-  TAB_DIGITS,
-  TAB_KEYS,
-} from "@/lib/ui/keys/leader-keys";
+import { heldModifier, TAB_KEYS } from "@/lib/ui/keys/leader-keys";
+import { contextAt, type LeaderContext, type PanelRow, panelRows } from "@/lib/ui/keys/leader-view";
 import { hostLeader, type LeaderOpener } from "@/lib/ui/keys/which-key";
 import { SPRINGS, Spring } from "@/lib/ui/motion/spring";
 import { LABEL } from "@/lib/ui/overlay-styles";
 
 /**
- * The which-key panel: what Space leads to, shown at once and narrowed by each
- * key. It owns the keyboard while it is open, so nothing behind it sees a key.
+ * The which-key panel: what Space leads to in the pane it was pressed in, a row
+ * per group until a key opens one. It owns the keyboard while it is open.
  */
 
 type Phase = "open" | "leaving" | "gone";
-
-interface Row {
-  key: string;
-  label: string;
-}
-
-interface Column {
-  title: string;
-  rows: Row[];
-}
 
 /**
  * What the key listener reads. Written in the same task as each change of state,
@@ -46,28 +31,15 @@ const CHIP = `${KEY} rounded-[var(--k-radius-4)] bg-k-surface px-1.5 py-0.5`;
 const ENTRY_TRACK = "grid grid-cols-[2.25rem_1fr] items-baseline gap-x-2";
 const TAB_TRACK = "grid grid-cols-[3rem_1fr] items-baseline gap-x-2";
 const TAB_LABEL = "Go to a tab by number";
-// The desktop panel wraps its six columns to the width. The phone sheet is one list.
-const COLUMNS = "grid grid-cols-[repeat(auto-fit,minmax(10.5rem,1fr))] gap-x-4 gap-y-4 px-2 pb-3";
-const ONE_COLUMN = "grid grid-cols-1 gap-y-4 px-2 pb-3";
+// Before a key the desktop sets each group in its own column, all short now; an open group
+// flows its rows into as many columns as the pane is wide. The phone sheet is one list.
+const COLUMNS = "grid grid-cols-[repeat(auto-fit,minmax(10.5rem,1fr))] gap-x-4 px-2 pb-3";
+const FLOW = "columns-[13rem] gap-x-4 px-2 pb-3";
+const ONE_COLUMN = "grid grid-cols-1 px-2 pb-3";
 
 /** The keys as the panel prints them: `cf` reads as two presses, `c f`. */
 function spaced(keys: string): string {
   return [...keys].join(" ");
-}
-
-/**
- * The leader cut into its six columns. A key of the editor's edits appears only
- * where the editor opened the panel, and a key in neither table is skipped.
- */
-function columnsFor(edits: readonly Row[] = []): Column[] {
-  return LEADER_COLUMNS.map(({ title, keys }) => ({
-    title,
-    rows: keys.flatMap((key) => {
-      if (key === TAB_DIGITS) return [{ key, label: TAB_LABEL }];
-      const row = LEADER.find((each) => each.key === key) ?? edits.find((each) => each.key === key);
-      return row ? [{ key, label: row.label }] : [];
-    }),
-  }));
 }
 
 /**
@@ -78,7 +50,12 @@ function placeFor(from: Element | null): CSSProperties {
   const pane = from?.closest("[data-pane]");
   if (!pane) return { left: 0, width: "100%", bottom: 0 };
   const rect = pane.getBoundingClientRect();
-  return { left: rect.left, width: rect.width, bottom: window.innerHeight - rect.bottom };
+  return {
+    left: rect.left,
+    width: rect.width,
+    bottom: window.innerHeight - rect.bottom,
+    maxHeight: rect.height,
+  };
 }
 
 const PANEL = '[role="dialog"][aria-label="Leader keys"]';
@@ -110,14 +87,31 @@ function focusBack(opener: LeaderOpener) {
   if (from instanceof HTMLElement && from.isConnected) from.focus({ preventScroll: true });
 }
 
-/** Each press as a chip. The sheet's header already insets its row, so there it takes no side padding. */
-function Pressed({ typed, sheet = false }: { typed: string; sheet?: boolean }) {
+/**
+ * Each press as a chip. After a key the Space chip goes back to the groups, a
+ * tap for the phone, where no Backspace is to hand.
+ */
+function Pressed({
+  typed,
+  sheet = false,
+  onBack,
+}: {
+  typed: string;
+  sheet?: boolean;
+  onBack: () => void;
+}) {
   return (
     <section
       aria-label="Keys pressed"
       className={`flex flex-wrap items-center gap-1.5 pt-3 pb-2 text-[13px] text-k-ink ${sheet ? "" : "px-4"}`}
     >
-      <kbd className={CHIP}>Space</kbd>
+      {typed === "" ? (
+        <kbd className={CHIP}>Space</kbd>
+      ) : (
+        <button type="button" aria-label="Back to the groups" onClick={onBack}>
+          <kbd className={`${CHIP} cursor-pointer hover:text-k-accent`}>Space</kbd>
+        </button>
+      )}
       {/* Keyed by the prefix typed so far, which is unique for each press. */}
       {[...typed].map((key, index) => (
         <kbd key={typed.slice(0, index + 1)} className={CHIP}>
@@ -129,34 +123,67 @@ function Pressed({ typed, sheet = false }: { typed: string; sheet?: boolean }) {
 }
 
 function Entry({
-  rowKey,
   shown,
   label,
-  onRun,
+  group = false,
+  onPress,
 }: {
-  rowKey: string;
   shown: string;
   label: string;
-  onRun: (key: string) => void;
+  /** A row that opens a group of keys rather than running one. */
+  group?: boolean;
+  onPress: () => void;
 }) {
   return (
     <button
       type="button"
-      onClick={() => onRun(rowKey)}
-      className={`group k-row w-full cursor-pointer px-3 py-[2px] text-left text-[13px] pointer-coarse:min-h-11 ${ENTRY_TRACK}`}
+      onClick={onPress}
+      className={`group k-row w-full cursor-pointer break-inside-avoid px-3 py-[2px] text-left text-[13px] pointer-coarse:min-h-11 ${ENTRY_TRACK}`}
     >
       <kbd className={`${KEY} whitespace-nowrap text-k-accent`}>{spaced(shown)}</kbd>
-      <span className="leading-[1.3] text-k-muted group-hover:text-k-ink group-focus-visible:text-k-ink">
-        {label}
+      <span
+        className={`leading-[1.3] group-hover:text-k-ink group-focus-visible:text-k-ink ${group ? "text-k-ink-soft" : "text-k-muted"}`}
+      >
+        {group ? `${label} …` : label}
       </span>
     </button>
+  );
+}
+
+/** One move four ways, such as `h j k l`: each key its own button, read out by its own label. */
+function FourRow({
+  keys,
+  label,
+  onRun,
+}: {
+  keys: readonly { key: string; label: string }[];
+  label: string;
+  onRun: (key: string) => void;
+}) {
+  return (
+    <div className={`break-inside-avoid px-3 py-[2px] text-[13px] ${TAB_TRACK}`}>
+      <span className="flex gap-1">
+        {keys.map((each) => (
+          <button
+            key={each.key}
+            type="button"
+            aria-label={each.label}
+            onClick={() => onRun(each.key)}
+            className={`${KEY} cursor-pointer text-k-accent hover:text-k-ink pointer-coarse:min-h-11`}
+          >
+            {each.key}
+          </button>
+        ))}
+      </span>
+      <span className="leading-[1.3] text-k-muted">{label}</span>
+    </div>
   );
 }
 
 /** The ten tab digits in one row: a number is typed, not clicked. */
 function TabRow() {
   return (
-    <div className={`px-3 py-[3px] text-[13px] ${TAB_TRACK}`}>
+    <div className={`break-inside-avoid px-3 py-[3px] text-[13px] ${TAB_TRACK}`}>
       <kbd className={`${KEY} whitespace-nowrap text-k-accent`}>
         {`${TAB_KEYS[0]} … ${TAB_KEYS[TAB_KEYS.length - 1]}`}
       </kbd>
@@ -165,71 +192,70 @@ function TabRow() {
   );
 }
 
+function PanelEntry({
+  row,
+  onRun,
+  onNarrow,
+}: {
+  row: PanelRow;
+  onRun: (key: string) => void;
+  onNarrow: (typed: string) => void;
+}) {
+  if (row.kind === "digits") return <TabRow />;
+  if (row.kind === "four") return <FourRow keys={row.keys} label={row.label} onRun={onRun} />;
+  if (row.kind === "group") {
+    return <Entry shown={row.shown} label={row.label} group onPress={() => onNarrow(row.key)} />;
+  }
+  return <Entry shown={row.shown} label={row.label} onPress={() => onRun(row.key)} />;
+}
+
 /**
- * The six columns before any key, and once a key is typed the rows it begins,
- * shown in one group per column the matches sit in, each under its own title.
+ * The rows `typed` leads to, under the titles of the columns they sit in, so
+ * `ct` sits under Tabs. A line at the foot says when keys were left out.
  */
 function Body({
-  columns,
+  context,
+  edits,
   typed,
   phone = false,
   onRun,
+  onNarrow,
 }: {
-  columns: Column[];
+  context: LeaderContext;
+  edits?: LeaderOpener["edits"];
   typed: string;
   /** On a phone the sheet is one column of full-width rows, a finger's target each. */
   phone?: boolean;
   onRun: (key: string) => void;
+  onNarrow: (typed: string) => void;
 }) {
-  if (typed === "") {
-    return (
-      <div className={phone ? ONE_COLUMN : COLUMNS}>
+  const { columns, hidden } = useMemo(
+    () => panelRows(typed, context, edits, !phone),
+    [typed, context, edits, phone],
+  );
+  return (
+    <>
+      <div className={phone ? ONE_COLUMN : typed === "" ? COLUMNS : FLOW}>
         {columns.map((column) => (
-          <section key={column.title} className="min-w-0">
-            <h3 className={`${LABEL} mb-1 px-3`}>{column.title}</h3>
-            {column.rows.map((row) =>
-              row.key === TAB_DIGITS ? (
-                <TabRow key={row.key} />
-              ) : (
-                <Entry
-                  key={row.key}
-                  rowKey={row.key}
-                  shown={row.key}
-                  label={row.label}
-                  onRun={onRun}
-                />
-              ),
-            )}
+          <section key={column.title} className="mb-3 min-w-0">
+            <h3 className={`${LABEL} mb-1 break-after-avoid px-3`}>{column.title}</h3>
+            {column.rows.map((row) => (
+              <PanelEntry
+                key={row.kind === "four" ? row.label : row.kind === "digits" ? "digits" : row.key}
+                row={row}
+                onRun={onRun}
+                onNarrow={onNarrow}
+              />
+            ))}
           </section>
         ))}
       </div>
-    );
-  }
-
-  // One group per column the matches sit in, in column order, so `ct` sits under Tabs.
-  const groups = columns.flatMap((column) => {
-    const rows = column.rows.filter(
-      (row) => row.key !== TAB_DIGITS && row.key.startsWith(typed) && row.key.length > typed.length,
-    );
-    return rows.length > 0 ? [{ title: column.title, rows }] : [];
-  });
-  return (
-    <div className="px-2 pb-3">
-      {groups.map((group) => (
-        <section key={group.title} className="mb-2">
-          <h3 className={`${LABEL} mb-1 px-3`}>{group.title}</h3>
-          {group.rows.map((row) => (
-            <Entry
-              key={row.key}
-              rowKey={row.key}
-              shown={row.key.slice(typed.length)}
-              label={row.label}
-              onRun={onRun}
-            />
-          ))}
-        </section>
-      ))}
-    </div>
+      {hidden && (
+        <p className="px-5 pb-3 text-[12px] text-k-muted">
+          Keys with nothing to do here are left out. Space ? lists them all.
+        </p>
+      )}
+    </>
   );
 }
 
@@ -261,13 +287,15 @@ export function WhichKey({ phone }: { phone: boolean }) {
   );
   useEffect(() => () => spring.stop(), [spring]);
 
-  const columns = useMemo(() => columnsFor(opener?.edits), [opener]);
+  // Read once as the panel opens: the pane behind it does not change while it is up.
+  const [context, setContext] = useState<LeaderContext>({ tab: [] });
 
   const open = useCallback(
     (next: LeaderOpener) => {
       live.current = { opener: next, typed: "", phase: "open" };
       gestured.current = false;
       setOpener(next);
+      setContext(contextAt(next.from, next.note));
       setTyped("");
       setRan(false);
       setPlace(phone ? {} : placeFor(next.from));
@@ -311,6 +339,13 @@ export function WhichKey({ phone }: { phone: boolean }) {
     [leave],
   );
 
+  const narrow = useCallback((next: string) => {
+    if (live.current.phase !== "open") return;
+    live.current = { ...live.current, typed: next };
+    setTyped(next);
+  }, []);
+  const back = () => narrow(live.current.typed.slice(0, -1));
+
   const runRow = (key: string) => {
     // A panel on its way out takes no click: its rows are still drawn for the fade.
     if (live.current.phase !== "open" || opener === null) return;
@@ -325,13 +360,11 @@ export function WhichKey({ phone }: { phone: boolean }) {
       focusBack(opener);
       leave();
     };
-    const typeKey = (current: Live, opener: LeaderOpener, next: string) => {
+    const typeKey = (opener: LeaderOpener, next: string) => {
       const run = opener.resolve(next);
       if (run) fire(opener, run);
-      else if (opener.prefix(next)) {
-        live.current = { ...current, typed: next };
-        setTyped(next);
-      } else close(opener);
+      else if (opener.prefix(next)) narrow(next);
+      else close(opener);
     };
     const trapInBox = (event: KeyboardEvent) => {
       // On a phone the sheet is the box, found from the focused element.
@@ -350,7 +383,11 @@ export function WhichKey({ phone }: { phone: boolean }) {
 
       event.preventDefault();
       if (closesPanel(event)) close(opener);
-      else typeKey(current, opener, current.typed + event.key);
+      // Back up a level; with nothing typed there is nothing to undo, so it closes.
+      else if (event.key === "Backspace") {
+        if (current.typed === "") close(opener);
+        else narrow(current.typed.slice(0, -1));
+      } else typeKey(opener, current.typed + event.key);
     };
     const onKey = (event: KeyboardEvent) => {
       const current = live.current;
@@ -369,7 +406,7 @@ export function WhichKey({ phone }: { phone: boolean }) {
     };
     document.addEventListener("keydown", onKey, true);
     return () => document.removeEventListener("keydown", onKey, true);
-  }, [leave, fire]);
+  }, [leave, fire, narrow]);
 
   // A press or a focus outside the panel is the reader going elsewhere: the panel
   // gives way at once, so the next key goes where that put the focus. Nothing is
@@ -405,10 +442,17 @@ export function WhichKey({ phone }: { phone: boolean }) {
           setPhase("gone");
         }}
         label="Leader keys"
-        header={<Pressed typed={typed} sheet />}
+        header={<Pressed typed={typed} sheet onBack={back} />}
         restoreFocus={!ran}
       >
-        <Body columns={columns} typed={typed} phone onRun={runRow} />
+        <Body
+          context={context}
+          edits={opener?.edits}
+          typed={typed}
+          phone
+          onRun={runRow}
+          onNarrow={narrow}
+        />
       </Sheet>
     );
   }
@@ -429,9 +473,15 @@ export function WhichKey({ phone }: { phone: boolean }) {
       style={place}
       className="fixed z-30 flex max-h-[85vh] flex-col border-t border-k-rule bg-k-paper shadow-[var(--k-shadow)] outline-none"
     >
-      <Pressed typed={typed} />
+      <Pressed typed={typed} onBack={back} />
       <div className="min-h-0 overflow-y-auto overscroll-contain">
-        <Body columns={columns} typed={typed} onRun={runRow} />
+        <Body
+          context={context}
+          edits={opener?.edits}
+          typed={typed}
+          onRun={runRow}
+          onNarrow={narrow}
+        />
       </div>
     </div>
   );
