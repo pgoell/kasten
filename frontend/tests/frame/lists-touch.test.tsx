@@ -94,7 +94,10 @@ describe("the lists app in a browser, by touch, keys and mouse", () => {
     await draw();
 
     expect(screen.getByRole("button", { name: "Hinzufügen" })).toBeInTheDocument();
-    const targets = [...document.querySelectorAll<HTMLElement>("button, input.field")];
+    // A control drawn with no box, as the mouse's × is under a finger, is no target to measure.
+    const targets = [...document.querySelectorAll<HTMLElement>("button, input.field")].filter(
+      (target) => target.getClientRects().length > 0,
+    );
     expect(targets.length).toBeGreaterThan(0);
     for (const target of targets) {
       expect(target.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
@@ -210,5 +213,48 @@ describe("the lists app in a browser, by touch, keys and mouse", () => {
     } finally {
       await cdp().send("Input.dispatchMouseEvent", { type: "mouseReleased", ...at });
     }
+  }, 30_000);
+
+  it("a finger pulling a row left past the line deletes it, with Rückgängig", async () => {
+    await page.viewport(390, 844);
+    await commands.emulateMedia({ touch: true });
+    await draw();
+
+    const row = screen.getByRole("checkbox", { name: "Milch" }).closest(".row") as HTMLElement;
+    const box = row.getBoundingClientRect();
+    const y = box.top + box.height / 2;
+    const from = box.left + box.width * 0.7;
+    await commands.touchDrag([0, 20, 40, 80, 120, 160].map((dx) => ({ x: from - dx, y })));
+
+    await screen.findByText("„Milch“ gelöscht");
+    expect(screen.queryByRole("checkbox", { name: "Milch" })).toBeNull();
+    // A swipe is no tap: the words of no row opened for editing.
+    expect(screen.queryByRole("textbox", { name: "Wörter" })).toBeNull();
+  }, 30_000);
+
+  it("a short pull snaps the row back and deletes nothing", async () => {
+    await page.viewport(390, 844);
+    await commands.emulateMedia({ touch: true });
+    await draw();
+
+    const row = screen.getByRole("checkbox", { name: "Milch" }).closest(".row") as HTMLElement;
+    const box = row.getBoundingClientRect();
+    const y = box.top + box.height / 2;
+    const from = box.left + box.width * 0.7;
+    await commands.touchDrag([0, 20, 40].map((dx) => ({ x: from - dx, y })));
+
+    expect(screen.getByRole("checkbox", { name: "Milch" })).toBeInTheDocument();
+    expect(screen.queryByText("„Milch“ gelöscht")).toBeNull();
+    expect(screen.queryByRole("textbox", { name: "Wörter" })).toBeNull();
+  }, 30_000);
+
+  it("at 1440x900 a mouse deletes a row with its × in one click", async () => {
+    await page.viewport(1440, 900);
+    await draw();
+
+    await click(screen.getByRole("button", { name: "Milch löschen" }));
+
+    await screen.findByText("„Milch“ gelöscht");
+    expect(screen.queryByRole("checkbox", { name: "Milch" })).toBeNull();
   }, 30_000);
 });
