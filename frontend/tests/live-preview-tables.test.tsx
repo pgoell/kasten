@@ -63,6 +63,14 @@ describe("live preview", () => {
     expect([...links].map((link) => link.textContent)).toEqual(["notes/", "borges"]);
   });
 
+  it("draws a cell's link with no name to show as its source, the bar's backslash gone", () => {
+    const lines = ["before", "", "| a | b |", "| --- | --- |", "| [[/]] | [[\\|]] |"];
+    const { container } = renderEditor(<Editor initialDoc={lines.join("\n")} />);
+
+    const links = container.querySelectorAll(".cm-table-grid tbody .cm-wikilink");
+    expect([...links].map((link) => link.textContent)).toEqual(["/", "|"]);
+  });
+
   it("leaves the prose under a table out of it", () => {
     // GFM ends a table at a blank line, so a paragraph written straight under
     // one parses as rows of a single cell. The cursor starts on line one, so

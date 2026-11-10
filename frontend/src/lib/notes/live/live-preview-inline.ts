@@ -179,8 +179,8 @@ function drawContent(
   const slash = named.lastIndexOf("/", (hash === -1 ? named.length : hash) - 2);
   const end = open.to + named.length;
   const short = slash !== -1 || end < close.from;
-  // A link with no name, `[[|]]`, keeps its source rather than drawing as nothing.
-  if (node.name === "WikiLink" && short && named.trim() !== "" && !revealed) {
+  // A link with no name to draw, `[[|]]` or `[[/]]`, keeps its source rather than drawing as nothing.
+  if (node.name === "WikiLink" && short && named.slice(slash + 1).trim() !== "" && !revealed) {
     const shown = open.to + slash + 1;
     decorations.push(Decoration.mark({ class: className }).range(shown, end));
     walk.hide(open.from, shown);

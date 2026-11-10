@@ -59,12 +59,13 @@ function wikiLinkSpans(state: EditorState, text: string, className: string): Spa
   const named = text.split("|")[0]?.replace(/\\$/, "") ?? text;
   const hash = named.indexOf("#");
   const slash = named.lastIndexOf("/", (hash === -1 ? named.length : hash) - 2);
+  const shown = named.slice(slash + 1);
   // The bar's backslash is the table's, so the target is the one the same
   // link hands on off a table.
   const target = text.replace("\\|", "|").trim();
   return [
     {
-      text: alias ?? (named.trim() === "" ? text : named.slice(slash + 1)),
+      text: alias ?? (shown.trim() === "" ? text.replace("\\|", "|") : shown),
       class: dead ? `${className} cm-wikilink-dead` : className,
       target,
     },

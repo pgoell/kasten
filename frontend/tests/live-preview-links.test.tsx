@@ -145,6 +145,12 @@ describe("live preview", () => {
     expect(content(container)).toBe("a | b");
   });
 
+  it("keeps the source of a link whose path ends at its slash", () => {
+    const { container } = renderEditor(<Editor initialDoc="a [[/]] b [[/|]] c" />);
+
+    expect(content(container)).toBe("a / b /| c");
+  });
+
   it("shows the whole path again with the cursor in it in insert mode", async () => {
     const { container } = renderEditor(<Editor initialDoc="see [[reading/borges]] now" />);
     const editor = container.querySelector(".cm-content") as HTMLElement;
