@@ -29,8 +29,8 @@ describe("the water switch", () => {
   let timers: Timer[];
 
   function serve() {
-    vi.spyOn(client, "GET").mockImplementation((async () => ({
-      data: timers,
+    vi.spyOn(client, "GET").mockImplementation((async (path: string) => ({
+      data: path === "/api/push" ? { public_key: null, devices: [] } : timers,
       response: new Response(null, { status: 200 }),
     })) as unknown as typeof client.GET);
     const post = vi.fn(async (_path: string, init: { body: Partial<Timer> }) => {

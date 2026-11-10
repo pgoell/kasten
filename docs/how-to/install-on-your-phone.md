@@ -84,7 +84,12 @@ since you started it yourself. Leave a field empty to turn it off, then press **
 
 Each device subscribes on its own, and `/settings` lists them all. **Remove**
 takes one off; on the device in your hand it also turns off the browser's
-subscription.
+subscription. **Test** sends that device a push now and says what its push
+service answered. When the answer is that it was sent but nothing shows, the
+device holds it back: allow notifications for kasten in the browser's site
+settings, and on Android in the system's settings for Chrome too. A timer
+rings only on the devices listed here, so the Timers block says so while
+there are none.
 
 ## Set a timer
 

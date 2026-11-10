@@ -103,9 +103,9 @@ def vapid(endpoint: str, key: str, now: float | None = None) -> str:
 
 async def send(  # noqa: PLR0913  a subscription is three fields, and each goes its own way
     client: httpx.AsyncClient, endpoint: str, p256dh: str, auth: str, *, message: dict, key: str
-) -> int:
-    """Post `message` to the push service; its status, 404 or 410 meaning the device is gone."""
-    response = await client.post(
+) -> httpx.Response:
+    """Post `message` to the push service; its answer, 404 or 410 meaning the device is gone."""
+    return await client.post(
         endpoint,
         content=encrypt(json.dumps(message).encode(), p256dh, auth),
         headers={
@@ -116,4 +116,3 @@ async def send(  # noqa: PLR0913  a subscription is three fields, and each goes 
             "Urgency": "high",
         },
     )
-    return response.status_code

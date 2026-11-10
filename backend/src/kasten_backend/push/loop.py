@@ -36,6 +36,7 @@ PUSH_LOCK = 0x6B70_7573
 """The advisory lock one sender holds for a tick, `kpus` in ASCII, apart from the finance locks."""
 GONE = {404, 410}
 REFUSED = 300
+REASON_CHARS = 200
 EVERY_SECONDS = 15
 """A timer rings this close to its time."""
 TODOS_EVERY = 4
@@ -227,15 +228,22 @@ async def _post(
 ) -> int | None:
     """One device's send; a failure other than a gone device is logged and the device kept."""
     try:
-        status = await webpush.send(
+        response = await webpush.send(
             client, device.endpoint, device.p256dh, device.auth, message=message, key=key
         )
     except httpx.HTTPError as error:
         logger.warning("push to device %s failed: %s", device.id, error)
         return None
-    if status >= REFUSED and status not in GONE:
-        logger.warning("push to device %s answered %s", device.id, status)
-    return status
+    if response.status_code >= REFUSED and response.status_code not in GONE:
+        logger.warning(
+            "push to device %s answered %s: %s", device.id, response.status_code, refusal(response)
+        )
+    return response.status_code
+
+
+def refusal(response: httpx.Response) -> str:
+    """The push service's reason for a refusal, such as Apple's `BadJwtToken`, cut short."""
+    return response.text.strip()[:REASON_CHARS]
 
 
 async def running(engine: AsyncEngine, settings: Settings) -> None:

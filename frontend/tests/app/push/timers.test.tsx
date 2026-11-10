@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import type { PushState } from "@/lib/app/push/push";
 import {
   durationLabel,
   keepRecent,
@@ -64,10 +65,11 @@ describe("the recent timers", () => {
 
 describe("the Today page's timers", () => {
   let timers: Timer[];
+  let devices: PushState["devices"];
 
   function serve() {
-    const get = vi.fn(async () => ({
-      data: timers,
+    const get = vi.fn(async (path: string) => ({
+      data: path === "/api/push" ? { public_key: "-_8", devices } : timers,
       response: new Response(null, { status: 200 }),
     }));
     const post = vi.fn(async (_path: string, init: { body: { label: string; due: string } }) => {
@@ -99,6 +101,14 @@ describe("the Today page's timers", () => {
   beforeEach(() => {
     localStorage.clear();
     vi.useFakeTimers({ now: NOW, toFake: ["Date"] });
+    devices = [
+      {
+        id: 1,
+        name: "Android Chrome",
+        endpoint: "https://push.test/a",
+        created: NOW.toISOString(),
+      },
+    ];
     timers = [
       {
         id: 4,
@@ -128,6 +138,19 @@ describe("the Today page's timers", () => {
     expect(washer).toHaveTextContent("Washer");
     expect(washer).toHaveTextContent("42:13");
     expect(water).toHaveTextContent("every 1h 30m");
+  });
+
+  it("says where to turn pushes on while no device gets them, and nothing once one does", async () => {
+    serve();
+    await renderRow();
+    await screen.findAllByRole("listitem");
+    expect(screen.queryByText(/No device gets timer pushes/)).not.toBeInTheDocument();
+
+    cleanup();
+    devices = [];
+    await renderRow();
+    expect(await screen.findByText(/No device gets timer pushes/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "settings" })).toHaveAttribute("href", "/settings");
   });
 
   it("starts a timer from the form, then offers it again as a chip", async () => {
@@ -171,10 +194,10 @@ describe("the Today page's timers", () => {
 
 describe("the timers tab", () => {
   it("takes the focus, sends i to the name field and Escape back", async () => {
-    vi.spyOn(client, "GET").mockResolvedValue({
-      data: [],
+    vi.spyOn(client, "GET").mockImplementation((async (path: string) => ({
+      data: path === "/api/push" ? { public_key: null, devices: [] } : [],
       response: new Response(null, { status: 200 }),
-    } as never);
+    })) as unknown as typeof client.GET);
     const queries = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     await act(async () => {
       render(

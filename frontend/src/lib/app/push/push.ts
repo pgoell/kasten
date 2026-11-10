@@ -40,6 +40,39 @@ export async function removeDevice(id: number): Promise<void> {
   }
 }
 
+/** What the push service answered a test push; `status` is null when it was not reached. */
+export type TestResult = components["schemas"]["TestOut"];
+
+/** Push a test message to one device now. */
+export async function testDevice(id: number): Promise<TestResult> {
+  const { data, error, response } = await client.POST("/api/push/devices/{device_id}/test", {
+    params: { path: { device_id: id } },
+  });
+
+  if (!data) {
+    throw new Error(
+      reason(error) ?? `POST /api/push/devices/${id}/test failed with ${response.status}`,
+    );
+  }
+
+  return data;
+}
+
+/** The sentence a test push's result shows, naming where the push stopped if it did. */
+export function testWords(name: string, result: TestResult): string {
+  if (result.status === null) {
+    return `${name}: the push service could not be reached (${result.reason}).`;
+  }
+  if (result.gone) {
+    return `${name}: the push service says this subscription is gone, so it was removed. Subscribe that device again.`;
+  }
+  if (result.status < 300) {
+    return `Sent to ${name}. If nothing shows there, the browser or phone holds it back: allow notifications for this site.`;
+  }
+  const why = result.reason ? `: ${result.reason}` : "";
+  return `${name}: the push service refused the push with ${result.status}${why}.`;
+}
+
 /** Whether this browser can take a push: a service worker, the push manager and notifications. */
 export function pushSupported(): boolean {
   return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
