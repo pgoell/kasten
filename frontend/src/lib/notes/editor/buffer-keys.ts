@@ -1,6 +1,7 @@
 import type { EditorView } from "@codemirror/view";
 import {
   BOLD,
+  cycleListStyle,
   formatDocument,
   HIGHLIGHT,
   ITALIC,
@@ -30,6 +31,8 @@ export interface LeaderEdit {
 export const LEADER_EDITS: readonly LeaderEdit[] = [
   // `=` is free: `gq` is spent on the quarter's note.
   { key: "=", label: "Tidy the markdown in this note", run: formatDocument },
+  // `-` is what a bullet list is written with, and no sequence starts with it.
+  { key: "-", label: "Cycle this list between bullets, 1. and a)", run: cycleListStyle },
   { key: "i", label: "Stamp an id on this todo", run: stampIdAtCursor },
   // `@` addresses somebody, the agent.
   { key: "@", label: "Send this todo to the agent, or take it back", run: agentTodoAtCursor },

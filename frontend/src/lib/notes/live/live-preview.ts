@@ -112,7 +112,9 @@ function enterBlock(
     case "HTMLBlock":
     case "CommentBlock":
     case "ProcessingInstructionBlock":
+      return drawSvg(walk, node.node);
     case "Paragraph":
+      lists.letters(walk, node.node);
       return drawSvg(walk, node.node);
     case "Table":
       drawTable(walk, node.node);
@@ -133,9 +135,9 @@ function enterLine(
   const { state } = walk;
   const heading = HEADING.exec(node.name);
   const inline = INLINE[node.name];
-  const isBullet = node.name === "ListMark" && node.node.parent?.parent?.name === "BulletList";
+  const isMark = node.name === "ListMark";
   const isRuby = node.name === "HTMLTag" && state.doc.sliceString(node.from, node.to) === "<ruby>";
-  if (!heading && !inline && !isBullet && !isRuby && !LINE_NODES.has(node.name)) return;
+  if (!heading && !inline && !isMark && !isRuby && !LINE_NODES.has(node.name)) return;
 
   const line = state.doc.lineAt(node.from);
   const revealed = isLineRevealed(state, line) || node.from < walk.tableEnd;
@@ -168,10 +170,9 @@ function enterLine(
     return;
   }
   // The dot is drawn in CSS, so it has to go the moment the `-` it stands
-  // in for comes back, or the line carries two bullets. An ordered list is
-  // left alone throughout: its number is content, not decoration.
-  if (isBullet) {
-    lists.bullet(walk, node.node, line, revealed);
+  // in for comes back, or the line carries two bullets.
+  if (isMark) {
+    lists.item(walk, node.node, line, revealed);
     return;
   }
   if (isRuby) {

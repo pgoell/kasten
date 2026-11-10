@@ -7,8 +7,11 @@ import { masked, parseTodo } from "@/lib/todo/todo";
 import { DUE } from "@/lib/todo/todo-fields";
 import { descendants, noteTree, type Placed, progressOf, treeOf } from "@/lib/todo/todo-view";
 
-/** How far one level of list nesting shifts a rendered item, in `em`. */
+/** How far one level of list nesting shifts an item, in `em`. The hang in `live-preview-lists.css` matches it. */
 const BULLET_INDENT = 1.6;
+
+/** A line opening `a)` or `b.`, which CommonMark reads as text and kasten draws as a list item. */
+const LETTER = /^(\s*)([a-z][.)])( +|$)/;
 
 /**
  * Today, read once when the module loads.
@@ -67,9 +70,13 @@ export class Lists {
 
   /**
    * The dot is drawn in CSS, so it goes when the `-` it stands in for returns.
-   * An ordered list is left alone: its number is content, not decoration.
+   * A number is content, so it stays, hung where the dot would be.
    */
-  bullet(walk: Walk, node: SyntaxNode, line: Line, revealed: boolean): void {
+  item(walk: Walk, node: SyntaxNode, line: Line, revealed: boolean): void {
+    if (node.parent?.parent?.name === "OrderedList") {
+      hang(walk, line, node.from, node.to, listDepth(node));
+      return;
+    }
     const { decorations } = walk;
     // The state is read off the line rather than off a node: the parser
     // emits `TaskMarker` for `[ ]` and `[x]` and for nothing else, so five
@@ -94,7 +101,11 @@ export class Lists {
       decorations.push(Decoration.mark({ class: "cm-todo-overdue" }).range(at, at + due[0].length));
     }
 
-    if (revealed) return;
+    // The source mark hangs in the padding the dot hung in, so the text stays at its level.
+    if (revealed) {
+      hang(walk, line, node.from, node.to, listDepth(node));
+      return;
+    }
     decorations.push(
       Decoration.line({
         class: todo === null ? "cm-bullet" : `cm-todo cm-todo-${todo.state}`,
@@ -105,6 +116,19 @@ export class Lists {
     // item go too, their job now done by the padding above. On a todo the
     // box goes with them, the symbol standing in for the whole of it.
     walk.hideLeader(line.from, todo === null ? node.to : node.to + BOX_WIDTH, line);
+  }
+
+  /** The `a)` lines of a paragraph, laid out as a numbered item one list deeper than the paragraph. */
+  letters(walk: Walk, paragraph: SyntaxNode): void {
+    const { doc } = walk.state;
+    const depth = listDepth(paragraph) + 1;
+    for (let n = doc.lineAt(paragraph.from).number; n <= doc.lineAt(paragraph.to).number; n++) {
+      const line = doc.line(n);
+      const letter = LETTER.exec(line.text);
+      if (!letter) continue;
+      const from = line.from + (letter[1]?.length ?? 0);
+      hang(walk, line, from, from + 2, depth);
+    }
   }
 
   /**
@@ -129,4 +153,21 @@ export class Lists {
       }
     }
   }
+}
+
+/**
+ * Puts a list line's text at its level with the source mark hanging left of it, as a drawn dot hangs.
+ * The nesting spaces go: in a proportional face their width says nothing about the level.
+ */
+function hang(walk: Walk, line: Line, markFrom: number, markTo: number, depth: number): void {
+  let to = markTo;
+  while (to < line.to && walk.state.doc.sliceString(to, to + 1) === " ") to++;
+  walk.decorations.push(
+    Decoration.line({
+      class: "cm-list-line",
+      attributes: { style: `padding-left: ${BULLET_INDENT * depth}em` },
+    }).range(line.from),
+  );
+  if (markFrom > line.from) walk.hide(line.from, markFrom);
+  walk.decorations.push(Decoration.mark({ class: "cm-list-mark" }).range(markFrom, to));
 }
