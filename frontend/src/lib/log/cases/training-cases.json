@@ -1,0 +1,301 @@
+[
+  {
+    "id": "strength-kg-reps-rpe",
+    "line": "- 🏋 [[Kniebeuge]] 80 kg 8 7 7 @8",
+    "entry": {
+      "kind": "strength",
+      "exercise": "Kniebeuge",
+      "kg": 80,
+      "reps": [8, 7, 7],
+      "sets": 3,
+      "rpe": 8,
+      "e1rm": 101.3
+    }
+  },
+  {
+    "id": "strength-bodyweight",
+    "line": "- 🏋 [[Klimmzüge]] bw 6 5 5",
+    "entry": {
+      "kind": "strength",
+      "exercise": "Klimmzüge",
+      "bodyweight": true,
+      "reps": [6, 5, 5],
+      "sets": 3
+    }
+  },
+  {
+    "id": "strength-time",
+    "line": "- 🏋 [[Plank]] 3x 45 s",
+    "entry": { "kind": "strength", "exercise": "Plank", "sets": 3, "seconds": 45 }
+  },
+  {
+    "id": "strength-time-minutes",
+    "line": "- 🏋 [[Plank]] 2x 1,5 min",
+    "entry": { "kind": "strength", "exercise": "Plank", "sets": 2, "seconds": 90 }
+  },
+  {
+    "id": "strength-time-glued",
+    "line": "- 🏋 [[Plank]] 3x45s",
+    "entry": { "kind": "strength", "exercise": "Plank", "sets": 3, "seconds": 45 }
+  },
+  {
+    "id": "strength-variation-selector",
+    "line": "- 🏋️ [[Bankdrücken]] 60 kg 5 5 5",
+    "entry": {
+      "kind": "strength",
+      "exercise": "Bankdrücken",
+      "kg": 60,
+      "reps": [5, 5, 5],
+      "sets": 3,
+      "e1rm": 70
+    }
+  },
+  {
+    "id": "strength-comma-weight-glued-unit",
+    "line": "- 🏋 [[Kreuzheben]] 102,5kg 2 @9.5",
+    "entry": {
+      "kind": "strength",
+      "exercise": "Kreuzheben",
+      "kg": 102.5,
+      "reps": [2],
+      "sets": 1,
+      "rpe": 9.5,
+      "e1rm": 109.3
+    }
+  },
+  {
+    "id": "strength-e1rm-best-set",
+    "line": "- 🏋 [[Kniebeuge]] 100 kg 3 5",
+    "entry": {
+      "kind": "strength",
+      "exercise": "Kniebeuge",
+      "kg": 100,
+      "reps": [3, 5],
+      "sets": 2,
+      "e1rm": 116.7
+    }
+  },
+  {
+    "id": "strength-e1rm-skips-long-sets",
+    "line": "- 🏋 [[Kniebeuge]] 60 kg 15 10",
+    "entry": {
+      "kind": "strength",
+      "exercise": "Kniebeuge",
+      "kg": 60,
+      "reps": [15, 10],
+      "sets": 2,
+      "e1rm": 80
+    }
+  },
+  {
+    "id": "strength-no-e1rm-over-ten",
+    "line": "- 🏋 [[Beinpresse]] 120 kg 12 12",
+    "entry": {
+      "kind": "strength",
+      "exercise": "Beinpresse",
+      "kg": 120,
+      "reps": [12, 12],
+      "sets": 2
+    }
+  },
+  {
+    "id": "strength-alias-link",
+    "line": "- 🏋 [[Kniebeuge|Squat]] 80 kg 5",
+    "entry": {
+      "kind": "strength",
+      "exercise": "Kniebeuge",
+      "kg": 80,
+      "reps": [5],
+      "sets": 1,
+      "e1rm": 93.3
+    }
+  },
+  {
+    "id": "strength-unit-case",
+    "line": "- 🏋 [[Klimmzüge]] BW 8",
+    "entry": {
+      "kind": "strength",
+      "exercise": "Klimmzüge",
+      "bodyweight": true,
+      "reps": [8],
+      "sets": 1
+    }
+  },
+  { "id": "strength-no-link", "line": "- 🏋 Kniebeuge 80 kg 8 7 7", "entry": null },
+  { "id": "strength-no-reps", "line": "- 🏋 [[Kniebeuge]] 80 kg", "entry": null },
+  { "id": "strength-no-weight", "line": "- 🏋 [[Kniebeuge]] 8 7 7", "entry": null },
+  { "id": "strength-zero-reps", "line": "- 🏋 [[Kniebeuge]] 80 kg 8 0", "entry": null },
+  { "id": "strength-zero-weight", "line": "- 🏋 [[Kniebeuge]] 0 kg 8", "entry": null },
+  { "id": "strength-rpe-over-ten", "line": "- 🏋 [[Kniebeuge]] 80 kg 8 @11", "entry": null },
+  { "id": "strength-rpe-zero", "line": "- 🏋 [[Kniebeuge]] 80 kg 8 @0", "entry": null },
+  {
+    "id": "strength-trailing-words",
+    "line": "- 🏋 [[Kniebeuge]] 80 kg 8 7 7 schwer",
+    "entry": null
+  },
+  { "id": "strength-wrong-unit", "line": "- 🏋 [[Kniebeuge]] 80 lb 8", "entry": null },
+  { "id": "strength-time-no-unit", "line": "- 🏋 [[Plank]] 3x 45", "entry": null },
+  { "id": "strength-time-zero-sets", "line": "- 🏋 [[Plank]] 0x 45 s", "entry": null },
+  { "id": "strength-empty-link", "line": "- 🏋 [[ ]] 80 kg 8", "entry": null },
+  {
+    "id": "walk",
+    "line": "- 🚶 [[Gehen]] 45 min 4.1 km",
+    "entry": { "kind": "walk", "exercise": "Gehen", "minutes": 45, "km": 4.1 }
+  },
+  {
+    "id": "run-heart-rate",
+    "line": "- 🏃 [[Joggen]] 32 min 5.0 km ❤ 148",
+    "entry": { "kind": "run", "exercise": "Joggen", "minutes": 32, "km": 5, "heart_rate": 148 }
+  },
+  {
+    "id": "ride",
+    "line": "- 🚲 [[Radfahren]] 25 min 8.2 km",
+    "entry": { "kind": "ride", "exercise": "Radfahren", "minutes": 25, "km": 8.2 }
+  },
+  {
+    "id": "walk-minutes-only",
+    "line": "- 🚶 [[Gehen]] 30 min",
+    "entry": { "kind": "walk", "exercise": "Gehen", "minutes": 30 }
+  },
+  {
+    "id": "run-heart-variation-selector",
+    "line": "- 🏃 [[Joggen]] 40min 7,2km ❤️ 151",
+    "entry": { "kind": "run", "exercise": "Joggen", "minutes": 40, "km": 7.2, "heart_rate": 151 }
+  },
+  {
+    "id": "walk-heart-rate-no-km",
+    "line": "- 🚶 [[Gehen]] 60 min ❤ 102",
+    "entry": { "kind": "walk", "exercise": "Gehen", "minutes": 60, "heart_rate": 102 }
+  },
+  { "id": "cardio-no-minutes", "line": "- 🚲 [[Radfahren]] 8.2 km", "entry": null },
+  { "id": "cardio-zero-minutes", "line": "- 🚶 [[Gehen]] 0 min", "entry": null },
+  { "id": "cardio-km-first", "line": "- 🏃 [[Joggen]] 5 km 30 min", "entry": null },
+  {
+    "id": "cardio-trailing-words",
+    "line": "- 🚲 [[Radfahren]] 25 min 8.2 km Arbeit",
+    "entry": null
+  },
+  { "id": "cardio-heart-rate-no-number", "line": "- 🏃 [[Joggen]] 30 min ❤", "entry": null },
+  {
+    "id": "test-sides",
+    "line": "- 📏 [[Knie-zur-Wand]] L 11 cm R 9 cm",
+    "entry": {
+      "kind": "test",
+      "exercise": "Knie-zur-Wand",
+      "groups": [{ "left": { "amount": 11, "unit": "cm" }, "right": { "amount": 9, "unit": "cm" } }]
+    }
+  },
+  {
+    "id": "test-labelled-groups",
+    "line": "- 📏 [[Schulter-Rotation]] außen L 95° R 90°, innen L 55° R 45°",
+    "entry": {
+      "kind": "test",
+      "exercise": "Schulter-Rotation",
+      "groups": [
+        {
+          "label": "außen",
+          "left": { "amount": 95, "unit": "°" },
+          "right": { "amount": 90, "unit": "°" }
+        },
+        {
+          "label": "innen",
+          "left": { "amount": 55, "unit": "°" },
+          "right": { "amount": 45, "unit": "°" }
+        }
+      ]
+    }
+  },
+  {
+    "id": "test-points",
+    "line": "- 📏 [[Hinsetzen und Aufstehen]] 9 Punkte",
+    "entry": {
+      "kind": "test",
+      "exercise": "Hinsetzen und Aufstehen",
+      "groups": [{ "value": { "amount": 9, "unit": "Punkte" } }]
+    }
+  },
+  {
+    "id": "test-points-half",
+    "line": "- 📏 [[Hinsetzen und Aufstehen]] 8,5 Punkte",
+    "entry": {
+      "kind": "test",
+      "exercise": "Hinsetzen und Aufstehen",
+      "groups": [{ "value": { "amount": 8.5, "unit": "Punkte" } }]
+    }
+  },
+  {
+    "id": "test-pass-per-side",
+    "line": "- 📏 [[Modifizierter Thomas-Test]] L ok R nicht ok",
+    "entry": {
+      "kind": "test",
+      "exercise": "Modifizierter Thomas-Test",
+      "groups": [{ "left": { "passed": true }, "right": { "passed": false } }]
+    }
+  },
+  {
+    "id": "test-one-value",
+    "line": "- 📏 [[Sit and Reach]] 4 cm",
+    "entry": {
+      "kind": "test",
+      "exercise": "Sit and Reach",
+      "groups": [{ "value": { "amount": 4, "unit": "cm" } }]
+    }
+  },
+  {
+    "id": "test-negative",
+    "line": "- 📏 [[Sit and Reach]] -3 cm",
+    "entry": {
+      "kind": "test",
+      "exercise": "Sit and Reach",
+      "groups": [{ "value": { "amount": -3, "unit": "cm" } }]
+    }
+  },
+  {
+    "id": "test-zero",
+    "line": "- 📏 [[Schulter-Beugung]] L 0 cm R 4 cm",
+    "entry": {
+      "kind": "test",
+      "exercise": "Schulter-Beugung",
+      "groups": [{ "left": { "amount": 0, "unit": "cm" }, "right": { "amount": 4, "unit": "cm" } }]
+    }
+  },
+  {
+    "id": "test-comma-decimal-in-group",
+    "line": "- 📏 [[Knie-zur-Wand]] L 10,5 cm R 9 cm",
+    "entry": {
+      "kind": "test",
+      "exercise": "Knie-zur-Wand",
+      "groups": [
+        { "left": { "amount": 10.5, "unit": "cm" }, "right": { "amount": 9, "unit": "cm" } }
+      ]
+    }
+  },
+  {
+    "id": "test-pass",
+    "line": "- 📏 [[Modifizierter Thomas-Test]] ok",
+    "entry": {
+      "kind": "test",
+      "exercise": "Modifizierter Thomas-Test",
+      "groups": [{ "value": { "passed": true } }]
+    }
+  },
+  { "id": "test-no-unit", "line": "- 📏 [[Knie-zur-Wand]] L 11 R 9", "entry": null },
+  { "id": "test-unknown-unit", "line": "- 📏 [[Knie-zur-Wand]] L 11 in R 9 in", "entry": null },
+  { "id": "test-one-side", "line": "- 📏 [[Knie-zur-Wand]] L 11 cm", "entry": null },
+  { "id": "test-sides-reversed", "line": "- 📏 [[Knie-zur-Wand]] R 9 cm L 11 cm", "entry": null },
+  { "id": "test-no-value", "line": "- 📏 [[Knie-zur-Wand]]", "entry": null },
+  {
+    "id": "test-empty-group",
+    "line": "- 📏 [[Schulter-Rotation]] außen L 95° R 90°,",
+    "entry": null
+  },
+  { "id": "test-label-only", "line": "- 📏 [[Schulter-Rotation]] außen", "entry": null },
+  {
+    "id": "test-no-break-space",
+    "line": "- 📏 [[Modifizierter Thomas-Test]]\u00a0 ok",
+    "entry": null
+  },
+  { "id": "unknown-marker", "line": "- 🏊 [[Schwimmen]] 30 min", "entry": null },
+  { "id": "no-bullet", "line": "🏋 [[Kniebeuge]] 80 kg 8", "entry": null },
+  { "id": "plain-words", "line": "- Rücken war heute steif", "entry": null }
+]

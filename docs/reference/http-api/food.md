@@ -2,7 +2,7 @@
 type: Reference
 title: "HTTP API: food"
 description: The routes that search Open Food Facts for a food, read one by its barcode, and work out a recipe's kcal and macros per serving, the answers they give, and the limits they keep.
-resource: backend/src/kasten_backend/food.py
+resource: backend/src/kasten_backend/food/__init__.py
 tags: [api, backend, openapi]
 status: stable
 ---
@@ -86,7 +86,7 @@ GET /api/food/barcode/3017624010701
 Takes a recipe note's text, as the editor holds it, and answers with each
 ingredient line matched to a food, and the sums. The note's format and the
 rules a line is read by are in [Recipe note](/reference/food/recipe-note.md).
-The code is `backend/src/kasten_backend/recipes/`.
+The code is `backend/src/kasten_backend/food/recipes/`.
 
 ```
 POST /api/recipe/nutrition

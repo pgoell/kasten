@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from kasten_backend.recipes import parse_amount
-from kasten_backend.recipes.foods import parse_my_food
-from kasten_backend.recipes.note import parse_recipe
+from kasten_backend.food.recipes import parse_amount
+from kasten_backend.food.recipes.foods import parse_my_food
+from kasten_backend.food.recipes.note import parse_recipe
 
 CASES = json.loads((Path(__file__).parent / "ingredient_cases.json").read_text(encoding="utf-8"))
 

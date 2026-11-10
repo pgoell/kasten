@@ -293,14 +293,14 @@ With both, it is on and `days` holds each day of the range:
 ```
 
 Neither answer holds the user name or the token. The counts are GitHub's
-`contributionsCollection` for the user set by
-[`KASTEN_GITHUB_USER`](/reference/github-settings.md#kasten_github_user), read with
-the token set by [`KASTEN_GITHUB_TOKEN`](/reference/github-settings.md#kasten_github_token).
+`contributionsCollection` for
+[`KASTEN_GITHUB_USER`](/reference/configuration/github-settings.md), read with
+[`KASTEN_GITHUB_TOKEN`](/reference/configuration/github-settings.md).
 
 ### The cache
 
 Each day read is kept in
-[`KASTEN_GITHUB_CACHE_PATH`](/reference/github-settings.md#kasten_github_cache_path),
+[`KASTEN_GITHUB_CACHE_PATH`](/reference/configuration/github-settings.md#kasten_github_cache_path),
 outside the vault. The answer comes from that file when every day of the range
 up to today is in it, and each of those days is either settled or was read less
 than an hour ago. A day is settled once it was read on a later day than itself.

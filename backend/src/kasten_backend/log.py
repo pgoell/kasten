@@ -1,28 +1,25 @@
 """The day's log, read off the `## Log` lines of the daily note and added up.
 
 Nothing is stored: the line is the record. The format is `docs/reference/food/log-format.md`, and
-`frontend/src/lib/log/log-cases.json` holds the browser's reader to the same answers.
+`frontend/src/lib/log/cases/log-cases.json` holds the browser's reader to the same answers.
 """
 
 import re
-from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING, Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from kasten_backend import vault
-from kasten_backend.code_spans import code_spans, inside
 from kasten_backend.config import Settings, get_settings
-from kasten_backend.frontmatter import body_start
 from kasten_backend.log_config import Kind, parse_config, parse_kind_line
-from kasten_backend.periodic import DAILY, SECTION_END, daily_path
+from kasten_backend.periodic import DATE_PATTERN, date_range, day_sections
 from kasten_backend.todo_fields import mask
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
-    from pathlib import Path
+    from datetime import date
 
 router = APIRouter()
 
@@ -30,9 +27,6 @@ LOG = "## Log"
 
 CONFIG_NOTE = "log.md"
 """The config note's name, in the config folder, which names the kinds of your own."""
-
-DAY_NOTE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}\.md")
-"""A daily note's name. A pattern, since `date.fromisoformat` also takes `20261020`."""
 
 ETHANOL_DENSITY = 0.789
 """Grams per millilitre of ethanol, which turns an alcohol line's volume and strength into grams."""
@@ -44,12 +38,6 @@ _NUMBER = r"[0-9]{1,9}(?:[.,][0-9]{1,9})?"
 """A number: up to nine digits, then an optional point or comma and up to nine more.
 
 `[0-9]`, not the Unicode digit class. The cap keeps the arithmetic exact in a float.
-"""
-
-DATE_PATTERN = r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
-"""The shape of `from` and `to`.
-
-Pydantic's date mode would read `0` as a day, so the route reads the text itself.
 """
 
 MAX_STRENGTH = 100
@@ -285,33 +273,6 @@ def _builtin_line(text: str, line: int) -> Entry | None:
     return _food(text, line)
 
 
-def _log_lines(text: str) -> list[tuple[int, str]] | None:
-    """The lines under the `## Log` sections of `text`, numbered, or None with no section.
-
-    Each line is judged by its start offset. A fence `code_spans` finds, and the frontmatter
-    `body_start` skips, hold no heading and no entry.
-    """
-    body = body_start(text)
-    # Fences are found in the body alone, so a fence the frontmatter seems to open
-    # hides nothing below it.
-    spans = [(start + body, end + body) for start, end in code_spans(text[body:])]
-    lines: list[tuple[int, str]] = []
-    seen = False
-    in_log = False
-    offset = 0
-    for number, line in enumerate(text.split("\n"), 1):
-        start, offset = offset, offset + len(line) + 1
-        if start < body or inside(start, spans):
-            continue
-        # `## Log` matches the section end too, so the flag is set from it here.
-        if SECTION_END.match(line):
-            in_log = line.rstrip() == LOG
-            seen = seen or in_log
-        elif in_log:
-            lines.append((number, line))
-    return lines if seen else None
-
-
 def _grams_of(entry: Entry) -> float:
     """An alcohol entry's grams before rounding, which the day's total sums, or 0 without both."""
     if entry.ml is None or entry.abv is None:
@@ -367,23 +328,6 @@ def _totals(entries: list[Entry], kinds: list[Kind] | None) -> Totals:
     )
 
 
-def _days(folder: Path, first: date, last: date) -> list[date]:
-    """The days from `first` to `last` that have a daily note in `folder`, in order."""
-    # Zero-padded names sort in date order, so the sort is the chronology.
-    found: list[date] = []
-    for name in sorted(item.name for item in folder.iterdir()):
-        if DAY_NOTE.fullmatch(name) is None:
-            continue
-        try:
-            day = date.fromisoformat(name.removesuffix(".md"))
-        except ValueError:
-            # Shaped like a date and no real one, such as 2026-02-30.
-            continue
-        if first <= day <= last:
-            found.append(day)
-    return found
-
-
 def _own_kinds(settings: Settings) -> list[Kind] | None:
     """The kinds the config note adds to the built-in ones, or None with no readable note.
 
@@ -412,13 +356,7 @@ def read_log(
     """
     # A plain `def`, not `async`: FastAPI runs it in its thread pool, so the file
     # reads and the markdown parse do not hold up the event loop.
-    try:
-        first, last = date.fromisoformat(start), date.fromisoformat(end)
-    except ValueError as error:
-        raise HTTPException(status_code=422, detail="`from` and `to` must be real dates") from error
-    if first > last:
-        raise HTTPException(status_code=400, detail="`from` is after `to`")
-    return read_days(settings, first, last)
+    return read_days(settings, *date_range(start, end))
 
 
 def read_days(settings: Settings, first: date, last: date) -> list[Day]:
@@ -426,26 +364,12 @@ def read_days(settings: Settings, first: date, last: date) -> list[Day]:
 
     Blocking file reads, so an async caller runs it in a thread.
     """
-    # One listing of the folder, not a read per date: a range of years would
-    # otherwise stall the backend on millions of misses.
-    folder = vault.resolve_folder(settings.vault_path, f"{settings.periodic_path}/{DAILY}")
-    if folder is None:
-        return []
-
     # Read once for the whole range.
     kinds = _own_kinds(settings)
     days: list[Day] = []
-    for day in _days(folder, first, last):
-        path = daily_path(day, settings.periodic_path)
-        try:
-            text = vault.read_note(settings.vault_path, path)
-        except UnicodeDecodeError, OSError:
-            # Gone, unreadable or not UTF-8: a note the reader cannot take is
-            # skipped as a missing one, so one bad file does not fail the range.
-            continue
-        lines = None if text is None else _log_lines(text)
-        if lines is None:
-            continue
+    for day, path, lines in day_sections(
+        settings.vault_path, settings.periodic_path, first, last, LOG
+    ):
         entries = [
             parsed
             for number, line in lines

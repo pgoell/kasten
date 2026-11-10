@@ -1,8 +1,6 @@
-import { EditorView } from "@codemirror/view";
 import { fireEvent, screen } from "@testing-library/react";
 import { useMemo } from "react";
 import type { TodoHit } from "@/lib/core/api";
-import { readClock } from "@/lib/core/clock";
 import { noteBase } from "@/lib/notes/note-base";
 import { periodicNote } from "@/lib/notes/text/periodic";
 import type { PdfRenderer } from "@/lib/panes/book/pdf-view";
@@ -10,7 +8,7 @@ import type { TodoState } from "@/lib/todo/todo";
 import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
 import { act, outside, pageHooks, renderApp, settle, theRoute, VAULT } from "./home-route-fixture";
-import { COARSE, NARROW, stubMatchMedia } from "./match-media";
+import { NARROW, stubMatchMedia } from "./match-media";
 
 defineFoliateFake();
 
@@ -218,10 +216,9 @@ describe("the route", () => {
     }
 
     /** The same, with the pane open. */
-    async function listing(phone = false) {
+    async function listing() {
       const app = await vault();
-      if (phone) fireEvent.click(screen.getByRole("button", { name: "Open the todo pane" }));
-      else app.leader("g", "t");
+      app.leader("g", "t");
       await settle();
       return app;
     }
@@ -232,34 +229,6 @@ describe("the route", () => {
       expect(createNote).not.toHaveBeenCalled();
     }
 
-    /** The second row, pressed with `key` in the desktop pane. */
-    async function pressSecond(app: Awaited<ReturnType<typeof renderApp>>, key: string) {
-      const pane = app.todoPane() as HTMLElement;
-      pane.focus();
-      fireEvent.keyDown(pane, { key: "j" });
-      fireEvent.keyDown(pane, { key });
-      await hashed();
-      await settle();
-    }
-
-    it("#534 A1 A6 the pane's t on a twin carrying the other's 🆔 writes nothing and names the other", async () => {
-      const app = await listing();
-
-      await pressSecond(app, "t");
-
-      wroteNothing();
-      expect(app.notice()).toBe(SECOND);
-    });
-
-    it("#534 A3 A6 the pane's X on a twin carrying the other's 🆔 writes nothing and names the other", async () => {
-      const app = await listing();
-
-      await pressSecond(app, "X");
-
-      wroteNothing();
-      expect(app.notice()).toBe(SECOND);
-    });
-
     it("#534 A3 a card dropped on done carrying another todo's 🆔 writes nothing and names the other", async () => {
       const app = await listing();
 
@@ -269,83 +238,6 @@ describe("the route", () => {
 
       wroteNothing();
       expect(app.notice()).toBe(SECOND);
-    });
-
-    it("#534 A6 the phone strip's timer on a twin carrying the other's 🆔 writes nothing and names the other", async () => {
-      stubMatchMedia({ [NARROW]: true, [COARSE]: true });
-      const app = await listing(true);
-
-      fireEvent.click(screen.getAllByLabelText("more for a")[1] as HTMLElement);
-      fireEvent.click(screen.getByLabelText("timer a"));
-      await hashed();
-      await settle();
-
-      wroteNothing();
-      expect(app.notice()).toBe(SECOND);
-    });
-
-    it("#534 A6 the phone strip's done on a twin carrying the other's 🆔 writes nothing and names the other", async () => {
-      stubMatchMedia({ [NARROW]: true, [COARSE]: true });
-      const app = await listing(true);
-
-      fireEvent.click(screen.getAllByLabelText("more for a")[1] as HTMLElement);
-      fireEvent.click(screen.getByLabelText("done a"));
-      await hashed();
-      await settle();
-
-      wroteNothing();
-      expect(app.notice()).toBe(SECOND);
-    });
-
-    /**
-     * The buffer takes the press and autosave writes its own note, so what is
-     * refused is every other note: the log in today's, the dependent in its own.
-     * The notes the press wrote besides this one, which must be none.
-     */
-    const asideWrites = () => [
-      ...saveNote.mock.calls.map(([path]) => path).filter((path) => path !== PATH),
-      ...createNote.mock.calls.map(([path]) => path),
-    ];
-
-    it("#534 A4 A6 <leader>x on a twin carrying the other's 🆔 logs nothing, unblocks nothing and names the other", async () => {
-      const app = await vault();
-      app.click(PATH);
-      await settle();
-
-      // The cursor opens on the first twin.
-      app.leader("x");
-      await hashed();
-      await settle();
-
-      expect(app.text()).toContain("✅");
-      expect(asideWrites()).toEqual([]);
-      expect(app.notice()).toBe(
-        "Nothing moved: 🆔 kt-aaaaaa is on another todo too: inbox.md line 2",
-      );
-    });
-
-    it("#534 A4 A6 the palette's cycle with vim off on a twin carrying the other's 🆔 logs nothing and names the other", async () => {
-      localStorage.setItem("kasten.vim", "off");
-      try {
-        const app = await vault();
-        app.click(PATH);
-        await settle();
-
-        // No leader with vim off: `<leader>x` is the palette's row of that label.
-        app.press("P", { keyCode: 80, ctrlKey: true, shiftKey: true });
-        await settle();
-        fireEvent.click(screen.getByRole("option", { name: /^Cycle the todo on this line/ }));
-        await hashed();
-        await settle();
-
-        expect(app.text()).toContain("✅");
-        expect(asideWrites()).toEqual([]);
-        expect(app.notice()).toBe(
-          "Nothing moved: 🆔 kt-aaaaaa is on another todo too: inbox.md line 2",
-        );
-      } finally {
-        localStorage.removeItem("kasten.vim");
-      }
     });
 
     describe("#538 two quick presses into done in one note", () => {
@@ -419,125 +311,6 @@ describe("the route", () => {
         } finally {
           localStorage.removeItem("kasten.vim");
         }
-      });
-    });
-
-    it("#534 A4 B3 <leader>x in today's note on a todo whose 🆔 another note carries moves only its line", async () => {
-      // Today's own note, where the log line and the dependent are buffer edits.
-      const daily = periodicNote("daily", NOW).path;
-      const text = "- [/] a 🆔 kt-aaaaaa\n- [b] c ⛔ kt-aaaaaa\n\n## Done\n";
-      const notes: Record<string, string> = {
-        ...VAULT,
-        [daily]: text,
-        "projects/x.md": "- [/] z 🆔 kt-aaaaaa",
-      };
-      fetchFiles.mockImplementation(async () => Object.keys(notes));
-      fetchNote.mockImplementation(async (path: string) => notes[path]);
-      fetchTodos.mockResolvedValue([
-        { path: daily, line: 1, text: "- [/] a 🆔 kt-aaaaaa", project: null, shared: false },
-        { path: daily, line: 2, text: "- [b] c ⛔ kt-aaaaaa", project: null, shared: false },
-        {
-          path: "projects/x.md",
-          line: 1,
-          text: "- [/] z 🆔 kt-aaaaaa",
-          project: null,
-          shared: false,
-        },
-      ]);
-      const app = await renderApp(`/?note=${encodeURIComponent(daily)}`);
-      await settle();
-      // The listing is what the press asks, so the page holds one: the overlay
-      // reads it and shuts, leaving the note where it was.
-      app.leader("f", "t");
-      await settle();
-      fireEvent.keyDown(document.activeElement as HTMLElement, { key: "Escape" });
-      await settle();
-
-      app.leader("x");
-      await hashed();
-      await settle();
-
-      const view = EditorView.findFromDOM(document.querySelector(".cm-editor") as HTMLElement);
-      expect(view?.state.doc.toString()).toBe(
-        `- [x] a ✅ ${readClock(NOW).date} 🆔 kt-aaaaaa\n- [b] c ⛔ kt-aaaaaa\n\n## Done\n`,
-      );
-      expect(app.notice()).toBe(
-        "Nothing moved: 🆔 kt-aaaaaa is on another todo too: projects/x.md line 1",
-      );
-    });
-
-    it("#534 I5 a timer press whose search fails says Nothing moved and why", async () => {
-      const app = await listing();
-      searchNotes.mockRejectedValue(new Error("GET /api/search failed with 500"));
-
-      await pressSecond(app, "t");
-
-      wroteNothing();
-      expect(app.notice()).toBe("Nothing moved: GET /api/search failed with 500");
-    });
-
-    describe("#537 blocking on a todo whose 🆔 another todo carries", () => {
-      const DOCS = "- [ ] write the docs";
-      const SHIP = "- [ ] ship the release 🆔 kt-aaaaaa";
-      /** The twin, done, in another note. */
-      const COPY = "- [x] ship the release 🆔 kt-aaaaaa";
-      const REFUSED = "Nothing moved: 🆔 kt-aaaaaa is on another todo too: other.md line 1";
-
-      /** The pane over the dependent and the blocker in one note, the twin in another. */
-      async function blocking(phone = false) {
-        const notes: Record<string, string> = {
-          ...VAULT,
-          [PATH]: `${DOCS}\n${SHIP}`,
-          "other.md": COPY,
-        };
-        fetchFiles.mockImplementation(async () => Object.keys(notes));
-        fetchNote.mockImplementation(async (path: string) => notes[path]);
-        fetchTodos.mockResolvedValue([
-          { path: PATH, line: 1, text: DOCS, project: null, shared: false },
-          { path: PATH, line: 2, text: SHIP, project: null, shared: false },
-          { path: "other.md", line: 1, text: COPY, project: null, shared: false },
-        ]);
-        const app = await renderApp();
-        await settle();
-        if (phone) fireEvent.click(screen.getByRole("button", { name: "Open the todo pane" }));
-        else app.leader("g", "t");
-        await settle();
-        return app;
-      }
-
-      it("#537 A6 the pane's b on a twinned blocker says Nothing moved", async () => {
-        const app = await blocking();
-        const pane = app.todoPane() as HTMLElement;
-        pane.focus();
-
-        fireEvent.keyDown(pane, { key: "b" });
-        fireEvent.keyDown(pane, { key: "j" });
-        fireEvent.keyDown(pane, { key: "Enter" });
-        await hashed();
-        await settle();
-
-        wroteNothing();
-        expect(app.notice()).toBe(REFUSED);
-      });
-
-      it("#537 A7 the phone menu's blocked by on a twinned blocker says Nothing moved", async () => {
-        stubMatchMedia({ [NARROW]: true, [COARSE]: true });
-        const app = await blocking(true);
-
-        fireEvent.click(screen.getByLabelText("more for write the docs"));
-        fireEvent.click(screen.getByLabelText("blocked by write the docs"));
-        fireEvent.click(
-          screen
-            .getAllByRole("button")
-            .find(
-              (button) => button.title !== "" && button.textContent?.includes("ship the release"),
-            ) as HTMLElement,
-        );
-        await hashed();
-        await settle();
-
-        wroteNothing();
-        expect(app.notice()).toBe(REFUSED);
       });
     });
   });

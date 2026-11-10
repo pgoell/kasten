@@ -76,7 +76,7 @@ jobs:
             echo 'PROMPT_END'
           } >> "$GITHUB_OUTPUT"
       - if: steps.pick.outputs.area != ''
-        uses: anthropics/claude-code-action@d70510b174a1244958df0b03166a54912811f3e6 # v1.0.264
+        uses: anthropics/claude-code-action@61a9c274fa7110a66dfafc1bbbced03833eb25fe # v1.0.269
         env:
           # Strips the tokens from the environment of every command it runs; the
           # action writes one into .git/config, so the agent may not read .git.

@@ -293,20 +293,19 @@ The `Host` header the MCP endpoint answers to, and the OAuth issuer.
 | Read by | `POST /agent/mcp`, its `401`, the two `.well-known` documents, and the `iss` on the authorize redirect |
 
 The MCP SDK's DNS-rebinding protection is left on, and its own default allowlist
-is localhost only, which answers `421` to everything arriving through a proxy.
+is localhost only, which answers `421` to anything through a proxy.
 Empty is what dev on loopback needs; production sets the hostname Caddy serves.
 
 The issuer is `https://{value}`, so the value is a bare hostname. It is what the
 discovery documents state and what a [connector](/how-to/connect-an-agent.md)
-compares, as an exact string with no normalising, so a trailing slash or a
-scheme in front of the name fails the flow at the first comparison.
+compares as an exact string, so a trailing slash or a scheme in front of
+the name fails the flow at the first comparison.
 
-Unset, the issuer comes from the request, which is what dev and the tests run
-on. In production that is wrong: the container runs uvicorn without
+Unset, the issuer comes from the request, as in dev and the tests. In production that is wrong: the container runs uvicorn without
 `--forwarded-allow-ips`, so an issuer built from the request says `http` where
 the world sees `https`, and every comparison fails.
 
-The backend logs a warning at startup while this is empty, and starts anyway.
+The backend logs a warning at startup while this is empty.
 It also bounds the `Origin` check on the
 [consent `POST`](/reference/agent-api/oauth.md#get-and-post-apioauthauthorize):
 `https://{value}` is accepted there as well as the request's own origin.
@@ -315,6 +314,7 @@ It also bounds the `Origin` check on the
 
 `KASTEN_SHARE_HOST` and `KASTEN_SHARE_LOGS_DONE`: [The shared lists](/reference/configuration/shared-lists.md).
 `KASTEN_PUSH_PRIVATE_KEY` and `KASTEN_TIMEZONE`: [Push reminders](/reference/configuration/push-reminders.md).
+`KASTEN_GITHUB_*`: [GitHub settings](/reference/configuration/github-settings.md).
 
 ## KASTEN_HERDR_SESSIONS_PATH
 
@@ -440,12 +440,12 @@ the production ones go.
 
 ## The self-host stack
 
-`deploy/selfhost/compose.yaml` reads more from `.env` and two files beside it:
+`deploy/selfhost/compose.yaml` reads more from `.env` and two files:
 [The self-host stack](/reference/configuration/self-host-stack.md).
 
 ## Related
 
 * [The vault and the derived index](/explanation/vault-and-derived-index.md): what these settings mean to each other
 * [Deleting a note](/explanation/trash-and-archive/deleting-a-note.md): why a trash
-* [Two environments](/explanation/environments.md): the values dev and prod actually run with
+* [Two environments](/explanation/environments.md): the values dev and prod run with
 * [The agent boundary](/explanation/the-agent-boundary.md): what the token store is for

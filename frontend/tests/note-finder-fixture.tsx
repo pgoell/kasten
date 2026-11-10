@@ -23,13 +23,23 @@ export const MANY_PATHS = [
   ...Array.from({ length: 5 }, (_, index) => `notes-${index}.md`),
 ];
 
-export function renderFinder(vault = PATHS, queryClient = new QueryClient()) {
+export function renderFinder(
+  vault = PATHS,
+  queryClient = new QueryClient(),
+  { files, vaultNotes }: { files?: string[]; vaultNotes?: string[] } = {},
+) {
   const onOpen = vi.fn();
   const onClose = vi.fn();
 
   render(
     <QueryClientProvider client={queryClient}>
-      <NoteFinder paths={vault} onOpen={onOpen} onClose={onClose} />
+      <NoteFinder
+        paths={vault}
+        files={files}
+        vaultNotes={vaultNotes}
+        onOpen={onOpen}
+        onClose={onClose}
+      />
     </QueryClientProvider>,
   );
 
@@ -46,6 +56,8 @@ export function renderFinder(vault = PATHS, queryClient = new QueryClient()) {
     // is how a test pins that the browser's own answer to the key never ran.
     press: (key: string, init?: KeyboardEventInit) => fireEvent.keyDown(input, { key, ...init }),
     rows: () => screen.queryAllByRole("option").map((row) => row.textContent),
+    option: (path: string) =>
+      screen.queryAllByRole("option").find((row) => row.textContent?.startsWith(path)),
     highlighted: () => screen.queryByRole("option", { selected: true })?.textContent,
     hint: () => screen.getByRole("status").textContent,
   };

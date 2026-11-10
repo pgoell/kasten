@@ -203,7 +203,7 @@ The year review draws them as a grid, one square a day, and the week review
 states the week's total. The review never shows the login or the token.
 
 It is off until the backend has both a user and a token. Set them as
-[GitHub settings](/reference/github-settings.md) describes. Until then the
+[GitHub settings](/reference/configuration/github-settings.md) describes. Until then the
 section says:
 
 `GitHub is off: the backend has no token.`
@@ -217,12 +217,12 @@ read, such as `GET /api/github failed with 502`. The token is never in the words
 The backend keeps each day it reads in a file outside the vault. A day read on a
 later day than itself is settled and is not asked for again. Any other day, today
 among them, is asked again once the last read is an hour old. The cache file and
-its location are in [GitHub settings](/reference/github-settings.md#kasten_github_cache_path).
+its location are in [GitHub settings](/reference/configuration/github-settings.md#kasten_github_cache_path).
 
 ## Related
 
 * [Model use format](/reference/model-use-format.md): the monthly notes the model use section draws, and the prices behind its cost
 * [Read the overview](/how-to/read-the-overview.md): the same counts on the overview's cards, and the streak rules
-* [GitHub settings](/reference/github-settings.md): the three settings that switch the GitHub section on
+* [GitHub settings](/reference/configuration/github-settings.md): the three settings that switch the GitHub section on
 * [HTTP API: notes](/reference/http-api/notes.md#get-apiwrittennotes): the route that dates the notes written
 * [HTTP API: capture](/reference/http-api/capture.md#get-apigithub): the route that answers the GitHub counts

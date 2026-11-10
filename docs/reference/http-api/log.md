@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: "HTTP API: log"
-description: The route that adds up each day's water, coffee, alcohol and food from its daily note.
+description: The route that adds up each day's water, coffee, alcohol and food from its daily note, and the one that reads its training lines.
 resource: backend/src/kasten_backend/log.py
 tags: [api, backend, openapi]
 status: stable
@@ -9,7 +9,8 @@ status: stable
 
 # HTTP API: log
 
-The route that adds up each day's water, coffee, alcohol and food from its daily note.
+The route that adds up each day's water, coffee, alcohol and food from its daily note,
+and the one that reads its training lines.
 
 ## GET /api/log
 
@@ -88,3 +89,34 @@ The route only reads. The log pane asks it twice: for the day shown, and for
 the 7, 30 or 90 days that end on that day, from which the pane's Trends works
 out its summary, charts, macro split and week table in the browser. Every line
 the pane writes goes through the note's own save, never through this route.
+
+## GET /api/training
+
+Takes `from` and `to` as `GET /api/log` does, answers with the same errors, and
+reads the daily notes the same way. A day is in the list when its note has a
+`## Training` heading, and holds the lines under it that parse, in line order,
+as [the training format](/reference/training-format.md) describes them. A day
+whose `## Training` holds no such line is there with `"entries": []`. There are
+no totals.
+
+```
+GET /api/training?from=2026-11-09&to=2026-11-15
+```
+
+```json
+[
+  {
+    "date": "2026-11-09",
+    "path": "01 Periodic/00 Daily/2026-11-09.md",
+    "entries": [
+      { "line": 11, "text": "- 🏋 [[Kniebeuge]] 80 kg 8 7 7 @8", "kind": "strength", "exercise": "Kniebeuge", "kg": 80.0, "bodyweight": null, "reps": [8, 7, 7], "sets": 3, "seconds": null, "rpe": 8.0, "e1rm": 101.3, "minutes": null, "km": null, "heart_rate": null, "groups": null },
+      { "line": 12, "text": "- 🏃 [[Joggen]] 32 min 5.0 km ❤ 148", "kind": "run", "exercise": "Joggen", "kg": null, "bodyweight": null, "reps": null, "sets": null, "seconds": null, "rpe": null, "e1rm": null, "minutes": 32.0, "km": 5.0, "heart_rate": 148, "groups": null },
+      { "line": 13, "text": "- 📏 [[Knie-zur-Wand]] L 11 cm R 9 cm", "kind": "test", "exercise": "Knie-zur-Wand", "kg": null, "bodyweight": null, "reps": null, "sets": null, "seconds": null, "rpe": null, "e1rm": null, "minutes": null, "km": null, "heart_rate": null, "groups": [{ "label": null, "left": { "amount": 11.0, "unit": "cm", "passed": null }, "right": { "amount": 9.0, "unit": "cm", "passed": null }, "value": null }] }
+    ]
+  }
+]
+```
+
+Every field of an entry is there, `null` where its kind has none, and so is
+every field of a test's group and value. `kind` is `strength`, `walk`, `run`,
+`ride` or `test`.

@@ -9,9 +9,8 @@ from backend.tests.conftest import JJ, descriptions
 from kasten_backend import agent
 from kasten_backend.code_spans import code_spans, inside
 from kasten_backend.config import Settings, get_settings
-from kasten_backend.log import _log_lines
 from kasten_backend.main import app
-from kasten_backend.periodic import append_dump, append_under, daily_note
+from kasten_backend.periodic import append_dump, append_under, daily_note, heading_lines
 
 if TYPE_CHECKING:
     from httpx import AsyncClient
@@ -127,7 +126,7 @@ def test_a_capture_that_opens_a_fence_is_closed_and_the_log_still_reads() -> Non
     result = append_dump(text, "```")
 
     assert result == "## Dump\na\n\n```\n```\n\n## Log\nwater 250ml\n"
-    assert _log_lines(result) == [(8, "water 250ml"), (9, "")]
+    assert heading_lines(result, "## Log") == [(8, "water 250ml"), (9, "")]
 
 
 def test_a_capture_into_a_dump_ending_in_an_unclosed_fence_lands_after_it() -> None:
@@ -200,7 +199,7 @@ def test_a_capture_of_inline_triple_backtick_code_gets_no_closer() -> None:
     result = append_dump("## Dump\na\n\n## Log\nwater 250ml\n", "```npm i```")
 
     assert result == "## Dump\na\n\n```npm i```\n\n## Log\nwater 250ml\n"
-    assert _log_lines(result) == [(7, "water 250ml"), (8, "")]
+    assert heading_lines(result, "## Log") == [(7, "water 250ml"), (8, "")]
 
 
 def test_a_note_ending_in_inline_triple_backtick_code_gets_no_closer() -> None:
@@ -219,7 +218,7 @@ def test_a_capture_with_a_fence_in_a_list_item_gets_no_column_zero_closer() -> N
     result = append_dump("## Dump\na\n\n## Log\nwater 250ml\n", "- x\n\n  ```\n  code")
 
     assert result == "## Dump\na\n\n- x\n\n  ```\n  code\n\n## Log\nwater 250ml\n"
-    log = _log_lines(result)
+    log = heading_lines(result, "## Log")
     assert log is not None and (10, "water 250ml") in log
 
 

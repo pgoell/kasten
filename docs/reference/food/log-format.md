@@ -2,7 +2,7 @@
 type: Reference
 title: Log format
 description: How a daily note logs water, coffee, alcohol and food as lines under ## Log, every kind and its fields, the config note that sets the card's kinds and daily goals, what does not parse, how a day adds up, and the table of cases the parser is tested against.
-resource: frontend/src/lib/log/log-cases.json
+resource: frontend/src/lib/log/cases/log-cases.json
 tags: [vault, log, format, backend]
 status: stable
 ---
@@ -295,7 +295,7 @@ the serving and figures to a tenth. Two foods with the same name both list.
 Nothing edits or removes a line but you, in the note.
 
 `frontend/src/lib/log/my-foods.ts` reads and writes the note, and `food-add.ts` holds the add form. The backend reads it
-in `backend/src/kasten_backend/recipes/foods.py`, to match [recipe](/reference/food/recipe-note.md) lines, and writes
+in `backend/src/kasten_backend/food/recipes/foods.py`, to match [recipe](/reference/food/recipe-note.md) lines, and writes
 nothing. Both readers run the rows of `backend/tests/food/foods_cases.json`, so they cannot part ways unnoticed.
 
 ## Two parsers
@@ -309,7 +309,7 @@ in Postgres: every answer is read from the notes.
 
 The config note has two readers: `frontend/src/lib/log/log-kinds.ts` for the card,
 and `backend/src/kasten_backend/log_config.py` for `GET /api/log`. Both run the
-same table, `frontend/src/lib/log/log-config-cases.json`, so they cannot part ways
+same table, `frontend/src/lib/log/cases/log-config-cases.json`, so they cannot part ways
 unnoticed. `log-cases.json` is unchanged.
 
 `foodLine` in that module writes the line the card's food search logs. It
@@ -319,7 +319,7 @@ the line parses back to the same words and fields.
 
 ## The cases
 
-`frontend/src/lib/log/log-cases.json` holds one row per case: a line and the entry
+`frontend/src/lib/log/cases/log-cases.json` holds one row per case: a line and the entry
 it parses to, or `null` for a plain bullet. The parser runs the whole table in
 its tests. A change to the format is a change to that table first, and a later
 reader or writer of the format runs the same rows.

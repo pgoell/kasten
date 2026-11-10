@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 
 /** Loads the app and waits until the tree lists the vault and the editor holds the focus. */
 export async function openApp(page: Page): Promise<void> {
@@ -44,12 +44,14 @@ export async function openFromTree(page: Page, name: string): Promise<void> {
 /** A phone as `test.use` takes it: 414 px wide, a finger for a pointer, so vim starts off. */
 export const phone = { viewport: { width: 414, height: 896 }, hasTouch: true, isMobile: true };
 
-/** Today's date on this box, as the browser names the daily note it sends. */
-export function today(): string {
-  const now = new Date();
+/** A local date as `YYYY-MM-DD`, the way the browser names a daily note. */
+export function localDate(at: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  return `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
 }
+
+/** Today's date on this box, as the browser names the daily note it sends. */
+export const today = (): string => localDate(new Date());
 
 /** A note in the test's vault, or "" while it is not there, so a poll waits for the write. */
 export async function noteText(vault: string, path: string): Promise<string> {
@@ -60,3 +62,16 @@ export async function noteText(vault: string, path: string): Promise<string> {
     throw error;
   }
 }
+
+/** The panes on screen; a pane on its way out is hidden. */
+export const panes = (page: Page): Locator => page.locator("[data-pane]:visible");
+
+/** Opens a note from the tree and waits for its editor's focus: keys sent sooner are lost (#1738). */
+export async function openNote(page: Page, name: string): Promise<void> {
+  await openFromTree(page, name);
+  await expect(page.locator(".cm-content:focus")).toHaveCount(1);
+}
+
+/** A note's text without the id and stamps the vault writes into its frontmatter. */
+export const unstamped = (text: string): string =>
+  text.replace(/^(id|created|modified): .*\n/gm, "");
