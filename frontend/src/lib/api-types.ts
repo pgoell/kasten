@@ -4513,7 +4513,7 @@ export interface components {
         };
         /**
          * Cooked
-         * @description One line under `## Gekocht`: the day it was cooked, the answer to "wieder kochen?", a note.
+         * @description A line under `## Gekocht`: the day cooked, the answer to "wieder kochen?", and a note.
          */
         Cooked: {
             /** Line */
