@@ -18,6 +18,9 @@ import {
   VAULT,
 } from "./home-route-fixture";
 
+/** A note finder row by its path, as its text shows the name and folder apart. */
+const finderRow = (path: string) => document.querySelector(`[role="option"][data-path="${path}"]`);
+
 defineFoliateFake();
 
 // The doubles, the same in every home-route file: see home-route-fixture.tsx.
@@ -246,8 +249,8 @@ describe("the finders keep their candidates", () => {
   it("A1 the note finder builds its candidates once while the route renders again, archive off", async () => {
     await finderOpen(["f", "f"], false);
     // The note finder's rows are whole paths, and the book finder's names.
-    expect.soft(screen.queryByRole("option", { name: "other.md" })).not.toBeNull();
-    expect.soft(screen.queryByRole("option", { name: ARCHIVED })).toBeNull();
+    expect.soft(finderRow("other.md")).not.toBeNull();
+    expect.soft(finderRow(ARCHIVED)).toBeNull();
     built.mockClear();
 
     await declinedWrite();
@@ -257,7 +260,7 @@ describe("the finders keep their candidates", () => {
 
   it("A2 the note finder builds its candidates once while the route renders again, archive on", async () => {
     await finderOpen(["f", "f"], true);
-    expect.soft(screen.queryByRole("option", { name: ARCHIVED })).not.toBeNull();
+    expect.soft(finderRow(ARCHIVED)).not.toBeNull();
     built.mockClear();
 
     await declinedWrite();
@@ -288,14 +291,14 @@ describe("the finders keep their candidates", () => {
 
   it("I1 a note that arrives while the note finder is open shows as a row", async () => {
     await finderOpen(["f", "f"], false);
-    expect.soft(screen.queryByRole("option", { name: "other.md" })).not.toBeNull();
-    expect.soft(screen.queryByRole("option", { name: ARRIVED })).toBeNull();
+    expect.soft(finderRow("other.md")).not.toBeNull();
+    expect.soft(finderRow(ARRIVED)).toBeNull();
 
     fetchFiles.mockResolvedValue([...Object.keys(VAULT), BOOK, ARCHIVED, ARRIVED]);
     act(() => stream().send({ path: ARRIVED, change: "written", digest: "b".repeat(64) }));
     await settle();
 
-    expect(screen.queryByRole("option", { name: ARRIVED })).not.toBeNull();
+    expect(finderRow(ARRIVED)).not.toBeNull();
   });
 });
 

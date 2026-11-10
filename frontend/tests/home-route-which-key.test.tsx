@@ -13,6 +13,9 @@ import {
 } from "./home-route-fixture";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 
+/** A note finder row by its path, as its text shows the name and folder apart. */
+const finderRow = (path: string) => document.querySelector(`[role="option"][data-path="${path}"]`);
+
 defineFoliateFake();
 
 // The doubles, the same in every home-route file: see home-route-fixture.tsx.
@@ -146,7 +149,7 @@ describe("the which-key panel on the route", () => {
     app.leader("f", "f");
     await settle();
 
-    expect(screen.getByRole("option", { name: "other.md" })).toBeInTheDocument();
+    expect(finderRow("other.md")).toBeInTheDocument();
   });
 
   it("? on the file tree opens key help with the filter focused", async () => {
