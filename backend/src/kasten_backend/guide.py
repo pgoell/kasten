@@ -75,9 +75,14 @@ def _missing(root: Path, relative: str) -> Path | None:
     """Where `relative` goes when the vault lacks it, with no link on the way and inside `root`."""
     base = root.resolve()
     path = base / relative
-    there = next((up for up in path.parents if up.exists()), base)
-    plain = there.resolve() == there and there.is_relative_to(base)
-    return path if plain and not path.exists() else None
+    # A dangling link counts as missing to `exists()`, so each step is asked for a link itself.
+    steps = [up for up in (path, *path.parents) if up.is_relative_to(base) and up != base]
+    if not path.is_relative_to(base) or any(up.is_symlink() for up in steps):
+        return None
+    folders = steps[1:]
+    if any(up.exists() and not up.is_dir() for up in folders) or path.exists():
+        return None
+    return path
 
 
 def _place(path: Path, text: str) -> None:

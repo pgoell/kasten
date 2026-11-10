@@ -127,3 +127,21 @@ async def test_startup_writes_no_skill_through_a_linked_skills_folder(
         pass
 
     assert list(outside.iterdir()) == []
+
+
+async def test_startup_starts_past_a_dangling_link_or_a_file_for_the_skills_folder(
+    startup_vault: Path, tmp_path: Path
+) -> None:
+    (startup_vault / ".claude").mkdir(parents=True)
+    (startup_vault / ".claude/skills").symlink_to(tmp_path / "nowhere")
+
+    async with LifespanManager(app):
+        pass
+
+    (startup_vault / ".claude/skills").unlink()
+    (startup_vault / ".claude/skills").write_text("not a folder\n", encoding="utf-8")
+
+    async with LifespanManager(app):
+        pass
+
+    assert not (tmp_path / "nowhere").exists()
