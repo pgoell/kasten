@@ -56,7 +56,7 @@ export function renderPanes(
             ))}
           </div>
           {phone && <Toolbar commands={mounted.spy} pane={paths.length > 1 ? "1/2" : undefined} />}
-          <WhichKey phone={phone} />
+          {!phone && <WhichKey />}
         </div>
       </QueryClientProvider>,
     ),

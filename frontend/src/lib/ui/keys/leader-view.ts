@@ -18,7 +18,7 @@ import {
 export interface LeaderContext {
   /**
    * What the pane holds, `empty` for a pane showing Today. Undefined outside a
-   * pane, such as the file tree, where every key is shown.
+   * pane, such as the file tree, where every key a pane's contents decide is shown.
    */
   holds?: KindField | "empty";
   /** The note's text, when the editor opened the panel. */
@@ -68,7 +68,7 @@ export function fits(needs: LeaderNeed | undefined, context: LeaderContext): boo
 /** A row of the panel. `shown` is the part of `key` still to type. */
 export type PanelRow =
   | { kind: "key"; key: string; shown: string; label: string }
-  | { kind: "group"; key: string; shown: string; label: string; count: number }
+  | { kind: "group"; key: string; shown: string; label: string }
   | { kind: "four"; keys: readonly { key: string; label: string }[]; label: string }
   | { kind: "digits" };
 
@@ -80,13 +80,12 @@ export interface PanelColumn {
 type Entry = { key: string; label: string; needs?: LeaderNeed };
 
 /** Where a key lands once `typed` is pressed: a row of its own, or the group its next key opens. */
-function rowOf(key: string, typed: string, entry: Entry, fitting: readonly Entry[]): PanelRow {
+function rowOf(key: string, typed: string, entry: Entry): PanelRow {
   const next = key.slice(0, typed.length + 1);
   const shown = key.slice(typed.length);
   if (key === next) return { kind: "key", key, shown, label: entry.label };
-  const count = fitting.filter((each) => each.key.startsWith(next)).length;
   const label = LEADER_PREFIXES[next] ?? "More";
-  return { kind: "group", key: next, shown: shown.slice(0, 1), label, count };
+  return { kind: "group", key: next, shown: shown.slice(0, 1), label };
 }
 
 /** `h j k l` as one row before any key, unless only one of the four fits here. */
@@ -106,8 +105,6 @@ export function panelRows(
   typed: string,
   context: LeaderContext,
   edits: readonly Entry[] = [],
-  /** False on a phone, where each key is a full-width row to tap. */
-  fours = true,
 ): { columns: PanelColumn[]; hidden: boolean } {
   const known = (key: string) =>
     LEADER.find((each) => each.key === key) ?? edits.find((each) => each.key === key);
@@ -123,8 +120,7 @@ export function panelRows(
     if (key === TAB_DIGITS) return typed === "" ? [{ kind: "digits" }] : [];
     const entry = fitting.find((each) => each.key === key);
     if (entry === undefined || drawn.has(key)) return [];
-    const row =
-      (fours ? fourOf(key, typed, fitting) : undefined) ?? rowOf(key, typed, entry, fitting);
+    const row = fourOf(key, typed, fitting) ?? rowOf(key, typed, entry);
     const covers =
       row.kind === "four"
         ? row.keys

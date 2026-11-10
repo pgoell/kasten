@@ -1,7 +1,6 @@
 /**
  * Pictures of the which-key panel (#784), to look at by eye: at 1440 by 900 right
- * after Space and after g, in light and dark; at 390 by 844 with touch as the sheet,
- * settled; and in the three accent palettes the app has besides the default. Each
+ * after Space and after g, in light and dark, and in the three accent palettes the app has besides the default. Each
  * picture is of the whole page, so the note behind the panel shows.
  *
  * Skipped unless VITE_KASTEN_SHOTS=1; pictures land in node_modules/.cache/kasten-shots.
@@ -37,7 +36,7 @@ const NOTE = [
   "The first thing to check after a failover is which replica holds the last acknowledged write.",
 ];
 
-function Page({ phone, help = false }: { phone: boolean; help?: boolean }) {
+function Page({ help = false }: { help?: boolean }) {
   return (
     <main className="flex h-dvh bg-k-bg text-k-ink">
       <div
@@ -53,18 +52,12 @@ function Page({ phone, help = false }: { phone: boolean; help?: boolean }) {
           </p>
         ))}
       </div>
-      {help ? <KeyHelp onClose={() => {}} /> : <WhichKey phone={phone} />}
+      {help ? <KeyHelp onClose={() => {}} /> : <WhichKey />}
     </main>
   );
 }
 
 const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-
-/** The sheet's offset in px, read from its inline transform. */
-function offsetOf(panel: HTMLElement | null): number {
-  const match = /,\s*(-?[\d.e+-]+)px/.exec(panel?.style.transform ?? "");
-  return match ? Number(match[1]) : Number.NaN;
-}
 
 function panelOf(): HTMLElement | null {
   return document.querySelector<HTMLElement>("[role='dialog'][aria-label='Leader keys']");
@@ -92,7 +85,7 @@ async function shootPanel(
   const host = document.body.appendChild(document.createElement("div"));
   const root: Root = createRoot(host);
   try {
-    flushSync(() => root.render(<Page phone={size.touch} />));
+    flushSync(() => root.render(<Page />));
     await nextFrame();
     const pane = host.querySelector<HTMLElement>("[data-pane]") as HTMLElement;
     pane.focus();
@@ -103,10 +96,6 @@ async function shootPanel(
       panel.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
     }
 
-    // A sheet is shot once it has come to rest, so the picture is the open state.
-    for (let at = 0; at < 60 && offsetOf(panelOf()) !== 0; at += 1) {
-      await nextFrame();
-    }
     await nextFrame();
 
     const width = await shot(document.body, name);
@@ -140,7 +129,7 @@ async function shootKeyHelp(name: string, size: Size, theme: Theme, query: strin
   const host = document.body.appendChild(document.createElement("div"));
   const root: Root = createRoot(host);
   try {
-    flushSync(() => root.render(<Page phone={size.touch} help />));
+    flushSync(() => root.render(<Page help />));
     await nextFrame();
     const field = host.querySelector<HTMLInputElement>("input[aria-label='Filter keys']");
     const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
@@ -188,10 +177,6 @@ shotTest("which-key-g-desktop-1440-light", () =>
 shotTest("which-key-g-desktop-1440-dark", () =>
   shootPanel("which-key-g-desktop-1440-dark", DESKTOP, "dark", { keys: ["g"] }),
 );
-shotTest("which-key-touch-390-light", () =>
-  shootPanel("which-key-touch-390-light", TOUCH, "light"),
-);
-shotTest("which-key-touch-390-dark", () => shootPanel("which-key-touch-390-dark", TOUCH, "dark"));
 for (const palette of ["russet", "peach", "pansy"]) {
   for (const theme of ["light", "dark"] as const) {
     const name = `which-key-palette-${palette}-1440-${theme}`;

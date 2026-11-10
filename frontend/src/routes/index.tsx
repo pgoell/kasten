@@ -444,7 +444,7 @@ function Home() {
       />
       {phone && <Toolbar commands={commands} pane={stack} inert={inert} />}
       {helpOpen && <KeyHelp onClose={() => setHelpOpen(false)} />}
-      <WhichKey phone={phone} />
+      {!phone && <WhichKey />}
       <Sheet open={graphSheet.open} onClose={closeGraphSheet} label="Local graph">
         {/* The sheet's paper runs to the screen's edges, so the graph and lists keep off them. */}
         <div className="px-4 pb-6">

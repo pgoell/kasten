@@ -99,7 +99,7 @@ function Layout({ paths, spy, phone = false }: { paths: string[]; spy: Spy; phon
         ))}
       </div>
       {phone && <Toolbar commands={commands} pane={paths.length > 1 ? "1/2" : undefined} />}
-      <WhichKey phone={phone} />
+      {!phone && <WhichKey />}
       {help && <KeyHelp onClose={() => setHelp(false)} />}
     </div>
   );
@@ -323,6 +323,8 @@ it("at 390x844 with touch, the page's links are 44 px tall", async () => {
   render([REPORT_PATH], true);
   await ready(frameOf(0));
 
+  // A phone mounts no which-key panel: it has no leader key to show.
+  expect(panelOf()).toBeNull();
   const link = host.querySelector("[data-html-pane] a");
   expect(link).not.toBeNull();
   expect((link as HTMLElement).getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
