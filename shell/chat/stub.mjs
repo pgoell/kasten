@@ -90,7 +90,10 @@ const steps = (made, options) => [
       { file_path: "/vault/10 Daily/2026-10-14.md", old_string: "", new_string: "## Focus\n" },
       "The file /vault/10 Daily/2026-10-14.md has been updated.",
     ),
-  () => say("Done. Tomorrow's note has the three todos and the plan. Good night."),
+  () =>
+    say(
+      "Done. Tomorrow's note now has:\n\n- the **three todos**, moved from today\n- a plan with `## Focus` and `## Errands`\n\nGood night.",
+    ),
 ];
 
 function query({ prompt, options }) {

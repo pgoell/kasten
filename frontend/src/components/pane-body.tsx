@@ -1,7 +1,7 @@
 import type { Dispatch, ReactElement, RefObject, SetStateAction } from "react";
 import { BookPane } from "@/components/books/book-pane";
 import { LibraryPane } from "@/components/books/library-pane";
-import { ChatPane } from "@/components/chat-pane";
+import { ChatPane } from "@/components/chat/chat-pane";
 import { ExamPane } from "@/components/exam-pane";
 import { FinancePane } from "@/components/finance-pane";
 import { GraphPane } from "@/components/graph-pane";

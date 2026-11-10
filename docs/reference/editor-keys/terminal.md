@@ -189,17 +189,20 @@ The pane takes the focus, not its message box, so the leader works at once.
 | Key | Where | Does |
 | --- | --- | --- |
 | `i`, Enter | the pane | Move to the message box |
-| Enter | the message box | Send. Under a coarse pointer it breaks the line, and `Send` sends |
+| Enter | the message box | Send. Under a coarse pointer it breaks the line, and the arrow sends |
 | Shift+Enter | the message box | Break the line |
 | Escape | the message box | Back to the pane |
 | `<leader>` and a key | the pane | Every leader key. `<leader>q` closes the chat's pane, or empties it when alone in its tab |
 
-In the message box and in a question's `Other` field a space is a space, so
+In the message box and in a question's `Something else…` field a space is a space, so
 the leader is reached from the pane, after Escape.
 
-The header holds `/close-day` and `/process-meeting`, which send that text,
-`Stop` while a run lasts, and `New`, which ends the session and empties the
-pane. A tool call is a folded line that a click or Enter opens. A question a
-skill asks is a form: radio buttons where it takes one answer, checkboxes where
-it takes several, and an `Other` field for your own words. `Answer` is off
+The header holds the session's state (`ready`, `working`, `waiting for you`,
+`offline`) and `New`, which ends the session and empties the pane.
+`/close-day` and `/process-meeting` send that text: two cards in an empty pane,
+two pills over the message box after that. Beside the box sit the send arrow
+and, while a run lasts, a square `Stop`. Claude's text is drawn as markdown. A
+tool call is a folded line that a click or Enter opens. A question a skill asks
+is a card: radio buttons where it takes one answer, checkboxes where it takes
+several, and a `Something else…` field for your own words. `Answer` is off
 until every question has an answer.
