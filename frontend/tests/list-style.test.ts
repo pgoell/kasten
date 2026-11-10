@@ -52,6 +52,17 @@ describe("cycleListStyle", () => {
     expect(cycled(["- a", "", "## h", "- b"], 4)).toEqual(["- a", "", "## h", "1. b"]);
   });
 
+  it("stops where the mark changes, as CommonMark ends a list there", () => {
+    expect(cycled(["- a", "- b", "", "1. x", "2. y"], 4)).toEqual([
+      "- a",
+      "- b",
+      "",
+      "a) x",
+      "b) y",
+    ]);
+    expect(cycled(["- a", "* b"], 1)).toEqual(["1. a", "* b"]);
+  });
+
   it("leaves a list of todos and a line outside any list alone", () => {
     expect(cycled(["- [ ] a", "- [x] b"], 1)).toEqual(["- [ ] a", "- [x] b"]);
     expect(cycled(["plain"], 1)).toEqual(["plain"]);

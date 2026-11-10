@@ -233,24 +233,37 @@ function nextFilled(doc: Text, n: number, step: number): Line | null {
   return null;
 }
 
-/** Whether `line` belongs to the list whose items start `indent` in, as a sibling or deeper. */
-function inList(line: Line | null, indent: number): boolean {
+/** Where a list's items start and the kind of mark they share. */
+interface Level {
+  indent: number;
+  kind: string;
+}
+
+/** What CommonMark ends a list on a change of: the bullet's character, or the style and its `.` or `)`. */
+function kindOf(mark: string): string {
+  return styleOf(mark) === "bullet" ? mark : `${styleOf(mark)}${mark.at(-1)}`;
+}
+
+/** Whether `line` belongs to the list at `level`, as a sibling or deeper. */
+function inList(line: Line | null, level: Level): boolean {
   if (line === null) return false;
   const width = indentWidth(line.text);
-  return width > indent || (width === indent && ITEM.test(line.text));
+  if (width !== level.indent) return width > level.indent;
+  const item = ITEM.exec(line.text);
+  return item !== null && kindOf(item[2] ?? "") === level.kind;
 }
 
 /** Whether the line at `at` carries the list on, a blank one by the next filled line past it. */
-function continues(doc: Text, at: number, step: number, indent: number): boolean {
+function continues(doc: Text, at: number, step: number, level: Level): boolean {
   const line = doc.line(at);
-  return line.text.trim() === "" ? inList(nextFilled(doc, at, step), indent) : inList(line, indent);
+  return line.text.trim() === "" ? inList(nextFilled(doc, at, step), level) : inList(line, level);
 }
 
 /** The first item at the anchor's level, walking up past blank and deeper lines. */
-function firstItem(doc: Text, anchor: number, indent: number): number {
+function firstItem(doc: Text, anchor: number, level: Level): number {
   let first = anchor;
-  for (let at = anchor - 1; at >= 1 && continues(doc, at, -1, indent); at--) {
-    if (indentWidth(doc.line(at).text) === indent) first = at;
+  for (let at = anchor - 1; at >= 1 && continues(doc, at, -1, level); at--) {
+    if (indentWidth(doc.line(at).text) === level.indent) first = at;
   }
   return first;
 }
@@ -259,11 +272,13 @@ function firstItem(doc: Text, anchor: number, indent: number): number {
 function listAt(doc: Text, n: number): ListItem[] | null {
   const anchor = itemLineAt(doc, n);
   if (anchor === null) return null;
-  const indent = indentWidth(doc.line(anchor).text);
+  const text = doc.line(anchor).text;
+  const indent = indentWidth(text);
+  const level = { indent, kind: kindOf(ITEM.exec(text)?.[2] ?? "-") };
 
   const items: ListItem[] = [];
-  for (let at = firstItem(doc, anchor, indent); at <= doc.lines; at++) {
-    if (!continues(doc, at, 1, indent)) break;
+  for (let at = firstItem(doc, anchor, level); at <= doc.lines; at++) {
+    if (!continues(doc, at, 1, level)) break;
     const line = doc.line(at);
     if (line.text.trim() === "") continue;
     const item = indentWidth(line.text) === indent ? ITEM.exec(line.text) : null;
