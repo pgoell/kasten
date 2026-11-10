@@ -111,21 +111,31 @@ test.describe("on a phone", () => {
     await expect(page.getByRole("button", { name: "Filters, projects" })).toBeVisible();
   });
 
-  test("a line moved to where float32 loses a step still reads 44 pixels tall", async ({ page }) => {
+  test("a line moved to where float32 loses a step still reads 44 pixels tall", async ({
+    page,
+  }) => {
     await answer(page, () => HITS);
     await page.goto("/?week=2020-W01");
     await page.getByRole("button", { name: "All weeks" }).tap();
     await page.getByRole("combobox", { name: "search notes" }).fill("postgres");
     const line = rows(page).first();
     await expect(line).toBeVisible();
-    await line.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
+    // The list's 240 ms slide in; settled, since a render that drops `k-enter` cancels it.
+    await line.evaluate((e) =>
+      Promise.allSettled(
+        (e.closest(".k-enter")?.getAnimations() ?? []).map((animation) => animation.finished),
+      ),
+    );
     const top = (await line.boundingBox())?.y ?? 0;
     expect(await line.evaluate((e) => (e as HTMLElement).offsetHeight)).toBe(44);
     // Tops from 990 to 1024 px, where the bottom edge crosses 1024 and the runner's line read 43.99994 (#1852).
     for (let i = 0; i < 80; i++) {
-      await line.evaluate((e, by) => {
-        e.style.transform = `translateY(${by}px)`;
-      }, 990 - top + i * 0.4237);
+      await line.evaluate(
+        (e, by) => {
+          e.style.transform = `translateY(${by}px)`;
+        },
+        990 - top + i * 0.4237,
+      );
       expect(await tapHeight(line)).toBeGreaterThanOrEqual(44);
     }
   });
