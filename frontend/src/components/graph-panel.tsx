@@ -48,8 +48,9 @@ function folderOf(path: string): string {
 }
 
 /**
- * Sits beside the canvas from 640 px and under it below. On a touch screen it takes
- * its whole height, since a capped panel would cut off rows a finger has to reach.
+ * Sits beside the canvas from 640 px and under it below, where it folds to its counts and card
+ * so a small pane keeps its canvas. On a touch screen it takes its whole height, since a capped
+ * panel would cut off rows a finger has to reach.
  */
 export function GraphPanel({
   notes,
@@ -63,7 +64,6 @@ export function GraphPanel({
   card,
   onOpen,
 }: GraphPanelProps) {
-  // Under 640 px the panel folds to its counts and card, so a small pane keeps its canvas.
   const [open, setOpen] = useState(false);
   const folded = open ? "" : "@max-[640px]:hidden";
   return (

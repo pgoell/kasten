@@ -99,8 +99,10 @@ describe("vault graph panel", () => {
     await mountPane(host);
     await untilCounted(host);
 
-    // The toggle's own box is what squeezes when the panel is full, so it is read
-    // with its buttons, which must each be a finger's height.
+    // The panel folds on a phone; open it to reach the toggle. The toggle's own box is what
+    // squeezes when the panel is full, so it is read with its buttons, each a finger's height.
+    need(host.querySelector<HTMLElement>("[aria-expanded]"), "fold button").click();
+    await new Promise((resolve) => requestAnimationFrame(resolve));
     const toggle = need(host.querySelector<HTMLElement>("[aria-label='mode']"), "mode toggle");
     expect(toggle.getBoundingClientRect().height).toBeGreaterThanOrEqual(40);
     for (const button of toggle.querySelectorAll("button")) {
