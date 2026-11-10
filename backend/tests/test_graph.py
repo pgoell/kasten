@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 
 from kasten_backend.graph import RELATION, WIKILINK, resolver
-from kasten_backend.links import link_path
+from kasten_backend.links import link_path, split_target
 
 if TYPE_CHECKING:
     from httpx import AsyncClient
@@ -250,6 +250,12 @@ def test_resolver_reads_a_file_link_as_that_file() -> None:
     assert resolve("plan.pdf") == "plan.pdf"
 
 
+def _trimmed(written: str) -> str:
+    # `split_target` is the graph's only trim; put back together, it compares to the editor's.
+    name, heading, alias = split_target(written)
+    return name + (f"#{heading}" if heading else "") + (f"|{alias}" if alias else "")
+
+
 CASES = json.loads(
     (Path(__file__).parents[2] / "frontend/src/lib/notes/links/relation-cases.json").read_text(
         encoding="utf-8"
@@ -271,11 +277,10 @@ CASES = json.loads(
     ],
 )
 def test_reads_each_shared_case_as_the_editor_does(case: dict[str, Any]) -> None:
-    # The editor's reading: a blank target is no link, as `link_target` drops it when building.
     found = RELATION.match(case["line"])
-    target = found.group(2).strip() if found else ""
+    target = _trimmed(found.group(2)) if found else ""
     relation = {"name": found.group(1), "target": target} if found and target else None
-    links = [link for link in WIKILINK.findall(case["line"]) if link.strip()]
+    links = [link for link in WIKILINK.findall(case["line"]) if _trimmed(link)]
 
     assert {"relation": relation, "links": links} == {
         "relation": case["relation"],
