@@ -11,12 +11,12 @@ import { INPUT, LABEL } from "@/lib/ui/overlay-styles";
  * and never waits on the motion setting to be told so.
  */
 const CHIP =
-  "rounded-full border px-2.5 py-0.5 touch-manipulation transition-transform duration-[var(--k-press-in)] active:scale-[var(--k-press-scale)] motion-reduce:transition-none motion-reduce:active:scale-100 pointer-coarse:min-h-11 pointer-coarse:px-3";
+  "shrink-0 rounded-full border px-2.5 py-0.5 touch-manipulation transition-transform duration-[var(--k-press-in)] active:scale-[var(--k-press-scale)] motion-reduce:transition-none motion-reduce:active:scale-100 pointer-coarse:min-h-11 pointer-coarse:px-3";
 
 /**
- * The pane's top: the filter line with the view's name, the picker's question
- * while one is open, the kind chips and the shared toggle under the line, and
- * the strip of list switches under them.
+ * The pane's top: the filter line with the view's name, then one line holding
+ * the list switches, the kind chips and the shared toggle, then the picker's
+ * question while one is open.
  */
 export function TodoHeader(p: {
   filter: RefObject<HTMLInputElement | null>;
@@ -60,11 +60,15 @@ export function TodoHeader(p: {
   } = p;
   /** The strip's buttons: a tap's height by finger, a line's by mouse. */
   const pad = coarse ? "min-h-11 px-3" : "px-2 py-1";
+  /** A strip button, in ink and underlined while its list is the one shown. */
+  const tab = (on: boolean) =>
+    `${pad} shrink-0 border-b-2 ${on ? "border-k-accent text-k-ink" : "border-transparent"}`;
 
   return (
     <>
+      {/* A phone's tab already says todos, so the label goes there to give the filter room. */}
       <header className="flex items-center gap-3 border-b border-k-rule px-3 py-1 font-sans">
-        <span className={LABEL}>todos</span>
+        {!coarse && <span className={LABEL}>todos</span>}
         <input
           ref={filter}
           value={line}
@@ -79,9 +83,10 @@ export function TodoHeader(p: {
             onFiltered();
           }}
           aria-label="filter todos"
+          placeholder="filter"
           autoComplete="off"
           spellCheck={false}
-          className={INPUT}
+          className={`${INPUT} placeholder:text-k-muted/70`}
         />
         {named !== undefined && (
           <span data-testid="todo-view" className={LABEL}>
@@ -93,50 +98,87 @@ export function TodoHeader(p: {
             type="button"
             onClick={onAdd}
             aria-label="add todo"
-            className="min-h-11 min-w-11 shrink-0 text-k-muted"
+            className="min-h-11 min-w-11 shrink-0 text-lg text-k-muted"
           >
             +
           </button>
         )}
       </header>
 
-      {/* The kinds the list and the board narrow to, and the shared lists'
-          switch, under the filter line. Out of the tab order like the strip,
-          since the cursor row is the pane's one stop, and a click here
-          refocuses the cursor the way the strip's does. */}
-      {/* Marked so a test reading the strip by its buttons can tell these
-          scope buttons from the list's own; they are not rows or strip keys. */}
-      <div
-        data-todo-scope=""
-        className="flex flex-wrap items-center gap-2 border-b border-k-rule px-3 py-1 font-sans text-[12px]"
-      >
-        {[null, ...KINDS].map((chip) => (
-          <button
-            key={chip ?? "all"}
-            type="button"
-            tabIndex={-1}
-            onClick={() => onKind(chip)}
-            aria-pressed={kind === chip}
-            className={`${CHIP} ${
-              kind === chip
-                ? "border-k-accent bg-k-accent-wash text-k-ink"
-                : "border-k-rule text-k-muted"
-            }`}
-          >
-            {chip ?? "All"}
-          </button>
-        ))}
+      {/* Every switch on one line that scrolls sideways rather than wraps, so a
+          phone spends one row on them and the rest on todos. `d`, `n`, `v` and
+          `c` first, on every pointer, since nothing else on a desktop says the
+          board exists (#419): a finger gets bare words, a mouse gets
+          key-then-word so the strip teaches the key. Out of the tab order, since
+          the cursor row is the pane's one stop. */}
+      <div className="flex items-center overflow-x-auto border-b border-k-rule px-1 font-sans text-[12px] whitespace-nowrap text-k-muted [scrollbar-width:none]">
         <button
           type="button"
           tabIndex={-1}
-          onClick={onShared}
-          aria-pressed={shared}
-          className={`${CHIP} ${
-            shared ? "border-k-accent bg-k-accent-wash text-k-ink" : "border-k-rule text-k-muted"
-          }`}
+          onClick={() => strip.done()}
+          aria-pressed={mode === "done"}
+          className={tab(mode === "done")}
         >
-          {shared ? "Shared lists, shown" : `Shared lists, ${sharedHidden} hidden`}
+          {coarse ? "done" : "d done"}
         </button>
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={() => strip.next()}
+          aria-pressed={mode === "next"}
+          className={tab(mode === "next")}
+        >
+          {coarse ? "next" : "n next"}
+        </button>
+        <button type="button" tabIndex={-1} onClick={() => strip.view()} className={tab(false)}>
+          {coarse ? "view" : "v view"}
+        </button>
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={() => strip.board()}
+          aria-pressed={board}
+          className={tab(board)}
+        >
+          {coarse ? "board" : "c board"}
+        </button>
+        <span aria-hidden="true" className="mx-2 h-4 w-px shrink-0 bg-k-rule" />
+        {/* Marked so a test reading the strip by its buttons can tell these
+            scope buttons from the list's own; they are not rows or strip keys. */}
+        <div data-todo-scope="" className="flex items-center gap-1.5 py-1 pr-2">
+          {[null, ...KINDS].map((chip) => (
+            <button
+              key={chip ?? "all"}
+              type="button"
+              tabIndex={-1}
+              onClick={() => onKind(chip)}
+              aria-pressed={kind === chip}
+              className={`${CHIP} ${
+                kind === chip
+                  ? "border-k-accent bg-k-accent-wash text-k-ink"
+                  : "border-k-rule text-k-muted"
+              }`}
+            >
+              {chip ?? "All"}
+            </button>
+          ))}
+          {/* Nothing to hide, nothing to say: the toggle shows only once it would change the list. */}
+          {(shared || sharedHidden > 0) && (
+            <button
+              type="button"
+              tabIndex={-1}
+              onClick={onShared}
+              aria-pressed={shared}
+              className={`${CHIP} ${
+                shared
+                  ? "border-k-accent bg-k-accent-wash text-k-ink"
+                  : "border-k-rule text-k-muted"
+              }`}
+            >
+              {shared ? "Shared lists, shown" : `Shared lists, ${sharedHidden} hidden`}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* What the list is for while it is a picker, and whose blocker it is
@@ -161,44 +203,6 @@ export function TodoHeader(p: {
           )}
         </div>
       )}
-
-      {/* `d`, `n`, `v` and `c` by finger or by mouse. On every pointer, since
-          nothing else on a desktop says the board exists (#419). A finger gets
-          bare words at a tap's height; a mouse gets the footer's key-then-word,
-          so the strip teaches the key. Outside the list, so they stay put while
-          it scrolls, and out of the tab order like every button but the row. */}
-      <div className="flex border-b border-k-rule px-1 text-[11px] text-k-muted">
-        <button
-          type="button"
-          tabIndex={-1}
-          onClick={() => strip.done()}
-          aria-pressed={mode === "done"}
-          className={`${pad} ${mode === "done" ? "text-k-ink" : ""}`}
-        >
-          {coarse ? "done" : "d done"}
-        </button>
-        <button
-          type="button"
-          tabIndex={-1}
-          onClick={() => strip.next()}
-          aria-pressed={mode === "next"}
-          className={`${pad} ${mode === "next" ? "text-k-ink" : ""}`}
-        >
-          {coarse ? "next" : "n next"}
-        </button>
-        <button type="button" tabIndex={-1} onClick={() => strip.view()} className={pad}>
-          {coarse ? "view" : "v view"}
-        </button>
-        <button
-          type="button"
-          tabIndex={-1}
-          onClick={() => strip.board()}
-          aria-pressed={board}
-          className={`${pad} ${board ? "text-k-ink" : ""}`}
-        >
-          {coarse ? "board" : "c board"}
-        </button>
-      </div>
     </>
   );
 }

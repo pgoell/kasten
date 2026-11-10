@@ -8,7 +8,7 @@ export function TodoLegend({ counts }: { counts: Record<TodoState, number> }) {
   return (
     <ul
       aria-label="legend"
-      className="flex flex-wrap gap-x-3 gap-y-1 px-3 py-1 font-sans text-k-12 text-k-muted tabular-nums"
+      className="flex flex-wrap gap-x-3 gap-y-1 font-sans text-k-12 text-k-muted tabular-nums"
     >
       {STATE_ORDER.map((state) => (
         <li key={state} title={state} className="flex items-center gap-1">
