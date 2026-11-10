@@ -164,9 +164,9 @@ function tidyText(line: Line, tidy: Tidy): void {
   tidy.blanks = 0;
 }
 
-/** A list item's line: its indent, its mark, and the spaces after the mark. */
-/** A lettered mark, `a)` or `b.`, which CommonMark reads as text. Live preview draws it from this too. */
+/** A lettered mark, `a)` or `b.`, which CommonMark reads as text. */
 export const LETTER_MARK = /[a-z][.)]/;
+/** A list item's line: its indent, its mark, and the spaces after the mark. */
 const ITEM = new RegExp(`^(\\s*)([-*+]|\\d{1,9}[.)]|${LETTER_MARK.source})( +|$)`);
 const TODO_BOX = /^\[.\]( |$)/;
 
