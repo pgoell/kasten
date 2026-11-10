@@ -1,5 +1,8 @@
+import { copyFile, mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { phone } from "../../harness/app.ts";
+import { root } from "../../harness/paths.ts";
 import { answer, bar, type Hit, hit, openSearch } from "../../harness/search.ts";
 import { expect, test } from "../../harness/stack.ts";
 
@@ -139,6 +142,56 @@ test("a folder and a tag narrow the file lines, and a file line counts in the we
   await filter(page, /^#reading/).click();
   await expect(rows(page)).toHaveCount(1);
   await expect(rows(page)).toContainText("postgres in the second chapter");
+});
+
+test.describe("Enter on a file's hit", () => {
+  /** Puts an html page and an epub beside its note in the vault, answers each query with its hit, and takes it with Enter. */
+  async function takeHit(page: Page, vault: string, query: "budget" | "role" | "fixture") {
+    await mkdir(join(vault, "reference"), { recursive: true });
+    await writeFile(join(vault, "reference/Guide.html"), "<h2 id=roles>Roles</h2>");
+    await mkdir(join(vault, "reading"), { recursive: true });
+    // No reading place in the note, so the book would open at its first chapter.
+    await writeFile(join(vault, "reading/Book.md"), "# Book\n");
+    await copyFile(
+      join(root, "frontend/tests/fixtures/contents.epub"),
+      join(vault, "reading/Book.epub"),
+    );
+    const hits = {
+      budget: { ...PDF, path: "04 Books/Primer.pdf" },
+      role: HTML,
+      fixture: { ...EPUB, text: "Chapter Two of the fixture, with words to click on." },
+    };
+    await answer(page, (route) =>
+      new URL(route.request().url()).searchParams.get("q") === query ? [hits[query]] : [],
+    );
+    await openSearch(page);
+    await input(page).fill(query);
+    await expect(rows(page)).toHaveCount(1);
+    await page.keyboard.press("Enter");
+  }
+
+  test("opens a pdf at the hit's page", async ({ page, stack }) => {
+    await takeHit(page, stack.vault, "budget");
+    await expect(page.locator('[data-pdf-pane="04 Books/Primer.pdf"]')).toHaveAttribute(
+      "data-page",
+      "3",
+    );
+  });
+
+  test("opens an html page at the hit's heading", async ({ page, stack }) => {
+    await takeHit(page, stack.vault, "role");
+    await expect
+      .poll(
+        async () =>
+          (await page.locator("[data-html-pane] iframe").getAttribute("src"))?.split("#")[1],
+      )
+      .toBe("roles");
+  });
+
+  test("opens an epub through its note at the hit's passage", async ({ page, stack }) => {
+    await takeHit(page, stack.vault, "fixture");
+    await expect(page.locator("[data-book-pane] header")).toContainText("Two", { timeout: 15_000 });
+  });
 });
 
 test.describe("on a phone", () => {
