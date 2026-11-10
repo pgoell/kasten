@@ -1570,6 +1570,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/recipe/nutrition": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read Recipe
+         * @description The recipe's ingredient lines, each matched to a food or saying why not, and the sums.
+         *
+         *     A barcode pinned to a line is looked up on Open Food Facts, inside its limits; a line it
+         *     could not reach says `unreached` and the rest still count.
+         */
+        post: operations["read_recipe_api_recipe_nutrition_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/anki": {
         parameters: {
             query?: never;
@@ -5112,6 +5135,39 @@ export interface components {
             linked: number;
         };
         /**
+         * Ingredient
+         * @description One ingredient line, what kasten read from it, and what it adds to the recipe.
+         */
+        Ingredient: {
+            /** Line */
+            line: number;
+            /** Text */
+            text: string;
+            /** Group */
+            group: string | null;
+            /** Quantity */
+            quantity: number | null;
+            /** Quantity To */
+            quantity_to: number | null;
+            /** Unit */
+            unit: string | null;
+            /** Food */
+            food: string;
+            /** Note */
+            note: string | null;
+            /** Rest */
+            rest: string;
+            /** Grams */
+            grams: number | null;
+            match: components["schemas"]["Match"] | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "counted" | "no_match" | "no_amount" | "no_weight" | "unreached";
+            nutrients: components["schemas"]["Nutrients"] | null;
+        };
+        /**
          * Item
          * @description One task line: where it sits in the note, its words, its state and who it is for.
          */
@@ -5354,6 +5410,21 @@ export interface components {
             note: string | null;
             /** Receipt Status */
             receipt_status: string;
+        };
+        /**
+         * Match
+         * @description The food a line was matched to: one of yours or an Open Food Facts product.
+         */
+        Match: {
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "mine" | "off";
+            /** Name */
+            name: string;
+            /** Code */
+            code: string | null;
         };
         /**
          * MatchOut
@@ -6124,6 +6195,34 @@ export interface components {
             transaction_id?: number | null;
             /** Dismissed */
             dismissed?: boolean | null;
+        };
+        /**
+         * Recipe
+         * @description A recipe's ingredients with their numbers, the sum, and the sum per serving.
+         */
+        Recipe: {
+            /** Servings */
+            servings: number | null;
+            /** Time */
+            time: string | null;
+            /** Source */
+            source: string | null;
+            /** Tags */
+            tags: string[];
+            /** Ingredients */
+            ingredients: components["schemas"]["Ingredient"][];
+            /** Steps */
+            steps: string[];
+            total: components["schemas"]["Nutrients"];
+            per_serving: components["schemas"]["Nutrients"] | null;
+        };
+        /**
+         * RecipeText
+         * @description A recipe note as the editor holds it.
+         */
+        RecipeText: {
+            /** Text */
+            text: string;
         };
         /**
          * RequestOut
@@ -9187,6 +9286,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["kasten_backend__food__Food"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_recipe_api_recipe_nutrition_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecipeText"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Recipe"];
                 };
             };
             /** @description Validation Error */

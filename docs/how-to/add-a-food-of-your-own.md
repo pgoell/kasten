@@ -39,7 +39,7 @@ Open `99 Misc/01 Config/foods.md` and add a line:
 - ja! Choco Chips: 30 g, 🏷 4337185123456, 🔥 486 🥩 6.4 🍞 61 🧈 23
 ```
 
-The figures are per 100 g. [The foods note](/reference/log-format.md#the-foods-note)
+The figures are per 100 g. [The foods note](/reference/food/log-format.md#the-foods-note)
 gives every rule of the line.
 
 ## Fix or remove a food
@@ -54,5 +54,5 @@ were logged with, since a logged line is its own record.
 ## Related
 
 * [Log food from a phone](/how-to/log-food-from-a-phone.md): scan a barcode and log the food
-* [The log format](/reference/log-format.md#the-foods-note): the foods note, line by line
+* [The log format](/reference/food/log-format.md#the-foods-note): the foods note, line by line
 * [Food from Open Food Facts](/explanation/food-from-open-food-facts.md#foods-of-your-own): why your own foods live in a note

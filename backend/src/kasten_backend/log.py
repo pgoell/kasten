@@ -1,6 +1,6 @@
 """The day's log, read off the `## Log` lines of the daily note and added up.
 
-Nothing is stored: the line is the record. The format is `docs/reference/log-format.md`, and
+Nothing is stored: the line is the record. The format is `docs/reference/food/log-format.md`, and
 `frontend/src/lib/log/cases/log-cases.json` holds the browser's reader to the same answers.
 """
 

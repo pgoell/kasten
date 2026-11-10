@@ -1,8 +1,8 @@
 ---
 type: Reference
 title: "HTTP API: food"
-description: The two routes that search Open Food Facts for a food or read one by its barcode, the answers they give, and the limits they keep.
-resource: backend/src/kasten_backend/food.py
+description: The routes that search Open Food Facts for a food, read one by its barcode, and work out a recipe's kcal and macros per serving, the answers they give, and the limits they keep.
+resource: backend/src/kasten_backend/food/__init__.py
 tags: [api, backend, openapi]
 status: stable
 ---
@@ -11,7 +11,8 @@ status: stable
 
 Two routes find a food for the log: a search by name, and a read by barcode.
 Both ask [Open Food Facts](https://world.openfoodfacts.org), an open food
-database, and both answer with the same food shape.
+database, and both answer with the same food shape. A third works out a
+recipe's numbers: see [POST /api/recipe/nutrition](#post-apirecipenutrition).
 
 ## GET /api/food/search
 
@@ -80,7 +81,74 @@ GET /api/food/barcode/3017624010701
   `serving_g`. It is `null` where both are missing.
 * Every number is rounded to three decimal places.
 
+## POST /api/recipe/nutrition
+
+Takes a recipe note's text, as the editor holds it, and answers with each
+ingredient line matched to a food, and the sums. The note's format and the
+rules a line is read by are in [Recipe note](/reference/food/recipe-note.md).
+The code is `backend/src/kasten_backend/food/recipes/`.
+
+```
+POST /api/recipe/nutrition
+{"text": "---\ntype: Recipe\nservings: 4\n---\n# Chili\n\n## Zutaten\n- 500 g Kidneybohnen\n- 1 TL Kreuzkümmel\n"}
+```
+
+```json
+{
+  "servings": 4.0,
+  "time": null,
+  "source": null,
+  "tags": [],
+  "ingredients": [
+    {
+      "line": 8, "text": "500 g Kidneybohnen", "group": null,
+      "quantity": 500.0, "quantity_to": null, "unit": "g", "food": "Kidneybohnen", "note": null,
+      "rest": "g Kidneybohnen", "grams": 500.0,
+      "match": { "source": "mine", "name": "Kidneybohnen", "code": null },
+      "status": "counted",
+      "nutrients": { "kcal": 500.0, "protein": 35.0, "carbs": 60.0, "fat": 2.5 }
+    },
+    {
+      "line": 9, "text": "1 TL Kreuzkümmel", "group": null,
+      "quantity": 1.0, "quantity_to": null, "unit": "TL", "food": "Kreuzkümmel", "note": null,
+      "rest": "TL Kreuzkümmel", "grams": null, "match": null, "status": "no_match", "nutrients": null
+    }
+  ],
+  "steps": [],
+  "total": { "kcal": 500.0, "protein": 35.0, "carbs": 60.0, "fat": 2.5 },
+  "per_serving": { "kcal": 125.0, "protein": 8.8, "carbs": 15.0, "fat": 0.6 }
+}
+```
+
+* `servings`, `time`, `source` and `tags` are the frontmatter's. `servings` is
+  `null` when the note names none, or names no number above zero and under 1000.
+* `ingredients` holds one entry per line under `## Zutaten`, in order. `line`
+  counts from one, `text` is the line without its bullet, `group` is the `###`
+  heading above it. `quantity`, `unit`, `food` and `note` are what the parser
+  read. `quantity_to` is the upper end of a range, as 3 in `2-3 Zwiebeln`, and
+  `null` otherwise; only `quantity` counts. `rest` is the line after its quantity, a pinned barcode taken out, or
+  the whole line when it has no quantity, so a view can scale the number alone. `grams` is what the line weighs, and `nutrients` what it adds, each
+  rounded to a tenth.
+* `status` is `counted`, `no_match`, `no_amount`, `no_weight` or `unreached`;
+  [Recipe note](/reference/food/recipe-note.md#why-a-line-is-not-counted) says
+  when each is given. Only a `counted` line has `grams` and `nutrients`.
+* `match` names the food: `source` is `mine` for a line of `foods.md` and `off`
+  for an Open Food Facts product, with its `name` and barcode `code`.
+* `steps` are the numbered lines under `## Schritte`.
+* `total` sums the counted lines, each field over the lines that give it, and is
+  `null` in a field no counted line gives. `per_serving` is `total` over
+  `servings`, or `null` with no servings. Both round to a tenth once, after the
+  sum.
+
+A barcode pinned to a line is read as `GET /api/food/barcode/{code}` reads it,
+inside the same limits and cache. A read Open Food Facts refuses, or that the
+limit stops, makes that line `unreached` and the answer is still `200`. The
+route answers `422` for a body without `text`, or a `text` over 200,000
+characters. It writes nothing.
+
 ## Errors
+
+The two food routes answer:
 
 * `422` when `q` is under 2 or over 100 characters once trimmed, or when a
   barcode is not 8 to 14 digits.
@@ -121,10 +189,12 @@ product API has no full-text search, so it cannot find a food by its name.
 Answers are kept in memory, so a restart forgets them:
 
 * a search is kept for 24 hours, keyed by `q` in lower case;
-* a barcode that was found is kept for 3 days, keyed by the code.
+* a barcode that was found is kept for 3 days, keyed by the code;
+* a barcode Open Food Facts has no product for (a `404`, a redirect or
+  `status: 0`) is kept for an hour, so a recipe card that asks after every
+  pause in typing reads it once. A product added later is found after the hour.
 
-A barcode with no product is not kept, so a product added to Open Food Facts
-later is found on the next read.
+A failed read is not kept.
 
 ## Requests
 

@@ -10,7 +10,16 @@ from fastapi import Depends, FastAPI
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from kasten_backend import agent_mcp, db, food, log, push, token_activity, training, uploads
+from kasten_backend import (
+    agent_mcp,
+    db,
+    food,
+    log,
+    push,
+    token_activity,
+    training,
+    uploads,
+)
 from kasten_backend.agent import ConflictError, EmptyCaptureError, TooLargeError
 from kasten_backend.agent_oauth import router as oauth_router
 from kasten_backend.agent_routes import (
@@ -27,6 +36,7 @@ from kasten_backend.config import Settings, get_settings
 from kasten_backend.events import KEEPALIVE, format_retry, format_sse, watch_vault
 from kasten_backend.files import RefusedError
 from kasten_backend.finance_guard import FinanceGuard
+from kasten_backend.food import recipes
 from kasten_backend.guide import write_guide
 from kasten_backend.okf import prepare
 from kasten_backend.pieces import indexer
@@ -199,6 +209,7 @@ app.include_router(model_use.router)
 app.include_router(log.router)
 app.include_router(training.router)
 app.include_router(food.router)
+app.include_router(recipes.router)
 app.include_router(anki.router)
 app.include_router(tokens.router)
 app.include_router(finance.router)

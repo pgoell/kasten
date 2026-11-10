@@ -1,4 +1,6 @@
 // @vitest-environment node
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createNote, fetchNote, NoteMissing, updateNote } from "@/lib/core/api";
 import {
@@ -138,5 +140,41 @@ describe("reading and adding foods", () => {
     vi.mocked(updateNote).mockRejectedValue(new NoteMissing(NOTE));
     await addMyFood(CHIPS);
     expect(createNote).toHaveBeenCalledWith(NOTE, `${CHIPS_LINE}\n`);
+  });
+});
+
+interface FoodCase {
+  line: string;
+  food: {
+    name: string;
+    serving_g: number | null;
+    code: string | null;
+    kcal: number | null;
+    protein: number | null;
+    carbs: number | null;
+    fat: number | null;
+  } | null;
+}
+
+/** The rows `recipes/foods.py` runs too, so the two readers of `foods.md` agree. */
+const FOOD_CASES: FoodCase[] = JSON.parse(
+  readFileSync(
+    path.resolve(import.meta.dirname, "../../backend/tests/food/foods_cases.json"),
+    "utf8",
+  ),
+);
+
+describe("the foods note cases both readers share", () => {
+  it.each(FOOD_CASES.map((c) => [c.line, c] as const))("%s", (_, { line, food }) => {
+    const want =
+      food === null
+        ? null
+        : {
+            name: food.name,
+            serving_g: food.serving_g ?? 100,
+            code: food.code,
+            per_100g: { kcal: food.kcal, protein: food.protein, carbs: food.carbs, fat: food.fat },
+          };
+    expect(parseMyFood(line)).toEqual(want);
   });
 });
