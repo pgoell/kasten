@@ -44,7 +44,8 @@ and says so in a line at its foot; typed, such a key still runs. Each key's
 | `player` | the tab has a video pane: `v` |
 
 The editor's edits, such as `x` and the `s` keys, show only in a note's panel.
-From the file tree every key shows, since the tree acts on its own cursor.
+From the file tree every key that needs a note or a file shows, since the tree
+acts on its own cursor; `split` and `player` still follow the tab.
 
 A click on a row runs it, or opens its group. Esc, Space again, a press or a focus move outside the panel, or a key
 that matches nothing closes the panel, and the focus goes back where it was. A
