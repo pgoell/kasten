@@ -78,7 +78,7 @@ write raise rather than answer.
 
 def list_markdown_files(root: Path) -> list[str]:
     """Return every markdown file under `root`, as sorted relative POSIX paths."""
-    return _list_files(root, (SUFFIX,))
+    return _list_files(root, KINDS[0])
 
 
 def list_images(root: Path) -> list[str]:
@@ -87,12 +87,12 @@ def list_images(root: Path) -> list[str]:
     What the editor completes `![](` against. Walked like the notes, so an image dropped in
     over the terminal completes too.
     """
-    return _list_files(root, IMAGE_SUFFIXES, ignore_case=True)
+    return _list_files(root, KINDS[1])
 
 
 def list_html(root: Path) -> list[str]:
     """Return every HTML page under `root`, as sorted relative POSIX paths."""
-    return _list_files(root, (HTML_SUFFIX,), ignore_case=True)
+    return _list_files(root, KINDS[2])
 
 
 def fits(suffix: str, head: bytes) -> bool:
@@ -102,7 +102,7 @@ def fits(suffix: str, head: bytes) -> bool:
 
 def list_assets(root: Path) -> list[str]:
     """Return every image, sound and book under `root`, as sorted relative POSIX paths."""
-    return _list_files(root, tuple(ASSET_MAGIC), ignore_case=True)
+    return _list_files(root, KINDS[3])
 
 
 class Listings(NamedTuple):
@@ -114,36 +114,37 @@ class Listings(NamedTuple):
     assets: list[str]
 
 
+KINDS: tuple[tuple[tuple[str, ...], bool], ...] = (
+    ((SUFFIX,), False),
+    (IMAGE_SUFFIXES, True),
+    ((HTML_SUFFIX,), True),
+    (tuple(ASSET_MAGIC), True),
+)
+"""The suffixes and case rule of each `Listings` field, in its order: the one place they live."""
+
+
 def scan(root: Path) -> Listings:
     """Return the notes, images, pages and assets under `root` from one walk.
 
     What a page load asks for in four requests (#1761), so they need not walk four times.
     """
-    notes: list[str] = []
-    images: list[str] = []
-    html: list[str] = []
-    assets: list[str] = []
-    asset_suffixes = tuple(ASSET_MAGIC)
+    found: list[list[str]] = [[] for _ in KINDS]
     for name, path in _walk(root):
         lower = name.lower()
-        if name.endswith(SUFFIX):
-            notes.append(path)
-        if lower.endswith(IMAGE_SUFFIXES):
-            images.append(path)
-        if lower.endswith(HTML_SUFFIX):
-            html.append(path)
-        if lower.endswith(asset_suffixes):
-            assets.append(path)
-    return Listings(sorted(notes), sorted(images), sorted(html), sorted(assets))
+        for (suffixes, ignore_case), paths in zip(KINDS, found, strict=True):
+            if (lower if ignore_case else name).endswith(suffixes):
+                paths.append(path)
+    return Listings(*(sorted(paths) for paths in found))
 
 
-def _list_files(root: Path, suffixes: tuple[str, ...], *, ignore_case: bool = False) -> list[str]:
-    """Return every file under `root` whose name ends in one of `suffixes`."""
-    return sorted(
-        path
-        for name, path in _walk(root)
-        if (name.lower() if ignore_case else name).endswith(suffixes)
-    )
+def _list_files(root: Path, kind: tuple[tuple[str, ...], bool]) -> list[str]:
+    """Return every file under `root` of one of the `KINDS`."""
+    return sorted(path for name, path in _walk(root) if _is(kind, name))
+
+
+def _is(kind: tuple[tuple[str, ...], bool], name: str) -> bool:
+    suffixes, ignore_case = kind
+    return (name.lower() if ignore_case else name).endswith(suffixes)
 
 
 def _walk(root: Path) -> Iterator[tuple[str, str]]:
