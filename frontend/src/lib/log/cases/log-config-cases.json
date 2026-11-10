@@ -209,6 +209,20 @@
       "id": "c33-weight-no-tap-no-last",
       "line": "- ⚖ weight: kg",
       "kind": null
+    },
+    {
+      "id": "c34-food-training-goals",
+      "line": "- 🍽 Training: kcal max 2600, protein min 160",
+      "kind": null,
+      "training": {
+        "kcal": { "type": "ceiling", "value": 2600 },
+        "protein": { "type": "floor", "value": 160 }
+      }
+    },
+    {
+      "id": "c35-food-training-bad-goal",
+      "line": "- 🍽 training: protein min 0",
+      "kind": null
     }
   ],
   "lines": [

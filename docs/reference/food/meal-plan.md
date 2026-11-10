@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Week plan
-description: The note a week's meals are planned in, the meal and training lines it holds, how a batch cooked once feeds later meals, the fridge warning, the card that draws the week as a grid with batches as bands, the protein on training days, how the shopping button writes the cooked batches' ingredients into Einkauf.md, and the lists app's Essen tab.
+description: The note a week's meals are planned in, the meal and training lines it holds, how a batch cooked once feeds later meals, the fridge warning, the card that draws the week as a grid with batches as bands, the protein on training days, how the shopping button writes the cooked batches' ingredients into Einkauf.md, the lists app's Essen tab, and the planner skill that drafts next week's note.
 resource: backend/src/kasten_backend/food/plan/__init__.py
 tags: [vault, recipes, food, format, backend]
 status: stable
@@ -87,8 +87,9 @@ card does. It shows:
 * A meal on the third day in the fridge or later, with the default limit of 2
   days, is marked, and its band says `Sa ist Tag 3: einfrieren?`.
 * `Protein an Trainingstagen` with the mean over the training days and the
-  daily protein goal of the [log config note](/reference/food/log-format.md):
-  `Ø 128 g · Ziel 120`. A day's protein is one serving of each recipe its
+  protein goal of a training day from the [log config note](/reference/food/log-format.md):
+  its `- 🍽 training:` line's when that names protein, else the everyday one,
+  as `Ø 128 g · Ziel 160`. A day's protein is one serving of each recipe its
   meals name; a meal with no recipe adds nothing.
 * The button `N in den Einkauf`, where N counts the foods the week's cooked
   batches need.
@@ -131,3 +132,35 @@ meal from a batch. Days that run into next week come from next week's note. The 
 is read-only and says so at its foot; it reads again on every change in the
 shared folder and when the page comes back, so an edit to the plan shows
 without a reload. Training days and protein do not show there.
+
+## The planner skill
+
+`/meal-planner` drafts next week's note from the chat pane;
+`/meal-planner this` plans the current week. It is a Claude Code skill in the
+vault's skills folder, `.claude/skills/meal-planner/SKILL.md` by default
+([`KASTEN_SKILLS_PATH`](/reference/configuration.md)). The backend writes it
+there at startup when the vault lacks it, so a skill you edit stays yours and a
+deleted one comes back at the next start. The text is
+`backend/src/kasten_backend/guides/meal-planner.md`.
+
+It reads:
+
+* `Essensplanung.md` in the config folder: who eats, the protein goal, the
+  budget, the meals away, the fridge days, what to avoid. One bullet each, as
+  `- away: Do dinner, Sa lunch`. With no note it asks, then writes one.
+* The [log config note](/reference/food/log-format.md)'s everyday and training
+  food goals.
+* Every recipe with its numbers per serving, from
+  [`GET /api/recipes`](/reference/http-api/food.md#get-apirecipes), and the
+  ratings under each recipe's `## Gekocht`. A `lieber nicht` dish stays out; a
+  dish cooked in the last two weeks waits.
+* The plans of the four weeks before, and the training entries of the last two
+  weeks' daily notes, for the days that are likely training days.
+
+It asks one round of questions, then writes `Woche <NN>.md` in the shared
+folder and checks it with
+[`POST /api/meal-plan`](/reference/http-api/food.md#post-apimeal-plan): a batch
+that runs short, a meal past the fridge limit or a training day under its
+protein goal is fixed or named in its report. It never works out kcal or
+protein itself, changes no other note, and leaves the shopping list to the
+card's button.

@@ -1,15 +1,15 @@
 ---
 type: How-to Guide
 title: Run a skill from the chat pane
-description: Open the chat pane, start /close-day or /process-meeting, answer a question a skill asks, read a tool call, stop a run and start a new session, at a desk and on a phone.
+description: Open the chat pane, start /close-day, /process-meeting or /meal-planner, answer a question a skill asks, read a tool call, stop a run and start a new session, at a desk and on a phone.
 tags: [chat, agent, skills, phone, shell]
 status: stable
 ---
 
 # Run a skill from the chat pane
 
-You want to run a Claude Code skill in the vault, `/close-day` or
-`/process-meeting`, without a terminal. The chat pane does that: the same
+You want to run a Claude Code skill in the vault, `/close-day`,
+`/process-meeting` or `/meal-planner`, without a terminal. The chat pane does that: the same
 Claude Code the terminal pane runs, drawn as a conversation.
 
 It needs Claude Code signed in once in the shell container. If the pane answers
@@ -30,9 +30,11 @@ again shows it as you left it.
 
 ## Start a skill
 
-An empty pane shows `/close-day` and `/process-meeting` as two cards: click
-one. Once the conversation has begun, the same two sit as pills over the
-message box. For any other skill, or a plain message, press `i`, type it and
+An empty pane shows `/close-day`, `/process-meeting` and `/meal-planner` as
+three cards: click one. Once the conversation has begun, the same three sit as
+pills over the message box. The first two are skills of your own; kasten
+writes `/meal-planner` into the vault when it is missing, as
+[Week plan](/reference/food/meal-plan.md#the-planner-skill) says. For any other skill, or a plain message, press `i`, type it and
 press Enter. Shift+Enter breaks the line. Escape leaves the box, so the leader
 works again.
 

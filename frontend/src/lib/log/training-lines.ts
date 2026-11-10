@@ -3,6 +3,8 @@
  * `cases/training-cases.json` holds it to the backend parser in `training/lines.py`.
  */
 
+import { sectionOf } from "@/lib/notes/text/note-section";
+
 export const TRAINING_HEADING = "## Training";
 
 export type TrainingKind = "strength" | "walk" | "run" | "ride" | "test";
@@ -184,4 +186,10 @@ export function parseTrainingLine(text: string): TrainingEntry | null {
   if (!target.trim()) return null;
   const [kind, fields] = fieldsOf(mark, rest);
   return fields && { kind, exercise: target.trim(), ...fields };
+}
+
+/** Whether a note's `## Training` section holds an entry, which makes its day a training day. */
+export function hasTraining(text: string): boolean {
+  const lines = sectionOf(text, "Training")?.text.split("\n") ?? [];
+  return lines.some((line) => parseTrainingLine(line) !== null);
 }

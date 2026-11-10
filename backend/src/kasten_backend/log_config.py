@@ -6,7 +6,7 @@ The grammar is in `docs/reference/food/log-format.md`. Its cases run in both tes
 
 import re
 import unicodedata
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from kasten_backend.frontmatter import closing
 
@@ -70,11 +70,19 @@ class Kind:
 
 @dataclass(frozen=True)
 class Config:
-    """What the note gives: its kinds, its food goals, and each line it could not read."""
+    """What the note gives: its kinds, its food goals, and each line it could not read.
+
+    `training` holds the goals of the food line named `training`, for a day with training.
+    """
 
     kinds: list[Kind]
     food: dict[str, Goal]
     broken: list[tuple[int, str]]
+    training: dict[str, Goal] = field(default_factory=dict)
+
+    def food_on(self, *, trained: bool) -> dict[str, Goal]:
+        """The day's food goals: on a training day its own goals over the everyday ones."""
+        return {**self.food, **self.training} if trained else self.food
 
 
 DEFAULT_CONFIG = Config(
@@ -112,12 +120,18 @@ def parse_food_line(text: str) -> dict[str, Goal] | None:
         goal = FOOD_GOAL.fullmatch(piece)
         if goal is None:
             return None
-        field = goal[1].lower()
+        name = goal[1].lower()
         value = _amount(goal[3])
-        if field in goals or value <= 0:
+        if name in goals or value <= 0:
             return None
-        goals[field] = Goal("floor" if goal[2].lower() == "min" else "ceiling", value)
+        goals[name] = Goal("floor" if goal[2].lower() == "min" else "ceiling", value)
     return goals
+
+
+def _names_training(text: str) -> bool:
+    """Whether a food line is named `training`, in any case."""
+    head = FOOD_LINE.fullmatch(text)
+    return head is not None and head[1].strip().lower() == "training"
 
 
 def _is_mark(character: str) -> bool:
@@ -180,15 +194,19 @@ def parse_config(note: str | None) -> Config:
     broken: list[tuple[int, str]] = []
     marks: set[str] = set()
     food: dict[str, Goal] | None = None
+    training: dict[str, Goal] | None = None
     for index, text in enumerate(lines):
         if index <= close or not text.startswith("- "):
             continue
         number = index + 1
-        # Only the first food line that reads counts, so a second one is broken.
+        # Only the first food line of each name that reads counts, so a second one is broken.
         if text.startswith("- 🍽"):
             goals = parse_food_line(text)
-            if goals is None or food is not None:
+            on_training = _names_training(text)
+            if goals is None or (training if on_training else food) is not None:
                 broken.append((number, text))
+            elif on_training:
+                training = goals
             else:
                 food = goals
             continue
@@ -199,7 +217,7 @@ def parse_config(note: str | None) -> Config:
             continue
         marks.add(kind.mark)
         kinds.append(kind)
-    return Config(kinds, food if food is not None else {}, broken)
+    return Config(kinds, food or {}, broken, training or {})
 
 
 def parse_kind_line(kind: Kind, line: str) -> float | None:

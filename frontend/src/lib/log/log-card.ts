@@ -63,6 +63,7 @@ import { askLogConfig, logConfig, subscribeLogConfig } from "@/lib/log/log-confi
 import { foodEntries, groupByMeal, type MealGroup } from "@/lib/log/log-day";
 import {
   DEFAULT_CONFIG,
+  dayConfig,
   kindLine,
   kindTotal,
   type LogConfig,
@@ -344,7 +345,7 @@ function build(state: EditorState, held: Held): Card {
   }
   const text = state.doc.toString();
   const totals = drinkTotals(text);
-  const drawn = held.config ?? DEFAULT_CONFIG;
+  const drawn = dayConfig(held.config ?? DEFAULT_CONFIG, text);
   const sums = drawn.kinds.map((kind) => kindTotal(kind, text, totals));
   const words = drawn.kinds.map((kind, index) =>
     sums[index] === null ? earlierWords(kind, held.latest, day) : undefined,
@@ -477,10 +478,11 @@ function sheetHooks(view: EditorView): SheetHooks {
       syncSheet(view);
     },
     close: () => closeFood(view),
-    today: () => ({
-      eaten: drinkTotals(view.state.doc.toString()).food,
-      goals: (view.state.field(cardField).config ?? DEFAULT_CONFIG).food,
-    }),
+    today: () => {
+      const text = view.state.doc.toString();
+      const config = view.state.field(cardField).config ?? DEFAULT_CONFIG;
+      return { eaten: drinkTotals(text).food, goals: dayConfig(config, text).food };
+    },
   };
 }
 

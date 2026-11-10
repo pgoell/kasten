@@ -4,6 +4,7 @@
  */
 
 import { amountLine, type DrinkKind, type DrinkTotals, logLines, tenth } from "@/lib/log/log-lines";
+import { hasTraining } from "@/lib/log/training-lines";
 import { closing } from "@/lib/notes/text/note-frontmatter";
 
 export interface Goal {
@@ -38,6 +39,8 @@ export interface LogConfig {
   kinds: LogKind[];
   food: FoodGoals;
   broken: BrokenLine[];
+  /** The goals of the food line named `training`, set only when the note has one. */
+  training?: FoodGoals;
 }
 
 /** What a missing note gives: the three kinds the card had before the note existed. */
@@ -153,14 +156,20 @@ interface ConfigRead {
   broken: BrokenLine[];
   marks: Set<string>;
   food: FoodGoals | null;
+  training: FoodGoals | null;
 }
 
+/** Whether a food line is named `training`, in any case. */
+const namesTraining = (text: string): boolean =>
+  (FOOD_LINE.exec(text)?.[1] ?? "").trim().toLowerCase() === "training";
+
 function readConfigLine(read: ConfigRead, text: string, line: number): void {
-  // Only the first food line that reads counts, so a second one is broken.
+  // Only the first food line of each name that reads counts, so a second one is broken.
   if (text.startsWith("- 🍽")) {
     const goals = parseFoodLine(text);
-    if (goals === null || read.food !== null) read.broken.push({ line, text });
-    else read.food = goals;
+    const slot = namesTraining(text) ? "training" : "food";
+    if (goals === null || read[slot] !== null) read.broken.push({ line, text });
+    else read[slot] = goals;
     return;
   }
   const kind = parseKindConfig(text);
@@ -182,11 +191,25 @@ export function parseConfig(note: string | null): LogConfig {
   const lines = note.split("\n");
   // The frontmatter holds no config.
   const close = closing(lines);
-  const read: ConfigRead = { kinds: [], broken: [], marks: new Set(), food: null };
+  const read: ConfigRead = {
+    kinds: [],
+    broken: [],
+    marks: new Set(),
+    food: null,
+    training: null,
+  };
   for (const [index, text] of lines.entries()) {
     if (index > close && text.startsWith("- ")) readConfigLine(read, text, index + 1);
   }
-  return { kinds: read.kinds, food: read.food ?? {}, broken: read.broken };
+  const config: LogConfig = { kinds: read.kinds, food: read.food ?? {}, broken: read.broken };
+  if (read.training !== null) config.training = read.training;
+  return config;
+}
+
+/** The config for the day `note` holds: on a training day the training line's goals over the everyday ones. */
+export function dayConfig(config: LogConfig, note: string): LogConfig {
+  if (config.training === undefined || !hasTraining(note)) return config;
+  return { ...config, food: { ...config.food, ...config.training } };
 }
 
 /** The line one tap writes for `kind` with nothing typed, or null on a last kind, which has no tap. */

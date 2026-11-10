@@ -130,3 +130,12 @@ async def test_training_days_carry_the_plans_protein(client: AsyncClient) -> Non
     assert days[6]["protein"] is None
     assert week["protein_goal"] == {"type": "floor", "value": 120.0}
     assert week["ingredients"] == 2
+
+
+async def test_the_training_protein_goal_wins_where_the_config_has_one(
+    client: AsyncClient, vault: Path
+) -> None:
+    config = vault / "99 Misc" / "01 Config" / "log.md"
+    config.write_text("- 🍽 food: protein min 120\n- 🍽 training: protein min 160\n", "utf-8")
+    week = (await client.post("/api/meal-plan", json={"text": PLAN})).json()
+    assert week["protein_goal"] == {"type": "floor", "value": 160.0}

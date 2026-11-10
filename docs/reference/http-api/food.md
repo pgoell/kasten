@@ -266,7 +266,8 @@ card draws it. Nothing is written.
 * A batch's `state` is `earlier` for one a `from` drew on with no `cook` before
   it this week: its `day`, `slot` and `servings` are null. `left` is
   `servings - eaten`, negative when the plan draws more than it cooks.
-* `protein_goal` is the log config note's protein goal, or null.
+* `protein_goal` is the log config note's protein goal for a training day, its
+  `- 🍽 training:` line's when it names protein, else the everyday one, or null.
 * `ingredients` counts the foods the cooked batches need, before merging.
 
 ## POST /api/meal-plan/shopping

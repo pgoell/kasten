@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import cases from "@/lib/log/cases/log-config-cases.json";
 import {
   DEFAULT_CONFIG,
+  dayConfig,
   type FoodGoals,
   kindLine,
   kindTotal,
@@ -19,6 +20,7 @@ interface ConfigRow {
   line: string;
   kind: LogKind | null;
   food?: FoodGoals;
+  training?: FoodGoals;
 }
 
 interface LineRow {
@@ -43,10 +45,11 @@ const { config, lines, days } = cases as {
 
 describe("parseConfig, against the shared cases", () => {
   it.each(config.map((row) => [row.id, row] as const))("%s", (_id, row) => {
-    const broken = row.kind === null && row.food === undefined;
+    const broken = row.kind === null && row.food === undefined && row.training === undefined;
     expect(parseConfig(row.line)).toEqual({
       kinds: row.kind === null ? [] : [row.kind],
       food: row.food ?? {},
+      training: row.training,
       broken: broken ? [{ line: 1, text: row.line }] : [],
     });
   });
@@ -85,6 +88,36 @@ describe("config note", () => {
       food: { kcal: { type: "floor", value: 500 } },
       broken: [{ line: 2, text: "- 🍽 dinner: protein min 100" }],
     });
+  });
+
+  it("#1728 a training food line sits beside the everyday one, and a second of either is broken", () => {
+    const note = [
+      "- 🍽 food: kcal max 2200, protein min 120",
+      "- 🍽 training: protein min 160",
+      "- 🍽 Training: kcal max 2800",
+    ].join("\n");
+    expect(parseConfig(note)).toEqual({
+      kinds: [],
+      food: { kcal: { type: "ceiling", value: 2200 }, protein: { type: "floor", value: 120 } },
+      training: { protein: { type: "floor", value: 160 } },
+      broken: [{ line: 3, text: "- 🍽 Training: kcal max 2800" }],
+    });
+  });
+
+  it("#1728 a day with a training entry takes the training goals over the everyday ones", () => {
+    const config = parseConfig(
+      "- 🍽 food: kcal max 2200, protein min 120\n- 🍽 training: protein min 160",
+    );
+    const rest = "# Mo\n\n## Training\n\n- went for a walk\n";
+    const trained = "# Mo\n\n## Training\n\n- 🏋 [[Kniebeuge]] 80 kg 5 5 5\n\n## Log\n";
+    expect(dayConfig(config, rest).food.protein?.value).toBe(120);
+    expect(dayConfig(config, trained).food).toEqual({
+      kcal: { type: "ceiling", value: 2200 },
+      protein: { type: "floor", value: 160 },
+    });
+    expect(dayConfig(parseConfig("- 🍽 food: protein min 120"), trained).food.protein?.value).toBe(
+      120,
+    );
   });
 
   it("#623 frontmatter, prose and headings are not broken and line numbers count the whole note", () => {

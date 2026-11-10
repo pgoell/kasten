@@ -90,3 +90,40 @@ async def test_one_guide_kept_does_not_stop_the_other_arriving(startup_vault: Pa
 
     assert kept.read_text(encoding="utf-8") == KEPT
     assert (startup_vault / EXAM_GUIDE_PATH).exists()
+
+
+async def test_startup_writes_the_meal_planner_skill_raw(startup_vault: Path) -> None:
+    async with LifespanManager(app):
+        pass
+
+    text = (startup_vault / ".claude/skills/meal-planner/SKILL.md").read_text(encoding="utf-8")
+
+    assert text.startswith("---\nname: meal-planner\n")
+    assert "\nid: " not in text
+    assert "`05 Shared/Woche <NN>.md`" in text
+    assert "{{" not in text
+
+
+async def test_startup_keeps_a_meal_planner_the_vault_already_has(startup_vault: Path) -> None:
+    skill = startup_vault / ".claude/skills/meal-planner/SKILL.md"
+    skill.parent.mkdir(parents=True)
+    skill.write_text("mine\n", encoding="utf-8")
+
+    async with LifespanManager(app):
+        pass
+
+    assert skill.read_text(encoding="utf-8") == "mine\n"
+
+
+async def test_startup_writes_no_skill_through_a_linked_skills_folder(
+    startup_vault: Path, tmp_path: Path
+) -> None:
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (startup_vault / ".claude").mkdir(parents=True)
+    (startup_vault / ".claude/skills").symlink_to(outside)
+
+    async with LifespanManager(app):
+        pass
+
+    assert list(outside.iterdir()) == []

@@ -199,8 +199,8 @@ the leader is reached from the pane, after Escape.
 
 The header holds the session's state (`ready`, `working`, `waiting for you`,
 `offline`) and `New`, which ends the session and empties the pane.
-`/close-day` and `/process-meeting` send that text: two cards in an empty pane,
-two pills over the message box after that. Beside the box sit the send arrow
+`/close-day`, `/process-meeting` and `/meal-planner` send that text: three
+cards in an empty pane, three pills over the message box after that. Beside the box sit the send arrow
 and, while a run lasts, a square `Stop`. Claude's text is drawn as markdown. A
 tool call is a folded line that a click or Enter opens. A question a skill asks
 is a card: radio buttons where it takes one answer, checkboxes where it takes
