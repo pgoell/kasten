@@ -301,7 +301,7 @@ run = "bun run --cwd frontend typecheck"
 
 [tasks."fe:bench"]
 description = "Record the frontend benchmark numbers on this machine (gates nothing)"
-run = "bun run --cwd frontend vitest bench --run --project perf"
+run = "bun run --cwd frontend vitest bench --run --project 'perf (bench)' --reporter=verbose"
 
 [tasks."fe:frame"]
 description = "Run the end-to-end frame tests in Chromium (needs a browser install)"

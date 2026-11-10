@@ -429,6 +429,8 @@ export default defineConfig({
             headless: true,
             ui: false,
             screenshotFailures: false,
+            // vitest 5's import-map mocks go unapplied in Chromium.
+            importMapMocks: false,
             provider: playwright({ contextOptions: { viewport: { width: 1440, height: 900 } } }),
             instances: [{ browser: "chromium" }],
             commands: {

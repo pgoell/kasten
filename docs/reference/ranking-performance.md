@@ -132,11 +132,13 @@ assertions split: `frontend/bench/*.bench.ts` records with tinybench's
 statistics, and the test files above carry every threshold. Both read one
 fixtures module.
 
-`vitest bench` also fans out across projects. `benchmark.include` resolves per
-project and ignores `test.include`, so an unpinned bench file runs once per
-project and prints one benchmark under three labels. The config sets
-`benchmark: { include: [] }` at the root and names the files under the `perf`
-project only, and `fe:bench` passes `--project perf` on top.
+`vitest bench` also fans out across projects. It adds a `<name> (bench)`
+project beside each project, which reads `benchmark.include` and ignores
+`test.include`, so an unpinned bench file runs once per project and prints one
+benchmark under three labels. The config sets `benchmark: { include: [] }` at
+the root and names the files under the `perf` project only, and `fe:bench`
+passes `--project 'perf (bench)'` on top. Each vault size is one test that hands
+its benchmarks to `bench.compare`, so the run prints one table per size.
 
 Bench numbers are also not wired into CI. A shared runner is too noisy to be a
 record, which is the same reason the gates are assertions rather than bench
