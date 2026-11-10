@@ -29,9 +29,8 @@ const WEEK: SharedDay[] = [
 function open(answer: () => SharedDay[]) {
   const share = fakeShare({ Einkauf: [], Todo: [] });
   const asked: string[] = [];
-  vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = String(input);
-    if (!url.startsWith("/share/meals")) return share.fetch(input, init);
+  vi.stubGlobal("fetch", (url: string, init?: RequestInit) => {
+    if (!url.startsWith("/share/meals")) return share.fetch(url, init);
     asked.push(url);
     return Promise.resolve(
       new Response(JSON.stringify(answer()), { headers: { "Content-Type": "application/json" } }),
