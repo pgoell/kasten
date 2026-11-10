@@ -16,7 +16,7 @@ dependencies = [
     "fints==5.0.1",
     "httpx>=0.28",
     # The Firefly import reads Firefly's Postgres; the backend uses the same driver.
-    "psycopg[binary]>=3.3",
+    "psycopg[binary]>=3.3.8",
 ]
 
 [project.scripts]
