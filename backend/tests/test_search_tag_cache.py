@@ -304,3 +304,30 @@ async def test_1758_a_crlf_note_with_a_fence_under_a_nested_todo_reads_as_before
             ("crlf.md", 2, "    - [ ] nested"),
         ],
     }
+
+
+async def test_1758_a_lone_cr_and_a_note_that_is_not_utf8_read_as_before(
+    client: AsyncClient, vault: Path
+) -> None:
+    write(vault, "cr.md", b"- [ ] one #cr\r- [ ] two\n[[Target]]\r[[Other]]\n")
+    write(vault, "latin.md", b"- [ ] caf\xe9 #latin\n[[Target]]\n")
+
+    found = await read_all(client)
+
+    assert {key: found[key] for key in ("tags", "todos", "edges")} == {
+        "tags": ["#cr", "#latin"],
+        "todos": [("cr.md", 1, "- [ ] one #cr\r- [ ] two"), ("latin.md", 1, "- [ ] caf� #latin")],
+        "edges": [("cr.md", "Other.md"), ("cr.md", "Target.md"), ("latin.md", "Target.md")],
+    }
+
+
+async def test_1758_the_graph_stops_at_its_line_cap(
+    client: AsyncClient, vault: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    write(vault, "a.md", "[[One]]\n[[Two]]\n")
+    write(vault, "b.md", "[[Three]]\n")
+    monkeypatch.setattr(graph, "MOST_LINES", 2)
+
+    found = await read_all(client)
+
+    assert found["edges"] == [("a.md", "One.md"), ("a.md", "Two.md")]

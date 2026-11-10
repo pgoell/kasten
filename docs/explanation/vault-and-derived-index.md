@@ -65,11 +65,15 @@ moment ago may not be in them yet, and each answer says how many notes the
 index holds beside how many the vault has. See
 [HTTP API: finding](/reference/http-api/finding.md#get-apiranked).
 
+The tag list, the todos and the graph keep each note's tags, todo lines, links
+and type in memory, parsed again only when the note's stamp moves (#1758). That
+is no index: nothing is stored, a restart empties it, and each request walks the
+vault and checks every note's stamp, so it cannot go stale either.
+
 Everything else still reads the files with ripgrep on every query, so it cannot
 go stale: the line search (`GET /api/search`), which at 10,000 notes takes
 under 20ms; the backlinks panel, which is a line search for the note's name
-beside the unlinked mentions (`GET /api/mentions`); the tag list; and the
-graph. See [What is not decided yet](#what-is-not-decided-yet).
+beside the unlinked mentions (`GET /api/mentions`); and the review's cards. See [What is not decided yet](#what-is-not-decided-yet).
 
 The test for whether something belongs in the database is simple. Outside
 `finance` and the two tables below, if losing it would lose information, it

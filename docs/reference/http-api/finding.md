@@ -297,14 +297,11 @@ the frontmatter, a `[[wikilink]]` or a
 `[text](url)`. The same tag written outside those anywhere is still offered. The
 frontmatter's `tags` field adds its values, as Obsidian reads them.
 
-Two `rg` passes carry the same flags search carries. One matches every span and
-every hash that could open a tag, and each match is read as the todo board reads
-a line. The other reads each note whole and names those holding three backticks
-or tildes, a comment left open at the end of its line, a hash on a line indented
-four spaces or a tab, or a frontmatter with a hash or a `tags` field in it. The
-backend reads each of those whole, since only the whole note says where a block
-opens and closes. Most notes carry a frontmatter of an id and dates and none of
-the rest, so the first pass alone reads them. Only the tags come back, never the
+Each note is read whole, since only the whole note says where a block opens and
+closes, over the notes `GET /api/files` lists. A note's tags are held in memory
+and parsed again only when its modification time, change time, size or inode
+moves (#1758), so after a save this reads one note; search and the written notes
+share the same tags. Only the tags come back, never the
 lines holding them. Which note holds a tag is a search, and this answers what the
 editor completes an open `#` from.
 

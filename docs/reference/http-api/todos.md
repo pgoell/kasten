@@ -27,10 +27,12 @@ and `05 Sharedx/a.md` are not. It is the rule the share lists are read by, so
 the client can hide the shared lists from the todo views without a rule of its
 own.
 
-One `rg` pass, carrying the same flags search carries, so this and
-`GET /api/files` cannot disagree about which notes the vault holds. Nothing is
-indexed and Postgres is not consulted, for the reason search does not consult
-it: the files are the source of truth.
+Each note's lines are read as search's `rg` reads them, over the notes
+`GET /api/files` lists, so the two cannot disagree about which notes the vault
+holds. A note's todo lines are held in memory and parsed again only when its
+modification time, change time, size or inode moves (#1758). Nothing is indexed
+and Postgres is not consulted, for the reason search does not consult it: the
+files are the source of truth.
 
 It matches two shapes, and sends the lines below that end a todo's parts:
 
@@ -119,7 +121,7 @@ sits where nothing written by hand reaches it.
 
 ### Fences and the lines that end parts
 
-`rg` matches a line rather than a parse tree, so the pass also asks for every
+The pattern matches a line rather than a parse tree, so it also takes every
 line opening with three backticks or tildes at any indent. A note with such a
 line, or with an indented todo, is then read whole (#1445):
 

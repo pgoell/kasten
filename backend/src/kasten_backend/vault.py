@@ -158,18 +158,20 @@ def _walk(root: Path) -> Iterator[tuple[str, str, os.DirEntry[str]]]:
     if not root.is_dir():
         return
 
-    # By folder descriptor, so each entry's `stat` is an `fstatat`, not a walk of the whole path.
-    def walk(directory: int, prefix: str) -> Iterator[tuple[str, str, os.DirEntry[str]]]:
-        with os.scandir(directory) as entries:
+    # Below the root by folder descriptor, so each entry's `stat` is an `fstatat`.
+    def walk(
+        listed: int | str, opened: int, prefix: str
+    ) -> Iterator[tuple[str, str, os.DirEntry[str]]]:
+        with os.scandir(listed) as entries:
             for entry in entries:
                 if entry.name.startswith("."):
                     continue
                 # Not followed: a link to an ancestor would loop forever, and a link out of
                 # the vault would list what is on the other side.
                 if entry.is_dir(follow_symlinks=False):
-                    inner = os.open(entry.name, os.O_RDONLY | os.O_DIRECTORY, dir_fd=directory)
+                    inner = os.open(entry.name, os.O_RDONLY | os.O_DIRECTORY, dir_fd=opened)
                     try:
-                        yield from walk(inner, f"{prefix}{entry.name}/")
+                        yield from walk(inner, inner, f"{prefix}{entry.name}/")
                     finally:
                         os.close(inner)
                 else:
@@ -177,7 +179,7 @@ def _walk(root: Path) -> Iterator[tuple[str, str, os.DirEntry[str]]]:
 
     top = os.open(root, os.O_RDONLY | os.O_DIRECTORY)
     try:
-        yield from walk(top, "")
+        yield from walk(str(root), top, "")
     finally:
         os.close(top)
 

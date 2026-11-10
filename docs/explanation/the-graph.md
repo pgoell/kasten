@@ -16,15 +16,19 @@ it is the second.
 
 ## Read off the vault, every time
 
-There is no graph table. Each request runs three `rg` passes over the notes,
-the lines holding a link, the fences of each note's block, and the tags, and
-builds the graph from what comes back. On the prod vault that is about 50ms.
+There is no graph table. Each request walks the notes and builds the graph from
+each note's linked lines, its type and its tags. Those are held in memory per
+note and parsed again only when the note's modification time, change time, size
+or inode moves (#1758), so a save costs one parse, and a note changed outside
+kasten shows on the next request. At 10,000 notes a request takes about 355 ms.
 
 This is [the rule the whole system keeps](/explanation/vault-and-derived-index.md):
 the files are the truth and anything else is derived. A graph kept in Postgres
 would be one more thing to rebuild, and one more place that could say a link
-exists after you deleted the line holding it. Search, the todo list, the review
-and the tag completion all read the vault per request for the same reason, and
+exists after you deleted the line holding it. The memory cache passes the same test: a
+restart empties it and the first request reads every note again. Search, the
+todo list, the review and the tag completion all read the vault per request for
+the same reason, and
 the graph is one more reader of the same kind.
 
 The cost shows at 10,000 notes, not at 300: the answer grows with the vault,
