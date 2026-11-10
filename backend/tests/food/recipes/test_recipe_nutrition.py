@@ -14,7 +14,7 @@ from kasten_backend import food
 if TYPE_CHECKING:
     from httpx import AsyncClient
 
-NUTELLA = (Path(__file__).parent.parent / "fixtures" / "off" / "product-nutella.json").read_text(
+NUTELLA = (Path(__file__).parents[2] / "fixtures" / "off" / "product-nutella.json").read_text(
     encoding="utf-8"
 )
 

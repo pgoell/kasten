@@ -1633,6 +1633,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/recipes/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Recipe
+         * @description Write a recipe note from a page's schema.org data, or from a schema.org Recipe.
+         *
+         *     A page is fetched once plainly, and once more as a browser when a bot wall answers. Either
+         *     way the note keeps where it came from as `source`. A name already taken gets a number.
+         */
+        post: operations["import_recipe_api_recipes_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/anki": {
         parameters: {
             query?: never;
@@ -5177,6 +5200,16 @@ export interface components {
             code: number;
         };
         /**
+         * ImportedNote
+         * @description The recipe note an import wrote.
+         */
+        ImportedNote: {
+            /** Path */
+            path: string;
+            /** Title */
+            title: string;
+        };
+        /**
          * Ingested
          * @description What a batch of bookings did: new rows, rows already there, and transfers paired.
          */
@@ -6291,6 +6324,20 @@ export interface components {
             servings: number | null;
             per_serving: components["schemas"]["Nutrients"] | null;
             total: components["schemas"]["Nutrients"];
+        };
+        /**
+         * RecipeImport
+         * @description A page to read a recipe from, or a schema.org Recipe already read, such as a caption's.
+         */
+        RecipeImport: {
+            /** Url */
+            url?: string | null;
+            /** Recipe */
+            recipe?: {
+                [key: string]: unknown;
+            } | null;
+            /** Source */
+            source?: string | null;
         };
         /**
          * RecipeText
@@ -9467,6 +9514,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecipeEntry"][];
+                };
+            };
+        };
+    };
+    import_recipe_api_recipes_import_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecipeImport"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportedNote"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

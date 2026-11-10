@@ -1,8 +1,7 @@
-"""The recipe routes: one note's numbers, and every recipe note's for the food sheet.
+"""The recipe routes: one note's numbers, every recipe note's, and an import that writes one.
 
-`POST /api/recipe/nutrition` takes a note's text and answers its ingredients and numbers.
-`GET /api/recipes` lists every recipe note with its numbers per serving. The card sends the
-open buffer, so the numbers follow typing without waiting for a save.
+The card sends the open buffer to `POST /api/recipe/nutrition`, so the numbers follow typing
+without waiting for a save. `docs/reference/http-api/food.md` holds all three.
 """
 
 import asyncio
@@ -10,15 +9,19 @@ import re
 from posixpath import basename
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field, model_validator
 
 from kasten_backend import food, vault
+from kasten_backend.change import vault_change, vault_write
 from kasten_backend.config import Settings, get_settings
+from kasten_backend.files import RefusedError
+from kasten_backend.folders import create_note
+from kasten_backend.food.recipes import importer
 from kasten_backend.food.recipes.foods import FOODS_NOTE, MyFood, parse_my_foods
 from kasten_backend.food.recipes.note import parse_recipe
 from kasten_backend.food.recipes.nutrition import Recipe, recipe_nutrition
-from kasten_backend.frontmatter import body_start
+from kasten_backend.frontmatter import body_start, stamp
 from kasten_backend.graph import typed_notes
 
 router = APIRouter()
@@ -93,3 +96,62 @@ async def list_recipes(settings: Annotated[Settings, Depends(get_settings)]) -> 
             )
         )
     return sorted(entries, key=lambda entry: entry.title.lower())
+
+
+class RecipeImport(BaseModel):
+    """A page to read a recipe from, or a schema.org Recipe already read, such as a caption's."""
+
+    url: str | None = Field(default=None, max_length=2000)
+    recipe: dict[str, object] | None = None
+    source: str | None = Field(default=None, max_length=2000)
+    """Where `recipe` came from, such as the reel's link, written as the note's `source`."""
+
+    @model_validator(mode="after")
+    def _one(self) -> RecipeImport:
+        if (self.url is None) == (self.recipe is None):
+            raise ValueError("Send a url or a recipe, not both")
+        return self
+
+
+class ImportedNote(BaseModel):
+    """The recipe note an import wrote."""
+
+    path: str
+    title: str
+
+
+@router.post("/api/recipes/import", status_code=201)
+async def import_recipe(
+    body: RecipeImport, settings: Annotated[Settings, Depends(get_settings)]
+) -> ImportedNote:
+    """Write a recipe note from a page's schema.org data, or from a schema.org Recipe.
+
+    A page is fetched once plainly, and once more as a browser when a bot wall answers. Either
+    way the note keeps where it came from as `source`. A name already taken gets a number.
+    """
+    try:
+        if body.url is not None:
+            url, page = await importer.fetch(body.url)
+            recipe = await asyncio.to_thread(importer.from_html, page, url, url)
+        else:
+            recipe = await asyncio.to_thread(importer.from_json, body.recipe, body.source)
+    except RefusedError as error:
+        raise HTTPException(status_code=error.status, detail=str(error)) from error
+    except importer.NoRecipeError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+    name = importer.file_name(recipe.title).removesuffix(".md")
+    async with vault_write():
+        for count in range(1, 100):
+            wanted = f"{settings.recipes_path}/{name}{'' if count == 1 else f' {count}'}.md"
+            note = vault.resolve_path(settings.vault_path, wanted)
+            if note is None:
+                raise HTTPException(status_code=400, detail="The vault will not take that path")
+            if not note.exists():
+                break
+        else:
+            raise HTTPException(status_code=409, detail="Too many recipes by that name")
+        relative = vault.relative_path(settings.vault_path, note)
+        async with vault_change(settings.vault_path, relative):
+            create_note(note, stamp(importer.note_text(recipe)))
+    return ImportedNote(path=relative, title=recipe.title)

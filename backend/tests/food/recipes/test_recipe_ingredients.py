@@ -73,7 +73,7 @@ def test_servings_that_are_no_number_above_zero_are_none(value: str) -> None:
     assert parse_recipe(f"---\nservings: {value}\n---\n").servings is None
 
 
-FOODS = json.loads((Path(__file__).parent / "foods_cases.json").read_text(encoding="utf-8"))
+FOODS = json.loads((Path(__file__).parent.parent / "foods_cases.json").read_text(encoding="utf-8"))
 
 
 @pytest.mark.parametrize("case", FOODS, ids=[case["line"] for case in FOODS])

@@ -80,10 +80,10 @@ Set it to a name no folder has and nothing is left out of anything.
 
 ## The vault's folders
 
-Six settings name the folders kasten files into or looks in. Each is a path
-from the vault root, and each default is the folder one vault already used.
-[`GET /api/layout`](/reference/http-api/finding.md#get-apilayout) serves them to the
-editor, and the startup notes and the agent instructions spell them as set.
+These name the folders kasten files into or looks in, each a path from the
+vault root. [`GET /api/layout`](/reference/http-api/finding.md#get-apilayout)
+serves all but the recipes folder; the startup notes and
+agent instructions spell them as set.
 
 | Setting | Default | What goes there |
 | --- | --- | --- |
@@ -94,10 +94,11 @@ editor, and the startup notes and the agent instructions spell them as set.
 | `KASTEN_ARCHIVE_PATH` | `98 Archive` | see [its own section](#kasten_archive_path) |
 | `KASTEN_SKILLS_PATH` | `.claude/skills` | the skills the agent's `list_skills`, `read_skill` and `GET /agent/skills` read, never write. A missing folder lists none |
 | `KASTEN_SHARE_FOLDER` | `05 Shared` | the [shared lists](/explanation/shared-lists.md), one note a list, and all the `/share/` routes reach |
+| `KASTEN_RECIPES_PATH` | `Rezepte` | an [imported recipe](/reference/http-api/food.md#post-apirecipesimport) |
 | `KASTEN_SHARE_PEOPLE` | `{}` | [who writes](/reference/http-api/shared-lists.md#who-is-writing) a shared list |
 
-Only the parent folders are settings. The subfolders under them keep their
-names, so one setting moves a whole group and the list stays short.
+Only the parent folders are settings: the subfolders keep their names, so one
+setting moves a group.
 
 The startup notes are written into `KASTEN_CONFIG_PATH` only when missing, so
 changing it on a running vault writes a fresh set in the new place and leaves

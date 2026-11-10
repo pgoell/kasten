@@ -62,6 +62,14 @@ When what was shared holds a web address, a second button appears beside Send:
 same import `<leader>cw` runs at the desk, and puts nothing in the dump. A page
 clipped twice opens as one note, not two.
 
+**Save as recipe** turns what is in the box into a recipe note in `Rezepte`. A
+link to a recipe site, such as Chefkoch, is read by kasten. An Instagram,
+TikTok or YouTube caption, pasted or shared with its link, is read by Claude
+in the shell first, and the link becomes the note's `source`. kasten never
+opens the social post itself. When a site turns kasten away, paste the recipe's
+text under the link and press it again; Claude reads it then. The note's format is
+[Recipe note](/reference/food/recipe-note.md#importing-a-recipe).
+
 A shared PDF or photo goes to the finance receipts, not the dump: the page
 says how many receipts it kept, and they wait under Finance, To sort
 ([Collect receipts](/how-to/collect-receipts.md)). The share goes to the server

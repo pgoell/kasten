@@ -188,6 +188,9 @@ class Settings(BaseSettings):
     and every other dotfile stay out of reach. Nothing writes here through kasten.
     """
 
+    recipes_path: str = "Rezepte"
+    """The folder an imported recipe lands in, relative to the vault (#1725)."""
+
     share_folder: str = "05 Shared"
     """The one folder the `/share` routes reach, the shared lists living in it.
 

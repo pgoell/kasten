@@ -2,7 +2,7 @@
 type: Reference
 title: Recipe note
 description: The note a dish is written in, its frontmatter, the ingredient, step and cooked sections, how a German ingredient line is read for its amount and unit, how a line finds its food, the kcal and macros per serving, the card that shows them, cook mode, the rating sheet, and why a line is not counted.
-resource: backend/tests/food/ingredient_cases.json
+resource: backend/tests/food/recipes/ingredient_cases.json
 tags: [vault, recipes, food, format, backend]
 status: stable
 ---
@@ -101,6 +101,25 @@ optionally the answer to "wieder kochen?" and a note after a `·`:
 The card and cook mode read these lines. The rating sheet writes them; see
 [The rating sheet](#the-rating-sheet).
 
+## Importing a recipe
+
+**Save as recipe** on the capture page, or
+[POST /api/recipes/import](/reference/http-api/food.md#post-apirecipesimport),
+writes a recipe note from a recipe page or a pasted caption:
+
+* A page's schema.org `Recipe` data is read with recipe-scrapers. Most German
+  recipe sites carry it.
+* A caption goes to Claude in the shell first, which answers schema.org JSON
+  ([Chat runner](/reference/chat-runner.md#reading-a-recipe)); that JSON is
+  then read the same way.
+* The note gets `type: Recipe`, `servings`, `time` in minutes and `source`
+  where known, the title as its heading, the ingredient lines under
+  `## Zutaten`, a `### ` heading for each group the page names, and the steps
+  under `## Schritte`.
+* Entities such as `&amp;` are decoded, `800.0 g` is written `800 g`, and a step
+  that only says `Schritt 1` is left out. Every other line stays as the page
+  wrote it.
+
 ## Reading a line
 
 A line is read from the left, in this order:
@@ -142,7 +161,7 @@ over the serving: `1 Dose Mais (285 g)`, `2 Dosen Tomaten (je 400 g)`,
 `(ca. 400 g)`.
 
 Every case the parser is tested against is a row of
-`backend/tests/food/ingredient_cases.json`. A change to these rules is a change
+`backend/tests/food/recipes/ingredient_cases.json`. A change to these rules is a change
 to that table first.
 
 ## Finding the food

@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { importPage } from "@/lib/capture/clip";
 import { type Dump, flush, keep, type State, start, subscribe } from "@/lib/capture/outbox";
+import { importRecipe } from "@/lib/capture/recipe";
 import { firstAddress, type Shared, sharedDraft } from "@/lib/capture/share";
 import { fetchFiles } from "@/lib/core/api";
 import { readClock } from "@/lib/core/clock";
@@ -271,6 +272,20 @@ function Capture() {
               Clip to inbox
             </button>
           )}
+          {/* A recipe link is read by kasten, a caption by the model: lib/capture/recipe.ts. */}
+          <button
+            type="button"
+            disabled={sending || typed === ""}
+            onClick={() =>
+              send(async () => {
+                const { path } = await importRecipe(typed);
+                return `recipe saved to ${path}`;
+              })
+            }
+            className="min-h-11 flex-1 rounded border border-k-rule px-4 text-[14px] text-k-muted disabled:text-k-rule"
+          >
+            Save as recipe
+          </button>
         </div>
 
         {receiptWords(shared) !== null && (

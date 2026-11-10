@@ -3171,6 +3171,45 @@
         }
       }
     },
+    "/api/recipes/import": {
+      "post": {
+        "summary": "Import Recipe",
+        "description": "Write a recipe note from a page's schema.org data, or from a schema.org Recipe.\n\nA page is fetched once plainly, and once more as a browser when a bot wall answers. Either\nway the note keeps where it came from as `source`. A name already taken gets a number.",
+        "operationId": "import_recipe_api_recipes_import_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecipeImport"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportedNote"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/anki": {
       "post": {
         "summary": "Import Anki",
@@ -11811,6 +11850,25 @@
         "title": "Hour",
         "description": "One hour of one place's day, local time."
       },
+      "ImportedNote": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "title"
+        ],
+        "title": "ImportedNote",
+        "description": "The recipe note an import wrote."
+      },
       "Ingested": {
         "properties": {
           "created": {
@@ -14869,6 +14927,49 @@
         ],
         "title": "RecipeEntry",
         "description": "A recipe note as the food sheet lists it."
+      },
+      "RecipeImport": {
+        "properties": {
+          "url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "recipe": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipe"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          }
+        },
+        "type": "object",
+        "title": "RecipeImport",
+        "description": "A page to read a recipe from, or a schema.org Recipe already read, such as a caption's."
       },
       "RecipeText": {
         "properties": {
