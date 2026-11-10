@@ -131,15 +131,14 @@ tab is brought into view, and there is no `N more`. In the strip the
 arrow keys move between tabs, `Home` and `End` go to the ends, `Enter` opens
 one and `Delete` closes it. An empty tab reads `New tab`, and each tab is named
 for the note in the pane it
-left focused, for the herdr session when that pane holds a terminal, and
-`todos` when it holds the todo list. A pane holding a pdf, an image or an HTML
-page names its tab for the file, without the folder or the suffix, so
-`x/my plan.pdf` reads `my plan`. An exam and a person card name the tab for
-their note, again without the folder or `.md`, so `people/Ada Lovelace.md`
-reads `Ada Lovelace`. The graph of the whole vault reads `graph view`, the
-graph around a note reads `graph of` and the note's name, a note's history
-reads `history of` and the note's name, and the review reads
-`review`. A 2 px accent line under the active tab glides to the next one on a
+left focused, for the herdr session when that pane holds a terminal, and by
+its kind, capitalised, for a pane such as `Todos`, `Timers` or `Log`, each with
+its own icon. A pane holding a pdf, an image or an HTML page names its tab for
+the file, without the folder or the suffix, so `x/my plan.pdf` reads
+`my plan`. An exam and a person card name the tab for their note, so
+`people/Ada Lovelace.md` reads `Ada Lovelace`. The whole vault's graph reads
+`Graph view`, the graph around a note `Graph of` and its name, a history
+`History of` and its name, and the review `Review`. A 2 px accent line under the active tab glides to the next one on a
 switch, and hover fills a tab with the accent wash. The strip arrives once, on
 the first load of the page, and stays at the top, see-through over the page,
 with one hairline under it. A pane split off
