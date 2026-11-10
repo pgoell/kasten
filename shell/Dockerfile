@@ -171,14 +171,14 @@ FROM starship-${TARGETARCH} AS starship
 # browser login, a DeepSeek API key read from the environment or `~/.dsh/.env`,
 # and `~/.dsh` sits in the home volume beside `~/.claude` and `~/.codex`, so a
 # key set once outlives a release.
-FROM node:24-bookworm-slim@sha256:01d566e8d94d8c619591d78652babfccd3c6992a3dffa9ed5ab39e11cf6c70e9 AS agents
+FROM node:26-bookworm-slim@sha256:add5c17c14752c54d2f3d519ec46a3815684d41c33f198bcb09fb998f7dcbf68 AS agents
 ENV NPM_CONFIG_PREFIX=/opt/npm
 RUN apt-get update \
     && apt-get install --no-install-recommends -y python3 make g++ \
     && rm -rf /var/lib/apt/lists/*
 RUN npm install -g @openai/codex@0.147.0 @deepseek-ai/dsh@0.1.0-rc.6
 
-FROM node:24-bookworm-slim@sha256:01d566e8d94d8c619591d78652babfccd3c6992a3dffa9ed5ab39e11cf6c70e9 AS runtime
+FROM node:26-bookworm-slim@sha256:add5c17c14752c54d2f3d519ec46a3815684d41c33f198bcb09fb998f7dcbf68 AS runtime
 
 # curl and jq are for the backend: an agent in here completes a todo through
 # `PUT /api/files`, which the vault's own `99 Misc/01 Config/01 Agents` note
