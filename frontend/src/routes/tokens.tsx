@@ -10,6 +10,7 @@ import {
   type TokenUse,
 } from "@/lib/tokens/token-api";
 import { lastUse, UNUSED_DAYS, unused } from "@/lib/tokens/token-use";
+import { BACK_LINK } from "@/lib/ui/overlay-styles";
 
 export const Route = createFileRoute("/tokens")({
   component: Tokens,
@@ -84,10 +85,7 @@ function Tokens() {
     <main className="min-h-dvh bg-k-bg font-sans text-k-ink">
       {/* 1120 = 768 list + 32 gap + 320 rail, all on one left and one right edge. */}
       <div className="mx-auto flex max-w-[1168px] flex-col gap-6 px-4 py-6 md:px-6 md:py-9">
-        <a
-          href="/"
-          className="self-start text-k-13 text-k-muted underline-offset-2 hover:text-k-accent hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center"
-        >
+        <a href="/" className={BACK_LINK}>
           ← Back to the notes
         </a>
         <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between md:gap-8">

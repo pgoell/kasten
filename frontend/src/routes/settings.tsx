@@ -13,6 +13,7 @@ import {
   subscribeHere,
   unsubscribeHere,
 } from "@/lib/app/push/push";
+import { BACK_LINK } from "@/lib/ui/overlay-styles";
 
 export const Route = createFileRoute("/settings")({
   component: Settings,
@@ -66,10 +67,7 @@ function Settings() {
   return (
     <main className="min-h-dvh bg-k-bg font-sans text-k-ink">
       <div className="mx-auto flex max-w-[720px] flex-col gap-6 px-4 py-6 md:px-6 md:py-9">
-        <a
-          href="/"
-          className="self-start text-k-13 text-k-muted underline-offset-2 hover:text-k-accent hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center"
-        >
+        <a href="/" className={BACK_LINK}>
           ← Back to the notes
         </a>
         <h1 className="font-serif text-k-27">settings</h1>
