@@ -223,9 +223,10 @@ The key restyles every item at the cursor's level, from the first item of the
 list to the last, and renumbers them as it goes. A numbered list that starts at
 3 goes to letters from `c)`. Deeper lines keep their own style; when the new
 mark is wider than the old, they move right by the difference, so they stay
-nested under their item. A list longer than 26 items skips the letters, and so
+nested under their item. A list that would run past `z)` skips the letters, and so
 does a list with lines under its items, for the reason below. A list of todos
-stays as it is, since a todo is a `-` item.
+stays as it is, since a todo is a `-` item, and so does a list in the
+frontmatter or in a code fence.
 
 `a)` is not a list in CommonMark, which reads it as text. The editor still
 draws it as one, and a lettered line counts one level deeper than whatever it

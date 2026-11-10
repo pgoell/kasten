@@ -1,10 +1,13 @@
+import { ensureSyntaxTree } from "@codemirror/language";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
+import { noteLanguage } from "@/lib/markdown/note-language";
 import { cycleListStyle } from "@/lib/notes/editor/format-commands";
 
 /** Cycles the list at line `line` (from 1) `times` times and returns the note. */
 function cycled(doc: string[], line: number, times = 1): string[] {
-  const state = EditorState.create({ doc: doc.join("\n") });
+  const state = EditorState.create({ doc: doc.join("\n"), extensions: noteLanguage() });
+  ensureSyntaxTree(state, state.doc.length, 5000);
   const view = new EditorView({ state });
   view.dispatch({ selection: { anchor: state.doc.line(line).from } });
   for (let i = 0; i < times; i++) cycleListStyle(view);
@@ -75,6 +78,14 @@ describe("cycleListStyle", () => {
       "   - nested",
       "- two",
     ]);
+  });
+
+  it("leaves a YAML list in the frontmatter and a list in a fence alone", () => {
+    const front = ["---", "tags:", "  - a", "---", "", "- b"];
+    const fence = ["```", "- a", "```"];
+
+    expect(cycled(front, 3)).toEqual(front);
+    expect(cycled(fence, 2)).toEqual(fence);
   });
 
   it("goes to bullets rather than past z", () => {

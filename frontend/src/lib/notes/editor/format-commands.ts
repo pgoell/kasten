@@ -165,7 +165,9 @@ function tidyText(line: Line, tidy: Tidy): void {
 }
 
 /** A list item's line: its indent, its mark, and the spaces after the mark. */
-const ITEM = /^(\s*)([-*+]|\d{1,9}[.)]|[a-z][.)])( +|$)/;
+/** A lettered mark, `a)` or `b.`, which CommonMark reads as text. Live preview draws it from this too. */
+export const LETTER_MARK = /[a-z][.)]/;
+const ITEM = new RegExp(`^(\\s*)([-*+]|\\d{1,9}[.)]|${LETTER_MARK.source})( +|$)`);
 const TODO_BOX = /^\[.\]( |$)/;
 
 type ListStyle = "bullet" | "number" | "letter";
@@ -297,6 +299,17 @@ function listAt(doc: Text, n: number): ListItem[] | null {
   return items;
 }
 
+function inCode(state: EditorState, at: number): boolean {
+  for (
+    let node: SyntaxNode | null = syntaxTree(state).resolveInner(at, 1);
+    node;
+    node = node.parent
+  ) {
+    if (node.name === "FencedCode" || node.name === "CodeBlock") return true;
+  }
+  return false;
+}
+
 /**
  * Steps the list under the cursor from bullets to `1.` to `a)` and back, renumbering as it goes.
  * Only the cursor's level changes; deeper lines move right when a wider mark would unnest them.
@@ -304,7 +317,10 @@ function listAt(doc: Text, n: number): ListItem[] | null {
  */
 export function cycleListStyle(view: EditorView): boolean {
   const { doc } = view.state;
-  const items = listAt(doc, doc.lineAt(view.state.selection.main.head).number);
+  const line = doc.lineAt(view.state.selection.main.head);
+  // A YAML list in the frontmatter or a list in a fence is not markdown to restyle.
+  if (line.number <= frontEnd(doc) || inCode(view.state, line.from)) return false;
+  const items = listAt(doc, line.number);
   if (items === null || items.length === 0) return false;
   if (
     items.some((item) =>
