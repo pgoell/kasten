@@ -106,7 +106,9 @@ describe("the meaning finder", () => {
     finder.type("zzz");
 
     await waitFor(() =>
-      expect(finder.hint()).toBe("matching words only while the model loads or is off; no notes match"),
+      expect(finder.hint()).toBe(
+        "matching words only while the model loads or is off; no notes match",
+      ),
     );
   });
 
