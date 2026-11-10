@@ -30,19 +30,25 @@ again shows it as you left it.
 
 ## Start a skill
 
-Click `/close-day` or `/process-meeting` in the pane's header. For any other
-skill, or a plain message, press `i`, type it and press Enter. Shift+Enter
-breaks the line. Escape leaves the box, so the leader works again.
+An empty pane shows `/close-day` and `/process-meeting` as two cards: click
+one. Once the conversation has begun, the same two sit as pills over the
+message box. For any other skill, or a plain message, press `i`, type it and
+press Enter. Shift+Enter breaks the line. Escape leaves the box, so the leader
+works again.
 
-Text appears as Claude writes it. `Stop` shows for as long as the run lasts.
+Your message shows on the right, Claude's reply on the left as it is written,
+with its lists, code and links drawn. The dot in the header says where the
+session stands: `ready`, `working`, `waiting for you` or `offline`. A square
+`Stop` button sits beside the send arrow for as long as the run lasts.
 
 ![A run, its first text arriving](images/chat-pane-streaming.png)
 
 ## Read a tool call
 
-Each tool call is one line: a mark, the tool, and what it was pointed at. `…`
-means it is running, `✓` that it ended, `✗` that it failed. Click the line to
-see the whole input and what came back.
+Each tool call is one line: a mark, the tool, and what it was pointed at,
+with `/vault/` left off a path. Calls made one after another share a rule down
+their left side. A spinning ring means it is running, `✓` that it ended, `✗`
+that it failed. Click the line to see the whole input and what came back.
 
 ![A Bash call opened, above a question](images/chat-pane-tool-open.png)
 
@@ -52,9 +58,10 @@ says why that is no wider a door than the terminal pane.
 
 ## Answer a question
 
-When a skill asks, the run waits and the question shows as a form. Pick an
-option, or several where the question takes several, or type your own answer
-into `Other`. `Answer` sends it once every question has one.
+When a skill asks, the run waits, the header says `waiting for you`, and the
+question shows as a card. Tap an option, or several where the question says
+`pick any`, or type your own answer into `Something else…`. `Answer` sends it
+once every question has one.
 
 ![A question with one option picked in each part](images/chat-pane-question.png)
 
@@ -75,8 +82,8 @@ one, with none of the earlier context.
 
 ## On a phone
 
-The same pane. Enter breaks the line there and `Send` sends, since a phone's
-keyboard has no Shift+Enter worth reaching for.
+The same pane. Enter breaks the line there and the arrow sends, since a
+phone's keyboard has no Shift+Enter worth reaching for.
 
 | Empty | Running | A tool call | A question | Finished |
 | --- | --- | --- | --- | --- |
@@ -87,9 +94,9 @@ session, and a question can be answered from either.
 
 ## When it does not work
 
-* **`Could not reach the chat runner at /chat/events.`** The shell container is
-  down, the `/chat/*` route is missing from the proxy, or your login ran out.
-  The pane tries again every few seconds.
+* **`Could not reach the chat runner.`** The header says `offline`. The shell
+  container is down, the `/chat/*` route is missing from the proxy, or your
+  login ran out. The pane tries again every few seconds.
   [Reverse-proxy routes](/reference/reverse-proxy-routes.md) has the route.
 * **`The chat runner did not take that`.** A message, an answer or a press of
   `Stop` got no yes. Your login ran out, the runner is restarting, or the
