@@ -1,6 +1,8 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { readRelation } from "@/lib/notes/links/relation";
+import cases from "@/lib/notes/links/relation-cases.json";
+import { wikiLinkTargets } from "@/lib/notes/links/wikilink";
 
 describe("readRelation", () => {
   it("reads a relation at the left margin", () => {
@@ -119,5 +121,15 @@ describe("readRelation", () => {
 
   it("refuses a scope operator in prose", () => {
     expect(readRelation("std::vector is fast")).toBeNull();
+  });
+});
+
+// `graph.py` reads the same list, so a rule changed on one side alone fails there (#1765).
+describe("the cases shared with graph.py", () => {
+  it.each(cases)("$id", ({ line, relation, links }) => {
+    expect({ relation: readRelation(line), links: wikiLinkTargets(line) }).toEqual({
+      relation,
+      links,
+    });
   });
 });

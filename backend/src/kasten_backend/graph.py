@@ -39,7 +39,7 @@ RELATION = re.compile(r"^ {0,3}(?:- )?([a-z][a-z-]*):: [ \t]*\[\[([^\[\]\n]+)\]\
 """`name:: [[target]]`, the rule `frontend/src/lib/notes/links/relation.ts` reads.
 
 A copy, since the editor draws a relation without asking the server, and the graph is built
-without asking the editor. `docs/reference/relation-format.md` is what both answer to.
+without asking the editor. `relation-cases.json`, next to `relation.ts`, holds both to one list.
 """
 
 HEAD = re.compile(r"---\s*$|type:")
