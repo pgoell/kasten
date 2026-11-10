@@ -1,6 +1,7 @@
 version: 2
-# One pull request per ecosystem a week carries its minor and patch bumps; a
-# major bump comes alone, since it is the one that may need code to change.
+# For uv, bun and docker one pull request a week carries the minor and patch
+# bumps; a major bump comes alone, since it is the one that may need code to
+# change. Actions stay one pull request per bump.
 updates:
   - package-ecosystem: github-actions
     directory: /
