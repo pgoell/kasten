@@ -12,10 +12,11 @@ export const focused = (page: Page) => page.locator(".cm-content:focus");
 
 /** The save sign, the conflict diff and the bar's conflict list, each null when not drawn. */
 export async function conflictBar(page: Page) {
-  const read = async (locator: Locator) =>
-    (await locator.count()) > 0 ? await locator.first().textContent() : null;
+  // One look each, no waiting: an element gone between a count and a read would hang the poll.
+  const read = async (locator: Locator) => (await locator.allTextContents())[0] ?? null;
+  const label = await sign(page).evaluateAll((signs) => signs[0]?.getAttribute("aria-label"));
   return {
-    status: (await sign(page).count()) > 0 ? await sign(page).getAttribute("aria-label") : null,
+    status: label ?? null,
     diff: await read(page.getByTestId("conflict-diff")),
     listed: await read(page.getByTestId("held-conflict")),
   };
