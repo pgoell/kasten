@@ -105,7 +105,7 @@ export function TimersRow() {
         <input
           data-timer-field
           aria-label="Timer name"
-          placeholder="Washer"
+          placeholder="Name, e.g. Washer"
           value={label}
           onChange={(event) => setLabel(event.target.value)}
           className={`${FIELD} w-40 flex-1`}
@@ -113,7 +113,7 @@ export function TimersRow() {
         <input
           data-timer-field
           aria-label="Duration"
-          placeholder="1h 25m"
+          placeholder="e.g. 1h 25m"
           inputMode="text"
           value={duration}
           onChange={(event) => setDuration(event.target.value)}
