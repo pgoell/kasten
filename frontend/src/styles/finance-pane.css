@@ -44,6 +44,25 @@
   border-bottom: 1px solid var(--k-rule);
 }
 
+/* A row that scrolls fades at its right edge until scrolled to the end, so a cut name reads as
+   more to come. A row that fits has no scroll timeline, so the fade never applies. */
+@supports (animation-timeline: scroll()) {
+  .finance-pane-tabs {
+    animation: finance-tabs-fade linear both;
+    animation-timeline: scroll(self inline);
+  }
+}
+
+@keyframes finance-tabs-fade {
+  0%,
+  95% {
+    mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+  }
+  100% {
+    mask-image: none;
+  }
+}
+
 .finance-pane-tab {
   flex: 1 0 auto;
   min-height: 44px;
