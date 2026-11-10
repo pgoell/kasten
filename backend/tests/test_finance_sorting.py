@@ -9,8 +9,8 @@ from typing import TYPE_CHECKING
 from sqlalchemy import literal, select, text
 
 from backend.tests.finance_rows import API, account, booking, category, post, rule, stored
-from kasten_backend import finance_sorting as sorting
-from kasten_backend.finance_models import Transaction
+from kasten_backend.finance.records import sorting
+from kasten_backend.finance.records.models import Transaction
 
 if TYPE_CHECKING:
     from httpx import AsyncClient

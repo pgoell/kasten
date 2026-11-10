@@ -1,7 +1,7 @@
 /**
  * The calls the finance pane makes for tax: a booking's mark and receipts, the tax year, the
  * receipt queue, and a file dropped on a booking. The answers are the ones
- * `routes/finance_tax.py` and `routes/finance_receipts.py` give.
+ * `finance/routes/tax/tax.py` and `finance/routes/tax/receipts.py` give.
  */
 
 import type { components } from "@/lib/api-types";

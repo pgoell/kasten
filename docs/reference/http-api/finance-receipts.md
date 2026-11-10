@@ -2,7 +2,7 @@
 type: Reference
 title: "HTTP API: finance receipts"
 description: The receipt routes, keeping a file by its hash, the share from the phone, the reader's readings, the queue of receipts on no booking with the bookings each may have paid, and the file itself.
-resource: backend/src/kasten_backend/routes/finance_receipts.py
+resource: backend/src/kasten_backend/finance/routes/tax/receipts.py
 tags: [api, backend, openapi, finance, tax]
 status: draft
 ---

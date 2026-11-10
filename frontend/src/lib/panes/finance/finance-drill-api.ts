@@ -1,7 +1,7 @@
 /**
  * The calls the finance pane's drilldowns make: one scope, account, category, payee or booking,
  * and the writes they offer, a booking's splits and a payee rule. The answers are the ones
- * `routes/finance_drill.py` gives; sorting goes through `finance-api.ts`.
+ * `finance/routes/budget/drill.py` gives; sorting goes through `finance-api.ts`.
  */
 
 import type { components } from "@/lib/api-types";

@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 from backend.tests.finance_rows import API, GIRO, account, booking, post
 from backend.tests.finance_tax_rows import JPEG, PDF, RECEIPTS, ids, kept, mark, upload, year
 from backend.tests.test_finance_budget import SHARED, own
-from kasten_backend.finance_receipts import IMAGE_BYTES, MAX_BYTES, MAX_SHARED
+from kasten_backend.finance.tax.receipts import IMAGE_BYTES, MAX_BYTES, MAX_SHARED
 
 if TYPE_CHECKING:
     from httpx import AsyncClient

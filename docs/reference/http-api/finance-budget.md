@@ -2,7 +2,7 @@
 type: Reference
 title: "HTTP API: finance budget"
 description: The routes behind the finance budget, a month's budget per category, free to spend for mine and household, where the month's money went, the spending trend, a category's limit and the budget settings.
-resource: backend/src/kasten_backend/routes/finance_budget.py
+resource: backend/src/kasten_backend/finance/routes/budget/budget.py
 tags: [api, backend, openapi, finance]
 status: draft
 ---

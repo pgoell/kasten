@@ -23,9 +23,8 @@ from backend.tests.test_finance_budget_model import (
     line,
     month,
 )
-from kasten_backend.finance_free import free_to_spend
-from kasten_backend.finance_ledger import Line
-from kasten_backend.finance_plans import (
+from kasten_backend.finance.budget.free import free_to_spend
+from kasten_backend.finance.plans.plans import (
     Book,
     Booking,
     Contract,
@@ -41,7 +40,8 @@ from kasten_backend.finance_plans import (
     monthly_need,
     reminder,
 )
-from kasten_backend.finance_proposals import Seen, every_of, price_rise, proposals
+from kasten_backend.finance.plans.proposals import Seen, every_of, price_rise, proposals
+from kasten_backend.finance.records.ledger import Line
 
 TODAY = dt.date(2026, 10, 10)
 

@@ -36,7 +36,18 @@ from kasten_backend.change import settled
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.events import KEEPALIVE, format_retry, format_sse, watch_vault
 from kasten_backend.files import RefusedError
-from kasten_backend.finance_guard import FinanceGuard
+from kasten_backend.finance.routes.budget import budget as finance_budget
+from kasten_backend.finance.routes.budget import drill as finance_drill
+from kasten_backend.finance.routes.budget import range as finance_range
+from kasten_backend.finance.routes.feeds import orders as finance_orders
+from kasten_backend.finance.routes.feeds import sync as finance_sync
+from kasten_backend.finance.routes.plans import goals as finance_goals
+from kasten_backend.finance.routes.plans import plans as finance_plans
+from kasten_backend.finance.routes.records import records as finance
+from kasten_backend.finance.routes.records import sorting as finance_sorting
+from kasten_backend.finance.routes.records.guard import FinanceGuard
+from kasten_backend.finance.routes.tax import receipts as finance_receipts
+from kasten_backend.finance.routes.tax import tax as finance_tax
 from kasten_backend.food import recipes
 from kasten_backend.guide import write_guide
 from kasten_backend.okf import prepare
@@ -46,17 +57,6 @@ from kasten_backend.routes import (
     anki,
     anki_imports,
     assets,
-    finance,
-    finance_budget,
-    finance_drill,
-    finance_goals,
-    finance_orders,
-    finance_plans,
-    finance_range,
-    finance_receipts,
-    finance_sorting,
-    finance_sync,
-    finance_tax,
     github,
     listing,
     model_use,

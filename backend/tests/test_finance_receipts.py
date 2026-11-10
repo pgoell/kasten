@@ -12,7 +12,7 @@ from backend.tests.finance_rows import API, GIRO, account, booking, post
 from backend.tests.finance_tax_rows import JPEG, PDF, PNG, RECEIPTS, ids, kept, totals, upload, year
 from kasten_backend import db
 from kasten_backend.config import get_settings
-from kasten_backend.finance_receipts import MAX_BYTES
+from kasten_backend.finance.tax.receipts import MAX_BYTES
 
 if TYPE_CHECKING:
     from pathlib import Path

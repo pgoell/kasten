@@ -7,9 +7,9 @@ are the ones docs/reference/budget-model.md states.
 import datetime as dt
 from decimal import Decimal
 
-from kasten_backend.finance_budget import budget_of, limit_in, share_of_month, unreserved
-from kasten_backend.finance_free import free_to_spend
-from kasten_backend.finance_ledger import Account, Category, Ledger, Line
+from kasten_backend.finance.budget.budget import budget_of, limit_in, share_of_month, unreserved
+from kasten_backend.finance.budget.free import free_to_spend
+from kasten_backend.finance.records.ledger import Account, Category, Ledger, Line
 
 GIRO, CARD, SAVING, SHARED, SHARED_SAVING = 1, 2, 3, 4, 5
 ACCOUNTS = {

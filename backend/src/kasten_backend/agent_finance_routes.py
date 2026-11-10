@@ -10,18 +10,16 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Query
 
 from kasten_backend import agent_finance
-from kasten_backend.finance_ledger import Scope  # noqa: TC001  FastAPI reads it at runtime
+from kasten_backend.finance.records.ledger import Scope  # noqa: TC001  FastAPI reads it at runtime
+from kasten_backend.finance.routes.budget import budget as finance_budget
+from kasten_backend.finance.routes.budget import drill as finance_drill
+from kasten_backend.finance.routes.budget.budget import MONTH_PATTERN
+from kasten_backend.finance.routes.feeds import sync
+from kasten_backend.finance.routes.plans import goals as finance_goals
+from kasten_backend.finance.routes.plans import plans as finance_plans
+from kasten_backend.finance.routes.records.records import Session  # noqa: TC001  FastAPI reads it at runtime
+from kasten_backend.finance.routes.tax import tax as finance_tax
 from kasten_backend.periodic import DATE_PATTERN
-from kasten_backend.routes import (
-    finance_budget,
-    finance_drill,
-    finance_goals,
-    finance_plans,
-    finance_tax,
-)
-from kasten_backend.routes import finance_sync as sync
-from kasten_backend.routes.finance import Session  # noqa: TC001  FastAPI reads it at runtime
-from kasten_backend.routes.finance_budget import MONTH_PATTERN
 
 router = APIRouter(prefix="/finance")
 

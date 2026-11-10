@@ -2,7 +2,7 @@
 type: Reference
 title: "HTTP API: finance sync"
 description: The five routes behind "pull now" and the bank sync status, that the bank job polls, starts and finishes its runs through, with the claim two pollers race for.
-resource: backend/src/kasten_backend/routes/finance_sync.py
+resource: backend/src/kasten_backend/finance/routes/feeds/sync.py
 tags: [api, backend, openapi, finance]
 status: draft
 ---
