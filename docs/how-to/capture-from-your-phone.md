@@ -66,8 +66,8 @@ clipped twice opens as one note, not two.
 link to a recipe site, such as Chefkoch, is read by kasten. An Instagram,
 TikTok or YouTube caption, pasted or shared with its link, is read by Claude
 in the shell first, and the link becomes the note's `source`. kasten never
-opens the social post itself. When a site turns kasten away, copy the recipe's
-text into the box and press it again. The note's format is
+opens the social post itself. When a site turns kasten away, paste the recipe's
+text under the link and press it again; Claude reads it then. The note's format is
 [Recipe note](/reference/food/recipe-note.md#importing-a-recipe).
 
 A shared PDF or photo goes to the finance receipts, not the dump: the page

@@ -72,6 +72,31 @@ describe("importing a shared recipe", () => {
     expect(post).not.toHaveBeenCalled();
   });
 
+  it("has the model read a recipe pasted under a link the site turned away", async () => {
+    const wall = { detail: "The site turned the fetch away (403); paste the recipe" };
+    const post = vi
+      .spyOn(client, "POST")
+      .mockResolvedValueOnce({
+        data: undefined,
+        error: wall,
+        response: new Response(null, { status: 502 }),
+      } as never)
+      .mockResolvedValueOnce({ data: NOTE, error: undefined, response: new Response() } as never);
+    const sent = runner(200, { recipe: RECIPE });
+    const pasted = `https://www.hellofresh.de/recipes/x\n200 g Feta, backen`;
+    expect(await importRecipe(pasted)).toEqual(NOTE);
+    expect(sent).toHaveBeenCalledTimes(1);
+    expect(post).toHaveBeenLastCalledWith("/api/recipes/import", {
+      body: { recipe: RECIPE, source: "https://www.hellofresh.de/recipes/x" },
+    });
+  });
+
+  it("says the link's failure when the text beside it holds no recipe", async () => {
+    imported({ detail: "The site turned the fetch away (403); paste the recipe" }, 502);
+    runner(422, { error: "No recipe in that text" });
+    await expect(importRecipe(`Lecker!\n${CHEFKOCH}`)).rejects.toThrow("paste the recipe");
+  });
+
   it("passes on kasten's reason when the import is refused", async () => {
     imported({ detail: "The site turned the fetch away (403); paste the recipe" }, 502);
     await expect(importRecipe(CHEFKOCH)).rejects.toThrow("paste the recipe");

@@ -35,15 +35,30 @@ async function readCaption(text: string): Promise<Record<string, unknown>> {
   throw new Error(body.error ?? `The model could not be asked (${response.status})`);
 }
 
-/** Writes the recipe in `text` as a note, by its link or through the model, and says where. */
-export async function importRecipe(text: string): Promise<ImportedNote> {
-  const address = firstAddress(text);
-  const body = needsReading(text)
-    ? { recipe: await readCaption(text), source: address }
-    : { url: address };
+async function write(body: components["schemas"]["RecipeImport"]): Promise<ImportedNote> {
   const { data, error, response } = await client.POST("/api/recipes/import", { body });
   if (!data) {
     throw new Error(reason(error) ?? `POST /api/recipes/import failed with ${response.status}`);
   }
   return data;
+}
+
+/**
+ * Writes the recipe in `text` as a note, by its link or through the model, and says where.
+ * A link that fails while text sits beside it, such as a recipe pasted under a walled site's
+ * link, has the model read the text; when that finds none, the link's own failure is said.
+ */
+export async function importRecipe(text: string): Promise<ImportedNote> {
+  const address = firstAddress(text);
+  if (needsReading(text)) return write({ recipe: await readCaption(text), source: address });
+  try {
+    return await write({ url: address });
+  } catch (failed) {
+    if (!(failed instanceof Error) || text.replace(address ?? "", "").trim() === "") throw failed;
+    const recipe = await readCaption(text).catch((none: unknown) => {
+      if (none instanceof Error) throw failed;
+      throw none;
+    });
+    return write({ recipe, source: address });
+  }
 }
