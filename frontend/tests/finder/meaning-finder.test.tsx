@@ -95,7 +95,7 @@ describe("the meaning finder", () => {
     rankedSearch.mockResolvedValue(answer({ indexed: 481, notes: 625 }));
     const finder = renderFinder();
 
-    await waitFor(() => expect(finder.hint()).toBe("index holds 481 of 625 notes, still filling"));
+    await waitFor(() => expect(finder.hint()).toBe("481 of 625 notes indexed so far"));
     expect(rankedSearch).toHaveBeenCalledWith("", false);
     expect(finder.rows()).toHaveLength(0);
   });
@@ -106,7 +106,9 @@ describe("the meaning finder", () => {
     finder.type("zzz");
 
     await waitFor(() =>
-      expect(finder.hint()).toBe("by words only, the model is loading or off; no notes match"),
+      expect(finder.hint()).toBe(
+        "matching words only while the model loads or is off; no notes match",
+      ),
     );
   });
 

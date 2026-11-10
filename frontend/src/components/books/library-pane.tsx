@@ -225,7 +225,14 @@ export function LibraryPane({
           )}
           {library.isSuccess && order.length === 0 && (
             <p className="px-4 text-k-13 text-k-muted">
-              {books.length === 0 ? "No note is typed Book yet" : "No book matches"}
+              {books.length === 0 ? (
+                <>
+                  No books yet.
+                  <span className="pointer-coarse:hidden"> Add one with Space c b.</span>
+                </>
+              ) : (
+                "No book matches"
+              )}
             </p>
           )}
           {groups.map((group) => (
@@ -251,7 +258,8 @@ export function LibraryPane({
           )}
         </div>
       </div>
-      <footer className="flex flex-wrap gap-x-4 border-t border-k-rule px-3 py-1 text-k-12 text-k-muted">
+      {/* Keys a finger cannot press, so a touch screen leaves them out. */}
+      <footer className="flex flex-wrap gap-x-4 border-t border-k-rule px-3 py-1 text-k-12 text-k-muted pointer-coarse:hidden">
         {[
           ["j k", "move"],
           ["↵", "read"],

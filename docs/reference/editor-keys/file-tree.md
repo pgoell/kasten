@@ -61,7 +61,8 @@ closes it, and so does anything that hands the focus to a pane: opening a note,
 an image, a page or a pdf from it, a note made with `c` or picked in the finder or the
 search, and Escape, which lands in the pane on screen. The page under an open
 drawer takes no focus and no keys. A panel open in a wide window closes when
-the window turns narrow.
+the window turns narrow, and comes back as the wide window left it when the
+window widens again.
 
 The tree draws the vault's images beside its notes, muted, keeping the suffix a
 note's row drops: the vault holds one kind of note and five kinds of image.

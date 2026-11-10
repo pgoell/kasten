@@ -263,7 +263,9 @@ Opened over a note, the palette lists every leader command, every leader edit,
 the four formatting marks, the inserts below, and the commands vim spells at
 its prompt: the write, the two rereads, the three copies and `gf`. Opened over
 a pane with no note, it lists the leader commands only, as the rest act on a
-note. Both lists end with `Go to tab 1` to `Go to tab 10`, `Toggle vim keys`,
+note. Both lists end with `Go to tab 1` to `Go to tab 10`, `Open the settings`
+and `Open the agent tokens` (the pages `/settings` and `/tokens`, each with a
+link back to the notes), `Toggle vim keys`,
 `Toggle light and dark mode` (see [the design tokens](/reference/design-tokens.md#light-and-dark)),
 the four `Accent palette: …` rows (see [Accent palettes](/reference/accent-palettes.md)),
 one `Log <name>` per kind of the log config note, and `Log food`, none of
@@ -320,22 +322,21 @@ puts vim in insert mode first.
 
 ## Screens you type
 
-Three screens have a URL and nothing else: no link and no row in the tree. The
-key help (`?`) lists them under **Screens you type**, which is the only place in
-the app that says they exist.
+Four screens have a URL and no row in the tree. The key help (`?`) lists them
+under **Screens you type**.
 
 | Address | What it is |
 | --- | --- |
 | `/tokens` | Mint and revoke the [tokens](/reference/agent-api.md) an agent reaches the vault with |
+| `/settings` | Send todo reminders to this device, and remove a device |
 | `/review` | The review, on a page of its own, sized for a phone |
 | `/capture` | Capture a thought into today's dump, sized for a phone |
 
-None of the three opens from a leader key. `/tokens` and `/review` are visited
-a few times a year, and a key is worth spending on something pressed daily.
-What they were missing was not a key but a mention, because a screen nothing
-links to and no key opens is one you have to read the documentation to find.
-`/capture` is the phone's; at a desk the same capture is `<leader>cd`.
+None of the four opens from a leader key. `/tokens`, `/settings` and `/review`
+are visited a few times a year, and a key is worth spending on something
+pressed daily. `/tokens` and `/settings` have palette rows instead, and each
+links back to the notes. `/capture` is the phone's; at a desk the same capture
+is `<leader>cd`.
 
 `/review` is the phone's shell around the review; at a desk the same three
-screens are in a pane behind `<leader>gs`. `/tokens` has no pane and no
-equivalent, so its address is the whole of the way in.
+screens are in a pane behind `<leader>gs`.

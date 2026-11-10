@@ -484,7 +484,10 @@ function GraphRows({
 /** The type legend around a note, and the keys. */
 function GraphFooter({ vault }: { vault: boolean }) {
   return (
-    <footer className="flex flex-wrap items-center gap-x-3 border-t border-k-rule px-3 py-1 text-[11px] text-k-muted">
+    // The keys are no use to a finger; the vault graph's footer holds nothing else.
+    <footer
+      className={`flex flex-wrap items-center gap-x-3 border-t border-k-rule px-3 py-1 text-[11px] text-k-muted ${vault ? "pointer-coarse:hidden" : ""}`}
+    >
       {!vault &&
         [...Object.entries(TYPE_COLOURS), ["Note", PLAIN] as const].map(([type, variable]) => (
           <span key={type} className="flex items-center gap-1">
@@ -496,7 +499,7 @@ function GraphFooter({ vault }: { vault: boolean }) {
             {type}
           </span>
         ))}
-      <span className="ml-auto">
+      <span className="ml-auto pointer-coarse:hidden">
         / filter&ensp;{vault ? "m mode " : "+ - depth "}f fit&ensp;q close
       </span>
     </footer>

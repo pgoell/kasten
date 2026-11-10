@@ -340,7 +340,7 @@ test.describe("unlinked mentions", () => {
       stack,
     }) => {
       await page.goto("/");
-      await page.getByRole("button", { name: /^Search \d+ notes$/ }).tap({ timeout: 15_000 });
+      await page.getByRole("button", { name: "Find a note" }).tap({ timeout: 15_000 });
       await page.getByRole("combobox").fill("Garden");
       await page
         .getByRole("option", { name: /Garden/ })

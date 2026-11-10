@@ -35,4 +35,18 @@ describe("Editor gutter", () => {
 
     expect(gutter(container)).toEqual(["3", "2", "1", "4"]);
   });
+
+  it("marks the editor plain with vim off, which a touch screen reads to drop the numbers", () => {
+    const withVim = render(<Editor initialDoc={DOC} />);
+    expect(withVim.container.querySelector(".cm-editor.cm-plain")).toBeNull();
+    withVim.unmount();
+
+    localStorage.setItem("kasten.vim", "off");
+    try {
+      const { container } = render(<Editor initialDoc={DOC} />);
+      expect(container.querySelector(".cm-editor.cm-plain")).not.toBeNull();
+    } finally {
+      localStorage.removeItem("kasten.vim");
+    }
+  });
 });

@@ -90,7 +90,7 @@ function fieldOf(host: HTMLElement): HTMLElement {
 
 /** The top bar's New note button, which is a plus on a phone and is named New note either way. */
 function newNoteOf(host: HTMLElement): HTMLElement {
-  const buttons = [...host.querySelectorAll<HTMLElement>("[data-top-bar] button")];
+  const buttons = [...host.querySelectorAll<HTMLElement>("button")];
   return need(
     buttons.find(
       (button) => (button.getAttribute("aria-label") ?? button.textContent) === "New note",
@@ -172,29 +172,27 @@ describe("#793 the phone strip", () => {
     }
   }, 120_000);
 
-  it("#793 A1 at 390 touch the top bar's plus and field are at least 44 px", async () => {
+  it("#793 A1 at 390 touch the strip's plus is at least 44 px, and no top bar repeats it", async () => {
     const mounted = await mountTabs(TOUCH, "light", twoTabs());
     try {
       const { host } = mounted;
       const plus = newNoteOf(host).getBoundingClientRect();
-      const field = fieldOf(host).getBoundingClientRect();
 
       expect(plus.width).toBeGreaterThanOrEqual(44);
       expect(plus.height).toBeGreaterThanOrEqual(44);
-      expect(field.height).toBeGreaterThanOrEqual(44);
+      expect(host.querySelector("[data-top-bar]")).toBeNull();
     } finally {
       await unmount(mounted);
     }
   }, 60_000);
 
-  it("#793 A3 at 390 touch the chrome's text is 15 px, and the mono path and the title keep theirs", async () => {
+  it("#793 A3 at 390 touch the tabs and the pane head are 15 px, and the mono path and the title keep theirs", async () => {
     const mounted = await mountTabs(TOUCH, "light", twoTabs());
     try {
       const { host } = mounted;
       const sizeOf = (element: Element | null | undefined) =>
         getComputedStyle(need(element, "element")).fontSize;
 
-      expect(sizeOf(fieldOf(host))).toBe("15px");
       expect(sizeOf(need(wrappers(host)[0], "first tab").querySelector("[role='tab'] span"))).toBe(
         "15px",
       );

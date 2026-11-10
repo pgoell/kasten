@@ -392,11 +392,9 @@ export function ContentSearch({
       tabIndex={-1}
       onKeyDown={onKeyDown}
       {...closeOnBackdrop(onClose)}
-      // On a phone the sheet takes the whole screen, so the backdrop's top
-      // padding would only push it off the bottom.
-      className={`${BACKDROP} max-md:pt-0`}
+      className={BACKDROP}
     >
-      <div className="flex max-h-full min-h-0 w-[min(80rem,96vw)] h-[min(56rem,80dvh)] flex-col overflow-hidden rounded-md border border-k-rule bg-k-paper font-sans shadow-xl max-md:h-dvh max-md:w-full max-md:rounded-none">
+      <div className="flex max-h-full min-h-0 w-[min(80rem,96vw)] h-[min(56rem,80dvh)] flex-col overflow-hidden rounded-md border border-k-rule bg-k-paper font-sans shadow-xl">
         <div className="border-b border-k-rule px-4 pt-5 pb-3 md:px-6">
           <label htmlFor={`${listId}-query`} className="sr-only">
             search notes

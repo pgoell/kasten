@@ -116,7 +116,10 @@ const formatKeys = keymap.of(
  * preview reads as always typing, plus the chords vim would have resolved.
  */
 function modalKeys(on: boolean): Extension {
-  return on ? [vim(), relativeNumbers, vimInsertUndo()] : [vimKeys.of(false), formatKeys];
+  // `cm-plain` lets a touch screen drop the line numbers, which only vim's counts read.
+  return on
+    ? [vim(), relativeNumbers, vimInsertUndo()]
+    : [vimKeys.of(false), formatKeys, EditorView.editorAttributes.of({ class: "cm-plain" })];
 }
 
 /**

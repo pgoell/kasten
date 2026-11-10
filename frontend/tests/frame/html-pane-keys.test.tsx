@@ -98,7 +98,7 @@ function Layout({ paths, spy, phone = false }: { paths: string[]; spy: Spy; phon
           </div>
         ))}
       </div>
-      {phone && <Toolbar commands={commands} split={paths.length > 1} />}
+      {phone && <Toolbar commands={commands} pane={paths.length > 1 ? "1/2" : undefined} />}
       {!phone && <WhichKey />}
       {help && <KeyHelp onClose={() => setHelp(false)} />}
     </div>
@@ -316,13 +316,12 @@ it("two pages side by side: Space in the right page opens the panel at the foot 
   }).toEqual({ left: true, width: true, bottom: true });
 });
 
-it("at 390x844 with touch, a page's links are a finger's height", async () => {
+it("at 390x844 with touch, the page's links are 44 px tall", async () => {
   await page.viewport(390, 844);
   await browser.emulateMedia({ touch: true });
   await browser.servePage(REPORT_PATH, REPORT);
   render([REPORT_PATH], true);
-  const frame = frameOf(0);
-  await ready(frame);
+  await ready(frameOf(0));
 
   // A phone mounts no which-key panel: it has no leader key to show.
   expect(panelOf()).toBeNull();

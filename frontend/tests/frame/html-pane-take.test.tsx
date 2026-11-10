@@ -308,7 +308,7 @@ it("the put it in a note list stays inside a short split pane at 1440", async ()
 });
 
 it("the put it in a note list stays inside a short split pane at 390", async () => {
-  await page.viewport(390, 560);
+  await page.viewport(390, 515);
   await browser.emulateMedia({ touch: true });
   api.recent = RECENT;
   await browser.servePage(LEFT_PATH, NEWS);
@@ -411,7 +411,7 @@ it("with a mouse, a new selection under the foot toast keeps its Take button in 
 // A split at 1440 under about 240 px (this mount has no top bar or tabs), and a phone with its keyboard up.
 it.each([
   [1440, 140, false],
-  [390, 260, true],
+  [390, 215, true],
 ])(
   "at %ix%i the toast and its buttons stay inside a frame area under 150 px (#891)",
   async (width, height, touch) => {
@@ -427,7 +427,7 @@ it.each([
 
 // 77 px of frame by touch, 72 by mouse: no room to stack the title.
 it.each([
-  [390, 220, true],
+  [390, 175, true],
   [1440, 100, false],
 ])(
   "at %ix%i Undo and Put it in a note show unscrolled under 80 px of frame (#1483)",

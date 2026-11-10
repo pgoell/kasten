@@ -148,6 +148,11 @@ interface StatusBarProps {
    * not read the buffer on every render. Read each render, so the diff follows the edits.
    */
   conflict?: () => { vault: string; mine: string } | undefined;
+  /**
+   * A phone's bar: drawn only while it holds something to act on or a mode to remember,
+   * and without the clock or the pane count.
+   */
+  quiet?: boolean;
   /** Write the buffer over the vault, which is `:w`. */
   onWrite?: () => void;
   /** Throw the buffer away for the vault's text, which is `:e!`. */
@@ -251,13 +256,35 @@ function HeldSigns({ failed, conflicts, heldDetail, conflictDetail, open }: Held
   );
 }
 
+/** Whether a phone's quiet bar has anything to say: a notice, a held note, a mode or a failed write. */
+function worthShowing({
+  notice,
+  held,
+  archive,
+  status,
+}: Pick<StatusBarProps, "notice" | "archive" | "status"> & { held: readonly HeldNote[] }) {
+  if (notice !== undefined || held.length > 0 || archive === true) return true;
+  return status !== undefined && SAVE_FIX[status] !== undefined;
+}
+
+/**
+ * The strip along the foot of the window, or nothing on a phone while it has nothing to say.
+ * Kept apart from the bar so a bar that comes back opens as a fresh one.
+ */
+export function StatusBar(props: StatusBarProps) {
+  const { quiet, notice, held = [], archive, status } = props;
+  if (quiet && !worthShowing({ notice, held, archive, status })) return null;
+  // A phone's toolbar shows the pane count instead.
+  return <Bar {...props} pane={quiet ? undefined : props.pane} />;
+}
+
 /**
  * The strip along the foot of the window.
  *
  * It runs the full width, under the file tree as well as the editor, and wears
  * the panel's colour with no rule above it so the two read as one surface.
  */
-export function StatusBar({
+function Bar({
   status,
   reason,
   flash,
@@ -268,6 +295,7 @@ export function StatusBar({
   pane,
   inert,
   foot,
+  quiet,
   held = [],
   conflict,
   onWrite,
@@ -364,7 +392,7 @@ export function StatusBar({
       />
       {/* The held list crowds the clock out on a phone as a notice does: it
           is the one reading there that loses text if nobody acts on it. */}
-      <Clock crowded={notice !== undefined || held.length > 0} />
+      <Clock crowded={notice !== undefined || held.length > 0} gone={quiet} />
       <div className="flex min-w-0 items-center justify-end gap-2 justify-self-end whitespace-nowrap">
         <HeldSigns
           failed={failed}
