@@ -15,7 +15,7 @@ export interface Relation {
  * One relation line: an optional shallow indent and bullet, the name, `:: ` with its mandatory
  * space, then the wikilink. The space is what makes `GET /api/search?q=":: "` a superset of every
  * relation, which the editor reads them off. Indent stops at three, since four opens a code block.
- * `graph.py` holds a copy; both follow `docs/reference/relation-format.md`.
+ * `graph.py` holds a copy; `relation-cases.json` holds the two together.
  */
 const RELATION = /^ {0,3}(?:- )?([a-z][a-z-]*):: [ \t]*\[\[([^[\]\n]+)\]\]/;
 
