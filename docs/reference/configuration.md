@@ -92,7 +92,7 @@ agent instructions spell them as set.
 | `KASTEN_IMAGES_PATH` | `99 Misc/02 Assets/01 Images` | an image pasted or dropped into a note |
 | `KASTEN_CONFIG_PATH` | `99 Misc/01 Config` | `reading-this-vault.md`, `todo-views.md` and `reading-now.md`, and the ontology and three agent guides in `01 Agents` under it |
 | `KASTEN_ARCHIVE_PATH` | `98 Archive` | see [its own section](#kasten_archive_path) |
-| `KASTEN_SKILLS_PATH` | `.claude/skills` | the skills the agent's `list_skills`, `read_skill` and `GET /agent/skills` read, never write. A missing folder lists none. Startup adds `meal-planner` when absent |
+| `KASTEN_SKILLS_PATH` | `.claude/skills` | the skills the agent's `list_skills`, `read_skill` and `GET /agent/skills` read, never write. A missing folder lists none |
 | `KASTEN_SHARE_FOLDER` | `05 Shared` | the [shared lists](/explanation/shared-lists.md), one note a list, and all the `/share/` routes reach |
 | `KASTEN_RECIPES_PATH` | `Rezepte` | an [imported recipe](/reference/http-api/food.md#post-apirecipesimport) |
 | `KASTEN_SHARE_PEOPLE` | `{}` | [who writes](/reference/http-api/shared-lists.md#who-is-writing) a shared list |
