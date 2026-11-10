@@ -98,13 +98,13 @@ describe("TabStrip", () => {
   it("names a tab drawing the whole vault graph view", () => {
     draw(fillFocused(addTab(emptyLayout()), { graph: {} }));
 
-    expect(screen.getAllByRole("tab")[1]).toHaveTextContent("graph view");
+    expect(screen.getAllByRole("tab")[1]).toHaveTextContent("Graph view");
   });
 
   it("names a tab holding the review review", () => {
     draw(fillFocused(addTab(emptyLayout()), { review: true }));
 
-    expect(screen.getAllByRole("tab")[1]).toHaveTextContent("review");
+    expect(screen.getAllByRole("tab")[1]).toHaveTextContent("Review");
   });
 
   it("names a tab drawing the graph around a note by that note", () => {
@@ -117,7 +117,7 @@ describe("TabStrip", () => {
       ),
     );
 
-    expect(screen.getAllByRole("tab")[1]).toHaveTextContent("graph of borges");
+    expect(screen.getAllByRole("tab")[1]).toHaveTextContent("Graph of borges");
   });
 
   it("names a person or exam tab without the folder or the suffix", () => {

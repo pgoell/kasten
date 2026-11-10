@@ -1,7 +1,15 @@
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import type { Page } from "@playwright/test";
-import { findNote, openApp, openNote } from "../../harness/app.ts";
+import {
+  findNote,
+  inbox,
+  opened,
+  openApp,
+  openNote,
+  recordOpens,
+  vaultWith,
+} from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 
 test.describe("following a link to a page of html or an asset", () => {
@@ -9,28 +17,18 @@ test.describe("following a link to a page of html or an asset", () => {
   const primer = (vault: string) => readFile(join(vault, "04 Books/Primer.pdf"));
 
   /** Writes each file into the vault, records each window.open, then loads the app. */
-  async function vaultWith(page: Page, vault: string, files: Record<string, string | Buffer>) {
-    for (const [path, body] of Object.entries(files)) {
-      await mkdir(join(vault, dirname(path)), { recursive: true });
-      await writeFile(join(vault, path), body);
-    }
-    // A new tab would leave the box, so the page keeps the addresses it was asked to open.
-    await page.addInitScript(() => {
-      const opened: string[] = [];
-      Object.assign(window, { opened, open: (url: string) => opened.push(url) && null });
-    });
+  async function loadWith(page: Page, vault: string, files: Record<string, string | Buffer>) {
+    await vaultWith(vault, files);
+    await recordOpens(page);
     await openApp(page);
   }
 
-  const opened = (page: Page) =>
-    page.evaluate(() => (window as unknown as { opened: string[] }).opened);
   const frame = (page: Page) => page.locator("[data-html-pane] iframe");
   /** The frame's page and the heading after its `#`; the address also carries the look (#786). */
   const shown = async (page: Page) => [
     await frame(page).getAttribute("title"),
     (await frame(page).getAttribute("src"))?.split("#")[1] ?? null,
   ];
-  const inbox = (vault: string) => readdir(join(vault, "00 Inbox")).catch(() => []);
 
   test("gf opens an html page in its pane by its bare name, behind an alias, at its heading and in capitals", async ({
     page,
@@ -38,7 +36,7 @@ test.describe("following a link to a page of html or an asset", () => {
   }) => {
     const links =
       "[[2026-10-07.html]]\n[[2026-10-07.html|the paper]]\n[[2026-10-07.html#the paper]]\n[[2026-10-07.HTML]]\n";
-    await vaultWith(page, stack.vault, { [PAGE]: "<h1>the paper</h1>", "Links.md": links });
+    await loadWith(page, stack.vault, { [PAGE]: "<h1>the paper</h1>", "Links.md": links });
     for (const [line, heading] of [
       [1, null],
       [2, null],
@@ -56,7 +54,7 @@ test.describe("following a link to a page of html or an asset", () => {
     stack,
   }) => {
     // The take writes this shape for a path a wikilink cannot hold.
-    await vaultWith(page, stack.vault, {
+    await loadWith(page, stack.vault, {
       "x/a]]b.html": "<h1 id=s1>one</h1>",
       "00 Daily/Daily take.md": "[Heading](../x/a%5D%5Db.html#s1)\n",
     });
@@ -69,7 +67,7 @@ test.describe("following a link to a page of html or an asset", () => {
     page,
     stack,
   }) => {
-    await vaultWith(page, stack.vault, {
+    await loadWith(page, stack.vault, {
       [PAGE]: "<h1>the paper</h1>",
       "Links.md": "# Links\n[[missing.html]]\n[[missing.pdf]]\n[[2026-10-07.html]]\n",
     });
@@ -85,7 +83,7 @@ test.describe("following a link to a page of html or an asset", () => {
     page,
     stack,
   }) => {
-    await vaultWith(page, stack.vault, { "plan #2.html": "<h1>two</h1>" });
+    await loadWith(page, stack.vault, { "plan #2.html": "<h1>two</h1>" });
     await page.getByRole("button", { name: "plan #2.html" }).click();
     await expect
       .poll(async () => (await frame(page).getAttribute("src"))?.split("?")[0])
@@ -96,7 +94,7 @@ test.describe("following a link to a page of html or an asset", () => {
     page,
     stack,
   }) => {
-    await vaultWith(page, stack.vault, {
+    await loadWith(page, stack.vault, {
       "rehearse/my plan.pdf": await primer(stack.vault),
       "rehearse/my talk.mp3": "a talk",
       "plan?.mp3": "a plan",
@@ -128,7 +126,7 @@ test.describe("following a link to a page of html or an asset", () => {
     });
 
     test("Ctrl+click opens an asset whose name holds ? in a new tab", async ({ page, stack }) => {
-      await vaultWith(page, stack.vault, {
+      await loadWith(page, stack.vault, {
         "plan?.mp3": "a plan",
         "Links.md": "# Links\n[[plan?.mp3]]\n",
       });
