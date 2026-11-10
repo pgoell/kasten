@@ -28,7 +28,7 @@ export function TodoFooter(p: FooterProps) {
       data-testid="todo-footer"
       className="flex items-center justify-between gap-3 border-t border-k-rule px-3 py-1 text-[11px] text-k-muted"
     >
-      <span className="flex min-w-0 items-center gap-3">
+      <span className="flex max-w-full shrink-0 items-center gap-3">
         <Count {...p} />
       </span>
       {p.coarse ? null : <Keys board={p.board} picking={p.picking} />}
