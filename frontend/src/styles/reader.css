@@ -205,3 +205,16 @@
   }
 }
 
+/* Under a finger with vim off the line numbers mean nothing and cost a column.
+   The body then takes 16 px on both sides. */
+@media (pointer: coarse) {
+  .k-reader .cm-editor.cm-plain .cm-gutters {
+    display: none;
+  }
+
+  @container k-reader (width < 776px) {
+    .k-reader .cm-plain .cm-content {
+      margin-inline: var(--k-space-16);
+    }
+  }
+}

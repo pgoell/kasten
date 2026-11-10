@@ -98,7 +98,7 @@ function Layout({ paths, spy, phone = false }: { paths: string[]; spy: Spy; phon
           </div>
         ))}
       </div>
-      {phone && <Toolbar commands={commands} split={paths.length > 1} />}
+      {phone && <Toolbar commands={commands} pane={paths.length > 1 ? "1/2" : undefined} />}
       <WhichKey phone={phone} />
       {help && <KeyHelp onClose={() => setHelp(false)} />}
     </div>
@@ -316,22 +316,13 @@ it("two pages side by side: Space in the right page opens the panel at the foot 
   }).toEqual({ left: true, width: true, bottom: true });
 });
 
-it("at 390x844 with touch, the header shows and the toolbar's space button opens the panel over a page", async () => {
+it("at 390x844 with touch, the page's links are 44 px tall", async () => {
   await page.viewport(390, 844);
   await browser.emulateMedia({ touch: true });
   await browser.servePage(REPORT_PATH, REPORT);
   render([REPORT_PATH], true);
-  const frame = frameOf(0);
-  await ready(frame);
-  await userEvent.click(frame);
+  await ready(frameOf(0));
 
-  // The toolbar's own button, which hands the focus's pane to the panel.
-  await userEvent.click(
-    document.querySelector("button[aria-label='Show the leader keys']") as HTMLElement,
-  );
-
-  await expect.poll(panelOf).not.toBeNull();
-  expect(panelOf()?.querySelector("[data-sheet-drag]")).not.toBeNull();
   const link = host.querySelector("[data-html-pane] a");
   expect(link).not.toBeNull();
   expect((link as HTMLElement).getBoundingClientRect().height).toBeGreaterThanOrEqual(44);

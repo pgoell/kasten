@@ -100,7 +100,7 @@ function Frame({ phone, children }: { phone: boolean; children?: ReactNode }) {
     <main className="safe-frame flex h-dvh flex-col bg-k-bg">
       <div className="flex min-h-0 flex-1">{children}</div>
       <StatusBar version="0.0.0" foot={!phone} />
-      {phone && <Toolbar commands={INERT} split={true} />}
+      {phone && <Toolbar commands={INERT} pane="1/2" />}
     </main>
   );
 }
@@ -118,8 +118,8 @@ describe("the safe area on a phone", () => {
     await device(PORTRAIT.width, PORTRAIT.height, PORTRAIT.insets);
     await mount(<Frame phone={true} />);
 
-    // With a split: nine commands, the next pane and the space button.
-    expect(document.querySelectorAll('[role="toolbar"] button').length).toBe(11);
+    // With a split: six commands and the next pane.
+    expect(document.querySelectorAll('[role="toolbar"] button').length).toBe(7);
     expect(outside(bars(), PORTRAIT.insets)).toEqual([]);
     const toolbar = document.querySelector('[role="toolbar"]') as HTMLElement;
     expect(getComputedStyle(toolbar).paddingBottom).toBe("34px");
@@ -130,8 +130,10 @@ describe("the safe area on a phone", () => {
     await mount(<Frame phone={true} />);
 
     const buttons = [...document.querySelectorAll<HTMLElement>('[role="toolbar"] button')];
-    expect(buttons).toHaveLength(11);
+    expect(buttons).toHaveLength(7);
     expect(outside(buttons, NONE)).toEqual([]);
+    // One row: every button shares the first one's top edge.
+    expect(new Set(buttons.map((button) => button.getBoundingClientRect().top)).size).toBe(1);
     for (const button of buttons) {
       const rect = button.getBoundingClientRect();
       const name = button.getAttribute("aria-label") ?? undefined;

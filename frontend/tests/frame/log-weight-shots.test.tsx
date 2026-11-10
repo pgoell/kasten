@@ -268,16 +268,24 @@ async function phoneCard(
   return mountCard(390, 844);
 }
 
-/** The pane at a phone's size, by touch, opened from the toolbar's log button. */
+/** The palette's `Open the log` row, which a phone reaches through `run`. */
+function logRow(): HTMLElement | null {
+  const rows = document.querySelectorAll<HTMLElement>("[role='option']");
+  return [...rows].find((row) => row.textContent?.startsWith("Open the log")) ?? null;
+}
+
+/** The pane at a phone's size, by touch, opened from the palette's Open the log row. */
 async function phonePane(): Promise<HTMLElement> {
   stubMatchMedia({ [NARROW]: true, [COARSE]: true });
   await commands.emulateMedia({ touch: true, reducedMotion: "no-preference" });
   setLook("light");
   await mountRoute(390, 844);
   await expect
-    .poll(() => document.querySelector("button[aria-label='Open the log']"))
+    .poll(() => document.querySelector("button[aria-label='Run a command by name']"))
     .not.toBeNull();
-  tap(document.querySelector<HTMLElement>("button[aria-label='Open the log']"));
+  tap(document.querySelector<HTMLElement>("button[aria-label='Run a command by name']"));
+  await expect.poll(logRow).not.toBeNull();
+  tap(logRow());
   await expect.poll(pane).not.toBeNull();
   await wait(500);
   return pane() as HTMLElement;

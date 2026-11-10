@@ -292,7 +292,8 @@ it("at 390 with touch, a high passage keeps the toast at the foot", async () => 
 });
 
 it("at 390 with touch, a tall passage that ends just past the middle keeps the toast clear of it", async () => {
-  await page.viewport(390, 844);
+  // At this height the passage ends just past the middle of the frame.
+  await page.viewport(390, 799);
   await browser.emulateMedia({ touch: true });
   await browser.servePage(PATH, TALL);
   render(mounted, [PATH], true);

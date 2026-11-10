@@ -71,7 +71,7 @@ function Settings() {
         <a href="/" className={BACK_LINK}>
           ← Back to the notes
         </a>
-        <h1 className="font-serif text-k-27">settings</h1>
+        <h1 className="font-serif text-k-27">Settings</h1>
 
         <section
           aria-labelledby="reminders-heading"
