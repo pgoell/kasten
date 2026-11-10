@@ -161,9 +161,20 @@ function Lists({ store }: { store: ListsStore }) {
   return (
     <div className="app">
       <header className="top">
-        <h1>Listen</h1>
-        {/* biome-ignore lint/a11y/useSemanticElements: a segmented control, not a form group */}
-        <div className="segment" role="group" aria-label="Liste">
+        <div className="title">
+          <h1>Listen</h1>
+          {/* biome-ignore lint/a11y/useSemanticElements: a pair of filter chips, not a form group */}
+          <div className="filters" role="group" aria-label="Anzeige">
+            <button type="button" aria-pressed={!mine} onClick={() => setMine(false)}>
+              Alle
+            </button>
+            <button type="button" aria-pressed={mine} onClick={() => setMine(true)}>
+              Meine
+            </button>
+          </div>
+        </div>
+        {/* biome-ignore lint/a11y/useSemanticElements: a strip of tabs, not a form group */}
+        <div className="tabs" role="group" aria-label="Liste">
           {LISTS.map((name) => (
             <button
               key={name}
@@ -174,15 +185,6 @@ function Lists({ store }: { store: ListsStore }) {
               {name} <span className="count">{openCount(snap, name)}</span>
             </button>
           ))}
-        </div>
-        {/* biome-ignore lint/a11y/useSemanticElements: a segmented control, not a form group */}
-        <div className="segment" role="group" aria-label="Anzeige">
-          <button type="button" aria-pressed={!mine} onClick={() => setMine(false)}>
-            Alle
-          </button>
-          <button type="button" aria-pressed={mine} onClick={() => setMine(true)}>
-            Meine
-          </button>
         </div>
         {!snap.online && <p className="status pill">Offline, wird gesendet</p>}
         {snap.signIn && <p className="status pill">Anmelden nötig</p>}
@@ -208,8 +210,13 @@ function Lists({ store }: { store: ListsStore }) {
         )}
 
         {open.length > 0 && (
-          <section className="group" aria-label="Offen">
-            {groupRows(open, "open", false)}
+          <section aria-label="Offen">
+            <div className="group-head">
+              <h2>
+                Offen <span className="count">{open.length}</span>
+              </h2>
+            </div>
+            <div className="group">{groupRows(open, "open", false)}</div>
           </section>
         )}
 

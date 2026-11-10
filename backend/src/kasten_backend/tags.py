@@ -150,7 +150,8 @@ async def tags_by_note(root: Path, skip: str | None = None) -> dict[str, set[str
     whole = {hit.path for hit in marks}
     tagged: dict[str, set[str]] = {}
     for hit in matches:
-        if hit.path not in whole:
+        # Every tag starts with a hash, and most spans printed here are links holding none.
+        if hit.path not in whole and "#" in hit.text:
             found = {hit.text[start:end] for start, end in todos.word_tags(hit.text)}
             tagged.setdefault(hit.path, set()).update(found)
     # Reading those notes in Python would hold the event loop for the whole
