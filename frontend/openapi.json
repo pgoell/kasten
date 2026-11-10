@@ -7414,6 +7414,61 @@
         }
       }
     },
+    "/share/meals": {
+      "get": {
+        "tags": [
+          "share"
+        ],
+        "summary": "Read Meals",
+        "description": "The week plans' meals from `today`, the device's date, through the six days after it.",
+        "operationId": "read_meals_share_meals_get",
+        "parameters": [
+          {
+            "name": "today",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Today"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SharedDay"
+                  },
+                  "title": "Response Read Meals Share Meals Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/share/events": {
       "get": {
         "tags": [
@@ -16323,6 +16378,85 @@
         ],
         "title": "SetupOut",
         "description": "Every spending category's limit on one screen, with the income it is set against."
+      },
+      "SharedDay": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "title": "Date"
+          },
+          "meals": {
+            "items": {
+              "$ref": "#/components/schemas/SharedMeal"
+            },
+            "type": "array",
+            "title": "Meals"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "meals"
+        ],
+        "title": "SharedDay",
+        "description": "A day that has a planned meal, its meals lunch first."
+      },
+      "SharedMeal": {
+        "properties": {
+          "slot": {
+            "type": "string",
+            "enum": [
+              "lunch",
+              "dinner"
+            ],
+            "title": "Slot"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "cook",
+              "from",
+              "other"
+            ],
+            "title": "Kind"
+          },
+          "dish": {
+            "type": "string",
+            "title": "Dish"
+          },
+          "servings": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Servings"
+          },
+          "cook": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cook"
+          }
+        },
+        "type": "object",
+        "required": [
+          "slot",
+          "kind",
+          "dish",
+          "servings",
+          "cook"
+        ],
+        "title": "SharedMeal",
+        "description": "One meal: the dish, whether it comes from a batch, how many it cooks, and who cooks."
       },
       "ShoppingWritten": {
         "properties": {

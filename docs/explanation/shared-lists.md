@@ -121,7 +121,7 @@ left out, whatever filter is chosen.
 
 The lists page draws with the tokens of the main app, so its colours, type and
 spacing match the rest of kasten, and it takes its shapes from the todo pane: a
-small label for a title, tabs on an accent line for Einkauf and Todo, pill chips
+small label for a title, tabs on an accent line for Einkauf, Todo and Essen, pill chips
 for Alle and Meine, flat rows under small headings, and the pane's rounded
 square boxes, edged when open and filled green when done. It is light by default and follows the phone's
 colour scheme, changing when the phone does. It does not read the choice made in

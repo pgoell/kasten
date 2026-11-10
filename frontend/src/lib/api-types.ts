@@ -3337,6 +3337,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/share/meals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Meals
+         * @description The week plans' meals from `today`, the device's date, through the six days after it.
+         */
+        get: operations["read_meals_share_meals_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/share/events": {
         parameters: {
             query?: never;
@@ -6851,6 +6871,38 @@ export interface components {
             suggested: string;
             /** Categories */
             categories: components["schemas"]["SetupCategoryOut"][];
+        };
+        /**
+         * SharedDay
+         * @description A day that has a planned meal, its meals lunch first.
+         */
+        SharedDay: {
+            /** Date */
+            date: string;
+            /** Meals */
+            meals: components["schemas"]["SharedMeal"][];
+        };
+        /**
+         * SharedMeal
+         * @description One meal: the dish, whether it comes from a batch, how many it cooks, and who cooks.
+         */
+        SharedMeal: {
+            /**
+             * Slot
+             * @enum {string}
+             */
+            slot: "lunch" | "dinner";
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "cook" | "from" | "other";
+            /** Dish */
+            dish: string;
+            /** Servings */
+            servings: number | null;
+            /** Cook */
+            cook: string | null;
         };
         /**
          * ShoppingWritten
@@ -12614,6 +12666,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Checklist"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_meals_share_meals_get: {
+        parameters: {
+            query?: {
+                today?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SharedDay"][];
                 };
             };
             /** @description Validation Error */

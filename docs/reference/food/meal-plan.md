@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Week plan
-description: The note a week's meals are planned in, the meal and training lines it holds, how a batch cooked once feeds later meals, the fridge warning, the card that draws the week as a grid with batches as bands, the protein on training days, and how the shopping button writes the cooked batches' ingredients into Einkauf.md.
+description: The note a week's meals are planned in, the meal and training lines it holds, how a batch cooked once feeds later meals, the fridge warning, the card that draws the week as a grid with batches as bands, the protein on training days, how the shopping button writes the cooked batches' ingredients into Einkauf.md, and the lists app's Essen tab.
 resource: backend/src/kasten_backend/food/plan/__init__.py
 tags: [vault, recipes, food, format, backend]
 status: stable
@@ -119,3 +119,15 @@ ingredients; a `from` meal adds nothing.
 
 The list stays a plain shared list: edit, tick or delete any line by hand, in
 kasten or the lists app.
+
+## In the lists app
+
+The lists app's third tab, Essen, shows the week plans' meals from today
+through the next six days, one group per day with a meal, through
+[`GET /share/meals`](/reference/http-api/shared-lists.md#get-sharemeals). Each
+row gives the slot and the dish: `Linsen-Dal ×4` for a batch cooked, with the
+cook as a chip, `Ich` for the person viewing; `Chili sin carne · Rest` for a
+meal from a batch. Days that run into next week come from next week's note. The tab
+is read-only and says so at its foot; it reads again on every change in the
+shared folder and when the page comes back, so an edit to the plan shows
+without a reload. Training days and protein do not show there.
