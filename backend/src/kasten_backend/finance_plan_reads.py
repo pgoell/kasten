@@ -62,7 +62,7 @@ async def scopes(session: AsyncSession) -> dict[int, Scope | None]:
     return {a.id: scope_of(Account(a.shared, a.kind)) for a in rows}
 
 
-def _bookings(first: dt.date, accounts: set[int]) -> Select[tuple[Any, ...]]:
+def _bookings(first: dt.date, accounts: set[int]) -> Select[*tuple[Any, ...]]:
     """The accounts' bookings from `first` on that no transfer is, as `_booking_of` reads them."""
     booking = tables.Transaction
     return select(
