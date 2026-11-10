@@ -31,23 +31,13 @@ export function searchHooks() {
 
 export const PATHS = ["archive/notes.md", "index.md", "kafka.md", "reading/borges.md"];
 
-export function renderBacklinks(
-  paths: string[] = PATHS,
-  of = "reading/borges.md",
-  onLink: (mention: unknown) => Promise<string | null> = vi.fn(async () => null),
-) {
+export function renderBacklinks(paths: string[] = PATHS) {
   const onOpen = vi.fn();
   const onClose = vi.fn();
 
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <NoteSearch
-        backlinksOf={of}
-        paths={paths}
-        onOpen={onOpen}
-        onClose={onClose}
-        onLink={onLink}
-      />
+      <NoteSearch backlinksOf="reading/borges.md" paths={paths} onOpen={onOpen} onClose={onClose} />
     </QueryClientProvider>,
   );
 
@@ -55,7 +45,6 @@ export function renderBacklinks(
 
   return {
     input,
-    onLink,
     onOpen,
     onClose,
     type: (value: string) => fireEvent.change(input, { target: { value } }),
