@@ -36,7 +36,12 @@ def field_tags(text: str) -> set[str]:
 
 
 def tags_of(text: str) -> list[str]:
-    """The note's tags with their hashes, sorted: its text's tags and its `tags` field's."""
+    """The note's tags with their hashes, sorted: its text's tags and its `tags` field's.
+
+    Every reader of a note's tags goes through here, from bytes or from `read_note`.
+    """
+    # Universal newlines, as `read_note` gives them: a lone CR ends a line (#1570).
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
     found = {text[start:end] for start, end in todos.tags_in(text)} | field_tags(text)
     return sorted(found)
 

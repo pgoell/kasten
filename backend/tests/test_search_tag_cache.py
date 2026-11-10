@@ -311,11 +311,14 @@ async def test_1758_a_lone_cr_and_a_note_that_is_not_utf8_read_as_before(
 ) -> None:
     write(vault, "cr.md", b"- [ ] one #cr\r- [ ] two\n[[Target]]\r[[Other]]\n")
     write(vault, "latin.md", b"- [ ] caf\xe9 #latin\n[[Target]]\n")
+    # A lone CR ends a line, so this is a paragraph, a blank line and indented code (#1570).
+    write(vault, "code.md", b"para\r\r    #code\n")
+    write(vault, "crlf code.md", b"---\r\ntags: [field]\r\n---\r\npara\r\n\r\n    #code\r\n")
 
     found = await read_all(client)
 
     assert {key: found[key] for key in ("tags", "todos", "edges")} == {
-        "tags": ["#cr", "#latin"],
+        "tags": ["#cr", "#field", "#latin"],
         "todos": [("cr.md", 1, "- [ ] one #cr\r- [ ] two"), ("latin.md", 1, "- [ ] caf� #latin")],
         "edges": [("cr.md", "Other.md"), ("cr.md", "Target.md"), ("latin.md", "Target.md")],
     }
