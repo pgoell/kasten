@@ -30,7 +30,7 @@ const CHIP = `${KEY} rounded-[var(--k-radius-4)] bg-k-surface px-1.5 py-0.5`;
 const ENTRY_TRACK = "grid grid-cols-[2.25rem_1fr] items-baseline gap-x-2";
 const TAB_TRACK = "grid grid-cols-[3rem_1fr] items-baseline gap-x-2";
 const TAB_LABEL = "Go to a tab by number";
-// Before a key the desktop sets each group in its own column, all short now; an open group
+// Before a key each group sits in its own column, all short now; an open group
 // flows its rows into as many columns as the pane is wide.
 const COLUMNS = "grid grid-cols-[repeat(auto-fit,minmax(10.5rem,1fr))] gap-x-4 px-2 pb-3";
 const FLOW = "columns-[13rem] gap-x-4 px-2 pb-3";
@@ -252,7 +252,7 @@ export function WhichKey() {
   const panel = useRef<HTMLDivElement>(null);
   const live = useRef<Live>({ opener: null, typed: "", phase: "gone" });
 
-  // The desktop fade. Its frames write the opacity straight to the element, so
+  // The fade. Its frames write the opacity straight to the element, so
   // a narrowing key never re-renders the fade and the panel is never remounted.
   const [spring] = useState(
     () =>
