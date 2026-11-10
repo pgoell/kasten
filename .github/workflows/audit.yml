@@ -1,0 +1,34 @@
+name: Audit
+
+# The CI Dependencies job checks only what a pull request adds; this checks
+# every locked package against the advisories once a week, and fails on any
+# known hole. A failed scheduled run mails whoever last changed this cron.
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Audit lockfiles
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
+        with:
+          install_args: uv bun
+      # `uv audit` is a preview command; the flag says so on purpose.
+      - name: uv.lock
+        run: uv audit --locked --preview-features audit-command
+      # Each step runs even when one before it failed, so one run names every hole.
+      - name: frontend/bun.lock
+        if: ${{ !cancelled() }}
+        run: bun audit --cwd frontend
+      - name: e2e/bun.lock
+        if: ${{ !cancelled() }}
+        run: bun audit --cwd e2e

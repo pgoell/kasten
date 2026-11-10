@@ -41,6 +41,36 @@ describe("live preview", () => {
     expect(table.querySelector(".cm-wikilink-dead")).toBeNull();
   });
 
+  it("draws a link with a folder in a cell as the note's own name", () => {
+    const lines = [
+      "before",
+      "",
+      "| day |",
+      "| --- |",
+      "| [[01 Periodic/00 Daily/2026-11-09#Log]] |",
+    ];
+    const { container } = renderEditor(<Editor initialDoc={lines.join("\n")} />);
+
+    const table = container.querySelector(".cm-table-grid") as HTMLTableElement;
+    expect(table.querySelector("tbody .cm-wikilink")?.textContent).toBe("2026-11-09#Log");
+  });
+
+  it("draws a cell's link as off a table: a trailing slash kept, an empty alias's bar gone", () => {
+    const lines = ["before", "", "| a | b |", "| --- | --- |", "| [[notes/]] | [[borges\\|]] |"];
+    const { container } = renderEditor(<Editor initialDoc={lines.join("\n")} />);
+
+    const links = container.querySelectorAll(".cm-table-grid tbody .cm-wikilink");
+    expect([...links].map((link) => link.textContent)).toEqual(["notes/", "borges"]);
+  });
+
+  it("draws a cell's link with no name to show as its source, the bar's backslash gone", () => {
+    const lines = ["before", "", "| a | b |", "| --- | --- |", "| [[/]] | [[\\|]] |"];
+    const { container } = renderEditor(<Editor initialDoc={lines.join("\n")} />);
+
+    const links = container.querySelectorAll(".cm-table-grid tbody .cm-wikilink");
+    expect([...links].map((link) => link.textContent)).toEqual(["/", "|"]);
+  });
+
   it("leaves the prose under a table out of it", () => {
     // GFM ends a table at a blank line, so a paragraph written straight under
     // one parses as rows of a single cell. The cursor starts on line one, so

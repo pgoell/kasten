@@ -2,6 +2,8 @@ import type { Text } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { belowFrontmatter } from "@/lib/markdown/frontmatter-language";
 import { readPosition, writePosition } from "@/lib/notes/editor/positions";
+import { noteName } from "@/lib/notes/links/note-path";
+import { textStart } from "@/lib/notes/text/note-lead";
 
 /**
  * Where one mount of a note keeps its cursor and scroll, and writes them back.
@@ -52,10 +54,12 @@ export function notePosition(path: string | undefined, named: boolean) {
     selection(doc: Text): { anchor: number; head?: number } {
       // The note may have shrunk since the cursor was saved, and CodeMirror throws past the end.
       const length = doc.length;
-      // With nothing saved, open below the frontmatter, or the first keystroke lands in the dates.
-      return saved
-        ? { anchor: Math.min(saved.anchor, length), head: Math.min(saved.head, length) }
-        : { anchor: belowFrontmatter(doc.toString()) };
+      if (saved)
+        return { anchor: Math.min(saved.anchor, length), head: Math.min(saved.head, length) };
+      // With nothing saved, open on the text, not in the dates nor on a line Read flattens.
+      const below = belowFrontmatter(doc.toString());
+      if (path === undefined) return { anchor: below };
+      return { anchor: textStart(doc, doc.lineAt(below).number, noteName(path)) };
     },
     // Vim's normal-mode cursor is this same selection.
     listener: EditorView.updateListener.of((update) => {
