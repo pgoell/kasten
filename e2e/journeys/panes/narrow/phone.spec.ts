@@ -56,6 +56,19 @@ test.describe("on a phone", () => {
     await expect(toolbar(page)).toHaveCount(0);
   });
 
+  test("draws no top bar or status bar while nothing needs them, and the tab strip makes notes", async ({
+    page,
+  }) => {
+    await load(page);
+    await expect
+      .poll(async () => [
+        // The top bar's New note would make two.
+        await page.getByRole("button", { name: "New note" }).count(),
+        await page.locator("footer").count(),
+      ])
+      .toEqual([1, 0]);
+  });
+
   test("the toolbar opens the palette and the finder, the palette the search, and a tap on each sheet shuts it", async ({
     page,
   }) => {
