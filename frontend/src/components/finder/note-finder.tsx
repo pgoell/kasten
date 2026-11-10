@@ -340,7 +340,7 @@ export function NoteFinder({
                   {fileOpens(kind, noted.has(bookNoteOf(highlighted)))}
                 </p>
               ) : note.status === "success" ? (
-                // Keyed on the path, so opening another note builds a fresh view. The frontmatter stays out.
+                // Keyed on the path, so opening another note builds a fresh view.
                 <NotePreview key={reading} text={noteBody(note.data).replace(/^\s*\n/, "")} />
               ) : (
                 <p className={PANE_MESSAGE}>{previewText(note.status)}</p>
@@ -349,8 +349,9 @@ export function NoteFinder({
           )}
         </div>
 
-        {/* An <output>: a live status with no role attribute needed. Hidden while it says nothing. */}
-        <output className={`${STATUS} empty:hidden`}>
+        {/* An <output>: a live status with no role attribute needed. Empty, it takes no room but
+            stays in the accessibility tree, so its first words are still read out. */}
+        <output className={`${STATUS} empty:p-0`}>
           {hint(listed.length, notes.length, outgoing, book)}
         </output>
       </div>

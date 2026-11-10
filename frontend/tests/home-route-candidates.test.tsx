@@ -11,15 +11,13 @@ import { defineFoliateFake, resetFoliateFake } from "./foliate-fake";
 import {
   act,
   FakeEventSource,
+  finderRow,
   pageHooks,
   renderApp,
   settle,
   stream,
   VAULT,
 } from "./home-route-fixture";
-
-/** A note finder row by its path, as its text shows the name and folder apart. */
-const finderRow = (path: string) => document.querySelector(`[role="option"][data-path="${path}"]`);
 
 defineFoliateFake();
 

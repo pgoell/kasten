@@ -5,6 +5,7 @@ import { defineFoliateFake } from "./foliate-fake";
 import {
   baseOf,
   editing,
+  finderRow,
   pageHooks,
   renderApp,
   settle,
@@ -12,9 +13,6 @@ import {
   theRoute,
 } from "./home-route-fixture";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";
-
-/** A note finder row by its path, as its text shows the name and folder apart. */
-const finderRow = (path: string) => document.querySelector(`[role="option"][data-path="${path}"]`);
 
 defineFoliateFake();
 
