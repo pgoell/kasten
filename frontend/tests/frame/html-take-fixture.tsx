@@ -91,7 +91,7 @@ function Layout({ paths, spy, phone }: { paths: string[]; spy: Spy; phone: boole
         ))}
       </div>
       {phone && <Toolbar commands={spy} split={paths.length > 1} />}
-      <WhichKey phone={phone} />
+      {!phone && <WhichKey />}
     </div>
   );
 }

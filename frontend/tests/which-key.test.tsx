@@ -30,7 +30,7 @@ function mount(
   const view = render(
     <>
       <button type="button">Note</button>
-      <WhichKey phone={false} />
+      <WhichKey />
     </>,
   );
   const note = screen.getByRole("button", { name: "Note" });
@@ -267,32 +267,6 @@ describe("WhichKey", () => {
     expect(within(tabs).getByRole("button", { name: /Create a tab/ })).toBeInTheDocument();
   });
 
-  it("on a phone Enter on a focused row runs it", () => {
-    const commands = stubCommands();
-    render(
-      <>
-        <button type="button">Note</button>
-        <WhichKey phone />
-      </>,
-    );
-    const note = screen.getByRole("button", { name: "Note" });
-    note.focus();
-    act(() => {
-      beginLeader(paneOpener(commands));
-    });
-    const dialog = screen.getByRole("dialog", { name: "Leader keys" });
-    const row = within(dialog).getByText("Toggle the file tree", { selector: "span" });
-    const button = row.closest("button") as HTMLElement;
-    button.focus();
-
-    // The browser turns Enter on a focused button into its click. The panel must not take
-    // the key first, so it is not prevented and the sheet stays up until the click.
-    expect(fireEvent.keyDown(button, { key: "Enter" })).toBe(true);
-    expect(screen.getByRole("dialog", { name: "Leader keys" })).toBe(dialog);
-    fireEvent.click(button);
-    expect(commands.toggleTree).toHaveBeenCalledTimes(1);
-  });
-
   it("a press outside the panel closes it and the next key goes where the press put the focus", () => {
     const { commands } = mount();
     const other = document.createElement("button");
@@ -318,7 +292,7 @@ describe("WhichKey", () => {
     render(
       <>
         <button type="button">Note</button>
-        <WhichKey phone={false} />
+        <WhichKey />
       </>,
     );
     const note = screen.getByRole("button", { name: "Note" });
@@ -386,7 +360,7 @@ describe("WhichKey", () => {
         <div data-pane="a" data-holds="finance">
           <button type="button">Bookings</button>
         </div>
-        <WhichKey phone={false} />
+        <WhichKey />
       </>,
     );
     screen.getByRole("button", { name: "Bookings" }).focus();
@@ -406,7 +380,7 @@ describe("WhichKey", () => {
         <div data-pane="">
           <button type="button">Note</button>
         </div>
-        <WhichKey phone={false} />
+        <WhichKey />
       </>,
     );
     const note = screen.getByRole("button", { name: "Note" });

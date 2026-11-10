@@ -106,8 +106,6 @@ export function panelRows(
   typed: string,
   context: LeaderContext,
   edits: readonly Entry[] = [],
-  /** False on a phone, where each key is a full-width row to tap. */
-  fours = true,
 ): { columns: PanelColumn[]; hidden: boolean } {
   const known = (key: string) =>
     LEADER.find((each) => each.key === key) ?? edits.find((each) => each.key === key);
@@ -123,8 +121,7 @@ export function panelRows(
     if (key === TAB_DIGITS) return typed === "" ? [{ kind: "digits" }] : [];
     const entry = fitting.find((each) => each.key === key);
     if (entry === undefined || drawn.has(key)) return [];
-    const row =
-      (fours ? fourOf(key, typed, fitting) : undefined) ?? rowOf(key, typed, entry, fitting);
+    const row = fourOf(key, typed, fitting) ?? rowOf(key, typed, entry, fitting);
     const covers =
       row.kind === "four"
         ? row.keys

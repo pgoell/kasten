@@ -21,11 +21,11 @@ six column titles: Find, Create, Go to, Tabs, Panes and This note. The tables
 below follow those columns in that order. Before the next key the panel shows
 one row per group, such as `g` Go to … or `c` Create …, beside the keys that
 need no second press; `h j k l` and `H J K L` share a row each. The next key
-opens its group, so after `g` only the `g` keys stay. Backspace, or a tap on the
-Space chip, goes back to the groups. On a desktop each title stands in its
-own column, and an open group's rows flow into as many columns as the pane is
-wide. On a phone the panel is a bottom sheet and the
-groups run one under the other, each row the sheet's full width.
+opens its group, so after `g` only the `g` keys stay. Backspace, or a click on the
+Space chip, goes back to the groups. Each title stands in its own column, and
+an open group's rows flow into as many columns as the pane is wide. A phone has
+no which-key panel: the toolbar and the command palette reach the same
+commands there.
 
 The panel leaves out the keys that would do nothing where Space was pressed,
 and says so in a line at its foot; typed, such a key still runs. Each key's
@@ -46,12 +46,11 @@ and says so in a line at its foot; typed, such a key still runs. Each key's
 The editor's edits, such as `x` and the `s` keys, show only in a note's panel.
 From the file tree every key shows, since the tree acts on its own cursor.
 
-A click or tap on a row runs it, or opens its group. Esc, Space again, a press or a focus move outside the panel, or a key
+A click on a row runs it, or opens its group. Esc, Space again, a press or a focus move outside the panel, or a key
 that matches nothing closes the panel, and the focus goes back where it was. A
 command run from the panel keeps the focus where it put it, such as a finder. While the panel is open every key goes to it, so `y` takes nothing.
-On a desktop the panel fades out when it closes, and Space pressed during the
-fade brings it back. On a phone it is a bottom sheet with a grabber, and a flick
-down closes it.
+The panel fades out when it closes, and Space pressed during the fade brings it
+back.
 
 `?` outside a text field opens key help, a larger panel with a filter field.
 Its two columns are **After Space**, which holds the six columns above, and
@@ -59,7 +58,7 @@ Its two columns are **After Space**, which holds the six columns above, and
 both columns. Esc closes it. `Space ?` opens it too.
 
 With vim off, Space in a note types a space, so a note has no leader. The panel
-still opens from the other panes, from the toolbar, and from an HTML page, where
+still opens from the other panes and from an HTML page, where
 the page's script passes Space on.
 
 **Find**

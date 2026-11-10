@@ -55,16 +55,6 @@ Commands worth knowing by name:
 | Close what is on screen | `Close the note, then the pane, then the tab` |
 | See every key and command | `Show the keys` |
 
-## See the keys after Space
-
-1. Tap `space`. The which-key panel rises from the foot of the screen, one
-   column at full width under the titles Find, Create, Go to, Tabs, Panes and
-   This note. It shows only the keys that do something in the pane you are in.
-2. Tap a row to run it. A row that ends in `…`, such as Go to …, opens its
-   group; tap the `Space` chip at the top to go back.
-
-To close the panel, flick its grabber down.
-
 ## Turn vim on
 
 1. Tap `run`.
@@ -149,7 +139,7 @@ again to let go without sending anything.
 ## Close a panel
 
 Tap the dimmed page outside it. That closes the palette, the finder, the
-search, key help, the which-key panel and a prompt you have not typed into.
+search, key help and a prompt you have not typed into.
 On a phone, key help is a full-height sheet, and dragging its grabber down
 closes it too.
 

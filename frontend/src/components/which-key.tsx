@@ -1,5 +1,4 @@
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Sheet } from "@/components/sheet";
 import { trapTab } from "@/lib/ui/focus-trap";
 import { heldModifier, TAB_KEYS } from "@/lib/ui/keys/leader-keys";
 import { contextAt, type LeaderContext, type PanelRow, panelRows } from "@/lib/ui/keys/leader-view";
@@ -32,10 +31,9 @@ const ENTRY_TRACK = "grid grid-cols-[2.25rem_1fr] items-baseline gap-x-2";
 const TAB_TRACK = "grid grid-cols-[3rem_1fr] items-baseline gap-x-2";
 const TAB_LABEL = "Go to a tab by number";
 // Before a key the desktop sets each group in its own column, all short now; an open group
-// flows its rows into as many columns as the pane is wide. The phone sheet is one list.
+// flows its rows into as many columns as the pane is wide.
 const COLUMNS = "grid grid-cols-[repeat(auto-fit,minmax(10.5rem,1fr))] gap-x-4 px-2 pb-3";
 const FLOW = "columns-[13rem] gap-x-4 px-2 pb-3";
-const ONE_COLUMN = "grid grid-cols-1 px-2 pb-3";
 
 /** The keys as the panel prints them: `cf` reads as two presses, `c f`. */
 function spaced(keys: string): string {
@@ -61,8 +59,8 @@ function placeFor(from: Element | null): CSSProperties {
 const PANEL = '[role="dialog"][aria-label="Leader keys"]';
 
 /**
- * Whether a target sits in the panel. The desktop panel and the phone sheet are
- * both that dialog, and the sheet never hands over a ref, so this asks the DOM.
+ * Whether a target sits in the panel, asked of the DOM so a listener that
+ * outlives every render needs no ref.
  */
 function insidePanel(target: EventTarget | null): boolean {
   return target instanceof Element && target.closest(PANEL) !== null;
@@ -87,23 +85,12 @@ function focusBack(opener: LeaderOpener) {
   if (from instanceof HTMLElement && from.isConnected) from.focus({ preventScroll: true });
 }
 
-/**
- * Each press as a chip. After a key the Space chip goes back to the groups, a
- * tap for the phone, where no Backspace is to hand.
- */
-function Pressed({
-  typed,
-  sheet = false,
-  onBack,
-}: {
-  typed: string;
-  sheet?: boolean;
-  onBack: () => void;
-}) {
+/** Each press as a chip. After a key a click on the Space chip goes back to the groups, as Backspace does. */
+function Pressed({ typed, onBack }: { typed: string; onBack: () => void }) {
   return (
     <section
       aria-label="Keys pressed"
-      className={`flex flex-wrap items-center gap-1.5 pt-3 pb-2 text-[13px] text-k-ink ${sheet ? "" : "px-4"}`}
+      className="flex flex-wrap items-center gap-1.5 px-4 pt-3 pb-2 text-[13px] text-k-ink"
     >
       {typed === "" ? (
         <kbd className={CHIP}>Space</kbd>
@@ -217,25 +204,22 @@ function Body({
   context,
   edits,
   typed,
-  phone = false,
   onRun,
   onNarrow,
 }: {
   context: LeaderContext;
   edits?: LeaderOpener["edits"];
   typed: string;
-  /** On a phone the sheet is one column of full-width rows, a finger's target each. */
-  phone?: boolean;
   onRun: (key: string) => void;
   onNarrow: (typed: string) => void;
 }) {
   const { columns, hidden } = useMemo(
-    () => panelRows(typed, context, edits, !phone),
-    [typed, context, edits, phone],
+    () => panelRows(typed, context, edits),
+    [typed, context, edits],
   );
   return (
     <>
-      <div className={phone ? ONE_COLUMN : typed === "" ? COLUMNS : FLOW}>
+      <div className={typed === "" ? COLUMNS : FLOW}>
         {columns.map((column) => (
           <section key={column.title} className="mb-3 min-w-0">
             <h3 className={`${LABEL} mb-1 break-after-avoid px-3`}>{column.title}</h3>
@@ -259,23 +243,14 @@ function Body({
   );
 }
 
-export function WhichKey({ phone }: { phone: boolean }) {
+/** Mounted on a desktop only: a phone has no leader key to show. */
+export function WhichKey() {
   const [opener, setOpener] = useState<LeaderOpener | null>(null);
   const [typed, setTyped] = useState("");
   const [phase, setPhase] = useState<Phase>("gone");
   const [place, setPlace] = useState<CSSProperties>({});
-  // Set by a row that ran, so the sheet does not give the focus back over the command's.
-  const [ran, setRan] = useState(false);
   const panel = useRef<HTMLDivElement>(null);
   const live = useRef<Live>({ opener: null, typed: "", phase: "gone" });
-  // Read by the one key listener, which outlives every render, so it never sees a stale phone.
-  const phoneRef = useRef(phone);
-  phoneRef.current = phone;
-  // Whether the reader has pressed a key the panel acts on, or pressed outside it, since
-  // it opened. A press inside the sheet (a scroll of its rows) does not count. On a
-  // phone a focus that moves without one (the editor taking it back, say) is not the
-  // reader going elsewhere, and must not take the sheet down with it.
-  const gestured = useRef(false);
 
   // The desktop fade. Its frames write the opacity straight to the element, so
   // a narrowing key never re-renders the fade and the panel is never remounted.
@@ -293,20 +268,17 @@ export function WhichKey({ phone }: { phone: boolean }) {
   const open = useCallback(
     (next: LeaderOpener) => {
       live.current = { opener: next, typed: "", phase: "open" };
-      gestured.current = false;
       setOpener(next);
       setContext(contextAt(next.from, next.note));
       setTyped("");
-      setRan(false);
-      setPlace(phone ? {} : placeFor(next.from));
+      setPlace(placeFor(next.from));
       setPhase("open");
-      if (phone) return;
       // A fade still running is caught where it is. A panel already gone starts
-      // fully shown, with no fade in on desktop.
+      // fully shown, with no fade in.
       if (spring.moving) void spring.to(1, SPRINGS.sheetOpen);
       else spring.set(1);
     },
-    [phone, spring],
+    [spring],
   );
   useEffect(() => hostLeader(open), [open]);
 
@@ -316,22 +288,18 @@ export function WhichKey({ phone }: { phone: boolean }) {
     if (live.current.phase !== "open") return;
     live.current = { ...live.current, phase: "leaving" };
     setPhase("leaving");
-    // The phone sheet leaves by itself once `open` turns false. The desktop panel
-    // fades here, and is gone once the fade has landed.
-    if (!phoneRef.current) {
-      void spring.to(0, SPRINGS.sheetClose).then((done) => {
-        if (!done) return;
-        live.current = { ...live.current, phase: "gone" };
-        setPhase("gone");
-      });
-    }
+    // Gone once the fade has landed.
+    void spring.to(0, SPRINGS.sheetClose).then((done) => {
+      if (!done) return;
+      live.current = { ...live.current, phase: "gone" };
+      setPhase("gone");
+    });
   }, [spring]);
 
   // The focus goes back first, so a command that moves it (a finder's input)
   // keeps it: the command runs after the focus is back, not before.
   const fire = useCallback(
     (from: LeaderOpener, run: () => void) => {
-      setRan(true);
       focusBack(from);
       leave();
       run();
@@ -366,41 +334,34 @@ export function WhichKey({ phone }: { phone: boolean }) {
       else if (opener.prefix(next)) narrow(next);
       else close(opener);
     };
-    const trapInBox = (event: KeyboardEvent) => {
-      // On a phone the sheet is the box, found from the focused element.
-      const box =
-        panel.current ??
-        (event.target instanceof Element
-          ? event.target.closest<HTMLElement>('[role="dialog"]')
-          : null);
-      if (box) trapTab(event, box);
+    // Back up a level; with nothing typed there is nothing to undo, so it closes.
+    const backUp = (current: Live, opener: LeaderOpener) => {
+      if (current.typed === "") close(opener);
+      else narrow(current.typed.slice(0, -1));
+    };
+    const trapInPanel = (event: KeyboardEvent) => {
+      if (panel.current) trapTab(event, panel.current);
     };
     const actOn = (event: KeyboardEvent, current: Live, opener: LeaderOpener) => {
       if (event.key === "Tab") {
-        trapInBox(event);
+        trapInPanel(event);
         return;
       }
 
       event.preventDefault();
       if (closesPanel(event)) close(opener);
-      // Back up a level; with nothing typed there is nothing to undo, so it closes.
-      else if (event.key === "Backspace") {
-        if (current.typed === "") close(opener);
-        else narrow(current.typed.slice(0, -1));
-      } else typeKey(opener, current.typed + event.key);
+      else if (event.key === "Backspace") backUp(current, opener);
+      else typeKey(opener, current.typed + event.key);
     };
     const onKey = (event: KeyboardEvent) => {
       const current = live.current;
       const opener = current.opener;
       if (current.phase !== "open" || opener === null) return;
-      gestured.current = true;
       const { key } = event;
       // Shift and the rest are presses on their way to the key they are held
       // for: `Space E` is Shift then E, so the panel keeps waiting.
       if (heldModifier(key)) return;
       if (rowPress(event)) return;
-      // A key the panel acts on counts as the reader's; a lone modifier does not.
-      gestured.current = true;
       event.stopPropagation();
       actOn(event, current, opener);
     };
@@ -414,10 +375,6 @@ export function WhichKey({ phone }: { phone: boolean }) {
   useEffect(() => {
     const away = (event: Event) => {
       if (live.current.phase !== "open" || insidePanel(event.target)) return;
-      if (event.type === "pointerdown") gestured.current = true;
-      // A focus move the reader did not make leaves a phone's sheet up. The desktop
-      // panel keeps closing on any focus outside it, as it always has.
-      if (event.type === "focusin" && phoneRef.current && !gestured.current) return;
       leave();
     };
     document.addEventListener("pointerdown", away, true);
@@ -430,32 +387,8 @@ export function WhichKey({ phone }: { phone: boolean }) {
 
   // Taken when the panel opens, not on each narrowing, so a key does not pull the focus.
   useEffect(() => {
-    if (phase === "open" && !phone) panel.current?.focus({ preventScroll: true });
-  }, [phase, phone]);
-
-  if (phone) {
-    return (
-      <Sheet
-        open={phase === "open"}
-        onClose={() => {
-          live.current = { ...live.current, phase: "gone" };
-          setPhase("gone");
-        }}
-        label="Leader keys"
-        header={<Pressed typed={typed} sheet onBack={back} />}
-        restoreFocus={!ran}
-      >
-        <Body
-          context={context}
-          edits={opener?.edits}
-          typed={typed}
-          phone
-          onRun={runRow}
-          onNarrow={narrow}
-        />
-      </Sheet>
-    );
-  }
+    if (phase === "open") panel.current?.focus({ preventScroll: true });
+  }, [phase]);
 
   if (phase === "gone") return null;
 
