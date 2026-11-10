@@ -1,14 +1,16 @@
-import type { Locator, Page } from "@playwright/test";
-import { findNote, leader, noteText, openApp, openFromTree } from "../../harness/app.ts";
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import type { Page } from "@playwright/test";
+import {
+  findNote,
+  leader,
+  noteText,
+  openApp,
+  openFromTree,
+  openNote,
+  panes,
+} from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
-
-const panes = (page: Page): Locator => page.locator("[data-pane]:visible");
-
-/** Opens a note from the tree and waits for its editor's focus: keys sent sooner are lost (#1738). */
-async function openNote(page: Page, name: string) {
-  await openFromTree(page, name);
-  await expect(page.locator(".cm-content:focus")).toHaveCount(1);
-}
 
 /** The panes' boxes, leftmost first, once each has settled on screen. */
 async function boxes(page: Page) {
@@ -182,4 +184,68 @@ test("a swap of two panes writes the waiting text first, and the note's pane tra
       { timeout: 15_000 },
     )
     .toEqual([true, true, 1]);
+});
+
+test.describe("the top bar", () => {
+  const bar = (page: Page) => page.locator("[data-top-bar]");
+  const field = (page: Page) => bar(page).getByRole("button", { name: /^Search \d+ notes$/ });
+
+  test("the bar is 56 px tall at the top and holds the wordmark, Vault, Graph, Search, the field and New note", async ({
+    page,
+  }) => {
+    await openApp(page);
+    await expect
+      .poll(async () => await bar(page).boundingBox())
+      .toMatchObject({ y: 0, height: 56 });
+    await expect(bar(page).getByText("kasten", { exact: true })).toBeVisible();
+    const main = bar(page).getByRole("navigation", { name: "Main" });
+    for (const name of ["Vault", "Graph", "Search"]) {
+      await expect(main.getByRole("button", { name, exact: true })).toBeVisible();
+    }
+    await expect(bar(page).getByRole("button", { name: "New note", exact: true })).toBeVisible();
+    await expect(field(page)).toBeVisible();
+  });
+
+  test("the search field counts the notes on disk, one more after a note is written there", async ({
+    page,
+    stack,
+  }) => {
+    await openApp(page);
+    await expect(field(page)).toBeVisible();
+    const before = Number((await field(page).getAttribute("aria-label"))?.match(/\d+/)?.[0]);
+    await writeFile(join(stack.vault, "Counted.md"), "one more note\n");
+    await page.reload();
+    await expect(bar(page).getByRole("button", { name: `Search ${before + 1} notes` })).toBeVisible(
+      {
+        timeout: 15_000,
+      },
+    );
+  });
+
+  test("Graph in the top bar opens the vault graph", async ({ page }) => {
+    await openApp(page);
+    await bar(page).getByRole("button", { name: "Graph", exact: true }).click();
+    await expect(page.locator("[data-graph-pane]")).toBeVisible();
+  });
+
+  test("New note in the top bar opens the new note prompt, and the note it makes is written to disk", async ({
+    page,
+    stack,
+  }) => {
+    await openApp(page);
+    await bar(page).getByRole("button", { name: "New note", exact: true }).click();
+    const prompt = page.getByRole("dialog", { name: "New note" });
+    await expect(prompt).toBeVisible();
+    await prompt.getByRole("combobox").fill("From the bar");
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("tab", { name: "From the bar", selected: true })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.locator(".cm-content:focus")).toHaveCount(1);
+    await page.keyboard.type("iWritten from the bar.");
+    await page.keyboard.press("Escape");
+    await expect
+      .poll(() => noteText(stack.vault, "From the bar.md"), { timeout: 15_000 })
+      .toContain("Written from the bar.");
+  });
 });

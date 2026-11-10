@@ -1,4 +1,3 @@
-import { fireEvent, screen, within } from "@testing-library/react";
 import { hashed } from "./digests";
 import { FakeEventSource, pageHooks, renderApp, settle, theRoute } from "./home-route-fixture";
 
@@ -93,10 +92,6 @@ vi.mock("@/lib/vault/move/trash-api", () => ({
 }));
 vi.mock("@/lib/history/history-api", () => ({ fetchHistory, fetchHistoryText }));
 vi.mock("foliate-js/view.js", () => ({}));
-// jsdom has no canvas to draw the graph on, so the pane gets a canvas that draws nothing.
-vi.mock("@/lib/graph/graph-canvas", () => ({
-  drawGraph: () => ({ update() {}, resize() {}, fit() {}, cluster() {}, destroy() {} }),
-}));
 vi.mock("@/lib/capture/outbox", () => ({
   keep: vi.fn(),
   flush: vi.fn(),
@@ -148,66 +143,5 @@ describe("the page around a test that timed out (#1337)", () => {
     await settle();
 
     expect(app.text()).toBe("the index note");
-  });
-});
-
-describe("the top bar", () => {
-  theRoute();
-
-  beforeEach(() => {
-    vi.mocked(fetchCards).mockResolvedValue([]);
-    vi.mocked(fetchReviewLimits).mockResolvedValue({ new_per_day: null, reviews_per_day: null });
-    vi.mocked(searchNotes).mockResolvedValue([]);
-  });
-
-  /** The bar, which a missing one fails on by name rather than by a null. */
-  function bar(): HTMLElement {
-    const found = document.querySelector<HTMLElement>("[data-top-bar]");
-    expect(found).not.toBeNull();
-    return found as HTMLElement;
-  }
-
-  it("the top bar is 56 px tall in its class and holds the wordmark, Vault, Graph, Search, the field and New note", async () => {
-    await renderApp();
-    await settle();
-
-    const top = bar();
-    expect(top.classList.contains("h-14")).toBe(true);
-    expect(top.classList.contains("sticky")).toBe(true);
-    expect(top.classList.contains("top-0")).toBe(true);
-    expect(within(top).getByText("kasten")).toBeTruthy();
-    expect(within(top).getByRole("navigation", { name: "Main" })).toBeTruthy();
-    for (const name of ["Vault", "Graph", "Search", "New note"]) {
-      expect(within(top).getByRole("button", { name })).toBeTruthy();
-    }
-    expect(within(top).getByRole("button", { name: "Search 2 notes" })).toBeTruthy();
-  });
-
-  it("the search field says how many notes it covers", async () => {
-    vi.mocked(fetchFiles).mockResolvedValue(["index.md", "other.md", "third.md"]);
-    await renderApp();
-    await settle();
-
-    expect(within(bar()).getByRole("button", { name: "Search 3 notes" })).toBeTruthy();
-  });
-
-  it("Graph in the top bar opens the vault graph", async () => {
-    await renderApp();
-    await settle();
-
-    fireEvent.click(within(bar()).getByRole("button", { name: "Graph" }));
-    await settle();
-
-    expect(document.querySelector("[data-graph-pane]")).not.toBeNull();
-  });
-
-  it("New note in the top bar opens the new note prompt", async () => {
-    await renderApp();
-    await settle();
-
-    fireEvent.click(within(bar()).getByRole("button", { name: "New note" }));
-    await settle();
-
-    expect(screen.queryByRole("dialog", { name: "New note" })).not.toBeNull();
   });
 });

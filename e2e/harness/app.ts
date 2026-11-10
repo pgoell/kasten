@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 
 /** Loads the app and waits until the tree lists the vault and the editor holds the focus. */
 export async function openApp(page: Page): Promise<void> {
@@ -62,3 +62,16 @@ export async function noteText(vault: string, path: string): Promise<string> {
     throw error;
   }
 }
+
+/** The panes on screen; a pane on its way out is hidden. */
+export const panes = (page: Page): Locator => page.locator("[data-pane]:visible");
+
+/** Opens a note from the tree and waits for its editor's focus: keys sent sooner are lost (#1738). */
+export async function openNote(page: Page, name: string): Promise<void> {
+  await openFromTree(page, name);
+  await expect(page.locator(".cm-content:focus")).toHaveCount(1);
+}
+
+/** A note's text without the id and stamps the vault writes into its frontmatter. */
+export const unstamped = (text: string): string =>
+  text.replace(/^(id|created|modified): .*\n/gm, "");

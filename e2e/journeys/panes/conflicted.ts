@@ -1,21 +1,14 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Locator, Page } from "@playwright/test";
-import { openApp, openFromTree } from "../../harness/app.ts";
+import { openApp, openNote, unstamped } from "../../harness/app.ts";
 import { expect } from "../../harness/stack.ts";
 
 export const OUTSIDE = "Somebody else wrote this.\n";
-export const panes = (page: Page): Locator => page.locator("[data-pane]:visible");
 export const sign = (page: Page) => page.getByTestId("save-status");
 export const typed = (page: Page) => page.locator(".cm-content", { hasText: "typed here" });
 export const welcome = (vault: string) => readFile(join(vault, "Welcome.md"), "utf8");
 export const focused = (page: Page) => page.locator(".cm-content:focus");
-
-/** Opens a note from the tree and waits for its editor's focus: keys sent sooner are lost (#1738). */
-export async function openNote(page: Page, name: string) {
-  await openFromTree(page, name);
-  await expect(focused(page)).toHaveCount(1);
-}
 
 /** The save sign, the conflict diff and the bar's conflict list, each null when not drawn. */
 export async function conflictBar(page: Page) {
@@ -95,7 +88,7 @@ export const stillHeld = (page: Page) =>
 export async function after(page: Page, vault: string, puts: () => number) {
   return [
     await conflictBar(page),
-    (await welcome(vault)).replace(/^(id|created|modified): .*\n/gm, ""),
+    unstamped(await welcome(vault)),
     puts(),
     await typed(page).count(),
     await stillHeld(page),
