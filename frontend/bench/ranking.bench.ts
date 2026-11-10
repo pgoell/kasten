@@ -17,7 +17,7 @@
  * every recorded number comes from the same environment.
  */
 
-import { bench, describe } from "vitest";
+import { test } from "vitest";
 import { buildTree } from "@/components/file-explorer";
 import { describeNotePath } from "@/lib/notes/links/note-path";
 import { folderCandidates, noteCandidates, rankCandidates, rankFolders } from "@/lib/search/fuzzy";
@@ -51,45 +51,38 @@ for (const notes of VAULT_SIZES) {
   const folders = folderCandidates(paths);
   const prepared = noteCandidates(paths);
 
-  describe(`${notes} notes, ${folderCount} folders`, () => {
-    bench("rankFolders, empty query", () => {
-      rankFolders(paths, "");
-    });
-
-    bench("rankFolders, typed query", () => {
-      rankFolders(paths, QUERY);
-    });
-
-    bench("folderCandidates", () => {
-      folderCandidates(paths);
-    });
-
-    bench("rankCandidates over folders, empty query", () => {
-      rankCandidates(folders, "");
-    });
-
-    bench("noteCandidates", () => {
-      noteCandidates(paths);
-    });
-
-    bench("rankCandidates over notes, empty query", () => {
-      rankCandidates(prepared, "");
-    });
-
-    bench("rankCandidates over notes, one letter", () => {
-      rankCandidates(prepared, LETTER);
-    });
-
-    bench("rankCandidates over notes, typed query", () => {
-      rankCandidates(prepared, QUERY);
-    });
-
-    bench("describeNotePath", () => {
-      describeNotePath(TYPED, paths);
-    });
-
-    bench("buildTree", () => {
-      buildTree(paths);
-    });
+  test(`${notes} notes, ${folderCount} folders`, async ({ bench }) => {
+    await bench.compare(
+      bench("rankFolders, empty query", () => {
+        rankFolders(paths, "");
+      }),
+      bench("rankFolders, typed query", () => {
+        rankFolders(paths, QUERY);
+      }),
+      bench("folderCandidates", () => {
+        folderCandidates(paths);
+      }),
+      bench("rankCandidates over folders, empty query", () => {
+        rankCandidates(folders, "");
+      }),
+      bench("noteCandidates", () => {
+        noteCandidates(paths);
+      }),
+      bench("rankCandidates over notes, empty query", () => {
+        rankCandidates(prepared, "");
+      }),
+      bench("rankCandidates over notes, one letter", () => {
+        rankCandidates(prepared, LETTER);
+      }),
+      bench("rankCandidates over notes, typed query", () => {
+        rankCandidates(prepared, QUERY);
+      }),
+      bench("describeNotePath", () => {
+        describeNotePath(TYPED, paths);
+      }),
+      bench("buildTree", () => {
+        buildTree(paths);
+      }),
+    );
   });
 }

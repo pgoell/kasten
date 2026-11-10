@@ -6,17 +6,16 @@ import "../scripts/cross-midnight";
 // box (#1629); 4 s stays under the 5 s test timeout, so a lost row still names itself.
 configure({ asyncUtilTimeout: 4000 });
 
+// pdf.js throws at load in jsdom, which has no canvas to sniff, and a test that
+// draws a pdf embed with the default renderer would load it, so it goes for all
+// of them. Top level, because vitest refuses a nested `vi.mock`.
+vi.mock("foliate-pdfjs", () => ({}));
+
 // A file under `@vitest-environment node` has no window, so none of the stubs below apply.
 if (typeof window !== "undefined") {
   // A test that ends with a key down and no keyup would leave the next test's
   // picker waiting for a key that never comes up. Losing focus lets it go.
   afterEach(() => window.dispatchEvent(new Event("blur")));
-
-  // pdf.js throws at load in jsdom, which has no canvas to sniff. `pdf-view.ts`
-  // loads it only when a pdf embed opens its file, but a test that draws one
-  // with the default renderer would load it, so it goes for all of them; a test
-  // of a pdf embed hands the widget a fake renderer instead.
-  vi.mock("foliate-pdfjs", () => ({}));
 
   // jsdom does no layout, so a Range has none of the rect methods CodeMirror
   // measures text with. CodeMirror runs that measurement on an animation frame,

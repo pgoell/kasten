@@ -281,8 +281,8 @@ describe("the note finder over files", () => {
   it("gives an epub and an html row their kind", () => {
     const finder = renderFinder(PATHS, undefined, { files: FILES });
 
-    expect(finder.option("lit/DDIA.epub")).toHaveTextContent(/EPUB$/);
-    expect(finder.option("notes/page.html")).toHaveTextContent(/HTML$/);
+    expect(finder.option("lit/DDIA.epub")).toMatchTextContent(/EPUB$/);
+    expect(finder.option("notes/page.html")).toMatchTextContent(/HTML$/);
   });
 
   it.each([
