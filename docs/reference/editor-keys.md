@@ -157,7 +157,8 @@ and each note's cursor and scroll under `kasten.positions.1`.
 
 Without vim the editor is a plain one. Every line can be typed into, live
 preview shows the source of the line the cursor is on and of the mark the
-cursor is in, and the line numbers count from the top.
+cursor is in, and the line numbers count from the top, except on a touch
+screen, which shows none.
 
 Every key in the pages below that vim resolves stops working: the leader, `gf`,
 Enter on a link, the ex prompt and the yank to the clipboard. Ctrl+S, Tab,
