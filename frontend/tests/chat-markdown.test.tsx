@@ -14,6 +14,14 @@ describe("Markdown", () => {
     expect(container).not.toHaveTextContent("**");
   });
 
+  it("keeps a code block under a list item or in a quote to its own lines", () => {
+    for (const text of ["1. step\n\n   ```\n   a\n   b\n   ```", "> ```\n> a\n> b\n> ```"]) {
+      const { container, unmount } = render(<Markdown text={text} />);
+      expect(container.querySelector("pre")?.textContent).toBe("a\nb");
+      unmount();
+    }
+  });
+
   it("links a web address and leaves any other scheme as text", () => {
     render(<Markdown text={"[docs](https://example.com) and [trap](javascript:alert(1))"} />);
 
