@@ -289,3 +289,165 @@ test.describe("following a link to a page of html or an asset", () => {
     });
   });
 });
+
+test.describe("a note changed on disk under text nobody saved", () => {
+  const OUTSIDE = "Somebody else wrote this.\n";
+  const sign = (page: Page) => page.getByTestId("save-status");
+  const typed = (page: Page) => page.locator(".cm-content", { hasText: "typed here" });
+  const welcome = (vault: string) => readFile(join(vault, "Welcome.md"), "utf8");
+
+  /**
+   * Welcome typed into, its write held while somebody else writes the file, then let through
+   * so the vault refuses it over its base. `first` runs on the open note before the typing.
+   */
+  async function conflicted(page: Page, vault: string, first?: () => Promise<void>) {
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let puts = 0;
+    await page.route(
+      (url) => decodeURIComponent(url.pathname) === "/api/files/Welcome.md",
+      async (route) => {
+        if (route.request().method() !== "PUT") return route.fallback();
+        puts += 1;
+        await held;
+        await route.fallback();
+      },
+    );
+    await openApp(page);
+    await openNote(page, "Welcome");
+    await first?.();
+    await page.keyboard.type("Gotyped here");
+    await page.keyboard.press("Escape");
+    await expect.poll(() => puts).toBeGreaterThan(0);
+    await writeFile(join(vault, "Welcome.md"), OUTSIDE);
+    release();
+    await expect
+      .poll(async () => [await sign(page).getAttribute("aria-label"), await welcome(vault)], {
+        timeout: 15_000,
+      })
+      .toEqual(["Changed on disk", OUTSIDE]);
+    await expect(typed(page)).toHaveCount(1);
+  }
+
+  /** The sign, the file on disk, whether the buffer still holds the typing, and the tab and pane counts. */
+  const state = async (page: Page, vault: string) => [
+    await sign(page).getAttribute("aria-label"),
+    await welcome(vault),
+    await typed(page).count(),
+    await page.getByRole("tab").count(),
+    await panes(page).count(),
+  ];
+  const flashing = async (page: Page) =>
+    (await sign(page).getAttribute("class"))?.includes("animate-flash");
+
+  /**
+   * Runs `press` once the last flash is over, then waits for the flash only a refusal plays, so the
+   * state read after it is this press's, not the one before's.
+   */
+  async function refused(page: Page, vault: string, press: () => Promise<void>, at: unknown[]) {
+    await expect.poll(() => flashing(page)).toBe(false);
+    await press();
+    await expect
+      .poll(async () => [...(await state(page, vault)), await flashing(page)])
+      .toEqual([...at, true]);
+  }
+
+  test("the refused write keeps the typing and reads no note over it, and q and the tree are refused and write nothing", async ({
+    page,
+    stack,
+  }) => {
+    await conflicted(page, stack.vault);
+    // q and the tree refuse with no flash, so only the state is read.
+    const at = ["Changed on disk", OUTSIDE, 1, 1, 1];
+    await leader(page, "q");
+    await expect.poll(() => state(page, stack.vault)).toEqual(at);
+    await page.getByRole("button", { name: "Long note", exact: true }).click();
+    await expect.poll(() => state(page, stack.vault)).toEqual(at);
+    await expect(page.getByRole("tab", { name: "Welcome", selected: true })).toBeVisible();
+  });
+
+  test("q on the note's pane beside another is refused, writes nothing and lists nothing as left", async ({
+    page,
+    stack,
+  }) => {
+    await conflicted(page, stack.vault, async () => {
+      await leader(page, "%");
+      await expect(panes(page)).toHaveCount(2);
+      await page.locator(".cm-content", { hasText: "front door" }).click();
+      await page.keyboard.press("Escape");
+    });
+    await leader(page, "q");
+    await expect
+      .poll(() => state(page, stack.vault))
+      .toEqual(["Changed on disk", OUTSIDE, 1, 1, 2]);
+    await expect(page.getByTestId("held-conflict")).toHaveCount(0);
+  });
+
+  test("a new tab and the active tab's x are refused with a flash; :w writes the typing, and a tab and back flash nothing", async ({
+    page,
+    stack,
+  }) => {
+    await conflicted(page, stack.vault, async () => {
+      await leader(page, "ct");
+      await expect(page.getByRole("tab")).toHaveCount(2);
+      await leader(page, "th");
+      await expect(page.getByRole("tab", { name: "Welcome", selected: true })).toBeVisible();
+      await expect(page.locator(".cm-content:focus")).toHaveCount(1);
+    });
+    const at = ["Changed on disk", OUTSIDE, 1, 2, 1];
+    await refused(page, stack.vault, () => leader(page, "ct"), at);
+    // An unsaved tab draws its dot in the x's place until the pointer is over it.
+    await page.getByRole("tab", { name: "Welcome (unsaved)" }).hover();
+    const close = page.getByRole("button", { name: "Close Welcome" });
+    await refused(page, stack.vault, () => close.click(), at);
+
+    await page.locator(".cm-content").click();
+    await page.keyboard.press("Escape");
+    await page.keyboard.type(":w");
+    await page.keyboard.press("Enter");
+    await expect
+      .poll(async () => [await sign(page).getAttribute("aria-label"), await welcome(stack.vault)], {
+        timeout: 15_000,
+      })
+      .toEqual(["Saved", expect.stringContaining("typed here")]);
+    await leader(page, "ct");
+    await expect(sign(page)).toHaveCount(0);
+    await page.getByRole("tab", { name: "Welcome" }).click();
+    await expect
+      .poll(async () => [await sign(page).getAttribute("aria-label"), await flashing(page)])
+      .toEqual(["Saved", false]);
+  });
+
+  test("a note left for a new tab whose write fails is listed as not saved, and the file keeps its text", async ({
+    page,
+    stack,
+  }) => {
+    const before = await welcome(stack.vault);
+    await page.route(
+      (url) => decodeURIComponent(url.pathname) === "/api/files/Welcome.md",
+      (route) =>
+        route.request().method() === "PUT"
+          ? route.fulfill({ status: 500, json: { detail: "refused by the test" } })
+          : route.fallback(),
+    );
+    await openApp(page);
+    await openNote(page, "Welcome");
+    await page.keyboard.type("Gotyped here");
+    await page.keyboard.press("Escape");
+    await leader(page, "ct");
+    const held = page.getByTestId("held");
+    await expect
+      .poll(async () => [
+        await held.textContent(),
+        await held.getAttribute("title"),
+        await welcome(stack.vault),
+      ])
+      .toEqual([
+        "Not saved: Welcome",
+        expect.stringContaining("Welcome.md: PUT /api/files/Welcome.md failed with 500"),
+        before,
+      ]);
+  });
+});

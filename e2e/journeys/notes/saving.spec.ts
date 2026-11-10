@@ -1,7 +1,7 @@
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Locator, Page } from "@playwright/test";
-import { findNote, noteText, openApp, openFromTree, phone } from "../../harness/app.ts";
+import { findNote, leader, noteText, openApp, openFromTree, phone } from "../../harness/app.ts";
 import { type Hit, hit, lineOf, openPanel } from "../../harness/search.ts";
 import { expect, test } from "../../harness/stack.ts";
 
@@ -242,6 +242,171 @@ test.describe("unlinked mentions", () => {
     await expect
       .poll(async () => [await status.textContent(), await rows(page).count()])
       .toEqual(["nothing links here", 1]);
+  });
+
+  const LINKED = "Order seeds for the [[Garden]] beds in March.";
+
+  /** Highlights the Seeds note's first mention and links it with Ctrl+Enter. */
+  async function linkBeds(page: Page) {
+    await expect(rows(page)).toHaveCount(3);
+    await page.keyboard.press("Tab");
+    await expect(rows(page).nth(1)).toHaveAttribute("aria-selected", "true");
+    await page.keyboard.press("Control+Enter");
+  }
+
+  /** Seeds open in one pane and Garden's backlinks in the other, the Seeds pane typed into first where `type` is given. */
+  async function besideSeeds(page: Page, type?: () => Promise<void>) {
+    await openApp(page);
+    await findNote(page, "Seeds");
+    await leader(page, "%");
+    await findNote(page, "Garden");
+    const seeds = page.locator(".cm-content", { hasText: "Order seeds" });
+    if (type !== undefined) {
+      await seeds.click();
+      await page.keyboard.press("Escape");
+      await type();
+      await page.locator(".cm-content", { hasText: "water the tomatoes" }).click();
+      await page.keyboard.press("Escape");
+    }
+    await openPanel(page, "gb", "backlinks");
+    return seeds;
+  }
+
+  /** The panel's line and the Seeds note on disk, read in one poll. */
+  const outcome = async (page: Page, vault: string) => [
+    await panel(page).getByRole("status").textContent(),
+    await noteText(vault, SEEDS),
+  ];
+
+  test("a link lands in a clean pane open on the note, which reloads off the vault's answer", async ({
+    page,
+    stack,
+  }) => {
+    const seeds = await besideSeeds(page);
+    await linkBeds(page);
+    await expect
+      .poll(
+        async () => [
+          (await noteText(stack.vault, SEEDS)).includes(LINKED),
+          await seeds.locator(".cm-wikilink", { hasText: "Garden" }).count(),
+        ],
+        { timeout: 15_000 },
+      )
+      .toEqual([true, 1]);
+  });
+
+  test("a link writes nothing while the note's own write is out, or while it holds text a failed save left, and says why", async ({
+    page,
+    stack,
+  }) => {
+    const before = await noteText(stack.vault, SEEDS);
+    let answer: (status: number) => void = () => {};
+    const puts: string[] = [];
+    await page.route(
+      (url) => decodeURIComponent(url.pathname) === `/api/files/${SEEDS}`,
+      async (route) => {
+        if (route.request().method() !== "PUT") return route.fallback();
+        puts.push(route.request().url());
+        const status = await new Promise<number>((resolve) => {
+          answer = resolve;
+        });
+        await route.fulfill({ status, json: { detail: "refused by the test" } });
+      },
+    );
+    await besideSeeds(page, async () => {
+      await page.keyboard.type("Gotyped");
+      await page.keyboard.press("Escape");
+    });
+    await expect.poll(() => puts.length).toBeGreaterThan(0);
+    await linkBeds(page);
+    await expect
+      .poll(() => outcome(page, stack.vault))
+      .toEqual(["That note is still being saved", before]);
+
+    // The write fails, which leaves its text held in the page.
+    answer(500);
+    await expect(mentions(page)).toHaveCount(2);
+    await page.keyboard.press("Control+Enter");
+    await expect
+      .poll(() => outcome(page, stack.vault))
+      .toEqual(["That note holds text not yet saved", before]);
+  });
+
+  test("a link writes nothing when the line changed on disk since the list was read, and says why", async ({
+    page,
+    stack,
+  }) => {
+    // The panel keeps the list it read first, as it would before the vault's event reached it.
+    let first: Awaited<ReturnType<Page["request"]["fetch"]>> | undefined;
+    await page.route("**/api/mentions?**", async (route) => {
+      first ??= await route.fetch();
+      await route.fulfill({ response: first });
+    });
+    await gardenMentions(page);
+    await expect(mentions(page)).toHaveCount(2);
+    const april = (await noteText(stack.vault, SEEDS)).replace("March", "April");
+    await writeFile(join(stack.vault, SEEDS), april);
+    await linkBeds(page);
+    await expect
+      .poll(() => outcome(page, stack.vault))
+      .toEqual(["That line has changed since it was listed", april]);
+  });
+
+  /** Changes Seeds on disk before each write of the link reaches the vault, so the write names a base the disk moved past. */
+  async function writtenBetween(
+    page: Page,
+    vault: string,
+    change: (text: string, write: number) => string,
+  ) {
+    let writes = 0;
+    await page.route(
+      (url) => decodeURIComponent(url.pathname) === `/api/files/${SEEDS}`,
+      async (route) => {
+        if (route.request().method() !== "PUT") return route.fallback();
+        writes += 1;
+        await writeFile(join(vault, SEEDS), change(await noteText(vault, SEEDS), writes));
+        await route.fallback();
+      },
+    );
+  }
+
+  test("a link refused over its base links on the read after when the line still says the same", async ({
+    page,
+    stack,
+  }) => {
+    await writtenBetween(page, stack.vault, (text, write) =>
+      write === 1 ? `${text}added by somebody else\n` : text,
+    );
+    await gardenMentions(page);
+    await linkBeds(page);
+    await expect
+      .poll(() => noteText(stack.vault, SEEDS), { timeout: 15_000 })
+      .toMatch(
+        /Order seeds for the \[\[Garden\]\] beds in March\.\n[\s\S]*added by somebody else\n$/,
+      );
+    await expect(panel(page).getByRole("status")).not.toHaveText("The link was not written");
+  });
+
+  test("a link refused over its base writes nothing when the line changed, and nothing over three writes in a row", async ({
+    page,
+    stack,
+  }) => {
+    let line = (text: string, _write: number) => text.replace("March", "April");
+    await writtenBetween(page, stack.vault, (text, write) => line(text, write));
+    await gardenMentions(page);
+    await linkBeds(page);
+    const april = (await noteText(stack.vault, SEEDS)).replace("March", "April");
+    await expect
+      .poll(() => outcome(page, stack.vault))
+      .toEqual(["That line has changed since it was listed", april]);
+
+    line = (text, write) => `${text}write ${write}\n`;
+    await page.keyboard.type("fence");
+    await expect(rows(page)).toHaveCount(1);
+    await page.keyboard.press("Control+Enter");
+    await expect
+      .poll(() => outcome(page, stack.vault), { timeout: 15_000 })
+      .toEqual(["The link was not written", `${april}write 2\nwrite 3\nwrite 4\n`]);
   });
 
   test.describe("on a phone", () => {
