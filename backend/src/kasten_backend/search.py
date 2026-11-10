@@ -26,6 +26,9 @@ Past this, a link, tag or todo in one line is not seen by any reader.
 _KEPT = 4 * LONGEST_TEXT + 4_096
 """Bytes kept of a line rg prints: its path, number and `LONGEST_TEXT` characters of 4 bytes."""
 
+_CHUNK = 1 << 20
+"""Bytes asked of rg's pipe at a time."""
+
 
 class Hit(NamedTuple):
     """One matching line: where it lives, which line it is, and what it says."""
@@ -136,24 +139,21 @@ async def scan_vault(
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.DEVNULL,
     )
-    hits = []
+    hits: list[Hit] = []
     relative = relative_to_root(root)
     # `stdout=PIPE` makes this a reader; the type checker cannot see that.
     stdout = cast("asyncio.StreamReader", process.stdout)
     try:
-        while raw := await _line(stdout):
-            # NUL, not colon, ends the path: a note name can hold a colon.
-            path, _, rest = raw.decode("utf-8", "replace").rstrip("\n").partition("\0")
-            number, _, text = rest.partition(":")
-            hits.append(
-                Hit(
-                    path=relative(path),
-                    line=int(number),
-                    text=text[:LONGEST_TEXT],
-                )
-            )
-            if len(hits) == cap:
-                break
+        # One await per chunk, not per line, which cost the graph most of its time (#1759).
+        # Split on bytes: a newline byte never sits inside a UTF-8 character.
+        pending = b""
+        while len(hits) < cap and (chunk := await stdout.read(_CHUNK)):
+            *lines, pending = (pending + chunk).split(b"\n")
+            # Cut each chunk, so a line of any length holds at most `_KEPT` bytes (#1244).
+            pending = pending[:_KEPT]
+            hits.extend(_hits(lines[: cap - len(hits)], relative))
+        if pending and len(hits) < cap:
+            hits.extend(_hits([pending], relative))
     finally:
         # Counted here, not with `--max-count`, which is per file.
         # Killing rg also covers a request that went away, cancelling this task.
@@ -164,23 +164,15 @@ async def scan_vault(
     return hits
 
 
-async def _line(stdout: asyncio.StreamReader) -> bytes:
-    """The next line rg prints, cut to `_KEPT` bytes, or nothing at its end.
-
-    Not `readline`: past its 64 KiB limit it raises, and it drops the start of a
-    long line (#1244).
-    """
-    kept = bytearray()
-    while True:
-        try:
-            part = await stdout.readuntil(b"\n")
-        except asyncio.LimitOverrunError as long:
-            part = await stdout.readexactly(long.consumed)
-        except asyncio.IncompleteReadError as end:
-            return bytes(kept + end.partial[: _KEPT - len(kept)])
-        kept += part[: _KEPT - len(kept)]
-        if part.endswith(b"\n"):
-            return bytes(kept)
+def _hits(lines: list[bytes], relative: Callable[[str], str]) -> list[Hit]:
+    """One hit per line rg printed, its text cut to `LONGEST_TEXT` characters."""
+    hits = []
+    for raw in lines:
+        # NUL, not colon, ends the path: a note name can hold a colon.
+        path, _, rest = raw[:_KEPT].decode("utf-8", "replace").partition("\0")
+        number, _, text = rest.partition(":")
+        hits.append(Hit(path=relative(path), line=int(number), text=text[:LONGEST_TEXT]))
+    return hits
 
 
 def literal_matcher(query: str) -> tuple[str, ...]:
