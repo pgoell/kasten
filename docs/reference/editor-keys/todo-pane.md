@@ -27,7 +27,10 @@ one.
 A click or a tap on a row opens the line the todo is written on. On a touch
 screen the state box is a button of its own that cycles the todo as `x`
 does, and the header carries a `+` that adds one as `a` does. Under the header
-`done`, `next`, `view` and `board` do what `d`, `n`, `v` and `c` do, and
+one line holds the list switches, then the [kind chips](#kind-chips) and the
+[Shared lists](#shared-lists) toggle, and scrolls sideways where the pane is
+too narrow for all of them. `done`, `next`, `view` and `board` do what `d`, `n`,
+`v` and `c` do, and
 nothing while a row is being edited or a blocker picked. Enter and Space on a
 focused button press that button, and on the cursor's row they keep their own
 meaning. Each row ends in a `⋯`
@@ -40,8 +43,8 @@ does nothing while another row is being edited. After `blocked by`, a tap on a
 row picks it as the blocker and opens nothing, and `cancel` beside the picker's
 line is Escape. A state picked from the strip is set on one tap.
 
-With a mouse the `done` `next` `view` `board` strip under the header shows
-too, and each button names its key: `d done`, `n next`, `v view` and `c board`.
+With a mouse the `done` `next` `view` `board` switches show too, and the
+header names the pane, `todos`, before the filter. Each button names its key: `d done`, `n next`, `v view` and `c board`.
 A click does what the key does, and nothing while a row is being edited or a
 blocker picked.
 
@@ -80,10 +83,12 @@ sits in the group its due date names rather than under a heading of its own, its
 state already being written on the line. A row
 [waiting on somebody](/reference/todo-format/state-changes.md#waiting-on-somebody) is drawn
 the same way and says for how many days and on whom before its date,
-`👤 7d Ada Lovelace`. A narrow row cuts the name short and keeps the days. A todo with an assignee draws it as a chip with that person's name, and a click or tap on the chip opens the person note, not the row. The footer counts the rows, so many open and so many
-blocked, how many are waiting where any are, how many are to review where
-any are, and how many timers are going
-where any are.
+`👤 7d Ada Lovelace`. A narrow row cuts the name short and keeps the days. A todo with an assignee draws it as a chip with that person's name, and a click or tap on the chip opens the person note, not the row. Over the open list the footer draws [the legend](#the-legend)
+and how many timers are going where any are. Over the next list and the
+blocker picker it counts the rows in words, so many open and so many blocked,
+how many are waiting and how many are to review where any are. With a mouse
+the keys this list binds follow on the same line, cut short where the pane is
+narrow; `?` lists them all.
 
 ### Done this week
 
@@ -94,14 +99,14 @@ it is unfolded they walk into it.
 
 ### The legend
 
-A legend draws the seven state boxes, each with its count. Open, doing, review,
+The footer of the open list draws the seven state boxes, each with its count. Open, doing, review,
 waiting and blocked count the open rows shown. Done counts the Done this week
 rows. Rejected counts the todos rejected in the last seven days. Every filter
 applies to the counts.
 
 ### Kind chips
 
-Under the filter line are four chips: All, #client, #internal and #private. A
+After the list switches come four chips: All, #client, #internal and #private. A
 chip keeps only the todos of its kind. A todo's kind is its own kind tag, or the
 tag of its nearest ancestor when it has none, so a part of an #internal todo is
 #internal. The chips narrow the list and the board alike.
@@ -111,7 +116,8 @@ tag of its nearest ancestor when it has none, so a part of an #internal todo is
 A todo in a note directly inside the share folder, `05 Shared` by default, is in
 a shared list. Shared lists are hidden by default, so the shopping and household
 lists stay out of the work list. The Shared lists toggle shows them, and hides
-them again. While they are hidden it reads `Shared lists, N hidden`, with N the
+them again. It shows only while it would change the list: while they are
+shown, or while they hide at least one todo. While they are hidden it reads `Shared lists, N hidden`, with N the
 count the other filters would show. Once they show it reads `Shared lists, shown`. Turning it on or off writes nothing to disk.
 
 The toggle is kept per device, in the browser under the key
