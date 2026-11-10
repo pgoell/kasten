@@ -71,10 +71,14 @@ drawn and never what is saved, and every pane shows the same state.
 In Read the frontmatter is folded behind Properties. A cursor that goes into
 it, by `gg` or `k` from the first line, shows the YAML, as live preview shows
 the markup of the line under the cursor. The closing `---` stays a line of its
-own, drawn empty, so an edit from the body that reaches it (Backspace at the
+own, with no height, so an edit from the body that reaches it (Backspace at the
 start of the first line, `dk`) shows the YAML at once and `u` puts it back. In
-Edit the block is always drawn as YAML. A new note still opens its cursor on
-the first line below the block.
+Edit the block is always drawn as YAML.
+
+Read gives no height either to the blank lines between the block and the text,
+or to a `# ` heading that only repeats the title in the header. Each comes back
+while the cursor is on it. A note opened with no saved place puts its cursor on
+the first line past them.
 
 ## The outline
 
