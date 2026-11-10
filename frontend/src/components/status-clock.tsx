@@ -7,7 +7,7 @@ const MINUTE_MS = 60_000;
  * The date and time at the foot of the window. Ticks on the wall clock's minute, so the
  * minute changes on screen when it changes on the clock: one render a minute.
  */
-export function Clock({ crowded }: { crowded: boolean }) {
+export function Clock({ crowded, gone }: { crowded: boolean; gone?: boolean }) {
   const [now, setNow] = useState<ClockReading>(() => readClock(new Date()));
 
   useEffect(() => {
@@ -26,6 +26,9 @@ export function Clock({ crowded }: { crowded: boolean }) {
     tick();
     return () => clearTimeout(timer);
   }, []);
+
+  // A placeholder keeps the bar's middle column, so the save sign stays on the right.
+  if (gone) return <span />;
 
   return (
     // Spaced apart rather than punctuated: the gap separates the four readings

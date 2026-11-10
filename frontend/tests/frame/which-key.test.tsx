@@ -236,7 +236,7 @@ it("on a phone the toolbar's space button opens the panel", async () => {
     root.render(
       <>
         <button type="button">Note</button>
-        <Toolbar commands={stubCommands()} split={false} />
+        <Toolbar commands={stubCommands()} />
         <WhichKey phone />
       </>,
     );

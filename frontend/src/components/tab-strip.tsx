@@ -13,6 +13,8 @@ interface TabStripProps {
   onSelect: (index: number) => void;
   onClose: (index: number) => void;
   onHome: () => void;
+  /** Makes a note from a plus at the end, drawn where no top bar offers New note. */
+  onNewNote?: () => void;
   /** Whether a tab has text that is not in the vault yet, which the dot says. */
   unsaved: (tab: Tab) => boolean;
   /**
@@ -190,6 +192,7 @@ export function TabStrip({
   onSelect,
   onClose,
   onHome,
+  onNewNote,
   unsaved,
   narrow = false,
 }: TabStripProps) {
@@ -411,6 +414,26 @@ export function TabStrip({
             </div>
           )}
         </div>
+      )}
+      {onNewNote && (
+        <button
+          type="button"
+          aria-label="New note"
+          onClick={onNewNote}
+          className="flex min-h-11 w-11 shrink-0 items-center justify-center border-k-rule border-l text-k-accent hover:bg-k-accent-wash"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            className="size-5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.75"
+            strokeLinecap="round"
+          >
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+        </button>
       )}
     </div>
   );

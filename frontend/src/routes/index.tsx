@@ -369,7 +369,8 @@ function Home() {
   // `clip`, not `hidden`: `hidden` makes a scroll box, and the sticky tabs would scroll away.
   return (
     <main ref={frame} className="safe-frame flex h-dvh flex-col overflow-x-clip bg-k-bg">
-      <TopBar commands={commands} count={data?.length ?? 0} inert={inert} />
+      {/* A phone has the finder on `find` and New note in the tab strip, so the row would only repeat them. */}
+      {!phone && <TopBar commands={commands} count={data?.length ?? 0} inert={inert} />}
       {/* min-h-0 lets the editor scroll instead of pushing the bar off-screen. */}
       <div className="flex min-h-0 flex-1">
         <FileExplorer
@@ -407,6 +408,7 @@ function Home() {
           playSignal={playSignal}
           graphAsk={graphAsk}
           graphSheet={phone ? openGraphSheet : undefined}
+          newNote={phone ? () => commands.createNote() : undefined}
           preview={preview}
           listings={{ data, archive, linkable, images, tags, relations }}
           opening={opening}
@@ -434,14 +436,18 @@ function Home() {
         notice={notice}
         version={version}
         zoom={tab.zoom}
-        pane={stackLabel(narrow, panes, pane.id)}
+        // On a phone the count rides on the toolbar's next-pane button.
+        pane={phone ? undefined : stackLabel(narrow, panes, pane.id)}
         inert={inert}
         foot={!phone}
+        quiet={phone}
         onWrite={() => void save()}
         onTakeVault={buffer.takeVault}
         conflict={buffer.conflict}
       />
-      {phone && <Toolbar commands={commands} split={panes.length > 1} inert={inert} />}
+      {phone && (
+        <Toolbar commands={commands} pane={stackLabel(narrow, panes, pane.id)} inert={inert} />
+      )}
       {helpOpen && <KeyHelp onClose={() => setHelpOpen(false)} />}
       <WhichKey phone={phone} />
       <Sheet open={graphSheet.open} onClose={closeGraphSheet} label="Local graph">

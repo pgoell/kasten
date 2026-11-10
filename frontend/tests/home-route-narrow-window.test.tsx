@@ -375,7 +375,7 @@ describe("the route", () => {
       fireEvent.click(sheet);
     };
 
-    it("opens the palette, the finder and the search from the toolbar", async () => {
+    it("opens the palette and the finder from the toolbar, and the search from the palette", async () => {
       stubMatchMedia({ [NARROW]: true, [COARSE]: true });
       await renderApp();
       await settle();
@@ -391,7 +391,8 @@ describe("the route", () => {
       tapSheet(screen.getByRole("dialog", { name: "Find note" }));
       expect(screen.queryByRole("dialog")).toBeNull();
 
-      fireEvent.click(screen.getByRole("button", { name: "Search note content" }));
+      fireEvent.click(screen.getByRole("button", { name: "Run a command by name" }));
+      fireEvent.click(screen.getByRole("option", { name: /^Search note content/ }));
       tapSheet(screen.getByRole("dialog"));
       expect(screen.queryByRole("dialog")).toBeNull();
     });
@@ -434,9 +435,8 @@ describe("the route", () => {
       viewport.height = 500;
       listeners.get("resize")?.();
 
-      // The bar and the toolbar sit inside the frame, so both rise with it.
+      // The toolbar sits inside the frame, so it rises with it.
       expect(frame.style.paddingBottom).toBe("300px");
-      expect(frame).toContainElement(screen.getByRole("contentinfo"));
       expect(frame).toContainElement(screen.getByRole("toolbar", { name: "Commands" }));
       box.mockRestore();
       layout.mockRestore();
@@ -463,15 +463,26 @@ describe("the route", () => {
       expect(screen.queryByTestId("pane-shown")).toBeNull();
     });
 
-    it("takes the status bar out of reach under the drawer", async () => {
+    it("draws no status bar or top bar on a phone while nothing needs them", async () => {
       stubMatchMedia({ [NARROW]: true, [COARSE]: true });
       await renderApp();
       await settle();
-      expect(screen.getByRole("contentinfo")).not.toHaveAttribute("inert");
+
+      expect(screen.queryByRole("contentinfo")).toBeNull();
+      expect(screen.queryByRole("banner")).toBeNull();
+      expect(screen.getByRole("button", { name: "New note" })).toBeInTheDocument();
+    });
+
+    it("takes the toolbar out of reach under the drawer", async () => {
+      stubMatchMedia({ [NARROW]: true, [COARSE]: true });
+      await renderApp();
+      await settle();
+      const toolbar = screen.getByRole("toolbar", { name: "Commands" });
+      expect(toolbar).not.toHaveAttribute("inert");
 
       openDrawer();
 
-      expect(screen.getByRole("contentinfo")).toHaveAttribute("inert");
+      expect(toolbar).toHaveAttribute("inert");
     });
   });
 });

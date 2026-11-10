@@ -82,10 +82,13 @@ focused pane shows, at full height, and the rest hold what they held. The
 splits are kept, so they are side by side again when the window widens.
 `<leader>o` moves to the next pane there. The footer says `pane 1/2`, the
 number of the pane the focus is on and how many the tab holds, whenever the
-tab holds more than one.
+tab holds more than one. On a phone the toolbar's next-pane button shows that
+count instead.
 
 That window's footer carries the date and the time and leaves out the weekday,
-the week and the version. A notice takes the clock's place while it shows. A
+the week and the version. A phone's footer carries no clock and shows only
+while it has something to say: a notice, a failed write, a note changed on
+disk, a held note or the archive. A notice takes the clock's place while it shows. A
 click or a tap on a notice opens it out in full above the footer, and one on
 the save sign of a write that failed or a note that changed on disk does the
 same with the reason and the way out; a second one shuts it. Under a mouse the
@@ -116,7 +119,8 @@ tenth, which is where those keys sit on the row rather than what the character
 means. An eleventh tab is reached by walking.
 
 The tab strip sits under the top bar, 40 px tall (44 px under a finger), and is
-always drawn. It opens on `Today` in italic serif, the home tab: it goes to the
+always drawn. On a phone there is no top bar, so the strip is the top row, and
+it ends in a + that makes a new note. It opens on `Today` in italic serif, the home tab: it goes to the
 first tab holding one empty pane, which shows Today, or starts one. A thin
 divider follows, then every open tab, each with the icon of what its focused
 pane holds (page, PDF, book, review, graph or video), its name cut with an

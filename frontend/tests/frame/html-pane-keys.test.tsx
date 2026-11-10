@@ -98,7 +98,7 @@ function Layout({ paths, spy, phone = false }: { paths: string[]; spy: Spy; phon
           </div>
         ))}
       </div>
-      {phone && <Toolbar commands={commands} split={paths.length > 1} />}
+      {phone && <Toolbar commands={commands} pane={paths.length > 1 ? "1/2" : undefined} />}
       <WhichKey phone={phone} />
       {help && <KeyHelp onClose={() => setHelp(false)} />}
     </div>

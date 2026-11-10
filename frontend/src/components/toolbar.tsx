@@ -9,29 +9,24 @@ import { LABEL } from "@/lib/ui/overlay-styles";
 const BUTTONS: readonly { command: LeaderCommand; label: string; name: string }[] = [
   { command: "toggleTree", label: "files", name: "File tree" },
   { command: "findNote", label: "find", name: "Find a note" },
-  { command: "searchNotes", label: "search", name: "Search note content" },
-  { command: "openPalette", label: "run", name: "Run a command by name" },
   { command: "openDaily", label: "today", name: "Open today's note" },
   // The pane and not the overlay `findTodos` opens: the pane is the one with
   // buttons a finger can cycle and add with. The overlay is a palette row.
   { command: "openTodos", label: "todos", name: "Open the todo pane" },
-  { command: "openLog", label: "log", name: "Open the log" },
-  // The reason the chat exists: a skill started with a thumb. Eight across a
-  // 360px phone is 45px each, one over the 44 a button has to be. Nine at 44px
-  // fit neither 360 nor 390, so the row wraps and the ninth goes to a second
-  // row rather than off the screen.
   { command: "openChat", label: "chat", name: "Open the chat with Claude Code" },
-  // Ten with space fit no phone, so this row always wraps to a second one.
-  { command: "openTimers", label: "timers", name: "Open the timers" },
+  // One row only: eight buttons at 45px fill a 360px phone. Search, log and
+  // timers are palette rows, one tap on `run` away.
+  { command: "openPalette", label: "run", name: "Run a command by name" },
 ];
 
 /** The look every button of the row shares, a finger's 44px square among them. */
-const KEY = "min-h-11 min-w-11 flex-1 uppercase active:bg-k-surface active:text-k-accent";
+const KEY =
+  "min-h-11 min-w-11 flex-1 uppercase tabular-nums active:bg-k-surface active:text-k-accent";
 
 interface ToolbarProps {
   commands: EditorCommands;
-  /** Whether the tab holds more than one pane, which is when there is a next one. */
-  split: boolean;
+  /** "1/2" while the tab holds more than one pane, shown on the button that moves to the next. */
+  pane?: string;
   /** Out of reach, which the route asks for under the open drawer. */
   inert?: boolean;
 }
@@ -40,10 +35,11 @@ interface ToolbarProps {
  * The row along a phone's bottom edge, standing in for the leader key. It stays up while
  * the keyboard is open: the palette opens over an editor, so the button must stay reachable there.
  */
-export function Toolbar({ commands, split, inert }: ToolbarProps) {
-  const buttons = split
-    ? [...BUTTONS, { command: "nextPane" as const, label: "pane", name: "Move to the next pane" }]
-    : BUTTONS;
+export function Toolbar({ commands, pane, inert }: ToolbarProps) {
+  const buttons =
+    pane === undefined
+      ? BUTTONS
+      : [...BUTTONS, { command: "nextPane" as const, label: pane, name: "Move to the next pane" }];
 
   return (
     <div
@@ -51,7 +47,7 @@ export function Toolbar({ commands, split, inert }: ToolbarProps) {
       aria-label="Commands"
       inert={inert}
       // Always the page foot where drawn, so it takes the home indicator's inset.
-      className={`safe-foot flex shrink-0 flex-wrap gap-px border-k-rule border-t bg-k-paper ${LABEL}`}
+      className={`safe-foot flex shrink-0 gap-px border-k-rule border-t bg-k-paper ${LABEL}`}
     >
       <button
         type="button"

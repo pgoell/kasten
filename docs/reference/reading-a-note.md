@@ -20,7 +20,8 @@ A bar 56 px tall, sticky at the top of the window, with a frosted background.
 It holds the wordmark, Vault, Graph and Search, a search field that says how
 many notes it covers, and a New note button. Vault, Graph and Search are hidden
 below 768 px of window width. There the search field opens the note finder
-instead, and a + button makes a new note; a screen reader still hears "New note".
+instead. A phone draws no top bar: `find` on the toolbar opens the finder, and
+a + at the end of the tab strip makes a new note.
 
 ## The note pane
 
@@ -172,7 +173,7 @@ buttons that start the same timer again; the browser keeps them, so each device
 has its own. When a timer rings, the server pushes it to every subscribed device
 ([Timers](/reference/http-api/todos.md#timers)), and the row shows Done until
 the server drops it a few seconds later. The same row fills a pane of its own,
-the timers tab, which `<leader>gT` and the phone toolbar's `timers` open; there
+the timers tab, which `<leader>gT` and the palette's `Open the timers` open; there
 `i` moves to the name field and Escape back out.
 
 The three columns:
