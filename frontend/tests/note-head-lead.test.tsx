@@ -32,10 +32,10 @@ describe("the lines between the frontmatter and the text", () => {
     expect(leadLines(doc, 1, "Reader")).toEqual([1]);
   });
 
-  it("take no height in Read, the fence with them, and the note opens on its text", () => {
+  it("take no height in Read, and the note opens on its text", () => {
     const { container } = render(<Editor initialDoc={DOC} path={PATH} commands={stubCommands()} />);
 
-    expect(flat(container)).toEqual(["", "", "Reader", ""]);
+    expect(flat(container)).toEqual(["", "Reader", ""]);
     expect(viewIn(container).state.selection.main.head).toBe(DOC.indexOf("Some"));
   });
 

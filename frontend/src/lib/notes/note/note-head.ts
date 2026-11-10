@@ -531,9 +531,9 @@ function hiding(state: EditorState, frontEnd: number): Hiding {
   const lead =
     path === undefined || !state.facet(readMode) ? [] : flatLeadLines(state, below, noteName(path));
   const block = hidesBlock(state, frontEnd);
-  // The closing fence stays a line, so a vim motion or a delete counts it as one, but
-  // with no text or height. The lines above it are one hidden block.
-  const flat = flatten(state.doc, block ? [fence.number, ...lead] : lead);
+  // The closing fence stays a drawn line: vim's j and k skip lines with no height, and
+  // would carry `dk` into the hidden block above it.
+  const flat = flatten(state.doc, lead);
   const replaced = block
     ? [
         Decoration.replace({ block: true }).range(0, fence.from - 1),

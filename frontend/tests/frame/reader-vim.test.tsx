@@ -62,7 +62,9 @@ it("with vim on, k from the first body line shows the YAML", async () => {
   try {
     const { host } = mounted;
     visibleEditor(host).focus();
-    expect(cursorLine(viewOf(host))).toBe("# Reader");
+    // The note opens past the blank line and the heading that repeats its title, and k steps
+    // over those, as they have no height.
+    expect(cursorLine(viewOf(host))).toBe("about:: [[Design Notes]]");
 
     await userEvent.keyboard("k");
 
@@ -73,22 +75,23 @@ it("with vim on, k from the first body line shows the YAML", async () => {
   }
 }, 60_000);
 
-it("with vim on, dk from the first body line deletes only the fence and that line", async () => {
+it("with vim on, dk from the first line of text deletes the fence, the lines Read hides, and that line", async () => {
   const mounted = await mountNote(DESKTOP, "light");
   try {
     const { host } = mounted;
     visibleEditor(host).focus();
     const before = viewOf(host).state.doc.toString();
     const lines = before.split("\n");
-    // Index 6 is the closing fence, index 7 the `# Reader` line under it.
+    // Index 6 is the closing fence; 7 and 8, the title heading and a blank line, have no height.
     expect(lines[6]).toBe("---");
     expect(lines[7]).toBe("# Reader");
+    expect(cursorLine(viewOf(host))).toBe(lines[9]);
 
     await userEvent.keyboard("d");
     await userEvent.keyboard("k");
 
     expect(viewOf(host).state.doc.toString()).toBe(
-      lines.filter((_, index) => index !== 6 && index !== 7).join("\n"),
+      lines.filter((_, index) => index < 6 || index > 9).join("\n"),
     );
     expect(visibleEditor(host).textContent).toContain("type: Concept");
 
