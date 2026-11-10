@@ -33,7 +33,7 @@ including the check that refuses a cross-site `POST` with a `403`.
 * [Finding](/reference/http-api/finding.md): search, tags, mentions, notes like this one, the link graph and the folder layout
 * [Todos](/reference/http-api/todos.md): the route that lists every todo and its project, the devices a todo's `⏰` reminder is pushed to, when pushes go, and the timers that push
 * [Log](/reference/http-api/log.md): the day's water, coffee, alcohol and food, and their totals, and the day's training lines
-* [Food](/reference/http-api/food.md): search Open Food Facts for a food, read one by its barcode, or work out a recipe's kcal and macros per serving
+* [Food](/reference/http-api/food.md): search Open Food Facts for a food, read one by its barcode, work out a recipe's kcal and macros per serving, or list the recipe notes
 * [Finance](/reference/http-api/finance.md): the accounts, balances and bookings host jobs write, the splits under a booking, and the reads, with a `503` when there is no database
 * [Finance sorting](/reference/http-api/finance-sorting.md): categories, payees and rules, the order the rules fire in, the category set by hand, and the to-sort list
 * [Finance budget](/reference/http-api/finance-budget.md): a month's budget per category, free to spend for mine and household, where the month's money went, the spending trend, a category's limit and the budget settings

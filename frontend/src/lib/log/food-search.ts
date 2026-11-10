@@ -1,5 +1,6 @@
 /**
- * The food search on the log card: Open Food Facts or a barcode, your own foods, recent foods, and a quick kcal add.
+ * The food search on the log card: your recipes, your own foods, recent foods, Open Food Facts or a barcode, and a quick kcal add.
+ * A recipe logged from it asks "cook again?" in the rating sheet.
  * The pure parts live in `food-math.ts`, and the forms in `food-serving.ts` and `food-quick-add.ts`.
  */
 
@@ -13,6 +14,8 @@ import { servingForm } from "@/lib/log/food-serving";
 import type { FoodGoals } from "@/lib/log/log-kinds";
 import { type DrinkTotals, tenth } from "@/lib/log/log-lines";
 import { fetchMyFoods, type MyFood, myChoice } from "@/lib/log/my-foods";
+import { openRateSheet } from "@/lib/log/recipe/rate-sheet";
+import { fetchRecipes, type RecipeEntry } from "@/lib/log/recipe/recipe-api";
 
 export { type Choice, GRAMS_END } from "@/lib/log/food-math";
 
@@ -51,7 +54,7 @@ function section(title: string, rows: HTMLElement[]): HTMLElement {
 /** A result row: the name, the brand, the kcal per serving, and `mine` or `recent` where it is one. */
 function pickButton(
   choice: Choice,
-  tag: "mine" | "recent" | null,
+  tag: "recipe" | "mine" | "recent" | null,
   onPick: () => void,
 ): HTMLButtonElement {
   // A full-width row, so it takes the surface tint on a press rather than the shrink.
@@ -69,6 +72,16 @@ function pickButton(
   if (tag !== null) made.append(make("span", "cm-log-food-tag", tag));
   made.addEventListener("click", onPick);
   return made;
+}
+
+/** A recipe as a food: one serving is one of its servings, or the whole dish without them. */
+export function recipeChoice(entry: RecipeEntry): Choice {
+  return {
+    name: entry.title,
+    brand: null,
+    serving_g: null,
+    per_serving: entry.per_serving ?? entry.total,
+  };
 }
 
 /**
@@ -91,7 +104,9 @@ export function foodPanel(day: string | null, hooks: PanelHooks): FoodPanel {
     say,
     log: (line) => {
       stopScan();
+      const cooked = recipe;
       hooks.log(line);
+      if (cooked !== null) openRateSheet({ path: cooked.path, title: cooked.title, line });
     },
     back: () => showSearch(),
     today: hooks.today,
@@ -135,6 +150,9 @@ export function foodPanel(day: string | null, hooks: PanelHooks): FoodPanel {
   root.append(bar, video, why, results, quick, add, adding.root, close, serving.root);
 
   let mine: MyFood[] = [];
+  let recipes: RecipeEntry[] = [];
+  /** The recipe the serving step shows, which a log hands to the rating sheet. */
+  let recipe: RecipeEntry | null = null;
   let recents: Choice[] = [];
   let offHits: Food[] = [];
   let latest = 0;
@@ -159,6 +177,12 @@ export function foodPanel(day: string | null, hooks: PanelHooks): FoodPanel {
         choice.name.toLowerCase().includes(typed) && !names.has(choice.name.toLowerCase()),
     );
     const sections: [string, HTMLElement[]][] = [
+      [
+        "Recipes",
+        recipes
+          .filter((entry) => entry.title.toLowerCase().includes(typed))
+          .map((entry) => pickButton(recipeChoice(entry), "recipe", () => pickRecipe(entry))),
+      ],
       [
         "Mine",
         ours.map((food) => {
@@ -221,12 +245,19 @@ export function foodPanel(day: string | null, hooks: PanelHooks): FoodPanel {
   /** A pick from the recent foods needs no read, but it still ends a read that is in the air. */
   function pickRecent(choice: Choice): void {
     pickTurn += 1;
+    recipe = null;
     show(choice);
+  }
+
+  function pickRecipe(entry: RecipeEntry): void {
+    pickRecent(recipeChoice(entry));
+    recipe = entry;
   }
 
   /** A pick from the search is read for its serving first, since a hit carries none. */
   function readPick(food: Food): void {
     pickTurn += 1;
+    recipe = null;
     const turn = pickTurn;
     readBarcode(food.code).then(
       (full) => {
@@ -246,6 +277,7 @@ export function foodPanel(day: string | null, hooks: PanelHooks): FoodPanel {
   /** The name search on screen, with no form: a read still in the air is for a form no longer shown, so it is dropped. */
   function showSearch(): void {
     pickTurn += 1;
+    recipe = null;
     serving.clear();
     serving.root.hidden = true;
     close.hidden = false;
@@ -258,6 +290,7 @@ export function foodPanel(day: string | null, hooks: PanelHooks): FoodPanel {
 
   function readCode(code: string): void {
     pickTurn += 1;
+    recipe = null;
     const turn = pickTurn;
     // A food of your own answers its barcode before Open Food Facts is asked.
     const ours = mine.find((food) => food.code === code);
@@ -345,6 +378,18 @@ export function foodPanel(day: string | null, hooks: PanelHooks): FoodPanel {
   });
   scan.addEventListener("click", startScan);
   close.addEventListener("click", () => shut());
+
+  fetchRecipes().then(
+    (found) => {
+      if (!root.isConnected) return;
+      recipes = found;
+      render();
+    },
+    // No recipes is a search without its first section; the foods still work, so it says nothing.
+    (error: unknown) => {
+      if (!(error instanceof Error)) throw error;
+    },
+  );
 
   fetchMyFoods().then((found) => {
     if (!root.isConnected) return;

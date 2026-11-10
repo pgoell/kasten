@@ -1,0 +1,159 @@
+/* The rating sheet: a bottom sheet on a phone, a centred panel on a desktop. The faces and
+   chips are 48px and up, so a thumb picks them without a second look. */
+.k-rate {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.k-rate-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.k-rate-sheet {
+  position: relative;
+  display: grid;
+  gap: var(--k-space-12);
+  width: 100%;
+  max-width: 520px;
+  max-height: 90dvh;
+  overflow-y: auto;
+  padding: var(--k-space-24) var(--k-space-16)
+    max(var(--k-space-16), env(safe-area-inset-bottom));
+  border-radius: 16px 16px 0 0;
+  background: var(--k-paper);
+  color: var(--k-ink);
+  font-family: var(--k-sans);
+  box-shadow: var(--k-shadow);
+}
+
+@media (min-width: 720px) {
+  .k-rate {
+    align-items: center;
+  }
+
+  .k-rate-sheet {
+    border-radius: 16px;
+  }
+}
+
+.k-rate-facts,
+.k-rate-label,
+.k-rate-said {
+  margin: 0;
+  color: var(--k-muted);
+  font-size: var(--k-text-15);
+}
+
+.k-rate-said {
+  font-size: var(--k-text-13);
+  text-align: center;
+}
+
+.k-rate-title {
+  margin: 0;
+  font-size: var(--k-text-23);
+  line-height: var(--k-leading-heading);
+}
+
+.k-rate-faces {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--k-space-8);
+}
+
+.k-rate button {
+  min-height: 48px;
+  border: 1px solid var(--k-rule);
+  border-radius: var(--k-radius-8);
+  background: var(--k-paper);
+  color: var(--k-ink);
+  font: inherit;
+  font-size: var(--k-text-15);
+}
+
+.k-rate .k-rate-face {
+  display: grid;
+  justify-items: center;
+  gap: var(--k-space-8);
+  padding: var(--k-space-16) var(--k-space-4);
+}
+
+.k-rate-face svg {
+  width: 32px;
+  height: 32px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.k-rate-lieber-nicht svg {
+  color: var(--k-danger);
+}
+
+.k-rate-gern-wieder svg {
+  color: var(--k-accent);
+}
+
+.k-rate .is-on {
+  border: 2px solid var(--k-accent);
+  background: var(--k-accent-wash);
+  color: var(--k-accent);
+}
+
+.k-rate-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k-space-8);
+}
+
+.k-rate .k-rate-chip {
+  padding: 0 var(--k-space-16);
+  border-radius: 24px;
+}
+
+.k-rate-note {
+  min-height: 48px;
+  padding: 0 var(--k-space-12);
+  border: 1px solid var(--k-rule);
+  border-radius: var(--k-radius-8);
+  background: var(--k-paper);
+  color: var(--k-ink);
+  font: inherit;
+  font-size: 16px;
+}
+
+.k-rate-why {
+  margin: 0;
+  color: var(--k-danger);
+  font-size: var(--k-text-13);
+}
+
+.k-rate-why:empty,
+[hidden].k-rate-note,
+[hidden].k-rate-chip {
+  display: none;
+}
+
+.k-rate-foot {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: var(--k-space-12);
+}
+
+.k-rate .k-rate-done {
+  border-color: var(--k-accent);
+  background: var(--k-accent);
+  color: var(--k-paper);
+  font-weight: 600;
+}
+
+.k-rate .k-rate-done:disabled {
+  opacity: 0.4;
+}

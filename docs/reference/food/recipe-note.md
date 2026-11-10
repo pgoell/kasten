@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Recipe note
-description: The note a dish is written in, its frontmatter, the ingredient, step and cooked sections, how a German ingredient line is read for its amount and unit, how a line finds its food, the kcal and macros per serving, the card that shows them, cook mode, and why a line is not counted.
+description: The note a dish is written in, its frontmatter, the ingredient, step and cooked sections, how a German ingredient line is read for its amount and unit, how a line finds its food, the kcal and macros per serving, the card that shows them, cook mode, the rating sheet, and why a line is not counted.
 resource: backend/tests/food/ingredient_cases.json
 tags: [vault, recipes, food, format, backend]
 status: stable
@@ -98,7 +98,8 @@ optionally the answer to "wieder kochen?" and a note after a `·`:
 3. A line with no day, or a day that does not exist such as `2026-02-30`, is
    passed over.
 
-The card and cook mode read these lines; nothing in kasten writes them yet.
+The card and cook mode read these lines. The rating sheet writes them; see
+[The rating sheet](#the-rating-sheet).
 
 ## Reading a line
 
@@ -241,3 +242,33 @@ time. `frontend/src/lib/log/recipe/cook-mode.ts` draws it.
 * `Back` and `Next step`, 64px high; on the last step `Next step` reads `Done`
   and closes. The arrow keys move too, and Escape closes; see
   [Editor keys](/reference/editor-keys.md#cook-mode).
+
+## The rating sheet
+
+The food sheet lists your recipes first, under `Recipes`, by title, with their
+kcal per serving. A recipe with no `servings` counts the whole dish as one.
+Picking one opens the serving step, where you set how many servings you ate;
+`Log this food` writes the food line at the recipe's numbers per serving, as
+`- 🍽 lunch: Chili sin carne 🔥 540 kcal 🥩 32 g 🍞 62 g 🧈 14 g`. The list comes
+from [GET /api/recipes](/reference/http-api/food.md#get-apirecipes); when it
+cannot be read, the sheet lists no recipes and the foods still work.
+
+Once the line is in, the rating sheet rises and asks `<title>, cook again?`:
+
+* three faces, `Lieber nicht`, `Geht so` and `Gern wieder`; `Done` waits for one;
+* chips for what to change, `mehr Würze`, `weniger Salz`, `zu trocken`,
+  `Beilage anders` and `größere Portion`, and `+ own note` for words of your
+  own;
+* `Done` writes the line at the end of the recipe's `## Gekocht`, making the
+  section at the end of the note when there is none:
+  `- 2026-11-09 gern wieder · mehr Würze, Beilage anders`. It reads the note
+  from the vault first and writes only over what it read. A write that fails
+  says why in the sheet and leaves it open.
+
+`Later`, Escape or a tap beside the sheet skips it. A rating skipped before
+19:00 comes back once at 19:00 if kasten is still open, or on the first note
+opened after 19:00 that day. One skipped after 19:00 comes back on the next note
+opened that evening. The second showing says so, and skipping it drops the
+rating. A rating not given by the end of the day is dropped. The waiting rating
+lives in the browser, so another device does not see it.
+`frontend/src/lib/log/recipe/rate-sheet.ts` draws it.
