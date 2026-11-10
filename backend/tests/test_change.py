@@ -154,7 +154,9 @@ async def test_an_agent_write_is_named_in_the_log(
 
 def saved_texts(vault: Path, path: str) -> set[str]:
     """Every text of one note that some operation in `jj op log` recorded."""
-    ops = jj(vault, "op", "log", "--no-graph", "-T", 'id ++ "\\n"').split()
+    # `--ignore-working-copy`, or this read would take the snapshot the test asks about.
+    ops = jj(vault, "--ignore-working-copy", "op", "log", "--no-graph", "-T", 'id ++ "\\n"')
+    ops = ops.split()
     texts = set()
     for op in ops:
         shown = subprocess.run(  # noqa: S603
@@ -312,7 +314,7 @@ async def test_1827_history_right_after_a_save_shows_it(
     parked.set()
     await change.settled()
     parked.clear()
-    await client.put("/api/files/a.md", json={"content": "# fresh\n"})
+    await asyncio.wait_for(client.put("/api/files/a.md", json={"content": "# fresh\n"}), 2.0)
 
     listing = asyncio.create_task(client.get("/api/history", params={"path": "a.md"}))
     await asyncio.wait({listing}, timeout=0.5)
