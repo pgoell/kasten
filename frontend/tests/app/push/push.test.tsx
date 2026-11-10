@@ -283,6 +283,11 @@ describe("the settings page's push times", () => {
 });
 
 describe("the settings page's version", () => {
+  it("reads the release alone in production and both commits in development", () => {
+    expect(versionText("0.8.0", "")).toBe("0.8.0");
+    expect(versionText("1a2b3c4", "5d6e7f8")).toBe("be 1a2b3c4 fe 5d6e7f8");
+  });
+
   it("names the code the page runs", async () => {
     serve({ public_key: "-_8", devices: [] });
     await renderPage();
