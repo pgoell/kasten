@@ -58,7 +58,7 @@ Three tasks name those projects. None of them runs all three.
 | --- | --- | --- |
 | `fe:test` | `unit`, `perf` | CI's Unit and Test jobs, and lefthook before a push |
 | `fe:frame` | `frame` | CI's Perf job. Needs a Chromium install |
-| `fe:bench` | `perf` | local only, and gates nothing |
+| `fe:bench` | `perf (bench)` | local only, and gates nothing |
 
 `fe:test` names its projects rather than running everything, because CI's Test
 job and lefthook install no browser. The Perf job installs one with

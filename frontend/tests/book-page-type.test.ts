@@ -118,7 +118,7 @@ describe("the book's type in its own page", () => {
 
     const css = pageStyles();
 
-    expect(css).toMatch(/@font-face \{[^}]*"Newsreader Variable"/);
+    expect(css).toMatch(/@font-face \{[^}]*Newsreader Variable/);
     expect(css).not.toContain("Other Family");
   });
 });

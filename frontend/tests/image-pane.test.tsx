@@ -153,7 +153,7 @@ describe("the image pane by touch", () => {
   it("starts fitted, on a surface the browser does not scroll or zoom", () => {
     open();
 
-    expect(transform()).toBe("translate(0px, 0px) scale(1)");
+    expect(transform()).toBe("translate(0px) scale(1)");
     expect(surface()).toHaveClass("touch-none");
     expect(screen.getByRole("img")).toHaveAttribute("draggable", "false");
   });
@@ -165,7 +165,7 @@ describe("the image pane by touch", () => {
 
     // jsdom has no layout, so the box's centre is the origin and the midpoint
     // moved from 0 to -50.
-    expect(transform()).toBe("translate(-50px, 0px) scale(2)");
+    expect(transform()).toBe("translate(-50px) scale(2)");
     expect(HTMLElement.prototype.setPointerCapture).toHaveBeenCalledWith(1);
     expect(HTMLElement.prototype.setPointerCapture).toHaveBeenCalledWith(2);
   });
@@ -176,7 +176,7 @@ describe("the image pane by touch", () => {
     fireEvent.pointerDown(surface(), { pointerId: 1, clientX: 0, clientY: 0 });
     fireEvent.pointerMove(surface(), { pointerId: 1, clientX: 40, clientY: 40 });
 
-    expect(transform()).toBe("translate(0px, 0px) scale(1)");
+    expect(transform()).toBe("translate(0px) scale(1)");
   });
 
   it("pans a zoomed picture with the finger left down", () => {
@@ -228,7 +228,7 @@ describe("the image pane by touch", () => {
     fireEvent.pointerDown(surface(), { pointerId: 3, clientX: 0, clientY: 0 });
     fireEvent.pointerMove(surface(), { pointerId: 3, clientX: 10, clientY: 0 });
 
-    expect(transform()).toBe("translate(-40px, 0px) scale(2)");
+    expect(transform()).toBe("translate(-40px) scale(2)");
   });
 
   it("ignores a pointer that moves without being down, which is a mouse", () => {
@@ -239,7 +239,7 @@ describe("the image pane by touch", () => {
 
     fireEvent.pointerMove(surface(), { pointerId: 1, clientX: 300, clientY: 300 });
 
-    expect(transform()).toBe("translate(-50px, 0px) scale(2)");
+    expect(transform()).toBe("translate(-50px) scale(2)");
   });
 
   it("shows the next picture fitted", () => {
@@ -250,7 +250,7 @@ describe("the image pane by touch", () => {
 
     rerender(<ImagePane path="other.png" commands={stubCommands()} onDelete={vi.fn()} />);
 
-    expect(transform()).toBe("translate(0px, 0px) scale(1)");
+    expect(transform()).toBe("translate(0px) scale(1)");
   });
 });
 
