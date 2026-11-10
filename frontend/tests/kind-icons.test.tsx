@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { paneKind, panePath } from "@/components/kind-icons";
+import { paneKind, panePath } from "@/lib/panes/layout/pane-kinds";
 
 describe("kind icons", () => {
   it("A3 paneKind maps a pdf, a book, a review, an exam, a graph, a video and a note", () => {
