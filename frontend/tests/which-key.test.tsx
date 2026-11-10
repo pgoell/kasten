@@ -3,10 +3,15 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { WhichKey } from "@/components/which-key";
 import { LEADER_EDITS } from "@/lib/notes/editor/buffer-keys";
 import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
-import { LEADER } from "@/lib/ui/keys/leader-keys";
+import { LEADER, LEADER_PREFIXES } from "@/lib/ui/keys/leader-keys";
 import { beginLeader, editorOpener, type LeaderOpener, paneOpener } from "@/lib/ui/keys/which-key";
 import { stubCommands } from "./keybindings-fixture";
 import { stubMatchMedia } from "./match-media";
+
+/** A label as a pattern that matches it literally. */
+function literal(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 /** A key as the panel prints it: `cf` reads as two presses. */
 function spaced(key: string): string {
@@ -62,30 +67,65 @@ describe("WhichKey", () => {
     ]);
   });
 
-  it("every leader key and the tab digits are a row in one column", () => {
-    const { unmount } = mount(paneOpener);
-
-    for (const { key } of LEADER) {
-      const rows = screen.getAllByText(spaced(key), { selector: "kbd" });
-      expect(rows, key).toHaveLength(1);
-      expect(rows[0]?.closest("button"), key).not.toBeNull();
-    }
-    const digits = screen.getByText("1 … 0", { selector: "kbd" });
-    expect(digits.closest("button")).toBeNull();
-    expect(digits.closest("section")?.querySelector("h3")?.textContent).toBe("Tabs");
-    // The editor's edits belong to the editor's panel only.
-    expect(screen.queryByText("Tidy the markdown in this note")).toBeNull();
-    unmount();
-
+  it("before a key each group is one row, and its letter opens it", () => {
     const view = new EditorView({ doc: "", parent: document.body });
     try {
       mount((commands) => editorOpener(view, commands));
-      for (const { key } of LEADER_EDITS) {
-        expect(screen.getAllByText(spaced(key), { selector: "kbd" }), key).toHaveLength(1);
+      const keys = [...LEADER, ...LEADER_EDITS].map((each) => each.key);
+      const panel = screen.getByRole("dialog");
+
+      // A key of one letter is its own row; a longer one sits behind its group.
+      for (const key of keys.filter((each) => each.length === 1)) {
+        const named = [...LEADER, ...LEADER_EDITS].find((each) => each.key === key)?.label ?? "";
+        expect(
+          within(panel).getAllByRole("button", { name: new RegExp(literal(named)) }),
+          key,
+        ).not.toHaveLength(0);
       }
+      for (const prefix of new Set(keys.filter((each) => each.length > 1).map((each) => each[0]))) {
+        expect(LEADER_PREFIXES[prefix ?? ""], prefix).toBeDefined();
+        expect(
+          within(panel).getAllByText(`${LEADER_PREFIXES[prefix ?? ""]} …`),
+          prefix,
+        ).toHaveLength(1);
+      }
+      expect(screen.queryByText("Open today's note")).toBeNull();
+      const digits = screen.getByText("1 … 0", { selector: "kbd" });
+      expect(digits.closest("button")).toBeNull();
+      expect(digits.closest("section")?.querySelector("h3")?.textContent).toBe("Tabs");
+
+      fireEvent.click(screen.getByText("Go to …").closest("button") as HTMLElement);
+      for (const { key } of LEADER.filter((each) => each.key.startsWith("g"))) {
+        expect(
+          screen.getAllByText(spaced(key.slice(1)), { selector: "kbd" }),
+          key,
+        ).not.toHaveLength(0);
+      }
+      expect(screen.getByRole("button", { name: /Open today's note/ })).toBeInTheDocument();
     } finally {
       view.destroy();
     }
+  });
+
+  it("the editor's edits belong to the editor's panel only", () => {
+    mount(paneOpener);
+
+    expect(screen.queryByText("Tidy the markdown in this note")).toBeNull();
+    expect(screen.queryByText(`${LEADER_PREFIXES.s} …`)).toBeNull();
+  });
+
+  it("Backspace and the Space chip go back to the groups", () => {
+    mount();
+    const panel = screen.getByRole("dialog");
+
+    fireEvent.keyDown(panel, { key: "g" });
+    fireEvent.keyDown(panel, { key: "Backspace" });
+    expect(screen.getByText("Go to …")).toBeInTheDocument();
+
+    fireEvent.keyDown(panel, { key: "f" });
+    fireEvent.click(screen.getByRole("button", { name: "Back to the groups" }));
+    expect(screen.getByText("Find …")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Find a note/ })).toBeNull();
   });
 
   it("the pressed keys sit on top, Space then each key", () => {
@@ -338,6 +378,26 @@ describe("WhichKey", () => {
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "3" });
 
     expect(commands.goToTab).toHaveBeenCalledWith(2);
+  });
+
+  it("in a finance pane the note's keys are left out, and a line says so", () => {
+    render(
+      <>
+        <div data-pane="a" data-holds="finance">
+          <button type="button">Bookings</button>
+        </div>
+        <WhichKey phone={false} />
+      </>,
+    );
+    screen.getByRole("button", { name: "Bookings" }).focus();
+    act(() => {
+      beginLeader(paneOpener(stubCommands()));
+    });
+
+    expect(screen.queryByRole("button", { name: /Toggle live preview/ })).toBeNull();
+    expect(screen.queryByText(`${LEADER_PREFIXES.r} …`)).toBeNull();
+    expect(screen.getByRole("button", { name: /Toggle the file tree/ })).toBeInTheDocument();
+    expect(screen.getByText(/left out/)).toBeInTheDocument();
   });
 
   it("the desktop panel sits at the foot of the opener's pane", () => {

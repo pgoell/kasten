@@ -10,6 +10,7 @@ import {
 import { toggleImageAtCursor } from "@/lib/notes/embeds/image";
 import { writeTranscript } from "@/lib/panes/video/transcript";
 import { agentTodoAtCursor, cycleTodoAtCursor, stampIdAtCursor } from "@/lib/todo/todo-commands";
+import type { LeaderNeed } from "@/lib/ui/keys/leader-keys";
 
 /**
  * Keys that act inside the buffer, each carrying its own work, since the route has no view to write into.
@@ -21,6 +22,8 @@ export interface LeaderEdit {
   key: string;
   label: string;
   run: (view: EditorView) => void;
+  /** As on `LeaderBinding`: left out, the edit works in every note. */
+  needs?: LeaderNeed;
 }
 
 /** Leader keys that edit the buffer, so they carry their work rather than a command name. */
@@ -38,6 +41,7 @@ export const LEADER_EDITS: readonly LeaderEdit[] = [
     key: "cv",
     label: "Write this note's video transcript into it",
     run: (view) => void writeTranscript(view),
+    needs: "video",
   },
   // Bare `x` is vim's cut.
   { key: "x", label: "Cycle the todo on this line", run: cycleTodoAtCursor },

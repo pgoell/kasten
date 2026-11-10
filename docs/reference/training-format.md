@@ -33,7 +33,7 @@ A line counts where a `## Log` line would: in a daily note, under a heading
 that reads exactly `## Training`, up to the next `# ` or `## ` heading, outside
 fenced code and the frontmatter, opening with `- ` and no indent. A note may
 hold more than one `## Training`; each counts.
-[Log format](/reference/log-format.md#where-an-entry-sits) gives the rules in
+[Log format](/reference/food/log-format.md#where-an-entry-sits) gives the rules in
 full.
 
 ## The line

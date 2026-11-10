@@ -16,12 +16,37 @@ and kasten unmaps it so a sequence can begin there. Visual mode keeps
 move-right, because the leader is registered in normal mode only.
 
 Press Space and the which-key panel opens at once, at the foot of the focused
-pane. Its top line shows the presses so far, and below it the leader keys stand
-in six columns: Find, Create, Go to, Tabs, Panes and This note. The tables below
-follow those columns in that order. On a phone the panel is a bottom sheet and
-the six groups run one under the other, each row the sheet's full width. The next key narrows the panel to the keys
-that begin with it, so after `g` only the `g` keys stay. A click or tap on a row
-runs it. Esc, Space again, a press or a focus move outside the panel, or a key
+pane. Its top line shows the presses so far. Below it the keys stand under the
+six column titles: Find, Create, Go to, Tabs, Panes and This note. The tables
+below follow those columns in that order. Before the next key the panel shows
+one row per group, such as `g` Go to … or `c` Create …, beside the keys that
+need no second press; `h j k l` and `H J K L` share a row each. The next key
+opens its group, so after `g` only the `g` keys stay. Backspace, or a tap on the
+Space chip, goes back to the groups. On a desktop each title stands in its
+own column, and an open group's rows flow into as many columns as the pane is
+wide. On a phone the panel is a bottom sheet and the
+groups run one under the other, each row the sheet's full width.
+
+The panel leaves out the keys that would do nothing where Space was pressed,
+and says so in a line at its foot; typed, such a key still runs. Each key's
+`needs` in `leader-keys.ts` names the rule:
+
+| Needs | Shown when |
+| --- | --- |
+| `note` | the pane holds a note: `p`, `gb`, `go`, `gh`, `gl`, `gr`, `rf`, `df` |
+| `person` | the note has `type: Person`: `gp` |
+| `video` | the note links a YouTube video: `gv`, `cv` |
+| `exam` | the note holds a practice exam: `ge` |
+| `file` | the pane shows a file in the vault: `E` |
+| `export` | the pane holds a note, an exam, an image or a book: `w` |
+| `reading` | the pane holds a note, an HTML page, a pdf or a book: `rr`, `rh` |
+| `split` | the tab has more than one pane: `h j k l`, `H J K L`, `o`, `z` |
+| `player` | the tab has a video pane: `v` |
+
+The editor's edits, such as `x` and the `s` keys, show only in a note's panel.
+From the file tree every key shows, since the tree acts on its own cursor.
+
+A click or tap on a row runs it, or opens its group. Esc, Space again, a press or a focus move outside the panel, or a key
 that matches nothing closes the panel, and the focus goes back where it was. A
 command run from the panel keeps the focus where it put it, such as a finder. While the panel is open every key goes to it, so `y` takes nothing.
 On a desktop the panel fades out when it closes, and Space pressed during the
@@ -250,7 +275,7 @@ opens.
 
 With no config note the kinds are `Log water`, `Log coffee` and `Log alcohol`,
 writing `- 💧 250 ml`, `- ☕ 1` or `- 🍺 1`. With
-[`log.md`](/reference/log-format.md#the-config-note) they are exactly the kinds
+[`log.md`](/reference/food/log-format.md#the-config-note) they are exactly the kinds
 it names, each writing its tap line, so `- 🍵 tea: 1 cup` adds `Log tea`, which
 writes `- 🍵 1 cup`, and a note without a `☕` line offers no `Log coffee`. The
 list follows an edit to the note without a reload. Each writes its line
@@ -259,7 +284,7 @@ the note as `<leader>gd` would, where there is none. With today's note in the
 focused pane the line goes into its buffer, so `u` takes it back; otherwise it
 is written to the vault and the status bar says so, or says `Nothing logged:`
 while today's note holds unsaved text or is being saved. See
-[Log format](/reference/log-format.md#the-card).
+[Log format](/reference/food/log-format.md#the-card).
 
 `frontend/src/lib/ui/palette.ts` builds both lists from the tables in
 `leader-keys.ts` and `notes/editor/buffer-keys.ts`, so a new leader binding appears in the palette and in the

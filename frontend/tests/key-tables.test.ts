@@ -2,6 +2,7 @@
 import { FORMAT, LEADER_EDITS } from "@/lib/notes/editor/buffer-keys";
 import { type EditorCommands, TERMINAL } from "@/lib/ui/keys/key-bindings";
 import { LEADER } from "@/lib/ui/keys/leader-keys";
+import { type LeaderContext, panelRows } from "@/lib/ui/keys/leader-view";
 
 describe("the key tables", () => {
   it("names a command for every leader key that the editor can run", () => {
@@ -204,5 +205,52 @@ describe("the key tables", () => {
     for (const { key } of FORMAT.filter((entry) => entry.key.includes("S-"))) {
       expect(key).toMatch(/^<C-S-[A-Z]>$/);
     }
+  });
+});
+
+describe("what the which-key panel leaves out", () => {
+  /** Every key a view draws, a group as its prefix and a four as each of its keys. */
+  function drawn(typed: string, context: LeaderContext, edits = LEADER_EDITS): string[] {
+    return panelRows(typed, context, edits).columns.flatMap((column) =>
+      column.rows.flatMap((row) => {
+        if (row.kind === "digits") return [];
+        return row.kind === "four" ? row.keys.map((each) => each.key) : [row.key];
+      }),
+    );
+  }
+
+  const note = (text = ""): LeaderContext => ({ holds: "path", note: text, tab: ["path"] });
+
+  it("a finance pane shows no keys for a note, and no todo edits", () => {
+    const finance: LeaderContext = { holds: "finance", tab: ["finance"] };
+    const first = drawn("", finance, []);
+    for (const key of ["p", "w", "x", "s", "z", "h", "o"]) expect(first, key).not.toContain(key);
+    expect(drawn("g", finance, [])).not.toContain("gb");
+    expect(drawn("g", finance, [])).toContain("gd");
+    expect(drawn("r", finance, [])).toEqual([]);
+    expect(panelRows("", finance, []).hidden).toBe(true);
+  });
+
+  it("a lone note shows its own keys but none that move between panes", () => {
+    const first = drawn("", note());
+    expect(first).toEqual(expect.arrayContaining(["p", "w", "x", "s", "r", "d"]));
+    for (const key of ["h", "H", "o", "z", "v"]) expect(first, key).not.toContain(key);
+    expect(drawn("", { ...note(), tab: ["path", "video"] })).toEqual(
+      expect.arrayContaining(["h", "L", "o", "z", "v"]),
+    );
+  });
+
+  it("the person card, the video and the exam show only for a note that has one", () => {
+    expect(drawn("g", note())).not.toContain("gp");
+    expect(drawn("g", note())).not.toContain("gv");
+    expect(drawn("c", note())).not.toContain("cv");
+    expect(drawn("g", note("---\ntype: Person\n---\n"))).toContain("gp");
+    expect(drawn("g", note("https://youtu.be/dQw4w9WgXcQ"))).toContain("gv");
+    expect(drawn("c", note("https://youtu.be/dQw4w9WgXcQ"))).toContain("cv");
+  });
+
+  it("with no pane to go by, as from the file tree's page in a test, every key shows", () => {
+    expect(panelRows("", { tab: [] }, LEADER_EDITS).hidden).toBe(false);
+    expect(panelRows("g", { tab: ["path", "todos"] }, []).hidden).toBe(false);
   });
 });

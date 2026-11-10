@@ -192,6 +192,13 @@ export function renderPane(
     /** The row the keyboard cursor is on, which is the pane's only tab stop. */
     cursor: () => buttons().find((row) => row.tabIndex === 0),
     footer: () => screen.getByTestId("todo-footer").textContent ?? "",
+    /** The legend's count per state, which the footer draws over the open list. */
+    counts: () =>
+      Object.fromEntries(
+        Array.from(document.querySelectorAll<HTMLElement>("ul[aria-label='legend'] li")).map(
+          (li) => [li.title, Number(li.textContent)],
+        ),
+      ),
     press: (key: string) => fireEvent.keyDown(panel(), { key }),
     type: (value: string) =>
       fireEvent.change(screen.getByLabelText("filter todos"), { target: { value } }),

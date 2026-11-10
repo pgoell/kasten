@@ -37,7 +37,7 @@ describe("the todo pane", () => {
     expect(waiting?.querySelector("[data-state='waiting']")).not.toBeNull();
     expect(waiting?.textContent).toContain("👤 7d Ada");
     expect(waiting?.className).toContain("text-k-muted");
-    expect(pane.footer()).toContain("1 open, 0 blocked, 1 waiting");
+    expect(pane.counts()).toMatchObject({ open: 1, blocked: 0, waiting: 1 });
   });
 
   it("opens the edit of a waiting row that names nobody with the cursor where the name goes", async () => {
@@ -68,12 +68,12 @@ describe("the todo pane", () => {
     expect(pane.rows()[0]?.textContent).toContain("decision record");
   });
 
-  it("counts the open and blocked rows in the footer", async () => {
+  it("counts the open, doing and blocked rows in the footer's legend", async () => {
     const pane = renderPane();
 
     await pane.loaded();
     expect(pane.rows()).toHaveLength(6);
-    expect(pane.footer()).toContain("5 open, 1 blocked");
+    expect(pane.counts()).toMatchObject({ open: 4, doing: 1, blocked: 1 });
   });
 
   it("draws a review row with its symbol, and not muted", async () => {
@@ -93,7 +93,7 @@ describe("the todo pane", () => {
     expect(review?.className).not.toContain("text-k-muted");
   });
 
-  it("counts the rows waiting for review in the footer", async () => {
+  it("counts the rows waiting for review in the footer's legend", async () => {
     const pane = renderPane([
       { path: "a.md", line: 1, text: "- [r] write the parser 📅 2026-08-10" },
       { path: "a.md", line: 2, text: "- [ ] buy milk 📅 2026-08-10" },
@@ -101,6 +101,15 @@ describe("the todo pane", () => {
 
     await pane.loaded();
     expect(pane.rows()).toHaveLength(2);
-    expect(pane.footer()).toContain("1 open, 0 blocked, 1 to review");
+    expect(pane.counts()).toMatchObject({ open: 1, blocked: 0, review: 1 });
+  });
+
+  it("keeps the legend in the footer and the shared toggle away while no list is shared", async () => {
+    const pane = renderPane();
+
+    await pane.loaded();
+    const legend = screen.getByRole("list", { name: "legend" });
+    expect(screen.getByTestId("todo-footer").contains(legend)).toBe(true);
+    expect(screen.queryByRole("button", { name: /^Shared lists/ })).toBeNull();
   });
 });

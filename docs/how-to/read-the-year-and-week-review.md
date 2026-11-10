@@ -108,7 +108,7 @@ such as `--from 2026-01-01`. With no usage line in the year, the section says
 ### Weight
 
 A line of the weigh-ins over the year, with the 7-day average. The weight is the
-log's kind with `last` in its line, the one [Log format](/reference/log-format.md)
+log's kind with `last` in its line, the one [Log format](/reference/food/log-format.md)
 describes. With no such kind, the section says `No weight kind in the log config.`
 With no weigh-in in the year, it says `No weigh-ins in 2026.`
 

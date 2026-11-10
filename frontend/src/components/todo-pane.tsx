@@ -3,7 +3,6 @@ import { useDeferredValue, useMemo, useRef, useState } from "react";
 import { type BoardKeys, TodoBoard } from "@/components/todo-board";
 import { TodoFooter } from "@/components/todo-footer";
 import { TodoHeader } from "@/components/todo-header";
-import { TodoLegend } from "@/components/todo-legend";
 import { TodoList } from "@/components/todo-list";
 import { fetchTodos, type SearchHit, type TodoHit } from "@/lib/core/api";
 import type { TodoState } from "@/lib/todo/todo";
@@ -415,33 +414,29 @@ export function TodoPane({
           onNotice={onNotice}
         />
       ) : (
-        <>
-          {/* The counts are of the open list, so the legend is drawn only over it. */}
-          {mode === "open" && blocker.picking === null && <TodoLegend counts={facts.counts} />}
-          <TodoList
-            groups={groups}
-            empty={empty}
-            cursorKey={cursorKey}
-            facts={facts}
-            today={today}
-            coarse={coarse}
-            picking={blocker.picking !== null}
-            editing={editing}
-            onEditing={setEditing}
-            draft={draft}
-            armed={armed.armed}
-            onArm={armed.arm}
-            onRow={onRow}
-            files={narrowing.files ?? []}
-            onPerson={(path) => onOpen(path, 1)}
-            onWrite={onEdit}
-            onCycle={onCycle}
-            actions={actions}
-            doneWeek={foldRows}
-            doneOpen={doneOpen}
-            onDoneFold={() => setDoneOpen(!doneOpen)}
-          />
-        </>
+        <TodoList
+          groups={groups}
+          empty={empty}
+          cursorKey={cursorKey}
+          facts={facts}
+          today={today}
+          coarse={coarse}
+          picking={blocker.picking !== null}
+          editing={editing}
+          onEditing={setEditing}
+          draft={draft}
+          armed={armed.armed}
+          onArm={armed.arm}
+          onRow={onRow}
+          files={narrowing.files ?? []}
+          onPerson={(path) => onOpen(path, 1)}
+          onWrite={onEdit}
+          onCycle={onCycle}
+          actions={actions}
+          doneWeek={foldRows}
+          doneOpen={doneOpen}
+          onDoneFold={() => setDoneOpen(!doneOpen)}
+        />
       )}
 
       <TodoFooter
@@ -452,6 +447,7 @@ export function TodoPane({
         timers={facts.timers}
         coarse={coarse}
         picking={blocker.picking !== null}
+        counts={facts.counts}
       />
     </section>
   );

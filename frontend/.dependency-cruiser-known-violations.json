@@ -208,9 +208,9 @@
   },
   {
     "type": "cycle",
-    "from": "src/lib/log/barcode-zxing.ts",
-    "to": "src/lib/log/barcode.ts",
-    "unresolvedTo": "@/lib/log/barcode",
+    "from": "src/lib/log/barcode/barcode-zxing.ts",
+    "to": "src/lib/log/barcode/barcode.ts",
+    "unresolvedTo": "@/lib/log/barcode/barcode",
     "dependencyTypes": ["undetermined", "import", "type-only"],
     "rule": {
       "severity": "error",
@@ -218,11 +218,11 @@
     },
     "cycle": [
       {
-        "name": "src/lib/log/barcode.ts",
+        "name": "src/lib/log/barcode/barcode.ts",
         "dependencyTypes": ["undetermined", "import", "type-only"]
       },
       {
-        "name": "src/lib/log/barcode-zxing.ts",
+        "name": "src/lib/log/barcode/barcode-zxing.ts",
         "dependencyTypes": ["undetermined", "dynamic-import"]
       }
     ]
@@ -418,9 +418,9 @@
   },
   {
     "type": "dependency",
-    "from": "src/lib/log/barcode.ts",
-    "to": "src/lib/log/barcode-zxing.ts",
-    "unresolvedTo": "@/lib/log/barcode-zxing",
+    "from": "src/lib/log/barcode/barcode.ts",
+    "to": "src/lib/log/barcode/barcode-zxing.ts",
+    "unresolvedTo": "@/lib/log/barcode/barcode-zxing",
     "dependencyTypes": ["undetermined", "dynamic-import"],
     "rule": {
       "severity": "error",

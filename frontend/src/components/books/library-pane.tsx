@@ -251,7 +251,8 @@ export function LibraryPane({
           )}
         </div>
       </div>
-      <footer className="flex flex-wrap gap-x-4 border-t border-k-rule px-3 py-1 text-k-12 text-k-muted">
+      {/* Keys a finger cannot press, so a touch screen leaves them out. */}
+      <footer className="flex flex-wrap gap-x-4 border-t border-k-rule px-3 py-1 text-k-12 text-k-muted pointer-coarse:hidden">
         {[
           ["j k", "move"],
           ["↵", "read"],

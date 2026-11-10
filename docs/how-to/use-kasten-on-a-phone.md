@@ -59,10 +59,11 @@ Commands worth knowing by name:
 
 ## See the keys after Space
 
-1. Tap `space`. The which-key panel rises from the foot of the screen, with the
-   leader keys in one column at full width, in the groups Find, Create, Go to,
-   Tabs, Panes and This note.
-2. Tap a row to run it.
+1. Tap `space`. The which-key panel rises from the foot of the screen, one
+   column at full width under the titles Find, Create, Go to, Tabs, Panes and
+   This note. It shows only the keys that do something in the pane you are in.
+2. Tap a row to run it. A row that ends in `…`, such as Go to …, opens its
+   group; tap the `Space` chip at the top to go back.
 
 To close the panel, flick its grabber down.
 

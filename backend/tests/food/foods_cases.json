@@ -1,0 +1,14 @@
+[
+  {"line": "- ja! Choco Chips: 30 g, 🏷 4337185123456, 🔥 486 🥩 6.4 🍞 61 🧈 23", "food": {"name": "ja! Choco Chips", "serving_g": 30, "code": "4337185123456", "kcal": 486, "protein": 6.4, "carbs": 61, "fat": 23}},
+  {"line": "- Skyr: 🔥 62 🥩 11", "food": {"name": "Skyr", "serving_g": null, "code": null, "kcal": 62, "protein": 11, "carbs": null, "fat": null}},
+  {"line": "- Zwiebel: 80 g, 🔥 40 🥩 1,2 🍞 8 🧈 0.1", "food": {"name": "Zwiebel", "serving_g": 80, "code": null, "kcal": 40, "protein": 1.2, "carbs": 8, "fat": 0.1}},
+  {"line": "- Brot: Vollkorn: 50 g, 🔥 220", "food": {"name": "Brot: Vollkorn", "serving_g": 50, "code": null, "kcal": 220, "protein": null, "carbs": null, "fat": null}},
+  {"line": "- Haferflocken: 🏷️ 40000000, 🧈 7 🔥 370", "food": {"name": "Haferflocken", "serving_g": null, "code": "40000000", "kcal": 370, "protein": null, "carbs": null, "fat": 7}},
+  {"line": "- Skyr: 150 g", "food": null},
+  {"line": "- Skyr: 🔥 62 🔥 70", "food": null},
+  {"line": "- Skyr: 0 g, 🔥 62", "food": null},
+  {"line": "- : 🔥 62", "food": null},
+  {"line": "- Skyr: 🏷 1234, 🔥 62", "food": null},
+  {"line": "- Skyr: 🔥 62 extra", "food": null},
+  {"line": "Skyr: 🔥 62", "food": null}
+]

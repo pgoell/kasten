@@ -9,7 +9,7 @@ status: stable
 
 # Save path orderings: the log pane's sheet and quick buttons
 
-Part of [save path orderings](/reference/save-path-orderings.md). The columns are explained in [How to read the table](/reference/save-path-orderings.md#how-to-read-the-table). Rows keep their numbers on every page. The log pane's other writes are rows L11 to L14 in [the log card's page](/reference/save-path-orderings/log-card.md), and the format of the lines is [Log format](/reference/log-format.md).
+Part of [save path orderings](/reference/save-path-orderings.md). The columns are explained in [How to read the table](/reference/save-path-orderings.md#how-to-read-the-table). Rows keep their numbers on every page. The log pane's other writes are rows L11 to L14 in [the log card's page](/reference/save-path-orderings/log-card.md), and the format of the lines is [Log format](/reference/food/log-format.md).
 
 ## Orderings
 

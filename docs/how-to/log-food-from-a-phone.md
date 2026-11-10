@@ -93,4 +93,4 @@ as your own opens without asking Open Food Facts.
 
 * [Add a food of your own](/how-to/add-a-food-of-your-own.md): save a food Open Food Facts lacks
 * [Food from Open Food Facts](/explanation/food-from-open-food-facts.md): where the barcode goes, and what leaves the server
-* [The log format](/reference/log-format.md): the line a logged food leaves in the daily note
+* [The log format](/reference/food/log-format.md): the line a logged food leaves in the daily note

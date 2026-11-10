@@ -23,8 +23,8 @@ vi.mock("@/lib/log/my-foods", async (importOriginal) => ({
   fetchMyFoods: vi.fn(),
   addMyFood: vi.fn(),
 }));
-vi.mock("@/lib/log/barcode-camera", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/log/barcode-camera")>()),
+vi.mock("@/lib/log/barcode/barcode-camera", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/log/barcode/barcode-camera")>()),
   startCamera: vi.fn(() => camera.stop),
 }));
 

@@ -1,7 +1,7 @@
 import type { EditorView } from "@codemirror/view";
 import { LEADER_EDITS } from "@/lib/notes/editor/buffer-keys";
 import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
-import { leaderAction, leaderPrefix } from "@/lib/ui/keys/leader-keys";
+import { type LeaderNeed, leaderAction, leaderPrefix } from "@/lib/ui/keys/leader-keys";
 
 /**
  * Where a pane hands Space once it has read it as the leader. Each pane knows what the panel
@@ -15,7 +15,9 @@ export interface LeaderOpener {
   /** Whether more keys could still finish the sequence. */
   prefix(typed: string): boolean;
   /** Rows beside `LEADER` this opener runs: the editor's buffer edits. */
-  edits?: readonly { key: string; label: string }[];
+  edits?: readonly { key: string; label: string; needs?: LeaderNeed }[];
+  /** The text of the note the editor holds, which decides whether some keys show. */
+  note?: string;
 }
 
 type Host = (opener: LeaderOpener) => void;
@@ -58,5 +60,6 @@ export function editorOpener(view: EditorView, commands: EditorCommands): Leader
     prefix: (typed) =>
       leaderPrefix(typed) || LEADER_EDITS.some((each) => each.key.startsWith(typed)),
     edits: LEADER_EDITS,
+    note: view.state.doc.toString(),
   };
 }

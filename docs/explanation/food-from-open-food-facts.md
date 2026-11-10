@@ -46,6 +46,8 @@ Two things leave the server, and no others:
   Its default is the kasten repository URL, so no personal address leaves the
   server until the operator sets one.
 
+A barcode pinned to a line of a [recipe note](/reference/food/recipe-note.md)
+goes the same way, and only the barcode: the recipe's words stay on the server.
 A scanned barcode goes the same way as a typed one. The phone reads the code
 itself, and no picture leaves the phone.
 
@@ -71,7 +73,8 @@ Food Facts counts it too.
 
 ## Why the cache is in memory
 
-A search is kept for a day and a found barcode for three days. The cache lives
+A search is kept for a day, a found barcode for three days, and a barcode with
+no product for an hour. The cache lives
 in memory, not in Postgres, for two reasons.
 
 * No food is a record. The record is the line the log writes into the daily
@@ -106,7 +109,7 @@ and, where it can, the wait:
 ## Foods of your own
 
 Open Food Facts lacks some products, so a food of your own is a line in
-`foods.md`, a note in the vault ([the foods note](/reference/log-format.md#the-foods-note)).
+`foods.md`, a note in the vault ([the foods note](/reference/food/log-format.md#the-foods-note)).
 Unlike the cache, these are records: you typed them off a pack, and nobody else
 keeps them. So they live where the notes live, with their history in jj, and
 they can be read and fixed by hand. The figures are per 100 g because that is
@@ -116,5 +119,5 @@ for your own food makes no call to Open Food Facts.
 ## Related
 
 * [HTTP API: food](/reference/http-api/food.md): the routes, the answers and the limits
-* [The log format](/reference/log-format.md): the line a logged food leaves in the daily note
+* [The log format](/reference/food/log-format.md): the line a logged food leaves in the daily note
 * [Configuration](/reference/configuration.md): `KASTEN_FOOD_CONTACT` and the other settings
