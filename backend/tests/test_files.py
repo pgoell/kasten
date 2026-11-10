@@ -147,6 +147,8 @@ async def test_a_page_load_walks_the_vault_once(
 ) -> None:
     _odd_vault(vault)
     calls = _scandir_calls(monkeypatch)
+    # Wide, so a loaded CI runner still lands all four inside it: the test is of the sharing.
+    monkeypatch.setattr(listing, "BATCH_SECONDS", 1.0)
 
     responses = await asyncio.gather(*(client.get(url) for url in LISTINGS))
 
