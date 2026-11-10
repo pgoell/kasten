@@ -221,7 +221,9 @@ function itemLineAt(doc: Text, n: number): number | null {
   for (let at = n; at >= 1; at--) {
     const text = doc.line(at).text;
     if (ITEM.test(text)) return at;
-    if (text.trim() === "") return null;
+    // A heading, fence or rule is no item's continuation, so the list above it is another block.
+    if (text.trim() === "" || HEADING.test(text) || FENCE.test(text) || /^\s*---+\s*$/.test(text))
+      return null;
   }
   return null;
 }
@@ -317,11 +319,11 @@ function inCode(state: EditorState, at: number): boolean {
  */
 export function cycleListStyle(view: EditorView): boolean {
   const { doc } = view.state;
-  const line = doc.lineAt(view.state.selection.main.head);
-  // A YAML list in the frontmatter or a list in a fence is not markdown to restyle.
-  if (line.number <= frontEnd(doc) || inCode(view.state, line.from)) return false;
-  const items = listAt(doc, line.number);
+  const items = listAt(doc, doc.lineAt(view.state.selection.main.head).number);
   if (items === null || items.length === 0) return false;
+  // A YAML list in the frontmatter or a list in a fence is not markdown to restyle.
+  const front = frontEnd(doc);
+  if (items.some(({ line }) => line.number <= front || inCode(view.state, line.from))) return false;
   if (
     items.some((item) =>
       TODO_BOX.test(item.line.text.slice(item.indent + item.mark.length + item.gap.length)),

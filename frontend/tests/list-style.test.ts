@@ -86,6 +86,13 @@ describe("cycleListStyle", () => {
 
     expect(cycled(front, 3)).toEqual(front);
     expect(cycled(fence, 2)).toEqual(fence);
+    // From the line under the closing fence too, which a walk up for the item would cross.
+    expect(cycled([...front.slice(0, 4), "# Title"], 5)).toEqual([...front.slice(0, 4), "# Title"]);
+    expect(cycled([...fence, "text"], 4)).toEqual([...fence, "text"]);
+  });
+
+  it("does not reach past a heading for the list above it", () => {
+    expect(cycled(["- a", "# Title"], 2)).toEqual(["- a", "# Title"]);
   });
 
   it("goes to bullets rather than past z", () => {
