@@ -392,7 +392,10 @@ Shares of the home route, from the source maps (minified, gzip of the same text)
 - defuddle: 697 kB, 199 kB gzip. Still static.
 - finance-* components: 97 kB, 25 kB gzip. Still static.
 
-Home route total, the entry and the index route with their static imports:
+Home route total, the entry and the index route with their static imports, js
+files only, from a `--sourcemap` build, gzip by Python's zlib. In `frontend/`,
+`vite build --manifest --sourcemap` then `node scripts/home-route-size.ts dist`
+prints it, and the css on a line apart:
 
 | Build | Raw | Gzip | Files |
 | --- | --- | --- | --- |

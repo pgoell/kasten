@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { build } from "vite";
+import { homeRouteFiles, homeRouteSize, type Manifest } from "../../scripts/home-route-size";
 import { renderServiceWorker, serviceWorker } from "../../sw/plugin";
 
 const ASSETS = ["/assets/index-abc.js", "/assets/index-def.css"];
@@ -179,5 +180,66 @@ describe("the service worker plugin", () => {
     const two = /const VERSION = "([^"]+)"/.exec(renderServiceWorker(["/assets/other.js"]))?.[1];
     expect(one).toBeTruthy();
     expect(one).not.toBe(two);
+  });
+});
+
+// #1828: the home route size. A shared chunk in an import cycle, css,
+// a dynamic import, a font and a second entry's chunk: each counted or skipped.
+const MANIFEST: Manifest = {
+  "index.html": {
+    file: "assets/main.js",
+    imports: ["_shared.js", "_entry-only.js"],
+    css: ["assets/main.css"],
+    assets: ["assets/font.woff2"],
+  },
+  "_shared.js": { file: "assets/shared.js", imports: ["_entry-only.js"] },
+  "_entry-only.js": {
+    file: "assets/entry-only.js",
+    imports: ["_shared.js"],
+    css: ["assets/font.css"],
+  },
+  "src/routes/index.tsx?tsr-split=component": {
+    file: "assets/routes.js",
+    imports: ["_shared.js"],
+    dynamicImports: ["src/lazy.tsx"],
+  },
+  "src/lazy.tsx": { file: "assets/lazy.js" },
+  "lists.html": { file: "assets/lists.js", imports: ["_lists-only.js"] },
+  "_lists-only.js": { file: "assets/lists-only.js" },
+};
+
+describe("the home route size", () => {
+  it("reaches the entry and the index route by static imports, each file once", () => {
+    expect(homeRouteFiles(MANIFEST)).toEqual({
+      js: ["assets/entry-only.js", "assets/main.js", "assets/routes.js", "assets/shared.js"],
+      css: ["assets/font.css", "assets/main.css"],
+    });
+  });
+
+  it("sums raw bytes and Python's gzip at level 9 per file, js apart from css", () => {
+    const dist = mkdtempSync(path.join(tmpdir(), "home-route-"));
+    mkdirSync(path.join(dist, ".vite"));
+    mkdirSync(path.join(dist, "assets"));
+    writeFileSync(path.join(dist, ".vite/manifest.json"), JSON.stringify(MANIFEST));
+    const files = Object.values(MANIFEST).flatMap((c) => [
+      c.file,
+      ...(c.css ?? []),
+      ...(c.assets ?? []),
+    ]);
+    files.forEach((file, i) => {
+      const text = Array.from({ length: 50 * (i + 1) }, (_, n) => `${file}:${n * n};`).join("\n");
+      writeFileSync(path.join(dist, file), text);
+    });
+    expect(homeRouteSize(dist)).toEqual({
+      js: { raw: 20_795, gzip: 2_802, files: 4 },
+      css: { raw: 8_906, gzip: 1_278, files: 2 },
+    });
+  });
+
+  it("stops when the manifest lacks the entry or the index route", () => {
+    const { "index.html": _, ...noEntry } = MANIFEST;
+    const { "src/routes/index.tsx?tsr-split=component": __, ...noRoute } = MANIFEST;
+    expect(() => homeRouteFiles(noEntry)).toThrow(/renamed/);
+    expect(() => homeRouteFiles(noRoute)).toThrow(/renamed/);
   });
 });

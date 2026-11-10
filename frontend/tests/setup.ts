@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 import { configure } from "@testing-library/react";
-import "../scripts/cross-midnight";
+import "../scripts/cross-midnight/clock";
 
 // Rows that land after an async load take more than the 1 s default on a loaded
 // box (#1629); 4 s stays under the 5 s test timeout, so a lost row still names itself.
