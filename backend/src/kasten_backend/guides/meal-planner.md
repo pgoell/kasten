@@ -18,8 +18,9 @@ without a token inside the shell container.
 - Never count kcal or protein yourself. Every number comes from
   `GET /api/recipes` (`per_serving`) or from `POST /api/meal-plan`. A recipe
   whose `per_serving` is null counts as unknown, never as zero.
-- Write one note: `{{share}}/Woche <NN>.md` for the planned week. Change no
-  recipe, no daily note, no other plan. Shopping is the plan card's button, not
+- Write the week note, `{{share}}/Woche <NN>.md`, and
+  `{{config}}/Essensplanung.md` only when it is missing. Change no recipe, no
+  daily note, no other plan. Shopping is the plan card's button, not
   yours.
 - An existing plan for that week is the user's: show what it holds and ask
   before you replace a line of it.

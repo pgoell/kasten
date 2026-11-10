@@ -162,5 +162,5 @@ folder and checks it with
 [`POST /api/meal-plan`](/reference/http-api/food.md#post-apimeal-plan): a batch
 that runs short, a meal past the fridge limit or a training day under its
 protein goal is fixed or named in its report. It never works out kcal or
-protein itself, changes no other note, and leaves the shopping list to the
+protein itself, writes no other note but a missing `Essensplanung.md`, and leaves the shopping list to the
 card's button.
