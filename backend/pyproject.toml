@@ -12,7 +12,7 @@ authors = [
 requires-python = ">=3.14"
 dependencies = [
     "alembic>=1.14",
-    "fastapi[standard]>=0.135",
+    "fastapi[standard]>=0.162.0",
     # Reached for directly by `/api/fetch`, and not only through the test
     # client fastapi's standard extra brings it in for.
     "httpcore>=1.0",
