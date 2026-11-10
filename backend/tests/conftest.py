@@ -76,6 +76,8 @@ def startup_vault(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[P
     # joins its pieces in the box's shared temp folder or wipes another's.
     monkeypatch.setenv("KASTEN_UPLOAD_PATH", str(tmp_path / "uploads"))
     monkeypatch.setenv("KASTEN_RECEIPTS_PATH", str(tmp_path / "receipts"))
+    # The vault lock sits beside the tokens, so neither lands in the repo.
+    monkeypatch.setenv("KASTEN_TOKENS_PATH", str(tmp_path / "tokens.json"))
     # The text cache of pdf, epub and html files, never the box's shared temp folder.
     monkeypatch.setenv("KASTEN_TEXT_CACHE_PATH", str(tmp_path / "text-cache"))
     get_settings.cache_clear()

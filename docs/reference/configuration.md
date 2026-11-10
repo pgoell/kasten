@@ -194,24 +194,23 @@ token holding a name, a creation date and a SHA-256 digest in lowercase hex.
 | Read by | every `/agent/` route, and `/api/tokens` |
 
 A relative path resolves against the working directory, the way
-`KASTEN_VAULT_PATH` does. Production names a file inside a mounted directory,
-the same path the image sets.
+`KASTEN_VAULT_PATH` does.
 
 Beside the vault and never inside it. A token in the vault would enter jj
 history for good and sit one search away from any agent reading notes.
 
 The *directory* is what production mounts, never this file: `os.replace` over a
 bind-mounted file fails with `EBUSY`, and every mint and revoke would break.
-And keep that directory on the host: a store inside the container's own
-filesystem goes with the container at the next upgrade, and every agent is
-refused until you mint again.
+Keep that directory on the host: a store in the container's own filesystem
+goes at the next upgrade, and every agent is refused until you mint again.
 
 A store that does not exist reads as an empty list, so a box with no tokens
 refuses every bearer rather than failing to start.
 
 Reading tokens live in `tokens-reading.json` beside it. A revoked token's record
 moves to `tokens-revoked.json`, so the action log can still name its requests.
-All three sit in one directory and are written the same way.
+All three sit in one directory and are written the same way. So does
+`vault.lock`, which every backend process flocks before it writes the vault.
 
 `tokens-revoked.json` keeps the last 50 records; [revoking a token](/reference/http-api/system.md) says why that, or a broken file, cannot let one back in.
 
