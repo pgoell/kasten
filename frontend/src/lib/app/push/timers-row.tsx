@@ -90,7 +90,7 @@ export function TimersRow() {
         <p className="px-2 font-sans text-k-13 text-k-muted">Could not load the timers.</p>
       )}
 
-      {push.data?.devices.length === 0 && (
+      {push.data?.public_key && push.data.devices.length === 0 && (
         <p data-timers-unheard className="px-2 font-sans text-k-13 text-k-muted">
           No device gets timer pushes yet. Turn them on in{" "}
           <a href="/settings" className="text-k-ink underline hover:text-k-accent">

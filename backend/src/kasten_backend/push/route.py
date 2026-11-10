@@ -16,7 +16,7 @@ from kasten_backend.config import Settings, get_settings
 from kasten_backend.db import get_session
 from kasten_backend.push import webpush
 from kasten_backend.push.due import ALARM, CLOSED, put_off
-from kasten_backend.push.loop import GONE, REFUSED, refusal
+from kasten_backend.push.loop import deliver
 from kasten_backend.push.models import PushDevice, PushSettings, PushTimer
 
 if TYPE_CHECKING:
@@ -223,18 +223,9 @@ async def test_device(
     if device is None:
         raise HTTPException(404, "No such device")
     key = settings.push_private_key.get_secret_value()
-    try:
-        response = await webpush.send(
-            client, device.endpoint, device.p256dh, device.auth, message=TEST_MESSAGE, key=key
-        )
-    except httpx.HTTPError as error:
-        return TestOut(status=None, reason=str(error) or type(error).__name__, gone=False)
-    gone = response.status_code in GONE
-    if gone:
-        await session.delete(device)
-        await session.commit()
-    reason = (refusal(response) or None) if response.status_code >= REFUSED else None
-    return TestOut(status=response.status_code, reason=reason, gone=gone)
+    delivery = await deliver(session, client, device, TEST_MESSAGE, key)
+    await session.commit()
+    return TestOut(status=delivery.status, reason=delivery.reason, gone=delivery.gone)
 
 
 @router.get("/timers")

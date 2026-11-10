@@ -208,6 +208,8 @@ describe("the timers tab", () => {
     });
     const pane = screen.getByRole("region", { name: "timers pane" });
     expect(pane).toHaveFocus();
+    // Push is not set up here, so settings has no device to offer and the note stays away.
+    expect(screen.queryByText(/No device gets timer pushes/)).not.toBeInTheDocument();
     fireEvent.keyDown(pane, { key: "i" });
     expect(screen.getByLabelText("Timer name")).toHaveFocus();
     fireEvent.keyDown(screen.getByLabelText("Timer name"), { key: "Escape" });
