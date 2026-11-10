@@ -8,6 +8,11 @@ const MINUTE_MS = 60_000;
  * minute changes on screen when it changes on the clock: one render a minute.
  */
 export function Clock({ crowded, gone }: { crowded: boolean; gone?: boolean }) {
+  // A placeholder keeps the bar's middle column, and no timer ticks for it.
+  return gone ? <span /> : <Ticking crowded={crowded} />;
+}
+
+function Ticking({ crowded }: { crowded: boolean }) {
   const [now, setNow] = useState<ClockReading>(() => readClock(new Date()));
 
   useEffect(() => {
@@ -26,9 +31,6 @@ export function Clock({ crowded, gone }: { crowded: boolean; gone?: boolean }) {
     tick();
     return () => clearTimeout(timer);
   }, []);
-
-  // A placeholder keeps the bar's middle column, so the save sign stays on the right.
-  if (gone) return <span />;
 
   return (
     // Spaced apart rather than punctuated: the gap separates the four readings

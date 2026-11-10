@@ -184,8 +184,9 @@ function StripTab({ tab, index, selected, folded, cap, dirty, onSelect, onClose 
 }
 
 /**
- * The strip of open tabs, under the top bar. Today is the home button, outside the numbered
- * tabs. Tabs that do not fit fold behind "N more"; the active tab is always drawn.
+ * The strip of open tabs, under the top bar, or at the top of a phone. Today is the home
+ * button, outside the numbered tabs. Tabs that do not fit fold behind "N more"; the active
+ * tab is always drawn.
  */
 export function TabStrip({
   layout,
