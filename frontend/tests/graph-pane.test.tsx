@@ -302,4 +302,32 @@ describe("GraphPane", () => {
     expect([press("+"), press("="), press("-"), press("m")]).toEqual([true, true, true, true]);
     expect(ask.mock.calls.every(([options]) => options.depth === undefined)).toBe(true);
   });
+
+  it("a pane closed before the graph chunk loads never draws a canvas", async () => {
+    canvas.handlers = null;
+    const view = render(
+      <QueryClientProvider client={new QueryClient()}>
+        <GraphPane commands={stubCommands()} onOpen={vi.fn()} onFollow={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    view.unmount();
+
+    await new Promise((done) => setTimeout(done, 100));
+    expect(canvas.handlers).toBeNull();
+  });
+
+  it("#1762 a graph whose chunk does not load says so in the pane, and a second open asks again", async () => {
+    vi.spyOn(api, "fetchGraph").mockResolvedValue(WHOLE);
+    const load = vi
+      .spyOn(api, "loadGraphCanvas")
+      .mockRejectedValueOnce(new TypeError("Failed to fetch dynamically imported module"));
+    renderPane();
+
+    expect(await screen.findByText(api.GRAPH_LOST)).toBeVisible();
+    cleanup();
+    renderPane();
+    await waitFor(() => expect(canvas.update).toHaveBeenCalled());
+    expect(screen.getByText(api.GRAPH_LOST)).not.toBeVisible();
+    expect(load).toHaveBeenCalledTimes(2);
+  });
 });

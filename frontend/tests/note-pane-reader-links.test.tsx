@@ -104,7 +104,10 @@ vi.mock("@/lib/core/api", () => ({
   NoteExists: class NoteExists extends Error {},
   NoteMissing: class NoteMissing extends Error {},
 }));
-vi.mock("@/lib/graph/graph-api", () => ({ fetchGraph }));
+vi.mock("@/lib/graph/graph-api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/graph/graph-api")>()),
+  fetchGraph,
+}));
 // jsdom has no canvas, so the drawing is a double, and a test counts the drawings.
 const canvas = vi.hoisted(() => ({
   update: vi.fn(),

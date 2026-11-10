@@ -13,12 +13,20 @@ The vault is the same shape the frontend harnesses use, from
 eight top folders, and a new folder every eight notes below that. Paths are not
 byte-identical to the TypeScript generator's and do not need to be. The shape
 is what the cost tracks, and both produce 842 folders at 10,000 notes.
+
+The save case at the end times one `PUT /api/files/{path}` in a jj repo the same
+way, and splits it into the write and the jj commands it runs.
 """
 
 import math
 import statistics
 import time
 from typing import TYPE_CHECKING
+
+import pytest
+
+from backend.tests.conftest import JJ, descriptions, jj
+from kasten_backend import vcs
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -30,6 +38,9 @@ NOTES = 10_000
 
 RUNS = 3
 """Timed calls. Enough for a median, few enough to keep `mise run test:py` quick."""
+
+SAVES = 5
+"""Timed saves after the first, which is printed apart because it runs `jj new`."""
 
 TOPS = 8
 FANOUT = 8
@@ -180,4 +191,57 @@ async def test_lists_ten_thousand_notes(client: AsyncClient, vault: Path) -> Non
         f"{statistics.median(times):.1f}ms median of {RUNS} "
         f"({', '.join(f'{t:.1f}' for t in times)}), "
         f"vault built in {build_ms:.0f}ms"
+    )
+
+
+@pytest.mark.skipif(JJ is None, reason="jj is not installed")
+async def test_saves_one_note_in_a_versioned_vault(
+    client: AsyncClient, versioned_vault: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    paths = synthetic_paths(NOTES)
+    write_vault(versioned_vault, paths)
+    target = paths[NOTES // 2]
+    (versioned_vault / target).write_text("Before the save.\n", encoding="utf-8")
+    # The first snapshot of 10,000 new files is the baseline, not the save.
+    jj(versioned_vault, "status")
+
+    calls: list[tuple[str, float]] = []
+    real_run = vcs._run
+
+    async def timed_run(root: Path, *args: str) -> str | None:
+        started = time.perf_counter()
+        result = await real_run(root, *args)
+        calls.append((args[0], (time.perf_counter() - started) * 1000))
+        return result
+
+    monkeypatch.setattr(vcs, "_run", timed_run)
+
+    async def save(text: str) -> dict[str, float]:
+        calls.clear()
+        started = time.perf_counter()
+        response = await client.put(f"/api/files/{target}", json={"content": text})
+        total = (time.perf_counter() - started) * 1000
+        assert response.status_code == 200
+
+        jj_ms = {"log": 0.0, "new": 0.0, "status": 0.0}
+        for name, ms in calls:
+            jj_ms[name] += ms
+        return {"total": total, "write": total - sum(jj_ms.values()), **jj_ms}
+
+    first = await save("First save.\n")
+    saves = [await save(f"Save {n}.\n") for n in range(SAVES)]
+    best = min(saves, key=lambda run: run["total"])
+
+    assert "Save 4." in (versioned_vault / target).read_text(encoding="utf-8")
+    assert f"vault: {target}" in descriptions(versioned_vault)
+
+    print(
+        f"\nPUT /api/files/{target} at {NOTES} notes, first save: {first['total']:.1f}ms "
+        f"(write {first['write']:.1f}, jj log {first['log']:.1f}, "
+        f"jj new {first['new']:.1f}, jj status {first['status']:.1f})"
+    )
+    print(
+        f"best of {SAVES} saves: {best['total']:.1f}ms "
+        f"(write {best['write']:.1f}, jj log {best['log']:.1f}, "
+        f"jj new {best['new']:.1f}, jj status {best['status']:.1f})"
     )

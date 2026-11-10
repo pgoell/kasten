@@ -1,4 +1,5 @@
-import type { ComponentType, ReactElement } from "react";
+import { render, screen } from "@testing-library/react";
+import { type ComponentType, type ReactElement, Suspense } from "react";
 import { expect, it, vi } from "vitest";
 import { BookPane } from "@/components/books/book-pane";
 import { LibraryPane } from "@/components/books/library-pane";
@@ -23,6 +24,11 @@ import { TimersPane } from "@/lib/app/push/timers-pane";
 import { type KindField, PANE_KINDS, type Pane } from "@/lib/panes/layout/pane-kinds";
 import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
 import { stubCommands } from "./stub-commands";
+
+// The terminal is lazy, so this stands in for the xterm pane once its chunk loads.
+vi.mock("@/components/terminal-pane", () => ({
+  TerminalPane: () => <div data-testid="terminal-pane" />,
+}));
 
 /** What each kind draws, and which of the shared context it takes beyond `commands` and the focus. */
 interface Expected {
@@ -81,9 +87,13 @@ const extras = {
 
 function draw(kind: KindField, focused: boolean, context: PaneShared) {
   const shown = { id: "pane-1", [kind]: EXPECTED[kind].value } as Pane;
-  return PaneBody({ shown, focused, shared: context, extras }) as ReactElement<
+  const element = PaneBody({ shown, focused, shared: context, extras }) as ReactElement<
     Record<string, unknown>
   >;
+  // The terminal's body wraps its lazy pane in a Suspense boundary.
+  return element.type === Suspense
+    ? (element.props.children as ReactElement<Record<string, unknown>>)
+    : element;
 }
 
 it.each(Object.keys(PANE_KINDS) as KindField[])(
@@ -94,7 +104,8 @@ it.each(Object.keys(PANE_KINDS) as KindField[])(
     const element = draw(kind, true, context);
     const props = element.props;
 
-    expect(element.type).toBe(expected.draws);
+    // The terminal's type is the lazy wrapper, so the render test below covers it.
+    if (kind !== "term") expect(element.type).toBe(expected.draws);
     expect(props.commands).toBe(context.commands);
     expect(props.focusSignal).toBe(7);
     expect(props.archive).toBe(expected.archive === true ? true : undefined);
@@ -107,6 +118,38 @@ it.each(Object.keys(PANE_KINDS) as KindField[])(
     }
   },
 );
+
+it("#1762 a terminal pane renders once its chunk loads", async () => {
+  render(
+    PaneBody({
+      shown: { id: "pane-1", term: "main" },
+      focused: true,
+      shared: shared(),
+      extras,
+    }) as ReactElement,
+  );
+
+  expect(await screen.findByTestId("terminal-pane")).toBeTruthy();
+});
+
+it("#1762 a terminal whose chunk does not load says so in its pane, not on the route's error screen", async () => {
+  vi.resetModules();
+  vi.doMock("@/components/terminal-pane", () => {
+    throw new TypeError("Failed to fetch dynamically imported module");
+  });
+  const fresh = await import("@/components/pane-body");
+  render(
+    fresh.PaneBody({
+      shown: { id: "pane-1", term: "main" },
+      focused: true,
+      shared: shared(),
+      extras,
+    }) as ReactElement,
+  );
+
+  expect(await screen.findByText(/The terminal could not load/)).toBeTruthy();
+  vi.doUnmock("@/components/terminal-pane");
+});
 
 it.each(Object.keys(PANE_KINDS) as KindField[])(
   "#980 I5 an unfocused %s pane gets the focus signal only where it did before",

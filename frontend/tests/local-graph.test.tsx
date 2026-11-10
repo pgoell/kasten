@@ -4,7 +4,7 @@ import type { ReactElement } from "react";
 import { LocalGraph } from "@/components/local-graph";
 import { fetchMentions, fetchSimilar } from "@/lib/core/api";
 import type { DrawnNode } from "@/lib/graph/graph";
-import { fetchGraph } from "@/lib/graph/graph-api";
+import { fetchGraph, GRAPH_LOST, loadGraphCanvas } from "@/lib/graph/graph-api";
 import { drawGraph, type GraphCanvasHandlers } from "@/lib/graph/graph-canvas";
 import { stubMatchMedia } from "./match-media";
 
@@ -18,7 +18,10 @@ const canvas = vi.hoisted(() => ({
   destroy: vi.fn(),
 }));
 vi.mock("@/lib/graph/graph-canvas", () => ({ drawGraph: vi.fn() }));
-vi.mock("@/lib/graph/graph-api", () => ({ fetchGraph: vi.fn() }));
+vi.mock("@/lib/graph/graph-api", async (original) => {
+  const actual = await original<typeof import("@/lib/graph/graph-api")>();
+  return { ...actual, fetchGraph: vi.fn(), loadGraphCanvas: vi.fn(actual.loadGraphCanvas) };
+});
 vi.mock("@/lib/core/api", () => ({ fetchMentions: vi.fn(), fetchSimilar: vi.fn() }));
 
 const NOTE = "index.md";
@@ -109,12 +112,31 @@ describe("the local graph in the margin", () => {
   it("A1 the margin graph is drawn by drawGraph in radial mode around the note", async () => {
     renderGraph();
 
-    expect(drawGraph).toHaveBeenCalledTimes(1);
+    // The canvas loads on demand, so it is made a tick after the pane is.
+    await waitFor(() => expect(drawGraph).toHaveBeenCalledTimes(1));
     expect(drawGraph).toHaveBeenCalledWith(expect.any(HTMLElement), expect.any(Object), {
       radial: true,
     });
     await drawn();
     expect(canvas.update).toHaveBeenLastCalledWith(GRAPH.nodes, GRAPH.edges, NOTE);
+  });
+
+  it("A9 a margin closed before the graph chunk loads never draws", async () => {
+    const view = renderGraph();
+    view.unmount();
+
+    await new Promise((done) => setTimeout(done, 100));
+    expect(drawGraph).not.toHaveBeenCalled();
+  });
+
+  it("A10 a margin whose graph chunk does not load says so, and draws nothing", async () => {
+    vi.mocked(loadGraphCanvas).mockRejectedValueOnce(
+      new TypeError("Failed to fetch dynamically imported module"),
+    );
+    renderGraph();
+
+    expect(await screen.findByText(GRAPH_LOST)).toBeVisible();
+    expect(drawGraph).not.toHaveBeenCalled();
   });
 
   it("A2 Links, Backlinks and Unlinked mentions are listed under the graph, each with its count", async () => {
