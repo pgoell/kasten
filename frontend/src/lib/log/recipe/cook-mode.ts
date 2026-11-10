@@ -237,6 +237,8 @@ export function openCookMode({ title, recipe, servings }: CookInput): () => void
     text.textContent = step();
     paintUses();
     paintTimer();
+    // A focused button that is disabled drops the focus to the page, out of cook mode's keys.
+    if (index === 0 && document.activeElement === back) next.focus();
     back.disabled = index === 0;
     next.textContent = index === steps.length - 1 ? "Done" : "Next step";
   }

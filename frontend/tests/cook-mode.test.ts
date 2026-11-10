@@ -123,6 +123,14 @@ describe("cook mode", () => {
     expect(document.querySelector(".k-cook")).toBeNull();
   });
 
+  it("moves the focus to Next step when Back reaches the first step", () => {
+    openCookMode({ title: "Chili", recipe: CHILI, servings: 4 });
+    press(".k-cook-next");
+    $(".k-cook-back")?.focus();
+    press(".k-cook-back");
+    expect(document.activeElement).toBe($(".k-cook-next"));
+  });
+
   it("keeps Tab among its own buttons", () => {
     openCookMode({ title: "Chili", recipe: CHILI, servings: 4 });
     const root = document.querySelector<HTMLElement>(".k-cook");
