@@ -31,10 +31,12 @@ export function useTreeDrawer({
   }, [savedAs, layout, treeOpen, narrow]);
   // Shuts when focus moves to a pane (it covers the page), or when the window narrows under it.
   // Set in render, not an effect: the page under the drawer is inert while it is open.
+  // Widening gives back the wide window's tree before the save effect can store the drawer's (#1755).
   const [shutFor, setShutFor] = useState({ narrow, focusSignal });
   if (shutFor.narrow !== narrow || shutFor.focusSignal !== focusSignal) {
     setShutFor({ narrow, focusSignal });
     if (narrow) setTreeOpen(false);
+    else if (shutFor.narrow) setTreeOpen(wideTree.current);
   }
   // A counter, not a flag: asking twice in a row must read as two changes.
   const [treeFocus, setTreeFocus] = useState(0);
