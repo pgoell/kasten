@@ -44,7 +44,7 @@ a touch screen.
 ### The toolbar
 
 A single row along the bottom edge, under the status bar when there is one.
-Eight buttons at most, so each is 45px or wider on a 360px phone.
+Seven buttons at most, so each is 51px or wider on a 360px phone.
 
 | Button | Does | Command | Key |
 | --- | --- | --- | --- |
@@ -55,10 +55,8 @@ Eight buttons at most, so each is 45px or wider on a 360px phone.
 | `chat` | Open the chat with Claude Code | `openChat` | `<leader>cc` |
 | `run` | Open the command palette | `openPalette` | `<leader>:` |
 | `1/2` | Move to the next pane. Drawn only while the tab holds more than one, and reads which pane is in view of how many | `nextPane` | `<leader>o` |
-| `space` | Open the which-key panel, as Space does | none | `Space` |
 
-Each button runs the command its key runs and nothing more, and `space` opens
-the which-key panel and runs nothing. Every other leader
+Each button runs the command its key runs and nothing more. Every other leader
 command is a row of [the command palette](/reference/editor-keys/leader.md#the-command-palette), which `run`
 opens: `Search note content`, `Open the log` and `Open the timers` among them.
 

@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: kasten on a phone
-description: Why vim is off under a finger, why a split stacks its panes, why a tap raises no keyboard, why a phone draws two bars and not four, why the toolbar stays above the keyboard, why a todo takes two taps and has no Undo, why kasten installs as one app, why it opens with no signal, why the camera reads barcodes on the phone and stops when the app hides, what an open tab does across a release, and what no real phone has confirmed.
+description: Why vim is off under a finger, why a split stacks its panes, why a tap raises no keyboard, why a phone draws two bars, why the toolbar stays above the keyboard, why a todo takes two taps and has no Undo, why kasten installs as one app, why it opens with no signal, why the camera reads barcodes on the phone and stops when the app hides, what an open tab does across a release, and what no real phone has confirmed.
 tags: [design, phone, touch, vim, keyboard, frontend]
 status: stable
 ---
@@ -100,27 +100,8 @@ The rule leaves a terminal out: a shell is for typing.
 
 ## Two bars, not four
 
-At a desk the top bar, the tab strip and the status bar cost 120px of 900. On an
-iPhone 14 the same three bars and a toolbar that wrapped to two rows took 234px
-of 664, and left the note a little over half the screen. So a phone keeps one
-row at the top and one at the bottom.
-
-The top bar goes. Its search field opened the finder, which `find` on the
-toolbar opens too, and its wordmark says nothing on your own phone. Only New
-note had no other button, so it moved to a + at the end of the tab strip.
-
-The status bar stays away until it has something to say. Its clock repeats the
-phone's own, and the save sign of a write that settles itself asks nothing of
-you. What does need you, a notice, a failed write, a note changed on disk, a
-held note or the archive mode, brings the bar back. It comes and goes with what
-it holds, so the note gets taller and shorter, and a note that saved does not
-make it move.
-
-The toolbar keeps one row by keeping the buttons a thumb wants without
-thinking: the tree, the finder, today, todos, the chat and the palette. Search,
-the log and the timers moved to the palette, one tap on `run` away, and the
-timers also show on the Today screen. Eight buttons at most fill a 360px phone
-at 45px each, one over the 44 a finger needs.
+A phone keeps the tab strip and one toolbar row, 88px of 664. The rest only
+repeated: the top bar `find`, the clock the phone's own, Space a key's panel.
 
 ## The toolbar stays above the keyboard
 

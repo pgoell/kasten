@@ -108,7 +108,7 @@ async function tapOn(element: Element): Promise<void> {
   await cdp().send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
 }
 
-it("A1 the strip is 40 px and sticky right under the top bar at 1440, and the top row on a phone", async () => {
+it("A1 the strip is 40 px and sticky right under the top bar at 1440", async () => {
   for (const [size, height] of [
     [DESKTOP, "40px"],
     [TOUCH, "44px"],
@@ -121,7 +121,6 @@ it("A1 the strip is 40 px and sticky right under the top bar at 1440, and the to
       expect(style.height).toBe(height);
       expect(style.position).toBe("sticky");
 
-      // A phone draws no top bar, so there the strip is the top row.
       const bar = host.querySelector<HTMLElement>("header[data-top-bar]");
       const under = bar?.getBoundingClientRect().bottom ?? 0;
       expect(under).toBe(size === DESKTOP ? 56 : 0);

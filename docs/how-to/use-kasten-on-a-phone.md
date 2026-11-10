@@ -11,7 +11,7 @@ status: stable
 You have kasten open in a phone's browser, or installed from
 [Install kasten on your phone](/how-to/install-on-your-phone.md), and you want
 to do by touch what the keys do at a desk. A row of buttons runs along the
-bottom edge: `space`, `files`, `find`, `today`, `todos`, `chat` and `run`.
+bottom edge: `files`, `find`, `today`, `todos`, `chat` and `run`.
 Every recipe below starts there. The tab strip is the top row, with a + at its
 end for a new note.
 

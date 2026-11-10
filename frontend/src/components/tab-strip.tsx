@@ -419,7 +419,7 @@ export function TabStrip({
         <button
           type="button"
           aria-label="New note"
-          onClick={onNewNote}
+          onClick={() => onNewNote()}
           className="flex min-h-11 w-11 shrink-0 items-center justify-center border-k-rule border-l text-k-accent hover:bg-k-accent-wash"
         >
           <svg

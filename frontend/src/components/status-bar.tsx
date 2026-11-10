@@ -150,7 +150,7 @@ interface StatusBarProps {
   conflict?: () => { vault: string; mine: string } | undefined;
   /**
    * A phone's bar: drawn only while it holds something to act on or a mode to remember,
-   * and without the clock, which the phone's own status bar shows.
+   * and without the clock or the pane count.
    */
   quiet?: boolean;
   /** Write the buffer over the vault, which is `:w`. */
@@ -274,7 +274,8 @@ function worthShowing({
 export function StatusBar(props: StatusBarProps) {
   const { quiet, notice, held = [], archive, status } = props;
   if (quiet && !worthShowing({ notice, held, archive, status })) return null;
-  return <Bar {...props} />;
+  // A phone's toolbar shows the pane count instead.
+  return <Bar {...props} pane={quiet ? undefined : props.pane} />;
 }
 
 /**

@@ -1,18 +1,14 @@
 /**
- * The phone's two key sheets in a real browser (#793): the Space sheet and key
- * help, each a full-width bottom sheet at 390x844 with touch, with vim on and
- * off. The route is mounted on a note, so the toolbar's space button and the
- * `?` key are the ones a reader presses.
+ * The phone's key help sheet in a real browser (#793): a full-height bottom
+ * sheet at 390x844 with touch, with vim on and off, opened by `?` on a toolbar button.
  */
 
 import { waitFor } from "@testing-library/react";
 import {
   fontsIn,
-  leader,
   type Mounted,
   mount,
   need,
-  nextFrame,
   PATIENCE,
   READER,
   registerReaderFixture,
@@ -53,11 +49,9 @@ vi.mock("@/lib/graph/graph-api", async (importOriginal) => ({
 registerReaderFixture();
 
 const VIM = ["on", "off"] as const;
-const SPACE = "button[aria-label='Show the leader keys']";
-const LEADER = "[role='dialog'][aria-label='Leader keys']";
+// A toolbar button: not text, so `?` pressed on it opens the help.
+const OPENER = "button[aria-label='Run a command by name']";
 const HELP = "[role='dialog'][aria-label='Keyboard shortcuts']";
-/** A finger's target, the least height a row of either sheet may be. */
-const ROW_MIN = 44;
 
 /** The reader on its note at a phone, with vim as asked. */
 async function mountPhone(vim: (typeof VIM)[number]): Promise<Mounted> {
@@ -124,96 +118,15 @@ function key(target: Element, key: string) {
   target.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
 }
 
-/**
- * Space opens the leader the way a reader does it: on a vim note the key itself,
- * and with vim off, where Space is a letter, the toolbar's space button. The
- * button is tapped with nothing focused, the state a phone is in after a load:
- * the editor is not focused first, which hid the sheet closing (#993).
- */
-function openLeader(host: HTMLElement, vim: (typeof VIM)[number]) {
-  if (vim === "on") leader(host, [" "]);
-  else tapSpace();
-}
-
-/** The toolbar's space button, pressed as a tap: down, up, then the click. */
-function tapSpace() {
-  const space = need(document.querySelector<HTMLButtonElement>(SPACE), "space button");
-  const at = centreOf(space);
-  pointer(space, "pointerdown", at.x, at.y);
-  pointer(space, "pointerup", at.x, at.y);
-  space.click();
-}
-
 describe("phone key sheets", () => {
-  it.each(VIM)(
-    "#793 A8 the Space sheet rows are full width, 44 px tall and one column after g, vim %s",
-    async (vim) => {
-      const mounted = await mountPhone(vim);
-      try {
-        openLeader(mounted.host, vim);
-        const panel = await sheetOf(LEADER);
-        await atRest(panel);
-
-        const body = need(panel.querySelector<HTMLElement>(".overflow-y-auto"), "sheet body");
-        // The body's own padding is 8 px a side, and the row fills what is left.
-        const width = body.clientWidth - 16;
-        const rows = [...panel.querySelectorAll<HTMLElement>("button")];
-        expect(rows.length).toBeGreaterThan(20);
-        for (const row of rows) {
-          const box = row.getBoundingClientRect();
-          const name = row.textContent ?? "";
-          expect.soft(box.height, `${name} height`).toBeGreaterThanOrEqual(ROW_MIN);
-          expect.soft(box.width, `${name} width`).toBeGreaterThanOrEqual(width - 1);
-        }
-
-        key(panel, "g");
-        await nextFrame();
-        await nextFrame();
-
-        // After g the groups are still stacked down one column at one left edge.
-        const groups = [...panel.querySelectorAll("section")].filter((one) =>
-          one.querySelector("h3"),
-        );
-        expect(groups.length).toBeGreaterThan(0);
-        const lefts = new Set(groups.map((one) => Math.round(one.getBoundingClientRect().left)));
-        expect(lefts.size).toBe(1);
-        const tops = groups.map((one) => one.getBoundingClientRect().top);
-        expect([...tops].sort((a, b) => a - b)).toEqual(tops);
-      } finally {
-        await unmount(mounted);
-      }
-    },
-  );
-
-  it.each(VIM)(
-    "#793 R3 a tap on the toolbar's space with nothing focused keeps the sheet open, vim %s",
-    async (vim) => {
-      const mounted = await mountPhone(vim);
-      try {
-        // Nothing holds the focus, as after a load on a phone.
-        (document.activeElement as HTMLElement | null)?.blur();
-        tapSpace();
-
-        const panel = await sheetOf(LEADER);
-        await atRest(panel);
-        // Ten frames after it came to rest: a sheet taken down by a focus move is gone by now.
-        for (let frame = 0; frame < 10; frame += 1) await nextFrame();
-        expect(document.querySelector(LEADER)).toBe(panel);
-      } finally {
-        await unmount(mounted);
-      }
-    },
-  );
-
   it.each(VIM)(
     "#793 A9 key help is a full-height sheet in one column with the filter focused, vim %s",
     async (vim) => {
       const mounted = await mountPhone(vim);
       try {
-        const space = need(document.querySelector<HTMLButtonElement>(SPACE), "space button");
-        space.focus();
-        // Pressed on the toolbar's button, which is not text, so `?` opens the help.
-        key(space, "?");
+        const opener = need(document.querySelector<HTMLButtonElement>(OPENER), "toolbar button");
+        opener.focus();
+        key(opener, "?");
 
         const help = await sheetOf(HELP);
         await atRest(help);
@@ -255,16 +168,16 @@ describe("phone key sheets", () => {
     async (vim) => {
       const mounted = await mountPhone(vim);
       try {
-        const space = need(document.querySelector<HTMLButtonElement>(SPACE), "space button");
-        space.focus();
-        key(space, "?");
+        const opener = need(document.querySelector<HTMLButtonElement>(OPENER), "toolbar button");
+        opener.focus();
+        key(opener, "?");
 
         const help = await sheetOf(HELP);
         await atRest(help);
         key(need(help.querySelector("input"), "filter field"), "Escape");
 
         await expect.poll(() => document.querySelector(HELP), PATIENCE).toBeNull();
-        expect(document.activeElement).toBe(space);
+        expect(document.activeElement).toBe(opener);
       } finally {
         await unmount(mounted);
       }
@@ -274,9 +187,9 @@ describe("phone key sheets", () => {
   it.each(VIM)("#793 I4 a drag down on the key help grabber closes it, vim %s", async (vim) => {
     const mounted = await mountPhone(vim);
     try {
-      const space = need(document.querySelector<HTMLButtonElement>(SPACE), "space button");
-      space.focus();
-      key(space, "?");
+      const opener = need(document.querySelector<HTMLButtonElement>(OPENER), "toolbar button");
+      opener.focus();
+      key(opener, "?");
 
       const help = await sheetOf(HELP);
       await atRest(help);
