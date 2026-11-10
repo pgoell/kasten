@@ -61,11 +61,12 @@ async function held(page: Page, vault: string, beside: "pane" | "tab") {
   return { release, sent: () => expect.poll(() => puts).toBeGreaterThan(0) };
 }
 
-const longNote = (page: Page) => page.locator(".cm-content", { hasText: "long enough" });
+// Found by the header, as CodeMirror drops lines scrolled out of view (#1830).
+const longNote = (page: Page) => panes(page).filter({ hasText: "Long note.md" });
 
 /** Types into Long note once its editor holds the focus. */
 async function typeRight(page: Page) {
-  await expect(page.locator(".cm-content:focus", { hasText: "long enough" })).toHaveCount(1);
+  await expect(longNote(page).locator(".cm-content:focus")).toHaveCount(1);
   await page.keyboard.type("Gotyped right");
   await page.keyboard.press("Escape");
 }
@@ -236,7 +237,8 @@ test.describe("a pane act whose write is held while the focus moves", () => {
       await start(page);
       await sent();
       // A row taken from the tree or the finder hands no focus back, so a click moves it.
-      await longNote(page).click();
+      // A small target: a retried click on the whole editor scrolled it far down (#1830).
+      await longNote(page).getByText("long enough").click();
       await typeRight(page);
       release();
       await expect
