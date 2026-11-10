@@ -5,9 +5,10 @@ Everything goes straight to the filesystem: Postgres answers none of these quest
 
 import os
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
     from pathlib import Path
 
 SUFFIX = ".md"
@@ -104,19 +105,58 @@ def list_assets(root: Path) -> list[str]:
     return _list_files(root, tuple(ASSET_MAGIC), ignore_case=True)
 
 
+class Listings(NamedTuple):
+    """What one walk of the vault finds, each part sorted as its own `list_*` returns it."""
+
+    notes: list[str]
+    images: list[str]
+    html: list[str]
+    assets: list[str]
+
+
+def scan(root: Path) -> Listings:
+    """Return the notes, images, pages and assets under `root` from one walk.
+
+    What a page load asks for in four requests (#1761), so they need not walk four times.
+    """
+    notes: list[str] = []
+    images: list[str] = []
+    html: list[str] = []
+    assets: list[str] = []
+    asset_suffixes = tuple(ASSET_MAGIC)
+    for name, path in _walk(root):
+        lower = name.lower()
+        if name.endswith(SUFFIX):
+            notes.append(path)
+        if lower.endswith(IMAGE_SUFFIXES):
+            images.append(path)
+        if lower.endswith(HTML_SUFFIX):
+            html.append(path)
+        if lower.endswith(asset_suffixes):
+            assets.append(path)
+    return Listings(sorted(notes), sorted(images), sorted(html), sorted(assets))
+
+
 def _list_files(root: Path, suffixes: tuple[str, ...], *, ignore_case: bool = False) -> list[str]:
-    """Return every file under `root` whose name ends in one of `suffixes`.
+    """Return every file under `root` whose name ends in one of `suffixes`."""
+    return sorted(
+        path
+        for name, path in _walk(root)
+        if (name.lower() if ignore_case else name).endswith(suffixes)
+    )
+
+
+def _walk(root: Path) -> Iterator[tuple[str, str]]:
+    """Yield the name and relative POSIX path of every file under `root`.
 
     Hidden entries and their walks are skipped: the jj repo beside the notes holds thousands
     of files. Links are not followed, so a link cannot loop or list what lies outside the
-    vault. A folder named `notes.md` is walked, never listed.
+    vault. A folder named `notes.md` is walked, never yielded.
     """
     if not root.is_dir():
-        return []
+        return
 
-    found: list[str] = []
-
-    def walk(directory: str, prefix: str) -> None:
+    def walk(directory: str, prefix: str) -> Iterator[tuple[str, str]]:
         with os.scandir(directory) as entries:
             for entry in entries:
                 if entry.name.startswith("."):
@@ -124,12 +164,11 @@ def _list_files(root: Path, suffixes: tuple[str, ...], *, ignore_case: bool = Fa
                 # Not followed: a link to an ancestor would loop forever, and a link out of
                 # the vault would list what is on the other side.
                 if entry.is_dir(follow_symlinks=False):
-                    walk(entry.path, f"{prefix}{entry.name}/")
-                elif (entry.name.lower() if ignore_case else entry.name).endswith(suffixes):
-                    found.append(f"{prefix}{entry.name}")
+                    yield from walk(entry.path, f"{prefix}{entry.name}/")
+                else:
+                    yield entry.name, f"{prefix}{entry.name}"
 
-    walk(str(root), "")
-    return sorted(found)
+    yield from walk(str(root), "")
 
 
 def legal_name(part: str) -> bool:

@@ -1,5 +1,6 @@
 """Routes that read, create, save and dump the text of a note."""
 
+import asyncio
 import hashlib
 from typing import Annotated
 
@@ -67,7 +68,7 @@ async def read_file(path: str, settings: Annotated[Settings, Depends(get_setting
     Anything that is not a readable markdown file inside the vault is a 404,
     including paths that try to climb out of it.
     """
-    content = read_note(settings.vault_path, path)
+    content = await asyncio.to_thread(read_note, settings.vault_path, path)
     if content is None:
         raise HTTPException(status_code=404, detail="No such note")
 
