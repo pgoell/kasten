@@ -23,7 +23,9 @@ The person of `KASTEN_SHARE_PEOPLE` who owns kasten, such as `Pascal`; empty, th
 default, names nobody. That person, and nobody else, gets a `kasten` link in the
 app's header, to `https://<KASTEN_AGENT_HOST>/`, through the `home` of
 [GET /share/me](/reference/http-api/shared-lists.md#get-shareme). Anyone else
-would meet the main host's gate, which admits only the owner.
+would meet the main host's gate, which admits only the owner. A name not in
+`KASTEN_SHARE_PEOPLE` stops the backend from starting, since its link could never
+show.
 
 ## KASTEN_SHARE_LOGS_DONE
 

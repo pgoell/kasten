@@ -3,10 +3,11 @@
 from typing import TYPE_CHECKING
 
 import pytest
+from pydantic import ValidationError
 
 from backend.tests.conftest import descriptions
 from kasten_backend import vcs
-from kasten_backend.config import get_settings
+from kasten_backend.config import Settings, get_settings
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -126,3 +127,8 @@ async def test_810_a9_the_name_does_not_outlive_the_request(client: AsyncClient)
     await client.get("/share/me", headers=PASCAL)
 
     assert vcs.writer.get() is None
+
+
+def test_an_owner_who_is_not_one_of_the_people_is_refused() -> None:
+    with pytest.raises(ValidationError, match="KASTEN_SHARE_OWNER"):
+        Settings(share_people={"pascal@example.test": "Pascal"}, share_owner="pascal")
