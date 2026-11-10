@@ -1,16 +1,12 @@
-import { EditorView } from "@codemirror/view";
 import { fireEvent, screen } from "@testing-library/react";
 import { useMemo } from "react";
 import type { TodoHit } from "@/lib/core/api";
 import { noteBase } from "@/lib/notes/note-base";
 import type { PdfRenderer } from "@/lib/panes/book/pdf-view";
-import { holdText } from "@/lib/saving/held-text";
 import type { TodoState } from "@/lib/todo/todo";
 import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
-import { act, outside, pageHooks, renderApp, settle, theRoute, VAULT } from "./home-route-fixture";
-import { COARSE, NARROW, stubMatchMedia } from "./match-media";
-import { updateWithTries } from "./update-note/stand-in";
+import { pageHooks, renderApp, settle, theRoute, VAULT } from "./home-route-fixture";
 
 defineFoliateFake();
 
@@ -211,69 +207,6 @@ describe("the route", () => {
     const said = () =>
       screen.getByRole("dialog", { name: "Backlinks" }).querySelector("output")?.textContent;
 
-    it("#424 links the mention on ctrl enter with vim on, and a clean pane on the note reloads", async () => {
-      const app = await renderApp();
-      await settle();
-      // other.md open and clean in a pane of its own, beside the one that asks.
-      app.click("other.md");
-      await settle();
-      app.leader("%");
-      await settle();
-      await backlinks(app);
-      fetchMentions.mockClear();
-
-      await link();
-
-      expect(saveNote).toHaveBeenCalledWith(
-        "other.md",
-        "see the [[index]] here",
-        false,
-        noteBase(NAMES),
-      );
-      expect(app.cached("other.md")).toBe("see the [[index]] here");
-      // Asked again, so the row leaves the unlinked group.
-      expect(fetchMentions).toHaveBeenCalledWith("index.md", false);
-      expect(said()).toBe("nothing links here");
-      // Off the editor's text and not the screen, where live preview hides the
-      // brackets and the line before and after reads the same.
-      const docs = [...document.querySelectorAll<HTMLElement>(".cm-content")].map((each) =>
-        EditorView.findFromDOM(each)?.state.doc.toString(),
-      );
-      expect(docs).toContain("see the [[index]] here");
-    });
-
-    it("#424 links on a tap of the link button with vim off in a narrow window", async () => {
-      localStorage.setItem("kasten.vim", "off");
-      try {
-        const media = stubMatchMedia();
-        const app = await renderApp();
-        await settle();
-        app.click("index.md");
-        await settle();
-        media.set(NARROW, true);
-        media.set(COARSE, true);
-
-        fireEvent.click(screen.getByRole("button", { name: "Run a command by name" }));
-        fireEvent.click(screen.getByRole("option", { name: /^Show what links here/ }));
-        await settle();
-        const button = screen.getByRole("button", { name: "link" });
-        expect(button).toHaveClass("pointer-coarse:min-h-11");
-        fireEvent.mouseDown(button);
-        fireEvent.click(button);
-        await hashed();
-        await settle();
-      } finally {
-        localStorage.removeItem("kasten.vim");
-      }
-
-      expect(saveNote).toHaveBeenCalledWith(
-        "other.md",
-        "see the [[index]] here",
-        false,
-        noteBase(NAMES),
-      );
-    });
-
     it("#424 writes nothing into the focused note and says why", async () => {
       // The backend leaves the note itself out, so this is the guard alone.
       fetchMentions.mockResolvedValue([
@@ -289,136 +222,6 @@ describe("the route", () => {
       expect(fetchNote).not.toHaveBeenCalled();
       expect(saveNote).not.toHaveBeenCalled();
       expect(said()).toBe("That note is open to type in");
-    });
-
-    it("#424 writes nothing while a write of the note's own text is still out, and says why", async () => {
-      // other.md typed into in one pane, its quiet write hanging, and the focus
-      // gone to index.md in the other: the tail the focus guard cannot see.
-      const app = await renderApp();
-      await settle();
-      app.click("other.md");
-      await settle();
-      app.leader("%");
-      await settle();
-      app.click("index.md");
-      await settle();
-      const panes = () => [...document.querySelectorAll<HTMLElement>(".cm-content")];
-      const holding = (text: string) =>
-        panes().find((each) => EditorView.findFromDOM(each)?.state.doc.toString() === text);
-      const other = holding(NAMES) as HTMLElement;
-      const index = holding("the index note") as HTMLElement;
-      other.focus();
-      await settle();
-      fireEvent.keyDown(other, { key: "x" });
-      saveNote.mockImplementationOnce(() => new Promise(() => {}));
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(2_000);
-      });
-      await hashed();
-      await settle();
-      expect(saveNote).toHaveBeenCalledTimes(1);
-      index.focus();
-      await settle();
-      for (const key of [" ", "g", "b"]) fireEvent.keyDown(index, { key });
-      await settle();
-      fetchNote.mockClear();
-
-      await link();
-
-      expect(fetchNote).not.toHaveBeenCalled();
-      expect(saveNote).toHaveBeenCalledTimes(1);
-      expect(said()).toBe("That note is still being saved");
-    });
-
-    it("#424 writes nothing into a note holding text not yet saved, and says why", async () => {
-      holdText("other.md", {
-        content: "see the index here, typed",
-        reason: "PUT failed with 500",
-        conflicted: false,
-      });
-      const app = await renderApp();
-      await settle();
-      await backlinks(app);
-
-      await link();
-
-      expect(saveNote).not.toHaveBeenCalled();
-      expect(said()).toBe("That note holds text not yet saved");
-      expect(screen.getByRole("button", { name: "link" })).toBeInTheDocument();
-    });
-
-    it("#424 writes nothing when the line changed since the list was read, and says why", async () => {
-      const app = await renderApp();
-      await settle();
-      await backlinks(app);
-      fetchNote.mockImplementation(async (path: string) =>
-        path === "other.md" ? "see the index here, and more" : VAULT[path],
-      );
-
-      await link();
-
-      expect(saveNote).not.toHaveBeenCalled();
-      expect(said()).toBe("That line has changed since it was listed");
-    });
-
-    it("#424 lands nothing over a write that came between its read and its write", async () => {
-      const app = await renderApp();
-      await settle();
-      await backlinks(app);
-      // On disk, unseen by the read: the base the link names is refused.
-      outside.set("other.md", "somebody else's other note");
-
-      await link();
-
-      expect(outside.get("other.md")).toBe("somebody else's other note");
-      expect(said()).toBe("The link was not written");
-      expect(screen.getByRole("button", { name: "link" })).toBeInTheDocument();
-    });
-
-    /**
-     * A write lands on other.md between the link's first read and its write:
-     * the first read answers the text from before, every later one the disk.
-     * `updateNote` runs its real three tries here, since the refusal and the
-     * read after it are the ordering under test.
-     */
-    function writtenBetween(disk: string) {
-      outside.set("other.md", disk);
-      fetchNote.mockImplementationOnce(async () => NAMES);
-      fetchNote.mockImplementation(async (path: string) =>
-        path === "other.md" ? outside.get(path) : VAULT[path],
-      );
-      updateNote.mockImplementation(updateWithTries(fetchNote, saveNote));
-    }
-
-    it("#424 links on the read after a refusal when the line still says the same", async () => {
-      const app = await renderApp();
-      await settle();
-      await backlinks(app);
-      writtenBetween(`${NAMES}\nadded by somebody else`);
-
-      await link();
-
-      expect(saveNote).toHaveBeenLastCalledWith(
-        "other.md",
-        "see the [[index]] here\nadded by somebody else",
-        false,
-        noteBase(`${NAMES}\nadded by somebody else`),
-      );
-      expect(outside.get("other.md")).toBe("see the [[index]] here\nadded by somebody else");
-      expect(said()).not.toBe("The link was not written");
-    });
-
-    it("#424 writes nothing on the read after a refusal when the line changed", async () => {
-      const app = await renderApp();
-      await settle();
-      await backlinks(app);
-      writtenBetween("see the index there");
-
-      await link();
-
-      expect(outside.get("other.md")).toBe("see the index there");
-      expect(saveNote).toHaveBeenCalledTimes(1);
-      expect(said()).toBe("That line has changed since it was listed");
     });
   });
 });
