@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { BUILD, versionText } from "@/lib/app/build";
 import {
   currentEndpoint,
   type Device,
@@ -13,7 +14,6 @@ import {
   subscribeHere,
   unsubscribeHere,
 } from "@/lib/app/push/push";
-import { BUILD, versionText } from "@/lib/app/build";
 import { fetchVersion } from "@/lib/core/api";
 import { BACK_LINK } from "@/lib/ui/overlay-styles";
 
