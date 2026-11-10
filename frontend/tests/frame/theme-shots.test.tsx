@@ -261,9 +261,9 @@ afterEach(async () => {
 it("pictures the home screen in light and dark", async () => {
   const widths = await pictures("home", "/", null, async (host, size) => {
     // Below 768px the tree is a drawer that starts shut, so there is no file
-    // list to wait for. The status bar marks the route as drawn either way.
+    // list to wait for. The tab strip marks the route as drawn either way.
     await waitFor(() => {
-      expect(host.querySelector("[data-testid='version']")).not.toBeNull();
+      expect(host.querySelector("[role='tablist']")).not.toBeNull();
       if (size.width >= 768) expect(host.textContent).toContain("Lesson");
     }, PATIENCE);
   });
