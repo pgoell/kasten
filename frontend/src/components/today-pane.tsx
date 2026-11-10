@@ -191,11 +191,12 @@ function Row({
   between?: boolean;
   children: ReactNode;
 }) {
+  // 44 px under a finger by padding, not centring, so a wrapped todo keeps its symbol on line one.
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`k-row flex w-full items-baseline gap-2 rounded-[var(--k-radius-6)] ${between ? "justify-between" : ""} px-2 py-1 text-left font-sans text-k-15 text-k-ink transition-[color,background-color,transform] duration-(--k-hover) hover:text-k-accent`}
+      className={`k-row flex w-full items-baseline gap-2 rounded-[var(--k-radius-6)] ${between ? "justify-between" : ""} px-2 py-1 text-left font-sans text-k-15 text-k-ink transition-[color,background-color,transform] duration-(--k-hover) hover:text-k-accent pointer-coarse:min-h-11 pointer-coarse:py-2.5`}
     >
       {children}
     </button>

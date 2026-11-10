@@ -117,6 +117,19 @@ describe("the palette", () => {
     expect(labels).toContain("Toggle light and dark mode");
   });
 
+  it("opens the settings and the agent tokens pages", () => {
+    const assign = vi.fn();
+    vi.stubGlobal("location", { ...window.location, assign });
+    try {
+      const entries = paletteEntries(stubCommands(), null);
+      entries.find((entry) => entry.label === "Open the settings")?.run();
+      entries.find((entry) => entry.label === "Open the agent tokens")?.run();
+      expect(assign.mock.calls).toEqual([["/settings"], ["/tokens"]]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("the four accent rows pick and store the palette", () => {
     const rows = [
       ["Accent palette: Vandar Poel's blue", "poel"],

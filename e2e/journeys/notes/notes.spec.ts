@@ -1,7 +1,15 @@
-import { mkdir, readdir, writeFile } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import type { Page } from "@playwright/test";
-import { findNote, leader, noteText, openApp, openFromTree } from "../../harness/app.ts";
+import {
+  findNote,
+  inbox,
+  leader,
+  noteText,
+  openApp,
+  openFromTree,
+  vaultWith,
+} from "../../harness/app.ts";
 import { type Hit, hit, lineOf, openPanel } from "../../harness/search.ts";
 import { expect, test } from "../../harness/stack.ts";
 
@@ -329,10 +337,8 @@ test.describe("following a link with an alias or a heading", () => {
   const SELF = "[[#Below]]\n\ntext\n\n## Below\n";
 
   /** Writes Borges and each note of `notes` into the vault, then loads the app. */
-  async function vaultWith(page: Page, vault: string, notes: Record<string, string>) {
-    await mkdir(join(vault, "reading"), { recursive: true });
-    await writeFile(join(vault, "reading/borges.md"), BORGES);
-    for (const [path, text] of Object.entries(notes)) await writeFile(join(vault, path), text);
+  async function loadWith(page: Page, vault: string, notes: Record<string, string>) {
+    await vaultWith(vault, { "reading/borges.md": BORGES, ...notes });
     await openApp(page);
   }
 
@@ -347,18 +353,12 @@ test.describe("following a link with an alias or a heading", () => {
       .toEqual([expect.stringContaining(tab), at]);
   }
 
-  /** The notes made in the inbox, past the index the folder starts with. */
-  const inbox = async (vault: string) =>
-    (await readdir(join(vault, "00 Inbox")).catch(() => []))
-      .filter((name) => name !== "index.md")
-      .sort();
-
   test("gf on a link with an alias, a heading, both or a heading the note lacks opens the note there, again on a second gf, and makes no note", async ({
     page,
     stack,
   }) => {
     const links = "[[borges|Jorge]]\n[[borges#Life]]\n[[borges#life|his life]]\n[[borges#Death]]\n";
-    await vaultWith(page, stack.vault, { "Links.md": links });
+    await loadWith(page, stack.vault, { "Links.md": links });
     for (const [line, at] of [
       // Where any note opens: the body's first line, under the frontmatter.
       [4, "Borges"],
@@ -381,7 +381,7 @@ test.describe("following a link with an alias or a heading", () => {
     page,
     stack,
   }) => {
-    await vaultWith(page, stack.vault, { "Self.md": SELF });
+    await loadWith(page, stack.vault, { "Self.md": SELF });
     await findNote(page, "Self");
     await follow(page, 1, "Self", "Below");
     await follow(page, 1, "Self", "Below");
@@ -396,7 +396,7 @@ test.describe("following a link with an alias or a heading", () => {
     page,
     stack,
   }) => {
-    await vaultWith(page, stack.vault, { "Missing.md": "[[cortazar|Julio]]\n[[rayuela#One]]\n" });
+    await loadWith(page, stack.vault, { "Missing.md": "[[cortazar|Julio]]\n[[rayuela#One]]\n" });
     await findNote(page, "Missing");
     await page.keyboard.type("1Ggf");
     await expect.poll(() => inbox(stack.vault)).toEqual(["cortazar.md"]);
@@ -431,7 +431,7 @@ test.describe("following a link with an alias or a heading", () => {
       await route.fulfill({ response });
       answered();
     });
-    await vaultWith(page, stack.vault, {
+    await loadWith(page, stack.vault, {
       "Race.md": "[[borges#Life]]\n",
       "kafka.md": "the trial\n",
     });
