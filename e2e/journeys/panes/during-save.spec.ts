@@ -61,8 +61,9 @@ async function held(page: Page, vault: string, beside: "pane" | "tab") {
   return { release, sent: () => expect.poll(() => puts).toBeGreaterThan(0) };
 }
 
-// Found by the header, as CodeMirror drops lines scrolled out of view (#1830).
-const longNote = (page: Page) => panes(page).filter({ hasText: "Long note.md" });
+// Found by its title, as CodeMirror drops lines scrolled out of view (#1830).
+const longNote = (page: Page) =>
+  panes(page).filter({ has: page.getByRole("heading", { name: "Long note", exact: true }) });
 
 /** Types into Long note once its editor holds the focus. */
 async function typeRight(page: Page) {
