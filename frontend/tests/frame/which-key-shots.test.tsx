@@ -40,7 +40,12 @@ const NOTE = [
 function Page({ phone, help = false }: { phone: boolean; help?: boolean }) {
   return (
     <main className="flex h-dvh bg-k-bg text-k-ink">
-      <div data-pane tabIndex={-1} className="min-w-0 flex-1 overflow-hidden px-8 pt-10">
+      <div
+        data-pane
+        data-holds="path"
+        tabIndex={-1}
+        className="min-w-0 flex-1 overflow-hidden px-8 pt-10"
+      >
         <h1 className="mb-4 text-[26px] font-semibold">{NOTE[0]}</h1>
         {NOTE.slice(1).map((line) => (
           <p key={line} className="mb-3 max-w-[60ch] text-[15px] leading-7">

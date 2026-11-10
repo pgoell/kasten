@@ -45,10 +45,10 @@ describe("phone sheets", () => {
     // After a key narrows the list it is still one column of rows.
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "g" });
     const goTo = screen.getByRole("heading", { name: "Go to" }).closest("section")?.parentElement;
-    expect(goTo).not.toHaveClass("grid");
+    expect(goTo).toHaveClass("grid-cols-1");
   });
 
-  it("#793 A8 the desktop which-key panel keeps its wrapping columns", () => {
+  it("#793 A8 the desktop which-key panel sets its groups in columns", () => {
     render(
       <>
         <button type="button">Note</button>
@@ -64,6 +64,11 @@ describe("phone sheets", () => {
     const find = screen.getByRole("heading", { name: "Find" }).closest("section")?.parentElement;
     expect(find).toHaveClass("grid-cols-[repeat(auto-fit,minmax(10.5rem,1fr))]");
     expect(find).not.toHaveClass("grid-cols-1");
+
+    // An open group flows its rows into columns as wide as the pane allows.
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "g" });
+    const goTo = screen.getByRole("heading", { name: "Go to" }).closest("section")?.parentElement;
+    expect(goTo).toHaveClass("columns-[13rem]");
   });
 
   it("#793 A9 on a phone key help opens in the sheet with a grabber, the filter focused", () => {
