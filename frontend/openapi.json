@@ -2929,6 +2929,61 @@
         }
       }
     },
+    "/api/training": {
+      "get": {
+        "summary": "Read Training",
+        "description": "The days from `from` to `to`, both included, that have a `## Training` in their note.\n\nA line that does not parse is a plain bullet and absent. Nothing is written.",
+        "operationId": "read_training_api_training_get",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+              "title": "From"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+              "title": "To"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TrainingDay"
+                  },
+                  "title": "Response Read Training Api Training Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/food/search": {
       "get": {
         "summary": "Search Food",
@@ -16091,6 +16146,284 @@
         ],
         "title": "Totals",
         "description": "What a day adds up to. Every kind is always present, zero where nothing was logged.\n\nThe one exception is a last kind's `mine` total, which is null with no line that day."
+      },
+      "TrainingDay": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "title": "Date"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/TrainingEntry"
+            },
+            "type": "array",
+            "title": "Entries"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "path",
+          "entries"
+        ],
+        "title": "TrainingDay",
+        "description": "A day whose note holds a `## Training`: the lines that parsed, in line order."
+      },
+      "TrainingEntry": {
+        "properties": {
+          "line": {
+            "type": "integer",
+            "title": "Line"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "strength",
+              "walk",
+              "run",
+              "ride",
+              "test"
+            ],
+            "title": "Kind"
+          },
+          "exercise": {
+            "type": "string",
+            "title": "Exercise"
+          },
+          "kg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kg"
+          },
+          "bodyweight": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bodyweight"
+          },
+          "reps": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reps"
+          },
+          "sets": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sets"
+          },
+          "seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seconds"
+          },
+          "rpe": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rpe"
+          },
+          "e1rm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "E1Rm"
+          },
+          "minutes": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minutes"
+          },
+          "km": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Km"
+          },
+          "heart_rate": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heart Rate"
+          },
+          "groups": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/TrainingGroup"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Groups"
+          }
+        },
+        "type": "object",
+        "required": [
+          "line",
+          "text",
+          "kind",
+          "exercise"
+        ],
+        "title": "TrainingEntry",
+        "description": "One training line that parsed: its kind, the exercise it links and the fields it gives."
+      },
+      "TrainingGroup": {
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "left": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TrainingReading"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "right": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TrainingReading"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "value": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TrainingReading"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "TrainingGroup",
+        "description": "A test's values under one optional label: one per side, or one for both."
+      },
+      "TrainingReading": {
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "passed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Passed"
+          }
+        },
+        "type": "object",
+        "title": "TrainingReading",
+        "description": "One value of a test: a number and its unit, or passed or not."
       },
       "TransactionIn": {
         "properties": {

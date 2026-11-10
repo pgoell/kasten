@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 from kasten_backend import github
 from kasten_backend.config import Settings, get_settings
-from kasten_backend.log import DATE_PATTERN
+from kasten_backend.periodic import DATE_PATTERN
 from kasten_backend.routes.queries import day_range
 
 router = APIRouter()

@@ -1505,6 +1505,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/training": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Training
+         * @description The days from `from` to `to`, both included, that have a `## Training` in their note.
+         *
+         *     A line that does not parse is a plain bullet and absent. Nothing is written.
+         */
+        get: operations["read_training_api_training_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/food/search": {
         parameters: {
             query?: never;
@@ -6779,6 +6801,80 @@ export interface components {
             mine?: components["schemas"]["MineTotal"][] | null;
         };
         /**
+         * TrainingDay
+         * @description A day whose note holds a `## Training`: the lines that parsed, in line order.
+         */
+        TrainingDay: {
+            /** Date */
+            date: string;
+            /** Path */
+            path: string;
+            /** Entries */
+            entries: components["schemas"]["TrainingEntry"][];
+        };
+        /**
+         * TrainingEntry
+         * @description One training line that parsed: its kind, the exercise it links and the fields it gives.
+         */
+        TrainingEntry: {
+            /** Line */
+            line: number;
+            /** Text */
+            text: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "strength" | "walk" | "run" | "ride" | "test";
+            /** Exercise */
+            exercise: string;
+            /** Kg */
+            kg?: number | null;
+            /** Bodyweight */
+            bodyweight?: boolean | null;
+            /** Reps */
+            reps?: number[] | null;
+            /** Sets */
+            sets?: number | null;
+            /** Seconds */
+            seconds?: number | null;
+            /** Rpe */
+            rpe?: number | null;
+            /** E1Rm */
+            e1rm?: number | null;
+            /** Minutes */
+            minutes?: number | null;
+            /** Km */
+            km?: number | null;
+            /** Heart Rate */
+            heart_rate?: number | null;
+            /** Groups */
+            groups?: components["schemas"]["TrainingGroup"][] | null;
+        };
+        /**
+         * TrainingGroup
+         * @description A test's values under one optional label: one per side, or one for both.
+         */
+        TrainingGroup: {
+            /** Label */
+            label?: string | null;
+            left?: components["schemas"]["TrainingReading"] | null;
+            right?: components["schemas"]["TrainingReading"] | null;
+            value?: components["schemas"]["TrainingReading"] | null;
+        };
+        /**
+         * TrainingReading
+         * @description One value of a test: a number and its unit, or passed or not.
+         */
+        TrainingReading: {
+            /** Amount */
+            amount?: number | null;
+            /** Unit */
+            unit?: string | null;
+            /** Passed */
+            passed?: boolean | null;
+        };
+        /**
          * TransactionIn
          * @description One booking as a job sends it.
          *
@@ -8997,6 +9093,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Day"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_training_api_training_get: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingDay"][];
                 };
             };
             /** @description Validation Error */
