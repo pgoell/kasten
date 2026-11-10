@@ -1,8 +1,8 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Locator, Page } from "@playwright/test";
-import { leader, openApp, openFromTree, openNote, panes, unstamped } from "../../harness/app.ts";
-import { expect, test } from "../../harness/stack.ts";
+import { leader, openApp, openFromTree, openNote, panes, unstamped } from "../../../harness/app.ts";
+import { expect, test } from "../../../harness/stack.ts";
 import {
   after,
   bothTexts,
