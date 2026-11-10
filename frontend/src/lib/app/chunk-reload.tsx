@@ -4,7 +4,7 @@ import { ErrorComponent, type ErrorComponentProps } from "@tanstack/react-router
 const CSS_GONE = "Unable to preload CSS for ";
 
 /** Errors this tab already reloaded for, so StrictMode's second render paints nothing. */
-const reloading = new WeakSet<object>();
+const reloading = new WeakSet<Error>();
 
 /** The release this tab last booted; the reload guards are spent per release. */
 const RELEASE = "kasten:release";
@@ -50,9 +50,9 @@ function claim(message: string): boolean {
  */
 export function RouteError({ error }: ErrorComponentProps) {
   // Anything can be thrown, and the router hands it here as it came.
-  const message = error instanceof Error ? error.message : "";
+  if (!(error instanceof Error)) return <ErrorComponent error={error} />;
   if (reloading.has(error)) return null;
-  if (message.startsWith(CSS_GONE) && claim(message)) {
+  if (error.message.startsWith(CSS_GONE) && claim(error.message)) {
     reloading.add(error);
     location.reload();
     return null;
