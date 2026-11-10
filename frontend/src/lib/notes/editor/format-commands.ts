@@ -163,3 +163,201 @@ function tidyText(line: Line, tidy: Tidy): void {
   }
   tidy.blanks = 0;
 }
+
+/** A lettered mark, `a)` or `b.`, which CommonMark reads as text. */
+export const LETTER_MARK = /[a-z][.)]/;
+/** A list item's line: its indent, its mark, and the spaces after the mark. */
+const ITEM = new RegExp(`^(\\s*)([-*+]|\\d{1,9}[.)]|${LETTER_MARK.source})( +|$)`);
+/** A thematic break: three or more of one of `-`, `*` or `_`, spaces allowed between. */
+const RULE = /^\s*([-*_])(\s*\1){2,}\s*$/;
+const TODO_BOX = /^\[.\]( |$)/;
+
+type ListStyle = "bullet" | "number" | "letter";
+
+/** The order `cycleListStyle` steps through. */
+const NEXT_STYLE: Record<ListStyle, ListStyle> = {
+  bullet: "number",
+  number: "letter",
+  letter: "bullet",
+};
+
+/** One item of the list being restyled, with the deeper lines that belong to it. */
+interface ListItem {
+  line: Line;
+  indent: number;
+  mark: string;
+  gap: string;
+  children: Line[];
+}
+
+/** How far a line's text starts in, a tab counting as four. */
+function indentWidth(text: string): number {
+  let width = 0;
+  for (const char of text) {
+    if (char === " ") width++;
+    else if (char === "\t") width += 4;
+    else break;
+  }
+  return width;
+}
+
+function styleOf(mark: string): ListStyle {
+  if (/^[-*+]$/.test(mark)) return "bullet";
+  return /^\d/.test(mark) ? "number" : "letter";
+}
+
+/** Where a numbered or lettered list starts counting, 1 for `a)`. */
+function startOf(mark: string): number {
+  const style = styleOf(mark);
+  if (style === "number") return Number.parseInt(mark, 10);
+  return style === "letter" ? mark.charCodeAt(0) - 96 : 1;
+}
+
+function markFor(style: ListStyle, count: number): string {
+  if (style === "bullet") return "-";
+  return style === "number" ? `${count}.` : `${String.fromCharCode(96 + count)})`;
+}
+
+/** The line's list mark, or null. A rule wins, as in CommonMark: `* * *` is no item. */
+function itemOf(text: string): RegExpExecArray | null {
+  return RULE.test(text) ? null : ITEM.exec(text);
+}
+
+/** The line where the item holding line `n` starts, or null outside a list. */
+function itemLineAt(doc: Text, n: number): number | null {
+  for (let at = n; at >= 1; at--) {
+    const text = doc.line(at).text;
+    if (itemOf(text)) return at;
+    // A heading, fence or rule is no item's continuation, so the list above it is another block.
+    if (text.trim() === "" || HEADING.test(text) || FENCE.test(text) || RULE.test(text))
+      return null;
+  }
+  return null;
+}
+
+/** The next non-blank line from `n` on, going by `step`, or null at the note's edge. */
+function nextFilled(doc: Text, n: number, step: number): Line | null {
+  for (let at = n; at >= 1 && at <= doc.lines; at += step) {
+    const line = doc.line(at);
+    if (line.text.trim() !== "") return line;
+  }
+  return null;
+}
+
+/** Where a list's items start and the kind of mark they share. */
+interface Level {
+  indent: number;
+  kind: string;
+}
+
+/** What CommonMark ends a list on a change of: the bullet's character, or the style and its `.` or `)`. */
+function kindOf(mark: string): string {
+  return styleOf(mark) === "bullet" ? mark : `${styleOf(mark)}${mark.at(-1)}`;
+}
+
+/** Whether `line` belongs to the list at `level`, as a sibling or deeper. */
+function inList(line: Line | null, level: Level): boolean {
+  if (line === null) return false;
+  const width = indentWidth(line.text);
+  if (width !== level.indent) return width > level.indent;
+  const item = itemOf(line.text);
+  return item !== null && kindOf(item[2] ?? "") === level.kind;
+}
+
+/** Whether the line at `at` carries the list on, a blank one by the next filled line past it. */
+function continues(doc: Text, at: number, step: number, level: Level): boolean {
+  const line = doc.line(at);
+  return line.text.trim() === "" ? inList(nextFilled(doc, at, step), level) : inList(line, level);
+}
+
+/** The first item at the anchor's level, walking up past blank and deeper lines. */
+function firstItem(doc: Text, anchor: number, level: Level): number {
+  let first = anchor;
+  for (let at = anchor - 1; at >= 1 && continues(doc, at, -1, level); at--) {
+    if (indentWidth(doc.line(at).text) === level.indent) first = at;
+  }
+  return first;
+}
+
+/** The items of the list at line `n`, at its own level, each with the deeper lines under it. */
+function listAt(doc: Text, n: number): ListItem[] | null {
+  const anchor = itemLineAt(doc, n);
+  if (anchor === null) return null;
+  const text = doc.line(anchor).text;
+  const indent = indentWidth(text);
+  const level = { indent, kind: kindOf(itemOf(text)?.[2] ?? "-") };
+
+  const items: ListItem[] = [];
+  for (let at = firstItem(doc, anchor, level); at <= doc.lines; at++) {
+    if (!continues(doc, at, 1, level)) break;
+    const line = doc.line(at);
+    if (line.text.trim() === "") continue;
+    const item = indentWidth(line.text) === indent ? itemOf(line.text) : null;
+    if (item) {
+      items.push({
+        line,
+        indent: item[1]?.length ?? 0,
+        mark: item[2] ?? "-",
+        gap: item[3] ?? "",
+        children: [],
+      });
+    } else {
+      items.at(-1)?.children.push(line);
+    }
+  }
+  return items;
+}
+
+function inCode(state: EditorState, at: number): boolean {
+  for (
+    let node: SyntaxNode | null = syntaxTree(state).resolveInner(at, 1);
+    node;
+    node = node.parent
+  ) {
+    if (node.name === "FencedCode" || node.name === "CodeBlock") return true;
+  }
+  return false;
+}
+
+/**
+ * Steps the list under the cursor from bullets to `1.` to `a)` and back, renumbering as it goes.
+ * Only the cursor's level changes; deeper lines move right when a wider mark would unnest them.
+ * A list of todos is left alone, since a todo is a `-` item. Returns whether it changed the note.
+ */
+export function cycleListStyle(view: EditorView): boolean {
+  const { doc } = view.state;
+  const items = listAt(doc, doc.lineAt(view.state.selection.main.head).number);
+  if (items === null || items.length === 0) return false;
+  // A YAML list in the frontmatter or a list in a fence is not markdown to restyle.
+  const front = frontEnd(doc);
+  if (items.some(({ line }) => line.number <= front || inCode(view.state, line.from))) return false;
+  if (
+    items.some((item) =>
+      TODO_BOX.test(item.line.text.slice(item.indent + item.mark.length + item.gap.length)),
+    )
+  )
+    return false;
+
+  const [head] = items;
+  const start = head === undefined || styleOf(head.mark) === "bullet" ? 1 : startOf(head.mark);
+  let style = NEXT_STYLE[styleOf(head?.mark ?? "-")];
+  // Past `z)` there is no letter. And `a)` is paragraph text to CommonMark, so
+  // a child under it parses as a list of its own and draws at the wrong level.
+  const nested = items.some((item) => item.children.some((child) => child.text.trim() !== ""));
+  if (style === "letter" && (nested || start + items.length - 1 > 26)) style = "bullet";
+
+  const changes: ChangeSpec[] = [];
+  items.forEach((item, index) => {
+    const mark = markFor(style, start + index);
+    const from = item.line.from + item.indent;
+    changes.push({ from, to: from + item.mark.length, insert: mark });
+    // A child nests only while it starts at least as far in as the item's text.
+    const wider = mark.length - item.mark.length;
+    if (wider > 0) {
+      for (const child of item.children)
+        changes.push({ from: child.from, insert: " ".repeat(wider) });
+    }
+  });
+  view.dispatch({ changes });
+  return true;
+}

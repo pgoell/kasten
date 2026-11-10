@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/react-router";
 import { act, fireEvent, render, screen } from "@testing-library/react";
+import * as core from "@/lib/core/api";
 import * as api from "@/lib/tokens/token-api";
 import { routeTree } from "@/routeTree.gen";
 
@@ -127,5 +128,28 @@ describe("the tokens route", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Revoke cron" }));
 
     expect(revokeToken).not.toHaveBeenCalled();
+  });
+
+  it("links back to the notes, across to the other pages, and to the shared lists", async () => {
+    vi.spyOn(core, "fetchLayout").mockResolvedValue({
+      inbox: "00 Inbox",
+      periodic: "01 Periodic",
+      archive: "98 Archive",
+      images: "99 Misc/02 Assets/01 Images",
+      config: "99 Misc/01 Config",
+      lists: "https://liste.example/",
+    });
+    await renderRoute();
+
+    const nav = screen.getByRole("navigation", { name: "Pages" });
+    expect(screen.getByRole("link", { name: "← notes" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "settings" })).toHaveAttribute("href", "/settings");
+    expect(await screen.findByRole("link", { name: "lists" })).toHaveAttribute(
+      "href",
+      "https://liste.example/",
+    );
+    // The page it is on is named, not linked.
+    expect(screen.queryByRole("link", { name: "tokens" })).toBeNull();
+    expect(nav).toHaveTextContent("tokens");
   });
 });

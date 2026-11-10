@@ -7,9 +7,13 @@ loses its place shows up as a missing or broken hit.
 """
 
 import asyncio
+import sys
 from typing import TYPE_CHECKING
 
-from kasten_backend.search import LONGEST_TEXT
+import pytest
+
+from kasten_backend import search
+from kasten_backend.search import LONGEST_TEXT, Hit, literal_matcher, scan_vault
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -99,3 +103,50 @@ async def test_a_search_over_an_html_paragraph_past_64_kib_answers(
 
     assert response.status_code == 200
     assert [hit["text"] for hit in response.json()] == [paragraph[:LONGEST_TEXT], "a needle after"]
+
+
+@pytest.mark.parametrize("chunk", [1, 5, 7])
+async def test_a_chunk_boundary_inside_a_line_or_a_character_loses_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, chunk: int
+) -> None:
+    # Odd sizes put a read's end inside lines and inside multi-byte characters (#1759).
+    lines = [f"japanese {index} ü 日本 {'語' * index}" for index in range(40)]
+    (tmp_path / "日本.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    monkeypatch.setattr(search, "_CHUNK", chunk)
+
+    async with asyncio.timeout(LIMIT):
+        hits = await scan_vault(tmp_path, literal_matcher("japanese"), 1_000)
+
+    assert hits == [Hit("日本.md", number, line) for number, line in enumerate(lines, 1)]
+
+
+async def test_a_long_line_read_over_many_chunks_is_cut_as_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    long = "japanese " + "日本" * 150_000
+    (tmp_path / "japan.md").write_text(f"japanese first\n{long}\njapanese after", encoding="utf-8")
+    monkeypatch.setattr(search, "_CHUNK", 4_093)
+
+    async with asyncio.timeout(LIMIT):
+        hits = await scan_vault(tmp_path, literal_matcher("japanese"), 1_000)
+
+    assert [hit.text for hit in hits] == ["japanese first", long[:LONGEST_TEXT], "japanese after"]
+
+
+async def test_a_last_line_with_no_newline_comes_back(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # rg always ends a line; a stand-in that does not shows the last bytes are kept.
+    spawn = asyncio.create_subprocess_exec
+    printed = f"{tmp_path}/a.md\0" + f"1:first\n{tmp_path}/b.md\0" + "2:last"
+
+    async def unended(*_argv: str, stdout: int, stderr: int) -> asyncio.subprocess.Process:
+        script = f"import sys; sys.stdout.write({printed!r})"
+        return await spawn(sys.executable, "-c", script, stdout=stdout, stderr=stderr)
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", unended)
+
+    async with asyncio.timeout(LIMIT):
+        hits = await scan_vault(tmp_path, literal_matcher("x"), 10)
+
+    assert hits == [Hit("a.md", 1, "first"), Hit("b.md", 2, "last")]

@@ -213,4 +213,31 @@ takes that away, which is what `<leader>e` is for.
 The unit is two spaces. Neither key is a list key: they indent a plain line the
 same way, and an ordered list the same way as a bulleted one.
 
+## Lists
+
+| Key | Does |
+| --- | --- |
+| `<leader>-` | Cycle the list under the cursor: bullets, then `1.`, then `a)`, then bullets again |
+
+The key restyles every item at the cursor's level, from the first item of the
+list to the last, and renumbers them as it goes. A numbered list that starts at
+3 goes to letters from `c)`. Deeper lines keep their own style; when the new
+mark is wider than the old, they move right by the difference, so they stay
+nested under their item. A list that would run past `z)` skips the letters, and so
+does a list with lines under its items, for the reason below. A list of todos
+stays as it is, since a todo is a `-` item, and so does a list in the
+frontmatter or in a code fence.
+
+`a)` is not a list in CommonMark, which reads it as text. The editor still
+draws it as one, and a lettered line counts one level deeper than whatever it
+sits inside. A line nested under a lettered item is no child of it to the
+parser, which draws it at the wrong level, so the key keeps lettered lists flat.
+
+Every list line puts its text where its level says, whether it shows its
+source or not. The level is one step of 1.6em for each list the item sits in,
+and the mark, a drawn dot or the typed `-`, `1.` or `a)`, hangs in the step to
+the left of the text. The spaces that nest the line are hidden even while it
+shows its source: in a proportional face two spaces are far narrower than a
+level, and the text would jump left on the line you edit.
+
 In a table both keys mean something else, which [Tables](#tables) covers.

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { createRootRoute, Outlet } from "@tanstack/react-router";
-import { fetchLayout } from "@/lib/core/api";
+import { layoutQuery } from "./-pages";
 
 export const Route = createRootRoute({
   component: Root,
@@ -11,12 +11,6 @@ export const Route = createRootRoute({
  * `layout.ts` starts on the defaults until the answer comes.
  */
 function Root() {
-  useQuery({
-    queryKey: ["layout"],
-    // Reached inside the call rather than at render, so an api module without
-    // it, which is what most route tests mock, fails this query and not the page.
-    queryFn: () => fetchLayout(),
-    staleTime: Number.POSITIVE_INFINITY,
-  });
+  useQuery(layoutQuery);
   return <Outlet />;
 }

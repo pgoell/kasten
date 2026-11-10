@@ -58,6 +58,40 @@ describe("live preview", () => {
     expect(nested?.style.paddingLeft).toBe("3.2em");
   });
 
+  it("keeps a nested line's indent when it shows its source", async () => {
+    // The typed spaces are narrower than a level in the proportional face, so
+    // the text would jump left on the line being edited.
+    const { container } = renderEditor(<Editor initialDoc={"- first\n  - nested"} />);
+    const editor = container.querySelector(".cm-content") as HTMLElement;
+
+    fireEvent.keyDown(editor, { key: "j" });
+    fireEvent.keyDown(editor, { key: "i" });
+
+    await waitFor(() => expect(container.querySelector(".cm-list-line")).not.toBeNull());
+    const line = container.querySelector<HTMLElement>(".cm-list-line");
+    expect(line?.style.paddingLeft).toBe("3.2em");
+    expect(line?.querySelector(".cm-list-mark")?.textContent).toBe("- ");
+  });
+
+  it("indents a numbered and a lettered list as a bulleted one", () => {
+    const doc = "1. one\n   1. nested\n\na) first\nb) second";
+    const { container } = renderEditor(<Editor initialDoc={doc} />);
+    const lines = [...container.querySelectorAll<HTMLElement>(".cm-list-line")];
+
+    expect(lines.map((line) => line.style.paddingLeft)).toEqual([
+      "1.6em",
+      "3.2em",
+      "1.6em",
+      "1.6em",
+    ]);
+    expect(lines.map((line) => line.querySelector(".cm-list-mark")?.textContent)).toEqual([
+      "1. ",
+      "1. ",
+      "a) ",
+      "b) ",
+    ]);
+  });
+
   it("draws each of the five todo states in place of its box", () => {
     // The symbol is a `::before` the way the bullet's dot is, and jsdom
     // computes neither, so the class that carries it is what is read here.

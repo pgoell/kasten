@@ -224,6 +224,7 @@ export const LEADER_COLUMNS: readonly { title: string; keys: readonly string[] }
       "p",
       "v",
       "=",
+      "-",
       "x",
       "i",
       "@",
