@@ -1,7 +1,23 @@
-/* Hangs the dot in the space the padding opens, so a wrapped line puts its
-   text under the text above rather than under the bullet. */
-.cm-bullet {
-  text-indent: -1.1em;
+/* Every list line hangs its mark, drawn or typed, in the last 1.6em of the
+   padding (`BULLET_INDENT`), so the text starts at the same place whether the
+   line shows its source or not, and a wrapped line lines up under the text. */
+.cm-bullet,
+.cm-todo,
+.cm-list-line {
+  text-indent: -1.6em;
+}
+
+/* Right-aligned, so a number's dot sits beside the text as a bullet's does.
+   Not a flex box: one drops the space after the mark, a text node of its own.
+   `pre` keeps that space from hanging out of the box. */
+.cm-bullet::before,
+.cm-todo::before,
+.cm-list-mark {
+  display: inline-block;
+  width: 1.6em;
+  text-align: right;
+  text-indent: 0;
+  white-space: pre;
 }
 
 .cm-bullet::before {
@@ -10,12 +26,7 @@
 }
 
 /* A todo is a bullet whose dot says what state it is in. The box is hidden
-   along with the dash, so the symbol hangs where the dot would have, one step
-   wider because a box is wider than a dot. */
-.cm-todo {
-  text-indent: -1.4em;
-}
-
+   along with the dash, and the symbol hangs where the dot would have. */
 .cm-todo-open::before {
   content: "☐ ";
   color: var(--k-muted);

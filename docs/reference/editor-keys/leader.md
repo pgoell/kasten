@@ -161,6 +161,7 @@ The file pickers that `<leader>cm` and `<leader>cb` open wait until you let go o
 | `<leader>p` | Turn live preview off, or back on |
 | `<leader>v` | Play or pause a video from any pane: the focused video pane's, else the one playing this note's video, else the tab's first video pane. Nothing when the tab has none |
 | `<leader>=` | Tidy the markdown in this note |
+| `<leader>-` | Cycle the list under the cursor between bullets, `1.` and `a)` |
 | `<leader>x` | Cycle the todo on this line |
 | `<leader>i` | Stamp an id on the todo on this line |
 | `<leader>@` | Send this todo to the agent, or take it back |
