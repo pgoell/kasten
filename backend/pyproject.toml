@@ -21,7 +21,7 @@ dependencies = [
     "markdown-it-py>=3.0",
     # Pinned exactly, so a bump is its own pull request, where `test_mcp.py`'s
     # round trip catches the SDK's renames before production does.
-    "mcp==2.2.0",
+    "mcp==2.3.0",
     "numpy>=2.3",
     "onnxruntime>=1.23",
     "pgvector>=0.4",
