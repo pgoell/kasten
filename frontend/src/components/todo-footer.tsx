@@ -10,7 +10,6 @@ interface FooterProps {
   timers: number;
   coarse: boolean;
   picking: boolean;
-  /** The count per state the legend draws. */
   counts: Record<TodoState, number>;
 }
 
@@ -29,7 +28,7 @@ export function TodoFooter(p: FooterProps) {
       data-testid="todo-footer"
       className="flex items-center justify-between gap-3 border-t border-k-rule px-3 py-1 text-[11px] text-k-muted"
     >
-      <span className="flex shrink-0 items-center gap-3">
+      <span className="flex min-w-0 items-center gap-3">
         <Count {...p} />
       </span>
       {p.coarse ? null : <Keys board={p.board} picking={p.picking} />}
@@ -38,7 +37,6 @@ export function TodoFooter(p: FooterProps) {
 }
 
 function Count({ board, cards, listed, shown, timers, picking, counts }: FooterProps) {
-  const running = timers > 0 && `, ${timers} running`;
   if (board) return `${cards} on the board`;
   if (listed === "done") return `${shown.length} finished`;
   // The open list's legend counts each state; the picker and next list keep the words.
@@ -57,7 +55,7 @@ function Count({ board, cards, listed, shown, timers, picking, counts }: FooterP
       {shown.length - blocked - onSomebody - toReview} open, {blocked} blocked
       {onSomebody > 0 && `, ${onSomebody} waiting`}
       {toReview > 0 && `, ${toReview} to review`}
-      {running}
+      {timers > 0 && `, ${timers} running`}
     </>
   );
 }

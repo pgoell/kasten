@@ -60,7 +60,6 @@ export function TodoHeader(p: {
   } = p;
   /** The strip's buttons: a tap's height by finger, a line's by mouse. */
   const pad = coarse ? "min-h-11 px-3" : "px-2 py-1";
-  /** A strip button, in ink and underlined while its list is the one shown. */
   const tab = (on: boolean) =>
     `${pad} shrink-0 border-b-2 ${on ? "border-k-accent text-k-ink" : "border-transparent"}`;
 
@@ -105,12 +104,8 @@ export function TodoHeader(p: {
         )}
       </header>
 
-      {/* Every switch on one line that scrolls sideways rather than wraps, so a
-          phone spends one row on them and the rest on todos. `d`, `n`, `v` and
-          `c` first, on every pointer, since nothing else on a desktop says the
-          board exists (#419): a finger gets bare words, a mouse gets
-          key-then-word so the strip teaches the key. Out of the tab order, since
-          the cursor row is the pane's one stop. */}
+      {/* d n v c on every pointer, since nothing else on a desktop says the board
+          exists (#419); out of the tab order, the cursor row being the pane's one stop. */}
       <div className="flex items-center overflow-x-auto border-b border-k-rule px-1 font-sans text-[12px] whitespace-nowrap text-k-muted [scrollbar-width:none]">
         <button
           type="button"
