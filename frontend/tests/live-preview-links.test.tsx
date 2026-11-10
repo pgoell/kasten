@@ -74,10 +74,10 @@ describe("live preview", () => {
   });
 
   it("renders a wikilink as the note it names", () => {
-    const { container } = renderEditor(<Editor initialDoc="see [[reading/borges]] now" />);
+    const { container } = renderEditor(<Editor initialDoc="see [[borges]] now" />);
 
-    expect(content(container)).toBe("see reading/borges now");
-    expect(container.querySelector(".cm-wikilink")?.textContent).toBe("reading/borges");
+    expect(content(container)).toBe("see borges now");
+    expect(container.querySelector(".cm-wikilink")?.textContent).toBe("borges");
   });
 
   it("reveals the brackets with the cursor in the wikilink in insert mode", async () => {
@@ -119,6 +119,46 @@ describe("live preview", () => {
     expect(content(container)).toBe("see the story now");
     expect(container.querySelector(".cm-wikilink")?.textContent).toBe("the story");
     expect(container.querySelector(".cm-wikilink-dead")).toBeNull();
+  });
+
+  it("draws a link with a folder as the note's own name", () => {
+    const { container } = renderEditor(
+      <Editor
+        initialDoc="[[01 Periodic/00 Daily/2026-11-09]] | [[reading/borges#The Aleph/2]]"
+        paths={["reading/borges.md"]}
+      />,
+    );
+
+    expect(content(container)).toBe("2026-11-09 | borges#The Aleph/2");
+    expect(container.querySelector(".cm-wikilink-dead")?.textContent).toBe("2026-11-09");
+  });
+
+  it("drops the bar of an empty alias", () => {
+    const { container } = renderEditor(<Editor initialDoc="[[reading/borges|]] [[borges|]]" />);
+
+    expect(content(container)).toBe("borges borges");
+  });
+
+  it("keeps the source of a link with no name", () => {
+    const { container } = renderEditor(<Editor initialDoc="a [[|]] b" />);
+
+    expect(content(container)).toBe("a | b");
+  });
+
+  it("keeps the source of a link whose path ends at its slash", () => {
+    const { container } = renderEditor(<Editor initialDoc="a [[/]] b [[/|]] c" />);
+
+    expect(content(container)).toBe("a / b /| c");
+  });
+
+  it("shows the whole path again with the cursor in it in insert mode", async () => {
+    const { container } = renderEditor(<Editor initialDoc="see [[reading/borges]] now" />);
+    const editor = container.querySelector(".cm-content") as HTMLElement;
+
+    fireEvent.keyDown(editor, { key: "w" });
+    fireEvent.keyDown(editor, { key: "i" });
+
+    await waitFor(() => expect(content(container)).toBe("see [[reading/borges]] now"));
   });
 
   it("draws a link to a heading of its own note as alive", () => {
