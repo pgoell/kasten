@@ -274,7 +274,7 @@ it("#803 A13 the preview shows kcal, kcal left after and the exact line in mono"
   expect(need(view, ".cm-log-food-line").textContent).toBe(SKYR_LINE);
   // The line is set in the mono face, which the stylesheet names for it.
   const css = readFileSync(
-    path.resolve(import.meta.dirname, "../src/styles/food-sheet.css"),
+    path.resolve(import.meta.dirname, "../src/styles/food/food-sheet.css"),
     "utf8",
   );
   expect(css).toMatch(/\.cm-log-food-line\s*\{[^}]*font-family:\s*var\(--k-mono\)/);

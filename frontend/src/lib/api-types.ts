@@ -4512,6 +4512,20 @@ export interface components {
             };
         };
         /**
+         * Cooked
+         * @description One line under `## Gekocht`: the day it was cooked, the answer to "wieder kochen?", a note.
+         */
+        Cooked: {
+            /** Line */
+            line: number;
+            /** Date */
+            date: string;
+            /** Verdict */
+            verdict: ("lieber nicht" | "geht so" | "gern wieder") | null;
+            /** Note */
+            note: string | null;
+        };
+        /**
          * CountOut
          * @description Where a booking counts: the budget month, scope, part and category, and the amount.
          */
@@ -6239,6 +6253,8 @@ export interface components {
             ingredients: components["schemas"]["Ingredient"][];
             /** Steps */
             steps: string[];
+            /** Cooked */
+            cooked: components["schemas"]["Cooked"][];
             total: components["schemas"]["Nutrients"];
             per_serving: components["schemas"]["Nutrients"] | null;
         };

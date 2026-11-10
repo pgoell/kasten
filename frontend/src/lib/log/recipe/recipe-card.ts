@@ -1,6 +1,7 @@
 /**
- * The card under a recipe note's title: kcal and macros per serving, each ingredient line with
- * what it adds, and a servings stepper that scales the amounts in the view, never in the note.
+ * The card under a recipe note's title: its facts, kcal and macros per serving, each
+ * ingredient line with what it adds, a servings stepper that scales the amounts in the view,
+ * never in the note, the last meals cooked, and the way into cook mode.
  * The numbers come from `POST /api/recipe/nutrition`, sent the open buffer after typing pauses.
  */
 
@@ -15,8 +16,19 @@ import {
   WidgetType,
 } from "@codemirror/view";
 import { type Ingredient, type Recipe, readRecipe } from "@/lib/log/food-api";
+import { openCookMode } from "@/lib/log/recipe/cook-mode";
+import {
+  cookedLine,
+  newestFirst,
+  recipeFacts,
+  scaledLine,
+  shown,
+} from "@/lib/log/recipe/recipe-steps";
 import { cardLine } from "@/lib/notes/note/weather-card";
 import { readField } from "@/lib/notes/text/note-frontmatter";
+
+/** How many cooked lines the card lists, newest first. */
+export const COOKED_SHOWN = 3;
 
 /** How long typing must pause before the buffer is sent: one request per pause, not per key. */
 export const RECIPE_PAUSE_MS = 600;
@@ -38,24 +50,6 @@ export function isRecipe(text: string): boolean {
 const HEAD_CHARS = 4000;
 function recipeNote(state: EditorState): boolean {
   return isRecipe(state.doc.sliceString(0, HEAD_CHARS));
-}
-
-/** A number as the card writes it: at most `places` decimals, and no trailing zeros. */
-export function shown(value: number, places = 1): string {
-  return String(Number(value.toFixed(places)));
-}
-
-/** Every `🏷` barcode pinned to a line, which the card leaves out, as the backend's `PIN` does. */
-const PIN = /[ \t]*🏷️?[ \t]*[0-9]{8,14}\b/gu;
-
-/**
- * The line as written at the note's own servings; otherwise its quantity, and the upper end of
- * a range, times `factor`, as `3-4.5 Zwiebeln`.
- */
-export function scaledLine(item: Ingredient, factor: number): string {
-  if (factor === 1 || item.quantity === null) return item.text.replace(PIN, "").trim();
-  const upper = item.quantity_to === null ? "" : `-${shown(item.quantity_to * factor, 2)}`;
-  return `${shown(item.quantity * factor, 2)}${upper} ${item.rest}`.trim();
 }
 
 interface Chosen {
@@ -97,6 +91,44 @@ function macros(recipe: Recipe): HTMLElement {
       element("span", "cm-recipe-macro", `${value === null ? "–" : shown(value)} g ${name}`),
     );
   }
+  return row;
+}
+
+function facts(recipe: Recipe): HTMLElement | null {
+  const said = recipeFacts(recipe, new Date());
+  return said.length === 0 ? null : element("div", "cm-recipe-facts", said.join(" · "));
+}
+
+function cookedList(recipe: Recipe): HTMLElement | null {
+  const shownLines = newestFirst(recipe.cooked).slice(0, COOKED_SHOWN);
+  if (shownLines.length === 0) return null;
+  const section = element("div", "cm-recipe-cooked");
+  section.append(element("div", "cm-recipe-label", "Last cooked"));
+  const list = element("ul", "cm-recipe-lines");
+  for (const item of shownLines) list.append(element("li", "cm-recipe-note", cookedLine(item)));
+  section.append(list);
+  return section;
+}
+
+/** The note's `# ` title, which cook mode names the dish by. */
+function title(state: EditorState): string {
+  for (let at = 1; at <= Math.min(state.doc.lines, 200); at++) {
+    const found = /^# (.+)/.exec(state.doc.line(at).text);
+    if (found?.[1] !== undefined) return found[1].trim();
+  }
+  return "Recipe";
+}
+
+function actions(view: EditorView, recipe: Recipe, servings: number | null): HTMLElement {
+  const row = element("div", "cm-recipe-actions");
+  const cook = element("button", "cm-recipe-cook", "Cook");
+  cook.type = "button";
+  cook.disabled = recipe.steps.length === 0;
+  if (cook.disabled) cook.title = "Add numbered steps under ## Schritte to cook from them";
+  cook.addEventListener("click", () =>
+    openCookMode({ title: title(view.state), recipe, servings }),
+  );
+  row.append(cook);
   return row;
 }
 
@@ -176,6 +208,8 @@ class RecipeCard extends WidgetType {
     }
     const servings = this.chosen.servings ?? recipe.servings;
     const factor = servings === null || recipe.servings === null ? 1 : servings / recipe.servings;
+    const head = facts(recipe);
+    if (head !== null) card.append(head);
     card.append(macros(recipe));
     if (servings !== null) card.append(stepper(view, recipe, servings));
     else card.append(element("div", "cm-recipe-own", "Add servings: N to the frontmatter"));
@@ -183,6 +217,9 @@ class RecipeCard extends WidgetType {
     const counted = recipe.ingredients.filter((item) => item.status === "counted").length;
     const of = `${counted} of ${recipe.ingredients.length} lines counted`;
     card.append(element("div", "cm-recipe-foot", why === null ? of : `${of}. ${why}`));
+    const cooked = cookedList(recipe);
+    if (cooked !== null) card.append(cooked);
+    card.append(actions(view, recipe, servings));
     return card;
   }
 }

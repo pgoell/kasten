@@ -10143,6 +10143,54 @@
         "title": "Contributions",
         "description": "Whether the review's GitHub section is on, and each day's count when it is."
       },
+      "Cooked": {
+        "properties": {
+          "line": {
+            "type": "integer",
+            "title": "Line"
+          },
+          "date": {
+            "type": "string",
+            "title": "Date"
+          },
+          "verdict": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "lieber nicht",
+                  "geht so",
+                  "gern wieder"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "line",
+          "date",
+          "verdict",
+          "note"
+        ],
+        "title": "Cooked",
+        "description": "One line under `## Gekocht`: the day it was cooked, the answer to \"wieder kochen?\", a note."
+      },
       "CountOut": {
         "properties": {
           "month": {
@@ -14717,6 +14765,13 @@
             "type": "array",
             "title": "Steps"
           },
+          "cooked": {
+            "items": {
+              "$ref": "#/components/schemas/Cooked"
+            },
+            "type": "array",
+            "title": "Cooked"
+          },
           "total": {
             "$ref": "#/components/schemas/Nutrients"
           },
@@ -14739,6 +14794,7 @@
           "tags",
           "ingredients",
           "steps",
+          "cooked",
           "total",
           "per_serving"
         ],
