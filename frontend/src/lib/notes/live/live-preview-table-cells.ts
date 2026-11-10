@@ -64,7 +64,7 @@ function wikiLinkSpans(state: EditorState, text: string, className: string): Spa
   const target = text.replace("\\|", "|").trim();
   return [
     {
-      text: alias ?? named.slice(slash + 1),
+      text: alias ?? (named.trim() === "" ? text : named.slice(slash + 1)),
       class: dead ? `${className} cm-wikilink-dead` : className,
       target,
     },

@@ -139,6 +139,12 @@ describe("live preview", () => {
     expect(content(container)).toBe("borges borges");
   });
 
+  it("keeps the source of a link with no name", () => {
+    const { container } = renderEditor(<Editor initialDoc="a [[|]] b" />);
+
+    expect(content(container)).toBe("a | b");
+  });
+
   it("shows the whole path again with the cursor in it in insert mode", async () => {
     const { container } = renderEditor(<Editor initialDoc="see [[reading/borges]] now" />);
     const editor = container.querySelector(".cm-content") as HTMLElement;
