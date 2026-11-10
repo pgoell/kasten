@@ -359,7 +359,7 @@ test.describe("a note changed on disk under text nobody saved", () => {
     stack,
   }) => {
     await conflicted(page, stack.vault);
-    // q and the tree refuse with no flash, so the state alone is read; break 15 turns both red.
+    // q and the tree refuse with no flash, so only the state is read.
     const at = ["Changed on disk", OUTSIDE, 1, 1, 1];
     await leader(page, "q");
     await expect.poll(() => state(page, stack.vault)).toEqual(at);
