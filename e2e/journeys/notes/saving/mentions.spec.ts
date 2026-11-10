@@ -119,6 +119,9 @@ test.describe("unlinked mentions", () => {
       .toContain("Order seeds for the [[Garden]] beds in March.");
 
     // The list reloads once a link lands, so the second mention is narrowed to rather than walked to.
+    // Typing before the reload would narrow the old list, whose line numbers the write has moved.
+    const [, fence] = await mentionRows(stack.vault);
+    await expect.poll(() => texts(mentions(page))).toEqual([fence]);
     await page.keyboard.type("fence");
     await expect.poll(() => texts(rows(page))).toEqual([expect.stringContaining(FENCE)]);
     await page.keyboard.press("Meta+Enter");
@@ -185,10 +188,15 @@ test.describe("unlinked mentions", () => {
     await findNote(page, "Garden");
     const seeds = page.locator(".cm-content", { hasText: "Order seeds" });
     if (type !== undefined) {
-      await seeds.click();
+      // A line, not the content's middle: in a short note that sits under the note's header.
+      await seeds.locator(".cm-line:visible").last().click();
       await page.keyboard.press("Escape");
       await type();
-      await page.locator(".cm-content", { hasText: "water the tomatoes" }).click();
+      await page
+        .locator(".cm-content", { hasText: "water the tomatoes" })
+        .locator(".cm-line:visible")
+        .last()
+        .click();
       await page.keyboard.press("Escape");
     }
     await openPanel(page, "gb", "backlinks");
@@ -249,10 +257,14 @@ test.describe("unlinked mentions", () => {
     // The write fails, which leaves its text held in the page.
     answer(500);
     await expect(mentions(page)).toHaveCount(2);
-    await page.keyboard.press("Control+Enter");
-    await expect
-      .poll(() => outcome(page, stack.vault))
-      .toEqual(["That note holds text not yet saved", before]);
+    // A press can land before the page reads the 500, and then rightly says the write is out.
+    await expect(async () => {
+      await page.keyboard.press("Control+Enter");
+      expect(await outcome(page, stack.vault)).toEqual([
+        "That note holds text not yet saved",
+        before,
+      ]);
+    }).toPass();
   });
 
   test("a link writes nothing when the line changed on disk since the list was read, and says why", async ({
