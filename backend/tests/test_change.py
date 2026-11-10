@@ -1,7 +1,10 @@
 """What the write lock is for: two writers, and neither one's edit in the other's change."""
 
 import asyncio
+import fcntl
+import signal
 import subprocess
+import sys
 from typing import TYPE_CHECKING
 
 import pytest
@@ -11,7 +14,8 @@ from httpx import ASGITransport, AsyncClient
 from backend.tests.anki_build import apkg
 from backend.tests.conftest import JJ, changed_paths, descriptions, jj
 from kasten_backend import change, vcs
-from kasten_backend.change import vault_change
+from kasten_backend.change import vault_change, vault_write
+from kasten_backend.config import get_settings
 from kasten_backend.main import app
 
 if TYPE_CHECKING:
@@ -305,6 +309,7 @@ async def test_1827_a_snapshot_that_raises_logs_frees_the_lock_and_keeps_the_fil
     assert after.status_code == 200
     await change.settled()
     assert {"# kept", "# on"} <= saved_texts(versioned_vault, "a.md")
+    assert lock_is_free()
 
 
 async def test_1827_history_right_after_a_save_shows_it(
@@ -355,3 +360,162 @@ async def test_1827_an_unversioned_vault_starts_no_snapshot(
 
     assert change._snapshotting is None
     assert not change._lock.locked()
+
+
+HOLD = (
+    "import fcntl,sys;f=open(sys.argv[1],'a');fcntl.flock(f,fcntl.LOCK_EX);"
+    "print('held',flush=True);input()"
+)
+"""Another process holding the vault's flock until its stdin gets a line."""
+
+SAVES = """
+import asyncio, sys
+from pathlib import Path
+from kasten_backend.change import settled, vault_change, vault_write
+async def main():
+    root, tag = Path(sys.argv[1]), sys.argv[2]
+    for i in range(8):
+        async with vault_write(), vault_change(root, "a.md"):
+            (root / "a.md").write_text(f"# {tag}{i}")
+        print(f"# {tag}{i}", flush=True)
+    await settled()
+asyncio.run(main())
+"""
+"""A second backend process saving one note eight times, printing each save it finished."""
+
+
+def lock_is_free() -> bool:
+    with get_settings().vault_lock.open("a") as probe:
+        try:
+            fcntl.flock(probe, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return False
+        return True
+
+
+@pytest.fixture
+def holder() -> Iterator[subprocess.Popen[str]]:
+    lock = get_settings().vault_lock
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    child = subprocess.Popen(  # noqa: S603
+        [sys.executable, "-c", HOLD, str(lock)],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+    assert child.stdout is not None
+    assert child.stdout.readline() == "held\n"
+    yield child
+    child.kill()
+    child.wait(5)
+
+
+async def test_1768_a_save_waits_while_another_process_holds_the_flock(
+    client: AsyncClient, versioned_vault: Path, holder: subprocess.Popen[str]
+) -> None:
+    (versioned_vault / "a.md").write_text("# a")
+    save = asyncio.create_task(client.put("/api/files/a.md", json={"content": "# mine"}))
+    await asyncio.wait({save}, timeout=0.5)
+    assert not save.done()
+    # The flock is waited on in a thread, so the loop still answers a read meanwhile.
+    assert (await asyncio.wait_for(client.get("/api/version"), 2.0)).status_code == 200
+
+    holder.communicate("go\n", timeout=5)
+    assert (await asyncio.wait_for(save, 10.0)).status_code == 200
+
+
+async def test_1768_the_flock_covers_the_snapshot(
+    client: AsyncClient, versioned_vault: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (versioned_vault / "a.md").write_text("# a")
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def parking(root: Path) -> None:
+        entered.set()
+        await release.wait()
+        await vcs.snapshot(root)
+
+    monkeypatch.setattr(change, "snapshot", parking)
+    try:
+        await asyncio.wait_for(client.put("/api/files/a.md", json={"content": "# a"}), 5.0)
+        await asyncio.wait_for(entered.wait(), 5.0)
+        assert not lock_is_free()
+    finally:
+        # Set on a failure too, or the app's shutdown waits on the parked snapshot.
+        release.set()
+    await change.settled()
+    assert lock_is_free()
+
+
+async def test_1768_a_lock_left_by_a_killed_process_wedges_nothing(
+    client: AsyncClient, versioned_vault: Path, holder: subprocess.Popen[str]
+) -> None:
+    (versioned_vault / "a.md").write_text("# a")
+    holder.send_signal(signal.SIGKILL)
+    assert holder.wait(5) == -signal.SIGKILL
+    assert get_settings().vault_lock.exists()
+
+    answer = await asyncio.wait_for(client.put("/api/files/a.md", json={"content": "# a"}), 5.0)
+    assert answer.status_code == 200
+
+
+async def test_1768_a_missing_lock_folder_is_made(
+    client: AsyncClient, versioned_vault: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (versioned_vault / "a.md").write_text("# a")
+    monkeypatch.setenv("KASTEN_TOKENS_PATH", str(tmp_path / "gone" / "deeper" / "tokens.json"))
+    get_settings.cache_clear()
+
+    answer = await asyncio.wait_for(client.put("/api/files/a.md", json={"content": "# a"}), 5.0)
+
+    assert answer.status_code == 200
+    assert (tmp_path / "gone" / "deeper" / "vault.lock").is_file()
+
+
+async def test_1768_a_cancelled_wait_or_a_raising_write_leaves_no_lock_held(
+    versioned_vault: Path, holder: subprocess.Popen[str]
+) -> None:
+    async def write() -> None:
+        async with vault_write():
+            pass
+
+    waiting = asyncio.create_task(write())
+    await asyncio.wait({waiting}, timeout=0.3)
+    assert not waiting.done()
+    waiting.cancel()
+    holder.communicate("go\n", timeout=5)
+    with pytest.raises(asyncio.CancelledError):
+        await waiting
+
+    # This write's flock waits on the cancelled thread's, which only its done callback closes.
+    with pytest.raises(ValueError, match="mid-write"):
+        async with asyncio.timeout(5), vault_write():
+            raise ValueError("mid-write")
+    assert lock_is_free()
+    assert not change._lock.locked()
+
+
+def test_1768_two_processes_saving_one_note_lose_no_save(versioned_vault: Path) -> None:
+    (versioned_vault / "a.md").write_text("# a")
+    children = [
+        subprocess.Popen(  # noqa: S603
+            [sys.executable, "-c", SAVES, str(versioned_vault), tag],
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+        for tag in ("left", "right")
+    ]
+    told: set[str] = set()
+    try:
+        for child in children:
+            out, _ = child.communicate(timeout=60)
+            assert child.returncode == 0
+            told |= set(out.splitlines())
+    finally:
+        for child in children:
+            child.kill()
+
+    assert len(told) == 16
+    assert told <= saved_texts(versioned_vault, "a.md")
+    on_disk = (versioned_vault / "a.md").read_text()
+    assert jj(versioned_vault, "--ignore-working-copy", "file", "show", "root:a.md") == on_disk

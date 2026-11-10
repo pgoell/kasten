@@ -9,7 +9,6 @@ from urllib.parse import quote
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from kasten_backend.uploads import UPLOAD_SWEEP_SECONDS
 from kasten_backend.weather import Place
 
 
@@ -167,9 +166,10 @@ class Settings(BaseSettings):
     is the only way to one. The image sets `/receipts`, a mount of `~/kasten-data/finance/receipts`.
     """
 
-    upload_sweep_seconds: Annotated[float, Field(gt=0)] = UPLOAD_SWEEP_SECONDS
+    upload_sweep_seconds: Annotated[float, Field(gt=0)] = 600
     """How often the backend deletes uploads idle over an hour.
 
+    Every ten minutes, so an unfinished file is gone within seventy even when nothing follows it.
     A setting so a test can sweep on every turn of the loop instead of waiting.
     """
 
@@ -308,6 +308,14 @@ class Settings(BaseSettings):
     def github_cache(self) -> Path:
         """Where the GitHub cache lives: `github_cache_path`, else beside the tokens file."""
         return self.github_cache_path or self.tokens_path.with_name("github-contributions.json")
+
+    @property
+    def vault_lock(self) -> Path:
+        """The file every backend process flocks before it writes the vault, beside the tokens.
+
+        Production mounts that folder; the vault itself is no place for it, since jj would take it.
+        """
+        return self.tokens_path.with_name("vault.lock")
 
     def fill(self, text: str) -> str:
         """`text` with each `{{folder}}` spelled the way this vault spells it.
