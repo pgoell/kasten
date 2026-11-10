@@ -1,7 +1,7 @@
 ---
 type: How-to Guide
 title: Log food from a phone
-description: Scan a food's barcode with the phone camera, log it on today's note, and what to do when the camera is refused, the barcode is typed instead, or the barcode is unknown.
+description: Scan a food's barcode with the phone camera, log it or a recipe on today's note, and what to do when the camera is refused, the barcode is typed instead, or the barcode is unknown.
 tags: [phone, food, barcode, camera, log]
 status: stable
 ---
@@ -38,6 +38,17 @@ to turn the light off. The button shows only where the camera has a torch
 ## Find a food by name
 
 Type two letters or more in the search field. The results come in three sections, in this order: `Mine` (your own foods), `Recent` (foods the last 30 days logged) and `Open Food Facts`. The first two need no search. Tap a food to open the serving step, then tap `Log this food`.
+
+## Log a recipe you cooked
+
+1. Tap `+ Food`. Your recipes come first, under `Recipes`.
+2. Tap the dish, set the servings you ate, and tap `Log this food`.
+3. The rating sheet asks whether to cook it again. Tap a face, any chips for
+   what to change, and `Done`. The answer goes under `## Gekocht` on the recipe,
+   where the recipe card shows it. Tap `Later` to answer tonight instead.
+
+[Recipe note](/reference/food/recipe-note.md#the-rating-sheet) says what each
+part of the sheet does.
 
 ## Log kcal without a food
 

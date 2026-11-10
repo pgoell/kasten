@@ -3148,6 +3148,29 @@
         }
       }
     },
+    "/api/recipes": {
+      "get": {
+        "summary": "List Recipes",
+        "description": "Every note with `type: Recipe` outside the archive, by title, with its numbers.",
+        "operationId": "list_recipes_api_recipes_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RecipeEntry"
+                  },
+                  "type": "array",
+                  "title": "Response List Recipes Api Recipes Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/anki": {
       "post": {
         "summary": "Import Anki",
@@ -14800,6 +14823,52 @@
         ],
         "title": "Recipe",
         "description": "A recipe's ingredients with their numbers, the sum, and the sum per serving."
+      },
+      "RecipeEntry": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "servings": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Servings"
+          },
+          "per_serving": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Nutrients"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "$ref": "#/components/schemas/Nutrients"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "title",
+          "servings",
+          "per_serving",
+          "total"
+        ],
+        "title": "RecipeEntry",
+        "description": "A recipe note as the food sheet lists it."
       },
       "RecipeText": {
         "properties": {

@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: "HTTP API: food"
-description: The routes that search Open Food Facts for a food, read one by its barcode, and work out a recipe's kcal and macros per serving, the answers they give, and the limits they keep.
+description: The routes that search Open Food Facts for a food, read one by its barcode, work out a recipe's kcal and macros per serving, and list the recipe notes, the answers they give, and the limits they keep.
 resource: backend/src/kasten_backend/food/__init__.py
 tags: [api, backend, openapi]
 status: stable
@@ -13,6 +13,8 @@ Two routes find a food for the log: a search by name, and a read by barcode.
 Both ask [Open Food Facts](https://world.openfoodfacts.org), an open food
 database, and both answer with the same food shape. A third works out a
 recipe's numbers: see [POST /api/recipe/nutrition](#post-apirecipenutrition).
+A fourth lists the recipe notes for the food sheet: see
+[GET /api/recipes](#get-apirecipes).
 
 ## GET /api/food/search
 
@@ -151,6 +153,31 @@ inside the same limits and cache. A read Open Food Facts refuses, or that the
 limit stops, makes that line `unreached` and the answer is still `200`. The
 route answers `422` for a body without `text`, or a `text` over 200,000
 characters. It writes nothing.
+
+## GET /api/recipes
+
+Lists every recipe note outside the archive folder, sorted by title, with its
+numbers, for the food sheet. A note is a recipe when its block says
+`type: Recipe`, in any case. Each note is worked out as
+[POST /api/recipe/nutrition](#post-apirecipenutrition) works out its text, inside
+the same limits and cache.
+
+```json
+[
+  {
+    "path": "Rezepte/Chili.md",
+    "title": "Chili sin carne",
+    "servings": 4.0,
+    "per_serving": { "kcal": 540.0, "protein": 32.0, "carbs": 62.0, "fat": 14.0 },
+    "total": { "kcal": 2160.0, "protein": 128.0, "carbs": 248.0, "fat": 56.0 }
+  }
+]
+```
+
+* `title` is the first `# ` heading below the note's frontmatter, or its file name without `.md`.
+* `per_serving` is `null` when the note names no servings; `total` is then the
+  whole dish.
+* A note that cannot be read as UTF-8 is left out. The route writes nothing.
 
 ## Errors
 

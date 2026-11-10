@@ -69,6 +69,7 @@ import {
   type LogKind,
 } from "@/lib/log/log-kinds";
 import { type DrinkTotals, drinkTotals, LOG_HEADING, logLines } from "@/lib/log/log-lines";
+import { comeBackTonight } from "@/lib/log/recipe/rate-sheet";
 import { cardLine } from "@/lib/notes/note/weather-card";
 import { appendUnderEdit } from "@/lib/notes/text/note-section";
 import { dailyDate } from "@/lib/notes/text/periodic";
@@ -447,6 +448,7 @@ const registry = ViewPlugin.define((view) => {
   });
 
   askForCard(view);
+  comeBackTonight();
 
   return {
     update(update) {

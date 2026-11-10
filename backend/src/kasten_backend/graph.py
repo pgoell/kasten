@@ -173,6 +173,17 @@ def _parse(_path: str, raw: bytes) -> tuple[list[tuple[int, str]], str | None]:
     return [(at + 1, line) for at, line in enumerate(lines) if "[[" in line], _type(lines)
 
 
+def typed_notes(root: Path, kind: str, skip: str | None = None) -> list[str]:
+    """The notes whose block says `type: <kind>`, in any case, outside the `skip` folder."""
+    held = note_facts(root, "graph", _parse, ([], None))
+    want = kind.lower()
+    return [
+        path
+        for path, (_, typed) in held.items()
+        if typed is not None and typed.lower() == want and not skipped(path, skip)
+    ]
+
+
 async def read_graph(root: Path, skip: str | None = None) -> Vault:
     """Every note under `root` outside the `skip` folder, and every link between them.
 

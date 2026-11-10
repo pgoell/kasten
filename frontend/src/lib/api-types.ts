@@ -1613,6 +1613,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/recipes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Recipes
+         * @description Every note with `type: Recipe` outside the archive, by title, with its numbers.
+         */
+        get: operations["list_recipes_api_recipes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/anki": {
         parameters: {
             query?: never;
@@ -6259,6 +6279,20 @@ export interface components {
             per_serving: components["schemas"]["Nutrients"] | null;
         };
         /**
+         * RecipeEntry
+         * @description A recipe note as the food sheet lists it.
+         */
+        RecipeEntry: {
+            /** Path */
+            path: string;
+            /** Title */
+            title: string;
+            /** Servings */
+            servings: number | null;
+            per_serving: components["schemas"]["Nutrients"] | null;
+            total: components["schemas"]["Nutrients"];
+        };
+        /**
          * RecipeText
          * @description A recipe note as the editor holds it.
          */
@@ -9413,6 +9447,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_recipes_api_recipes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecipeEntry"][];
                 };
             };
         };
