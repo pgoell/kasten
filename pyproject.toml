@@ -105,7 +105,7 @@ dev = [
     "pytest-asyncio>=1.4.1.post1",
     "pytest-xdist>=3.8",
     "ruff>=0.17.4",
-    "ty>=0.0.99",
+    "ty>=0.0.100",
 ]
 
 # Each contract's name is what lint-imports prints on failure, so it states the rule and the fix.
