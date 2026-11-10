@@ -80,7 +80,10 @@ def _missing(root: Path, relative: str) -> Path | None:
     if not path.is_relative_to(base) or any(up.is_symlink() for up in steps):
         return None
     folders = steps[1:]
-    if any(up.exists() and not up.is_dir() for up in folders) or path.exists():
+    # With no link on the way, a path that resolves elsewhere holds a `..`.
+    if path.resolve() != path or path.exists():
+        return None
+    if any(up.exists() and not up.is_dir() for up in folders):
         return None
     return path
 

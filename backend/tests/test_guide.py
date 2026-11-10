@@ -145,3 +145,14 @@ async def test_startup_starts_past_a_dangling_link_or_a_file_for_the_skills_fold
         pass
 
     assert not (tmp_path / "nowhere").exists()
+
+
+async def test_write_skills_writes_nothing_outside_the_vault(tmp_path: Path) -> None:
+    from kasten_backend.config import Settings  # noqa: PLC0415
+    from kasten_backend.guide import write_skills  # noqa: PLC0415
+
+    root = tmp_path / "vault"
+    root.mkdir()
+    await write_skills(root, Settings.model_construct(skills_path="../elsewhere"))
+
+    assert not (tmp_path / "elsewhere").exists()
