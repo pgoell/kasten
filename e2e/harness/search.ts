@@ -1,5 +1,5 @@
 import { expect, type Page, type Route } from "@playwright/test";
-import { leader, localDate, openApp } from "./app.ts";
+import { leader, localDate, noteText, openApp } from "./app.ts";
 
 /** A matched line; a note with no date in its name or frontmatter answers `date: null`. A file's line carries its `place`. */
 export type Hit = {
@@ -53,3 +53,14 @@ export const bars = (page: Page) => page.getByRole("button", { name: /^Week \d+,
 /** The bar of ISO week `week`, by its name. */
 export const bar = (page: Page, week: number) =>
   page.getByRole("button", { name: new RegExp(`^Week ${week},`) });
+
+/** Opens the backlinks or todos panel by its leader keys, and waits for its input's focus. */
+export async function openPanel(page: Page, keys: string, name: "backlinks" | "todos") {
+  await leader(page, keys);
+  await expect(page.getByRole("combobox", { name })).toBeFocused();
+}
+
+/** The 1-based line of `path` in the test's vault that holds `words`: the vault adds frontmatter on load. */
+export async function lineOf(vault: string, path: string, words: string): Promise<number> {
+  return (await noteText(vault, path)).split("\n").findIndex((line) => line.includes(words)) + 1;
+}

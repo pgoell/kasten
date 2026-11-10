@@ -36,9 +36,19 @@ test("the vault is asked once for the settled query with the archive out, and an
     if (url.searchParams.get("archive") === "false" && !q.startsWith("modified:")) asked.push(q);
     return q === "wikilink" ? [] : HITS;
   });
+  // Installed before load, so no timer the app keeps escapes it.
+  await page.clock.install();
   await openSearch(page);
-  // Keys 30 ms apart, inside the search's 120 ms settle, so a scan per key would show.
-  await page.keyboard.type("pos", { delay: 30 });
+  // The page's clock moves only when told, so a slow runner between keys cannot settle early.
+  await page.clock.pauseAt(Date.now() + 1000);
+  for (const key of "pos") {
+    await page.keyboard.press(key);
+    // Under the search's 120 ms settle, so a scan per key would show.
+    await page.clock.runFor(100);
+  }
+  await page.clock.runFor(120);
+  // Time flows again for the query's own timers; every key is in by now.
+  await page.clock.resume();
   // One poll: the rows land with the answer to the one question asked.
   await expect.poll(async () => [await rows(page).count(), asked]).toEqual([2, ["pos"]]);
   await input(page).fill("wikilink");
