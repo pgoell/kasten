@@ -84,7 +84,7 @@ test.describe("the workspace across a reload", () => {
     await openApp(page);
     await expect(tree(page)).toBeVisible();
     await page.goto("about:blank");
-    // A second window, narrow from its first load: a live resize shuts the tree for good (#1755).
+    // A second window, narrow from its first load; a live resize is narrow/resize.spec.ts.
     const narrow = await context.newPage();
     await narrow.setViewportSize(NARROW);
     await narrow.goto("/");
