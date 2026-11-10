@@ -57,7 +57,8 @@ export function renderFinder(
     press: (key: string, init?: KeyboardEventInit) => fireEvent.keyDown(input, { key, ...init }),
     // By path: a note's row shows its name and folder apart.
     rows: () => screen.queryAllByRole("option").map((row) => row.dataset.path),
-    option: (path: string) => screen.queryAllByRole("option").find((row) => row.dataset.path === path),
+    option: (path: string) =>
+      screen.queryAllByRole("option").find((row) => row.dataset.path === path),
     highlighted: () => screen.queryByRole("option", { selected: true })?.dataset.path,
     hint: () => screen.getByRole("status").textContent,
   };
