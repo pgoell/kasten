@@ -92,6 +92,22 @@ test("a timers pane restored by a reload holds the focus, so the leader key work
   await expect(page.getByLabel("Todos", { exact: true })).toBeVisible();
 });
 
+test("a click into another pane's field after a reload keeps the caret there", async ({
+  page,
+}) => {
+  await openApp(page);
+  await leader(page, "%");
+  await leader(page, "gT");
+  await expect(page.getByLabel("timers pane")).toBeFocused();
+  await leader(page, "o");
+  await expect(page.locator(".cm-content").first()).toBeFocused();
+  await page.reload();
+  await expect(page.locator(".cm-content").first()).toBeFocused();
+  const label = page.getByLabel("timers pane").getByPlaceholder("Washer");
+  await label.click();
+  await expect(label).toBeFocused();
+});
+
 test("q in the tree hands the keys to the focused pane, the second of two", async ({ page }) => {
   await openApp(page);
   await openNote(page, "Welcome");

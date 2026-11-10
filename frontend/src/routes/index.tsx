@@ -127,9 +127,9 @@ function Home() {
     }
     return start;
   });
-  // Raised by the load and every key that moves the focus, so the pane arrived
+  // Raised by every key that moves the focus, so the editor in the pane arrived
   // at takes it. A click raises nothing; it moved the focus itself.
-  const [focusSignal, setFocusSignal] = useState(1);
+  const [focusSignal, setFocusSignal] = useState(0);
   const pane = focusedPane(layout);
   const tab = activeTab(layout);
   const panes = tabPanes(layout);
