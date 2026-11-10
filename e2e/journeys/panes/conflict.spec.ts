@@ -1,7 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Locator, Page } from "@playwright/test";
-import { leader, openApp, openFromTree } from "../../harness/app.ts";
+import { leader, openApp, openFromTree, openNote, panes, unstamped } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 import {
   after,
@@ -9,8 +9,6 @@ import {
   conflictBar,
   conflicted,
   OUTSIDE,
-  openNote,
-  panes,
   settled,
   sign,
   stillHeld,
@@ -246,8 +244,7 @@ test.describe("a note changed on disk under text nobody saved", () => {
     );
     return boxed.sort((a, b) => a[0] - b[0]).map(([, text]) => text ?? "");
   };
-  const bare = (vault: string) =>
-    welcome(vault).then((text) => text.replace(/^(id|created|modified): .*\n/gm, ""));
+  const bare = (vault: string) => welcome(vault).then(unstamped);
 
   test("a pane on the note that never showed the kept text takes later outside writes, and writes its own edit", async ({
     page,

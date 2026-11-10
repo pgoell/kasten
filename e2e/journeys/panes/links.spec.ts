@@ -1,14 +1,8 @@
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { Page } from "@playwright/test";
-import { findNote, openApp, openFromTree } from "../../harness/app.ts";
+import { findNote, openApp, openNote } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
-
-/** Opens a note from the tree and waits for its editor's focus: keys sent sooner are lost (#1738). */
-async function openNote(page: Page, name: string) {
-  await openFromTree(page, name);
-  await expect(page.locator(".cm-content:focus")).toHaveCount(1);
-}
 
 test.describe("following a link to a page of html or an asset", () => {
   const PAGE = "01 Periodic/05 Newspaper/2026-10-07.html";

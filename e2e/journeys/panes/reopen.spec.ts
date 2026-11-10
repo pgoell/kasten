@@ -1,7 +1,7 @@
 import { rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Page } from "@playwright/test";
-import { leader, noteText, openApp, openFromTree } from "../../harness/app.ts";
+import { leader, noteText, openApp, openFromTree, openNote } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 import {
   after,
@@ -10,7 +10,6 @@ import {
   conflicted,
   focused,
   OUTSIDE,
-  openNote,
   settled,
   stillHeld,
   typed,
