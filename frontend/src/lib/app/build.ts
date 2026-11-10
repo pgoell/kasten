@@ -3,3 +3,13 @@
  * it from the build machine's `.git`. Empty in production, whose image carries no `.git`.
  */
 export const BUILD: string = __BUILD__;
+
+/** The pair as a person reads it, `build` being `BUILD`: the release alone in production, both commits in development. */
+export function versionText(backend: string, build: string): string {
+  return build === "" ? backend : `be ${backend} fe ${build}`;
+}
+
+/** Whether this tab's bundle and the backend were built from different commits, as after a rebase. */
+export function outOfStep(backend: string, build: string): boolean {
+  return build !== "" && build !== backend;
+}

@@ -13,6 +13,8 @@ import {
   subscribeHere,
   unsubscribeHere,
 } from "@/lib/app/push/push";
+import { BUILD, versionText } from "@/lib/app/build";
+import { fetchVersion } from "@/lib/core/api";
 import { BACK_LINK } from "@/lib/ui/overlay-styles";
 
 export const Route = createFileRoute("/settings")({
@@ -108,8 +110,24 @@ function Settings() {
         </section>
 
         <HoursSection />
+        <Version />
       </div>
     </main>
+  );
+}
+
+/** The code this page runs: the release, or in development the commit of each half. */
+function Version() {
+  const version = useQuery({
+    queryKey: ["version"],
+    queryFn: fetchVersion,
+    staleTime: Number.POSITIVE_INFINITY,
+  });
+  if (typeof version.data !== "string") return null;
+  return (
+    <p data-testid="version" className="text-k-12 text-k-muted tabular-nums">
+      Version {versionText(version.data, BUILD)}
+    </p>
   );
 }
 
