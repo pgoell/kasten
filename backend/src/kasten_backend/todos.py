@@ -1,10 +1,11 @@
 """Finding every todo in the vault, by reading the vault, and the project each is in.
 
-One rg pass over the notes, as search reads them, so nothing here is indexed or goes stale.
-The backend hands each line over whole and serves no state, since the editor parses a line
-too and two parsers drift. It works out only the project, from indent, tags and links.
+Each note's lines read as search's rg reads them, held per note (#1758). The backend hands
+each line over whole and serves no state, since the editor parses a line too and two parsers
+drift. It works out only the project, from indent, tags and links.
 """
 
+import asyncio
 import re
 import sys
 import unicodedata
@@ -14,9 +15,10 @@ from typing import TYPE_CHECKING
 from kasten_backend.code_spans import BLOCK_NAMES, FENCES, WIKILINK, blocks
 from kasten_backend.frontmatter import body_start
 from kasten_backend.links import link_path
-from kasten_backend.search import Hit, scan_vault
+from kasten_backend.search import Hit, rg_lines, rg_order, skipped
 from kasten_backend.todo_fields import SPANS, blank, mask
 from kasten_backend.todo_fields import words as _words
+from kasten_backend.vault import note_facts
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -105,7 +107,7 @@ def parents(lines: Iterable[tuple[int, str]]) -> dict[int, int | None]:
     return found
 
 
-def _whole(root: Path, note: str, hits: list[Hit]) -> list[Hit]:
+def _whole(note: str, hits: list[Hit], raw: bytes) -> list[Hit]:
     """A note's hits, fenced lines out and, under an indented todo, the lines ending parts in.
 
     Only lines between the first todo and the last indented one can end a part, so only those go.
@@ -115,11 +117,9 @@ def _whole(root: Path, note: str, hits: list[Hit]) -> list[Hit]:
     nested = [hit.line for hit in hits if hit.text[:1] in " \t" and LINE.fullmatch(hit.text)]
     if not hits or (not marks and not nested):
         return hits
-    try:
-        text = (root / note).read_text(encoding="utf-8", errors="replace")
-    except FileNotFoundError:
-        return hits
-    lines = [line.removesuffix("\r") for line in text.split("\n")]
+    # Universal newlines, as a text read gives them.
+    text = raw.decode("utf-8", "replace").replace("\r\n", "\n").replace("\r", "\n")
+    lines = text.split("\n")
     above = text[: body_start(text)].count("\n")
     coded = {at + above for at in fenced_lines(lines[above:])}
     kept = [hit for hit in hits if hit.line - 1 not in coded]
@@ -133,19 +133,43 @@ def _whole(root: Path, note: str, hits: list[Hit]) -> list[Hit]:
     return sorted(kept + ends, key=lambda hit: hit.line)
 
 
+_TODO = re.compile(TODO_PATTERN)
+
+
+def _parse(note: str, raw: bytes) -> tuple[list[Hit], list[int]]:
+    """A note's todo lines and what ends parts, and the lines the pattern matched."""
+    # rg keeps a CRLF line's `\r`; the note read answers it as LF, and so do we (#1705).
+    hits = [
+        Hit(note, at + 1, line.removesuffix("\r"))
+        for at, line in enumerate(rg_lines(raw))
+        if _TODO.match(line)
+    ]
+    return _whole(note, hits, raw), [hit.line for hit in hits]
+
+
+def _todos(root: Path, skip: str | None) -> list[Hit]:
+    found: list[Hit] = []
+    room = MOST_TODOS
+    held = note_facts(root, "todos", _parse, ([], []))
+    for path in sorted(held, key=rg_order):
+        hits, matched = held[path]
+        if room <= 0:
+            break
+        if not skipped(path, skip):
+            # Past the cap, the lines after the last matched line it lets in go too, as rg stops.
+            last = matched[room - 1] if len(matched) > room else None
+            found.extend(hit for hit in hits if last is None or hit.line <= last)
+            room -= len(matched)
+    return found
+
+
 async def find_todos(root: Path, skip: str | None = None) -> list[Hit]:
-    """Every todo and running session line outside a fence, up to `MOST_TODOS`, and what ends parts.
+    """Every todo and running session line outside a fence, and what ends parts.
 
     `skip` names a folder to walk past: the archive, whose open checkboxes are past work.
+    Stops after `MOST_TODOS` matched lines.
     """
-    # `-e` so the pattern, which opens with a caret and holds a dash, is a
-    # pattern and not a flag.
-    found = await scan_vault(root, ("-e", TODO_PATTERN), MOST_TODOS, skip)
-    by_note: dict[str, list[Hit]] = {}
-    for hit in found:
-        # rg keeps a CRLF line's `\r`; the note read answers it as LF, and so do we (#1705).
-        by_note.setdefault(hit.path, []).append(hit._replace(text=hit.text.removesuffix("\r")))
-    return [hit for note, hits in by_note.items() for hit in _whole(root, note, hits)]
+    return await asyncio.to_thread(_todos, root, skip)
 
 
 PROJECT_ROOTS = ("02 Projects", "03 Areas")

@@ -1,7 +1,7 @@
 """The notes as a graph: every note a node, every link between two an edge.
 
-Built on every request, like search and todos, since a graph held elsewhere can disagree with
-the files. `graph_query.py` is the one reader of the query language, shared by the graph pane,
+Built on every request from each note's links and type, held per note (#1758).
+`graph_query.py` is the one reader of the query language, shared by the graph pane,
 `GET /api/graph` and the agent's `query_graph`.
 """
 
@@ -14,16 +14,16 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel
 
 from kasten_backend.links import named_path, names_a_file, split_target
-from kasten_backend.search import scan_vault
+from kasten_backend.search import rg_lines, rg_order, skipped
 from kasten_backend.tags import tags_by_note
-from kasten_backend.vault import SUFFIX, list_markdown_files
+from kasten_backend.vault import SUFFIX, note_facts
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable
+    from collections.abc import Callable, Iterator
     from pathlib import Path
 
 MOST_LINES = 200_000
-"""How many lines one of the two scans reads at most.
+"""How many linked lines are read at most.
 
 A backstop against a generated file, not a vault limit: the 10,000 note benchmark holds about
 50,000 linked lines.
@@ -41,6 +41,9 @@ RELATION = re.compile(r"^ {0,3}(?:- )?([a-z][a-z-]*):: [ \t]*\[\[([^\[\]\n]+)\]\
 A copy, since the editor draws a relation without asking the server, and the graph is built
 without asking the editor. `docs/reference/relation-format.md` is what both answer to.
 """
+
+HEAD = re.compile(r"---\s*$|type:")
+"""A fence or a type line, the lines of the block the graph reads."""
 
 TYPE = re.compile(r"^type:\s*(.*?)\s*$")
 """The `type` field of the block, the one line of it the graph reads."""
@@ -111,11 +114,6 @@ def _name(path: str) -> str:
     return path.rsplit("/", 1)[-1].removesuffix(SUFFIX)
 
 
-def _under(path: str, folder: str | None) -> bool:
-    """Whether `path` sits in a folder of that name anywhere, the way `search.skipping` reads it."""
-    return folder is not None and folder != "" and f"/{folder}/" in f"/{path}"
-
-
 def resolver(paths: list[str]) -> Callable[[str], str]:
     """`links.link_path` over one listing, with the names looked up once.
 
@@ -149,32 +147,30 @@ def link_target(written: str) -> str | None:
     return name
 
 
-def _types(hits: Iterable[tuple[str, int, str]]) -> dict[str, str]:
-    """Each note's `type`, read off the fences and the type lines rg found.
+def _type(lines: list[str]) -> str | None:
+    """A note's `type`, read off its first three fence or type lines.
 
     `type:` counts only between a fence on line 1 and the fence closing it, as `frontmatter.py`
     reads it. The same words in a body are prose.
     """
-    by_note: dict[str, list[tuple[int, str]]] = defaultdict(list)
-    for path, line, text in hits:
-        by_note[path].append((line, text))
+    heads = [(at, line) for at, line in enumerate(lines) if HEAD.match(line)][:3]
+    if not heads or heads[0][0] != 0 or heads[0][1].strip() != "---":
+        return None
+    typed = None
+    for _, text in heads[1:]:
+        if text.strip() == "---":
+            # Only a block that closes has a type, as `frontmatter.py` reads it (#654).
+            return typed or None
+        match = TYPE.match(text)
+        if match and match.group(1) and typed is None:
+            typed = match.group(1).strip("\"'")
+    return None
 
-    found: dict[str, str] = {}
-    for path, lines in by_note.items():
-        lines.sort()
-        if not lines or lines[0][0] != 1 or lines[0][1].strip() != "---":
-            continue
-        typed = None
-        for _, text in lines[1:]:
-            if text.strip() == "---":
-                # Only a block that closes has a type, as `frontmatter.py` reads it (#654).
-                if typed:
-                    found[path] = typed
-                break
-            match = TYPE.match(text)
-            if match and match.group(1) and typed is None:
-                typed = match.group(1).strip("\"'")
-    return found
+
+def _parse(_path: str, raw: bytes) -> tuple[list[tuple[int, str]], str | None]:
+    """A note's lines holding `[[`, by line number, and its type."""
+    lines = rg_lines(raw)
+    return [(at + 1, line) for at, line in enumerate(lines) if "[[" in line], _type(lines)
 
 
 async def read_graph(root: Path, skip: str | None = None) -> Vault:
@@ -183,43 +179,36 @@ async def read_graph(root: Path, skip: str | None = None) -> Vault:
     A link to a skipped note is dropped: the note exists, only filed away. A link to a note that is
     nowhere is kept as a `missing` node, showing what the vault has promised and not written.
     """
-    paths = list_markdown_files(root)
+    return await asyncio.to_thread(_build, root, skip)
+
+
+def _build(root: Path, skip: str | None) -> Vault:
+    held = note_facts(root, "graph", _parse, ([], None))
+    tags = tags_by_note(root, skip)
+    paths = list(held)
     resolve = resolver(paths)
-
-    links, fences, tags = await asyncio.gather(
-        scan_vault(root, ("--fixed-strings", "-e", "[["), MOST_LINES, skip),
-        # Three per note: the opening fence, the type and the closing fence. The scan then stops
-        # at a note's block rather than walking every horizontal rule in its body.
-        scan_vault(
-            root, ("--max-count", "3", "-e", r"^---\s*$", "-e", r"^type:"), MOST_LINES, skip
-        ),
-        tags_by_note(root, skip),
-    )
-
-    types = _types(fences)
-
     nodes = {
         path: GraphNode(
             path=path,
             name=_name(path),
-            type=types.get(path),
+            type=held[path][1],
             tags=sorted(tags.get(path, ())),
             missing=False,
         )
         for path in paths
-        if not _under(path, skip)
+        if not skipped(path, skip)
     }
     existing = set(paths)
 
     seen: dict[tuple[str, str, str | None], GraphEdge] = {}
-    for hit in links:
-        relation = RELATION.match(hit.text)
-        for index, match in enumerate(WIKILINK.finditer(hit.text)):
+    for source, number, text in _linked(held, sorted(nodes, key=rg_order)):
+        relation = RELATION.match(text)
+        for index, match in enumerate(WIKILINK.finditer(text)):
             name = link_target(match.group(1))
             if name is None:
                 continue
             target = resolve(name)
-            if target == hit.path or (target in existing and target not in nodes):
+            if target == source or (target in existing and target not in nodes):
                 continue
             if target not in nodes:
                 nodes[target] = GraphNode(
@@ -228,9 +217,9 @@ async def read_graph(root: Path, skip: str | None = None) -> Vault:
             # The relation's own target is the first link on its line, the name
             # and the separator holding no brackets. Any link after it is prose.
             typed = relation.group(1) if relation and index == 0 else None
-            key = (hit.path, target, typed)
+            key = (source, target, typed)
             if key not in seen:
-                seen[key] = GraphEdge(source=hit.path, target=target, relation=typed, line=hit.line)
+                seen[key] = GraphEdge(source=source, target=target, relation=typed, line=number)
 
     # A relation line is a link as well as a relation, and one pair drawn twice
     # is noise. The plain link goes wherever a typed one says more.
@@ -241,3 +230,16 @@ async def read_graph(root: Path, skip: str | None = None) -> Vault:
         if edge.relation is not None or (edge.source, edge.target) not in typed_pairs
     ]
     return Vault(nodes=nodes, edges=edges)
+
+
+def _linked(
+    held: dict[str, tuple[list[tuple[int, str]], str | None]], paths: list[str]
+) -> Iterator[tuple[str, int, str]]:
+    """Each linked line of `paths`, in their order, up to `MOST_LINES`."""
+    count = 0
+    for path in paths:
+        for number, text in held[path][0]:
+            if count >= MOST_LINES:
+                return
+            count += 1
+            yield path, number, text

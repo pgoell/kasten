@@ -287,6 +287,36 @@ One `PUT /api/files/{path}` at 10,000 notes in a colocated jj repo, from
 All times are in milliseconds. Over the issue's 100 ms bar, so #1827 holds the two options. Almost all of the save is jj. `jj log` and
 `jj status` both read all 10,000 files, and both run inside the vault lock.
 
+### Tags, todos and the graph after a save
+
+The client asks for `GET /api/tags` after every save, and for the todos and an
+open graph too. Each note's tags, todo lines, links and type are held in memory
+and parsed again only when the note's stamp moves (#1758), so a save costs one
+parse and a walk that stats every note. Measured on PR #1825's bench vault
+(10,000 notes, 50,000 linked lines) by calling the readers directly, best of 5,
+each run after a one-note save, on the 16-thread desktop at load about 1.
+Recorded 2026-11-10. Not gated.
+
+| read | main | branch | target |
+| --- | ---: | ---: | ---: |
+| `find_tags` after a save | 553 ms | 40 ms | 50 ms |
+| `find_todos` after a save | 247 ms | 45 ms | |
+| `read_graph` after a save | 907 ms | 355 ms | 400 ms |
+| longest loop hold, tags | 212 ms | 6 ms | 20 ms |
+| longest loop hold, todos | 58 ms | 5 ms | 20 ms |
+| longest loop hold, graph | 370 ms | 17 ms | 20 ms |
+| first read of tags, cold | 562 ms | 2,150 ms | |
+
+The loop hold is the longest gap a 1 ms ticker saw while the read ran. Of the
+graph's 17 ms, about 7 is freeing the last answer's objects on the loop; with
+the answer kept the hold is 10 ms. Writing the graph's JSON, which the route
+does on the loop, is not in these figures. The
+walk and its stats are about 27 ms of the tags figure. The first read after a
+start parses every note whole, which costs more than main's rg pass did; the
+live vault holds about 700 notes, so that first read is about 150 ms there.
+`backend/tests/test_files_perf.py` records the same through
+`GET /api/tags`: 41.5 ms after a save, the loop held at most 5.5 ms.
+
 ## What these numbers are not
 
 **Every browser number is development-build React.** Vitest browser mode serves

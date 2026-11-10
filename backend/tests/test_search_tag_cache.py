@@ -2,7 +2,7 @@
 
 A flashcard note of half a megabyte takes a quarter of a second to parse for its
 tags, and search answered with every hit note's tags parsed afresh (#1238).
-Each test counts the calls to `search_meta.tags_of`, the one parse every reader
+Each test counts the calls to `tags.tags_of`, the one parse every reader
 of a note's tags goes through.
 """
 
@@ -10,7 +10,8 @@ import os
 from typing import TYPE_CHECKING, Any
 
 from backend.tests.book_files import pdf
-from kasten_backend import search_meta
+from kasten_backend import graph, search_meta, tags, todos
+from kasten_backend import vault as on_disk
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -32,13 +33,13 @@ def write(vault: Path, path: str, content: bytes | str) -> Path:
 def count_parses(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     """The text of each note `tags_of` parses from here on, in order."""
     parsed: list[str] = []
-    real = search_meta.tags_of
+    real = tags.tags_of
 
     def counted(text: str) -> list[str]:
         parsed.append(text)
         return real(text)
 
-    monkeypatch.setattr(search_meta, "tags_of", counted)
+    monkeypatch.setattr(tags, "tags_of", counted)
     return parsed
 
 
@@ -121,7 +122,7 @@ async def test_1238_i2_a_note_that_cannot_be_read_answers_no_tags_and_is_not_cac
 
     assert {
         "answers": [(hit["date"], hit["tags"]) for hit in first],
-        "cached": [key for key in search_meta._held if key.startswith(str(vault))],
+        "cached": list(on_disk._held.get(("tags", str(vault)), {})),
     } == {"answers": [("2026-03-10", None)], "cached": []}
 
 
@@ -158,3 +159,178 @@ async def test_1238_i4_a_file_hit_takes_its_note_tags_from_the_cache(
         "tags": [["#research"], ["#research"]],
         "parses": 1,
     }
+
+
+def count_facets(monkeypatch: pytest.MonkeyPatch) -> dict[str, list[str]]:
+    """The notes each reader parses from here on: tags, todos and graph."""
+    parsed: dict[str, list[str]] = {"tags": [], "todos": [], "graph": []}
+    for name, module in (("tags", tags), ("todos", todos), ("graph", graph)):
+        real = module._parse
+
+        def counted(path: str, raw: bytes, real: Any = real, name: str = name) -> Any:
+            parsed[name].append(path)
+            return real(path, raw)
+
+        monkeypatch.setattr(module, "_parse", counted)
+    return parsed
+
+
+async def read_all(client: AsyncClient) -> dict[str, Any]:
+    """What `/api/tags`, `/api/todos` and `/api/graph` answer, in a shape a test can compare."""
+    found = {}
+    for route in ("tags", "todos", "graph"):
+        response = await client.get(f"/api/{route}")
+        assert response.status_code == 200
+        found[route] = response.json()
+    graph_answer = found["graph"]
+    return {
+        "tags": found["tags"],
+        "todos": [(hit["path"], hit["line"], hit["text"]) for hit in found["todos"]],
+        "nodes": sorted(
+            (node["path"], node["type"], node["tags"]) for node in graph_answer["nodes"]
+        ),
+        "edges": sorted((edge["source"], edge["target"]) for edge in graph_answer["edges"]),
+    }
+
+
+async def test_1758_a_save_parses_the_one_note_for_tags_todos_and_graph(
+    client: AsyncClient, vault: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for index in range(5):
+        write(vault, f"Note {index}.md", f"- [ ] task {index} #t{index}\n[[Note {index + 1}]]\n")
+    parsed = count_facets(monkeypatch)
+    await read_all(client)
+    cold = {name: len(paths) for name, paths in parsed.items()}
+    await read_all(client)
+    warm = {name: len(paths) - cold[name] for name, paths in parsed.items()}
+
+    saved = await client.put("/api/files/Note 2.md", json={"content": "- [ ] new #fresh\n"})
+    for paths in parsed.values():
+        paths.clear()
+    after = await read_all(client)
+
+    assert {"cold": cold, "warm": warm, "saved": saved.status_code, "after": parsed} == {
+        "cold": {"tags": 5, "todos": 5, "graph": 5},
+        "warm": {"tags": 0, "todos": 0, "graph": 0},
+        "saved": 200,
+        "after": {"tags": ["Note 2.md"], "todos": ["Note 2.md"], "graph": ["Note 2.md"]},
+    }
+    assert "#fresh" in after["tags"]
+    assert "#t2" not in after["tags"]
+
+
+async def test_1758_a_note_rewritten_outside_kasten_shows_on_the_next_read(
+    client: AsyncClient, vault: Path
+) -> None:
+    write(vault, "Other.md", "x\n")
+    note = write(vault, "Plan.md", "- [ ] old #aa\n[[Other]]\n")
+    before = await read_all(client)
+    status = note.stat()
+    # A sync that keeps the size and sets the modification time back, as `rsync -t` does.
+    note.write_text("- [ ] new #bb\n[[Gonee]]\n", encoding="utf-8")
+    os.utime(note, ns=(status.st_atime_ns, status.st_mtime_ns))
+    assert note.stat().st_size == status.st_size
+
+    after = await read_all(client)
+
+    assert {key: (before[key], after[key]) for key in ("tags", "todos", "edges")} == {
+        "tags": (["#aa"], ["#bb"]),
+        "todos": ([("Plan.md", 1, "- [ ] old #aa")], [("Plan.md", 1, "- [ ] new #bb")]),
+        "edges": ([("Plan.md", "Other.md")], [("Plan.md", "Gonee.md")]),
+    }
+
+
+async def test_1758_a_note_added_or_deleted_outside_kasten_joins_or_leaves(
+    client: AsyncClient, vault: Path
+) -> None:
+    gone = write(vault, "Gone.md", "- [ ] gone #gone\n[[Kept]]\n")
+    write(vault, "Kept.md", "#kept\n")
+    await read_all(client)
+    gone.unlink()
+    write(vault, "New.md", "- [ ] new #new\n[[Kept]]\n")
+
+    after = await read_all(client)
+
+    assert {
+        "tags": after["tags"],
+        "todos": after["todos"],
+        "edges": after["edges"],
+        "held": {kind: sorted(on_disk._held[(kind, str(vault))]) for kind in ("tags", "todos")},
+    } == {
+        "tags": ["#kept", "#new"],
+        "todos": [("New.md", 1, "- [ ] new #new")],
+        "edges": [("New.md", "Kept.md")],
+        "held": {"tags": ["Kept.md", "New.md"], "todos": ["Kept.md", "New.md"]},
+    }
+
+
+async def test_1758_the_written_notes_leave_the_archive_in_the_tag_cache(
+    client: AsyncClient, vault: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    write(vault, "2026-03-10 Kyoto.md", "Kyoto #travel\n")
+    write(vault, "98 Archive/Old.md", "#old\n")
+    await client.get("/api/tags")
+    parsed = count_parses(monkeypatch)
+
+    await client.get("/api/written/notes", params={"from": "2026-03-01", "to": "2026-03-31"})
+    tags_answer = await client.get("/api/tags")
+
+    assert {"tags": tags_answer.json(), "parses": len(parsed)} == {
+        "tags": ["#old", "#travel"],
+        "parses": 0,
+    }
+
+
+async def test_1758_a_crlf_note_with_a_fence_under_a_nested_todo_reads_as_before(
+    client: AsyncClient, vault: Path
+) -> None:
+    text = (
+        "- [ ] top #a\r\n    - [ ] nested\r\n    ```\r\n    - [ ] fenced #b\r\n    ```\r\n- end\r\n"
+    )
+    write(vault, "crlf.md", text.encode())
+    write(vault, "a b/x.md", "- [ ] spaced\n")
+    write(vault, "a/x.md", "- [ ] plain\n")
+    write(vault, "a.md", "- [ ] file\n")
+
+    found = await read_all(client)
+
+    assert {"tags": found["tags"], "todos": found["todos"]} == {
+        "tags": ["#a"],
+        "todos": [
+            ("a/x.md", 1, "- [ ] plain"),
+            ("a b/x.md", 1, "- [ ] spaced"),
+            ("a.md", 1, "- [ ] file"),
+            ("crlf.md", 1, "- [ ] top #a"),
+            ("crlf.md", 2, "    - [ ] nested"),
+        ],
+    }
+
+
+async def test_1758_a_lone_cr_and_a_note_that_is_not_utf8_read_as_before(
+    client: AsyncClient, vault: Path
+) -> None:
+    write(vault, "cr.md", b"- [ ] one #cr\r- [ ] two\n[[Target]]\r[[Other]]\n")
+    write(vault, "latin.md", b"- [ ] caf\xe9 #latin\n[[Target]]\n")
+    # A lone CR ends a line, so this is a paragraph, a blank line and indented code (#1570).
+    write(vault, "code.md", b"para\r\r    #code\n")
+    write(vault, "crlf code.md", b"---\r\ntags: [field]\r\n---\r\npara\r\n\r\n    #code\r\n")
+
+    found = await read_all(client)
+
+    assert {key: found[key] for key in ("tags", "todos", "edges")} == {
+        "tags": ["#cr", "#field", "#latin"],
+        "todos": [("cr.md", 1, "- [ ] one #cr\r- [ ] two"), ("latin.md", 1, "- [ ] caf� #latin")],
+        "edges": [("cr.md", "Other.md"), ("cr.md", "Target.md"), ("latin.md", "Target.md")],
+    }
+
+
+async def test_1758_the_graph_stops_at_its_line_cap(
+    client: AsyncClient, vault: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    write(vault, "a.md", "[[One]]\n[[Two]]\n")
+    write(vault, "b.md", "[[Three]]\n")
+    monkeypatch.setattr(graph, "MOST_LINES", 2)
+
+    found = await read_all(client)
+
+    assert found["edges"] == [("a.md", "One.md"), ("a.md", "Two.md")]

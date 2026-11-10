@@ -6,13 +6,13 @@ offset, because the day it falls on depends on the reader's zone.
 """
 
 import asyncio
+import os
 import re
 from datetime import UTC, date, datetime
 from typing import TYPE_CHECKING
 
-from kasten_backend import frontmatter, todos
-from kasten_backend.tags import field_tags
-from kasten_backend.vault import read_note
+from kasten_backend import frontmatter, tags
+from kasten_backend.vault import Stamp, held_fact, read_note, stamp_of
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -85,53 +85,21 @@ def day_of(root: Path, path: str, text: str | None) -> str | None:
     return datetime.fromtimestamp(moment, UTC).isoformat(timespec="seconds")
 
 
-def tags_of(text: str) -> list[str]:
-    """The note's tags with their hashes, sorted, read the way the tags route reads them.
-
-    Public so written notes take their tags from the one read of the note they already make.
-    """
-    found = {text[start:end] for start, end in todos.tags_in(text)} | field_tags(text)
-    return sorted(found)
-
-
-_held: dict[str, tuple[int, int, list[str]]] = {}
-"""The tags each note was last parsed to, with the stamp it had then, by absolute path.
-
-Caching matters because a note holding `<!--` is slow to parse. The written notes prune it
-to live notes; a search only adds. An edit changes the mtime or size, so a stale entry is
-never served.
-"""
-
-
-def stamp(root: Path, path: str) -> tuple[int, int] | None:
-    """The modification time in nanoseconds and the size of a note, or None when it is gone."""
+def stamp(root: Path, path: str) -> Stamp | None:
+    """The note's stamp, or None when it is a link or gone."""
     try:
-        status = (root / path).stat()
+        return stamp_of(os.lstat(root / path))
     except OSError:
         # The note went between the list and this, so there is nothing to keep.
         return None
-    return status.st_mtime_ns, status.st_size
 
 
-def cached_tags(root: Path, path: str, text: str, moment: tuple[int, int] | None) -> list[str]:
-    """The tags of a note whose text is `text`, from the cache while its stamp `moment` holds."""
-    if moment is None:
-        return tags_of(text)
-    key = str(root / path)
-    held = _held.get(key)
-    if held is not None and (held[0], held[1]) == moment:
-        return list(held[2])
-    tags = tags_of(text)
-    _held[key] = (moment[0], moment[1], tags)
-    return tags
+def cached_tags(root: Path, path: str, text: str, moment: Stamp | None) -> list[str]:
+    """The tags of a note whose text is `text`, from the tags route's cache while `moment` holds.
 
-
-def forget_except(root: Path, paths: list[str]) -> None:
-    """Drop the cached tags of every note not in `paths`, so the cache holds only live notes."""
-    live = {str(root / path) for path in paths}
-    for key in list(_held):
-        if key not in live:
-            _held.pop(key, None)
+    Caching matters because a note holding `<!--` is slow to parse (#1238).
+    """
+    return sorted(held_fact(root, "tags", path, moment, lambda: frozenset(tags.tags_of(text))))
 
 
 def _read_all(root: Path, paths: list[str]) -> dict[str, tuple[str | None, list[str] | None]]:

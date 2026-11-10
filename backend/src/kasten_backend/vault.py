@@ -5,10 +5,11 @@ Everything goes straight to the filesystem: Postgres answers none of these quest
 
 import os
 import re
-from typing import TYPE_CHECKING, NamedTuple
+import stat
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Callable, Iterator
     from pathlib import Path
 
 SUFFIX = ".md"
@@ -129,7 +130,7 @@ def scan(root: Path) -> Listings:
     What a page load asks for in four requests (#1761), so they need not walk four times.
     """
     found: list[list[str]] = [[] for _ in KINDS]
-    for name, path in _walk(root):
+    for name, path, _ in _walk(root):
         lower = name.lower()
         for (suffixes, ignore_case), paths in zip(KINDS, found, strict=True):
             if (lower if ignore_case else name).endswith(suffixes):
@@ -139,7 +140,7 @@ def scan(root: Path) -> Listings:
 
 def _list_files(root: Path, kind: tuple[tuple[str, ...], bool]) -> list[str]:
     """Return every file under `root` of one of the `KINDS`."""
-    return sorted(path for name, path in _walk(root) if _is(kind, name))
+    return sorted(path for name, path, _ in _walk(root) if _is(kind, name))
 
 
 def _is(kind: tuple[tuple[str, ...], bool], name: str) -> bool:
@@ -147,8 +148,8 @@ def _is(kind: tuple[tuple[str, ...], bool], name: str) -> bool:
     return (name.lower() if ignore_case else name).endswith(suffixes)
 
 
-def _walk(root: Path) -> Iterator[tuple[str, str]]:
-    """Yield the name and relative POSIX path of every file under `root`.
+def _walk(root: Path) -> Iterator[tuple[str, str, os.DirEntry[str]]]:
+    """Yield the name, relative POSIX path and entry of every file under `root`.
 
     Hidden entries and their walks are skipped: the jj repo beside the notes holds thousands
     of files. Links are not followed, so a link cannot loop or list what lies outside the
@@ -157,19 +158,98 @@ def _walk(root: Path) -> Iterator[tuple[str, str]]:
     if not root.is_dir():
         return
 
-    def walk(directory: str, prefix: str) -> Iterator[tuple[str, str]]:
-        with os.scandir(directory) as entries:
+    # Below the root by folder descriptor, so each entry's `stat` is an `fstatat`.
+    def walk(
+        listed: int | str, opened: int, prefix: str
+    ) -> Iterator[tuple[str, str, os.DirEntry[str]]]:
+        with os.scandir(listed) as entries:
             for entry in entries:
                 if entry.name.startswith("."):
                     continue
                 # Not followed: a link to an ancestor would loop forever, and a link out of
                 # the vault would list what is on the other side.
                 if entry.is_dir(follow_symlinks=False):
-                    yield from walk(entry.path, f"{prefix}{entry.name}/")
+                    inner = os.open(entry.name, os.O_RDONLY | os.O_DIRECTORY, dir_fd=opened)
+                    try:
+                        yield from walk(inner, inner, f"{prefix}{entry.name}/")
+                    finally:
+                        os.close(inner)
                 else:
-                    yield entry.name, f"{prefix}{entry.name}"
+                    yield entry.name, f"{prefix}{entry.name}", entry
 
-    yield from walk(str(root), "")
+    top = os.open(root, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        yield from walk(str(root), top, "")
+    finally:
+        os.close(top)
+
+
+type Stamp = tuple[int, int, int, int]
+"""A note's modification and change times in nanoseconds, its size and its inode.
+
+The change time and inode catch a rewrite that keeps the size and sets the old
+modification time back, as `rsync -t` and sync tools do.
+"""
+
+
+def stamp_of(status: os.stat_result) -> Stamp | None:
+    """The stamp of a file's `lstat`, or None for a link, which rg does not follow."""
+    if stat.S_ISLNK(status.st_mode):
+        return None
+    return status.st_mtime_ns, status.st_ctime_ns, status.st_size, status.st_ino
+
+
+_held: dict[tuple[str, str], dict[str, tuple[Stamp, Any]]] = {}
+"""What each kind of reader took from each note, with the note's stamp then, by kind and root.
+
+Memory only, rebuilt from the files: an edit, from kasten or not, moves the stamp, so a
+stale entry is never served (#1758).
+"""
+
+
+def held_fact[T](
+    root: Path, kind: str, path: str, moment: Stamp | None, parse: Callable[[], T]
+) -> T:
+    """One note's `kind` fact, parsed afresh only when its stamp `moment` moved."""
+    if moment is None:
+        return parse()
+    notes = _held.setdefault((kind, str(root)), {})
+    held = notes.get(path)
+    if held is not None and held[0] == moment:
+        return held[1]
+    value = parse()
+    notes[path] = (moment, value)
+    return value
+
+
+def note_facts[T](
+    root: Path, kind: str, parse: Callable[[str, bytes], T], empty: T
+) -> dict[str, T]:
+    """Every note's `kind` fact by path, sorted, parsing only the notes whose stamp moved.
+
+    A link, or a note gone between the walk and its read, answers `empty`, as rg finds nothing
+    in either. Notes no longer there leave the cache.
+    """
+    held = _held.get((kind, str(root)), {})
+    kept: dict[str, tuple[Stamp, Any]] = {}
+    found: dict[str, T] = {}
+    for name, path, entry in _walk(root):
+        if not name.endswith(SUFFIX):
+            continue
+        try:
+            # Stamped before the read: an edit in between is then seen on the next call.
+            moment = stamp_of(entry.stat(follow_symlinks=False))
+            last = held.get(path)
+            if last is not None and last[0] == moment:
+                kept[path] = last
+            elif moment is not None:
+                kept[path] = (moment, parse(path, (root / path).read_bytes()))
+        except OSError:
+            # Gone since the walk, or unreadable: rg would find nothing in it either.
+            pass
+        found[path] = kept[path][1] if path in kept else empty
+    _held[(kind, str(root))] = kept
+    return {path: found[path] for path in sorted(found)}
 
 
 def legal_name(part: str) -> bool:

@@ -175,6 +175,31 @@ def _hits(lines: list[bytes], relative: Callable[[str], str]) -> list[Hit]:
     return hits
 
 
+_BOM = b"\xef\xbb\xbf"
+
+
+def rg_lines(raw: bytes) -> list[str]:
+    """A note's lines as `scan_vault` hands them over, cut to `LONGEST_TEXT` characters.
+
+    rg skips a file holding a NUL, drops a UTF-8 byte order mark, and splits on LF alone,
+    so a CR stays on its line. Line N is item N - 1.
+    """
+    if b"\0" in raw:
+        return []
+    text = raw.removeprefix(_BOM).decode("utf-8", "replace")
+    return [line[:LONGEST_TEXT] for line in text.split("\n")]
+
+
+def rg_order(path: str) -> list[str]:
+    """The sort key of rg's `--sort path`, which sorts each folder's entries by name."""
+    return path.split("/")
+
+
+def skipped(path: str, folder: str | None) -> bool:
+    """Whether `path` sits in a folder of that name anywhere, as `skipping` keeps it out."""
+    return folder is not None and folder != "" and f"/{folder}/" in f"/{path}"
+
+
 def literal_matcher(query: str) -> tuple[str, ...]:
     """The rg flags that find `query` as a literal, ignoring case.
 
