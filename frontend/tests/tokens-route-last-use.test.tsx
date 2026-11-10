@@ -44,7 +44,7 @@ async function renderPage() {
       </QueryClientProvider>,
     );
   });
-  await screen.findByRole("heading", { name: "agent tokens" });
+  await screen.findByRole("heading", { name: "Agent tokens" });
 }
 
 beforeEach(() => {
