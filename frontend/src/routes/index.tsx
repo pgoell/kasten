@@ -127,9 +127,8 @@ function Home() {
     }
     return start;
   });
-  // Raised by every key that moves the focus, so the editor in the pane arrived
-  // at takes it. A click raises nothing; it moved the focus itself. A fresh
-  // load starts raised, so a restored pane that is not a note takes it too.
+  // Raised by the load and every key that moves the focus, so the pane arrived
+  // at takes it. A click raises nothing; it moved the focus itself.
   const [focusSignal, setFocusSignal] = useState(1);
   const pane = focusedPane(layout);
   const tab = activeTab(layout);
