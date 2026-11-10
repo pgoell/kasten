@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { phone } from "../../harness/app.ts";
+import { phone, tapHeight } from "../../harness/app.ts";
 import { answer, bars, daysAgo, type Hit, hit, openSearch } from "../../harness/search.ts";
 import { expect, test } from "../../harness/stack.ts";
 
@@ -105,9 +105,28 @@ test.describe("on a phone", () => {
     await expect(filters).toHaveAttribute("aria-expanded", "true");
     await expect(page.getByRole("group", { name: "Folders" })).toBeVisible();
     for (const target of [bars(page).last(), filter(page, /^projects/), rows(page).first()])
-      expect((await target.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+      expect(await tapHeight(target)).toBeGreaterThanOrEqual(44);
     await filter(page, /^projects/).tap();
     await page.getByRole("button", { name: /^Filters/ }).tap();
     await expect(page.getByRole("button", { name: "Filters, projects" })).toBeVisible();
+  });
+
+  test("a line moved to where float32 loses a step still reads 44 pixels tall", async ({ page }) => {
+    await answer(page, () => HITS);
+    await page.goto("/?week=2020-W01");
+    await page.getByRole("button", { name: "All weeks" }).tap();
+    await page.getByRole("combobox", { name: "search notes" }).fill("postgres");
+    const line = rows(page).first();
+    await expect(line).toBeVisible();
+    await line.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
+    const top = (await line.boundingBox())?.y ?? 0;
+    expect(await line.evaluate((e) => (e as HTMLElement).offsetHeight)).toBe(44);
+    // Tops from 990 to 1024 px, where the bottom edge crosses 1024 and the runner's line read 43.99994 (#1852).
+    for (let i = 0; i < 80; i++) {
+      await line.evaluate((e, by) => {
+        e.style.transform = `translateY(${by}px)`;
+      }, 990 - top + i * 0.4237);
+      expect(await tapHeight(line)).toBeGreaterThanOrEqual(44);
+    }
   });
 });
