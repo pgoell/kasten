@@ -10,6 +10,7 @@ import { useReviewWaiting } from "@/lib/review/use-review-waiting";
 import { useRecentNotes } from "@/lib/search/use-recent-notes";
 import { isOpen, parseTodo, STATE_SYMBOL, type Todo, type TodoState } from "@/lib/todo/todo";
 import { sectionOf } from "@/lib/todo/todo-view";
+import { TAP } from "@/lib/ui/overlay-styles";
 
 /** The states that are work somebody has started and not finished, and not due today. */
 const LOOP_STATES: ReadonlySet<TodoState> = new Set(["doing", "waiting", "blocked"]);
@@ -195,7 +196,7 @@ function Row({
     <button
       type="button"
       onClick={onClick}
-      className={`k-row flex w-full items-baseline gap-2 rounded-[var(--k-radius-6)] ${between ? "justify-between" : ""} px-2 py-1 text-left font-sans text-k-15 text-k-ink transition-[color,background-color,transform] duration-(--k-hover) hover:text-k-accent`}
+      className={`k-row flex w-full items-baseline gap-2 rounded-[var(--k-radius-6)] ${between ? "justify-between" : ""} px-2 py-1 text-left font-sans text-k-15 text-k-ink transition-[color,background-color,transform] duration-(--k-hover) hover:text-k-accent ${TAP}`}
     >
       {children}
     </button>
