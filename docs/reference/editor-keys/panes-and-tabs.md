@@ -80,8 +80,8 @@ A window narrower than 768px stacks the panes of a split, top and bottom,
 whichever way the split divides. While the on-screen keyboard is up, only the
 focused pane shows, at full height, and the rest hold what they held. The
 splits are kept, so they are side by side again when the window widens.
-`<leader>o` moves to the next pane there. The footer, or a phone's toolbar,
-says `pane 1/2`: the focused pane and how many the tab holds, when it holds more
+`<leader>o` moves to the next pane there. The footer says `pane 1/2` (a phone's
+toolbar `1/2`): the focused pane and how many the tab holds, when it holds more
 than one.
 
 Off a phone, that window's footer carries the date and the time and leaves out
