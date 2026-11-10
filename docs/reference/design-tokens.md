@@ -143,6 +143,10 @@ heading pair, the 19 px size the reading leading, the 15 px size the UI leading
 and body tracking, and the 12 and 13 px sizes the UI leading and label
 tracking. `tracking-k-kbd` and `tracking-k-label` set the tracking alone.
 
+A pane of text or a list keeps one column in the middle of the pane: a note at
+`--k-measure`, review at `--k-measure`, timers at 720 px and the todo list at
+52 rem. A dashboard, the log, finance and the overview, fills the pane.
+
 ## Motion
 
 The values of #798, which builds the press feedback, the spring helper and the

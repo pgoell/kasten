@@ -275,8 +275,12 @@ export function TodoList(p: {
   }
 
   return (
-    /* A list that moves under the finger has moved the armed row with it. */
-    <div className="flex-1 overflow-auto py-1" onScroll={() => onArm(null)}>
+    /* A list that moves under the finger has moved the armed row with it. The 52rem column
+       sits in the middle, as a text pane's does; the padding keeps the whole width scrollable. */
+    <div
+      className="flex-1 overflow-auto px-[max(0px,calc((100%-52rem)/2))] py-1"
+      onScroll={() => onArm(null)}
+    >
       {empty !== null ? (
         <p className="px-3 py-1 text-k-13 text-k-muted">{empty}</p>
       ) : (
