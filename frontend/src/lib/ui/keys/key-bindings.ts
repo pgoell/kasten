@@ -224,7 +224,7 @@ export const TREE: readonly { key: string; label: string }[] = [
 
 /**
  * The screens reached by typing their address rather than by pressing a key.
- * Listed here because no key or link opens them, so the panel is the only place they are named.
+ * Listed here because no key opens them; only `/settings` and `/tokens` have palette rows.
  */
 export const SCREENS: readonly { key: string; label: string }[] = [
   { key: "/tokens", label: "Mint and revoke the tokens an agent reaches the vault with" },

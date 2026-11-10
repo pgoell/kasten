@@ -210,8 +210,8 @@ to name a path, and search never writes.
 | Click a folder or a tag | Narrow to it, or clear it |
 | Click Include the archive | Turn the archive in or out, as `<leader>a` does |
 
-The page is one panel, wide and tall on a desktop and the whole screen on a
-phone. A large serif field holds the query. Beside the lines, a column 220
+The page is one panel, wide and tall, with a strip of the dimmed page above
+it on a phone as on a desktop; a tap or a click there closes it. A large serif field holds the query. Beside the lines, a column 220
 pixels wide lists the folders and the tags the answer holds, each with its
 count, and the archive with its own count. One folder and one tag can be
 chosen at a time, and a second press on the chosen one clears it. The counts
