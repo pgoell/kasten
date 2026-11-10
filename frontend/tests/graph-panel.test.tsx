@@ -129,6 +129,25 @@ describe("GraphPane side panel", () => {
     ).not.toBeNull();
   });
 
+  it("under 640 px the panel folds its mode and tags behind a button, and the counts and card stay", async () => {
+    vi.spyOn(api, "fetchGraph").mockResolvedValue(ANSWER);
+    renderPane();
+    await waitFor(() => expect(canvas.update).toHaveBeenCalled());
+    const toggle = screen.getByRole("button", { name: "Mode and tags" });
+    const tags = screen.getByRole("list", { name: "tags" }).parentElement;
+
+    expect(toggle).toHaveClass("@[640px]:hidden");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(tags).toHaveClass("@max-[640px]:hidden");
+    expect(screen.getByText("Hover or tap a note.").parentElement).not.toHaveClass(
+      "@max-[640px]:hidden",
+    );
+
+    fireEvent.click(toggle);
+    expect(screen.getByRole("button", { name: "Less" })).toHaveAttribute("aria-expanded", "true");
+    expect(tags).not.toHaveClass("@max-[640px]:hidden");
+  });
+
   it("I2 with the archive shown the counts line says the archive is in", async () => {
     const ask = vi.spyOn(api, "fetchGraph").mockResolvedValue(ANSWER);
     renderPane({ archive: true });

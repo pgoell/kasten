@@ -181,6 +181,8 @@ describe("#992 the vault graph zooms under fingers on a phone", () => {
   it("#992 I3 a switch to Tags on a phone settles at a readable zoom again", async () => {
     const { host } = await phone();
     await fitted(host);
+    // The panel folds on a phone, so it opens before the switch shows.
+    await userEvent.click(need(host.querySelector<HTMLElement>("[aria-expanded]"), "fold button"));
     const tags = need(
       [...host.querySelectorAll<HTMLButtonElement>("[aria-label='mode'] button")].find(
         (button) => button.textContent?.trim().toLowerCase() === "tags",

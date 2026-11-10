@@ -220,9 +220,9 @@ switch, the tags with their colour and count, and a card for the note under the
 pointer, with its folder, tags, links and an Open button. A click on a tag
 hides its area and ring, and every note that has no other tag; a second click
 shows it again. The mode is kept per device (`kasten.graph.mode`). In a pane
-under 640 px wide, and on a phone, the panel sits under the canvas. On a phone
-the canvas is about 118vw high, at most 70% of the screen height, and the panel
-below it takes the full width; the pane scrolls as one. On a touch screen a tap
+under 640 px wide, and on a phone, the panel sits under the canvas, folded to
+the title, counts and card; Mode and tags opens the rest. On a phone the canvas
+is about 118vw high, at most 70% of the screen, and the pane scrolls as one. On a touch screen a tap
 on a note picks it into the card, and Open or a second tap opens it.
 
 On a touch screen the vault graph settles at a zoom where names read: the
