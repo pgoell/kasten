@@ -278,6 +278,6 @@ tree's archive toggle.
 | `Enter`, or a click or tap on a row | Open the note at its top |
 | `Escape` | Close |
 
-The line underneath says how much of the index answered: "index holds 481 of
-625 notes, still filling" during the first indexing, "by words only" while the
+The line underneath says how much of the index answered: "481 of 625 notes
+indexed so far" during the first indexing, "matching words only" while the
 model loads, and "searching" while an answer is on its way.

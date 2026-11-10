@@ -129,14 +129,18 @@ function Tokens() {
             >
               Mint
             </button>
-            <label className="flex basis-full items-center gap-2 text-k-13 text-k-muted">
+            <label className="flex basis-full items-start gap-2 text-k-13 text-k-muted">
               <input
                 type="checkbox"
                 checked={reading}
                 onChange={(event) => setReading(event.target.checked)}
+                className="mt-1"
               />
-              Website only: opens <code className="font-mono">/agent/reading</code> and{" "}
-              <code className="font-mono">/agent/posts</code> alone
+              {/* One span, or each code and each run of words wraps as its own flex item. */}
+              <span>
+                Website only: opens <code className="font-mono">/agent/reading</code> and{" "}
+                <code className="font-mono">/agent/posts</code> alone
+              </span>
             </label>
           </form>
         </header>

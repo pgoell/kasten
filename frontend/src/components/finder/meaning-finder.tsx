@@ -36,9 +36,9 @@ export function rankedHint(
   if (answer === undefined) return pending ? "searching" : "";
   const parts: string[] = [];
   if (answer.indexed < answer.notes) {
-    parts.push(`index holds ${answer.indexed} of ${answer.notes} notes, still filling`);
+    parts.push(`${answer.indexed} of ${answer.notes} notes indexed so far`);
   }
-  if (!answer.meaning) parts.push("by words only, the model is loading or off");
+  if (!answer.meaning) parts.push("matching words only while the model loads or is off");
   // A held answer is the previous query's: its emptiness says nothing of this one.
   if (pending) parts.push("searching");
   else if (typed !== "" && answer.hits.length === 0) parts.push("no notes match");
