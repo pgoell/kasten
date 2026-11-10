@@ -38,7 +38,7 @@ is served:
 | Path | Goes to | Login gate | Why |
 | --- | --- | --- | --- |
 | `/oauth2/*` | oauth2-proxy, port `4180` | **no** | the sign-in page and its callback |
-| `/share/*` | backend, port `8000` | yes, the share gate | the six list routes, and `/share/events` |
+| `/share/*` | backend, port `8000` | yes, the share gate | the list routes, `/share/meals` and `/share/events` |
 | `/`, `/lists.html`, `/assets/*`, `/icons/*`, `/lists.webmanifest`, `/lists-sw.js`, `/viewport-fit.js`, `/favicon.svg` | frontend, port `3000` | yes, the share gate | the lists app; `/` is rewritten to `/lists.html` |
 | everything else | Caddy answers `404` | no | nothing else is served here |
 
