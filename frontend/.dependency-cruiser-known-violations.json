@@ -448,5 +448,38 @@
       "severity": "error",
       "name": "no-dynamic-import"
     }
+  },
+  {
+    "type": "dependency",
+    "from": "src/components/pane-body.tsx",
+    "to": "src/components/terminal-pane.tsx",
+    "unresolvedTo": "@/components/terminal-pane",
+    "dependencyTypes": ["undetermined", "dynamic-import"],
+    "rule": {
+      "severity": "error",
+      "name": "no-dynamic-import"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/components/local-graph.tsx",
+    "to": "src/lib/graph/graph-canvas.ts",
+    "unresolvedTo": "@/lib/graph/graph-canvas",
+    "dependencyTypes": ["undetermined", "dynamic-import"],
+    "rule": {
+      "severity": "error",
+      "name": "no-dynamic-import"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/components/graph-pane.tsx",
+    "to": "src/lib/graph/graph-canvas.ts",
+    "unresolvedTo": "@/lib/graph/graph-canvas",
+    "dependencyTypes": ["undetermined", "dynamic-import"],
+    "rule": {
+      "severity": "error",
+      "name": "no-dynamic-import"
+    }
   }
 ]

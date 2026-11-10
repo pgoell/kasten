@@ -109,12 +109,21 @@ describe("the local graph in the margin", () => {
   it("A1 the margin graph is drawn by drawGraph in radial mode around the note", async () => {
     renderGraph();
 
-    expect(drawGraph).toHaveBeenCalledTimes(1);
+    // The canvas loads on demand, so it is made a tick after the pane is.
+    await waitFor(() => expect(drawGraph).toHaveBeenCalledTimes(1));
     expect(drawGraph).toHaveBeenCalledWith(expect.any(HTMLElement), expect.any(Object), {
       radial: true,
     });
     await drawn();
     expect(canvas.update).toHaveBeenLastCalledWith(GRAPH.nodes, GRAPH.edges, NOTE);
+  });
+
+  it("A9 a margin closed before the graph chunk loads never draws", async () => {
+    const view = renderGraph();
+    view.unmount();
+
+    await new Promise((done) => setTimeout(done, 100));
+    expect(drawGraph).not.toHaveBeenCalled();
   });
 
   it("A2 Links, Backlinks and Unlinked mentions are listed under the graph, each with its count", async () => {

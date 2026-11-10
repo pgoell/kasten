@@ -1,4 +1,5 @@
 import type { Dispatch, ReactElement, RefObject, SetStateAction } from "react";
+import { lazy, Suspense } from "react";
 import { BookPane } from "@/components/books/book-pane";
 import { LibraryPane } from "@/components/books/library-pane";
 import { ChatPane } from "@/components/chat/chat-pane";
@@ -14,7 +15,6 @@ import { OverviewPane } from "@/components/overview-pane";
 import { PdfPane } from "@/components/pdf-pane";
 import { PersonPane } from "@/components/person-pane";
 import { ReviewPane } from "@/components/review-pane";
-import { TerminalPane } from "@/components/terminal-pane";
 import { type AgentRow, TodoPane } from "@/components/todo-pane";
 import type { PaneMoves } from "@/components/use-pane-moves";
 import { VideoPane } from "@/components/video-pane";
@@ -133,16 +133,23 @@ const note = ({ shown, focused, shared, extras }: At) => (
   />
 );
 
+// xterm is heavy (345 kB minified), so it loads when a terminal pane first opens, as pdf.js does.
+const TerminalPane = lazy(() =>
+  import("@/components/terminal-pane").then(({ TerminalPane }) => ({ default: TerminalPane })),
+);
+
 /** One body per kind of `PANE_KINDS`, so a kind with no body fails the type check. */
 const BODIES: { [K in KindField]: Body<K> } = {
   path: (_, at) => note(at),
   term: (session, { shared, focused, signal }) => (
-    <TerminalPane
-      session={session}
-      commands={shared.commands}
-      focusSignal={signal}
-      focused={focused}
-    />
+    <Suspense fallback={null}>
+      <TerminalPane
+        session={session}
+        commands={shared.commands}
+        focusSignal={signal}
+        focused={focused}
+      />
+    </Suspense>
   ),
   todos: (_, { shared, extras, focused, signal }) => (
     <TodoPane

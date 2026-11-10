@@ -15,7 +15,8 @@ every keystroke, and both go through one scorer in `frontend/src/lib/search/fuzz
 This page states the bar that work is held to, the three harnesses that measure
 it, and the numbers each one recorded.
 
-Every figure here comes from one machine, a 16-thread desktop. `ubuntu-latest`
+Every figure here comes from one machine, a 16-thread desktop, except the save,
+which comes from a 4-core VPS. `ubuntu-latest`
 is about 2.0x slower, so the ranking gates count work and do not time it. See
 [What the gates assert](#what-the-gates-assert).
 
@@ -271,6 +272,20 @@ this is the change that stopped asking them to do the work.
 The three browser rows are measured by `tests/frame/load.test.tsx`, which mounts
 the tree over the synthetic vault directly and makes no request. A cold open
 pays that and the request both.
+
+### The save
+
+One `PUT /api/files/{path}` at 10,000 notes in a colocated jj repo, from
+`backend/tests/test_files_perf.py`. Machine: 4-core VPS, jj 0.37.0, recorded
+2026-11-10. Not gated.
+
+| save | total | rest (write, HTTP) | jj log | jj new | jj status |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| first, runs `jj new` | 461.5 ms | 92.9 | 65.4 | 136.3 | 166.8 |
+| best of 5 | 230.5 ms | 3.1 | 61.6 | 0.0 | 165.8 |
+
+All times are in milliseconds. Over the issue's 100 ms bar, so #1827 holds the two options. Almost all of the save is jj. `jj log` and
+`jj status` both read all 10,000 files, and both run inside the vault lock.
 
 ## What these numbers are not
 

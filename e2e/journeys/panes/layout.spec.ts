@@ -92,9 +92,7 @@ test("a timers pane restored by a reload holds the focus, so the leader key work
   await expect(page.getByLabel("Todos", { exact: true })).toBeVisible();
 });
 
-test("a click into another pane's field after a reload keeps the caret there", async ({
-  page,
-}) => {
+test("a click into another pane's field after a reload keeps the caret there", async ({ page }) => {
   await openApp(page);
   await leader(page, "%");
   await leader(page, "gT");
@@ -254,6 +252,21 @@ test.describe("the top bar", () => {
     await openApp(page);
     await bar(page).getByRole("button", { name: "Graph", exact: true }).click();
     await expect(page.locator("[data-graph-pane]")).toBeVisible();
+    await expect(page.locator("[data-graph-pane] canvas")).toBeVisible();
+  });
+
+  test("the terminal leader key opens a terminal pane, once its xterm chunk has loaded", async ({
+    page,
+  }) => {
+    await openApp(page);
+    // `cs` is "Open a terminal" and asks for a session name. No ttyd runs in this
+    // harness, so only the xterm element is expected.
+    await leader(page, "cs");
+    await page.keyboard.type("notes");
+    await page.keyboard.press("Enter");
+    await expect(page.locator(".xterm").first()).toBeVisible();
+    // The pane mounts after its chunk, and still takes the keys typed next.
+    await expect(page.locator(".xterm-helper-textarea").first()).toBeFocused();
   });
 
   test("New note in the top bar opens the new note prompt, and the note it makes is written to disk", async ({

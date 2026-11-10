@@ -351,3 +351,50 @@ things are slow, each its own issue:
   The task was the todo pane's first render of the list, not the parse; the
   pane now renders its rows in a deferred pass, with no long task left on this
   desktop (#1355).
+
+## The bundle
+
+`vite build` on origin/main (10ee465b), in kB, gzip at level 9. Hashes are cut
+from the names. Chunks with one name are summed, and the count says how many.
+
+| Chunk | Files | Raw | Gzip |
+| --- | --- | --- | --- |
+| elk | 1 | 1,464.6 | 446.8 |
+| routes | 1 | 1,197.8 | 352.4 |
+| dist | 5 | 696.9 | 226.8 |
+| clip (defuddle) | 1 | 697.6 | 199.4 |
+| worker | 1 | 489.5 | 168.7 |
+| katex | 2 | 518.4 | 152.4 |
+| cytoscape.esm | 1 | 435.1 | 136.1 |
+| chunk-NGNAAXSQ | 1 | 629.1 | 125.1 |
+| review-session | 1 | 361.9 | 118.1 |
+| pdf | 1 | 398.8 | 116.7 |
+| barcode-zxing | 1 | 452.2 | 116.5 |
+| client | 1 | 178.3 | 55.6 |
+| usecaseDiagram | 1 | 188.0 | 48.7 |
+| architectureDiagram | 1 | 149.0 | 40.6 |
+| chunk-DSNLSHJZ | 1 | 241.5 | 37.2 |
+| swimlanes | 1 | 106.6 | 35.7 |
+| sequenceDiagram | 1 | 117.8 | 30.9 |
+| chunk-HAGFOTED | 1 | 115.6 | 29.0 |
+| main.css | 1 | 136.5 | 27.7 |
+| diagram | 1 | 80.6 | 24.6 |
+| ganttDiagram | 1 | 69.8 | 22.6 |
+| main | 1 | 64.5 | 22.0 |
+| cose-bilkent | 1 | 81.3 | 21.3 |
+| 264 chunks under 20 kB gzip | 264 | 2,409.8 | 873.0 |
+
+Shares of the home route, from the source maps (minified, gzip of the same text):
+
+- @xterm/xterm: 333 kB, 83 kB gzip. Now its own chunk, `terminal-pane`, loaded when a terminal opens.
+- force-graph and d3-*: 100 kB, 32 kB gzip. Now in `graph-canvas`, loaded when a graph draws.
+- foliate-js: 24 kB, 8 kB gzip. Still static.
+- defuddle: 697 kB, 199 kB gzip. Still static.
+- finance-* components: 97 kB, 25 kB gzip. Still static.
+
+Home route total, the entry and the index route with their static imports:
+
+| Build | Raw | Gzip | Files |
+| --- | --- | --- | --- |
+| origin/main (10ee465b) | 3,241,877 | 1,006,964 | 36 |
+| with lazy xterm and force-graph | 2,721,193 | 859,668 | 32 |
