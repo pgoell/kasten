@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { BUILD, versionText } from "@/lib/app/build";
+import { BUILD, useVersion, versionText } from "@/lib/app/build";
 import {
   currentEndpoint,
   type Device,
@@ -14,7 +14,6 @@ import {
   subscribeHere,
   unsubscribeHere,
 } from "@/lib/app/push/push";
-import { fetchVersion } from "@/lib/core/api";
 import { BACK_LINK } from "@/lib/ui/overlay-styles";
 
 export const Route = createFileRoute("/settings")({
@@ -118,15 +117,11 @@ function Settings() {
 
 /** The code this page runs: the release, or in development the commit of each half. */
 function Version() {
-  const version = useQuery({
-    queryKey: ["version"],
-    queryFn: fetchVersion,
-    staleTime: Number.POSITIVE_INFINITY,
-  });
-  if (typeof version.data !== "string") return null;
+  const version = useVersion();
+  if (version === undefined) return null;
   return (
     <p data-testid="version" className="text-k-12 text-k-muted tabular-nums">
-      Version {versionText(version.data, BUILD)}
+      Version {versionText(version, BUILD)}
     </p>
   );
 }

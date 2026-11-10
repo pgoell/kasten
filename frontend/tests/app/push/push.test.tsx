@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { Suspense } from "react";
 import type { Mock } from "vitest";
 import type { components } from "@/lib/api-types";
+import { BUILD, versionText } from "@/lib/app/build";
 import { client } from "@/lib/core/api-client";
 import { Route } from "@/routes/settings";
 
@@ -51,7 +52,12 @@ function serve(push: PushOut) {
   state = push;
   hours = { morning: null, quiet_start: null, quiet_end: null };
   const get = vi.fn(async (path: string) => ({
-    data: path === "/api/push/settings" ? hours : state,
+    data:
+      path === "/api/version"
+        ? { backend: "0.8.0" }
+        : path === "/api/push/settings"
+          ? hours
+          : state,
     response: new Response(null, { status: 200 }),
   }));
   const post = vi.fn(async (_path: string, init: { body: { endpoint: string; name: string } }) => {
@@ -273,5 +279,16 @@ describe("the settings page's push times", () => {
       screen.getByRole("button", { name: "Save times" }),
     ];
     for (const control of controls) expect(control.className).toContain("min-h-11");
+  });
+});
+
+describe("the settings page's version", () => {
+  it("names the code the page runs", async () => {
+    serve({ public_key: "-_8", devices: [] });
+    await renderPage();
+
+    expect(await screen.findByTestId("version")).toHaveTextContent(
+      `Version ${versionText("0.8.0", BUILD)}`,
+    );
   });
 });
