@@ -30,7 +30,8 @@ finder that leaves a name inside a tag alone.
    `note#2x`, `https://a.io/p#x` and `²#x` carry no tag.
 5. A hash inside a code span, a fenced code block, an indented code block, an
    HTML comment or block, a wikilink or a markdown link (its text or its address) is no
-   tag. A fence opened with tildes is a fence too, and one nobody closed runs to
+   tag. A markdown link whose text or address holds a `[` counts as no link here, so
+   `[a](x?f[0]=1)` hides nothing. A fence opened with tildes is a fence too, and one nobody closed runs to
    the end of the note. An indented block is code as CommonMark reads it, four
    spaces or a tab after a blank line, or after a quote or list marker, so
    `>     #h` and `-     #h` open code; a line indented under a list item goes

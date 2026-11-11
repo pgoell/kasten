@@ -31,8 +31,10 @@ _RECURRENCE_END = r"(?=[ \t]*(?:" + STOP + r"|👤|#)|[ \t]+" + _BLOCK_ID + r"|[
 ID = re.compile("🆔" + _VS + _ONE_WORD)
 """The id field `🆔 kt-…`: a `🆔` whose next word is no marker."""
 RECURRENCE = re.compile("🔁" + _VS + r"[ \t]+(.+?)" + _RECURRENCE_END)
-BLOCK_ID = re.compile(r"(?:^|[ \t]+)\^[A-Za-z0-9_-]+$")
-"""A trailing block id, as the editor's `withoutBlockId` takes it. `[\\w-]` there is ASCII."""
+BLOCK_ID = re.compile(r"(?:^|(?<![ \t])[ \t]+)\^[A-Za-z0-9_-]+$")
+"""A trailing block id, as the editor's `withoutBlockId` takes it. `[\\w-]` there is ASCII.
+
+The lookbehind starts the gap at its first blank only, so a long run of blanks is linear."""
 FIELDS = (
     re.compile("(?:📅|📆|🗓)" + _VS + _DATE),
     re.compile("⏳" + _VS + _DATE),
@@ -69,11 +71,12 @@ ASSIGNEE = re.compile(
 )
 
 SPANS = re.compile(
-    r"\[\[[^\[\]\n]+\]\]|\[[^\]\n]*\]\([^)\n]*\)|`[^`\n]*`|<!--[^>\n](?:-?[^-\n])*?-->"
+    r"\[\[[^\[\]\n]+\]\]|\[[^\[\]\n]*\]\([^\[)\n]*\)|`[^`\n]*`|<!--[^>\n](?:-?[^-\n])*?-->"
 )
 """A link, a markdown link, a code span and an HTML comment closed on its line, not on `<!-->`.
 
 A comment holds no `--`, as in the editor (#1474). A marker inside one is no field, nor a tag.
+A markdown link holds no `[`, so a long line of brackets reads in linear time.
 No lookaround, since rg runs it too. The editor's copy is in `tag-rule.ts`.
 """
 
