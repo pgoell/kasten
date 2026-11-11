@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from urllib.parse import unquote
 
-from kasten_backend import model_use_sessions
+from kasten_backend.model_use.sessions import session
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -21,7 +21,7 @@ def _records(lines: list[str]) -> list[dict]:
     """The JSON objects the lines hold, a line that is no JSON object passed over."""
     found = []
     for raw in lines:
-        record = model_use_sessions.record_of(raw)
+        record = session.record_of(raw)
         if record is not None:
             found.append(record)
     return found
@@ -44,14 +44,14 @@ def _day(stamp: object) -> str | None:
         return None
 
 
-def _turn(stamp: object, update: dict, cwd: str) -> list[model_use_sessions.Message]:
+def _turn(stamp: object, update: dict, cwd: str) -> list[session.Message]:
     """One message per model a `turn_completed` update counts, or none when it counts none."""
     usage, prompt, day = update.get("usage"), update.get("prompt_id"), _day(stamp)
     models = usage.get("modelUsage") if isinstance(usage, dict) else None
     if not (isinstance(models, dict) and isinstance(prompt, str) and prompt and day):
         return []
 
-    count = model_use_sessions.count_of
+    count = session.count_of
     found = []
     for model, counts in models.items():
         if not (model and isinstance(counts, dict)):
@@ -59,7 +59,7 @@ def _turn(stamp: object, update: dict, cwd: str) -> list[model_use_sessions.Mess
         read = count(counts, "cachedReadTokens")
         write = count(counts, "cacheCreationTokens")
         found.append(
-            model_use_sessions.Message(
+            session.Message(
                 # A prompt's turn ends once, so its id and the model name the turn in any file.
                 id=f"grok:{prompt}:{model}",
                 model=model,
@@ -80,7 +80,7 @@ def _turn(stamp: object, update: dict, cwd: str) -> list[model_use_sessions.Mess
     return found
 
 
-def grok_messages(lines: list[str], path: Path) -> list[model_use_sessions.Message]:
+def grok_messages(lines: list[str], path: Path) -> list[session.Message]:
     """The turns a grok file counts, in file order, one message per model of each turn."""
     # The session's folder sits two folders up, named for the folder grok ran in.
     cwd = unquote(path.parent.parent.name)

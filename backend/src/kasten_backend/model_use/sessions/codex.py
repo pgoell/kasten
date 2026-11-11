@@ -2,12 +2,12 @@
 
 Codex writes a `turn_context` record before each turn, with the model and the
 folder, and a `token_count` event after each model call, with that call's counts.
-`model_use_sessions` hands a file here when its first record is a `session_meta`.
+`session` hands a file here when its first record is a `session_meta`.
 """
 
 from datetime import datetime
 
-from kasten_backend import model_use_sessions
+from kasten_backend.model_use.sessions import session
 
 CODEX = "codex"
 """The tool a codex call is counted under, and the name its lines carry before a slash."""
@@ -21,15 +21,13 @@ def _text(value: object) -> str:
 def is_codex(lines: list[str]) -> bool:
     """Whether a file is codex's: its first record that parses is a `session_meta`."""
     for raw in lines:
-        record = model_use_sessions.record_of(raw)
+        record = session.record_of(raw)
         if record is not None:
             return record.get("type") == "session_meta"
     return False
 
 
-def _call(
-    stamp: object, info: object, model: str, cwd: str
-) -> tuple[int, model_use_sessions.Message] | None:
+def _call(stamp: object, info: object, model: str, cwd: str) -> tuple[int, session.Message] | None:
     """The call a token_count event counts, with its running total, or None when it counts none."""
     if not (isinstance(stamp, str) and isinstance(info, dict) and model and cwd):
         return None
@@ -41,11 +39,11 @@ def _call(
     except ValueError:
         return None
 
-    count = model_use_sessions.count_of
+    count = session.count_of
     cached = count(last, "cached_input_tokens")
     write = count(last, "cache_write_input_tokens")
     tokens = count(total, "total_tokens")
-    message = model_use_sessions.Message(
+    message = session.Message(
         # The stamp and the running total name the call, so a copy in another file is the same call.
         id=f"codex:{stamp}:{tokens}",
         model=model,
@@ -64,7 +62,7 @@ def _call(
     return tokens, message
 
 
-def codex_messages(lines: list[str]) -> list[model_use_sessions.Message]:
+def codex_messages(lines: list[str]) -> list[session.Message]:
     """The calls a codex file counts, in file order, one per `token_count` event that has counts.
 
     An event is passed over when no model is known yet, or when its running total
@@ -74,7 +72,7 @@ def codex_messages(lines: list[str]) -> list[model_use_sessions.Message]:
     last_total: int | None = None
     found = []
     for raw in lines:
-        record = model_use_sessions.record_of(raw)
+        record = session.record_of(raw)
         if record is None or not isinstance(record.get("payload"), dict):
             continue
         payload, kind = record["payload"], record.get("type")

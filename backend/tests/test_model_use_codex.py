@@ -22,8 +22,7 @@ from backend.tests.model_use_records import (
     session,
     usage,
 )
-from kasten_backend.model_use import run
-from kasten_backend.model_use_sessions import COUNT_BOUND, count_of
+from kasten_backend.model_use import COUNT_BOUND, count_of, run
 
 if TYPE_CHECKING:
     from collections.abc import Iterator

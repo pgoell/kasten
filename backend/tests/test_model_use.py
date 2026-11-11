@@ -24,16 +24,21 @@ from backend.tests.model_use_records import (
     usage,
     usage_lines,
 )
-from kasten_backend.model_use import BUNDLED, main, run
-from kasten_backend.model_use_config import read_config
-from kasten_backend.model_use_lines import format_line, parse_line
-from kasten_backend.model_use_sessions import COUNT_BOUND
+from kasten_backend.model_use import (
+    BUNDLED,
+    COUNT_BOUND,
+    format_line,
+    main,
+    parse_line,
+    read_config,
+    run,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
     from pathlib import Path
 
-    from kasten_backend.model_use_lines import Usage
+    from kasten_backend.model_use import Usage
 
 DAY = date(2026, 10, 25)
 NOW = datetime(2026, 10, 26, 8, 0, tzinfo=UTC)

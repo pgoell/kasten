@@ -9,9 +9,9 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import TYPE_CHECKING
 
-from kasten_backend import model_use_codex, model_use_grok
-from kasten_backend.model_use_config import Config, Price, price_of, project_of
-from kasten_backend.model_use_lines import CLAUDE_CODE, Usage
+from kasten_backend.model_use.note.config import Config, Price, price_of, project_of
+from kasten_backend.model_use.note.lines import CLAUDE_CODE, Usage
+from kasten_backend.model_use.sessions import codex, grok
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -143,10 +143,10 @@ def read_messages(source: Path, first: date) -> dict[str, Message]:
             continue
         lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
         # The first record tells the tool: codex's file opens with a session_meta record.
-        if model_use_codex.is_codex(lines):
-            messages = model_use_codex.codex_messages(lines)
-        elif model_use_grok.is_grok(lines):
-            messages = model_use_grok.grok_messages(lines, path)
+        if codex.is_codex(lines):
+            messages = codex.codex_messages(lines)
+        elif grok.is_grok(lines):
+            messages = grok.grok_messages(lines, path)
         else:
             messages = _claude_messages(lines)
         for message in messages:
