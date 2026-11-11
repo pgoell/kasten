@@ -134,6 +134,10 @@ vi.mock("@/lib/log/food-api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/log/food-api")>()),
   fetchLog,
 }));
+vi.mock("@/lib/log/training/exercises", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/log/training/exercises")>()),
+  fetchTraining: async () => [],
+}));
 vi.mock("@/lib/vault/move/move-api", () => ({ renameNote, moveFolder }));
 vi.mock("@/lib/vault/move/trash-api", () => ({
   deleteNote,
@@ -197,7 +201,7 @@ describe("the overview, on the route", () => {
     vi.resetAllMocks();
   });
 
-  it("#806 A3 the overview shows the eight cards in order, each with a heading, a big number, a line of words and a chart labelled for a screen reader", async () => {
+  it("#806 A3 the overview shows the nine cards in order, each with a heading, a big number, a line of words and a chart labelled for a screen reader", async () => {
     await openOverview();
 
     const articles = within(overview() as HTMLElement).getAllByRole("article");

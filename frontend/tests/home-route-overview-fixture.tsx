@@ -60,6 +60,7 @@ export const NAMES = [
   "Todos",
   "Writing",
   "This year",
+  "Training",
 ];
 
 export const overview = () => document.querySelector<HTMLElement>("[aria-label='Overview']");

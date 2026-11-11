@@ -176,6 +176,13 @@ One bar for each day, the todos ticked done that day, by their `✅` date. A day
 none draws a stub, and a day after today draws no bar. "Today" is the browser's local
 date. The caption gives the total.
 
+### Training
+
+One line, `3 sessions, 14 sets, 95 min cardio`, read off the `## Training`
+lines of the week's daily notes, or `No training this week.` A second line
+names the records the week set, as the
+[training pane](/reference/training/training-pane.md#records) counts them.
+
 ### Done
 
 The todos ticked done in the week, oldest first. A click or a tap opens the

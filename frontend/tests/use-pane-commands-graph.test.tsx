@@ -127,6 +127,7 @@ const REPLACING: Command[] = [
   "openOverview",
   "openLibrary",
   "openFinance",
+  "openTraining",
   "openReview",
   "openChat",
   "openTimers",

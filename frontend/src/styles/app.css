@@ -12,6 +12,7 @@
 @import "./weather-card.css";
 @import "./log/log-card.css";
 @import "./training/session.css";
+@import "./training/progress.css";
 @import "./food/food-sheet.css";
 @import "./food/recipe.css";
 @import "./food/cook-mode.css";

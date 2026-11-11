@@ -48,6 +48,8 @@ export interface EditorCommands {
   openLibrary(): void;
   /** The finance pane, on the bookings still to sort. */
   openFinance(): void;
+  /** The training pane: progress per lift, cardio per week, weight and records. */
+  openTraining(): void;
   /** Show what links to the open note. Needs one open, as its opposite does. */
   showBacklinks(): void;
   /** Show what the open note links to, which is that pair read the other way. */

@@ -20,6 +20,14 @@ import { DEFAULT_CONFIG, type LogConfig, parseConfig } from "@/lib/log/log-kinds
 import { hasFood, streakOf } from "@/lib/log/log-streak";
 import { rangeDates, weightOf } from "@/lib/log/log-weight";
 import { goalPhrase, grouped } from "@/lib/log/log-words";
+import { fetchTraining, type TrainingDay } from "@/lib/log/training/exercises";
+import {
+  mondayOf,
+  sessionsIn,
+  weekStarts,
+  weekStreak,
+  weekTally,
+} from "@/lib/log/training/progress";
 import {
   type Bar,
   barsOf,
@@ -46,11 +54,26 @@ import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
 import { useLeader } from "@/lib/ui/keys/use-leader";
 import { useEntrance } from "@/lib/ui/motion/stagger";
 
-/** The eight cards, in the order the pane draws them. */
-const KEYS = ["food", "today", "weight", "water", "flashcards", "todos", "writing", "year"];
+/** The nine cards, in the order the pane draws them. */
+const KEYS = [
+  "food",
+  "today",
+  "weight",
+  "water",
+  "flashcards",
+  "todos",
+  "writing",
+  "year",
+  "training",
+];
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : "The read did not load";
+}
+
+/** A read's failure, but only while it has no answer to show: a failed refetch keeps the last. */
+function unanswered(read: { error: unknown; data: unknown }): string | undefined {
+  return read.error && read.data === undefined ? messageOf(read.error) : undefined;
 }
 
 interface Card {
@@ -91,6 +114,8 @@ interface Reads {
   todosError?: string;
   written: string[];
   writtenError?: string;
+  training: TrainingDay[];
+  trainingError?: string;
 }
 
 /** The queries the cards read, each once, under the keys the other panes share. */
@@ -117,6 +142,12 @@ function useReads(today: string, archive: boolean): Reads {
     queryKey: ["written", writtenFrom, today],
     queryFn: () => fetchWritten(writtenFrom, today),
   });
+  // The training pane's read, under its key, so the two share one answer.
+  const yearAgo = shiftDay(today, -364);
+  const training = useQuery({
+    queryKey: ["log", "training", yearAgo, today],
+    queryFn: () => fetchTraining(yearAgo, today),
+  });
 
   return {
     today,
@@ -124,13 +155,15 @@ function useReads(today: string, archive: boolean): Reads {
     config:
       logConfig.error instanceof NoteMissing ? DEFAULT_CONFIG : (logConfig.data ?? DEFAULT_CONFIG),
     days: log.data ?? [],
-    logError: log.error && log.data === undefined ? messageOf(log.error) : undefined,
+    logError: unanswered(log),
     cards: cards.data ?? [],
     cardsError: cards.error ? messageOf(cards.error) : undefined,
     todos: todos.data ?? [],
-    todosError: todos.error && todos.data === undefined ? messageOf(todos.error) : undefined,
+    todosError: unanswered(todos),
     written: written.data ?? [],
     writtenError: written.error ? messageOf(written.error) : undefined,
+    training: training.data ?? [],
+    trainingError: unanswered(training),
   };
 }
 
@@ -384,7 +417,34 @@ function yearCard(reads: Reads, commands: EditorCommands): Card {
   };
 }
 
-/** The eight cards, in the order the pane draws them. */
+function trainingCard(reads: Reads, commands: EditorCommands): Card {
+  const week = weekTally(reads.training, mondayOf(reads.today));
+  const streak = weekStreak(reads.training, reads.today);
+  const points = weekStarts(reads.today, 8).map((monday, index) => ({
+    index,
+    amount: sessionsIn(reads.training, monday, shiftDay(monday, 6)),
+  }));
+  return {
+    key: "training",
+    caption: "sessions per week, 8 weeks",
+    name: "Training",
+    target: "the training pane",
+    open: () => commands.openTraining(),
+    figure: plural(week.sessions, "session"),
+    words: `this week, ${grouped(week.minutes)} min cardio, ${plural(streak, "week")} in a row`,
+    chart: (
+      <Bars
+        label={`sessions per week over 8 weeks, ${grouped(week.sessions)} this week`}
+        points={points}
+        slots={8}
+        todayIndex={7}
+      />
+    ),
+    failure: reads.trainingError,
+  };
+}
+
+/** The nine cards, in the order the pane draws them. */
 function cardsOf(reads: Reads, commands: EditorCommands): Card[] {
   return [
     foodCard(reads, commands),
@@ -395,6 +455,7 @@ function cardsOf(reads: Reads, commands: EditorCommands): Card[] {
     todosCard(reads, commands),
     writingCard(reads, commands),
     yearCard(reads, commands),
+    trainingCard(reads, commands),
   ];
 }
 
@@ -466,7 +527,7 @@ const STEPS: Record<string, (columns: number) => number> = {
 };
 
 /**
- * The overview: eight cards, each a number, a line of words and a small chart, all worked
+ * The overview: nine cards, each a number, a line of words and a small chart, all worked
  * out from the notes. Reads what the log, todo, flashcard and note panes already read, under
  * the same keys, and writes nothing.
  */

@@ -78,6 +78,7 @@ const SHAPES: Record<PaneKind, ReactNode> = {
     </>
   ),
   library: <path d="M5 4v16M10 4v16M15 5l4 14.5" />,
+  training: <path d="M6 7v10M3 9.5v5M18 7v10M21 9.5v5M6 12h12" />,
   chat: (
     <path d="M5 5h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-8l-4 3.5V16H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" />
   ),

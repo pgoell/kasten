@@ -1,16 +1,16 @@
 ---
 type: How-to Guide
 title: Read the overview
-description: Open the overview, read its eight cards of scores and streaks, open the pane behind a card, and know what each number counts, the streak rules and what counts as a note written.
+description: Open the overview, read its nine cards of scores and streaks, open the pane behind a card, and know what each number counts, the streak rules and what counts as a note written.
 tags: [overview, log, flashcards, todos, streaks, phone, keys]
 status: stable
 ---
 
 # Read the overview
 
-The overview shows how the week is going in one look: eight cards, each a big
+The overview shows how the week is going in one look: nine cards, each a big
 number, a line of words and a small chart. Every number is worked out from what
-the notes already hold, the `## Log` lines, the todo lines, the flashcard
+the notes already hold, the `## Log` and `## Training` lines, the todo lines, the flashcard
 schedules and the notes you wrote. The overview writes nothing and stores
 nothing of its own.
 
@@ -46,6 +46,7 @@ cards sit four across; in a narrow pane and on a phone they stand in one column.
 | Todos | todos done today | how many are open and overdue | todos done per day over 14 days | the todo pane |
 | Writing | notes written in the last 7 days | how many today | notes written per day over 14 days | today's daily note |
 | This year | notes written this year | on how many days | a grid of the year, a column per week, a square per day | this year's note |
+| Training | sessions this week | cardio minutes this week and weeks in a row with a session | sessions per week over 8 weeks | the training pane |
 
 The charts speak one language, the one the log pane's Trends uses:
 

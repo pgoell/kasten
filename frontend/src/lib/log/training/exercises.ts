@@ -25,8 +25,13 @@ export async function fetchExercises(): Promise<Exercise[]> {
 }
 
 /** The days before `today` within the look-back that hold training, oldest first. */
-export async function fetchEarlier(today: string): Promise<TrainingDay[]> {
-  const query = { from: shiftDay(today, -LOOK_BACK_DAYS), to: shiftDay(today, -1) };
+export function fetchEarlier(today: string): Promise<TrainingDay[]> {
+  return fetchTraining(shiftDay(today, -LOOK_BACK_DAYS), shiftDay(today, -1));
+}
+
+/** The days from `from` to `to`, both included, that hold training, oldest first. */
+export async function fetchTraining(from: string, to: string): Promise<TrainingDay[]> {
+  const query = { from, to };
   const { data, response } = await client.GET("/api/training", { params: { query } });
   if (!data) throw new Error(`GET /api/training failed with ${response.status}`);
   return data.map((day) => ({ date: day.date, entries: day.entries.map(bare) }));

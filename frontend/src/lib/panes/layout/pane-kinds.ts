@@ -32,6 +32,8 @@ export interface Pane {
   finance?: boolean;
   /** The library pane's: every book note, a list and the chosen one. */
   library?: boolean;
+  /** The training pane's: the progress the training lines show. */
+  training?: boolean;
   /**
    * The literature note whose book this pane reads, absent otherwise. The note's path, since the
    * reader swaps its suffix to find the epub.
@@ -92,6 +94,7 @@ export type PaneKind =
   | "finance"
   | "overview"
   | "library"
+  | "training"
   | "chat"
   | "terminal";
 
@@ -109,6 +112,7 @@ const LABELS: Record<PaneKind, string> = {
   finance: "Finance",
   overview: "Overview",
   library: "Library",
+  training: "Training",
   chat: "Chat",
   terminal: "Terminal",
 };
@@ -131,6 +135,8 @@ interface Row<K extends KindField> {
   path?: (value: NonNullable<Pane[K]>) => string | undefined;
   /** Whether `q` empties it at once. A note saves first: its editor holds the only unsaved copy. */
   clears: boolean;
+  /** Set on a kind that fills the whole pane, with no note beside it. */
+  whole?: true;
 }
 
 export const isObject = (value: unknown): value is Record<string, unknown> =>
@@ -146,6 +152,7 @@ const flag = (icon: PaneKind): Row<KindField> => ({
   tab: () => LABELS[icon],
   clears: true,
 });
+const whole = (icon: PaneKind): Row<KindField> => ({ ...flag(icon), whole: true });
 const named = (icon: PaneKind = "page"): Row<KindField> => ({
   saved: isString,
   icon,
@@ -166,15 +173,16 @@ export const PANE_KINDS: { [K in KindField]: Row<K> } = {
   path: { ...named(), clears: false },
   // A terminal names its herdr session, which is the thing you named it.
   term: { saved: isString, icon: "terminal", tab: (session) => session, clears: true },
-  todos: flag("todos"),
-  log: flag("log"),
-  overview: flag("overview"),
-  finance: flag("finance"),
-  library: flag("library"),
+  todos: whole("todos"),
+  log: whole("log"),
+  overview: whole("overview"),
+  finance: whole("finance"),
+  library: whole("library"),
+  training: whole("training"),
   // A reader, a player, an exam and a card are each named by the note they sit beside (#363).
   book: named("book"),
   exam: named("review"),
-  review: flag("review"),
+  review: whole("review"),
   // A pdf, an image and a page are files and not notes, so named by the file (#361).
   image: file(),
   pdf: {

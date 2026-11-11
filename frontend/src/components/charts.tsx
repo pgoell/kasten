@@ -300,3 +300,116 @@ export function BalanceLine({ values, label, hovered }: BalanceLineProps) {
     </svg>
   );
 }
+
+interface TrendLineProps {
+  /** One value per slot, null where the slot has none: the line joins the slots that have one. */
+  values: (number | null)[];
+  /** Slots drawn as a band behind the line, such as deload weeks. */
+  shaded?: boolean[];
+  label: string;
+  /** A sparkline: shorter, with the last value's dot alone. */
+  spark?: boolean;
+}
+
+/** A line through the slots that have a value, scaled from the lowest to the highest, not zero. */
+export function TrendLine({ values, shaded = [], label, spark }: TrendLineProps) {
+  const height = spark ? HEIGHT / 2 : HEIGHT;
+  const slot = WIDTH / Math.max(1, values.length);
+  const x = (index: number) => index * slot + slot / 2;
+  const found = values.filter((value): value is number => value !== null);
+  const low = found.length === 0 ? 0 : Math.min(...found);
+  const high = found.length === 0 ? 0 : Math.max(...found);
+  const pad = high - low === 0 ? 1 : (high - low) * 0.1;
+  const y = (value: number) => height - ((value - low + pad) / (high - low + 2 * pad)) * height;
+  const points = values.flatMap((value, index) => (value === null ? [] : [{ index, value }]));
+  const dots = spark ? points.slice(-1) : points;
+
+  return (
+    <svg
+      className="chart-svg"
+      viewBox={`0 0 ${WIDTH} ${height}`}
+      width="100%"
+      role="img"
+      aria-label={label}
+    >
+      {shaded.map((on, index) =>
+        on ? (
+          <rect
+            // biome-ignore lint/suspicious/noArrayIndexKey: a slot's place is its identity
+            key={index}
+            className="chart-shade"
+            x={index * slot}
+            y={0}
+            width={slot}
+            height={height}
+          />
+        ) : null,
+      )}
+      {points.length < 2 ? null : (
+        <polyline
+          className="log-weight-avg"
+          points={points.map(({ index, value }) => `${x(index)},${y(value)}`).join(" ")}
+        />
+      )}
+      {dots.map(({ index, value }) => (
+        <circle key={index} className="log-weight-dot" cx={x(index)} cy={y(value)} r={2.5} />
+      ))}
+    </svg>
+  );
+}
+
+interface StackedBarsProps {
+  /** Per slot, the parts from the bottom up, each with the class that colours it. */
+  slots: { amount: number; className: string }[][];
+  goal?: number;
+  label: string;
+}
+
+/** A bar per slot of parts stacked from the bottom, with the goal as a dashed line. */
+export function StackedBars({ slots, goal, label }: StackedBarsProps) {
+  const slot = WIDTH / Math.max(1, slots.length);
+  const bar = slot * 0.7;
+  const totals = slots.map((parts) => parts.reduce((sum, part) => sum + part.amount, 0));
+  const top = Math.max(1, goal ?? 0, ...totals);
+  const height = (amount: number) => (amount / top) * HEIGHT;
+
+  return (
+    <svg
+      className="chart-svg"
+      viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+      width="100%"
+      role="img"
+      aria-label={label}
+    >
+      {slots.flatMap((parts, index) => {
+        let base = HEIGHT;
+        return parts
+          .filter((part) => part.amount > 0)
+          .map((part) => {
+            base -= height(part.amount);
+            return (
+              <rect
+                // biome-ignore lint/suspicious/noArrayIndexKey: a slot's place is its identity
+                key={`${index}-${part.className}`}
+                className={part.className}
+                x={index * slot + (slot - bar) / 2}
+                y={base}
+                width={bar}
+                height={height(part.amount)}
+              />
+            );
+          });
+      })}
+      {goal === undefined ? null : (
+        <line
+          data-goal={goal}
+          className="log-chart-goal"
+          x1={0}
+          x2={WIDTH}
+          y1={HEIGHT - height(goal)}
+          y2={HEIGHT - height(goal)}
+        />
+      )}
+    </svg>
+  );
+}

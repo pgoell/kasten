@@ -10,6 +10,7 @@ import { HistoryPane } from "@/components/history-pane";
 import { HtmlPane } from "@/components/html-pane";
 import { ImagePane } from "@/components/image-pane";
 import { LogPane } from "@/components/log/log-pane";
+import { TrainingPane } from "@/components/log/training/training-pane";
 import { NotePane } from "@/components/note/note-pane";
 import { OverviewPane } from "@/components/overview-pane";
 import { PdfPane } from "@/components/pdf/pdf-pane";
@@ -26,7 +27,7 @@ import type { useAutosave } from "@/lib/notes/note/use-autosave";
 import type { BufferSync } from "@/lib/notes/note/use-buffer-sync";
 import type { NoteOpening } from "@/lib/notes/note/use-note-opening";
 import { openBeside, openBookInFocused } from "@/lib/panes/layout/pane-contents";
-import { heldKind, type KindField, type Pane } from "@/lib/panes/layout/pane-kinds";
+import { heldKind, type KindField, PANE_KINDS, type Pane } from "@/lib/panes/layout/pane-kinds";
 import { atPane, focusPane, type Layout } from "@/lib/panes/layout/panes";
 import type { useRsvpAsked } from "@/lib/panes/rsvp/use-rsvp";
 import type { VideoAsks } from "@/lib/panes/video/use-video-player";
@@ -205,6 +206,14 @@ const BODIES: { [K in KindField]: Body<K> } = {
       commands={shared.commands}
       focusSignal={signal}
       archive={shared.archive}
+      // Read at the render, so a tab left open across midnight redraws.
+      today={readClock(new Date()).date}
+    />
+  ),
+  training: (_, { shared, signal }) => (
+    <TrainingPane
+      commands={shared.commands}
+      focusSignal={signal}
       // Read at the render, so a tab left open across midnight redraws.
       today={readClock(new Date()).date}
     />
@@ -392,16 +401,9 @@ export function PaneBody({
   return (BODIES[kind] as Body<KindField>)(shown[kind] as never, at);
 }
 
-/** Whether a pane holds one of the six kinds that fill the whole pane. */
-export function isWholePane(
-  pane: Pick<Pane, "overview" | "finance" | "log" | "todos" | "review" | "library">,
-): boolean {
-  return (
-    pane.overview === true ||
-    pane.library === true ||
-    pane.finance === true ||
-    pane.log === true ||
-    pane.todos === true ||
-    pane.review === true
+/** Whether a pane holds one of the kinds that fill the whole pane. */
+export function isWholePane(pane: Pane): boolean {
+  return (Object.keys(PANE_KINDS) as KindField[]).some(
+    (kind) => PANE_KINDS[kind].whole === true && pane[kind] !== undefined,
   );
 }

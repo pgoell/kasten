@@ -103,6 +103,7 @@ export function usePaneCommands({
       | "openOverview"
       | "openLibrary"
       | "openFinance"
+      | "openTraining"
       | "openGraph"
       | "openLocalGraph"
       | "openDaily"
@@ -172,6 +173,7 @@ export function usePaneCommands({
       openOverview: () => replace({ overview: true }),
       openLibrary: () => replace({ library: true }),
       openFinance: () => replace({ finance: true }),
+      openTraining: () => replace({ training: true }),
       openReview: () => replace({ review: true }),
       // Closing the pane later ends nothing; the runner owns the chat.
       openChat: () => replace({ chat: true }),

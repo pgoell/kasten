@@ -11,6 +11,7 @@ import { HistoryPane } from "@/components/history-pane";
 import { HtmlPane } from "@/components/html-pane";
 import { ImagePane } from "@/components/image-pane";
 import { LogPane } from "@/components/log/log-pane";
+import { TrainingPane } from "@/components/log/training/training-pane";
 import { NotePane } from "@/components/note/note-pane";
 import { OverviewPane } from "@/components/overview-pane";
 import { PaneBody, type PaneExtras, type PaneShared } from "@/components/pane-body";
@@ -48,6 +49,7 @@ const EXPECTED: { [K in KindField]: Expected } = {
   overview: { value: true, draws: OverviewPane, archive: true },
   finance: { value: true, draws: FinancePane, notice: true },
   library: { value: true, draws: LibraryPane, open: "path", notice: true },
+  training: { value: true, draws: TrainingPane },
   book: { value: "b.md", draws: BookPane, archive: true, notice: true },
   exam: { value: "e.md", draws: ExamPane, open: "path" },
   review: { value: true, draws: ReviewPane, open: "line" },

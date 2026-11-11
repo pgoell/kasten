@@ -94,6 +94,18 @@ Every part of it is a button, so it needs no key at all.
 | --- | --- |
 | `Escape` | Back to the exercise list from an exercise; close the screen from the list |
 
+## The training pane
+
+`<leader>gF` puts the training pane in the focused pane, in place of whatever
+it held. [Training pane](/reference/training/training-pane.md) says what it
+shows. Each lift tile is a button, so `Tab` and `Enter` reach it.
+
+| Key | Does |
+| --- | --- |
+| `w` | Switch between 12 weeks and a year |
+| `Escape` | Back to the tiles from a lift; close the pane from the tiles |
+| `q` | Close the pane |
+
 ## The finance pane
 
 `<leader>gk` puts the finance pane in the focused pane, in place of whatever it
