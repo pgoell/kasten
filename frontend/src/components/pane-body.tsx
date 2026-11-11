@@ -5,7 +5,7 @@ import { LibraryPane } from "@/components/books/library-pane";
 import { ChatPane } from "@/components/chat/chat-pane";
 import { ExamPane } from "@/components/exam-pane";
 import { FinancePane } from "@/components/finance/finance-pane";
-import { GraphPane } from "@/components/graph-pane";
+import { GraphPane } from "@/components/graph/graph-pane";
 import { HistoryPane } from "@/components/history-pane";
 import { HtmlPane } from "@/components/html-pane";
 import { ImagePane } from "@/components/image-pane";

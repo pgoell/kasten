@@ -1,7 +1,7 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { cardOf, GraphPanel } from "@/components/graph-panel";
-import { GraphTouchRow } from "@/components/graph-touch-row";
+import { cardOf, GraphPanel } from "@/components/graph/graph-panel";
+import { GraphTouchRow } from "@/components/graph/graph-touch-row";
 import { type DrawnNode, isNotePath, PLAIN, TYPE_COLOURS } from "@/lib/graph/graph";
 import {
   fetchGraph,

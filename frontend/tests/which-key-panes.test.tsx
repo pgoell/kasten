@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { ChatPane } from "@/components/chat/chat-pane";
 import { ExamPane } from "@/components/exam-pane";
-import { GraphPane } from "@/components/graph-pane";
+import { GraphPane } from "@/components/graph/graph-pane";
 import { HistoryPane } from "@/components/history-pane";
 import { HtmlPane } from "@/components/html-pane";
 import { ImagePane } from "@/components/image-pane";

@@ -8,7 +8,7 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { GraphPane } from "@/components/graph-pane";
+import { GraphPane } from "@/components/graph/graph-pane";
 import * as api from "@/lib/graph/graph-api";
 import type { GraphCanvasHandlers } from "@/lib/graph/graph-canvas";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";
