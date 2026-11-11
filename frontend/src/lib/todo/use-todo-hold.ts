@@ -83,11 +83,6 @@ export function useTodoHold(o: {
     setHold((previous) => (previous === null || sameOrder(previous, holding) ? previous : holding));
   }, [holding]);
 
-  // Dropped with the hold, so the next press takes a fresh look at the fold.
-  useEffect(() => {
-    if (hold === null) setFoldHeld(null);
-  }, [hold]);
-
   /** Both holds in one update, so the render after it draws the fold as it will stay. */
   function letGo() {
     setHold(null);
