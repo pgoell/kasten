@@ -124,6 +124,10 @@
 }
 
 @theme {
+  /* Every `*-11` class is a tap target. Tailwind's rem step shrinks it under a
+     default font below 16 px, so it holds 44 px at least (#1854). */
+  --spacing-11: max(44px, 2.75rem);
+
   /* What a refused key does to the one reading in the status bar. Long enough
      to be seen without watching for it, and over before a hand that noticed can
      press the key again, so the second press starts a flash of its own rather
