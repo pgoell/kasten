@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { phone, tapHeight } from "../../harness/app.ts";
+import { openApp, phone, tapHeight } from "../../harness/app.ts";
 import { answer, bars, daysAgo, type Hit, hit, openSearch } from "../../harness/search.ts";
 import { expect, test } from "../../harness/stack.ts";
 
@@ -138,5 +138,86 @@ test.describe("on a phone", () => {
       );
       expect(await tapHeight(line)).toBeGreaterThanOrEqual(44);
     }
+  });
+});
+
+// #1773: the regex and whole word toggles, against the real vault. Quote holds "plant",
+// Home holds "plants".
+test.describe("the regex and whole word toggles", () => {
+  const search = (page: Page) => page.getByRole("combobox", { name: "search notes" });
+  const regex = (page: Page) => page.getByRole("button", { name: "Regular expression" });
+  const word = (page: Page) => page.getByRole("button", { name: "Whole word" });
+  const lines = (page: Page) => page.getByRole("option");
+  const asked = (page: Page, flag: string) =>
+    page.waitForRequest((request) => new URL(request.url()).searchParams.get(flag) === "true");
+
+  test("with vim on, Alt+R reads the query as a regex: \\bplant\\b finds plant and not plants", async ({
+    page,
+  }) => {
+    await openSearch(page);
+    const literal = page.waitForRequest("**/api/search?**");
+    await page.keyboard.type("plant");
+    const plain = new URL((await literal).url()).searchParams;
+    expect([plain.has("regex"), plain.has("word")]).toEqual([false, false]);
+    await expect(lines(page)).toHaveCount(2);
+
+    const sent = asked(page, "regex");
+    await page.keyboard.press("Alt+r");
+    await expect(regex(page)).toHaveAttribute("aria-pressed", "true");
+    await expect(search(page)).toBeFocused();
+    await search(page).fill("\\bplant\\b");
+    await sent;
+
+    await expect(lines(page)).toHaveCount(1);
+    await expect(lines(page)).toContainText("The best time to plant a tree");
+
+    await search(page).fill("(plant");
+    await expect(page.getByRole("status")).toContainText("unclosed group");
+    await expect(lines(page)).toHaveCount(0);
+  });
+
+  test("with vim off, Alt+W keeps whole words only", async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
+    await openApp(page);
+    await page.keyboard.press("Control+Shift+P");
+    await page.getByRole("option", { name: /Search note content/ }).click();
+    await expect(search(page)).toBeFocused();
+    await page.keyboard.type("plant");
+    await expect(lines(page)).toHaveCount(2);
+
+    const sent = asked(page, "word");
+    await page.keyboard.press("Alt+w");
+    await sent;
+
+    await expect(word(page)).toHaveAttribute("aria-pressed", "true");
+    await expect(lines(page)).toHaveCount(1);
+    await expect(lines(page)).toContainText("The best time to plant a tree");
+  });
+
+  test.describe("on a phone", () => {
+    test.use(phone);
+
+    test("a tap on each toggle sets it, and the keyboard keeps the field", async ({ page }) => {
+      await page.goto("/?week=2020-W01");
+      await page.getByRole("button", { name: "All weeks" }).tap();
+      for (const toggle of [regex(page), word(page)]) {
+        expect(await tapHeight(toggle)).toBeGreaterThanOrEqual(44);
+        expect((await toggle.boundingBox())?.width).toBeGreaterThanOrEqual(44);
+      }
+
+      await regex(page).tap();
+      await word(page).tap();
+      await expect(search(page)).toBeFocused();
+      const both = page.waitForRequest((request) => {
+        const params = new URL(request.url()).searchParams;
+        return params.get("regex") === "true" && params.get("word") === "true";
+      });
+      await search(page).fill("plants?");
+      await both;
+
+      await expect(regex(page)).toHaveAttribute("aria-pressed", "true");
+      await expect(word(page)).toHaveAttribute("aria-pressed", "true");
+      await expect(lines(page)).toHaveCount(2);
+    });
   });
 });
