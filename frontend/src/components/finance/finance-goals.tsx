@@ -222,8 +222,7 @@ interface GoalsProps {
   left: number | undefined;
   busy: boolean;
   onSelect: (index: number) => void;
-  onAssign: (goal: Goal) => void;
-  onUndo: (goal: Goal) => void;
+  run: (write: () => Promise<void>) => Promise<void>;
   onEdit: (goal: Goal) => void;
   onNew: () => void;
 }
@@ -325,8 +324,8 @@ export function GoalList(props: GoalsProps) {
                 today={today}
                 cursor={index === at}
                 busy={props.busy}
-                onAssign={props.onAssign}
-                onUndo={props.onUndo}
+                onAssign={(goal) => void props.run(() => assignGoal(goal.id, today))}
+                onUndo={(goal) => void props.run(() => undoAssign(goal.id, today))}
               />
               <button
                 type="button"

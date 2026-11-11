@@ -8,7 +8,6 @@ import type { TabKeys } from "@/components/finance/finance-sort-bar";
 import { type Category, fetchCategories } from "@/lib/panes/finance/finance-api";
 import { type Account, fetchAccounts, fetchBudget } from "@/lib/panes/finance/finance-budget-api";
 import {
-  assignGoal,
   type Due,
   deleteGoal,
   deletePlan,
@@ -22,7 +21,6 @@ import {
   type PlanIn,
   type Proposal,
   planOf,
-  undoAssign,
   writeGoal,
   writePlan,
 } from "@/lib/panes/finance/finance-plans-api";
@@ -378,8 +376,7 @@ export function FinancePlans({ month, today, keys, onNotice, refocus }: TabProps
               left={budget.data === undefined ? undefined : Number(budget.data.unreserved.total)}
               busy={busy}
               onSelect={setCursor}
-              onAssign={(goal) => void run(() => assignGoal(goal.id, today))}
-              onUndo={(goal) => void run(() => undoAssign(goal.id, today))}
+              run={run}
               onEdit={(goal) => setEditing({ kind: "goal", id: goal.id })}
               onNew={() => setEditing({ kind: "goal" })}
             />
