@@ -156,6 +156,42 @@ describe("addTodoInVault", () => {
     );
   });
 
+  it("waits for the write before it, so two never race on today's note", async () => {
+    vi.useFakeTimers({ now: NOW });
+    let land = () => {};
+    fetchNote.mockReturnValueOnce(new Promise((resolve) => (land = () => resolve("# Today\n"))));
+    fetchNote.mockResolvedValue("# Today\n");
+    const daily = periodicNote("daily", NOW).path;
+
+    const first = addTodoInVault("call the dentist", "2026-08-06", [daily]);
+    const second = addTodoInVault("buy milk", "2026-08-06", [daily]);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetchNote).toHaveBeenCalledTimes(1);
+
+    land();
+    await Promise.all([first, second]);
+    expect(saveNote).toHaveBeenCalledTimes(2);
+  });
+
+  it("goes on alone once the write before it has hung for ten seconds", async () => {
+    vi.useFakeTimers({ now: NOW });
+    fetchNote.mockReturnValueOnce(new Promise(() => {}));
+    fetchNote.mockResolvedValue("# Today\n");
+    const daily = periodicNote("daily", NOW).path;
+
+    void addTodoInVault("call the dentist", "2026-08-06", [daily]);
+    const second = addTodoInVault("buy milk", "2026-08-06", [daily]);
+    await vi.advanceTimersByTimeAsync(10_000);
+    await second;
+
+    expect(saveNote).toHaveBeenCalledExactlyOnceWith(
+      daily,
+      expect.stringContaining("buy milk"),
+      false,
+      expect.anything(),
+    );
+  });
+
   it("names the daily note it read as the base of its write", async () => {
     const daily = periodicNote("daily", NOW).path;
     fetchNote.mockResolvedValue("# Today\n");

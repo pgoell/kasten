@@ -79,7 +79,11 @@ async function send(writes: Write[], paths: string[], read: Record<string, strin
 }
 
 /** Put what was typed into today's note, under `## TODOs`. */
-export async function addTodoInVault(input: string, today: string, paths: string[]): Promise<void> {
+export function addTodoInVault(input: string, today: string, paths: string[]): Promise<void> {
+  return inTurn(() => addTodo(input, today, paths));
+}
+
+async function addTodo(input: string, today: string, paths: string[]): Promise<void> {
   const daily = await dailyNote(paths);
   const writes = addTodoWrites({
     dailyPath: daily.path,
@@ -125,27 +129,35 @@ export function cycleTodoAside(
   today: string,
   paths: string[],
 ): Promise<void> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const bound = new Promise<void>((resolve) => {
-    timer = setTimeout(resolve, ASIDE_WAIT_MS);
-  });
-  const turn = Promise.race([asideTurns, bound])
-    .finally(() => clearTimeout(timer))
-    .then(() => cycleAside(path, cycle, today, paths));
-  // Settled either way, so the next press waits on this one and never on why
-  // it failed.
-  asideTurns = Promise.allSettled([turn]);
-  return turn;
+  return inTurn(() => cycleAside(path, cycle, today, paths));
 }
 
-/** The press before this one, which the next waits on. */
-let asideTurns: Promise<unknown> = Promise.resolve();
+/** The write before this one, which the next waits on. */
+let turns: Promise<unknown> = Promise.resolve();
 
 /**
- * How long a press waits on the one before it, then goes on alone. The api client has
+ * How long a write waits on the one before it, then goes on alone. The api client has
  * no timeout, so a lost answer would otherwise hold every later press until reload.
  */
-const ASIDE_WAIT_MS = 10_000;
+const TURN_WAIT_MS = 10_000;
+
+/**
+ * Run `work` once the write before it has settled. Every write here reads a note and
+ * saves it back, today's note most of all, so two at once would race and one get a 409.
+ */
+function inTurn<T>(work: () => Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const bound = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, TURN_WAIT_MS);
+  });
+  const turn = Promise.race([turns, bound])
+    .finally(() => clearTimeout(timer))
+    .then(work);
+  // Settled either way, so the next write waits on this one and never on why
+  // it failed.
+  turns = Promise.allSettled([turn]);
+  return turn;
+}
 
 async function cycleAside(
   path: string,
@@ -294,13 +306,24 @@ export function agentTodoIn(
 }
 
 /** Read what the press needs, work out the writes, and send them. */
-export async function cycleTodoInVault(
+export function cycleTodoInVault(
   hit: SearchHit,
   today: string,
   paths: string[],
   state?: TodoState,
   twins?: number[],
   id = newId(),
+): Promise<void> {
+  return inTurn(() => cycleInVault(hit, today, paths, state, twins, id));
+}
+
+async function cycleInVault(
+  hit: SearchHit,
+  today: string,
+  paths: string[],
+  state: TodoState | undefined,
+  twins: number[] | undefined,
+  id: string,
 ): Promise<void> {
   // The vault, not the row: the list is as old as the last fetch, and the note
   // is what the press is about to overwrite.
@@ -374,11 +397,20 @@ export async function cycleTodoInVault(
  * Start a session on one todo, or close the ones it has running. Reads only the notes
  * naming its id, not the vault. A todo with no id is always a start.
  */
-export async function toggleTimerInVault(
+export function toggleTimerInVault(
   hit: SearchHit,
   clock: { date: string; time: string },
   paths: string[],
   twins?: number[],
+): Promise<void> {
+  return inTurn(() => toggleTimer(hit, clock, paths, twins));
+}
+
+async function toggleTimer(
+  hit: SearchHit,
+  clock: { date: string; time: string },
+  paths: string[],
+  twins: number[] | undefined,
 ): Promise<void> {
   // The vault, not the row: the list is as old as the last fetch.
   const text = await fetchNote(hit.path);

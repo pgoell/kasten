@@ -144,9 +144,6 @@ export function useTodoActions({
 
   /** Presses not yet settled, of every kind, so they share the one refetch below. */
   const unsettled = useRef(0);
-  // Presses write one after another: each reads the note first, and two at once
-  // would race on it, the second answered 409 and lost.
-  const presses = useRef<Promise<unknown>>(Promise.resolve());
 
   /**
    * A pane press has settled. The list is asked even if a write failed after an earlier one landed,
@@ -191,10 +188,7 @@ export function useTodoActions({
       const press = { today: readClock(new Date()).date, id: newId(), state };
       void drawPressed(queryClient, hit, press);
       begun();
-      const write = presses.current.then(() =>
-        cycleTodoInVault(hit, press.today, data ?? [], state, twins, press.id),
-      );
-      presses.current = write
+      void cycleTodoInVault(hit, press.today, data ?? [], state, twins, press.id)
         .catch((error: unknown) => setNotice(nothingMoved(error)))
         .finally(settled);
     },

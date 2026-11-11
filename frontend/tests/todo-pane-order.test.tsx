@@ -36,8 +36,7 @@ vi.mock("@/lib/core/api-client", async (importOriginal) => {
         // Nothing else in the vault names a todo's id, which is all a search answers.
         if (url === "/api/search") return ok([]);
         if (url === "/api/todos") {
-          // Every answer comes back in another order, the way the vault's search
-          // does not promise one, so a list that is redrawn from it reorders.
+          // Each answer comes in another order, so a redrawn list reorders.
           const hits = Object.entries(vault.notes).flatMap(([path, text]) =>
             // rg keeps a CRLF line's `\r`, and `find_todos` cuts it.
             text
@@ -305,8 +304,7 @@ describe("the todo pane holds the order it is drawn in while a press is made", (
     await settle();
     expect(fetches()).toBe(1);
 
-    // The writes the press made, reported by the stream after its answer landed.
-    // Each echo carries the digest of the text the press wrote.
+    // The press's writes, echoed by the stream with the digest of each text.
     stream().send({
       path: note,
       change: "written",
@@ -503,7 +501,8 @@ describe("the todo pane holds the order it is drawn in while a press is made", (
     press("j");
     press("x");
     await settle();
-    vault.held = new Promise<void>(() => {});
+    let free = () => {};
+    vault.held = new Promise<void>((done) => (free = done));
     press("j");
     press("x");
     await settle();
@@ -517,6 +516,9 @@ describe("the todo pane holds the order it is drawn in while a press is made", (
     });
     await settle();
     expect(fetches()).toBe(before);
+    // Writes queue: a hung press would hold the next test's.
+    free();
+    await settle();
   });
 
   it("#947 B7 a press on a note with CRLF line endings fetches the list once", async () => {

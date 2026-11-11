@@ -81,20 +81,6 @@ describe("a press on the todo list", () => {
     expect(pane.stale()).toBe(true);
   });
 
-  it("sends a second press only once the first has landed, so the two never race on one note", async () => {
-    const pane = mount();
-
-    await act(async () => {
-      pane.press(ALPHA);
-      pane.press(BRAVO);
-    });
-    expect(cycleTodoInVault).toHaveBeenCalledTimes(1);
-
-    await pane.land(0);
-    expect(cycleTodoInVault).toHaveBeenCalledTimes(2);
-    expect(cycleTodoInVault.mock.calls[1]?.[0]).toBe(BRAVO);
-  });
-
   it("waits for a press of x when a press of t on another row lands first", async () => {
     const pane = mount();
 
