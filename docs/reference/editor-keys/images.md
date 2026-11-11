@@ -41,8 +41,8 @@ A refused upload writes nothing into the note and puts the reason in the status
 bar. The vault refuses a path that is taken, a body over 1GiB, and bytes that
 disagree with the suffix they arrived under, all three on the rules
 [POST /api/assets/{path}](/reference/http-api/assets-and-books.md#post-apiassetspath) sets out.
-An `image/svg+xml` on the clipboard is refused too: an SVG is markup a browser
-runs, and the vault takes `.png`, `.jpg`, `.jpeg`, `.gif` and `.webp`.
+An `image/svg+xml` on the clipboard is filed under `.svg`, and drawn as an
+`<img>`, which runs none of its script.
 
 `<leader>ci` is the other half. On a link it writes the `!` that makes an image
 of it, on an image it takes the same character away, and on neither it writes

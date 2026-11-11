@@ -359,7 +359,7 @@ highlight is written ``==`a`==``.
 
 Two things.
 
-**Some media.** A file in another format, such as a video or an `.svg`, is
+**Some media.** A file in another format, such as a video, is
 dropped from its card, and so is one whose bytes are not what its name says or
 whose name is not a plain file name. The card keeps its text, and the import
 still lands. A card whose question was only such a file has nothing left to ask
