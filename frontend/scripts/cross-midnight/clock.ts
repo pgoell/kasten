@@ -2,7 +2,7 @@
  * A clock that crosses local midnight while the tests run, for #1315.
  *
  * Off unless `VITE_KASTEN_CROSS_MIDNIGHT` is set, which only
- * `frontend/scripts/cross-midnight.sh` does. A test that reads today once and compares
+ * `frontend/scripts/cross-midnight/run.sh` does. A test that reads today once and compares
  * it with a date the code stamps later fails under one of the two modes:
  *
  * - `load`: the files load at 23:59:59 and every test runs at 00:00:01 the day

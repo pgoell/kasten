@@ -474,7 +474,7 @@ def cross_midnight(monkeypatch: pytest.MonkeyPatch) -> None:
 
     That is what a run sees when midnight falls between the moment a test reads
     today and the moment the code stamps it, so a test that compares the two
-    without pinning the clock fails under it. Only `frontend/scripts/cross-midnight.sh`
+    without pinning the clock fails under it. Only `frontend/scripts/cross-midnight/run.sh`
     sets it. A test that pins its own clock patches after this and wins.
     """
     if not os.environ.get("KASTEN_CROSS_MIDNIGHT"):

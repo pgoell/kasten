@@ -3,13 +3,13 @@
 #
 # A test that reads today once and compares it with a date the code stamps
 # later fails here. The frontend runs twice, once per mode of
-# `cross-midnight.ts`; the backend once, with the code's clock a day ahead of
+# `clock.ts`; the backend once, with the code's clock a day ahead of
 # the test's (the `cross_midnight` fixture in `backend/tests/conftest.py`).
 #
 # Arguments name test files: a `.py` one goes to pytest, any other to vitest.
 # With none, every unit, frame and backend test runs.
 set -u
-cd "$(dirname "$0")/../.."
+cd "$(dirname "$0")/../../.."
 
 web=()
 py=()
