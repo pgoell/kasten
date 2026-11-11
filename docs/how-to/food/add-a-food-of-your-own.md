@@ -53,6 +53,6 @@ were logged with, since a logged line is its own record.
 
 ## Related
 
-* [Log food from a phone](/how-to/log-food-from-a-phone.md): scan a barcode and log the food
+* [Log food from a phone](/how-to/food/log-food-from-a-phone.md): scan a barcode and log the food
 * [The log format](/reference/food/log-format.md#the-foods-note): the foods note, line by line
 * [Food from Open Food Facts](/explanation/food-from-open-food-facts.md#foods-of-your-own): why your own foods live in a note
