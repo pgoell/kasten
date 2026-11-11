@@ -1,5 +1,10 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import type { EditorView } from "@codemirror/view";
+import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import type { AgentRow } from "@/components/todo/todo-pane";
+import { askLogConfig, logConfig, subscribeLogConfig } from "@/lib/log/log-config";
+import { DEFAULT_CONFIG } from "@/lib/log/log-kinds";
 import { lineCandidates, rankIndexes } from "@/lib/search/fuzzy";
+import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
 import {
   BACKDROP,
   closeOnBackdrop,
@@ -12,7 +17,7 @@ import {
   STATUS,
   TAP,
 } from "@/lib/ui/overlay-styles";
-import type { PaletteEntry } from "@/lib/ui/palette";
+import { type PaletteEntry, paletteEntries } from "@/lib/ui/palette";
 
 interface CommandPaletteProps {
   entries: PaletteEntry[];
@@ -134,4 +139,50 @@ export function CommandPalette({ entries, onClose }: CommandPaletteProps) {
       </div>
     </div>
   );
+}
+
+/** The editor the palette opened over, or null; `row` is the todo pane's cursor row at the open. */
+export interface PaletteAt {
+  view: EditorView | null;
+  row: AgentRow | null;
+}
+
+interface RoutePaletteProps {
+  at: PaletteAt | null;
+  commands: TreeCommands;
+  agentTodo: (hit: AgentRow["hit"], twins?: number[]) => unknown;
+  onClose: () => void;
+}
+
+/** The home route's palette, mounted while closed too so the log config is asked for on the route's mount. */
+export function RoutePalette({ at, commands, agentTodo, onClose }: RoutePaletteProps) {
+  // The palette reads the same store as the cards, so its `Log` rows and each
+  // card's kinds follow log.md together. The palette asks on mount, since it draws
+  // the config with no card to ask for it. A failed read keeps the last kinds, and
+  // a missing note gives the defaults.
+  const config = useSyncExternalStore(subscribeLogConfig, logConfig);
+  useEffect(askLogConfig, []);
+  const kinds = (config ?? DEFAULT_CONFIG).kinds;
+
+  // The palette's rows, built only while it is open. One array per open,
+  // because the palette ranks its rows again whenever `entries` arrives new and
+  // an event renders the route under it (#592).
+  const entries = useMemo(() => {
+    if (at === null) return null;
+    const listed = paletteEntries(commands, at.view, kinds);
+    const row = at.row;
+    if (row === null) return listed;
+    // The pane's `@`, which is no leader key and so in no list above: named
+    // here so the palette finds it by name and teaches the key, as it does the
+    // rest. Only over the todo pane, the one place there is a row to act on.
+    return [
+      ...listed,
+      {
+        label: "Send the todo under the cursor to the agent, or take it back",
+        keys: "@",
+        run: () => void agentTodo(row.hit, row.twins),
+      },
+    ];
+  }, [commands, at, agentTodo, kinds]);
+  return entries && <CommandPalette entries={entries} onClose={onClose} />;
 }

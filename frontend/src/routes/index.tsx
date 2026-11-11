@@ -1,8 +1,8 @@
 import { EditorView } from "@codemirror/view";
 import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { CommandPalette } from "@/components/command-palette";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type PaletteAt, RoutePalette } from "@/components/command-palette";
 import { FileExplorer } from "@/components/file-explorer";
 import { KeyHelp } from "@/components/key-help";
 import { LocalGraph } from "@/components/local-graph";
@@ -16,8 +16,6 @@ import { usePaneMoves } from "@/components/use-pane-moves";
 import { usePrompts } from "@/components/use-prompts";
 import { WhichKey } from "@/components/which-key";
 import { WorkspacePanes } from "@/components/workspace-panes";
-import { askLogConfig, logConfig, subscribeLogConfig } from "@/lib/log/log-config";
-import { DEFAULT_CONFIG } from "@/lib/log/log-kinds";
 import { useLogActions } from "@/lib/log/use-log-actions";
 import { useAutosave } from "@/lib/notes/note/use-autosave";
 import { useBufferSync } from "@/lib/notes/note/use-buffer-sync";
@@ -43,7 +41,6 @@ import { useKeyboardInset } from "@/lib/ui/input/use-keyboard-inset";
 import { useViewport } from "@/lib/ui/input/use-viewport";
 import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
 import { useKeyHelp } from "@/lib/ui/keys/use-key-help-key";
-import { paletteEntries } from "@/lib/ui/palette";
 import { useVaultEvents } from "@/lib/vault/events/use-vault-events";
 import { useTrash } from "@/lib/vault/move/use-trash";
 import { useFileTransfer } from "@/lib/vault/use-file-transfer";
@@ -211,10 +208,7 @@ function Home() {
   // The editor the palette opened over, held so its edits and inserts have a
   // buffer to write into, or null over a pane with none. `row` is the todo
   // pane's cursor row, taken at the open, so the entry acts on the row shown.
-  const [palette, setPalette] = useState<{
-    view: EditorView | null;
-    row: AgentRow | null;
-  } | null>(null);
+  const [palette, setPalette] = useState<PaletteAt | null>(null);
   // The focused todo pane's cursor row, which only that pane writes.
   const todoRow = useRef<AgentRow | null>(null);
   // One sentence about an upload that failed, drawn at the foot of the window.
@@ -330,35 +324,6 @@ function Home() {
       setHelpOpen,
     ],
   );
-  // The palette reads the same store as the cards, so its `Log` rows and each
-  // card's kinds follow log.md together. The palette asks on mount, since it draws
-  // the config with no card to ask for it. A failed read keeps the last kinds, and
-  // a missing note gives the defaults.
-  const config = useSyncExternalStore(subscribeLogConfig, logConfig);
-  useEffect(askLogConfig, []);
-  const kinds = (config ?? DEFAULT_CONFIG).kinds;
-
-  // The palette's rows, built only while it is open. One array per open,
-  // because the palette ranks its rows again whenever `entries` arrives new and
-  // an event renders the route under it (#592).
-  const entries = useMemo(() => {
-    if (palette === null) return null;
-    const listed = paletteEntries(commands, palette.view, kinds);
-    const row = palette.row;
-    if (row === null) return listed;
-    // The pane's `@`, which is no leader key and so in no list above: named
-    // here so the palette finds it by name and teaches the key, as it does the
-    // rest. Only over the todo pane, the one place there is a row to act on.
-    return [
-      ...listed,
-      {
-        label: "Send the todo under the cursor to the agent, or take it back",
-        keys: "@",
-        run: () => void agentTodo(row.hit, row.twins),
-      },
-    ];
-  }, [commands, palette, agentTodo, kinds]);
-
   const closeGraphSheet = useCallback(
     () => setGraphSheet((previous) => ({ ...previous, open: false })),
     [],
@@ -464,7 +429,12 @@ function Home() {
         </div>
       </Sheet>
 
-      {entries && <CommandPalette entries={entries} onClose={() => setPalette(null)} />}
+      <RoutePalette
+        at={palette}
+        commands={commands}
+        agentTodo={agentTodo}
+        onClose={() => setPalette(null)}
+      />
       {prompts.element}
       {finders.element}
       {files.element}
