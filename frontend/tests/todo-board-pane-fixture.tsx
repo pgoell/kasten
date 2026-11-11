@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { TodoPane } from "@/components/todo-pane";
+import { TodoPane } from "@/components/todo/todo-pane";
 import { createNote, fetchFiles, fetchNote, fetchTodos, type TodoHit } from "@/lib/core/api";
 import { DEFAULT_VIEWS, VIEWS_NOTE } from "@/lib/todo/todo-view";
 import type { EditorCommands } from "@/lib/ui/keys/key-bindings";

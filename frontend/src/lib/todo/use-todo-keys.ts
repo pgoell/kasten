@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import type { BoardKeys } from "@/components/todo-board";
+import type { BoardKeys } from "@/components/todo/todo-board";
 import type { TodoState } from "@/lib/todo/todo";
 import type { Mode } from "@/lib/todo/use-todo-rows";
 import type { EditorCommands } from "@/lib/ui/keys/key-bindings";

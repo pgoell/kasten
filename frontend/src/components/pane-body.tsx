@@ -15,7 +15,7 @@ import { OverviewPane } from "@/components/overview-pane";
 import { PdfPane } from "@/components/pdf-pane";
 import { PersonPane } from "@/components/person-pane";
 import { ReviewPane } from "@/components/review-pane";
-import { type AgentRow, TodoPane } from "@/components/todo-pane";
+import { type AgentRow, TodoPane } from "@/components/todo/todo-pane";
 import type { PaneMoves } from "@/components/use-pane-moves";
 import { VideoPane } from "@/components/video-pane";
 import { TimersPane } from "@/lib/app/push/timers-pane";

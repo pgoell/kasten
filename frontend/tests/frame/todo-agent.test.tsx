@@ -12,7 +12,7 @@ import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { page } from "vitest/browser";
 import { StatusBar } from "@/components/status-bar";
-import { TodoPane } from "@/components/todo-pane";
+import { TodoPane } from "@/components/todo/todo-pane";
 import type { SearchHit } from "@/lib/core/api";
 import { DEFAULT_VIEWS } from "@/lib/todo/todo-view";
 import { COARSE, NARROW, stubMatchMedia } from "../match-media";

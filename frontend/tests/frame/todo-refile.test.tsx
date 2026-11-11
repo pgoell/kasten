@@ -6,7 +6,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRoot } from "react-dom/client";
 import { page } from "vitest/browser";
-import { TodoPane } from "@/components/todo-pane";
+import { TodoPane } from "@/components/todo/todo-pane";
 import type { TodoHit } from "@/lib/core/api";
 import { DEFAULT_VIEWS } from "@/lib/todo/todo-view";
 import { COARSE, NARROW, stubMatchMedia } from "../match-media";

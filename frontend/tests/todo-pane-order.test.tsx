@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { useRef, useState } from "react";
-import { TodoPane } from "@/components/todo-pane";
+import { TodoPane } from "@/components/todo/todo-pane";
 import { fetchFiles } from "@/lib/core/api";
 import { periodicNote } from "@/lib/notes/text/periodic";
 import { useTodoActions } from "@/lib/todo/use-todo-actions";

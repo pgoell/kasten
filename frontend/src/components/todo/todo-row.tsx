@@ -1,5 +1,5 @@
 import { chipNote, PersonChip } from "@/components/person-chip";
-import { TodoStateBox } from "@/components/todo-state-box";
+import { TodoStateBox } from "@/components/todo/todo-state-box";
 import { isOpen, PRIORITY_SYMBOL, type Todo } from "@/lib/todo/todo";
 import { laneName } from "@/lib/todo/todo-board";
 import { isClient, waitOf, waitsFor } from "@/lib/todo/todo-view";

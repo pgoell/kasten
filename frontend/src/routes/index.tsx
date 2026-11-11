@@ -8,7 +8,7 @@ import { KeyHelp } from "@/components/key-help";
 import { LocalGraph } from "@/components/local-graph";
 import { Sheet } from "@/components/sheet";
 import { StatusBar } from "@/components/status-bar";
-import type { AgentRow } from "@/components/todo-pane";
+import type { AgentRow } from "@/components/todo/todo-pane";
 import { Toolbar } from "@/components/toolbar";
 import { TopBar } from "@/components/top-bar";
 import { useFinders } from "@/components/use-finders";
