@@ -95,8 +95,13 @@ function amount(text: string): number {
   return Number(text.replace(",", "."));
 }
 
+/** A frontmatter field without its quotes, as `frontmatter.field` reads it on the backend. */
+function field(text: string, name: string): string {
+  return (readField(text, name) ?? "").replace(/^["']+|["']+$/g, "");
+}
+
 export function isBlock(text: string): boolean {
-  return readField(text, "type")?.replace(/^["']|["']$/g, "") === BLOCK_TYPE;
+  return field(text, "type").toLowerCase() === BLOCK_TYPE.toLowerCase();
 }
 
 /** The exercise a line names and what follows the link, or null for any other line. */
@@ -207,7 +212,7 @@ const SECTIONS: Record<string, (line: string, read: Reading) => void> = {
 /** The block a note holds, or null when its frontmatter names no training block. */
 export function parseBlock(text: string): Block | null {
   if (!isBlock(text)) return null;
-  const start = readField(text, "start") ?? "";
+  const start = field(text, "start");
   if (!/^\d{4}-\d{2}-\d{2}$/u.test(start)) return null;
   const read: Reading = {
     written: [],
@@ -226,7 +231,7 @@ export function parseBlock(text: string): Block | null {
       section?.(line, read);
     }
   }
-  const count = Number(readField(text, "weeks")) || Math.max(read.written.length, 4);
+  const count = Number(field(text, "weeks")) || Math.max(read.written.length, 4);
   const weeks = Array.from(
     { length: count },
     (_, at) => read.written[at] ?? { deload: false, rpe: null },

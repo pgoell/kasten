@@ -81,6 +81,10 @@ describe("reading a block note", () => {
   it("is no block without the type or a start", () => {
     expect(parseBlock("# Block\n")).toBeNull();
     expect(parseBlock("---\ntype: Training Block\n---\n")).toBeNull();
+    // Any case and quotes, as the backend lists them.
+    expect(parseBlock("---\ntype: 'training block'\nstart: \"2026-11-16\"\n---\n")?.start).toBe(
+      "2026-11-16",
+    );
   });
 });
 
