@@ -3,7 +3,8 @@ import sys
 
 import pytest
 
-from kasten_backend.anki import _MARK, plain
+from kasten_backend.anki import plain
+from kasten_backend.anki.archive.html import _MARK
 
 
 def test_plain_keeps_a_cloze_mark_only_for_a_cloze_note() -> None:
@@ -84,7 +85,10 @@ def test_i1_a_code_span_in_a_mark_is_read_whole(text: str, answer: str, hint: st
 def test_b1_a_line_of_code_spans_after_an_open_mark_reads_in_linear_time() -> None:
     # A child process, since `re` cannot be stopped from inside: a regex that
     # backtracks doubles its time with every span here and runs for minutes.
-    code = "from kasten_backend.anki import _MARK; _MARK.search('Use {{c1:: ' + '`x` ' * 30)"
+    code = (
+        "from kasten_backend.anki.archive.html import _MARK; "
+        "_MARK.search('Use {{c1:: ' + '`x` ' * 30)"
+    )
 
     # The timeout is a hang ceiling: interpreter start is slow on a loaded box.
     subprocess.run([sys.executable, "-c", code], check=True, timeout=60)  # noqa: S603
