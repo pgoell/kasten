@@ -1,15 +1,10 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cardOf, GraphPanel } from "@/components/graph/graph-panel";
+import { GraphRows } from "@/components/graph/graph-rows";
 import { GraphTouchRow } from "@/components/graph/graph-touch-row";
-import { type DrawnNode, isNotePath, PLAIN, TYPE_COLOURS } from "@/lib/graph/graph";
-import {
-  fetchGraph,
-  GRAPH_LOST,
-  type Graph,
-  loadGraphCanvas,
-  lostLoad,
-} from "@/lib/graph/graph-api";
+import { type DrawnNode, PLAIN, TYPE_COLOURS } from "@/lib/graph/graph";
+import { fetchGraph, GRAPH_LOST, loadGraphCanvas, lostLoad } from "@/lib/graph/graph-api";
 import type { GraphCanvas } from "@/lib/graph/graph-canvas";
 import { type GraphMode, readGraphMode, writeGraphMode } from "@/lib/graph/graph-mode";
 import { tagCounts, withoutTags } from "@/lib/graph/graph-tags";
@@ -437,65 +432,6 @@ export function GraphPane({
 
       <GraphFooter vault={vault} />
     </section>
-  );
-}
-
-/** A pattern's rows, under the canvas, with each note path a button that opens it. */
-function GraphRows({
-  columns,
-  rows,
-  truncated,
-  onOpen,
-}: {
-  columns: Graph["columns"];
-  rows: Graph["rows"];
-  truncated: boolean;
-  onOpen: (path: string) => void;
-}) {
-  return (
-    <div className="max-h-[40%] overflow-auto border-t border-k-rule">
-      <table className="w-full text-left text-[12px]">
-        <thead className="sticky top-0 bg-k-paper text-k-muted">
-          <tr>
-            {columns.map((column) => (
-              <th key={column} className="px-3 py-1 font-normal">
-                {column}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={columns.map((column) => row[column]).join("\0")}>
-              {columns.map((column) => {
-                const value = row[column] ?? "";
-                return (
-                  <td key={column} className="px-3 py-0.5">
-                    {isNotePath(value) ? (
-                      <button
-                        type="button"
-                        onClick={() => onOpen(value)}
-                        title={value}
-                        className="text-k-accent hover:underline"
-                      >
-                        {noteName(value)}
-                      </button>
-                    ) : (
-                      <span className="text-tg-4">{value}</span>
-                    )}
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <p className="px-3 py-1 text-[11px] text-k-muted">
-        {rows.length === 0
-          ? "nothing matches"
-          : `${rows.length} ${rows.length === 1 ? "row" : "rows"}${truncated ? ", more not shown" : ""}`}
-      </p>
-    </div>
   );
 }
 
