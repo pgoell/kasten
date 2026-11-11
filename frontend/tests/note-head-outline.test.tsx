@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Editor } from "@/components/editor";
 import { Outline as OutlineRows } from "@/components/note/note-margins";
 import type { Outline } from "@/lib/notes/note/head/note-head";
+import { ATX } from "@/lib/notes/note/head/note-outline";
 
 const PATH = "02 Projects/Kasten/Reader.md";
 // The fenced `#` line is code, and the closing hashes of the last heading are not its words.
@@ -109,4 +110,29 @@ it("a heading typed above the others shows the right text and indent in every ro
 
   act(() => view?.dispatch({ changes: { from: 0, to: "### Zero\n\n".length } }));
   expect(rows().map((row) => row.textContent)).toEqual(["One", "Two", "Three"]);
+});
+
+describe("#1905 an outline heading before a long run of blanks", () => {
+  it("reads in linear time", () => {
+    // A heading text, 40,000 blanks, then a word; main's ran for minutes.
+    const start = performance.now();
+    ATX.exec(`# a${" ".repeat(40_000)}x`);
+    ATX.exec(`# a${" ".repeat(40_000)}#x`);
+    expect(performance.now() - start).toBeLessThan(200);
+  });
+
+  // The fix moves no heading on a normal line, and blanks-only words are one blank.
+  it.each([
+    ["## Second", "Second"],
+    ["## Second ##", "Second"],
+    ["##\tSecond\t#\t", "Second"],
+    ["# Hello # world", "Hello # world"],
+    ["# Hello# ##", "Hello#"],
+    ["# Second  \r", "Second"],
+    ["#    ", " "],
+    ["#   \r", " "],
+    ["####### Seven", undefined],
+  ])("reads %j as on main", (line, words) => {
+    expect(ATX.exec(line)?.[2]).toBe(words);
+  });
 });

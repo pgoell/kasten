@@ -12,6 +12,7 @@ import {
   endOf,
   parseBlock,
   planOn,
+  SECTION_HEADING,
   targetLabel,
   weeklyCardio,
 } from "@/lib/log/training/block/block-note";
@@ -183,5 +184,27 @@ describe("the blocks around a day", () => {
       { deload: null, cardio: null },
       { deload: true, cardio: 150 },
     ]);
+  });
+});
+
+describe("#1905 a section heading before a long run of blanks", () => {
+  it("reads in linear time", () => {
+    // A heading text, 40,000 blanks, then a word; main's took about a second.
+    const start = performance.now();
+    SECTION_HEADING.exec(`## a${" ".repeat(40_000)}x`);
+    expect(performance.now() - start).toBeLessThan(200);
+  });
+
+  // The fix moves no heading on a normal line, and blanks-only text is its last leading blank.
+  it.each([
+    ["## Sessions", "Sessions"],
+    ["##   Sessions \t ", "Sessions"],
+    ["##\tWeek\tone\t", "Week\tone"],
+    ["## Sessions  \r", "Sessions"],
+    ["##  \t ", " "],
+    ["##   \r", " "],
+    ["##Sessions", undefined],
+  ])("reads %j as on main", (line, text) => {
+    expect(SECTION_HEADING.exec(line)?.[1]).toBe(text);
   });
 });

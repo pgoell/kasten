@@ -11,6 +11,7 @@ import {
   linkOf,
   type Prescription,
   prescriptionOf,
+  SECTION_HEADING,
   targetOf,
   weekdayOf,
   weekIndex,
@@ -165,7 +166,7 @@ export function nextBlockText(
   const last = lastBuildWeek(block);
   let section = "";
   const lines = text.split("\n").map((line) => {
-    const heading = /^##\s+(.+?)\s*$/u.exec(line);
+    const heading = SECTION_HEADING.exec(line);
     if (heading !== null) section = (heading[1] ?? "").toLowerCase();
     const link = section === "sessions" ? linkOf(line) : null;
     if (link === null || link.mark !== "") return line;

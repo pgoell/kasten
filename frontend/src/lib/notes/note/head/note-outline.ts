@@ -18,8 +18,11 @@ export interface Outline {
   jump: (index: number) => void;
 }
 
-/** An ATX heading: one to six hashes, a space, the words, and any closing hashes. */
-const ATX = /^(#{1,6})\s+(.+?)\s*#*\s*$/;
+/**
+ * An ATX heading: one to six hashes, a space, the words, and any closing hashes. The words end only
+ * after a non-blank, or are one blank, and one `\s*` owns each blank run, so it reads in linear time (#1905).
+ */
+export const ATX = /^(#{1,6})\s+((?=\s).|.+?(?<!\s))\s*(?:#+\s*)?$/;
 
 /** A fence opener, which a fence closes only with the same character and at least as long. */
 const FENCE = /^ {0,3}(`{3,}|~{3,})/;

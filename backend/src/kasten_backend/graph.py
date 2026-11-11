@@ -45,7 +45,8 @@ without asking the editor. `relation-cases.json`, next to `relation.ts`, holds b
 HEAD = re.compile(r"---\s*$|type:")
 """A fence or a type line, the lines of the block the graph reads."""
 
-TYPE = re.compile(r"^type:\s*(.*?)\s*$")
+# The value ends only after a non-blank, so a long blank run is read once (#1905).
+TYPE = re.compile(r"^type:\s*(|.+?(?<!\s))\s*$")
 """The `type` field of the block, the one line of it the graph reads."""
 
 
