@@ -549,6 +549,8 @@ describe("#1907 an exam line before a long run of blanks", () => {
   // A run before the text on a line that fails, cubic on main: 2,000 blanks took seconds there.
   it.each([
     ["ROW after the dash", ROW, "- ", "x"],
+    ["SECTION", SECTION, "##", "a\rx"],
+    ["CHOICES", CHOICES, "Options:", "a\rx"],
     ["KEYED_MATCH", KEYED_MATCH, "1 - 1 ->", "a*x"],
     ["KEYED", KEYED, "1 - Correct:", "a*x"],
     ["INLINE", INLINE, "Correct:", "a*x"],
