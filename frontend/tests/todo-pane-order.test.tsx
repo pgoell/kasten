@@ -263,21 +263,21 @@ describe("the todo pane holds the order it is drawn in while a press is made", (
   });
 
   it("#947 A2 a row checked off stays in place, struck, until a beat after the last press", async () => {
+    vault.notes["b.md"] += "\n- [x] kilo ✅ 2026-08-09";
     await mount();
+    // Open the fold, where a done row turns up.
+    fireEvent.click(screen.getByRole("button", { name: /Done this week/ }));
     const first = order();
 
     panel().focus();
     press("x");
-    await settle();
-    press("j");
     await advance(SETTLE_MS - 1);
     expect(order()).toEqual(first);
     expect(rowOf(first[0] ?? "")?.querySelector(".line-through")?.textContent).toBe(first[0]);
 
-    // It leaves, and the cursor keeps its row.
+    // It leaves; the cursor goes to the next row.
     await advance(1);
-    expect(order()).toHaveLength(first.length - 1);
-    expect(order()).not.toContain(first[0]);
+    expect(order().slice(0, first.length - 2)).not.toContain(first[0]);
     expect(document.querySelector('[data-row][tabindex="0"]')?.textContent).toContain(first[1]);
   });
 
@@ -287,7 +287,7 @@ describe("the todo pane holds the order it is drawn in while a press is made", (
 
     press("x");
     await settle();
-    // `x` on a done row takes its checkbox off the line; `O` sets it open again.
+    // `x` on a done row takes its checkbox off; `O` sets it open.
     press("O");
     await settle();
 
@@ -306,7 +306,7 @@ describe("the todo pane holds the order it is drawn in while a press is made", (
     expect(fetches()).toBe(1);
 
     // The writes the press made, reported by the stream after its answer landed.
-    // Each echo carries the digest of the text the press wrote, as the vault reports it.
+    // Each echo carries the digest of the text the press wrote.
     stream().send({
       path: note,
       change: "written",
@@ -320,7 +320,7 @@ describe("the todo pane holds the order it is drawn in while a press is made", (
     await settle();
     expect(fetches()).toBe(1);
 
-    // A write nobody pressed for still asks, which is what keeps other writers on screen.
+    // A write nobody pressed for still asks, so other writers show.
     vault.notes["zz.md"] = "- [ ] hotel";
     stream().send({ path: "zz.md", change: "written", digest: null });
     await settle();
@@ -357,7 +357,7 @@ describe("the todo pane holds the order it is drawn in while a press is made", (
     await settle();
     expect(order()).toEqual([...first, "hotel"]);
 
-    // No digest, so the write to the pressed note is somebody else's, inside the hold.
+    // No digest, so the write is somebody else's.
     vault.notes["a.md"] = (vault.notes["a.md"] ?? "").replace("- [/] charlie\n", "");
     stream().send({ path: "a.md", change: "written", digest: null });
     await settle();
@@ -571,7 +571,7 @@ describe("the todo pane holds the order it is drawn in while a press is made", (
     );
     expect(rowOf(first[0] ?? "")?.querySelector(".line-through")).toBeNull();
 
-    // A later write from elsewhere still shuffles the answer; the refused row stays put.
+    // A later write elsewhere shuffles; the refused row stays put.
     vault.refuse = false;
     stream().send({ path: "b.md", change: "written", digest: null });
     await settle();

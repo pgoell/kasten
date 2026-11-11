@@ -187,10 +187,11 @@ export function TodoPane({
     const keys = follow.current;
     if (keys === null) return;
     follow.current = null;
-    const places = new Map(rows.map((row, index) => [rowKey(row.hit), index]));
+    // The open rows only: a row that just left them reappears in an open fold under the same key.
+    const places = new Map(groupRows.map((row, index) => [rowKey(row.hit), index]));
     const found = keys.map((key) => places.get(key)).find((index) => index !== undefined);
     if (found !== undefined) setActive(found);
-  }, [rows]);
+  }, [groupRows]);
   const refile = pressing(onRefile);
   const { onCycle, onTimer, onAgent } = useTodoTwins({
     data,
