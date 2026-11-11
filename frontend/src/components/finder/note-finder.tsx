@@ -1,6 +1,6 @@
 import { skipToken, useQuery } from "@tanstack/react-query";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { NotePreview } from "@/components/note-preview";
+import { NotePreview } from "@/components/note/note-preview";
 import { fetchNote } from "@/lib/core/api";
 import { noteName } from "@/lib/notes/links/note-path";
 import { noteBody } from "@/lib/notes/text/note-frontmatter";

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { NotePreview } from "@/components/note-preview";
+import { NotePreview } from "@/components/note/note-preview";
 import { BUTTON, ReviewAnswer, ReviewSource, TryAgain } from "@/components/review/review-answer";
 import { SwipeCard } from "@/components/review/review-swipe";
 import { shiftDay } from "@/lib/core/clock";

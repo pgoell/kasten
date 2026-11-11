@@ -16,7 +16,7 @@ import { act, useState } from "react";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { commands, page } from "vitest/browser";
-import { NoteSearch } from "@/components/note-search";
+import { NoteSearch } from "@/components/note/note-search";
 import { PdfPane } from "@/components/pdf-pane";
 import { fetchBook, fetchMentions, fetchTodos, type SearchHit, searchNotes } from "@/lib/core/api";
 import plainUrl from "../fixtures/plain.epub?url";

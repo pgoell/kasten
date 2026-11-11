@@ -1,6 +1,6 @@
 import { render, waitFor } from "@testing-library/react";
 import { Editor } from "@/components/editor";
-import { NotePreview } from "@/components/note-preview";
+import { NotePreview } from "@/components/note/note-preview";
 import { content, liveHooks, renderEditor } from "./live-preview-fixture";
 
 liveHooks();

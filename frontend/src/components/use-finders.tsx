@@ -3,7 +3,7 @@ import { type Dispatch, type SetStateAction, useMemo, useState } from "react";
 import { MeaningFinder } from "@/components/finder/meaning-finder";
 import { NoteFinder } from "@/components/finder/note-finder";
 import { useReadingBook } from "@/components/finder/use-reading-book";
-import { NoteSearch } from "@/components/note-search";
+import { NoteSearch } from "@/components/note/note-search";
 import type { PaneMoves } from "@/components/use-pane-moves";
 import { outgoingLinks } from "@/lib/notes/links/wikilink";
 import type { NoteOpening } from "@/lib/notes/note/use-note-opening";
