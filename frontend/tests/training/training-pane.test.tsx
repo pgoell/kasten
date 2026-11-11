@@ -93,17 +93,20 @@ describe("the training pane", () => {
 
   it("opens a lift in depth, and Escape goes back to the tiles, then closes", async () => {
     const commands = mount();
-    fireEvent.click(await screen.findByRole("button", { name: "Kniebeuge, open in depth" }));
+    const tile = await screen.findByRole("button", { name: "Kniebeuge, open in depth" });
+    tile.focus();
+    fireEvent.click(tile);
 
     const detail = screen.getByRole("region", { name: "Kniebeuge" });
     expect(within(detail).getByText("85 kg")).toBeTruthy();
     expect(within(detail).getByText("8 × 85 kg")).toBeTruthy();
     expect(within(detail).getAllByRole("listitem")).toHaveLength(2);
 
-    const pane = screen.getByRole("region", { name: "Training" });
-    fireEvent.keyDown(pane, { key: "Escape" });
+    // At what holds the focus, as a key press lands: the tile it came from is gone.
+    expect(document.activeElement).toBe(screen.getByRole("region", { name: "Training" }));
+    fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
     expect(screen.queryByRole("region", { name: "Kniebeuge" })).toBeNull();
-    fireEvent.keyDown(pane, { key: "Escape" });
+    fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
     expect(commands.closeNote).toHaveBeenCalled();
   });
 

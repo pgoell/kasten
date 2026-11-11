@@ -81,7 +81,12 @@ export function TrainingPane({ commands, focusSignal, today }: TrainingPaneProps
   const thisWeek = mondayOf(today);
   const records = recordsOf(all).filter((record) => record.date >= thisWeek);
 
-  const back = () => (lift === null ? void commands.closeNote() : setLift(null));
+  // The panel takes the focus before the tile or the back button it came from unmounts.
+  const show = (chosen: string | null) => {
+    panel.current?.focus();
+    setLift(chosen);
+  };
+  const back = () => (lift === null ? void commands.closeNote() : show(null));
   const keys: Record<string, ((event: KeyboardEvent) => void) | undefined> = {
     " ": (event) => leader.start(event),
     w: () => setSpan((was) => (was === 12 ? 52 : 12)),
@@ -133,7 +138,7 @@ export function TrainingPane({ commands, focusSignal, today }: TrainingPaneProps
           <div className="log-trends">
             <div className="training-tiles">
               {mainLifts(days).map((name) => (
-                <LiftTile key={name} lift={name} days={days} starts={starts} onOpen={setLift} />
+                <LiftTile key={name} lift={name} days={days} starts={starts} onOpen={show} />
               ))}
               <CardioTile weeks={cardioWeeks(days, starts)} />
               <WeightTile kind={weightKind} from={from} range={range} days={log.data ?? []} />
@@ -151,7 +156,7 @@ export function TrainingPane({ commands, focusSignal, today }: TrainingPaneProps
             ) : null}
           </div>
         ) : (
-          <LiftDetail lift={lift} days={days} starts={starts} onBack={() => setLift(null)} />
+          <LiftDetail lift={lift} days={days} starts={starts} onBack={() => show(null)} />
         )}
       </div>
     </section>
