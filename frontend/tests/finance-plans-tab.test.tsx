@@ -182,6 +182,20 @@ describe("the finance pane's plans and goals", () => {
     expect(api.assignGoal).toHaveBeenCalledTimes(1);
   });
 
+  it("#1766 the goal's Assign and Undo buttons write as its keys do", async () => {
+    renderPane();
+    fireEvent.click(await screen.findByRole("button", { name: /^Assign .* to Wedding$/ }));
+    await waitFor(() => expect(api.assignGoal).toHaveBeenCalledWith(7, "2026-10-25"));
+    cleanup();
+    api.fetchGoals.mockResolvedValue({
+      goals: [{ ...WEDDING, assigned_month: "2026-10", assigned_amount: "500.00" }],
+      accounts: [ACCOUNT],
+    });
+    renderPane();
+    fireEvent.click(await screen.findByRole("button", { name: "Undo assigning to Wedding" }));
+    await waitFor(() => expect(api.undoAssign).toHaveBeenCalledWith(7, "2026-10-25"));
+  });
+
   it("#1037 a proposal with nothing to match opens the form, whose keys rest", async () => {
     api.fetchProposals.mockResolvedValue([{ ...PROPOSAL, payee_id: null, text: null }]);
     const pane = renderPane();
