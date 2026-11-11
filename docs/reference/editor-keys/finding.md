@@ -143,8 +143,6 @@ into the finder has to name a path, and the finder never writes.
 | Up / Ctrl+k / Ctrl+p / Shift+Tab | Move the highlight up one row |
 | Enter | Open the highlighted note or file |
 | Escape | Close, and hand the focus back |
-| Alt+R or click `.*` | Read the query as a regex, or as text again |
-| Alt+W or click `W` | Keep whole words only, or every match again |
 
 A click or a tap on a row opens it, as Enter on it would. In a window narrower
 than 768px the list takes the whole panel, and the preview is neither read nor

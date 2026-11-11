@@ -8,6 +8,7 @@ loses its place shows up as a missing or broken hit.
 
 import asyncio
 import sys
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
@@ -16,8 +17,6 @@ from kasten_backend import search
 from kasten_backend.search import LONGEST_TEXT, Hit, literal_matcher, scan_vault
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from httpx import AsyncClient
 
 LIMIT = 10
@@ -234,3 +233,11 @@ async def test_1773_html_text_honours_both_flags(client: AsyncClient, vault: Pat
 
     assert await _texts(client, q="plan", word=True) == ["the plan here"]
     assert await _texts(client, q=r"plan\w+", regex=True) == ["planned there"]
+
+
+def test_1773_only_the_note_search_lists_the_toggle_keys() -> None:
+    page = Path(__file__).parents[2] / "docs/reference/editor-keys/finding.md"
+    sections = page.read_text(encoding="utf-8").split("\n## ")
+    holding = [part.split("\n", 1)[0] for part in sections if "Alt+R or click" in part]
+
+    assert holding == ["The note search"]
