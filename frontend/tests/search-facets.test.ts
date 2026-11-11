@@ -102,4 +102,46 @@ describe("termRuns", () => {
       { text: "reading", term: true },
     ]);
   });
+  // #1773: the toggles' flags.
+  it("marks whole words only under whole word, a letter with an umlaut counting as a letter", () => {
+    expect(termRuns("plan planned plän plan_b Plan.", "plan", { word: true })).toEqual([
+      { text: "plan", term: true },
+      { text: " planned plän plan_b ", term: false },
+      { text: "Plan", term: true },
+      { text: ".", term: false },
+    ]);
+    expect(termRuns("ein plänchen, ein plän", "plän", { word: true })).toEqual([
+      { text: "ein plänchen, ein ", term: false },
+      { text: "plän", term: true },
+    ]);
+  });
+
+  it("keeps a regex character plain under whole word", () => {
+    expect(termRuns("axb a.b za.bz", "a.b", { word: true })).toEqual([
+      { text: "axb ", term: false },
+      { text: "a.b", term: true },
+      { text: " za.bz", term: false },
+    ]);
+  });
+
+  it("marks the regex's matches under regex, and each branch's whole words with both", () => {
+    expect(termRuns("the plan, planned", "\\bplan\\b", { regex: true })).toEqual([
+      { text: "the ", term: false },
+      { text: "plan", term: true },
+      { text: ", planned", term: false },
+    ]);
+    expect(termRuns("a trip, trips, plan", "plan|trip", { regex: true, word: true })).toEqual([
+      { text: "a ", term: false },
+      { text: "trip", term: true },
+      { text: ", trips, ", term: false },
+      { text: "plan", term: true },
+    ]);
+  });
+
+  it("marks nothing for a regex the browser cannot read, or for a match of nothing", () => {
+    expect(termRuns("an (open door", "(open", { regex: true })).toEqual([
+      { text: "an (open door", term: false },
+    ]);
+    expect(termRuns("abc", "x*", { regex: true })).toEqual([{ text: "abc", term: false }]);
+  });
 });

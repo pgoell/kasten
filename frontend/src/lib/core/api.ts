@@ -132,15 +132,36 @@ export async function fetchReviewLimits(): Promise<ReviewLimits> {
   return data;
 }
 
+/** How the search reads its query. Both off is a literal, which every caller but the note search asks. */
+export interface SearchFlags {
+  regex?: boolean;
+  word?: boolean;
+}
+
+/** rg could not read the query as a regex; the message is rg's own. */
+export class PatternError extends Error {
+  override name = "PatternError";
+}
+
 /**
- * A literal match, unranked. The caller ranks, so a keystroke narrows the answer already in hand.
+ * A literal match unless `flags` say otherwise, unranked. The caller ranks, so a keystroke
+ * narrows the answer already in hand.
  */
-export async function searchNotes(query: string, archive = false): Promise<SearchHit[]> {
-  const { data, response } = await client.GET("/api/search", {
-    params: { query: { q: query, archive } },
+export async function searchNotes(
+  query: string,
+  archive = false,
+  flags: SearchFlags = {},
+): Promise<SearchHit[]> {
+  // A flag goes only when on, so every literal search asks exactly what it asked before.
+  const on = { ...(flags.regex && { regex: true }), ...(flags.word && { word: true }) };
+  const { data, error, response } = await client.GET("/api/search", {
+    params: { query: { q: query, archive, ...on } },
   });
 
   if (!data) {
+    // The route's own 422 carries rg's message as a string; a malformed request's is a list.
+    const detail = (error as { detail?: unknown } | undefined)?.detail;
+    if (response.status === 422 && typeof detail === "string") throw new PatternError(detail);
     throw new Error(`GET /api/search failed with ${response.status}`);
   }
 

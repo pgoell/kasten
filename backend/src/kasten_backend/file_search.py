@@ -49,8 +49,15 @@ class FileHit(NamedTuple):
     place: FilePlace
 
 
-async def search_files(
-    root: Path, cache: Path, query: str, notes: int, skip: str | None
+async def search_files(  # noqa: PLR0913  the two flags ride along to the matcher
+    root: Path,
+    cache: Path,
+    query: str,
+    notes: int,
+    skip: str | None,
+    *,
+    regex: bool = False,
+    word: bool = False,
 ) -> list[FileHit]:
     """Every line of the files' text holding `query`, in the room `notes` hits leave under the cap.
 
@@ -64,7 +71,8 @@ async def search_files(
         # reaches its cap, and a cap of nothing is never reached.
         if room <= 0:
             return []
-        texts = await scan_vault(cache, literal_matcher(query), room, skip, listing=TEXT_LISTING)
+        matcher = literal_matcher(query, regex=regex, word=word)
+        texts = await scan_vault(cache, matcher, room, skip, listing=TEXT_LISTING)
 
         found = []
         for hit in texts:

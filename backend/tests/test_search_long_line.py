@@ -150,3 +150,87 @@ async def test_a_last_line_with_no_newline_comes_back(
         hits = await scan_vault(tmp_path, literal_matcher("x"), 10)
 
     assert hits == [Hit("a.md", 1, "first"), Hit("b.md", 2, "last")]
+
+
+# The two flags of `GET /api/search` (#1773). Here because tests/ is at its folder cap.
+
+
+def _notes(vault: Path) -> None:
+    (vault / "plan.md").write_text("the plan holds\n", encoding="utf-8")
+    (vault / "planned.md").write_text("we planned it\n", encoding="utf-8")
+    (vault / "trip.md").write_text("a trip away\nthe trips ahead\n", encoding="utf-8")
+
+
+async def _texts(client: AsyncClient, **params: str | bool) -> list[str]:
+    response = await client.get("/api/search", params=params)
+    assert response.status_code == 200, response.text
+    return sorted(hit["text"] for hit in response.json())
+
+
+async def test_1773_regex_finds_a_word_edge_pattern(client: AsyncClient, vault: Path) -> None:
+    _notes(vault)
+
+    assert await _texts(client, q=r"\bplan\b", regex=True) == ["the plan holds"]
+
+
+async def test_1773_word_keeps_whole_words_of_a_literal(client: AsyncClient, vault: Path) -> None:
+    _notes(vault)
+
+    assert await _texts(client, q="plan", word=True) == ["the plan holds"]
+
+
+async def test_1773_regex_and_word_together_keep_whole_words_of_each_branch(
+    client: AsyncClient, vault: Path
+) -> None:
+    _notes(vault)
+
+    assert await _texts(client, q="plan|trip", regex=True, word=True) == [
+        "a trip away",
+        "the plan holds",
+    ]
+
+
+async def test_1773_a_literal_does_not_read_its_backslashes_as_a_pattern(
+    client: AsyncClient, vault: Path
+) -> None:
+    _notes(vault)
+    (vault / "regex.md").write_text("write \\bplan\\b to match it\n", encoding="utf-8")
+
+    assert await _texts(client, q=r"\bplan\b") == ["write \\bplan\\b to match it"]
+
+
+@pytest.mark.parametrize(
+    ("pattern", "says"),
+    [
+        ("(open", "unclosed group"),
+        ("[[like", "unclosed character class"),
+        ("(?=x)", "look-around"),
+        ("a\\nb", '"\\n" is not allowed'),
+    ],
+)
+async def test_1773_a_bad_regex_answers_422_with_rgs_message(
+    client: AsyncClient, vault: Path, pattern: str, says: str
+) -> None:
+    _notes(vault)
+
+    response = await client.get("/api/search", params={"q": pattern, "regex": True})
+
+    assert response.status_code == 422
+    assert says in response.json()["detail"]
+
+
+async def test_1773_word_on_a_literal_with_regex_characters_matches_it_literally(
+    client: AsyncClient, vault: Path
+) -> None:
+    (vault / "dots.md").write_text("a.b here\naxb there\nza.bz glued\n", encoding="utf-8")
+
+    assert await _texts(client, q="a.b", word=True) == ["a.b here"]
+
+
+async def test_1773_html_text_honours_both_flags(client: AsyncClient, vault: Path) -> None:
+    (vault / "page.html").write_text(
+        "<html><body><p>the plan here</p><p>planned there</p></body></html>", encoding="utf-8"
+    )
+
+    assert await _texts(client, q="plan", word=True) == ["the plan here"]
+    assert await _texts(client, q=r"plan\w+", regex=True) == ["planned there"]
