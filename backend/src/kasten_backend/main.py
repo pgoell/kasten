@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import time
 from contextlib import asynccontextmanager
 from importlib.metadata import version
 from typing import TYPE_CHECKING, Annotated
@@ -74,6 +75,8 @@ from kasten_backend.vcs import is_versioned, write_ignores
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, AsyncIterator
 
+    from starlette.types import ASGIApp, Message, Receive, Scope, Send
+
     from kasten_backend.events import VaultEvent
 
 logger = logging.getLogger(__name__)
@@ -101,6 +104,74 @@ def _push_stopped(task: asyncio.Task[None]) -> None:
     """Log the error that ended the push sender, which would otherwise stop every push unseen."""
     if not task.cancelled() and (error := task.exception()) is not None:
         logger.error("push sender stopped; no push goes out until a restart", exc_info=error)
+
+
+clock = time.perf_counter
+"""What `SlowRequests` times with; a test swaps it so no test waits on real time."""
+
+PATH_CAP = 1024
+"""The most characters of a path a slow-request line keeps."""
+
+
+def _stays_open(method: str, path: str) -> bool:
+    """Whether the request is a stream that stays open by design, so its length means nothing."""
+    path = path.rstrip("/")
+    return path in {"/api/events", "/share/events"} or (method == "GET" and path == "/agent/mcp")
+
+
+def _is_stream(message: Message) -> bool:
+    """Whether the answer is server-sent events, which stay open whatever their path."""
+    return any(
+        name.lower() == b"content-type" and value.startswith(b"text/event-stream")
+        for name, value in message.get("headers", [])
+    )
+
+
+class SlowRequests:
+    """Log method, path, status and milliseconds of a request over `slow_request_ms`.
+
+    Logs the path alone, never the query string, which can hold a token.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        """Wrap `app`, the rest of the stack."""
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """Time the request to its last byte, and log it if it ran over."""
+        if scope["type"] != "http" or _stays_open(scope["method"], scope["path"]):
+            await self.app(scope, receive, send)
+            return
+
+        start = clock()
+        status = 500
+        streamed = False
+
+        async def sending(message: Message) -> None:
+            nonlocal status, streamed
+            if message["type"] == "http.response.start":
+                status = message["status"]
+                streamed = _is_stream(message)
+            await send(message)
+
+        # Not `finally`: a client that leaves cancels the request, which is no 500.
+        try:
+            await self.app(scope, receive, sending)
+        except Exception:
+            if not streamed:
+                _report(scope, status, start)
+            raise
+        if not streamed:
+            _report(scope, status, start)
+
+
+def _report(scope: Scope, status: int, start: float) -> None:
+    ms = (clock() - start) * 1000
+    if ms > get_settings().slow_request_ms:
+        # %r keeps a decoded newline in the path from starting a forged line.
+        logger.warning(
+            "slow request: %s %r %d %.0f ms", scope["method"], scope["path"][:PATH_CAP], status, ms
+        )
 
 
 @asynccontextmanager
@@ -240,7 +311,9 @@ app.add_middleware(share.ShareGate)
 app.add_middleware(FinanceGuard)
 """Added on the app, not a router, so these see requests no route answers."""
 app.add_middleware(token_activity.Recorder)
-"""Added last, so outermost: the row keeps the status the client got, not an inner rewrite."""
+"""Outside the two above: the row keeps the status the client got, not an inner rewrite."""
+app.add_middleware(SlowRequests)
+"""Added last, so outermost: the time covers every other middleware."""
 
 
 @app.get("/api/events")

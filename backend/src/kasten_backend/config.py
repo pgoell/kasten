@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     Bounded so a slow database cannot hold a connection open after the answer has gone out.
     """
 
+    slow_request_ms: float = 250.0
+    """A request that takes longer than this, in milliseconds, leaves one warning in the log."""
+
     herdr_sessions_path: Path = Path("/herdr-home/.config/herdr/sessions")
     """Where the shell container keeps one directory per named herdr session.
 
