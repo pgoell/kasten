@@ -5,9 +5,9 @@ from uuid import UUID
 
 import pytest
 
-from kasten_backend import model_use_notes
 from kasten_backend.frontmatter import _split, bases, body_start, stamp, unstamped, with_type
 from kasten_backend.log_config import parse_config
+from kasten_backend.model_use import month
 
 NOW = datetime(2026, 8, 6, 12, 0, tzinfo=UTC)
 LATER = datetime(2026, 8, 6, 13, 30, tzinfo=UTC)
@@ -197,7 +197,7 @@ def test_654_a_block_closes_only_on_a_fence_at_column_0(case: dict) -> None:
     assert {
         "split": "\n".join(_split(note)[1]),
         "body_start": note[body_start(note) :],
-        "model_use": "\n".join(model_use_notes._split(note)[1]),
+        "model_use": "\n".join(month._split(note)[1]),
     } == dict.fromkeys(("split", "body_start", "model_use"), case["body"])
 
 

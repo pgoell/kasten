@@ -8,9 +8,8 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
 from kasten_backend.config import Settings, get_settings
-from kasten_backend.model_use_notes import months, note_path, read_month
-from kasten_backend.periodic import DATE_PATTERN
-from kasten_backend.routes.queries import day_range
+from kasten_backend.model_use.note.month import months, note_path, read_month
+from kasten_backend.periodic import DATE_PATTERN, date_range
 
 if TYPE_CHECKING:
     from datetime import date
@@ -60,5 +59,5 @@ async def read_model_use(
     Read from the collector's own notes under the config folder. A note without
     its marker and a line that does not parse are skipped, not answered.
     """
-    first, last = day_range(start, end)
+    first, last = date_range(start, end)
     return await asyncio.to_thread(_read, settings.vault_path, settings.config_path, first, last)

@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from uuid import uuid7
 
 from kasten_backend.frontmatter import closing
-from kasten_backend.model_use_lines import Usage, format_line, parse_line
+from kasten_backend.model_use.note.lines import Usage, format_line, parse_line
 
 if TYPE_CHECKING:
     from pathlib import Path

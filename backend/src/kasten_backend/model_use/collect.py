@@ -9,9 +9,9 @@ from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 from kasten_backend.config import DEFAULTS
-from kasten_backend.model_use_config import CONFIG_NOTE, Config, read_config
-from kasten_backend.model_use_notes import months, note_path, write_month
-from kasten_backend.model_use_sessions import has_sessions, read_messages, usage_lines
+from kasten_backend.model_use.note.config import CONFIG_NOTE, Config, read_config
+from kasten_backend.model_use.note.month import months, note_path, write_month
+from kasten_backend.model_use.sessions.session import has_sessions, read_messages, usage_lines
 
 BUNDLED = Path(__file__).parent / "model-use.md"
 """The price table the package ships, read when the vault holds no config note of its own."""

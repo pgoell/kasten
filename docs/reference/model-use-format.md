@@ -2,7 +2,7 @@
 type: Reference
 title: Model use format
 description: How the collector counts the tokens and cost per day, model and project of Claude Code, codex and grok from their session files, the monthly notes it writes, the config note that holds the prices and the project folders, and what it never touches.
-resource: backend/src/kasten_backend/model_use.py
+resource: backend/src/kasten_backend/model_use/collect.py
 tags: [vault, backend, format, review]
 status: stable
 ---
@@ -223,7 +223,7 @@ The prices and the project folders are in `<config>/model-use.md`, so
   `Skipped line N of model-use.md: <text>` and reads the rest.
 
 With no config note in the vault, the collector reads the one it ships with,
-`backend/src/kasten_backend/model-use.md`, and says so. It never writes the
+`backend/src/kasten_backend/model_use/model-use.md`, and says so. It never writes the
 config note. That table holds Anthropic's list prices as
 [the pricing page](https://platform.claude.com/docs/en/about-claude/pricing)
 gave them on 2026-10-26. It also holds OpenAI's list prices for gpt models, at

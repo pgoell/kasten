@@ -35,8 +35,7 @@ from backend.tests.test_model_use_codex import (
     usage_lines,
     write_note,
 )
-from kasten_backend.model_use import run
-from kasten_backend.model_use_lines import parse_line
+from kasten_backend.model_use import parse_line, run
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
