@@ -75,6 +75,7 @@ def test_1720_an_activity_reads_as_its_line() -> None:
     assert run_line is not None
     assert line_of(run_line) == "- 🏃 [[Joggen]] 32 min 5 km"
     assert activity_of(SWIM) is None
+    assert activity_of(row(19, "motorcycling", "2026-11-10 08:00:00", 600)) is None
     assert activity_of(row(15, "walking", "2026-11-10 08:00:00", 0)) is None
 
 

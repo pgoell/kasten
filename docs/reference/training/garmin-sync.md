@@ -74,7 +74,8 @@ Garmin's activity type key decides, by the word it holds:
 | `cycl` or `bik`, as in `cycling`, `road_biking`, `indoor_cycling` | `🚲` ride |
 | `walk` or `hik`, as in `walking`, `hiking` | `🚶` walk |
 
-Any other sport, such as swimming or strength, makes no line. Neither does an
+Any other sport, such as swimming or strength, makes no line, and nor does a
+key holding `motor`, such as `motorcycling`. Neither does an
 activity with no duration.
 
 The line carries the minutes of the timer duration, rounded to whole minutes
@@ -99,8 +100,9 @@ the average heart rate after `❤`, left out when Garmin has none:
   line stands for one activity, on this run and every later one, so a second
   ride of the same length is still written.
 * **Its own lines.** The state also keeps the day, kind and minutes of each
-  line the job wrote, and those lines never count as typed. So a ride home
-  after the morning's ride was written is written too. Without the state file,
+  line the job wrote, and those lines never count as typed while their minutes
+  stay as written; edit them and the line counts as typed again. So a ride
+  home after the morning's ride was written is written too. Without the state file,
   as after it is lost, every line on the day counts as typed, so nothing is
   written twice.
 

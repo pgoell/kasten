@@ -30,6 +30,8 @@ class Activity:
 def kind_of(type_key: str) -> str | None:
     """`walk`, `run` or `ride` for a Garmin type key, or None for any other sport."""
     key = type_key.lower()
+    if "motor" in key:
+        return None
     return next((kind for word, kind in WORDS if word in key), None)
 
 

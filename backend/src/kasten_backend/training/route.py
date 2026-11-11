@@ -10,13 +10,11 @@ from pydantic import BaseModel, Field
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.periodic import DATE_PATTERN, daily_path, date_range, day_sections
 from kasten_backend.training.blocks import TrainingBlock, blocks
-from kasten_backend.training.days import add_lines
+from kasten_backend.training.days import TRAINING, add_lines
 from kasten_backend.training.exercises import Exercise, exercises
 from kasten_backend.training.lines import TrainingEntry, parse_line
 
 router = APIRouter()
-
-TRAINING = "## Training"
 
 
 class TrainingDay(BaseModel):

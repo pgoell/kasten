@@ -34,7 +34,7 @@ CLOSE = 0.15
 
 @dataclass(frozen=True)
 class Settings:
-    """What the environment sets; docs/reference/garmin-sync.md lists each."""
+    """What the environment sets; docs/reference/training/garmin-sync.md lists each."""
 
     api: str
     key: str
