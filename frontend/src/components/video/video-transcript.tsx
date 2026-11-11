@@ -8,8 +8,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { TAKE_HOST, TakeButton } from "@/components/take-button-view";
-import { useBookNoteTake } from "@/components/use-book-note-take";
+import { TAKE_HOST, TakeButton } from "@/components/takes/take-button-view";
+import { useBookNoteTake } from "@/components/takes/use-book-note-take";
 import { timestamp } from "@/lib/panes/video/transcript";
 import { currentAt, timeLink, transcriptParagraphs } from "@/lib/panes/video/video-notes";
 import type { Passage } from "@/lib/takes/highlight";

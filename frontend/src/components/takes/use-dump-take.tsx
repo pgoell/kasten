@@ -1,5 +1,5 @@
 import { type ReactNode, useLayoutEffect, useRef } from "react";
-import { type ToastTaking, useTakeToast } from "@/components/use-take-toast";
+import { type ToastTaking, useTakeToast } from "@/components/takes/use-take-toast";
 // Renamed for the reason `use-prompts.tsx` renames it: the take is a dump, and
 // the page has no other `flush` to confuse it with.
 import { type Dump, type Failure, flush as flushOutbox, keep } from "@/lib/capture/outbox";

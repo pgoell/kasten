@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Rsvp } from "@/components/rsvp";
-import { TAKE_HOST, TakeButton } from "@/components/take-button-view";
-import { useDumpTake } from "@/components/use-dump-take";
+import { TAKE_HOST, TakeButton } from "@/components/takes/take-button-view";
+import { useDumpTake } from "@/components/takes/use-dump-take";
 import { usePageReload } from "@/components/use-page-reload";
 import { readClock } from "@/lib/core/clock";
 import { encodePath } from "@/lib/notes/links/note-path";

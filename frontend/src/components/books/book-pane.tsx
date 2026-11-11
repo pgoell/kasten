@@ -3,8 +3,8 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { ContentsColumn, NoteColumn } from "@/components/books/book-columns";
 import { BookContents, type TocRow, tocRows } from "@/components/books/book-contents";
 import { Rsvp } from "@/components/rsvp";
-import { TAKE_HOST } from "@/components/take-button-view";
-import { useBookNoteTake } from "@/components/use-book-note-take";
+import { TAKE_HOST } from "@/components/takes/take-button-view";
+import { useBookNoteTake } from "@/components/takes/use-book-note-take";
 import { type BookBeside, fetchBook } from "@/lib/core/api";
 import { BOOK_SUFFIXES, noteName } from "@/lib/notes/links/note-path";
 import type { FoliateView, Place } from "@/lib/panes/book/foliate-view";
