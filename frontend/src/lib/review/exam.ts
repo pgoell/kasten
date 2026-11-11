@@ -79,12 +79,15 @@ export type Answers = Record<string, string[]>;
 // level, because nothing about an exam depends on how deep its headings sit.
 const QUESTION = /^(#{2,6})\s+(?:Question|Q)\.?\s*([\d.]+)?\s*(?:[·|:-]\s*(.*))?$/i;
 
+// A text ends only after a non-blank, or is one blank, and the dash in `ROW` takes
+// its whole blank run, so each pattern reads a blank run once (#1907).
+
 // Any other heading groups the questions under it. A leading `Domain 3:` or
 // `Section 2.` is dropped along with a trailing weight, so `## Domain 1: Prompting
 // (14%)` and `## Prompting` are the same section and a rationale keyed under
 // either spelling still finds its question.
-const SECTION =
-  /^#{2,6}\s+(?:(?:domain|section|topic|part|chapter|module|area)\s+)?(?:[\dIVXivx]+[).:.]?\s+)?(.+?)\s*(?:\(\d+(?:\.\d+)?%\))?$/i;
+export const SECTION =
+  /^#{2,6}\s+(?:(?:domain|section|topic|part|chapter|module|area)\s+)?(?:[\dIVXivx]+[).:.]?\s+)?((?=\s).|.+?(?<!\s))\s*(?:\(\d+(?:\.\d+)?%\))?$/i;
 
 // `**A.**`, `A.` and `A)` all read as the letter A. The bold is what the vault's
 // Claude exams write and the bare letter is what anybody writing one by hand
@@ -95,28 +98,40 @@ const OPTION = /^\s*[-*]\s+(?:\*\*([A-Za-z])[.)]?\*\*|([A-Za-z])[.)])\s+(.*)$/;
 // One row of a scenario matching question: the scenario, then an arrow at the
 // blank it is classified into. `->` as well as `→`, because a keyboard writes
 // the first and a note written in an editor arrives with it.
-const ROW = /^\s*[-*]\s+(.*?)\s*(?:→|->)\s*_*\s*$/;
+export const ROW = /^\s*[-*]\s+(?!\s)(|.+?(?<!\s))\s*(?:→|->)\s*(?:_+\s*)?$/;
 
 // The option set every row of a scenario matching question chooses from,
 // written on one line under them: `Options: MCP server · direct API call`.
-const CHOICES = /^\**\s*Options\s*[:=]\s*(.+?)\s*\**$/i;
+export const CHOICES = /^\**\s*Options\s*[:=]\s*((?=\s).|.+?(?<!\s))\s*\**$/i;
 
 // A matching answer, which names each row by its position rather than by a
 // letter: `1 → MCP server; 2 → direct API call`.
 const PAIRS = /(\d+)\s*(?:→|->)\s*([^;\n]+)/g;
 
+// An answer's text: one blank right before the closing bold, or a run that starts
+// and ends on a non-blank, so a blank run is read once (#1907).
+const ANSWER = String.raw`(?:(?=\s)[^*\n](?=\**$)|(?!\s)[^*\n]+?(?<!\s))`;
+
 // The same in a key at the back, where the question number opens the line. No
 // `Correct:` in it, which is why `KEYED` does not see it.
-const KEYED_MATCH = /^\**\s*([\d.]+)\s*[—–-]\s*(\d+\s*(?:→|->)\s*[^*\n]+?)\s*\**$/;
+export const KEYED_MATCH = new RegExp(
+  String.raw`^\**\s*([\d.]+)\s*[—–-]\s*(\d+\s*(?:→|->)\s*${ANSWER})\s*\**$`,
+);
 
 // An answer in a key at the back, which names the question it belongs to. The
 // dash class is `—–-` because the vault writes an em-dash and a keyboard writes
 // a hyphen; the bold is optional for the reason the option's is.
-const KEYED = /^\**\s*([\d.]+)\s*[—–-]\s*(?:Correct|Answer)s?\s*[:=]\s*([^*\n]+?)\s*\**$/i;
+export const KEYED = new RegExp(
+  String.raw`^\**\s*([\d.]+)\s*[—–-]\s*(?:Correct|Answer)s?\s*[:=]\s*(${ANSWER})\s*\**$`,
+  "i",
+);
 
 // An answer written under the question itself, which needs no number: the
 // question it belongs to is the one it sits in.
-const INLINE = /^\**\s*(?:Correct|Answer)s?\s*[:=]\s*([^*\n]+?)\s*\**$/i;
+export const INLINE = new RegExp(
+  String.raw`^\**\s*(?:Correct|Answer)s?\s*[:=]\s*(${ANSWER})\s*\**$`,
+  "i",
+);
 
 // Everything after this heading is the key rather than the questions. Without
 // it a key that restates its section headings would grow a second run of

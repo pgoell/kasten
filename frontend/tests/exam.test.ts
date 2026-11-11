@@ -1,5 +1,16 @@
 // @vitest-environment node
-import { gradeExam, parseExam, resultNote, resultPath } from "@/lib/review/exam";
+import {
+  CHOICES,
+  gradeExam,
+  INLINE,
+  KEYED,
+  KEYED_MATCH,
+  parseExam,
+  ROW,
+  resultNote,
+  resultPath,
+  SECTION,
+} from "@/lib/review/exam";
 
 /** The shape the vault's four practice exams are written in, cut down to two questions. */
 const NOTE = `---
@@ -511,5 +522,78 @@ describe("resultNote", () => {
 
   it("writes no frontmatter, which the backend stamps", () => {
     expect(text.startsWith("---")).toBe(false);
+  });
+});
+
+describe("#1907 an exam line before a long run of blanks", () => {
+  const blanks = (n: number) => " ".repeat(n);
+  const ms = (read: () => unknown) => {
+    const start = performance.now();
+    read();
+    return performance.now() - start;
+  };
+
+  // A text, 40,000 blanks, then a word; main's took over a second each.
+  it.each([
+    ["SECTION", SECTION, "## a"],
+    ["ROW", ROW, "- a"],
+    ["ROW after the arrow", ROW, "- a ->"],
+    ["CHOICES", CHOICES, "Options: a"],
+    ["KEYED_MATCH", KEYED_MATCH, "1 - 1 -> a"],
+    ["KEYED", KEYED, "1 - Correct: a"],
+    ["INLINE", INLINE, "Correct: a"],
+  ])("%s reads it in linear time", (_, pattern, text) => {
+    expect(ms(() => pattern.exec(`${text}${blanks(40_000)}x`))).toBeLessThan(200);
+  });
+
+  // A run before the text on a line that fails, cubic on main: 2,000 blanks took seconds there.
+  it.each([
+    ["ROW after the dash", ROW, "- ", "x"],
+    ["KEYED_MATCH", KEYED_MATCH, "1 - 1 ->", "a*x"],
+    ["KEYED", KEYED, "1 - Correct:", "a*x"],
+    ["INLINE", INLINE, "Correct:", "a*x"],
+  ])("%s reads a run before its text in linear time", (_, pattern, head, tail) => {
+    expect(ms(() => pattern.exec(`${head}${blanks(2_000)}${tail}`))).toBeLessThan(200);
+  });
+
+  // The fix moves no match, the optional tails included, and blanks-only text is one blank.
+  it.each([
+    ["SECTION", SECTION, "## Prompting", ["Prompting"]],
+    ["SECTION", SECTION, "## Domain 1: Prompting and Tasks (14%)", ["Prompting and Tasks"]],
+    ["SECTION", SECTION, "## Section 2. Evaluation  (2.5%)", ["Evaluation"]],
+    ["SECTION", SECTION, "## Evaluation (2.5%)  ", ["Evaluation (2.5%)"]],
+    ["SECTION", SECTION, "## Tools \t\r", ["Tools"]],
+    ["SECTION", SECTION, "##   ", [" "]],
+    ["SECTION", SECTION, "##  (14%)", ["(14%)"]],
+    ["ROW", ROW, "- A wiki lookup → ____", ["A wiki lookup"]],
+    ["ROW", ROW, "* A wiki lookup ->  _ ", ["A wiki lookup"]],
+    ["ROW", ROW, "- a -> b ->", ["a -> b"]],
+    ["ROW", ROW, "- -> __", [""]],
+    ["ROW", ROW, "-  \t→", [""]],
+    ["ROW", ROW, "- a -> b", undefined],
+    ["CHOICES", CHOICES, "Options: MCP server · direct API call", ["MCP server · direct API call"]],
+    ["CHOICES", CHOICES, "**Options:** MCP · API  **", ["** MCP · API"]],
+    ["CHOICES", CHOICES, "options = a*b*", ["a*b"]],
+    ["CHOICES", CHOICES, "Options:   ", [" "]],
+    ["CHOICES", CHOICES, "Options:  \r", [" "]],
+    [
+      "KEYED_MATCH",
+      KEYED_MATCH,
+      "**1.2 — 1 → MCP server; 2 → API**",
+      ["1.2", "1 → MCP server; 2 → API"],
+    ],
+    ["KEYED_MATCH", KEYED_MATCH, "3 - 1 ->  ", ["3", "1 ->  "]],
+    ["KEYED_MATCH", KEYED_MATCH, "3 - 1 -> a *", ["3", "1 -> a"]],
+    ["KEYED", KEYED, "**1.1 — Correct: B, D**", ["1.1", "B, D"]],
+    ["KEYED", KEYED, "2 - answers = A \t", ["2", "A"]],
+    ["KEYED", KEYED, "2 - Answer:  **", ["2", " "]],
+    ["KEYED", KEYED, "2 - Answer: a *b", undefined],
+    ["INLINE", INLINE, "**Correct: B**", ["B"]],
+    ["INLINE", INLINE, "Answers: A and C  ", ["A and C"]],
+    ["INLINE", INLINE, "Correct:   **", [" "]],
+    ["INLINE", INLINE, "Correct: \r", ["\r"]],
+    ["INLINE", INLINE, "Correct:", undefined],
+  ])("%s reads %j as on main", (_, pattern, line, groups) => {
+    expect(pattern.exec(line)?.slice(1)).toEqual(groups);
   });
 });
