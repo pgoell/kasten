@@ -35,20 +35,29 @@ import {
 
 /**
  * Today's daily note and its text, which every write here lands in or beside. `known`
- * is a note the caller has read already, so it is not asked for twice.
+ * is a note the caller has read already, so it is not asked for twice. `listed` is
+ * `paths` with today's note in it exactly when the note exists, for `send`.
  */
 async function dailyNote(
   paths: string[],
   known: Record<string, string> = {},
-): Promise<{ path: string; text: string }> {
+): Promise<{ path: string; text: string; listed: string[] }> {
   const daily = periodicNote("daily", new Date());
-  const text =
-    known[daily.path] ??
+  const listed = [...paths, daily.path];
+  const text = known[daily.path];
+  if (text !== undefined) return { path: daily.path, text, listed };
+  try {
+    // Asked even when the listing lacks it: a press queued behind the day's first
+    // still holds the listing from before that press made the note.
+    return { path: daily.path, text: await fetchNote(daily.path), listed };
+  } catch (error) {
+    if (!(error instanceof NoteMissing)) throw error;
     // The body goes over as it stands, the way `follow` sends one: `periodic.ts`
     // opens it with the frontmatter block, and a line in front of that fence
     // would leave the note untyped.
-    (paths.includes(daily.path) ? await fetchNote(daily.path) : daily.body);
-  return { path: daily.path, text };
+    const without = paths.filter((path) => path !== daily.path);
+    return { path: daily.path, text: daily.body, listed: without };
+  }
 }
 
 /**
@@ -77,7 +86,7 @@ export async function addTodoInVault(input: string, today: string, paths: string
     dailyText: daily.text,
     todo: expandShorthand(input, today),
   });
-  await send(writes, paths, { [daily.path]: daily.text });
+  await send(writes, daily.listed, { [daily.path]: daily.text });
 }
 
 /**
@@ -351,7 +360,7 @@ export async function cycleTodoInVault(
     state,
   });
 
-  await send(writes, paths, { ...logged, [hit.path]: text, [daily.path]: daily.text });
+  await send(writes, daily.listed, { ...logged, [hit.path]: text, [daily.path]: daily.text });
 
   // After the send, so the dependents in this note are read as the write above
   // left them. No note is skipped: this half can see every blocker, where the
@@ -411,5 +420,5 @@ export async function toggleTimerInVault(
     id: newId(),
   });
 
-  await send(writes, paths, notes);
+  await send(writes, daily.listed, notes);
 }
