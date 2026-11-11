@@ -7,7 +7,7 @@ backend/tests 170
 docs 8
 docs/assets/shared-lists 15
 docs/explanation 27
-docs/how-to 31
+docs/how-to 30
 docs/how-to/images 11
 docs/reference 42
 docs/reference/editor-keys 20
@@ -35,6 +35,6 @@ frontend/tests 581
 frontend/tests/fixtures 10
 frontend/tests/fixtures/barcodes 10
 frontend/tests/frame 180
-jobs/src/kasten_jobs 15
+jobs/src/kasten_jobs 14
 jobs/tests 10
 scripts 8

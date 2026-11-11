@@ -27,7 +27,7 @@ craftsman's invoice or your share of a bill on the shared account.
 
 ## From the phone
 
-With kasten installed on Android ([Install kasten on your phone](/how-to/install-on-your-phone.md)),
+With kasten installed on Android ([Install kasten on your phone](/how-to/phone/install-on-your-phone.md)),
 share a PDF or a photo from any app and pick **kasten**. The capture page
 opens and says how many receipts it kept; they wait under Finance, To sort,
 on no booking. With no signal the file does not go; share it again later.

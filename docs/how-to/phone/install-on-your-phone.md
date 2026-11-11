@@ -125,4 +125,4 @@ gap and stop time for the next morning.
 
 ## Related
 
-* [Capture from your phone](/how-to/capture-from-your-phone.md): the capture page, and sharing into it from other apps
+* [Capture from your phone](/how-to/phone/capture-from-your-phone.md): the capture page, and sharing into it from other apps

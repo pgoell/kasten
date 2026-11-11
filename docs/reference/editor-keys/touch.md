@@ -11,7 +11,7 @@ status: stable
 ## Touch
 
 What kasten draws for a finger, and what a finger can reach. The steps are in
-[Use kasten on a phone](/how-to/use-kasten-on-a-phone.md), and the reasons in
+[Use kasten on a phone](/how-to/phone/use-kasten-on-a-phone.md), and the reasons in
 [kasten on a phone](/explanation/kasten-on-a-phone.md).
 
 ### What counts as a phone

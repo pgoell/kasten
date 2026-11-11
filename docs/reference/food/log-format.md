@@ -223,7 +223,7 @@ card before the first food.
 A food line named `training`, in any case, sets the goals of a training day
 instead: `- 🍽 training: kcal max 2600, protein min 160`. A day is a training
 day when its note's `## Training` section holds a line that reads as an entry
-(see [Training format](/reference/training-format.md)). On that day the card
+(see [Training format](/reference/training/training-format.md)). On that day the card
 and the food sheet show each field the training line names in place of the
 everyday goal, and the everyday goal for the rest: with the two lines above, a
 training day's goals are kcal max 2600, protein min 160, carbs max 250 and fat

@@ -3,8 +3,9 @@
 from datetime import date
 from decimal import Decimal
 
-from kasten_jobs import orders_amazon, orders_paypal
 from kasten_jobs.mail_text import german_date, html_lines
+from kasten_jobs.orders import amazon as orders_amazon
+from kasten_jobs.orders import paypal as orders_paypal
 
 from .order_mails import (  # noqa: TID252
     CONFIRMATION,

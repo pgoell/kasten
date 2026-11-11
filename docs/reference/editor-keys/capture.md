@@ -75,7 +75,7 @@ runs a complete match the moment it is typed, so it would fire before `df` or
 `du` could be finished.
 
 The same capture has a page of its own for a phone, `/capture`, which
-[Capture from your phone](/how-to/capture-from-your-phone.md) covers.
+[Capture from your phone](/how-to/phone/capture-from-your-phone.md) covers.
 
 A passage taken from a vault HTML page goes into the same dump by the same
 route, as a blockquote. It holds the passage, cut to 2000 characters and with

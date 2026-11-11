@@ -9,7 +9,7 @@ status: stable
 # Use kasten on a phone
 
 You have kasten open in a phone's browser, or installed from
-[Install kasten on your phone](/how-to/install-on-your-phone.md), and you want
+[Install kasten on your phone](/how-to/phone/install-on-your-phone.md), and you want
 to do by touch what the keys do at a desk. A row of buttons runs along the
 bottom edge: `files`, `find`, `today`, `todos`, `chat` and `run`.
 Every recipe below starts there. The tab strip is the top row, with a + at its
@@ -153,5 +153,5 @@ keyboard's Enter, or clear the input and then tap outside.
 
 * [Editor keys](/reference/editor-keys/touch.md#touch): every button, the command it calls, and what is still keys only
 * [kasten on a phone](/explanation/kasten-on-a-phone.md): why it works this way
-* [Capture from your phone](/how-to/capture-from-your-phone.md): the capture page, for a thought on the go
+* [Capture from your phone](/how-to/phone/capture-from-your-phone.md): the capture page, for a thought on the go
 * [Write a practice exam](/how-to/write-a-practice-exam.md#sit-it-by-touch): sit an exam by touch

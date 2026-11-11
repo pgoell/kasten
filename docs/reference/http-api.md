@@ -58,4 +58,4 @@ including the check that refuses a cross-site `POST` with a `403`.
 * [Configuration](/reference/configuration.md): which directory `/api/files` reads
 * [Shared lists](/explanation/shared-lists.md): why the `/share/` routes exist, and what they can reach
 * [Agent API](/reference/agent-api.md): the routes a token reaches, and the ones it never does
-* [Capture from your phone](/how-to/capture-from-your-phone.md): the page and the share sheet that post to `/api/dump`
+* [Capture from your phone](/how-to/phone/capture-from-your-phone.md): the page and the share sheet that post to `/api/dump`

@@ -112,7 +112,6 @@ ACCEPTED_RELATIVE_IMPORTS = {
     "jobs/tests/test_bookings.py": 7,
     "jobs/tests/test_order_mails.py": 12,
     "jobs/tests/test_order_sync.py": 8,
-    "jobs/tests/test_order_sync_failures.py": 6,
 }
 RULE_LINE = re.compile(r":\d+:\d+: [A-Z]+\d+ ")
 PATHS = [

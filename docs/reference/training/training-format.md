@@ -45,6 +45,8 @@ optional decimal part, the mark a point or a comma. Units ignore case.
 
 The link is a wikilink, `[[Kniebeuge]]`, and its target is the entry's
 `exercise`: `[[Kniebeuge|Squat]]` is `Kniebeuge`. An empty link is no entry.
+The exercise notes come from
+[the exercise import](/reference/training/exercise-import.md).
 
 | Kind | Marker | Fields |
 | --- | --- | --- |
