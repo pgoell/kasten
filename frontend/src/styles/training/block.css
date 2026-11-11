@@ -1,0 +1,169 @@
+/* The card on a training block note: the calendar, with the exercise library beside it once the
+   pane is wide enough to drag across. A done day is filled, a planned one outlined, a deload week
+   tinted; each state also has its letter or mark, so it reads without its colours. */
+.cm-block {
+  container-type: inline-size;
+  display: grid;
+  gap: 10px;
+  max-width: var(--k-measure);
+  padding: 6px 24px 14px 0;
+  font-family: var(--k-sans);
+  font-variant-numeric: tabular-nums;
+  cursor: default;
+}
+
+.cm-block-standing,
+.cm-block-said {
+  margin: 0;
+  color: var(--k-muted);
+  font-size: var(--k-text-15);
+}
+
+.cm-block-body {
+  display: grid;
+  gap: 16px;
+}
+
+.cm-block-cal {
+  display: grid;
+  grid-template-columns: auto repeat(7, minmax(0, 1fr));
+  gap: 4px;
+  align-items: stretch;
+}
+
+.cm-block-head {
+  color: var(--k-muted);
+  font-size: var(--k-text-13);
+  text-align: center;
+}
+
+.cm-block-week {
+  display: grid;
+  align-content: center;
+  padding-right: 6px;
+  font-size: var(--k-text-13);
+}
+
+.cm-block-target {
+  color: var(--k-muted);
+}
+
+.cm-block-day {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  min-height: 44px;
+  padding: 2px;
+  border: 1px solid transparent;
+  border-radius: var(--k-radius-8);
+  background: none;
+  color: var(--k-ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.cm-block-date {
+  color: var(--k-muted);
+  font-size: var(--k-text-13);
+}
+
+.cm-block-letter {
+  font-weight: 600;
+}
+
+.cm-block-cardio {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  color: var(--tg-7);
+  font-size: var(--k-text-13);
+}
+
+.cm-block-day.is-deload {
+  background: var(--k-surface);
+}
+
+.cm-block-day.is-planned {
+  border-color: var(--k-accent);
+}
+
+.cm-block-day.is-done {
+  border-color: var(--k-accent);
+  background: var(--k-accent-wash);
+}
+
+.cm-block-day.is-today .cm-block-date {
+  color: var(--k-accent);
+  font-weight: 600;
+}
+
+.cm-block-cal.is-picking .cm-block-day,
+.cm-block-day.is-target {
+  outline: 2px dashed var(--k-rule-strong);
+  outline-offset: -2px;
+}
+
+/* On a phone the calendar is all; planning happens at the desk. */
+.cm-block-lib {
+  display: none;
+}
+
+.cm-block-muscle {
+  min-height: 32px;
+  font: inherit;
+}
+
+.cm-block-title {
+  margin: 0 0 6px;
+  font-size: var(--k-text-15);
+}
+
+.cm-block-items {
+  display: grid;
+  gap: 2px;
+  max-height: 320px;
+  margin: 6px 0 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.cm-block-item {
+  width: 100%;
+  min-height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--k-rule);
+  border-radius: var(--k-radius-8);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: grab;
+}
+
+.cm-block-item[aria-pressed="true"] {
+  border-color: var(--k-accent);
+  background: var(--k-accent-wash);
+}
+
+.cm-block-next {
+  justify-self: start;
+  min-height: 44px;
+  padding: 0 var(--k-space-16);
+  border: 1px solid var(--k-accent);
+  border-radius: var(--k-radius-8);
+  background: var(--k-accent-wash);
+  color: var(--k-ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+@container (width >= 600px) {
+  .cm-block-body {
+    grid-template-columns: minmax(0, 1fr) 200px;
+  }
+
+  .cm-block-lib {
+    display: block;
+  }
+}

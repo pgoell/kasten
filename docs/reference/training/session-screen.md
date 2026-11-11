@@ -2,7 +2,7 @@
 type: Reference
 title: Training session
 description: The training card on a daily note and the session screen it opens, what each part shows, what each button writes under ## Training and when a set extends a line, the rest timer, the defaults and steps, and the cardio form.
-resource: frontend/src/lib/log/training/session-screen.ts
+resource: frontend/src/lib/log/training/session/screen.ts
 tags: [training, frontend, phone]
 status: draft
 ---
@@ -39,9 +39,14 @@ The first view, and the one each exercise goes back to. It holds:
   `Gehen`, `Joggen` and `Radfahren`;
 * a search field, which matches the start or any part of a name or an alias,
   ignoring case;
-* with the field empty, `Today` (the exercises already in the note) and
-  `Recent` (those trained in the 90 days before, most recent first), then
-  `All`; with a search, `Found`. Each list shows at most 40.
+* with the field empty, first the day's session when a
+  [block note](/reference/training/block-note.md) holds the day and plans one,
+  titled `Session A · week 2 of 4`, with `· deload` in a deload week, each
+  exercise showing its target, `3 × 9 · 82.5 kg @8`; then `Today` (the
+  exercises already in the note) and `Recent` (those trained in the 90 days
+  before, most recent first), then `All`; with a search, `Found`. Each list
+  shows at most 40. A planned exercise with no note yet is listed all the same
+  and logged as a strength exercise.
 
 The exercises are the notes
 [`GET /api/training/exercises`](/reference/http-api/log.md#get-apitrainingexercises)
@@ -54,16 +59,19 @@ follow the note's `counts`:
 
 | `counts` | Rows | First value |
 | --- | --- | --- |
-| `weight-reps` | Weight, `−` and `+` by 2.5 kg, from 2.5 to 500; Reps, by 1 | The last set today, else the last line of the last day with this exercise, else 20 kg and 8 |
+| `weight-reps` | Weight, `−` and `+` by 2.5 kg, from 2.5 to 500; Reps, by 1 | The last set today, else the block's target, else the last line of the last day with this exercise, else 20 kg and 8 |
 | `reps` | Reps, by 1, from 1 to 100; the line says `bw` | As above, else 8 |
 | `time` | Time, by 5 s, from 5 to 600 | As above, else 45 s |
 
 Every kind has an RPE row of 7, 8, 9 and 10. A press picks one, a press on the
-picked one lets it go, and the pick stays for the next set until changed.
+picked one lets it go, and the pick stays for the next set until changed. Until
+a set is in today, a planned exercise starts with the block's RPE picked, when
+it is one of the four.
 
 Under the panel come the sets the note holds for this exercise today, one row
 each, `80 kg × 8 @8`, and "Last time" with the last earlier day's lines for it
-in short, `80 kg · 8 7 7`.
+in short, `80 kg · 8 7 7`. A planned exercise shows "Planned" and its target
+above "Last time".
 
 `Set done, rest 2:00` writes the set and starts the rest timer.
 `Skip exercise`, or `Next exercise` once a set is in, goes back to the list and
@@ -103,8 +111,3 @@ A bar at the bottom: "Rest after set N" and the time left, starting at 2:00.
 `+30 s` adds half a minute, also after the time is up; `Go` ends the rest. At
 zero the phone vibrates three times and plays a short tone where it can, and
 the bar reads "Rest over" until `Go` or the next set.
-
-## What it does not do yet
-
-The block note (#1719) will fill in the day's session and the sets its rule
-asks for; until then each exercise is picked by hand.

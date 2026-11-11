@@ -2,6 +2,8 @@ import { history, undo } from "@codemirror/commands";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { parseBlock } from "@/lib/log/training/block/block-note";
+import { fetchBlocks } from "@/lib/log/training/block/blocks";
 import { type Exercise, fetchEarlier, fetchExercises } from "@/lib/log/training/exercises";
 import { summary, trainingCard } from "@/lib/log/training/training-card";
 import { parseTrainingLine, type TrainingEntry } from "@/lib/log/training/training-lines";
@@ -9,6 +11,10 @@ import { notePath } from "@/lib/todo/todo-commands";
 
 /** The session screen (#1717): pick, sets written as tapped, the rest timer, cardio. */
 
+vi.mock("@/lib/log/training/block/blocks", async (actual) => ({
+  ...(await actual<object>()),
+  fetchBlocks: vi.fn(),
+}));
 vi.mock("@/lib/log/training/exercises", async (actual) => ({
   ...(await actual<object>()),
   fetchExercises: vi.fn(),
@@ -78,6 +84,7 @@ describe("the session screen", () => {
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true, now: new Date(`${DAY}T18:00:00`) });
     vi.mocked(fetchExercises).mockReset().mockResolvedValue(LIBRARY);
+    vi.mocked(fetchBlocks).mockReset().mockResolvedValue([]);
     vi.mocked(fetchEarlier)
       .mockReset()
       .mockResolvedValue([
@@ -109,7 +116,9 @@ describe("the session screen", () => {
     await openFrom(view);
     press("Kniebeuge");
 
-    expect(document.querySelector(".k-train-last")?.textContent).toBe("Last time 80 kg · 8 7 7");
+    expect(document.querySelector(".k-train-last:not(.k-train-plan)")?.textContent).toBe(
+      "Last time 80 kg · 8 7 7",
+    );
     expect(document.querySelector(".k-train-value")?.textContent).toBe("80 kg");
     press("Weight up 2.5");
     press("8");
@@ -179,6 +188,39 @@ describe("the session screen", () => {
     expect(document.querySelector(".k-train")).toBeNull();
     key("Escape");
     expect(view.state.doc.toString()).toBe(`# ${DAY}\n`);
+  });
+
+  it("lists the block's session for the day first and fills in its targets", async () => {
+    const text = [
+      "---",
+      "type: Training Block",
+      "start: 2026-11-09",
+      "---",
+      "## Weeks",
+      "- 1: RPE 7",
+      "## Sessions",
+      "### A",
+      "- [[Kniebeuge]] 3x8-10, double, 85 kg",
+      "- [[Ausfallschritt]] 2x10, 20 kg",
+      "## Days",
+      "- Wed: A",
+    ].join("\n");
+    const block = parseBlock(text);
+    if (block === null) throw new Error("no block");
+    vi.mocked(fetchBlocks).mockResolvedValue([{ path: "Block.md", text, block }]);
+    const view = mount(`# ${DAY}\n`);
+    await openFrom(view);
+    await vi.waitFor(() =>
+      expect(document.querySelector(".k-train-where")?.textContent).toBe("Session A · week 1 of 4"),
+    );
+
+    const metas = [...document.querySelectorAll(".k-train-item-meta")].map((n) => n.textContent);
+    expect(metas.slice(0, 2)).toEqual(["3 × 8 · 85 kg @7", "2 × 10 · 20 kg @7"]);
+    press("Kniebeuge");
+    expect(document.querySelector(".k-train-value")?.textContent).toBe("85 kg");
+    expect(document.querySelector(".k-train-plan")?.textContent).toBe("Planned 3 × 8 · 85 kg @7");
+    press(/^Set done/);
+    expect(view.state.doc.toString()).toContain("- 🏋 [[Kniebeuge]] 85 kg 8 @7\n");
   });
 
   it("finds an exercise by an alias", async () => {

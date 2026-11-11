@@ -3047,6 +3047,29 @@
         }
       }
     },
+    "/api/training/blocks": {
+      "get": {
+        "summary": "Read Blocks",
+        "description": "Every training block note outside the archive, by start: a note whose `type` says so.",
+        "operationId": "read_blocks_api_training_blocks_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TrainingBlock"
+                  },
+                  "type": "array",
+                  "title": "Response Read Blocks Api Training Blocks Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/food/search": {
       "get": {
         "summary": "Search Food",
@@ -17482,6 +17505,30 @@
         ],
         "title": "Totals",
         "description": "What a day adds up to. Every kind is always present, zero where nothing was logged.\n\nThe one exception is a last kind's `mine` total, which is null with no line that day."
+      },
+      "TrainingBlock": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "start": {
+            "type": "string",
+            "title": "Start"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "start",
+          "text"
+        ],
+        "title": "TrainingBlock",
+        "description": "One block note: its `start` as written and its whole text."
       },
       "TrainingDay": {
         "properties": {

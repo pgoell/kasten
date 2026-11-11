@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.periodic import DATE_PATTERN, date_range, day_sections
+from kasten_backend.training.blocks import TrainingBlock, blocks
 from kasten_backend.training.exercises import Exercise, exercises
 from kasten_backend.training.lines import TrainingEntry, parse_line
 
@@ -54,3 +55,9 @@ def read_training(
 async def read_exercises(settings: Annotated[Settings, Depends(get_settings)]) -> list[Exercise]:
     """Every exercise note outside the archive, by name: a note whose `kind` names an exercise."""
     return await asyncio.to_thread(exercises, settings.vault_path, settings.archive_path)
+
+
+@router.get("/api/training/blocks")
+async def read_blocks(settings: Annotated[Settings, Depends(get_settings)]) -> list[TrainingBlock]:
+    """Every training block note outside the archive, by start: a note whose `type` says so."""
+    return await asyncio.to_thread(blocks, settings.vault_path, settings.archive_path)

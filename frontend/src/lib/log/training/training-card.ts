@@ -6,7 +6,7 @@
 import { type EditorState, type Extension, StateField } from "@codemirror/state";
 import { Decoration, type DecorationSet, EditorView, WidgetType } from "@codemirror/view";
 import { readClock } from "@/lib/core/clock";
-import { openSession } from "@/lib/log/training/session-screen";
+import { openSession } from "@/lib/log/training/session/screen";
 import { type TrainingEntry, trainingLines } from "@/lib/log/training/training-lines";
 import { cardLine } from "@/lib/notes/note/weather-card";
 import { dailyDate } from "@/lib/notes/text/periodic";

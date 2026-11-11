@@ -90,22 +90,33 @@ export function LiftTile({ lift, days, starts, onOpen }: LiftTileProps) {
   );
 }
 
-/** Cardio minutes per week stacked by kind, against the weekly target. */
-export function CardioTile({ weeks }: { weeks: CardioWeek[] }) {
+/**
+ * Cardio minutes per week stacked by kind, against each week's target: the block's where a block
+ * holds the week, else the default.
+ */
+export function CardioTile({
+  weeks,
+  targets,
+}: {
+  weeks: CardioWeek[];
+  targets: (number | null)[];
+}) {
   const latest = cardioTotal(weeks.at(-1));
-  const met = weeks.filter((week) => cardioTotal(week) >= CARDIO_TARGET).length;
+  const goal = (at: number) => targets[at] ?? CARDIO_TARGET;
+  const met = weeks.filter((week, at) => cardioTotal(week) >= goal(at)).length;
+  const now = goal(weeks.length - 1);
   return (
     <Tile
       title="Cardio"
       figure={`${grouped(latest)} min`}
-      words={`this week, target ${grouped(CARDIO_TARGET)} min`}
+      words={`this week, target ${grouped(now)} min`}
       chart={
         <>
           <StackedBars
             slots={weeks.map((week) =>
               CARDIO_PARTS.map((part) => ({ amount: week[part.kind], className: part.className })),
             )}
-            goal={CARDIO_TARGET}
+            goal={now}
             label={`cardio minutes per week over ${weeks.length} weeks, target met in ${met}`}
           />
           <ul className="log-macro-labels">

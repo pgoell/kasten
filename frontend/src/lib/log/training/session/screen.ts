@@ -7,6 +7,13 @@ import { isolateHistory } from "@codemirror/commands";
 import type { EditorView } from "@codemirror/view";
 import { Awake, ring } from "@/lib/core/awake";
 import {
+  type DayPlan,
+  planOn,
+  type Target,
+  targetLabel,
+} from "@/lib/log/training/block/block-note";
+import { blockOn, fetchBlocks } from "@/lib/log/training/block/blocks";
+import {
   type Exercise,
   fetchEarlier,
   fetchExercises,
@@ -17,14 +24,20 @@ import {
 } from "@/lib/log/training/exercises";
 import {
   cardioEdit,
+  type DoneSet,
   dayLabel,
   heldEdit,
   setEdit,
   setLabel,
   setsOf,
-} from "@/lib/log/training/session-lines";
-import { button, choiceRow, clock, element, stepperRow } from "@/lib/log/training/session-parts";
-import { CARDIO_MARK, type CardioKind, trainingLines } from "@/lib/log/training/training-lines";
+} from "@/lib/log/training/session/lines";
+import { button, choiceRow, clock, element, stepperRow } from "@/lib/log/training/session/parts";
+import {
+  CARDIO_MARK,
+  type CardioKind,
+  type TrainingEntry,
+  trainingLines,
+} from "@/lib/log/training/training-lines";
 import type { Edit } from "@/lib/notes/text/note-section";
 
 export const REST_SECONDS = 120;
@@ -42,6 +55,41 @@ const CARDIO = (Object.keys(CARDIO_MARK) as CardioKind[]).map((value) => ({
   ...SHORTCUTS[value],
 }));
 
+/** The form's weight, reps, time and RPE for an exercise: today's last set, the plan, last time. */
+function filled(
+  exercise: Exercise,
+  done: DoneSet | undefined,
+  target: Target | undefined,
+  earlier: { entries: TrainingEntry[] } | null,
+): Pick<Form, "kg" | "reps" | "seconds" | "rpe"> {
+  const last = earlier?.entries.at(-1);
+  const kg = done?.kg ?? target?.kg ?? last?.kg ?? null;
+  const reps = target?.held ? undefined : target?.reps;
+  const seconds = target?.held ? target.reps : undefined;
+  const rpe = target?.rpe == null ? null : Math.round(target.rpe);
+  return {
+    kg: exercise.counts === "weight-reps" ? (kg ?? 20) : null,
+    reps: done?.reps ?? reps ?? last?.reps?.[0] ?? 8,
+    seconds: done?.seconds ?? seconds ?? last?.seconds ?? 45,
+    rpe: RPES.some((choice) => choice.value === rpe) ? rpe : null,
+  };
+}
+
+/** An exercise the block plans that has no note yet, so the screen can still log it. */
+function plannedExercise(target: Target): Exercise {
+  const counts = target.held ? "time" : target.bodyweight ? "reps" : "weight-reps";
+  return {
+    path: "",
+    name: target.exercise,
+    kind: "strength",
+    counts,
+    aliases: [],
+    muscles_primary: [],
+    muscles_secondary: [],
+    equipment: [],
+  };
+}
+
 interface Form {
   kg: number | null;
   reps: number;
@@ -58,6 +106,7 @@ export function openSession(view: EditorView, day: string): () => void {
   let exercises: Exercise[] | null = null;
   let earlier: TrainingDay[] = [];
   let failed: string | null = null;
+  let plan: (DayPlan & { weeks: number }) | null = null;
   let current: Exercise | null = null;
   let query = "";
   const worked: string[] = [];
@@ -117,15 +166,16 @@ export function openSession(view: EditorView, day: string): () => void {
     current = exercise;
     if (!worked.includes(exercise.name)) worked.push(exercise.name);
     const done = setsOf(text(), exercise.name).at(-1);
-    const last = lastTime(earlier, exercise.name)?.entries.at(-1);
-    const kg = done?.kg ?? last?.kg ?? null;
-    form.kg = exercise.counts === "weight-reps" ? (kg ?? 20) : null;
-    form.reps = done?.reps ?? last?.reps?.[0] ?? 8;
-    form.seconds = done?.seconds ?? last?.seconds ?? 45;
-    form.rpe = null;
+    // The block's target fills the form until a set today says otherwise.
+    const target = done === undefined ? plannedOf(exercise.name) : undefined;
+    Object.assign(form, filled(exercise, done, target, lastTime(earlier, exercise.name)));
     const cardio = CARDIO.find((c) => c.note === exercise.name);
     if (cardio !== undefined) form.cardio = cardio.value;
     paint();
+  }
+
+  function plannedOf(name: string): Target | undefined {
+    return plan?.targets.find((target) => target.exercise === name);
   }
 
   function pick(): void {
@@ -204,6 +254,10 @@ export function openSession(view: EditorView, day: string): () => void {
     if (query.trim() === "") {
       const named = (names: string[]) =>
         names.flatMap((name) => byName.get(name) ?? []).slice(0, LISTED);
+      if (plan !== null && plan.letter !== null && plan.targets.length > 0) {
+        const title = `Session ${plan.letter} · week ${plan.week + 1} of ${plan.weeks}${plan.deload ? " · deload" : ""}`;
+        lists.push([title, plan.targets.map((t) => byName.get(t.exercise) ?? plannedExercise(t))]);
+      }
       lists.push(["Today", named(today)], ["Recent", named(recentNames(earlier))]);
     }
     const found = usable.filter((e) => matches(e, query));
@@ -215,9 +269,12 @@ export function openSession(view: EditorView, day: string): () => void {
         section.append(element("h2", "k-train-where", title));
         for (const exercise of list) {
           const item = button("k-train-item", "", () => start(exercise));
+          const target = plannedOf(exercise.name);
+          const meta =
+            target === undefined ? exercise.muscles_primary.join(", ") : targetLabel(target);
           item.append(
             element("span", "k-train-item-name", exercise.name),
-            element("span", "k-train-item-meta", exercise.muscles_primary.join(", ")),
+            element("span", "k-train-item-meta", meta),
           );
           section.append(item);
         }
@@ -376,12 +433,20 @@ export function openSession(view: EditorView, day: string): () => void {
       last === null ? "" : `Last time ${dayLabel(last.entries)}`,
     );
     lastLine.hidden = last === null;
+    const target = plannedOf(exercise.name);
+    const plannedLine = element(
+      "p",
+      "k-train-last k-train-plan",
+      target === undefined ? "" : `Planned ${targetLabel(target)}`,
+    );
+    plannedLine.hidden = target === undefined;
     const where = `Exercise ${worked.indexOf(exercise.name) + 1} · set ${sets.length + 1}`;
     body.replaceChildren(
       element("p", "k-train-where", where),
       element("h1", "k-train-title", exercise.name),
       panel,
       list,
+      plannedLine,
       lastLine,
       button("k-train-done", `Set done, rest ${clock(REST_SECONDS)}`, setDone),
       button("k-train-skip", sets.length === 0 ? "Skip exercise" : "Next exercise", pick),
@@ -435,6 +500,19 @@ export function openSession(view: EditorView, day: string): () => void {
       if (!(error instanceof Error)) throw error;
       failed = `Could not load the exercises: ${error.message}`;
       if (current === null && root.isConnected) paint();
+    },
+  );
+
+  // A block is a help, not a need: without one, or when it fails to load, the screen works as ever.
+  fetchBlocks().then(
+    (blocks) => {
+      const held = blockOn(blocks, day);
+      const today = held === null ? null : planOn(held.block, day);
+      plan = held === null || today === null ? null : { ...today, weeks: held.block.weeks.length };
+      if (current === null && root.isConnected) paint();
+    },
+    (error: unknown) => {
+      if (!(error instanceof Error)) throw error;
     },
   );
 
