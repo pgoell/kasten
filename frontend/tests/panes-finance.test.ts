@@ -26,8 +26,11 @@ describe("the finance pane in a pane", () => {
   });
 });
 
-it("#1718 the training pane fills the whole pane, and a chat pane does not", () => {
-  expect(isWholePane({ id: "p", training: true })).toBe(true);
-  expect(isWholePane({ id: "p", chat: true })).toBe(false);
-  expect(isWholePane({ id: "p", path: "a.md" })).toBe(false);
+describe("a pane that fills the whole pane", () => {
+  it("#1718 is the training pane, not a chat pane, a note or a kind set to false", () => {
+    expect(isWholePane({ id: "p", training: true })).toBe(true);
+    expect(isWholePane({ id: "p", chat: true })).toBe(false);
+    expect(isWholePane({ id: "p", path: "a.md" })).toBe(false);
+    expect(isWholePane({ id: "p", training: false })).toBe(false);
+  });
 });

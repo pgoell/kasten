@@ -403,7 +403,6 @@ export function PaneBody({
 
 /** Whether a pane holds one of the kinds that fill the whole pane. */
 export function isWholePane(pane: Pane): boolean {
-  return (Object.keys(PANE_KINDS) as KindField[]).some(
-    (kind) => PANE_KINDS[kind].whole === true && pane[kind] !== undefined,
-  );
+  const kind = heldKind(pane);
+  return kind !== undefined && PANE_KINDS[kind].whole === true;
 }
