@@ -12,7 +12,7 @@ kasten was built for a keyboard: every command is a key, and the frame assumes
 a wide screen. A phone has neither. What follows are the choices made to close
 that gap, each with the option it was picked over.
 [Editor keys](/reference/editor-keys/touch.md#touch) states what is there, and
-[Use kasten on a phone](/how-to/use-kasten-on-a-phone.md) is the recipe.
+[Use kasten on a phone](/how-to/phone/use-kasten-on-a-phone.md) is the recipe.
 
 ## Two questions, not one
 
@@ -170,7 +170,7 @@ A prompt that holds typed text ignores the tap. The gutter beside a prompt is
 
 kasten installs as one app. Its manifest names `/` as `id`, `start_url` and
 `scope`, and the capture page at `/capture` is a shortcut and a share target
-inside it. [Install kasten on your phone](/how-to/install-on-your-phone.md) has
+inside it. [Install kasten on your phone](/how-to/phone/install-on-your-phone.md) has
 the steps.
 
 Before that, the capture page was an app of its own, and the first plan was to

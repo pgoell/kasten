@@ -7,13 +7,13 @@ on its code.
 
 * [Add a database migration](add-a-database-migration.md): generate, review and apply an Alembic migration against the dev database
 * [Back up and restore](back-up-and-restore.md): the three things a self-hosted kasten holds, a nightly tar or a jj push, and the restore
-* [Capture from your phone](capture-from-your-phone.md): send a thought into today's dump from a phone, and share links and text into it from other apps on Android
+* [Capture from your phone](phone/capture-from-your-phone.md): send a thought into today's dump from a phone, and share links and text into it from other apps on Android
 * [Connect an agent](connect-an-agent.md): mint and revoke a token, then connect Claude Code, codex, Claude Desktop, claude.ai, chatgpt.com, another MCP client or curl, or install the skill where MCP is off
 * [Cut a release](cut-a-release.md): run `mise run release` on a clean `main` or a worktree at `origin/main`, which picks the version from the commits and publishes it, then watch it deploy
 * [Deploy to the VPS](deploy-to-the-vps.md): the maintainer's own deployment, as a worked example: bootstrap dev and prod on the box, on amd64 or arm64, deploy day to day, open the chat route, and prove the shell is still behind its gate
 * [Import from Firefly III](import-from-firefly-iii.md): a one-off, bring Firefly III's history into kasten once from a one-shot container, count first with a dry run, and check a second run changes nothing
 * [Import an Anki deck](import-an-anki-deck.md): turn an .apkg export into markdown notes, and know what does not survive the trip
-* [Install kasten on your phone](install-on-your-phone.md): put kasten on a phone's home screen, reach the capture page from its icon, replace the capture app an earlier release installed, get todo reminders pushed to it, set a timer that rings on it, and get reminded to drink water through the day
+* [Install kasten on your phone](phone/install-on-your-phone.md): put kasten on a phone's home screen, reach the capture page from its icon, replace the capture app an earlier release installed, get todo reminders pushed to it, set a timer that rings on it, and get reminded to drink water through the day
 * [Read the finance overview](read-the-finance-overview.md): free to spend for mine and household and what makes it, what to watch, the month's pace, where its money went, drill down into a scope, account, category, payee or booking, read a quarter or a year against a year before, pull from the bank now, set or change a limit, take a suggested one, set every limit at once, and find a booking
 * [Plan costs and goals](plan-costs-and-goals.md): confirm plans proposed from history, add and change a plan, keep a note per contract with a todo before its cancel-by date, see what is due this month and what met it, set a saving goal and assign money to it each month
 * [Sort finance transactions](sort-finance-transactions.md): open the finance pane on the bookings still to sort, sort one with a key or a tap, and send every booking of a payee to one category
@@ -36,7 +36,7 @@ on its code.
 * [Run a skill from the chat pane](run-a-skill-from-the-chat-pane.md): open the chat pane, start `/close-day`, `/process-meeting` or `/meal-planner`, answer a question, read a tool call, stop a run and start a new session, at a desk and on a phone
 * [Troubleshoot a self-hosted kasten](troubleshoot-self-hosting.md): why the stack will not start, get a certificate, let you in, save a note, open a terminal or connect the chat pane
 * [Upgrade kasten](upgrade-kasten.md): move to a new release, pinned or on latest, check it, and roll back
-* [Use kasten on a phone](use-kasten-on-a-phone.md): open the file tree, find a note, run a command, turn vim on, move between the panes of a split, tick a todo, settle a note that changed on disk, type in a terminal and close a panel, by touch
+* [Use kasten on a phone](phone/use-kasten-on-a-phone.md): open the file tree, find a note, run a command, turn vim on, move between the panes of a split, tick a todo, settle a note that changed on disk, type in a terminal and close a panel, by touch
 * [Write a practice exam](write-a-practice-exam.md): put a set of questions in the vault so kasten can ask them one at a time and score the sitting
 
 Why the two environments are built in opposite ways is

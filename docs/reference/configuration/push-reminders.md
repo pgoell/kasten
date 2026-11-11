@@ -40,5 +40,5 @@ reminder's **Done** stamps and **Tomorrow** moves to.
 
 ## Related
 
-* [Get reminders on your phone](/how-to/install-on-your-phone.md#get-reminders-on-this-device): subscribe a device
+* [Get reminders on your phone](/how-to/phone/install-on-your-phone.md#get-reminders-on-this-device): subscribe a device
 * [HTTP API: todos](/reference/http-api/todos.md#get-apipush): the push routes

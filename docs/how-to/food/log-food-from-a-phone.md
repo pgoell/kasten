@@ -9,8 +9,8 @@ status: stable
 # Log food from a phone
 
 You have kasten open on a phone, or installed from
-[Install kasten on your phone](/how-to/install-on-your-phone.md), and you want
-to log a packaged food by its barcode. [Use kasten on a phone](/how-to/use-kasten-on-a-phone.md)
+[Install kasten on your phone](/how-to/phone/install-on-your-phone.md), and you want
+to log a packaged food by its barcode. [Use kasten on a phone](/how-to/phone/use-kasten-on-a-phone.md)
 explains the row of buttons along the bottom edge.
 
 ## Scan a barcode and log the food
