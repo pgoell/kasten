@@ -399,7 +399,10 @@ export function openSession(view: EditorView, day: string): () => void {
 
   /** Tab and Shift+Tab go round the screen's controls, never out to the note behind. */
   function trap(event: KeyboardEvent): void {
-    const controls = [...root.querySelectorAll<HTMLElement>("button, input")];
+    // The rest bar stays in the page while hidden, and a hidden button cannot take focus.
+    const controls = [...root.querySelectorAll<HTMLElement>("button, input")].filter(
+      (control) => control.closest("[hidden]") === null,
+    );
     const at = document.activeElement;
     const inside = at instanceof HTMLElement && at !== root && root.contains(at);
     const edge = event.shiftKey ? controls[0] : controls.at(-1);

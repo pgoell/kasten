@@ -171,6 +171,8 @@ describe("the session screen", () => {
 
     key("Tab");
     expect(document.querySelector(".k-train")?.contains(document.activeElement)).toBe(true);
+    key("Tab", true);
+    expect(document.activeElement?.textContent).toBe("Skip exercise");
     key("Escape");
     expect(document.querySelector(".k-train-title")?.textContent).toBe("Pick an exercise");
     key("Escape");
