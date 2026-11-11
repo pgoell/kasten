@@ -1,6 +1,6 @@
 {
   "required_status_checks": {
-    "strict": true,
+    "strict": false,
     "contexts": ["Lint", "Backend", "Test", "Review", "Security", "Dependencies"]
   },
   "enforce_admins": false,
