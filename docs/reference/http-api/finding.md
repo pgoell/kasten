@@ -353,8 +353,8 @@ read the way `GET /api/tags` reads them, by the
 [tag rule](/reference/tag-format.md). The prod vault, 312 notes and 1,181
 edges, answers in about 50ms.
 
-`archive` defaults to false for the reason it does on a search. A link from a
-live note to an archived one is then dropped rather than drawn as a note nobody
+`archive` defaults to false: a finished project's links are true of the note
+and not of the vault as it is now. A link from a live note to an archived one is then dropped rather than drawn as a note nobody
 wrote.
 
 A query it cannot read is a `400` whose `detail` says why, in words the pane

@@ -138,9 +138,9 @@ finally came from.
 { "url": "https://example.com/2025/post", "html": "<!doctype html>…" }
 ```
 
-One of three endpoints that go outside the machine, beside
+One of the endpoints that go outside the machine, as
 `GET /api/transcripts/{video_id}` (YouTube alone) and `GET /api/weather`
-(Open-Meteo alone). It writes nothing: turning the markup into a note is
+(Open-Meteo alone) do. It writes nothing: turning the markup into a note is
 [defuddle](https://github.com/kepano/defuddle) running in the browser, and the
 note is made through `POST /api/files/{path}` like any other.
 
