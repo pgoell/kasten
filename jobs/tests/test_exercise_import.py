@@ -159,6 +159,8 @@ class Vault:
             return httpx.Response(200, json={"results": [BENCH], "next": None})
         if str(request.url) == FREE_DB:
             return httpx.Response(200, json=[FREE_BENCH])
+        if request.method == "GET":
+            return httpx.Response(200, json=sorted(self.notes))
         self.posts += 1
         path = request.url.path.removeprefix("/api/files/")
         if path in self.notes:
@@ -186,3 +188,14 @@ def test_a_second_run_writes_nothing_and_a_note_there_is_never_overwritten() -> 
     assert len(made) == len(exercises)
     assert vault.notes == made
     assert f"{folder}/Mobilität/Wadendehnung an der Wand.md" in made
+
+
+def test_a_note_moved_to_another_folder_is_not_made_again() -> None:
+    folder = "03 Areas/11 Fitness/Übungen"
+    moved = f"{folder}/Kraft/Sonstige/bankdrücken lh.md"
+    vault = Vault({moved: "my own words"})
+    with vault.client() as client:
+        run(KastenApi(client), folder, gather(client), dry_run=False)
+
+    assert not any(p.endswith("/Bankdrücken LH.md") for p in vault.notes)
+    assert vault.notes[moved] == "my own words"

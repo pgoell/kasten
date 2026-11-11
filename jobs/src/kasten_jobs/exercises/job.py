@@ -1,6 +1,6 @@
 """The command: gather the exercises, give each a free name, and create the notes kasten lacks.
 
-A note already at a path is left as it is, so a second run writes nothing.
+A note of the same name anywhere under the folder is left as it is, so a second run writes nothing.
 """
 
 import argparse
@@ -69,10 +69,16 @@ def named(exercises: list[Exercise]) -> list[tuple[str, Exercise]]:
 def run(api: KastenApi, root: str, exercises: list[Exercise], *, dry_run: bool) -> int:
     """Create every note not there yet, and answer 1 when kasten refused one."""
     created = existing = failed = 0
+    # By name in any folder: a note moved by hand, or refiled by changed source data, stays one.
+    paths = [] if dry_run else api.files()
+    there = {p.rsplit("/", 1)[-1].lower() for p in paths if p.startswith(f"{root}/")}
     for name, exercise in named(exercises):
         path = f"{root}/{folder(exercise)}/{name}.md"
         if dry_run:
             sys.stdout.write(f"{path}\n")
+            continue
+        if f"{name}.md".lower() in there:
+            existing += 1
             continue
         try:
             made = api.create_note(path, render(exercise))

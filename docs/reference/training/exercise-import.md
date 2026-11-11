@@ -149,8 +149,12 @@ same way each run. A name loses `* ? " < > # ^ [ ]`, and `/ \ | :` become
 ignoring case, takes its English name in brackets, `Bankdrücken LH (Barbell
 Bench Press)`; one that clashes even so is skipped and logged.
 
-Each note is a create, and kasten answers a create at a path that holds a note
-with `409` and leaves that note alone. So a note you have edited, or one of the
+Before it writes, the job lists the vault and skips every name a note under
+`EXERCISE_FOLDER` already has, ignoring case and folder, so a note you moved
+to another subfolder, or one a change in the source data would file elsewhere,
+stays the only one of its name. Each remaining note is a create, and kasten
+answers a create at a path that holds a note with `409` and leaves that note
+alone. So a note you have edited, or one of the
 test notes, is never overwritten, and with the same source data a second run
-creates nothing. A note you rename, delete or move out of its folder comes back
-on the next run.
+creates nothing. A note you rename, or delete, or move out of
+`EXERCISE_FOLDER`, comes back on the next run.

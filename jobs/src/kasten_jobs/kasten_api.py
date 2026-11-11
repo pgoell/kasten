@@ -171,6 +171,10 @@ class KastenApi:
         """`PUT /api/finance/receipts/{id}/reading`: what the reader found, or why nothing."""
         self._json(self.client.put(f"/api/finance/receipts/{receipt_id}/reading", json=reading))
 
+    def files(self) -> list[str]:
+        """`GET /api/files`: every note's path in the vault, sorted."""
+        return self._json(self.client.get("/api/files"))
+
     def create_note(self, path: str, content: str) -> bool:
         """`POST /api/files/{path}`: True when made, False when a note is there; it stays."""
         response = self.client.post(f"/api/files/{quote(path)}", json={"content": content})
