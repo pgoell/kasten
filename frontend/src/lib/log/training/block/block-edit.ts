@@ -104,12 +104,15 @@ const WEIGHT = /(?<![+\d.,])\d+(?:[.,]\d+)?\s*kg/iu;
 
 /** The line with its weight set to `kg`, all else as written, links and aliases included. */
 export function withWeight(line: string, p: Prescription, kg: number | null): string {
-  if (p.bodyweight || kg === null) return line;
+  const link = linkOf(line);
+  if (p.bodyweight || kg === null || link === null) return line;
   const weight = `${written(kg)} kg`;
-  // A `+2.5 kg` step is no weight, so it is kept out of the search.
-  const step = /\+\s*\d+(?:[.,]\d+)?\s*kg/iu.exec(line);
-  const from = step === null ? 0 : step.index + step[0].length;
-  const found = WEIGHT.exec(line.slice(from));
+  // Only after the link, as the parser reads, and a `+2.5 kg` step blanked out where it stands.
+  const from = line.length - link.rest.length;
+  const masked = link.rest.replace(/\+\s*\d+(?:[.,]\d+)?\s*kg/iu, (step) =>
+    " ".repeat(step.length),
+  );
+  const found = WEIGHT.exec(masked);
   if (found === null) return `${line.trimEnd()}, ${weight}`;
   const at = from + found.index;
   return line.slice(0, at) + weight + line.slice(at + found[0].length);
