@@ -281,8 +281,7 @@ async def test_1055_read_gives_every_case_the_editors_words(
     } == {case["id"]: unblocked.sub("", case["text"]) for case in CASES}
 
 
-# The issue's line: a field value, 40,000 blanks, then a word. Main reads the blank run again
-# from every blank, 32 s to 43 s here; the branch takes a few ms.
+# A field value, 40,000 blanks, then a word: linear time (#1889).
 _LONG = "a" + " " * 40_000 + "x"
 
 
@@ -303,14 +302,14 @@ def test_1889_a_field_value_before_a_long_blank_run_reads_in_linear_time(call: s
     subprocess.run([sys.executable, "-c", code], check=True, timeout=10)  # noqa: S603
 
 
-# Guards, green on main too: the fix moves no match on a normal line.
+# The fix moves no match on a normal line.
 @pytest.mark.parametrize(
     ("pattern", "line", "found"),
     [
         ("RECURRENCE", "🔁 every week 📅 2026-01-02", ("🔁 every week", ("every week",))),
         ("RECURRENCE", "🔁 every week \t", ("🔁 every week", ("every week",))),
         ("RECURRENCE", "🔁\tevery\tweek\t#t", ("🔁\tevery\tweek", ("every\tweek",))),
-        # A value of blanks alone, as main reads it: the last blank, at a cut or the line end.
+        # A value of blanks alone reads as the last blank, at a cut or the line end.
         ("RECURRENCE", "🔁   ", ("🔁   ", (" ",))),
         ("RECURRENCE", "🔁 \t\n", ("🔁 \t", ("\t",))),
         ("RECURRENCE", "🔁 \n", None),

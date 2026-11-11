@@ -197,7 +197,7 @@ describe("parseTodo", () => {
 });
 
 describe("#1889 a field value before a long run of blanks", () => {
-  // Main read each blank run again from every blank, about 3 s here; the branch takes a few ms.
+  // A field value, 40,000 blanks, then a word: linear time (#1889).
   const BLANKS = " ".repeat(40_000);
   const timed = (line: string) => {
     const start = performance.now();
@@ -217,12 +217,12 @@ describe("#1889 a field value before a long run of blanks", () => {
     expect(timed(`👤 a${BLANKS}x`)).toBeLessThan(1000);
   });
 
-  // Guards, green on main too: the fix moves no value on a normal line.
+  // The fix moves no value on a normal line.
   it.each([
     ["🔁 every week 📅 2026-01-02", { recurrence: "every week", due: "2026-01-02" }],
     ["🔁 every week \t", { recurrence: "every week" }],
     ["🔁\tevery\tweek\t#t", { recurrence: "every\tweek" }],
-    // A value of blanks alone, as main reads it: one blank, kept as it was.
+    // A value of blanks alone reads as one blank.
     ["🔁   ", { recurrence: " " }],
     ["🔁  📅 2026-01-02", { recurrence: " ", due: "2026-01-02" }],
     ["👤 2026-01-01 [[Ada]] 📅 2026-01-02", { waitingSince: "2026-01-01", waitingOn: "[[Ada]]" }],
