@@ -6,10 +6,10 @@ import { CommandPalette } from "@/components/command-palette";
 import { DumpPrompt } from "@/components/dump-prompt";
 import { NoteFinder } from "@/components/finder/note-finder";
 import { KeyHelp } from "@/components/key-help";
-import { NotePrompt } from "@/components/note-prompt";
-import { NoteSearch } from "@/components/note-search";
-import { TerminalPrompt } from "@/components/terminal-prompt";
-import { TodoPrompt } from "@/components/todo-prompt";
+import { NotePrompt } from "@/components/note/note-prompt";
+import { NoteSearch } from "@/components/note/note-search";
+import { TerminalPrompt } from "@/components/terminal/terminal-prompt";
+import { TodoPrompt } from "@/components/todo/todo-prompt";
 
 vi.mock("@/lib/core/api", () => ({
   fetchNote: vi.fn().mockResolvedValue(""),

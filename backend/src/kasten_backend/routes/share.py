@@ -4,16 +4,17 @@ What a list is and how an edit lands is in `kasten_backend/share/`.
 """
 
 import asyncio
-from datetime import date  # noqa: TC003  pydantic reads the annotation at runtime
+from datetime import date
 from typing import TYPE_CHECKING, Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from kasten_backend import share, vcs
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.events import KEEPALIVE, format_retry, format_sse, watch_vault
+from kasten_backend.food import plan
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -231,6 +232,21 @@ async def clear_done(
 ) -> share.Checklist:
     """Remove every ticked item from a list, and nothing else."""
     return await _answer(settings, await share.clear(settings, name, body.sha))
+
+
+@router.get("/meals")
+async def read_meals(
+    settings: Annotated[Settings, Depends(get_settings)],
+    today: Annotated[date | None, Query()] = None,
+) -> list[plan.SharedDay]:
+    """The week plans' meals from `today`, the device's date, through the six days after it."""
+    return await asyncio.to_thread(
+        plan.upcoming,
+        settings.vault_path,
+        settings.share_folder,
+        share.names(settings),
+        today or date.today(),
+    )
 
 
 @router.get("/events")

@@ -2,7 +2,7 @@ import { EditorView } from "@codemirror/view";
 import { act, fireEvent, render } from "@testing-library/react";
 import { useState } from "react";
 import { Editor } from "@/components/editor";
-import { Outline as OutlineRows } from "@/components/note-margins";
+import { Outline as OutlineRows } from "@/components/note/note-margins";
 import type { Outline } from "@/lib/notes/note/note-head";
 
 const PATH = "02 Projects/Kasten/Reader.md";

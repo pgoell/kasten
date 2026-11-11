@@ -1633,6 +1633,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/recipes/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Recipe
+         * @description Write a recipe note from a page's schema.org data, or from a schema.org Recipe.
+         *
+         *     A page is fetched once plainly, and once more as a browser when a bot wall answers. Either
+         *     way the note keeps where it came from as `source`. A name already taken gets a number.
+         */
+        post: operations["import_recipe_api_recipes_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/meal-plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read Meal Plan
+         * @description The week's meals, each batch with what is left, training days and their protein.
+         *
+         *     Protein counts one serving of each recipe a meal names; meals with no recipe add nothing.
+         */
+        post: operations["read_meal_plan_api_meal_plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/meal-plan/shopping": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write Shopping
+         * @description Write the ingredients of the week's cooked batches into the shared `Einkauf.md`.
+         *
+         *     A food already on an open line for the same recipe is skipped, so a second press adds
+         *     nothing. The list is read and written with its digest, so an edit in between answers 409.
+         */
+        post: operations["write_shopping_api_meal_plan_shopping_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/anki": {
         parameters: {
             query?: never;
@@ -3269,6 +3337,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/share/meals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Meals
+         * @description The week plans' meals from `today`, the device's date, through the six days after it.
+         */
+        get: operations["read_meals_share_meals_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/share/events": {
         parameters: {
             query?: never;
@@ -4055,6 +4143,37 @@ export interface components {
             money_in: string;
             /** Money Out */
             money_out: string;
+        };
+        /**
+         * Batch
+         * @description A dish cooked once and eaten over several meals, as a band down the days.
+         */
+        Batch: {
+            /** Recipe */
+            recipe: string;
+            /** Path */
+            path: string | null;
+            /** Day */
+            day: number | null;
+            /** Slot */
+            slot: ("lunch" | "dinner") | null;
+            /** Servings */
+            servings: number | null;
+            /** First Day */
+            first_day: number;
+            /** Eaten */
+            eaten: number;
+            /** Left */
+            left: number | null;
+            /** Last Day */
+            last_day: number;
+            /** Cook */
+            cook: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "cooked" | "earlier";
         };
         /** Body_share_api_finance_receipts_share_post */
         Body_share_api_finance_receipts_share_post: {
@@ -5177,6 +5296,16 @@ export interface components {
             code: number;
         };
         /**
+         * ImportedNote
+         * @description The recipe note an import wrote.
+         */
+        ImportedNote: {
+            /** Path */
+            path: string;
+            /** Title */
+            title: string;
+        };
+        /**
          * Ingested
          * @description What a batch of bookings did: new rows, rows already there, and transfers paired.
          */
@@ -5527,6 +5656,25 @@ export interface components {
             people: string[];
             /** Home */
             home?: string | null;
+        };
+        /**
+         * MealPlan
+         * @description The week as the view draws it.
+         */
+        MealPlan: {
+            /** Week */
+            week: string | null;
+            /** Fridge Days */
+            fridge_days: number;
+            /** Days */
+            days: components["schemas"]["PlanDay"][];
+            /** Meals */
+            meals: components["schemas"]["PlannedMeal"][];
+            /** Batches */
+            batches: components["schemas"]["Batch"][];
+            protein_goal: components["schemas"]["ProteinGoal"] | null;
+            /** Ingredients */
+            ingredients: number;
         };
         /**
          * Meaning
@@ -5905,6 +6053,20 @@ export interface components {
             every_months: number | null;
         };
         /**
+         * PlanDay
+         * @description One day of the week: its date, whether it is a training day, and the plan's protein.
+         */
+        PlanDay: {
+            /** Day */
+            day: number;
+            /** Date */
+            date: string | null;
+            /** Training */
+            training: boolean;
+            /** Protein */
+            protein: number | null;
+        };
+        /**
          * PlanIn
          * @description A plan: a payee or a text to match, an amount give or take, a schedule, a category.
          *
@@ -5989,6 +6151,50 @@ export interface components {
             confirmed: string;
         };
         /**
+         * PlanText
+         * @description A week plan note as the editor holds it.
+         */
+        PlanText: {
+            /** Text */
+            text: string;
+        };
+        /**
+         * PlannedMeal
+         * @description One meal of the week, with the recipe note it names and the batch it eats from.
+         */
+        PlannedMeal: {
+            /** Line */
+            line: number;
+            /** Day */
+            day: number;
+            /**
+             * Slot
+             * @enum {string}
+             */
+            slot: "lunch" | "dinner";
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "cook" | "from" | "other";
+            /** Text */
+            text: string;
+            /** Recipe */
+            recipe: string | null;
+            /** Path */
+            path: string | null;
+            /** Servings */
+            servings: number | null;
+            /** Cook */
+            cook: string | null;
+            /** Batch */
+            batch: number | null;
+            /** Fridge Day */
+            fridge_day: number | null;
+            /** Freeze */
+            freeze: boolean;
+        };
+        /**
          * Post
          * @description One post with its body: markdown, the block and a leading `# title` taken off.
          */
@@ -6066,6 +6272,16 @@ export interface components {
              * Format: date
              */
             last: string;
+        };
+        /**
+         * ProteinGoal
+         * @description The daily protein goal of the log's config note.
+         */
+        ProteinGoal: {
+            /** Type */
+            type: string;
+            /** Value */
+            value: number;
         };
         /**
          * PushHours
@@ -6291,6 +6507,20 @@ export interface components {
             servings: number | null;
             per_serving: components["schemas"]["Nutrients"] | null;
             total: components["schemas"]["Nutrients"];
+        };
+        /**
+         * RecipeImport
+         * @description A page to read a recipe from, or a schema.org Recipe already read, such as a caption's.
+         */
+        RecipeImport: {
+            /** Url */
+            url?: string | null;
+            /** Recipe */
+            recipe?: {
+                [key: string]: unknown;
+            } | null;
+            /** Source */
+            source?: string | null;
         };
         /**
          * RecipeText
@@ -6641,6 +6871,52 @@ export interface components {
             suggested: string;
             /** Categories */
             categories: components["schemas"]["SetupCategoryOut"][];
+        };
+        /**
+         * SharedDay
+         * @description A day that has a planned meal, its meals lunch first.
+         */
+        SharedDay: {
+            /** Date */
+            date: string;
+            /** Meals */
+            meals: components["schemas"]["SharedMeal"][];
+        };
+        /**
+         * SharedMeal
+         * @description One meal: the dish, whether it comes from a batch, how many it cooks, and who cooks.
+         */
+        SharedMeal: {
+            /**
+             * Slot
+             * @enum {string}
+             */
+            slot: "lunch" | "dinner";
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "cook" | "from" | "other";
+            /** Dish */
+            dish: string;
+            /** Servings */
+            servings: number | null;
+            /** Cook */
+            cook: string | null;
+        };
+        /**
+         * ShoppingWritten
+         * @description What `POST /api/meal-plan/shopping` did to the shopping list.
+         */
+        ShoppingWritten: {
+            /** Path */
+            path: string;
+            /** Added */
+            added: number;
+            /** Merged */
+            merged: number;
+            /** Skipped */
+            skipped: number;
         };
         /**
          * SimilarAnswer
@@ -9471,6 +9747,105 @@ export interface operations {
             };
         };
     };
+    import_recipe_api_recipes_import_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecipeImport"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportedNote"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_meal_plan_api_meal_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanText"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MealPlan"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    write_shopping_api_meal_plan_shopping_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanText"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShoppingWritten"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     import_anki_api_anki_post: {
         parameters: {
             query?: {
@@ -12291,6 +12666,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Checklist"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_meals_share_meals_get: {
+        parameters: {
+            query?: {
+                today?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SharedDay"][];
                 };
             };
             /** @description Validation Error */

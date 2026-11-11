@@ -82,7 +82,7 @@ function readsInto(lower: string, query: string): boolean {
 function landing(lower: string, nameAt: number, j: number, carry: number, left: number): number {
   const opens = j === 0 || lower.charCodeAt(j - 1) === SLASH ? 3 : 0;
   const named = j >= nameAt ? 2 : 0;
-  return 1 + opens + named + (left > carry ? left : carry);
+  return 1 + opens + named + Math.max(left, carry);
 }
 
 /** `next[j]`: best score of the query so far ending on `lower[j]`, NONE if it cannot end there. */

@@ -31,7 +31,7 @@ on its code.
 * [Run the bank sync](run-the-bank-sync.md): set up the bank sync on the server with its env file and FinTS state in `~/.config/kasten`, log in to each bank once, start it on systemd timers, ask for a pull now, and read the status
 * [Run the checks](run-the-checks.md): run the linters, tests and type checks, get past the comment checks, answer the CI review, approve a held pull request, and get past the two ways the git hooks go wrong
 * [Self-host kasten](self-host-kasten.md): run kasten on one machine of your own, amd64 or arm64, behind basic auth, oauth2-proxy or Tailscale
-* [Run a skill from the chat pane](run-a-skill-from-the-chat-pane.md): open the chat pane, start `/close-day` or `/process-meeting`, answer a question, read a tool call, stop a run and start a new session, at a desk and on a phone
+* [Run a skill from the chat pane](run-a-skill-from-the-chat-pane.md): open the chat pane, start `/close-day`, `/process-meeting` or `/meal-planner`, answer a question, read a tool call, stop a run and start a new session, at a desk and on a phone
 * [Troubleshoot a self-hosted kasten](troubleshoot-self-hosting.md): why the stack will not start, get a certificate, let you in, save a note, open a terminal or connect the chat pane
 * [Upgrade kasten](upgrade-kasten.md): move to a new release, pinned or on latest, check it, and roll back
 * [Use kasten on a phone](use-kasten-on-a-phone.md): open the file tree, find a note, run a command, turn vim on, move between the panes of a split, tick a todo, settle a note that changed on disk, type in a terminal and close a panel, by touch

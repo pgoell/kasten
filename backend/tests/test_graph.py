@@ -1,20 +1,20 @@
 """What `GET /api/graph` draws, and what its query language asks.
 
 Built from the vault on every request, so each test writes a few notes and
-reads the answer. The link and relation rules are the editor's, and the cases
-here are the ones `wikilink.test.ts` and `relation.test.ts` describe.
+reads the answer. The link and relation rules are the editor's, held to it by
+`relation-cases.json`, the list of lines `relation.test.ts` reads too (#1765).
 """
 
+import json
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from kasten_backend.graph import resolver
-from kasten_backend.links import link_path
+from kasten_backend.graph import RELATION, WIKILINK, resolver
+from kasten_backend.links import link_path, split_target
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from httpx import AsyncClient
 
 
@@ -248,3 +248,41 @@ def test_resolver_reads_a_file_link_as_that_file() -> None:
 
     assert resolve("report.html") == "report.html"
     assert resolve("plan.pdf") == "plan.pdf"
+
+
+def _trimmed(written: str) -> str:
+    # `split_target` is the graph's only trim; put back together, it compares to the editor's.
+    name, heading, alias = split_target(written)
+    return name + (f"#{heading}" if heading else "") + (f"|{alias}" if alias else "")
+
+
+CASES = json.loads(
+    (Path(__file__).parents[2] / "frontend/src/lib/notes/links/relation-cases.json").read_text(
+        encoding="utf-8"
+    )
+)
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        pytest.param(
+            case,
+            id=case["id"],
+            marks=[pytest.mark.xfail(strict=True, reason=f"#{case['departs']['backend']}")]
+            if "backend" in case.get("departs", {})
+            else [],
+        )
+        for case in CASES
+    ],
+)
+def test_reads_each_shared_case_as_the_editor_does(case: dict[str, Any]) -> None:
+    found = RELATION.match(case["line"])
+    target = _trimmed(found.group(2)) if found else ""
+    relation = {"name": found.group(1), "target": target} if found and target else None
+    links = [link for link in WIKILINK.findall(case["line"]) if _trimmed(link)]
+
+    assert {"relation": relation, "links": links} == {
+        "relation": case["relation"],
+        "links": case["links"],
+    }

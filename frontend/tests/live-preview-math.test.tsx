@@ -7,7 +7,7 @@ import { EditorSelection, EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { act, fireEvent, type RenderResult, render, waitFor } from "@testing-library/react";
 import { Editor } from "@/components/editor";
-import { NotePreview } from "@/components/note-preview";
+import { NotePreview } from "@/components/note/note-preview";
 import { loadKatex } from "@/lib/markdown/math";
 import { noteLanguage } from "@/lib/markdown/note-language";
 import { kastenTheme } from "@/lib/notes/editor/editor-theme";

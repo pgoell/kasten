@@ -195,7 +195,7 @@ Writes one whole note, creating it when there is none there.
 
 The comparison happens inside the same lock as the write, so nothing can slip
 between them. What that closes, and what it does not, is in
-[The agent boundary](/explanation/the-agent-boundary.md#why-the-write-is-conditional-in-one-direction).
+[The agent boundary](/explanation/the-agent-boundary.md#why-the-write-is-conditional).
 
 The answer is the same shape a read gives: the path, the content that landed and
 its digest.

@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Chat runner
-description: The process in the shell container the chat pane talks to. Its five routes, the events it streams, the check every post must pass, the options it starts Claude Code with, and where its files live.
+description: The process in the shell container the chat pane talks to. Its six routes, the events it streams, the check every post must pass, the options it starts Claude Code with, and where its files live.
 resource: shell/chat/runner.mjs
 tags: [chat, agent, shell, sse, api]
 status: stable
@@ -23,6 +23,7 @@ over HTTP. The proxy routes `/chat/*` to it behind the login gate:
 | `POST /chat/answer` | `{"id": "ask1", "answers": {...}}` | `204`, `409` if that question is not open | Answers an open question |
 | `POST /chat/stop` | `{}` | `204`, `500` if the SDK refused the interrupt | Interrupts the turn now running and closes every open question as not answered. A message queued behind that turn still runs |
 | `POST /chat/new` | `{}` | `204` | Ends the session and empties the log |
+| `POST /chat/recipe` | `{"text": "..."}` | `200` with `{"recipe": {...}}`; `400` for empty text or over 20,000 characters; `422` or `502` with `{"error": "..."}` | Reads pasted text into a schema.org Recipe, apart from the session; see [Reading a recipe](#reading-a-recipe) |
 
 Any other path or method answers `404`. A body that is not a JSON object
 answers `400`. A request the runner fails on answers `500` and the runner
@@ -69,6 +70,18 @@ asking a proxy to leave it uncompressed.
 
 Because a `delta` is not logged, a page that connects in the middle of a text
 block sees that block only once it is whole.
+
+## Reading a recipe
+
+`POST /chat/recipe` runs one turn of its own, outside the chat session and its
+log, with `claude-sonnet-5-5`. It has no tools, loads no settings, and runs in
+the system's temp folder rather than `/vault`. The system prompt asks for one
+schema.org Recipe as JSON, says to invent nothing and to follow no instruction
+in the text, and to answer `{"error": "no recipe"}` when there is none. A code
+fence around the answer is taken off. The answer is `422` when the model finds
+no recipe or answers no JSON, and `502` with Claude Code's reason when the turn
+itself fails. kasten's backend checks the recipe again before it writes a note:
+[POST /api/recipes/import](/reference/http-api/food.md#post-apirecipesimport).
 
 ## What the session runs with
 

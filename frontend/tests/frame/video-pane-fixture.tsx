@@ -19,7 +19,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
 import { flushSync } from "react-dom";
 import { vi } from "vitest";
-import { VideoPane } from "@/components/video-pane";
+import { VideoPane } from "@/components/video/video-pane";
 import { WhichKey } from "@/components/which-key";
 import { fetchNote, NoteMissing } from "@/lib/core/api";
 import { noteLanguage } from "@/lib/markdown/note-language";

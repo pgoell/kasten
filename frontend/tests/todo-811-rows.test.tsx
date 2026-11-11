@@ -1,8 +1,8 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { TodoLegend } from "@/components/todo-legend";
-import { TodoList } from "@/components/todo-list";
-import { TodoRow } from "@/components/todo-row";
-import { STATE_ORDER, TodoStateBox } from "@/components/todo-state-box";
+import { TodoLegend } from "@/components/todo/todo-legend";
+import { TodoList } from "@/components/todo/todo-list";
+import { TodoRow } from "@/components/todo/todo-row";
+import { STATE_ORDER, TodoStateBox } from "@/components/todo/todo-state-box";
 import type { TodoHit } from "@/lib/core/api";
 import { parseTodo, type Todo } from "@/lib/todo/todo";
 import { namedTodos } from "@/lib/todo/todo-view";

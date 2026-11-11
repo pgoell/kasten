@@ -136,8 +136,8 @@ const paneProps = vi.hoisted(() => ({
     onCycle: (hit: TodoHit, state?: TodoState, twins?: number[]) => void;
   } | null,
 }));
-vi.mock("@/components/todo-pane", async (importOriginal) => {
-  const real = await importOriginal<typeof import("@/components/todo-pane")>();
+vi.mock("@/components/todo/todo-pane", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/components/todo/todo-pane")>();
   function TodoPane(props: Parameters<typeof real.TodoPane>[0]) {
     paneProps.current = props;
     return <real.TodoPane {...props} />;

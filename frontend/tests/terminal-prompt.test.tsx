@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { TerminalPrompt } from "@/components/terminal-prompt";
+import { TerminalPrompt } from "@/components/terminal/terminal-prompt";
 import { PANEL, PANEL_NARROW } from "@/lib/ui/overlay-styles";
 
 const SESSIONS = ["agent-kasten", "notes", "scratch"];

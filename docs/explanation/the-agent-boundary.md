@@ -169,7 +169,7 @@ They only read, since a written skill is code the chat pane runs with every
 permission. [Skills read past the boundary](/explanation/the-agent-boundary/skills.md)
 has the rest.
 
-## Why the write is conditional in one direction
+## Why the write is conditional
 
 A save carries the digest of the note the caller read, and is refused when the
 note on disk is not that note. The comparison happens inside the same write lock
@@ -178,11 +178,13 @@ as the write, so nothing can slip between them.
 This closes the direction that matters. An agent cannot overwrite an edit you
 made in the browser between the agent's read and its write.
 
-It does not close the other direction, and the feature does not claim to.
-`PUT /api/files/{path}` stays unconditional, so the browser can still clobber an
-agent's edit from an editor buffer that is a save behind. That is unchanged from
-before this existed. Making the browser's save conditional too would change the
-editor's save path, which is a separate piece of work.
+The browser's save closes the other: the editor sends `base`, the hash of the
+text it read, on `PUT /api/files/{path}`, and a note changed since gets `409`
+([Notes](/reference/http-api/notes.md)).
+
+A file written from the shell container is allowed but unlocked, as
+is `jj` run there by hand: the vault lock spans the backend's processes, not
+the shell. The base hash on `PUT` catches that conflict.
 
 ## Where the tokens live
 

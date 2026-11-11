@@ -123,7 +123,7 @@ const outbox = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/capture/outbox", () => outbox);
 // xterm needs a canvas jsdom lacks; which session the pane holds is all these tests read.
-vi.mock("@/components/terminal-pane", () => ({
+vi.mock("@/components/terminal/terminal-pane", () => ({
   TerminalPane: ({ session }: { session: string }) => <div data-terminal={session} />,
 }));
 

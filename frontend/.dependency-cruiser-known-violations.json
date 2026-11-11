@@ -46,8 +46,8 @@
   {
     "type": "dependency",
     "from": "src/lib/review/periodic-review.ts",
-    "to": "src/components/review-block.tsx",
-    "unresolvedTo": "@/components/review-block",
+    "to": "src/components/review/review-block.tsx",
+    "unresolvedTo": "@/components/review/review-block",
     "dependencyTypes": ["undetermined", "import"],
     "rule": {
       "severity": "error",
@@ -57,8 +57,8 @@
   {
     "type": "dependency",
     "from": "src/lib/todo/use-todo-keys.ts",
-    "to": "src/components/todo-board.tsx",
-    "unresolvedTo": "@/components/todo-board",
+    "to": "src/components/todo/todo-board.tsx",
+    "unresolvedTo": "@/components/todo/todo-board",
     "dependencyTypes": ["undetermined", "import", "type-only"],
     "rule": {
       "severity": "error",
@@ -78,9 +78,9 @@
   },
   {
     "type": "cycle",
-    "from": "src/components/board-card.tsx",
-    "to": "src/components/todo-board.tsx",
-    "unresolvedTo": "@/components/todo-board",
+    "from": "src/components/todo/board-card.tsx",
+    "to": "src/components/todo/todo-board.tsx",
+    "unresolvedTo": "@/components/todo/todo-board",
     "dependencyTypes": ["undetermined", "import", "type-only"],
     "rule": {
       "severity": "error",
@@ -88,18 +88,18 @@
     },
     "cycle": [
       {
-        "name": "src/components/todo-board.tsx",
+        "name": "src/components/todo/todo-board.tsx",
         "dependencyTypes": ["undetermined", "import", "type-only"]
       },
       {
-        "name": "src/components/board-card.tsx",
+        "name": "src/components/todo/board-card.tsx",
         "dependencyTypes": ["undetermined", "import"]
       }
     ]
   },
   {
     "type": "cycle",
-    "from": "src/components/review-block.tsx",
+    "from": "src/components/review/review-block.tsx",
     "to": "src/components/week-review.tsx",
     "unresolvedTo": "@/components/week-review",
     "dependencyTypes": ["undetermined", "import"],
@@ -117,14 +117,14 @@
         "dependencyTypes": ["undetermined", "import", "type-only"]
       },
       {
-        "name": "src/components/review-block.tsx",
+        "name": "src/components/review/review-block.tsx",
         "dependencyTypes": ["undetermined", "import"]
       }
     ]
   },
   {
     "type": "cycle",
-    "from": "src/components/review-block.tsx",
+    "from": "src/components/review/review-block.tsx",
     "to": "src/lib/review/periodic-review.ts",
     "unresolvedTo": "@/lib/review/periodic-review",
     "dependencyTypes": ["undetermined", "import", "type-only"],
@@ -138,7 +138,7 @@
         "dependencyTypes": ["undetermined", "import", "type-only"]
       },
       {
-        "name": "src/components/review-block.tsx",
+        "name": "src/components/review/review-block.tsx",
         "dependencyTypes": ["undetermined", "import"]
       }
     ]
@@ -452,8 +452,8 @@
   {
     "type": "dependency",
     "from": "src/components/pane-body.tsx",
-    "to": "src/components/terminal-pane.tsx",
-    "unresolvedTo": "@/components/terminal-pane",
+    "to": "src/components/terminal/terminal-pane.tsx",
+    "unresolvedTo": "@/components/terminal/terminal-pane",
     "dependencyTypes": ["undetermined", "dynamic-import"],
     "rule": {
       "severity": "error",

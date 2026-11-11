@@ -80,10 +80,10 @@ Set it to a name no folder has and nothing is left out of anything.
 
 ## The vault's folders
 
-Six settings name the folders kasten files into or looks in. Each is a path
-from the vault root, and each default is the folder one vault already used.
-[`GET /api/layout`](/reference/http-api/finding.md#get-apilayout) serves them to the
-editor, and the startup notes and the agent instructions spell them as set.
+These name the folders kasten files into or looks in, each a path from the
+vault root. [`GET /api/layout`](/reference/http-api/finding.md#get-apilayout)
+serves all but the recipes folder; the startup notes and
+agent instructions spell them as set.
 
 | Setting | Default | What goes there |
 | --- | --- | --- |
@@ -94,10 +94,11 @@ editor, and the startup notes and the agent instructions spell them as set.
 | `KASTEN_ARCHIVE_PATH` | `98 Archive` | see [its own section](#kasten_archive_path) |
 | `KASTEN_SKILLS_PATH` | `.claude/skills` | the skills the agent's `list_skills`, `read_skill` and `GET /agent/skills` read, never write. A missing folder lists none |
 | `KASTEN_SHARE_FOLDER` | `05 Shared` | the [shared lists](/explanation/shared-lists.md), one note a list, and all the `/share/` routes reach |
+| `KASTEN_RECIPES_PATH` | `Rezepte` | an [imported recipe](/reference/http-api/food.md#post-apirecipesimport) |
 | `KASTEN_SHARE_PEOPLE` | `{}` | [who writes](/reference/http-api/shared-lists.md#who-is-writing) a shared list |
 
-Only the parent folders are settings. The subfolders under them keep their
-names, so one setting moves a whole group and the list stays short.
+Only the parent folders are settings: the subfolders keep their names, so one
+setting moves a group.
 
 The startup notes are written into `KASTEN_CONFIG_PATH` only when missing, so
 changing it on a running vault writes a fresh set in the new place and leaves
@@ -193,24 +194,23 @@ token holding a name, a creation date and a SHA-256 digest in lowercase hex.
 | Read by | every `/agent/` route, and `/api/tokens` |
 
 A relative path resolves against the working directory, the way
-`KASTEN_VAULT_PATH` does. Production names a file inside a mounted directory,
-the same path the image sets.
+`KASTEN_VAULT_PATH` does.
 
 Beside the vault and never inside it. A token in the vault would enter jj
 history for good and sit one search away from any agent reading notes.
 
 The *directory* is what production mounts, never this file: `os.replace` over a
 bind-mounted file fails with `EBUSY`, and every mint and revoke would break.
-And keep that directory on the host: a store inside the container's own
-filesystem goes with the container at the next upgrade, and every agent is
-refused until you mint again.
+Keep that directory on the host: a store in the container's own filesystem
+goes at the next upgrade, and every agent is refused until you mint again.
 
 A store that does not exist reads as an empty list, so a box with no tokens
 refuses every bearer rather than failing to start.
 
 Reading tokens live in `tokens-reading.json` beside it. A revoked token's record
 moves to `tokens-revoked.json`, so the action log can still name its requests.
-All three sit in one directory and are written the same way.
+All three sit in one directory and are written the same way. `vault.lock`,
+which every backend process flocks before it writes the vault, sits there too.
 
 `tokens-revoked.json` keeps the last 50 records; [revoking a token](/reference/http-api/system.md) says why that, or a broken file, cannot let one back in.
 

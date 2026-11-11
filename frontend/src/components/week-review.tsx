@@ -7,7 +7,7 @@ import {
   Section,
   Tile,
   Words,
-} from "@/components/review-parts";
+} from "@/components/review/review-parts";
 import type { LineHit, TodoHit } from "@/lib/core/api";
 import { readClock } from "@/lib/core/clock";
 import { rangeDates, weightOf } from "@/lib/log/log-weight";

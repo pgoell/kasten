@@ -93,11 +93,13 @@ describe("ChatPane", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "/close-day" }));
     fireEvent.click(screen.getByRole("button", { name: "/process-meeting" }));
+    fireEvent.click(screen.getByRole("button", { name: "/meal-planner" }));
 
     await vi.waitFor(() =>
       expect(posts).toEqual([
         { path: "/chat/send", body: { text: "/close-day" } },
         { path: "/chat/send", body: { text: "/process-meeting" } },
+        { path: "/chat/send", body: { text: "/meal-planner" } },
       ]),
     );
   });

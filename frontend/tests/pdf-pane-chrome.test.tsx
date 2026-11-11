@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { PdfPane } from "@/components/pdf-pane";
+import { PdfPane } from "@/components/pdf/pdf-pane";
 import type { PdfFile, ShowOptions } from "@/lib/panes/book/pdf-view";
 import { pickPalette, toggleTheme } from "@/lib/ui/theme";
 import { stubCommands } from "./keybindings-fixture";
@@ -31,7 +31,7 @@ const take = vi.hoisted(() => ({
   onKeyDown: vi.fn((_event: unknown) => false),
   wrapper: undefined as undefined | { current: HTMLElement | null },
 }));
-vi.mock("@/components/pdf-take", () => ({
+vi.mock("@/components/pdf/pdf-take", () => ({
   usePdfTake: (o: { wrapper: { current: HTMLElement | null } }) => {
     take.wrapper = o.wrapper;
     return {

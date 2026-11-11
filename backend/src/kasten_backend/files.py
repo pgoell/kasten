@@ -120,7 +120,7 @@ async def _addresses(host: str) -> list[str]:
     return [str(entry[4][0]) for entry in found]
 
 
-async def _public_address(host: str) -> str:
+async def public_address(host: str) -> str:
     """The address to open for `host`, once every address it has is on the internet.
 
     Every address the name resolves to is checked, not only the one opened, so one private
@@ -163,7 +163,7 @@ class _PublicOnly(httpcore.AsyncNetworkBackend):
         socket_options: Iterable[httpcore.SOCKET_OPTION] | None = None,
     ) -> httpcore.AsyncNetworkStream:
         """Connect to `host` by the one address checked for it."""
-        address = await _public_address(host)
+        address = await public_address(host)
 
         return await self._backend.connect_tcp(
             address, port, timeout, local_address, socket_options

@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { VideoTakes } from "@/components/video-takes";
+import { VideoTakes } from "@/components/video/video-takes";
 import { addHighlight } from "@/lib/takes/highlight";
 
 const ID = "dQw4w9WgXcQ";

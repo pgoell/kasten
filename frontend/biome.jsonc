@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.5.7/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.6.6/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -30,7 +30,15 @@
       "correctness": {
         "useExhaustiveDependencies": "error",
         "noUnusedImports": "error",
-        "noUnusedVariables": "error"
+        "noUnusedVariables": "error",
+        // It reads a key map's `Enter: () => ...` as a component, and a test's
+        // harness component inside its test is on purpose.
+        "noComponentHookFactories": "off"
+      },
+      // `innerText` keeps the line breaks layout puts in, which the e2e
+      // scripts read the editor for; `textContent` runs the lines together.
+      "performance": {
+        "useDomNodeTextContent": "off"
       },
       "complexity": {
         "noExcessiveCognitiveComplexity": {

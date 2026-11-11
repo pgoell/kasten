@@ -1,5 +1,12 @@
 import { ActivityGrid, Bars, WeightLine } from "@/components/charts";
-import { Caption, daysBetween, Failed, Reading, Section, Words } from "@/components/review-parts";
+import {
+  Caption,
+  daysBetween,
+  Failed,
+  Reading,
+  Section,
+  Words,
+} from "@/components/review/review-parts";
 import type { TodoHit } from "@/lib/core/api";
 import { readClock } from "@/lib/core/clock";
 import { rangeDates, weightOf } from "@/lib/log/log-weight";

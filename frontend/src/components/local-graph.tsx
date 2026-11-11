@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { INSET, LABEL } from "@/components/note-margins";
+import { INSET, LABEL } from "@/components/note/note-margins";
 import { fetchMentions, fetchSimilar, type SimilarAnswer } from "@/lib/core/api";
 import type { DrawnNode } from "@/lib/graph/graph";
 import { fetchGraph, GRAPH_LOST, loadGraphCanvas, lostLoad } from "@/lib/graph/graph-api";

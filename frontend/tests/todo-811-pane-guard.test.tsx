@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { TodoPane } from "@/components/todo-pane";
+import { TodoPane } from "@/components/todo/todo-pane";
 import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
 import { boardHooks, renderPane as renderBoardPane } from "./todo-board-pane-fixture";
 import { paneHooks } from "./todo-pane-fixture";

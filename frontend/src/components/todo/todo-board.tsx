@@ -1,0 +1,526 @@
+import { useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { HEADING, LaneHeading } from "@/components/board-lane-heading";
+import { BoardPicker } from "@/components/board-picker";
+import { BoardCard, SET } from "@/components/todo/board-card";
+import type { SearchHit, TodoHit } from "@/lib/core/api";
+import type { Todo, TodoState } from "@/lib/todo/todo";
+import type { Closed } from "@/lib/todo/todo-blocked";
+import {
+  COLUMN_HEADING,
+  COLUMNS,
+  type Column,
+  projectChoices,
+  withProjectLink,
+} from "@/lib/todo/todo-board";
+import { dropOf, pinnedBy } from "@/lib/todo/todo-drag";
+import type { Placed } from "@/lib/todo/todo-view";
+import { useBoardFolds } from "@/lib/todo/use-board-folds";
+import { cardKey, useBoardLanes } from "@/lib/todo/use-board-lanes";
+import { useCardDrag } from "@/lib/todo/use-card-drag";
+import { useColumnSwipe } from "@/lib/todo/use-column-swipe";
+
+/** One todo the board draws, as the pane read it: the tree's todo, not the line's. */
+export interface Card {
+  /** Carries the todo's project, which the backend works out. */
+  hit: TodoHit;
+  todo: Todo;
+}
+
+/** What the pane asks of the board: a key it may take, or leave to the pane. */
+export interface BoardKeys {
+  onKey: (key: string) => boolean;
+}
+
+interface TodoBoardProps {
+  ref: React.Ref<BoardKeys>;
+  /** What the filter left of the open todos and the recently finished ones. */
+  cards: Card[];
+  /** What each todo hangs off, keyed `path:line`, which kind walks up. */
+  parents: Map<string, Placed>;
+  /** What each `⛔` names. */
+  named: Map<string, Todo>;
+  /** Which of those ids are closed, and which two todos carry. */
+  closed: Closed;
+  /** `3/5` keyed by `path:line`. */
+  progress: Map<string, string>;
+  /** Every path in the vault, which `p` lists projects from and a link resolves against. */
+  files: string[];
+  today: string;
+  coarse: boolean;
+  /** The pane's `held`: whether the keys were ours before a redraw dropped the focus. */
+  held: React.RefObject<boolean>;
+  onOpen: (path: string, line: number) => void;
+  onCycle: (hit: SearchHit, state?: TodoState) => void;
+  onEdit: (hit: SearchHit, line: string) => void;
+  /** The pane's `m`, said of a card, or a card dropped on the lane of `project`. */
+  onRefile: (hit: TodoHit, project?: string) => void;
+  /** Why a dropped card moved nothing. */
+  onNotice: (text: string) => void;
+}
+
+/** The keys that act on the focused card. */
+const CARD_KEYS = new Set(["Enter", "x", "p", "m", ...Object.keys(SET)]);
+
+/**
+ * The todo pane's `c` view: cards in columns by state and lanes by kind or project.
+ * No keys of its own: the pane passes each one on after the leader has had its chance.
+ */
+export function TodoBoard({
+  ref,
+  cards,
+  parents,
+  named,
+  closed,
+  progress,
+  files,
+  today,
+  coarse,
+  held,
+  onOpen,
+  onCycle,
+  onEdit,
+  onRefile,
+  onNotice,
+}: TodoBoardProps) {
+  /** `g`, and the `project` button: lanes by project rather than by kind. */
+  const [byProject, setByProject] = useState(false);
+  /** Bumped by a tapped button, which the focus effect below reads as its cue. */
+  const [settled, setSettled] = useState(0);
+  const [col, setCol] = useState(0);
+  const [row, setRow] = useState(0);
+  /** The card `p` was pressed on and the choice under the picker's cursor. */
+  const [picker, setPicker] = useState<{ hit: SearchHit; at: number } | null>(null);
+  /** The card whose `⋯` is open, by key and text for the reason the list's is. */
+  const [more, setMore] = useState<string | null>(null);
+  const root = useRef<HTMLDivElement>(null);
+  // The pointer code's state and listeners, which the cards and zones draw from.
+  // Its cleanup effect runs first, as the board's did when it was written here.
+  const { lifted, overZone, grab, hover, unhover, endDrag, carrying, swallowed } =
+    useCardDrag<Card>(
+      (card) => cardKey(card.hit),
+      (card, from, to) => {
+        // The keys' own writes, so a state drop still runs what `X` runs and a lane
+        // drop goes through `m`'s refile. Nothing here says where in a column the
+        // card goes: the board draws the vault's order and keeps none of its own.
+        const above = ancestors.get(cardKey(card.hit)) ?? [];
+        const tags = [card.todo, ...above.map((one) => one.todo)].flatMap((todo) => todo.tags);
+        const drop = dropOf(from, to, byProject, pinnedBy(tags));
+        if (drop.kind === "state") onCycle(card.hit, drop.state);
+        else if (drop.kind === "refile") onRefile(card.hit, drop.project);
+        else if (drop.kind === "refused") onNotice(drop.why);
+      },
+    );
+
+  const choices = useMemo(() => projectChoices(files), [files]);
+
+  const { ancestors, lanes, columns } = useBoardLanes(cards, parents, byProject);
+
+  const { folded, rejectedDrawn, toggleLane, toggleRejected } = useBoardFolds(
+    col,
+    showColumn,
+    endDrag,
+  );
+
+  // The cards the keys walk. A lane the user folded draws none, so the cursor
+  // passes over it rather than onto a card nobody can see.
+  const walkable = useMemo(
+    () =>
+      COLUMNS.map((_, index) =>
+        lanes.filter((lane) => !folded.has(lane.id)).flatMap((lane) => lane.cells[index] ?? []),
+      ),
+    [lanes, folded],
+  );
+
+  const swipe = useColumnSwipe({
+    active: coarse,
+    index: col,
+    count: COLUMNS.length,
+    carrying: () => carrying(),
+    onShow: showColumn,
+  });
+
+  // Clamped as the list clamps its cursor: a move or a narrower filter can
+  // take the card it was on out of the column.
+  const column = walkable[col] ?? [];
+  const cursor = Math.min(row, Math.max(column.length - 1, 0));
+  const at = column[cursor];
+  const cursorKey = at === undefined ? "" : cardKey(at.hit);
+
+  // The pane's `dropped` effect, said of the board. A move takes the card off
+  // its column, the browser hands the focus to the body, and without this the
+  // first card moved leaves the pane deaf. A layout effect, so the focus is
+  // back in the commit that dropped the card, not a task later (#1515).
+  //
+  // `settled` is the same case for a tapped button: `cancel` unmounts under
+  // the finger, and `lanes` keeps the focus on itself, so a keyboard attached
+  // to the phone would go on typing into nothing the board hears.
+  //
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `cards` and `settled` are triggers and not values this reads. A redraw or a tap is what says the focused card may be gone.
+  useLayoutEffect(() => {
+    const element = root.current;
+    if (!element) return;
+    const dropped = held.current && document.activeElement === document.body;
+    if (!dropped && !element.contains(document.activeElement)) return;
+    const card = element.querySelector<HTMLElement>(`[data-card="${cursorKey}"]`);
+    (card ?? element.closest<HTMLElement>("section"))?.focus();
+  }, [cursorKey, cards, held, settled]);
+
+  // The shown tab is kept in sight. At 390 px the strip is wider than the screen,
+  // so a swipe or `h` `l` to Done or Rejected would show a column whose tab is
+  // off screen. Reduced motion jumps to it rather than scrolling.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `col` is the trigger, not a value the effect reads: the tab it scrolls to is the one the DOM marks selected.
+  useEffect(() => {
+    if (!coarse) return;
+    const tab = root.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+    const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    tab?.scrollIntoView?.({
+      inline: "nearest",
+      block: "nearest",
+      behavior: reduced ? "auto" : "smooth",
+    });
+  }, [col, coarse]);
+
+  /** A button was tapped: the focus goes back to the card under the cursor. */
+  function settle() {
+    setSettled((count) => count + 1);
+  }
+
+  /** `g`. */
+  function switchLanes() {
+    chooseLanes(!byProject);
+  }
+
+  /** The `kind` and `project` buttons, and `g` through `switchLanes`. */
+  function chooseLanes(next: boolean) {
+    if (next === byProject) return;
+    // The cell the card left is gone, and with it what a drop would mean.
+    endDrag();
+    setByProject(next);
+    setRow(0);
+    settle();
+  }
+
+  /**
+   * A tab tap or a swipe shows the column at `index`, from its top. A card
+   * carried at the time is let go first: the cell it was over is no longer the
+   * one shown, so a release would write into a cell nobody can see. A tab
+   * released over is a different path, a pointer up on the tab, which still drops.
+   */
+  function showColumn(index: number) {
+    if (carrying()) endDrag();
+    setCol(index);
+    setRow(0);
+  }
+
+  /** Escape, and `cancel` by finger. */
+  function closePicker() {
+    setPicker(null);
+    settle();
+  }
+
+  function pick(hit: SearchHit, choice: (typeof choices)[number]) {
+    closePicker();
+    // Null where the line already links there: a second pick writes nothing.
+    const line = withProjectLink(hit.text, choice, files);
+    if (line !== null) onEdit(hit, line);
+  }
+
+  function project(hit: SearchHit) {
+    setPicker({ hit, at: 0 });
+  }
+
+  // The pane's keys never reach CodeMirror: they land on the section, whose
+  // handler calls this. So vim mode on or off changes nothing here.
+  useImperativeHandle(ref, () => ({
+    onKey(key: string): boolean {
+      // Only while a card is up, so Escape otherwise goes on to the pane.
+      if (key === "Escape" && carrying()) {
+        endDrag();
+        return true;
+      }
+      // A carried card is held over one cell, and moving the shown column would
+      // leave that cell's drop to write into a column nobody is looking at.
+      if ((key === "h" || key === "l") && carrying()) return true;
+      if (picker !== null) return pickerKey(picker, key);
+      return boardKey(key);
+    },
+  }));
+
+  /** A key while the project picker is open. */
+  function pickerKey(open: { hit: SearchHit; at: number }, key: string): boolean {
+    const choice = choices[open.at];
+    if (key === "j") setPicker({ ...open, at: Math.min(open.at + 1, choices.length - 1) });
+    else if (key === "k") setPicker({ ...open, at: Math.max(open.at - 1, 0) });
+    else if (key === "Enter" && choice !== undefined) pick(open.hit, choice);
+    else if (key === "Escape") closePicker();
+    // Nothing moves under an open picker, but the leader still opens.
+    else return key !== " ";
+    return true;
+  }
+
+  /** A key on the board: a move of the cursor, or one on the focused card. */
+  function boardKey(key: string): boolean {
+    switch (key) {
+      case "h":
+        setCol(Math.max(col - 1, 0));
+        setRow(cursor);
+        break;
+      case "l":
+        setCol(Math.min(col + 1, COLUMNS.length - 1));
+        setRow(cursor);
+        break;
+      case "j":
+        setRow(Math.min(cursor + 1, Math.max(column.length - 1, 0)));
+        break;
+      case "k":
+        setRow(Math.max(cursor - 1, 0));
+        break;
+      case "g":
+        switchLanes();
+        break;
+      default:
+        // A card key with no card under the cursor is still the board's.
+        if (!CARD_KEYS.has(key)) return false;
+        if (at !== undefined) cardPress(at.hit, key);
+    }
+    return true;
+  }
+
+  /** One of `CARD_KEYS` on the focused card. */
+  function cardPress(hit: Card["hit"], key: string): void {
+    switch (key) {
+      case "Enter":
+        onOpen(hit.path, hit.line);
+        break;
+      case "x":
+        onCycle(hit);
+        break;
+      case "p":
+        project(hit);
+        break;
+      case "m":
+        onRefile(hit);
+        break;
+      default:
+        onCycle(hit, SET[key]);
+    }
+  }
+
+  function drawCard(card: Card, lane: string) {
+    const key = cardKey(card.hit);
+    return (
+      <BoardCard
+        key={key}
+        card={card}
+        lane={lane}
+        focused={key === cursorKey}
+        lifted={lifted === key}
+        coarse={coarse}
+        parent={parents.get(key)}
+        progress={progress.get(key)}
+        named={named}
+        closed={closed}
+        today={today}
+        files={files}
+        drag={{ grab, swallowed }}
+        more={more}
+        onMore={setMore}
+        onOpen={onOpen}
+        onCycle={onCycle}
+        onProject={project}
+        onRefile={onRefile}
+      />
+    );
+  }
+
+  const heading = HEADING;
+
+  /** A column's heading with its count; the rejected one folds to a chevron. */
+  function columnHeading(name: Column, index: number) {
+    const count = columns[index]?.length ?? 0;
+    const label = `${COLUMN_HEADING[name]} ${count}`;
+    return (
+      <div
+        key={name}
+        data-testid="todo-column"
+        className={`${heading} px-3 ${index === col ? "text-k-ink" : ""}`}
+      >
+        {name === "rejected" ? (
+          // Folded, the track is 3rem, too narrow for the word, so it reads as a
+          // chevron and the count. The name stays on the label and the title.
+          <button
+            type="button"
+            aria-expanded={rejectedDrawn}
+            aria-label={label}
+            title={label}
+            onClick={toggleRejected}
+            className="text-left"
+          >
+            {rejectedDrawn ? label : `› ${count}`}
+          </button>
+        ) : (
+          <>
+            {COLUMN_HEADING[name]} {count}
+          </>
+        )}
+      </div>
+    );
+  }
+
+  /** The mark a drop zone carries while the pointer brings a card over it. */
+  const marked = (name: string) => (overZone === name ? "" : undefined);
+  const lit = (name: string) => (overZone === name ? "bg-k-accent/15" : "");
+
+  /** The `kind` and `project` buttons that switch the lanes, one of them pressed. */
+  function laneSwitch(label: string, value: boolean) {
+    const pressed = byProject === value;
+    return (
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-pressed={pressed}
+        onClick={() => chooseLanes(value)}
+        className={`border-b-2 px-2 ${coarse ? "min-h-11" : ""} ${pressed ? "border-k-accent text-k-ink" : "border-transparent text-k-muted"}`}
+      >
+        {label}
+      </button>
+    );
+  }
+
+  return (
+    <div ref={root} className="flex-1 overflow-auto py-1 font-sans text-k-13">
+      {picker !== null && (
+        <BoardPicker
+          title={picker.hit.text}
+          choices={choices}
+          at={picker.at}
+          coarse={coarse}
+          onPick={(choice) => pick(picker.hit, choice)}
+          onCancel={closePicker}
+        />
+      )}
+
+      {/* Lanes by kind or by project, at the top on a desktop and a phone alike. */}
+      <div className="flex gap-1 border-b border-k-rule px-2">
+        {laneSwitch("kind", false)}
+        {laneSwitch("project", true)}
+      </div>
+
+      {/* A phone has room for one column, so the tabs pick which. */}
+      {coarse && (
+        // A lifted card holds the page still, so a tab scrolled out of the
+        // strip could not be reached: while one is up, the tabs wrap.
+        <div
+          role="tablist"
+          data-carrying={lifted !== null ? "" : undefined}
+          className={`flex border-b border-k-rule ${lifted !== null ? "flex-wrap" : "overflow-x-auto"}`}
+        >
+          {COLUMNS.map((name, index) => (
+            <button
+              key={name}
+              type="button"
+              role="tab"
+              tabIndex={-1}
+              aria-selected={index === col}
+              onClick={() => showColumn(index)}
+              // A drop on a tab sets that column's state.
+              data-over={marked(`tab:${name}`)}
+              onPointerOver={(event) => hover(event, `tab:${name}`, name)}
+              onPointerLeave={unhover}
+              className={`min-h-11 shrink-0 border-b-2 px-3 ${index === col ? "border-k-accent text-k-ink" : "border-transparent text-k-muted"} ${lit(`tab:${name}`)}`}
+            >
+              {COLUMN_HEADING[name]} {columns[index]?.length ?? 0}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {cards.length === 0 ? (
+        <p className="px-3 py-1 text-k-muted">nothing on the board</p>
+      ) : coarse ? (
+        // The swipe is on the column alone: the tabs and the page keep their own touches.
+        <div
+          ref={swipe.ref}
+          className="px-3"
+          style={{ touchAction: "pan-y pinch-zoom", overscrollBehaviorX: "contain" }}
+          {...swipe.handlers}
+        >
+          {lanes.map((lane) => {
+            // A drop on a lane of the column shown refiles.
+            const name = `lane:${lane.id}`;
+            const shown = lane.cells[col] ?? [];
+            // A lane with nothing in the shown state folds on its own, and stays
+            // shut until a card of it is shown: a folded lane takes no drop.
+            const empty = shown.length === 0;
+            const shut = empty || folded.has(lane.id);
+            return (
+              <div
+                key={lane.id}
+                data-lane={lane.id}
+                data-over={shut ? undefined : marked(name)}
+                onPointerOver={
+                  shut ? undefined : (event) => hover(event, name, COLUMNS[col] ?? "open", lane.id)
+                }
+                onPointerLeave={unhover}
+                className={`flex flex-col gap-1 ${shut ? "" : lit(name)}`}
+              >
+                <LaneHeading
+                  name={lane.name}
+                  count={shown.length}
+                  open={!shut}
+                  locked={empty}
+                  coarse={coarse}
+                  span=""
+                  onToggle={() => toggleLane(lane.id)}
+                />
+                {!shut && shown.map((card) => drawCard(card, lane.id))}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div
+          className={`grid min-w-[63rem] gap-x-1 ${rejectedDrawn ? "grid-cols-7" : "grid-cols-[repeat(6,minmax(0,1fr))_3rem]"}`}
+        >
+          {COLUMNS.map(columnHeading)}
+          {lanes.map((lane) => {
+            // A folded lane is its heading alone: no cell, so no drop.
+            const shut = folded.has(lane.id);
+            const count = lane.cells.reduce((sum, cell) => sum + cell.length, 0);
+            return (
+              <div key={lane.id} className="col-span-7 grid grid-cols-subgrid">
+                <LaneHeading
+                  name={lane.name}
+                  count={count}
+                  open={!shut}
+                  locked={false}
+                  coarse={coarse}
+                  span="col-span-7 border-t border-k-rule px-3"
+                  onToggle={() => toggleLane(lane.id)}
+                />
+                {!shut &&
+                  COLUMNS.map((column, index) => {
+                    if (column === "rejected" && !rejectedDrawn) return <div key={column} />;
+                    const name = `cell:${lane.id}:${column}`;
+                    return (
+                      <div
+                        key={column}
+                        data-lane={lane.id}
+                        data-column={column}
+                        data-over={marked(name)}
+                        onPointerOver={(event) => hover(event, name, column, lane.id)}
+                        onPointerLeave={unhover}
+                        className={`flex min-w-0 flex-col gap-1 ${index === 0 ? "pl-3" : "pl-1"} pr-1 ${lit(name)}`}
+                      >
+                        {lane.cells[index]?.map((card) => drawCard(card, lane.id))}
+                      </div>
+                    );
+                  })}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}

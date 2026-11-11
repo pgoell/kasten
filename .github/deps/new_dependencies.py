@@ -35,6 +35,8 @@ ACCEPTED: dict[str, str] = {
     # Both read from the project's own LICENSE file on 2026-10-29.
     "pypi numpy": "BSD-3-Clause, with bundled 0BSD, Zlib and CC0-1.0 code",
     "pypi protobuf": "BSD-3-Clause; PyPI's metadata names none",
+    # Pulled in by recipe-scrapers through extruct (#1725).
+    "pypi pyrdfa3": "W3C Software Notice and License, OSI-approved and permissive",
 }
 
 # Trove classifiers, as PyPI lists them under "License :: OSI Approved :: ".

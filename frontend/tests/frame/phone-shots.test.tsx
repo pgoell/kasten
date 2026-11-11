@@ -14,7 +14,7 @@ import { fireEvent } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { createRoot } from "react-dom/client";
 import { commands, page } from "vitest/browser";
-import { ReviewSession } from "@/components/review-session";
+import { ReviewSession } from "@/components/review/review-session";
 import { fetchNote } from "@/lib/core/api";
 import { openInFocused } from "@/lib/panes/layout/pane-contents";
 import { addTab, emptyLayout, goToTab, type Layout, splitFocused } from "@/lib/panes/layout/panes";

@@ -7,8 +7,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { personOf } from "./lists-person";
 import type { Item } from "./lists-store";
+import { personOf } from "./lists-view";
 
 /** How far a finger must pull a row left, in px, before letting go deletes it. */
 const SWIPE_DELETE = 96;

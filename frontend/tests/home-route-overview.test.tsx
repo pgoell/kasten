@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { LogTrends } from "@/components/log-trends";
+import { LogTrends } from "@/components/log/log-trends";
 import { NoteMissing } from "@/lib/core/api";
 import { applyLayout } from "@/lib/core/layout";
 import type { LogDay } from "@/lib/log/food-api";

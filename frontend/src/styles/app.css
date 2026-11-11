@@ -15,6 +15,7 @@
 @import "./food/recipe.css";
 @import "./food/cook-mode.css";
 @import "./food/rate.css";
+@import "./food/meal-plan.css";
 @import "./log-pane.css";
 @import "./log-trends.css";
 @import "./finance-pane.css";

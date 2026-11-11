@@ -1,7 +1,7 @@
 """The amount and unit at the start of a German ingredient line, read by rule.
 
 No German parser exists to borrow, and a model tags ingredients badly, so the rules are here and
-their cases are `backend/tests/food/ingredient_cases.json`. The raw line stays the truth.
+their cases are `backend/tests/food/recipes/ingredient_cases.json`. The raw line stays the truth.
 """
 
 import re

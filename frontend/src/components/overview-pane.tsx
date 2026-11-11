@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { type KeyboardEvent, type ReactNode, useEffect, useRef } from "react";
 import { ActivityGrid, Bars, Ring, WeightLine } from "@/components/charts";
-import { totalOf } from "@/components/log-trends";
+import { totalOf } from "@/components/log/log-trends";
 import {
   fetchCards,
   fetchNote,

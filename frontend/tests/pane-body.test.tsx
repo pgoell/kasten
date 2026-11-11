@@ -5,28 +5,28 @@ import { BookPane } from "@/components/books/book-pane";
 import { LibraryPane } from "@/components/books/library-pane";
 import { ChatPane } from "@/components/chat/chat-pane";
 import { ExamPane } from "@/components/exam-pane";
-import { FinancePane } from "@/components/finance-pane";
-import { GraphPane } from "@/components/graph-pane";
+import { FinancePane } from "@/components/finance/finance-pane";
+import { GraphPane } from "@/components/graph/graph-pane";
 import { HistoryPane } from "@/components/history-pane";
 import { HtmlPane } from "@/components/html-pane";
 import { ImagePane } from "@/components/image-pane";
-import { LogPane } from "@/components/log-pane";
-import { NotePane } from "@/components/note-pane";
+import { LogPane } from "@/components/log/log-pane";
+import { NotePane } from "@/components/note/note-pane";
 import { OverviewPane } from "@/components/overview-pane";
 import { PaneBody, type PaneExtras, type PaneShared } from "@/components/pane-body";
-import { PdfPane } from "@/components/pdf-pane";
+import { PdfPane } from "@/components/pdf/pdf-pane";
 import { PersonPane } from "@/components/person-pane";
-import { ReviewPane } from "@/components/review-pane";
-import { TerminalPane } from "@/components/terminal-pane";
-import { TodoPane } from "@/components/todo-pane";
-import { VideoPane } from "@/components/video-pane";
+import { ReviewPane } from "@/components/review/review-pane";
+import { TerminalPane } from "@/components/terminal/terminal-pane";
+import { TodoPane } from "@/components/todo/todo-pane";
+import { VideoPane } from "@/components/video/video-pane";
 import { TimersPane } from "@/lib/app/push/timers-pane";
 import { type KindField, PANE_KINDS, type Pane } from "@/lib/panes/layout/pane-kinds";
 import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
 import { stubCommands } from "./stub-commands";
 
 // The terminal is lazy, so this stands in for the xterm pane once its chunk loads.
-vi.mock("@/components/terminal-pane", () => ({
+vi.mock("@/components/terminal/terminal-pane", () => ({
   TerminalPane: () => <div data-testid="terminal-pane" />,
 }));
 
@@ -134,7 +134,7 @@ it("#1762 a terminal pane renders once its chunk loads", async () => {
 
 it("#1762 a terminal whose chunk does not load says so in its pane, not on the route's error screen", async () => {
   vi.resetModules();
-  vi.doMock("@/components/terminal-pane", () => {
+  vi.doMock("@/components/terminal/terminal-pane", () => {
     throw new TypeError("Failed to fetch dynamically imported module");
   });
   const fresh = await import("@/components/pane-body");
@@ -148,7 +148,7 @@ it("#1762 a terminal whose chunk does not load says so in its pane, not on the r
   );
 
   expect(await screen.findByText(/The terminal could not load/)).toBeTruthy();
-  vi.doUnmock("@/components/terminal-pane");
+  vi.doUnmock("@/components/terminal/terminal-pane");
 });
 
 it.each(Object.keys(PANE_KINDS) as KindField[])(

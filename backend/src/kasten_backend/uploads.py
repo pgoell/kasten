@@ -27,11 +27,6 @@ UPLOAD_IDLE_SECONDS = 3600
 Read off the temp's mtime, which the last piece sets, so a slow upload still sending survives.
 """
 
-UPLOAD_SWEEP_SECONDS = 600
-"""How often the sweep started at startup looks for idle uploads.
-
-So an unfinished file is gone within seventy minutes even when nothing follows it.
-"""
 
 _ID = re.compile(r"[0-9a-f]{32}")
 """The name `start` gives a temp: `secrets.token_hex(16)`."""

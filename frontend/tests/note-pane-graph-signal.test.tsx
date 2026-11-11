@@ -2,7 +2,7 @@ import { EditorView } from "@codemirror/view";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import type { ComponentProps } from "react";
-import { NotePane } from "@/components/note-pane";
+import { NotePane } from "@/components/note/note-pane";
 import type { Pane } from "@/lib/panes/layout/panes";
 import { stubCommands } from "./stub-commands";
 

@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
-import { NoteSearch } from "@/components/note-search";
+import { NoteSearch } from "@/components/note/note-search";
 import type { SearchHit } from "@/lib/core/api";
 import { fetchMentions, searchNotes } from "@/lib/core/api";
 

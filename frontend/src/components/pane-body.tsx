@@ -4,20 +4,20 @@ import { BookPane } from "@/components/books/book-pane";
 import { LibraryPane } from "@/components/books/library-pane";
 import { ChatPane } from "@/components/chat/chat-pane";
 import { ExamPane } from "@/components/exam-pane";
-import { FinancePane } from "@/components/finance-pane";
-import { GraphPane } from "@/components/graph-pane";
+import { FinancePane } from "@/components/finance/finance-pane";
+import { GraphPane } from "@/components/graph/graph-pane";
 import { HistoryPane } from "@/components/history-pane";
 import { HtmlPane } from "@/components/html-pane";
 import { ImagePane } from "@/components/image-pane";
-import { LogPane } from "@/components/log-pane";
-import { NotePane } from "@/components/note-pane";
+import { LogPane } from "@/components/log/log-pane";
+import { NotePane } from "@/components/note/note-pane";
 import { OverviewPane } from "@/components/overview-pane";
-import { PdfPane } from "@/components/pdf-pane";
+import { PdfPane } from "@/components/pdf/pdf-pane";
 import { PersonPane } from "@/components/person-pane";
-import { ReviewPane } from "@/components/review-pane";
-import { type AgentRow, TodoPane } from "@/components/todo-pane";
+import { ReviewPane } from "@/components/review/review-pane";
+import { type AgentRow, TodoPane } from "@/components/todo/todo-pane";
 import type { PaneMoves } from "@/components/use-pane-moves";
-import { VideoPane } from "@/components/video-pane";
+import { VideoPane } from "@/components/video/video-pane";
 import { TimersPane } from "@/lib/app/push/timers-pane";
 import type { SearchHit } from "@/lib/core/api";
 import { readClock } from "@/lib/core/clock";
@@ -141,7 +141,7 @@ const TerminalLost = () => (
 // xterm is heavy, so it loads when a terminal pane first opens, as pdf.js does. A failed load
 // rejects with an Error and shows in this pane alone, not as the route's error screen.
 const TerminalPane = lazy(() =>
-  import("@/components/terminal-pane").then(
+  import("@/components/terminal/terminal-pane").then(
     ({ TerminalPane }) => ({ default: TerminalPane }),
     (error: unknown) => {
       if (!(error instanceof Error)) throw error;

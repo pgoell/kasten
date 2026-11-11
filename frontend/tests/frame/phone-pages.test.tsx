@@ -10,7 +10,7 @@ import "./html-take-api";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { commands, page } from "vitest/browser";
-import { ReviewAnswer } from "@/components/review-answer";
+import { ReviewAnswer } from "@/components/review/review-answer";
 import "@/styles/app.css";
 import {
   ask,

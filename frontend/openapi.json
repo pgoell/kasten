@@ -3171,6 +3171,123 @@
         }
       }
     },
+    "/api/recipes/import": {
+      "post": {
+        "summary": "Import Recipe",
+        "description": "Write a recipe note from a page's schema.org data, or from a schema.org Recipe.\n\nA page is fetched once plainly, and once more as a browser when a bot wall answers. Either\nway the note keeps where it came from as `source`. A name already taken gets a number.",
+        "operationId": "import_recipe_api_recipes_import_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecipeImport"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportedNote"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/meal-plan": {
+      "post": {
+        "summary": "Read Meal Plan",
+        "description": "The week's meals, each batch with what is left, training days and their protein.\n\nProtein counts one serving of each recipe a meal names; meals with no recipe add nothing.",
+        "operationId": "read_meal_plan_api_meal_plan_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanText"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MealPlan"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/meal-plan/shopping": {
+      "post": {
+        "summary": "Write Shopping",
+        "description": "Write the ingredients of the week's cooked batches into the shared `Einkauf.md`.\n\nA food already on an open line for the same recipe is skipped, so a second press adds\nnothing. The list is read and written with its digest, so an edit in between answers 409.",
+        "operationId": "write_shopping_api_meal_plan_shopping_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanText"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShoppingWritten"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/anki": {
       "post": {
         "summary": "Import Anki",
@@ -7297,6 +7414,61 @@
         }
       }
     },
+    "/share/meals": {
+      "get": {
+        "tags": [
+          "share"
+        ],
+        "summary": "Read Meals",
+        "description": "The week plans' meals from `today`, the device's date, through the six days after it.",
+        "operationId": "read_meals_share_meals_get",
+        "parameters": [
+          {
+            "name": "today",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Today"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SharedDay"
+                  },
+                  "title": "Response Read Meals Share Meals Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/share/events": {
       "get": {
         "tags": [
@@ -8776,6 +8948,120 @@
         ],
         "title": "BalanceMonthOut",
         "description": "An account's month by booking date: the balance at its end, money in and out."
+      },
+      "Batch": {
+        "properties": {
+          "recipe": {
+            "type": "string",
+            "title": "Recipe"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
+          },
+          "day": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Day"
+          },
+          "slot": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "lunch",
+                  "dinner"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slot"
+          },
+          "servings": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Servings"
+          },
+          "first_day": {
+            "type": "integer",
+            "title": "First Day"
+          },
+          "eaten": {
+            "type": "integer",
+            "title": "Eaten"
+          },
+          "left": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Left"
+          },
+          "last_day": {
+            "type": "integer",
+            "title": "Last Day"
+          },
+          "cook": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cook"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "cooked",
+              "earlier"
+            ],
+            "title": "State"
+          }
+        },
+        "type": "object",
+        "required": [
+          "recipe",
+          "path",
+          "day",
+          "slot",
+          "servings",
+          "first_day",
+          "eaten",
+          "left",
+          "last_day",
+          "cook",
+          "state"
+        ],
+        "title": "Batch",
+        "description": "A dish cooked once and eaten over several meals, as a band down the days."
       },
       "Body_share_api_finance_receipts_share_post": {
         "properties": {
@@ -11811,6 +12097,25 @@
         "title": "Hour",
         "description": "One hour of one place's day, local time."
       },
+      "ImportedNote": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "title"
+        ],
+        "title": "ImportedNote",
+        "description": "The recipe note an import wrote."
+      },
       "Ingested": {
         "properties": {
           "created": {
@@ -12768,6 +13073,72 @@
         "title": "Me",
         "description": "Who is asking, if the proxy's address is a listed one, and the people the app offers."
       },
+      "MealPlan": {
+        "properties": {
+          "week": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Week"
+          },
+          "fridge_days": {
+            "type": "integer",
+            "title": "Fridge Days"
+          },
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/PlanDay"
+            },
+            "type": "array",
+            "title": "Days"
+          },
+          "meals": {
+            "items": {
+              "$ref": "#/components/schemas/PlannedMeal"
+            },
+            "type": "array",
+            "title": "Meals"
+          },
+          "batches": {
+            "items": {
+              "$ref": "#/components/schemas/Batch"
+            },
+            "type": "array",
+            "title": "Batches"
+          },
+          "protein_goal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProteinGoal"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ingredients": {
+            "type": "integer",
+            "title": "Ingredients"
+          }
+        },
+        "type": "object",
+        "required": [
+          "week",
+          "fridge_days",
+          "days",
+          "meals",
+          "batches",
+          "protein_goal",
+          "ingredients"
+        ],
+        "title": "MealPlan",
+        "description": "The week as the view draws it."
+      },
       "Meaning": {
         "properties": {
           "hits": {
@@ -13652,6 +14023,49 @@
         "title": "PlanBriefOut",
         "description": "A plan behind a category or a booking."
       },
+      "PlanDay": {
+        "properties": {
+          "day": {
+            "type": "integer",
+            "title": "Day"
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "training": {
+            "type": "boolean",
+            "title": "Training"
+          },
+          "protein": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Protein"
+          }
+        },
+        "type": "object",
+        "required": [
+          "day",
+          "date",
+          "training",
+          "protein"
+        ],
+        "title": "PlanDay",
+        "description": "One day of the week: its date, whether it is a training day, and the plan's protein."
+      },
       "PlanIn": {
         "properties": {
           "name": {
@@ -13885,6 +14299,141 @@
         "title": "PlanOut",
         "description": "A plan as stored, what it sets aside a month when it reserves, and since when it counts."
       },
+      "PlanText": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 200000,
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "PlanText",
+        "description": "A week plan note as the editor holds it."
+      },
+      "PlannedMeal": {
+        "properties": {
+          "line": {
+            "type": "integer",
+            "title": "Line"
+          },
+          "day": {
+            "type": "integer",
+            "title": "Day"
+          },
+          "slot": {
+            "type": "string",
+            "enum": [
+              "lunch",
+              "dinner"
+            ],
+            "title": "Slot"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "cook",
+              "from",
+              "other"
+            ],
+            "title": "Kind"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "recipe": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipe"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
+          },
+          "servings": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Servings"
+          },
+          "cook": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cook"
+          },
+          "batch": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch"
+          },
+          "fridge_day": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fridge Day"
+          },
+          "freeze": {
+            "type": "boolean",
+            "title": "Freeze"
+          }
+        },
+        "type": "object",
+        "required": [
+          "line",
+          "day",
+          "slot",
+          "kind",
+          "text",
+          "recipe",
+          "path",
+          "servings",
+          "cook",
+          "batch",
+          "fridge_day",
+          "freeze"
+        ],
+        "title": "PlannedMeal",
+        "description": "One meal of the week, with the recipe note it names and the batch it eats from."
+      },
       "Post": {
         "properties": {
           "slug": {
@@ -14112,6 +14661,25 @@
         ],
         "title": "ProposalOut",
         "description": "A plan read from history, ready to post as it is, and what it was read from."
+      },
+      "ProteinGoal": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "value": {
+            "type": "number",
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "value"
+        ],
+        "title": "ProteinGoal",
+        "description": "The daily protein goal of the log's config note."
       },
       "PushHours-Input": {
         "properties": {
@@ -14869,6 +15437,49 @@
         ],
         "title": "RecipeEntry",
         "description": "A recipe note as the food sheet lists it."
+      },
+      "RecipeImport": {
+        "properties": {
+          "url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "recipe": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipe"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          }
+        },
+        "type": "object",
+        "title": "RecipeImport",
+        "description": "A page to read a recipe from, or a schema.org Recipe already read, such as a caption's."
       },
       "RecipeText": {
         "properties": {
@@ -15767,6 +16378,114 @@
         ],
         "title": "SetupOut",
         "description": "Every spending category's limit on one screen, with the income it is set against."
+      },
+      "SharedDay": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "title": "Date"
+          },
+          "meals": {
+            "items": {
+              "$ref": "#/components/schemas/SharedMeal"
+            },
+            "type": "array",
+            "title": "Meals"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "meals"
+        ],
+        "title": "SharedDay",
+        "description": "A day that has a planned meal, its meals lunch first."
+      },
+      "SharedMeal": {
+        "properties": {
+          "slot": {
+            "type": "string",
+            "enum": [
+              "lunch",
+              "dinner"
+            ],
+            "title": "Slot"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "cook",
+              "from",
+              "other"
+            ],
+            "title": "Kind"
+          },
+          "dish": {
+            "type": "string",
+            "title": "Dish"
+          },
+          "servings": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Servings"
+          },
+          "cook": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cook"
+          }
+        },
+        "type": "object",
+        "required": [
+          "slot",
+          "kind",
+          "dish",
+          "servings",
+          "cook"
+        ],
+        "title": "SharedMeal",
+        "description": "One meal: the dish, whether it comes from a batch, how many it cooks, and who cooks."
+      },
+      "ShoppingWritten": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "added": {
+            "type": "integer",
+            "title": "Added"
+          },
+          "merged": {
+            "type": "integer",
+            "title": "Merged"
+          },
+          "skipped": {
+            "type": "integer",
+            "title": "Skipped"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "added",
+          "merged",
+          "skipped"
+        ],
+        "title": "ShoppingWritten",
+        "description": "What `POST /api/meal-plan/shopping` did to the shopping list."
       },
       "SimilarAnswer": {
         "properties": {

@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render } from "@testing-library/react";
 import { useMemo } from "react";
-import { NoteEditor } from "@/components/note-editor";
+import { NoteEditor } from "@/components/note/note-editor";
 import { StatusBar } from "@/components/status-bar";
 import { fetchNote } from "@/lib/core/api";
 import { useAutosave } from "@/lib/notes/note/use-autosave";

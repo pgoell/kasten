@@ -1,9 +1,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { FinancePane } from "@/components/finance-pane";
-import { ReceiptsToSort } from "@/components/finance-receipts";
-import { BookingTaxCard } from "@/components/finance-tax-mark";
+import { FinancePane } from "@/components/finance/finance-pane";
+import { ReceiptsToSort } from "@/components/finance/finance-receipts";
+import { BookingTaxCard } from "@/components/finance/finance-tax-mark";
 import { stubCommands } from "./stub-commands";
 
 const tax = vi.hoisted(() => ({

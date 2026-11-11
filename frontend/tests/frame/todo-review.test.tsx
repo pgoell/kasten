@@ -12,7 +12,7 @@ import { vim } from "@replit/codemirror-vim";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRoot } from "react-dom/client";
 import { page } from "vitest/browser";
-import { TodoPane } from "@/components/todo-pane";
+import { TodoPane } from "@/components/todo/todo-pane";
 import { noteLanguage } from "@/lib/markdown/note-language";
 import { kastenTheme } from "@/lib/notes/editor/editor-theme";
 import { vimKeys } from "@/lib/notes/editor/vim-mode";

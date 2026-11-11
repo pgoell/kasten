@@ -68,6 +68,22 @@ export async function titleOf(frame: HTMLIFrameElement): Promise<unknown> {
 }
 
 /**
+ * Answers a wait for pane `index`'s next load, armed now. Only by its load has the
+ * page set its own listeners: an ask sent earlier can reach a window between two
+ * pages and be dropped (#1849).
+ */
+export function nextLoad(mounted: Mounted, index: number, timeout?: number) {
+  // Load does not bubble, so it is heard on the way down, before the pane's own `onLoad`.
+  const loaded = new Set<EventTarget | null>();
+  const onLoad = (event: Event) => loaded.add(event.target);
+  mounted.host.addEventListener("load", onLoad, true);
+  return async () => {
+    await expect.poll(() => loaded.has(frameOf(mounted, index)), { timeout }).toBe(true);
+    mounted.host.removeEventListener("load", onLoad, true);
+  };
+}
+
+/**
  * Rewrites the page on disk and tells the panes, then waits for the new frame's
  * script. Answers a wait for the new frame's load, which can come well after its
  * script has run.
@@ -79,18 +95,12 @@ export async function swap(
   index: number,
 ): Promise<() => Promise<void>> {
   await browser.servePage(path, html);
-  // Load does not bubble, so it is heard on the way down, before the pane's own `onLoad`.
-  const loaded = new Set<EventTarget | null>();
-  const onLoad = (event: Event) => loaded.add(event.target);
-  mounted.host.addEventListener("load", onLoad, true);
+  const loaded = nextLoad(mounted, index, 4000);
   const before = frameOf(mounted, index);
   pageWritten(path);
   await expect.poll(() => frameOf(mounted, index)).not.toBe(before);
   await ready(frameOf(mounted, index));
-  return async () => {
-    await expect.poll(() => loaded.has(frameOf(mounted, index)), { timeout: 4000 }).toBe(true);
-    mounted.host.removeEventListener("load", onLoad, true);
-  };
+  return loaded;
 }
 
 /**

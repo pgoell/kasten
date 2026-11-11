@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { TakeToast } from "@/components/take-toast";
+import { TakeToast } from "@/components/takes/take-toast";
 
 const { searchNotes } = vi.hoisted(() => ({ searchNotes: vi.fn() }));
 vi.mock("@/lib/core/api", () => ({ searchNotes }));

@@ -1,0 +1,512 @@
+import {
+  type CSSProperties,
+  Fragment,
+  type KeyboardEvent,
+  type MouseEvent,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { SearchFilters } from "@/components/search/search-filters";
+import { SearchHistogram } from "@/components/search/search-histogram";
+import type { Mention, SearchHit } from "@/lib/core/api";
+import { noteName } from "@/lib/notes/links/note-path";
+import { type Filters, facets, filterHits, termRuns } from "@/lib/search/search-facets";
+import {
+  lastWeeks,
+  linesPerWeek,
+  type WeekKey,
+  weekOf,
+  weekRange,
+} from "@/lib/search/search-weeks";
+import { isMention, useSearchHits } from "@/lib/search/use-search-hits";
+import { useViewport } from "@/lib/ui/input/use-viewport";
+import { useEntrance } from "@/lib/ui/motion/stagger";
+import { BACKDROP, closeOnBackdrop, TAP } from "@/lib/ui/overlay-styles";
+
+/** Rows the list keeps. More than the lists beside it, because a search is read rather than scanned. */
+const ROWS = 60;
+
+/** The week a line was written in, or nothing for a line with no date. */
+function weekOfHit(hit: SearchHit): WeekKey | undefined {
+  return weekOf(hit.date ?? "");
+}
+
+/** Whether a line is in the chosen folder and tag, and in the chosen week when there is one. */
+function kept(hit: SearchHit, filters: Filters, week: WeekKey | undefined): boolean {
+  return filterHits([hit], filters).length === 1 && (week === undefined || weekOfHit(hit) === week);
+}
+
+/** Tapping does not take the focus from the input: the keys have to keep working after it. */
+const keepFocus = (event: MouseEvent) => event.preventDefault();
+
+/**
+ * The term's runs of a line, each with the offset it starts at. The offset is
+ * the key: two runs can carry the same words, but never the same place.
+ */
+function runsAt(
+  text: string,
+  term: string,
+): (ReturnType<typeof termRuns>[number] & { start: number })[] {
+  let start = 0;
+  return termRuns(text, term).map((run) => {
+    const at = start;
+    start += run.text.length;
+    return { ...run, start: at };
+  });
+}
+
+/** The folder and tag chosen, as the Filters button names them: a root folder reads as its slash. */
+function chosenNames(filters: Filters): string[] {
+  const names: string[] = [];
+  if (filters.folder !== null) names.push(filters.folder === "" ? "/" : filters.folder);
+  if (filters.tag !== null) names.push(filters.tag);
+  return names;
+}
+
+/**
+ * Enter on a focused bar, filter or All weeks button is that button's to press.
+ * Left unprevented, the browser clicks it; a result row is the one button Enter should open.
+ */
+function buttonsOwn(event: KeyboardEvent): boolean {
+  return (
+    event.key === "Enter" &&
+    event.target instanceof HTMLButtonElement &&
+    event.target.getAttribute("role") !== "option"
+  );
+}
+
+/**
+ * Tab walks the list rather than completing anything, as it does in the lists
+ * beside this one: 1 down, -1 up, 0 for a key that is not a move.
+ */
+function step(event: KeyboardEvent): number {
+  const tab = event.key === "Tab";
+  if (event.key === "ArrowDown" || (tab && !event.shiftKey) || (event.ctrlKey && event.key === "n"))
+    return 1;
+  if (event.key === "ArrowUp" || (tab && event.shiftKey) || (event.ctrlKey && event.key === "p"))
+    return -1;
+  return 0;
+}
+
+/** What the line under the list says. A scan still running is not "no notes match". */
+function searchHint(pending: boolean, typed: string, matched: number): string {
+  if (pending) return "reading the vault";
+  if (typed === "") return "type to search every note";
+  return matched === 0 ? "no notes match" : "";
+}
+
+function plural(count: number, word: string): string {
+  return `${count} ${word}${count === 1 ? "" : "s"}`;
+}
+
+/**
+ * One line of a note: its number in mono, and the line with the term in the accent.
+ * A file hit shows its place in the number's column instead, since a page or a
+ * chapter means nothing as a line of the extracted text.
+ */
+function LineRow({
+  id,
+  line,
+  place,
+  text,
+  term,
+  selected,
+  onOpen,
+}: {
+  id: string;
+  line: number;
+  place: SearchHit["place"];
+  text: string;
+  term: string;
+  selected: boolean;
+  onOpen: () => void;
+}) {
+  return (
+    <button
+      id={id}
+      type="button"
+      role="option"
+      aria-selected={selected}
+      // Out of the tab order, as the other lists are: the input keeps the focus.
+      tabIndex={-1}
+      onMouseDown={keepFocus}
+      onClick={onOpen}
+      // Starts 12 px into the gutter, so the tint bleeds there while the text
+      // (the 12 px of padding) lines up with the gutter's edge.
+      className={`k-row -ml-3 w-[calc(100%+0.75rem)] cursor-pointer px-3 py-[3px] text-left text-k-13 ${TAP} flex gap-3 ${selected ? "bg-k-surface" : ""}`}
+    >
+      <span
+        className={`${place ? "max-w-[40%] truncate" : "w-10"} shrink-0 pt-px text-left font-mono text-k-12 text-k-muted`}
+      >
+        {place ? place.label : line}
+      </span>
+      <span className="min-w-0 flex-1 break-words font-sans text-k-ink">
+        {runsAt(text, term).map((run) => (
+          <Fragment key={run.start}>
+            {run.term ? <span className="font-medium text-k-accent">{run.text}</span> : run.text}
+          </Fragment>
+        ))}
+      </span>
+    </button>
+  );
+}
+
+/** One note's lines, under its name and path. Rows are numbered by their place in `ordered`. */
+function NoteGroup({
+  note,
+  rows,
+  at,
+  found,
+  ordered,
+  listId,
+  term,
+  cursor,
+  entering,
+  onAccept,
+}: {
+  note: string;
+  rows: number[];
+  at: number;
+  found: (SearchHit | Mention)[];
+  ordered: number[];
+  listId: string;
+  term: string;
+  cursor: number;
+  entering: boolean;
+  onAccept: (index: number) => void;
+}) {
+  // A file's hits all carry the same kind, so the first one names the group's.
+  const first = found[rows[0] ?? -1];
+  const kind = first !== undefined && !isMention(first) ? first.place?.kind : undefined;
+  return (
+    // biome-ignore lint/a11y/useSemanticElements: a <fieldset> groups form controls, and these are the options of a listbox.
+    <div
+      role="group"
+      aria-label={note}
+      className={`px-4 pb-2 md:px-6 ${entering ? "k-enter" : ""}`}
+      style={{ "--i": at } as CSSProperties}
+    >
+      <div className="pt-3">
+        <div className="font-serif text-k-19 text-k-ink">
+          {noteName(note)}
+          {kind !== undefined && (
+            <span className="ml-2 font-sans text-k-12 text-k-muted">{kind.toUpperCase()}</span>
+          )}
+        </div>
+        <div className="font-mono text-k-12 text-k-muted">{note}</div>
+      </div>
+      {rows.map((index) => {
+        const hit = found[index];
+        if (hit === undefined) return null;
+        const row = ordered.indexOf(index);
+        return (
+          <LineRow
+            key={`${hit.path}:${hit.line}`}
+            id={`${listId}-${row}`}
+            line={hit.line}
+            place={isMention(hit) ? undefined : hit.place}
+            text={hit.text}
+            term={term}
+            selected={row === cursor}
+            onOpen={() => onAccept(index)}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+interface ContentSearchProps {
+  /** Called with the note to open, the line the match sits on, and the hit when it is a file's. */
+  onOpen: (path: string, line: number, hit?: SearchHit) => void;
+  onClose: () => void;
+  /** Whether the archive is in the answer, which the route holds. */
+  archive: boolean;
+  onToggleArchive?: () => void;
+  /** The week the results are narrowed to, from the URL. */
+  week?: WeekKey;
+  /** Set or clear that week. */
+  onWeek?: (week: WeekKey | undefined) => void;
+  /** Today, for tests. Read once on mount when absent. */
+  now?: Date;
+}
+
+/**
+ * Filters and the week narrow the lines, never the counts that name them, so a
+ * histogram bar's count is the list it opens.
+ */
+export function ContentSearch({
+  onOpen,
+  onClose,
+  archive,
+  onToggleArchive,
+  week,
+  onWeek,
+  now,
+}: ContentSearchProps) {
+  const [query, setQuery] = useState("");
+  /** Which hit Enter would open. */
+  const [active, setActive] = useState(0);
+  const [filters, setFilters] = useState<Filters>({ folder: null, tag: null });
+  /** Below `md` the column is folded into a button, and this is whether it is open. */
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  // Read once, so the bars do not shift under a page left open past midnight.
+  const [today] = useState(() => now ?? new Date());
+  const { narrow } = useViewport();
+  const field = useRef<HTMLInputElement>(null);
+  /** Set once a line is on its way open, and the focus then belongs to the editor. */
+  const opening = useRef(false);
+  const listId = useId();
+  const typed = query.trim();
+
+  const keep = useCallback((hit: SearchHit) => kept(hit, filters, week), [filters, week]);
+  const { found, groups, ordered, pending, archived, capped } = useSearchHits({
+    mode: "search",
+    typed,
+    archive,
+    keep,
+    visible: ROWS,
+  });
+  // The notes admitted to the entrance are the ones the first answer named, so
+  // a note that turns up under a later query arrives without the animation.
+  const entering = useEntrance(pending ? [] : groups.map((group) => group.name ?? ""));
+
+  // Typing puts the highlight back on the first row, and a narrowing list can
+  // leave it past the end.
+  const cursor = Math.min(active, Math.max(ordered.length - 1, 0));
+
+  // The list scrolls its highlight into view, as the book contents do. Without it
+  // a highlight walked past the bottom of the list is one the reader cannot see.
+  useEffect(() => {
+    document.getElementById(`${listId}-${cursor}`)?.scrollIntoView({ block: "nearest" });
+  }, [cursor, listId]);
+
+  // The answer without the mentions it cannot have, which the counts read.
+  const answer = useMemo(() => found.filter((hit): hit is SearchHit => !isMention(hit)), [found]);
+  const inFolder = useMemo(() => filterHits(answer, filters), [answer, filters]);
+  const weeks = useMemo(() => lastWeeks(today), [today]);
+  const counts = useMemo(
+    () =>
+      linesPerWeek(
+        inFolder.map((hit) => hit.date),
+        weeks,
+      ),
+    [inFolder, weeks],
+  );
+  const chosen = useMemo(
+    () => (week === undefined ? inFolder : inFolder.filter((hit) => weekOfHit(hit) === week)),
+    [inFolder, week],
+  );
+  const counted = useMemo(() => facets(answer), [answer]);
+
+  // The input takes the focus so the keys reach it, and hands it back on the
+  // way out, unless a line is opening: the editor takes the focus only when
+  // nobody holds it, and handing it back there would leave a note to click
+  // before it can be written in.
+  useEffect(() => {
+    const opener = document.activeElement;
+    field.current?.focus();
+    return () => {
+      if (opening.current) return;
+      if (opener instanceof HTMLElement) opener.focus();
+    };
+  }, []);
+
+  function accept(index: number | undefined) {
+    if (index === undefined) return;
+    const hit = found[index];
+    if (hit === undefined) return;
+    opening.current = true;
+    // The hit goes along only for a file, whose place says where to open it; a
+    // note opens at its line, as it always has.
+    if ("place" in hit && hit.place) onOpen(hit.path, hit.line, hit);
+    else onOpen(hit.path, hit.line);
+  }
+
+  /** A folder or a tag: the one chosen clears on a second press, and the other is left alone. */
+  function choose(part: "folder" | "tag", value: string) {
+    setActive(0);
+    setFilters((previous) => ({ ...previous, [part]: previous[part] === value ? null : value }));
+  }
+
+  /** A bar: the chosen week clears on a second press. */
+  function pickWeek(picked: WeekKey) {
+    setActive(0);
+    onWeek?.(picked === week ? undefined : picked);
+  }
+
+  function onKeyDown(event: KeyboardEvent) {
+    if (buttonsOwn(event)) return;
+    const move = step(event);
+    if (move !== 0) {
+      // Prevented before the empty list is checked: an empty list is where Tab
+      // would otherwise leave the panel and not come back.
+      event.preventDefault();
+      if (ordered.length === 0) return;
+      setActive(Math.min(Math.max(cursor + move, 0), ordered.length - 1));
+      return;
+    }
+
+    switch (event.key) {
+      case "Enter":
+        event.preventDefault();
+        accept(ordered[cursor]);
+        break;
+      case "Escape":
+        event.preventDefault();
+        onClose();
+        break;
+      default:
+        // Everything else is typing, and belongs to the input.
+        return;
+    }
+  }
+
+  const summary = `${plural(chosen.length, "line")} in ${plural(new Set(chosen.map((hit) => hit.path)).size, "note")}`;
+  const hint = searchHint(pending, typed, answer.length);
+  const cap = capped ? "Counts are of the first 2,000 lines." : "";
+
+  const column = (
+    <SearchFilters
+      facets={counted}
+      filters={filters}
+      archive={archive}
+      archived={archived}
+      onFolder={(name) => choose("folder", name)}
+      onTag={(name) => choose("tag", name)}
+      onArchive={() => onToggleArchive?.()}
+    />
+  );
+
+  return (
+    // The dialog reads the keys, not the input, so they still land once a click
+    // has moved the focus to a row, a bar or the backdrop.
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Search notes"
+      tabIndex={-1}
+      onKeyDown={onKeyDown}
+      {...closeOnBackdrop(onClose)}
+      className={BACKDROP}
+    >
+      <div className="flex max-h-full min-h-0 w-[min(80rem,96vw)] h-[min(56rem,80dvh)] flex-col overflow-hidden rounded-md border border-k-rule bg-k-paper font-sans shadow-xl">
+        <div className="border-b border-k-rule px-4 pt-5 pb-3 md:px-6">
+          <label htmlFor={`${listId}-query`} className="sr-only">
+            search notes
+          </label>
+          <input
+            id={`${listId}-query`}
+            ref={field}
+            value={query}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setActive(0);
+            }}
+            placeholder="Search the vault"
+            role="combobox"
+            aria-expanded={ordered.length > 0}
+            aria-controls={listId}
+            aria-activedescendant={ordered.length > 0 ? `${listId}-${cursor}` : undefined}
+            autoComplete="off"
+            spellCheck={false}
+            className="w-full bg-transparent font-serif text-k-36 text-k-ink outline-none placeholder:text-k-muted"
+          />
+        </div>
+
+        <div className="flex min-h-0 flex-1">
+          {!narrow && (
+            <aside
+              aria-label="Filters"
+              className="w-[220px] shrink-0 overflow-auto border-r border-k-rule px-6 py-4"
+            >
+              {column}
+            </aside>
+          )}
+
+          <div className="flex min-w-0 flex-1 flex-col">
+            {narrow && (
+              <div className="border-b border-k-rule px-4 py-2">
+                <button
+                  type="button"
+                  aria-expanded={filtersOpen}
+                  onMouseDown={keepFocus}
+                  onClick={() => setFiltersOpen((open) => !open)}
+                  className={`${TAP} flex cursor-pointer items-center gap-2 text-k-13 text-k-accent`}
+                >
+                  {/* The chosen folder and tag name the button, so a narrowed list says so while shut. */}
+                  <span>{["Filters", ...chosenNames(filters)].join(", ")}</span>
+                  <span
+                    aria-hidden="true"
+                    className={`size-0 border-x-[4px] border-t-[5px] border-x-transparent border-t-current transition-transform ${filtersOpen ? "rotate-180" : ""}`}
+                  />
+                </button>
+                {filtersOpen && <div className="pt-2">{column}</div>}
+              </div>
+            )}
+
+            <div className="px-4 pt-4 md:px-6">
+              <SearchHistogram weeks={weeks} counts={counts} week={week} onPick={pickWeek} />
+            </div>
+
+            {(typed !== "" || week !== undefined) && (
+              <p className="flex flex-wrap items-baseline gap-x-3 px-4 pt-3 font-sans md:px-6 text-k-13 text-k-ink">
+                <span>
+                  {summary}
+                  {week === undefined ? "." : ` written ${weekRange(week)}.`}
+                </span>
+                {week !== undefined && (
+                  <button
+                    type="button"
+                    onMouseDown={keepFocus}
+                    onClick={() => onWeek?.(undefined)}
+                    className={`${TAP} cursor-pointer text-k-13 text-k-accent underline`}
+                  >
+                    All weeks
+                  </button>
+                )}
+              </p>
+            )}
+
+            <div className="min-h-0 flex-1 overflow-auto py-2">
+              {ordered.length > 0 && (
+                // A div rather than a list, as in the lists beside this one.
+                <div id={listId} role="listbox" aria-label="Matching lines">
+                  {groups.map((group, at) => (
+                    <NoteGroup
+                      key={group.name ?? ""}
+                      note={group.name ?? ""}
+                      rows={group.rows}
+                      at={at}
+                      found={found}
+                      ordered={ordered}
+                      listId={listId}
+                      term={typed}
+                      cursor={cursor}
+                      entering={entering(group.name ?? "")}
+                      onAccept={accept}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* An <output> rather than a <p role="status">: same announcement, and
+                the element carries it without the attribute. */}
+            {/* The rule is drawn only while there is something to say: an empty line
+                would otherwise run a rule across the last note for nothing. */}
+            <output
+              className={`px-4 py-1 text-[11px] text-k-muted md:px-6 ${hint || cap ? "border-t border-k-rule" : ""}`}
+            >
+              {[hint, cap].filter((text) => text !== "").join(" ")}
+            </output>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

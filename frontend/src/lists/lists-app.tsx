@@ -1,14 +1,25 @@
 import { type KeyboardEvent, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import "../styles/lists.css";
 import { followScheme } from "./follow-scheme";
-import { personOf } from "./lists-person";
+import { MealsTab } from "./lists-meals";
 import { Row } from "./lists-row";
 import { createListsStore, type Item, LISTS, type ListsStore, type Snapshot } from "./lists-store";
-import { countOf, type Group, groupsOf, suggestionsFor, viewOf, without } from "./lists-view";
+import {
+  countOf,
+  type Group,
+  groupsOf,
+  personOf,
+  suggestionsFor,
+  viewOf,
+  without,
+} from "./lists-view";
 import { tickLine } from "./tick-line";
 
 /** The done items shown before "Erledigt" is unfolded. */
 const FOLDED = 3;
+
+/** The read-only tab after the lists: the week plans' meals. */
+const MEALS = "Essen";
 
 /** How long a delete waits for Rückgängig before it is sent. */
 const UNDO_MS = 5000;
@@ -170,7 +181,7 @@ function Lists({ store }: { store: ListsStore }) {
             </a>
           )}
           {/* biome-ignore lint/a11y/useSemanticElements: a pair of filter chips, not a form group */}
-          <div className="filters" role="group" aria-label="Anzeige">
+          <div className="filters" role="group" aria-label="Anzeige" hidden={current === MEALS}>
             <button type="button" aria-pressed={!mine} onClick={() => setMine(false)}>
               Alle
             </button>
@@ -191,6 +202,9 @@ function Lists({ store }: { store: ListsStore }) {
               {name} <span className="count">{openCount(snap, name)}</span>
             </button>
           ))}
+          <button type="button" aria-pressed={current === MEALS} onClick={() => choose(MEALS)}>
+            {MEALS}
+          </button>
         </div>
         {!snap.online && <p className="status pill">Offline, wird gesendet</p>}
         {snap.signIn && <p className="status pill">Anmelden nötig</p>}
@@ -210,7 +224,9 @@ function Lists({ store }: { store: ListsStore }) {
         </div>
       )}
 
-      <main className="lists">
+      <MealsTab shown={current === MEALS} me={snap.me} />
+
+      <main className="lists" hidden={current === MEALS}>
         {loaded && open.length === 0 && done.length === 0 && (
           <p className="empty">Nichts auf der Liste</p>
         )}
@@ -258,7 +274,7 @@ function Lists({ store }: { store: ListsStore }) {
         </div>
       )}
 
-      <footer className="composer">
+      <footer className="composer" hidden={current === MEALS}>
         {under !== null && (
           <div className="under">
             <span>Teil von „{under}“</span>

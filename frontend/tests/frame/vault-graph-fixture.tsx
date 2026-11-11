@@ -18,7 +18,7 @@ import { waitFor } from "@testing-library/react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { commands, page } from "vitest/browser";
-import { GraphPane } from "@/components/graph-pane";
+import { GraphPane } from "@/components/graph/graph-pane";
 import type { GraphEdge, GraphNode } from "@/lib/graph/graph";
 import { fetchGraph, type Graph } from "@/lib/graph/graph-api";
 import { COARSE, NARROW, stubMatchMedia } from "../match-media";

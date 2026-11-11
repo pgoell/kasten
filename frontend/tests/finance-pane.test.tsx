@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { FinancePane } from "@/components/finance-pane";
+import { FinancePane } from "@/components/finance/finance-pane";
 import { stubCommands } from "./stub-commands";
 
 const { fetchCategories, fetchToSort, sortByHand, sortPayee, fetchUnmatchedOrders } = vi.hoisted(

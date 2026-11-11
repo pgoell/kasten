@@ -48,7 +48,7 @@ from kasten_backend.finance.routes.records import sorting as finance_sorting
 from kasten_backend.finance.routes.records.guard import FinanceGuard
 from kasten_backend.finance.routes.tax import receipts as finance_receipts
 from kasten_backend.finance.routes.tax import tax as finance_tax
-from kasten_backend.food import recipes
+from kasten_backend.food import plan, recipes
 from kasten_backend.guide import write_guide
 from kasten_backend.okf import prepare
 from kasten_backend.pieces import indexer
@@ -221,6 +221,7 @@ app.include_router(log.router)
 app.include_router(training.router)
 app.include_router(food.router)
 app.include_router(recipes.router)
+app.include_router(plan.router)
 app.include_router(anki.router)
 app.include_router(tokens.router)
 app.include_router(finance.router)

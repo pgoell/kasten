@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: "HTTP API: food"
-description: The routes that search Open Food Facts for a food, read one by its barcode, work out a recipe's kcal and macros per serving, and list the recipe notes, the answers they give, and the limits they keep.
+description: The routes that search Open Food Facts for a food, read one by its barcode, work out a recipe's kcal and macros per serving, list and import the recipe notes, lay out a week plan and write its shopping list, the answers they give, and the limits they keep.
 resource: backend/src/kasten_backend/food/__init__.py
 tags: [api, backend, openapi]
 status: stable
@@ -14,7 +14,9 @@ Both ask [Open Food Facts](https://world.openfoodfacts.org), an open food
 database, and both answer with the same food shape. A third works out a
 recipe's numbers: see [POST /api/recipe/nutrition](#post-apirecipenutrition).
 A fourth lists the recipe notes for the food sheet: see
-[GET /api/recipes](#get-apirecipes).
+[GET /api/recipes](#get-apirecipes). Two more serve a week plan: its layout,
+and its ingredients into the shopping list; see
+[POST /api/meal-plan](#post-apimeal-plan).
 
 ## GET /api/food/search
 
@@ -178,6 +180,112 @@ the same limits and cache.
 * `per_serving` is `null` when the note names no servings; `total` is then the
   whole dish.
 * A note that cannot be read as UTF-8 is left out. The route writes nothing.
+
+## POST /api/recipes/import
+
+Writes a recipe note from a web page, or from a schema.org `Recipe` already
+read, such as the one the model makes of a pasted caption. Send one of the two:
+
+```json
+{ "url": "https://www.chefkoch.de/rezepte/1170311223132029/Chili-sin-Carne.html" }
+```
+
+```json
+{
+  "recipe": {
+    "name": "Feta-Pasta aus dem Ofen",
+    "recipeYield": "2",
+    "recipeIngredient": ["200 g Feta", "400 g Kirschtomaten"],
+    "recipeInstructions": ["Feta und Tomaten 25 Minuten backen."]
+  },
+  "source": "https://www.instagram.com/reel/C0abc/"
+}
+```
+
+It answers `201` with the note it wrote:
+
+```json
+{ "path": "Rezepte/Chili sin Carne.md", "title": "Chili sin Carne" }
+```
+
+* A `url` is fetched as `GET /api/fetch` fetches, public addresses only. When
+  the site answers `403`, `429` or `503`, kasten asks once more with a
+  browser's TLS fingerprint, still pinned to the address it checked.
+* The page's schema.org data is read with
+  [recipe-scrapers](https://github.com/hhursev/recipe-scrapers). A `recipe` is
+  checked first: `name`, a non-empty `recipeIngredient` and a non-empty
+  `recipeInstructions` must be there, each step text or a `HowToStep` with
+  `text`. It is then read the same way a page is.
+* The note is [the recipe note](/reference/food/recipe-note.md) with
+  `servings`, `time` and `source` where known, and `## Zutaten` and
+  `## Schritte`. It lands in `KASTEN_RECIPES_PATH`, named after the title; a
+  name already taken gets ` 2`, ` 3` and so on.
+
+It answers `422` for a body with neither or both, a `recipe` that fails the
+check, or a page with no recipe on it; `400` for an address that is not http
+or https or not on the internet; and `502` when the page cannot be read, with
+`paste the recipe` in the detail when the site turned both tries away.
+
+## POST /api/meal-plan
+
+Takes a [week plan note](/reference/food/meal-plan.md) as the editor holds it,
+`{"text": "…"}` up to 200,000 characters, and answers with the week as the
+card draws it. Nothing is written.
+
+```json
+{
+  "week": "2026-W46",
+  "fridge_days": 2,
+  "days": [{ "day": 0, "date": "2026-11-09", "training": true, "protein": 24.0 }],
+  "meals": [
+    {
+      "line": 7, "day": 0, "slot": "dinner", "kind": "cook",
+      "text": "cook [[Linsen-Dal]] x4 👤 [[Alicia]]", "recipe": "Linsen-Dal",
+      "path": "Rezepte/Linsen-Dal.md", "servings": 4, "cook": "Alicia",
+      "batch": 0, "fridge_day": 1, "freeze": false
+    }
+  ],
+  "batches": [
+    {
+      "recipe": "Linsen-Dal", "path": "Rezepte/Linsen-Dal.md", "day": 0,
+      "slot": "dinner", "servings": 4, "first_day": 0, "eaten": 3, "left": 1,
+      "last_day": 2, "cook": "Alicia", "state": "cooked"
+    }
+  ],
+  "protein_goal": { "type": "floor", "value": 120.0 },
+  "ingredients": 17
+}
+```
+
+* `days` holds all seven, Monday first, `date` null when the note names no
+  week. `protein` is one serving of each recipe the day's meals name, worked
+  out as `POST /api/recipe/nutrition` does, or null for a day with none.
+* `meals` is in week order. `kind` is `cook`, `from` or `other`; `path` is null
+  when no note answers to the link. `batch` indexes `batches`; `fridge_day` is 1
+  on the cooking day; `freeze` is true from the plan's fridge limit on.
+* A batch's `state` is `earlier` for one a `from` drew on with no `cook` before
+  it this week: its `day`, `slot` and `servings` are null. `left` is
+  `servings - eaten`, negative when the plan draws more than it cooks.
+* `protein_goal` is the log config note's protein goal for a training day, its
+  `- 🍽 training:` line's when it names protein, else the everyday one, or null.
+* `ingredients` counts the foods the cooked batches need, before merging.
+
+## POST /api/meal-plan/shopping
+
+Takes the same body, and writes the ingredients of the week's cooked batches
+into `Einkauf.md` in `KASTEN_SHARE_FOLDER`, scaled, summed by food and unit,
+filed by aisle and merged into open lines as
+[the week plan page](/reference/food/meal-plan.md#the-shopping-list) says. It
+answers with what it did:
+
+```json
+{ "path": "05 Shared/Einkauf.md", "added": 6, "merged": 1, "skipped": 0 }
+```
+
+`merged` counts open lines that took more for a recipe they did not link yet,
+`skipped` foods an open line holds for every recipe already. A press that adds
+and merges nothing writes nothing. The list is read and written with its
+digest, so an edit that lands in between answers `409`.
 
 ## Errors
 

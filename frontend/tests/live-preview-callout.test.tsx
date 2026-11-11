@@ -7,7 +7,7 @@ import { EditorView } from "@codemirror/view";
 import { act, fireEvent, type RenderResult, render, waitFor } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { Editor } from "@/components/editor";
-import { NotePreview } from "@/components/note-preview";
+import { NotePreview } from "@/components/note/note-preview";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 
 function content(container: HTMLElement): string {

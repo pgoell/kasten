@@ -1,0 +1,398 @@
+[
+  {
+    "id": "margin",
+    "line": "depends-on:: [[Embeddings]]",
+    "relation": {
+      "name": "depends-on",
+      "target": "Embeddings"
+    },
+    "links": ["Embeddings"]
+  },
+  {
+    "id": "indent-1",
+    "line": " depends-on:: [[Embeddings]]",
+    "relation": {
+      "name": "depends-on",
+      "target": "Embeddings"
+    },
+    "links": ["Embeddings"]
+  },
+  {
+    "id": "indent-2",
+    "line": "  depends-on:: [[Embeddings]]",
+    "relation": {
+      "name": "depends-on",
+      "target": "Embeddings"
+    },
+    "links": ["Embeddings"]
+  },
+  {
+    "id": "indent-3",
+    "line": "   depends-on:: [[Embeddings]]",
+    "relation": {
+      "name": "depends-on",
+      "target": "Embeddings"
+    },
+    "links": ["Embeddings"]
+  },
+  {
+    "id": "bullet-indent-0",
+    "line": "- supports:: [[GraphRAG paper]]",
+    "relation": {
+      "name": "supports",
+      "target": "GraphRAG paper"
+    },
+    "links": ["GraphRAG paper"]
+  },
+  {
+    "id": "bullet-indent-1",
+    "line": " - supports:: [[GraphRAG paper]]",
+    "relation": {
+      "name": "supports",
+      "target": "GraphRAG paper"
+    },
+    "links": ["GraphRAG paper"]
+  },
+  {
+    "id": "bullet-indent-2",
+    "line": "  - supports:: [[GraphRAG paper]]",
+    "relation": {
+      "name": "supports",
+      "target": "GraphRAG paper"
+    },
+    "links": ["GraphRAG paper"]
+  },
+  {
+    "id": "bullet-indent-3",
+    "line": "   - supports:: [[GraphRAG paper]]",
+    "relation": {
+      "name": "supports",
+      "target": "GraphRAG paper"
+    },
+    "links": ["GraphRAG paper"]
+  },
+  {
+    "id": "prose-after",
+    "line": "  contradicts:: [[Naive RAG]] and the paper says why",
+    "relation": {
+      "name": "contradicts",
+      "target": "Naive RAG"
+    },
+    "links": ["Naive RAG"]
+  },
+  {
+    "id": "second-link-is-prose",
+    "line": "- supports:: [[rag]] and [[Ghost]]",
+    "relation": {
+      "name": "supports",
+      "target": "rag"
+    },
+    "links": ["rag", "Ghost"]
+  },
+  {
+    "id": "separator-in-target",
+    "line": "mentions:: [[std::vector]]",
+    "relation": {
+      "name": "mentions",
+      "target": "std::vector"
+    },
+    "links": ["std::vector"]
+  },
+  {
+    "id": "alias-kept-as-written",
+    "line": "supports:: [[GraphRAG paper|the paper]]",
+    "relation": {
+      "name": "supports",
+      "target": "GraphRAG paper|the paper"
+    },
+    "links": ["GraphRAG paper|the paper"]
+  },
+  {
+    "id": "target-trimmed",
+    "line": "depends-on:: [[  Embeddings  ]]",
+    "relation": {
+      "name": "depends-on",
+      "target": "Embeddings"
+    },
+    "links": ["  Embeddings  "]
+  },
+  {
+    "id": "tab-before-target",
+    "line": "depends-on::\t[[A]]",
+    "relation": null,
+    "links": ["A"]
+  },
+  {
+    "id": "space-and-tab-before-target",
+    "line": "depends-on:: \t [[A]]",
+    "relation": {
+      "name": "depends-on",
+      "target": "A"
+    },
+    "links": ["A"]
+  },
+  {
+    "id": "one-letter-name",
+    "line": "d:: [[A]]",
+    "relation": {
+      "name": "d",
+      "target": "A"
+    },
+    "links": ["A"]
+  },
+  {
+    "id": "unknown-name",
+    "line": "frobnicates:: [[A]]",
+    "relation": {
+      "name": "frobnicates",
+      "target": "A"
+    },
+    "links": ["A"]
+  },
+  {
+    "id": "indent-4",
+    "line": "    depends-on:: [[A]]",
+    "relation": null,
+    "links": ["A"]
+  },
+  {
+    "id": "indent-tab",
+    "line": "\tdepends-on:: [[A]]",
+    "relation": null,
+    "links": ["A"]
+  },
+  {
+    "id": "bullet-nested",
+    "line": "    - depends-on:: [[A]]",
+    "relation": null,
+    "links": ["A"]
+  },
+  {
+    "id": "bullet-plus",
+    "line": "+ depends-on:: [[A]]",
+    "relation": null,
+    "links": ["A"]
+  },
+  {
+    "id": "bullet-star",
+    "line": "* depends-on:: [[A]]",
+    "relation": null,
+    "links": ["A"]
+  },
+  {
+    "id": "bullet-ordered-dot",
+    "line": "1. depends-on:: [[A]]",
+    "relation": null,
+    "links": ["A"]
+  },
+  {
+    "id": "bullet-ordered-paren",
+    "line": "1) depends-on:: [[A]]",
+    "relation": null,
+    "links": ["A"]
+  },
+  {
+    "id": "bullet-double-bullet",
+    "line": "- - depends-on:: [[A]]",
+    "relation": null,
+    "links": ["A"]
+  },
+  {
+    "id": "bullet-task",
+    "line": "- [ ] depends-on:: [[A]]",
+    "relation": null,
+    "links": ["A"]
+  },
+  {
+    "id": "bullet-no-name",
+    "line": "-:: [[A]]",
+    "relation": null,
+    "links": ["A"]
+  },
+  {
+    "id": "link-before-separator",
+    "line": "[[A]] depends-on:: [[B]]",
+    "relation": null,
+    "links": ["A", "B"]
+  },
+  {
+    "id": "digit-in-name",
+    "line": "depends2:: [[A]]",
+    "relation": null,
+    "links": ["A"]
+  },
+  {
+    "id": "uppercase-name",
+    "line": "Depends-on:: [[A]]",
+    "relation": null,
+    "links": ["A"]
+  },
+  {
+    "id": "underscore-name",
+    "line": "depends_on:: [[A]]",
+    "relation": null,
+    "links": ["A"]
+  },
+  {
+    "id": "no-space-after-separator",
+    "line": "depends-on::[[A]]",
+    "relation": null,
+    "links": ["A"]
+  },
+  {
+    "id": "prose-before-target",
+    "line": "depends-on:: not really [[A]]",
+    "relation": null,
+    "links": ["A"]
+  },
+  {
+    "id": "blank-target",
+    "line": "depends-on:: [[   ]]",
+    "relation": null,
+    "links": []
+  },
+  {
+    "id": "blank-target-then-link",
+    "line": "depends-on:: [[   ]] [[B]]",
+    "relation": null,
+    "links": ["B"]
+  },
+  {
+    "id": "bracket-in-target",
+    "line": "depends-on:: [[a[b]]",
+    "relation": null,
+    "links": []
+  },
+  {
+    "id": "no-wikilink",
+    "line": "depends-on:: Embeddings",
+    "relation": null,
+    "links": []
+  },
+  {
+    "id": "table-row",
+    "line": "| depends-on:: [[A]] |",
+    "relation": null,
+    "links": ["A"]
+  },
+  {
+    "id": "footnote",
+    "line": "[^1]: depends-on:: [[A]]",
+    "relation": null,
+    "links": ["A"]
+  },
+  {
+    "id": "scope-operator",
+    "line": "std::vector is fast",
+    "relation": null,
+    "links": []
+  },
+  {
+    "id": "plain-links",
+    "line": "see [[borges]] and [[index]]",
+    "relation": null,
+    "links": ["borges", "index"]
+  },
+  {
+    "id": "no-link",
+    "line": "borges wrote the library",
+    "relation": null,
+    "links": []
+  },
+  {
+    "id": "unclosed",
+    "line": "see [[borges",
+    "relation": null,
+    "links": []
+  },
+  {
+    "id": "empty-brackets",
+    "line": "[[]] and [[   ]]",
+    "relation": null,
+    "links": []
+  },
+  {
+    "id": "bracket-in-name",
+    "line": "[[bor[ges]]",
+    "relation": null,
+    "links": []
+  },
+  {
+    "id": "close-bracket-in-name",
+    "line": "[[a]b]]",
+    "relation": null,
+    "links": []
+  },
+  {
+    "id": "close-bracket-in-target",
+    "line": "depends-on:: [[a]b]]",
+    "relation": null,
+    "links": []
+  },
+  {
+    "id": "aliases-headings-embeds",
+    "line": "[[Louise Nong|Louise]] [[plan#Risks]] [[#Top]] ![[plan.pdf]] [[a]]",
+    "relation": null,
+    "links": ["Louise Nong|Louise", "plan#Risks", "#Top", "plan.pdf", "a"]
+  },
+  {
+    "id": "trailing-cr",
+    "line": "depends-on:: [[A]]\r",
+    "relation": {
+      "name": "depends-on",
+      "target": "A"
+    },
+    "links": ["A"]
+  },
+  {
+    "id": "bom-target",
+    "line": "depends-on:: [[\ufeffA\ufeff]]",
+    "relation": {
+      "name": "depends-on",
+      "target": "A"
+    },
+    "links": ["\ufeffA\ufeff"],
+    "departs": {
+      "backend": 1857
+    }
+  },
+  {
+    "id": "bom-only-link",
+    "line": "see [[\ufeff]]",
+    "relation": null,
+    "links": [],
+    "departs": {
+      "backend": 1857
+    }
+  },
+  {
+    "id": "separator-char-target",
+    "line": "depends-on:: [[A\u001c]]",
+    "relation": {
+      "name": "depends-on",
+      "target": "A\u001c"
+    },
+    "links": ["A\u001c"],
+    "departs": {
+      "backend": 1858
+    }
+  },
+  {
+    "id": "separator-char-only-link",
+    "line": "see [[\u001f]]",
+    "relation": null,
+    "links": ["\u001f"],
+    "departs": {
+      "backend": 1858
+    }
+  },
+  {
+    "id": "next-line-only-link",
+    "line": "see [[\u0085]]",
+    "relation": null,
+    "links": ["\u0085"],
+    "departs": {
+      "backend": 1858
+    }
+  }
+]

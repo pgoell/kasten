@@ -6,7 +6,7 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRoot, type Root } from "react-dom/client";
-import { ReviewSession } from "@/components/review-session";
+import { ReviewSession } from "@/components/review/review-session";
 import { noteBase, noteBaseAside } from "@/lib/notes/note-base";
 import type { Deck } from "@/lib/review/review";
 import "@/styles/app.css";

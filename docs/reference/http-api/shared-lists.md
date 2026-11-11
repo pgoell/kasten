@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: "HTTP API: shared lists"
-description: The ten routes the shared lists app reaches under /share/, with what each takes and answers.
+description: The eleven routes the shared lists app reaches under /share/, with what each takes and answers.
 resource: backend/src/kasten_backend/routes/share.py
 tags: [api, backend, share, lists]
 status: stable
@@ -9,7 +9,7 @@ status: stable
 
 # HTTP API: shared lists
 
-The ten routes under `/share/`. They sit outside `/api/`, so the count on
+The eleven routes under `/share/`. They sit outside `/api/`, so the count on
 [the HTTP API page](/reference/http-api.md) leaves them out. On the share host,
 set by [`KASTEN_SHARE_HOST`](/reference/configuration/shared-lists.md#kasten_share_host), they
 are the only paths the backend answers. The reasoning is in
@@ -221,6 +221,31 @@ Takes `{"sha": "3f9c1a0"}` and removes each done item at the margin with its
 parts, when every part is done or rejected. An item with a part still open stays,
 and so does a done part of an open item, which counts in its `1/3`. Nothing else
 changes. Answers the `List`, and a stale sha answers `409`.
+
+## GET /share/meals
+
+Answers the meals of the [week plans](/reference/food/meal-plan.md) in the
+shared folder for the lists app's Essen tab, from `today` through the six days
+after it. `today` is the device's date, `YYYY-MM-DD`, as a tick sends it; the
+server's date stands in when it is left out. A plan reads only when its
+frontmatter says `type: Meal Plan` and names a `week`. Training days and
+protein stay in kasten.
+
+```json
+[
+  {
+    "date": "2026-11-09",
+    "meals": [
+      { "slot": "lunch", "kind": "from", "dish": "Chili sin carne", "servings": null, "cook": null },
+      { "slot": "dinner", "kind": "cook", "dish": "Linsen-Dal", "servings": 4, "cook": "Alicia" }
+    ]
+  }
+]
+```
+
+Only days with a meal come back, in date order, lunch before dinner. `dish` is
+the recipe's name for a `cook` or `from` meal, else the line's words with link
+brackets and the cook taken off. Nothing is written.
 
 ## GET /share/events
 

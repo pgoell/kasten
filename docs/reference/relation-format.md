@@ -112,8 +112,8 @@ target is another note, the hit goes in the untyped group.
 
 [`GET /api/graph`](/reference/http-api/finding.md#get-apigraph) reads relations on the
 backend, with a copy of this grammar in `graph.py`, so a relation is an edge
-carrying its name. The two copies answer to this page, and the tests on each
-side describe the same lines.
+carrying its name. The two copies answer to this page, and the tests on both
+sides read one list of lines, `frontend/src/lib/notes/links/relation-cases.json`.
 
 An alias or a heading in the target, `supports:: [[GraphRAG paper|the paper]]`,
 is cut off, and the relation points at `GraphRAG paper`, in the graph and in the

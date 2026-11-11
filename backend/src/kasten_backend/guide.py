@@ -32,6 +32,13 @@ GUIDES = {
 }
 """Each guide by its place inside the config folder, as a template `Settings.fill` reads."""
 
+SKILLS = {
+    "meal-planner/SKILL.md": (Path(__file__).parent / "guides" / "meal-planner.md").read_text(
+        encoding="utf-8"
+    ),
+}
+"""Each skill kasten ships by its place inside the skills folder, written raw: no stamp."""
+
 
 def placed(settings: Settings, notes: dict[str, str]) -> dict[str, str]:
     """`notes` moved under the config folder, each text naming this vault's folders."""
@@ -43,7 +50,50 @@ async def write_guide(root: Path) -> None:
 
     The layout comes from the settings: the lifespan that calls this has no request to inject from.
     """
-    await write_missing(root, placed(get_settings(), GUIDES))
+    settings = get_settings()
+    await write_missing(root, placed(settings, GUIDES))
+    await write_skills(root, settings)
+
+
+async def write_skills(root: Path, settings: Settings) -> None:
+    """Write each of `SKILLS` the skills folder lacks, so the chat pane can run it.
+
+    A skills folder that is a link, or leads out of the vault, gets nothing, as `skills.py`
+    reads none from it. The text is kasten's own, so no caller ever chooses what lands here.
+    """
+    for name, text in SKILLS.items():
+        relative = f"{settings.skills_path}/{name}"
+        async with vault_write():
+            path = _missing(root, relative)
+            if path is None:
+                continue
+            async with vault_change(root, relative):
+                _place(path, settings.fill(text))
+
+
+def _missing(root: Path, relative: str) -> Path | None:
+    """Where `relative` goes when the vault lacks it, with no link on the way and inside `root`."""
+    base = root.resolve()
+    path = base / relative
+    # A dangling link counts as missing to `exists()`, so each step is asked for a link itself.
+    steps = [up for up in (path, *path.parents) if up.is_relative_to(base) and up != base]
+    if not path.is_relative_to(base) or any(up.is_symlink() for up in steps):
+        return None
+    folders = steps[1:]
+    # With no link on the way, a path that resolves elsewhere holds a `..`.
+    if path.resolve() != path or path.exists():
+        return None
+    if any(up.exists() and not up.is_dir() for up in folders):
+        return None
+    return path
+
+
+def _place(path: Path, text: str) -> None:
+    """Write `path` through a hidden temp, making the folders on the way."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.tmp")
+    temporary.write_text(text, encoding="utf-8")
+    temporary.replace(path)
 
 
 async def write_missing(root: Path, notes: dict[str, str]) -> None:
