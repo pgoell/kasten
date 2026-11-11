@@ -20,8 +20,10 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 DAYS_SHOWN = 7
-LINK = re.compile(r"\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|([^\]]+))?\]\]")
-COOK = re.compile(r"[ \t]*👤.*$")
+# No part holds a `[` or the mark opening the next, and a gap starts on its first blank only,
+# so a long line reads in linear time.
+LINK = re.compile(r"\[\[([^\[\]|#]+)(?:#[^\[\]|]*)?(?:\|([^\[\]]+))?\]\]")
+COOK = re.compile(r"(?<![ \t])[ \t]*👤.*$")
 
 
 class SharedMeal(BaseModel):
