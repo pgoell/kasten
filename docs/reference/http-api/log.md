@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: "HTTP API: log"
-description: The route that adds up each day's water, coffee, alcohol and food from its daily note, the one that reads its training lines, the one that lists the exercise notes, and the one that lists the training block notes.
+description: The route that adds up each day's water, coffee, alcohol and food from its daily note, the one that reads its training lines, the one that adds a job's training lines, the one that lists the exercise notes, and the one that lists the training block notes.
 resource: backend/src/kasten_backend/log.py
 tags: [api, backend, openapi]
 status: stable
@@ -10,8 +10,8 @@ status: stable
 # HTTP API: log
 
 The route that adds up each day's water, coffee, alcohol and food from its daily note,
-the one that reads its training lines, the one that lists the exercise notes, and the
-one that lists the training block notes.
+the one that reads its training lines, the one that adds a job's training lines, the
+one that lists the exercise notes, and the one that lists the training block notes.
 
 ## GET /api/log
 
@@ -121,6 +121,30 @@ GET /api/training?from=2026-11-09&to=2026-11-15
 Every field of an entry is there, `null` where its kind has none, and so is
 every field of a test's group and value. `kind` is `strength`, `walk`, `run`,
 `ride` or `test`.
+
+## POST /api/training/days/{day}
+
+Adds training lines under `## Training` in the daily note of `day`,
+`YYYY-MM-DD`. The [Garmin sync](/reference/training/garmin-sync.md) writes
+through it. The body holds one to fifty lines:
+
+```json
+{ "lines": ["- 🚲 [[Radfahren]] 22 min 7.4 km ❤ 131"] }
+```
+
+```json
+{ "path": "01 Periodic/00 Daily/2026-11-11.md", "added": ["- 🚲 [[Radfahren]] 22 min 7.4 km ❤ 131"] }
+```
+
+`added` holds the lines written, in order. A line the note already holds word
+for word, anywhere in it, is left out, so sending the same lines twice writes
+them once. A note without `## Training` gets the section at its end; a day with
+no note gets one, made as `<leader>gd` makes it. Read and write share one hold
+of the vault lock, so a browser save between them is not written over.
+
+Every line must read as a [training line](/reference/training/training-format.md)
+and hold no line break, or nothing is written and the answer is `422`. So is a
+`day` that is no date, such as `2026-02-30`.
 
 ## GET /api/training/exercises
 

@@ -1,7 +1,6 @@
 """Firefly's Auto-categorize triggers as kasten rules: kinds, cleaning, repeats and refusals."""
 
-from kasten_jobs.firefly import Trigger
-from kasten_jobs.firefly_rules import translate
+from kasten_jobs.firefly import Trigger, translate
 
 GROCERIES = Trigger("Auto: Groceries", "destination_account_contains", "REWE", "Groceries")
 

@@ -1,6 +1,6 @@
 """Firefly III's database, read and never written: the accounts, journals, categories and rules.
 
-The import (`firefly_import`) needs only these, as plain records, so the tests
+The import (`job`) needs only these, as plain records, so the tests
 build the records by hand and no test needs a Firefly schema.
 """
 

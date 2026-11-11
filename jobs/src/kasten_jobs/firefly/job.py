@@ -16,13 +16,13 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
-from kasten_jobs import firefly
+import kasten_jobs.firefly.database as firefly
 from kasten_jobs.bookings import spelled, transfer_prefix
-from kasten_jobs.firefly_rules import KIND, translate
+from kasten_jobs.firefly.rules import KIND, translate
 from kasten_jobs.kasten_api import KastenApi
 
 if TYPE_CHECKING:
-    from kasten_jobs.firefly import Account, Firefly, Journal
+    from kasten_jobs.firefly.database import Account, Firefly, Journal
 
 log = logging.getLogger("kasten_jobs.firefly_import")
 

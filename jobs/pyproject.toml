@@ -21,10 +21,11 @@ dependencies = [
 
 [project.scripts]
 kasten-bank-sync = "kasten_jobs.bank_sync:main"
-kasten-firefly-import = "kasten_jobs.firefly_import:main"
+kasten-firefly-import = "kasten_jobs.firefly:main"
 kasten-order-sync = "kasten_jobs.orders.sync:main"
 kasten-receipts = "kasten_jobs.receipts:main"
 kasten-exercise-import = "kasten_jobs.exercises:main"
+kasten-garmin-sync = "kasten_jobs.garmin:main"
 
 [build-system]
 requires = ["uv_build>=0.13.7,<0.14.0"]
