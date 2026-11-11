@@ -65,6 +65,7 @@ it("with vim on, k from the first body line shows the YAML", async () => {
     // The note opens past the blank line and the heading that repeats its title, and k steps
     // over those, as they have no height.
     expect(cursorLine(viewOf(host))).toBe("about:: [[Design Notes]]");
+    expect(visibleEditor(host).textContent).not.toContain("type: Concept");
 
     await userEvent.keyboard("k");
 

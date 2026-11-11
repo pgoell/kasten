@@ -35,7 +35,8 @@ import { relationCompletions, vaultRelations } from "@/lib/notes/links/ontology"
 import { vaultPaths, wikiLinkCompletions } from "@/lib/notes/links/wikilink";
 import { livePreview } from "@/lib/notes/live/live-preview";
 import { timeSeek } from "@/lib/notes/live/live-preview-times";
-import { graphHandler, noteHead, type Outline, readMode } from "@/lib/notes/note/note-head";
+import { graphHandler, noteHead, type Outline } from "@/lib/notes/note/head/note-head";
+import { readMode } from "@/lib/notes/note/head/note-read-hiding";
 import { weatherCard } from "@/lib/notes/note/weather-card";
 import { periodicReview, type ReviewSource, reviewSource } from "@/lib/review/periodic-review";
 import { type CycleHandler, idElsewhere, notePath, todoCycled } from "@/lib/todo/todo-commands";

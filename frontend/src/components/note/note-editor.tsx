@@ -4,7 +4,7 @@ import { Editor } from "@/components/editor";
 import { fetchNote, type TodoHit } from "@/lib/core/api";
 import type { FileTarget } from "@/lib/notes/editor/editor-follow";
 import type { EmbedSource } from "@/lib/notes/embeds/embed";
-import type { Outline } from "@/lib/notes/note/note-head";
+import type { Outline } from "@/lib/notes/note/head/note-head";
 import { parseTodo } from "@/lib/todo/todo";
 import type { TodoCycle } from "@/lib/todo/todo-commands";
 import type { EditorCommands } from "@/lib/ui/keys/key-bindings";

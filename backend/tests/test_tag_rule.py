@@ -255,7 +255,7 @@ def test_656_the_block_patterns_match_tag_rule_ts() -> None:
     opener = re.search(r"const HTML_OPENER = String\.raw`([^`]*)`", source)
     line = re.search(
         r"const HTML_LINE = /(.*)/m;",
-        (Path(__file__).parents[2] / "frontend/src/lib/notes/note/note-outline.ts").read_text(
+        (Path(__file__).parents[2] / "frontend/src/lib/notes/note/head/note-outline.ts").read_text(
             encoding="utf-8"
         ),
     )
