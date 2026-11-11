@@ -6,12 +6,14 @@ reads the answer. The link and relation rules are the editor's, held to it by
 """
 
 import json
+import subprocess
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from kasten_backend.graph import RELATION, WIKILINK, resolver
+from kasten_backend.graph import RELATION, TYPE, WIKILINK, resolver
 from kasten_backend.links import link_path, split_target
 
 if TYPE_CHECKING:
@@ -286,3 +288,36 @@ def test_reads_each_shared_case_as_the_editor_does(case: dict[str, Any]) -> None
         "relation": case["relation"],
         "links": case["links"],
     }
+
+
+def test_1905_a_type_before_a_long_blank_run_reads_in_linear_time() -> None:
+    # A child process, since `re` cannot be stopped from inside; the bound sits far under main's.
+    code = (
+        "import time; from kasten_backend.graph import TYPE; start = time.perf_counter();"
+        " TYPE.match('type: a' + ' ' * 40_000 + 'x'); print(time.perf_counter() - start)"
+    )
+
+    done = subprocess.run(  # noqa: S603
+        [sys.executable, "-c", code], check=True, timeout=60, capture_output=True, text=True
+    )
+
+    assert float(done.stdout) < 1
+
+
+# The fix moves no value on a normal line.
+@pytest.mark.parametrize(
+    ("line", "found"),
+    [
+        ("type: Recipe", "Recipe"),
+        ("type:Recipe \t ", "Recipe"),
+        ("type:  Training\tBlock\t", "Training\tBlock"),
+        ("type: Recipe \r", "Recipe"),
+        ("type:   ", ""),
+        ("type:", ""),
+    ],
+)
+def test_1905_a_type_reads_as_on_main(line: str, found: str) -> None:
+    match = TYPE.match(line)
+
+    assert match is not None
+    assert match[1] == found

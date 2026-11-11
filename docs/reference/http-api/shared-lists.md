@@ -2,7 +2,7 @@
 type: Reference
 title: "HTTP API: shared lists"
 description: The eleven routes the shared lists app reaches under /share/, with what each takes and answers.
-resource: backend/src/kasten_backend/routes/share.py
+resource: backend/src/kasten_backend/share/route.py
 tags: [api, backend, share, lists]
 status: stable
 ---

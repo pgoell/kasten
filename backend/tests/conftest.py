@@ -480,11 +480,13 @@ def cross_midnight(monkeypatch: pytest.MonkeyPatch) -> None:
     if not os.environ.get("KASTEN_CROSS_MIDNIGHT"):
         return
     monkeypatch.setattr("kasten_backend.share.lists.date", _Tomorrow)
-    monkeypatch.setattr("kasten_backend.routes.web.date", _Tomorrow)
+    monkeypatch.setattr("kasten_backend.web.route.date", _Tomorrow)
     # GitHub counts days in UTC, so its clock turns at the next UTC midnight.
     tomorrow = datetime.now(UTC).date() + timedelta(days=1)
     turned = datetime.combine(tomorrow, datetime.min.time(), UTC)
-    monkeypatch.setattr("kasten_backend.github._now", lambda: turned + timedelta(seconds=1))
+    monkeypatch.setattr(
+        "kasten_backend.github.contributions._now", lambda: turned + timedelta(seconds=1)
+    )
 
 
 PINNED_DAY = date(2026, 8, 10)
@@ -508,5 +510,5 @@ def pinned_day(monkeypatch: pytest.MonkeyPatch) -> date:
     after `cross_midnight` and wins over it.
     """
     monkeypatch.setattr("kasten_backend.share.lists.date", _Pinned)
-    monkeypatch.setattr("kasten_backend.routes.web.date", _Pinned)
+    monkeypatch.setattr("kasten_backend.web.route.date", _Pinned)
     return PINNED_DAY

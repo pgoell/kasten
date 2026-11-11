@@ -21,7 +21,9 @@ YES = frozenset({"true", "yes"})
 
 SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 DATE = re.compile(r"^\d{4}-\d{2}-\d{2}")
-HEADING = re.compile(r"^# +(.+?)\s*#*\s*$")
+# The title ends only after a non-blank, or is one blank, and one `\s*` owns each blank run, so
+# a long blank run is read once (#1905).
+HEADING = re.compile(r"^# +((?=\s).|.+?(?<!\s))\s*(?:#+\s*)?$")
 
 # Folded by hand first: NFKD alone turns `ä` into `a`, where German writes `ae`.
 _GERMAN = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"})

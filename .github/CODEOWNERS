@@ -28,7 +28,7 @@ bun.lock @pgoell
 /backend/src/kasten_backend/agent/oauth.py @pgoell
 /backend/src/kasten_backend/agent/route.py @pgoell
 /backend/src/kasten_backend/agent/mcp_server.py @pgoell
-/backend/src/kasten_backend/routes/share.py @pgoell
-/backend/src/kasten_backend/routes/tokens.py @pgoell
-/backend/src/kasten_backend/tokens.py @pgoell
+/backend/src/kasten_backend/share/route.py @pgoell
+/backend/src/kasten_backend/tokens/route.py @pgoell
+/backend/src/kasten_backend/tokens/bearer.py @pgoell
 /backend/src/kasten_backend/files.py @pgoell

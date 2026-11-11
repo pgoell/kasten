@@ -1,6 +1,10 @@
+import subprocess
+import sys
 from typing import TYPE_CHECKING
 
-from kasten_backend.posts.published import slugify
+import pytest
+
+from kasten_backend.posts.published import HEADING, slugify
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -96,3 +100,39 @@ async def test_a_post_with_no_date_is_not_published(
 
 def test_slugs_fold_german_letters() -> None:
     assert slugify("Über Größe & Maß!") == "ueber-groesse-mass"
+
+
+def test_1905_a_title_before_a_long_blank_run_reads_in_linear_time() -> None:
+    # A child process, since `re` cannot be stopped from inside; main takes hours here.
+    code = (
+        "import time; from kasten_backend.posts.published import HEADING;"
+        " start = time.perf_counter(); HEADING.match('# a' + ' ' * 40_000 + 'x');"
+        " print(time.perf_counter() - start)"
+    )
+
+    done = subprocess.run(  # noqa: S603
+        [sys.executable, "-c", code], check=True, timeout=60, capture_output=True, text=True
+    )
+
+    assert float(done.stdout) < 1
+
+
+# The fix moves no title on a normal line.
+@pytest.mark.parametrize(
+    ("line", "found"),
+    [
+        ("# Hello world", "Hello world"),
+        ("#   Hello world  ##  ", "Hello world"),
+        ("# Hello # world", "Hello # world"),
+        ("# Hello#", "Hello"),
+        ("# Hello# ##", "Hello#"),
+        ("# Hello \r", "Hello"),
+        ("#    ", " "),
+        ("# ##", "#"),
+        ("#Hello", None),
+    ],
+)
+def test_1905_a_title_reads_as_on_main(line: str, found: str | None) -> None:
+    match = HEADING.match(line)
+
+    assert (match and match[1]) == found

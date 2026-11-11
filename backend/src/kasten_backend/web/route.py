@@ -21,8 +21,8 @@ from youtube_transcript_api import (
 from kasten_backend import files
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.files import PAGE_FAILED, open_public
-from kasten_backend.transcripts import read_transcript
 from kasten_backend.weather import Forecast, in_reach, read_weather
+from kasten_backend.web.transcripts import read_transcript
 
 router = APIRouter()
 

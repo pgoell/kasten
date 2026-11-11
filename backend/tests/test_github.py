@@ -214,7 +214,7 @@ async def test_807_i8_a_read_over_the_hour_old_asks_again(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     served()
-    monkeypatch.setattr("kasten_backend.github._now", lambda: NOW)
+    monkeypatch.setattr("kasten_backend.github.contributions._now", lambda: NOW)
     today = NOW.date()
     days = [(today - timedelta(days=back)).isoformat() for back in (2, 1, 0)]
     params = {"from": days[0], "to": days[-1]}
@@ -406,7 +406,7 @@ async def test_807_i8_a_week_ahead_asks_once_for_the_days_read(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     served()
-    monkeypatch.setattr("kasten_backend.github._now", lambda: NOW)
+    monkeypatch.setattr("kasten_backend.github.contributions._now", lambda: NOW)
     today = NOW.date()
     monday = today - timedelta(days=today.weekday())
     sunday = monday + timedelta(days=6)
@@ -439,11 +439,13 @@ async def test_807_i8_a_day_read_on_its_own_day_is_read_again_later(
 
     # Three days on, today's count is a past day's, so it is read again and settled.
     later = datetime.now(UTC) + timedelta(days=3)
-    monkeypatch.setattr("kasten_backend.github._now", lambda: later)
+    monkeypatch.setattr("kasten_backend.github.contributions._now", lambda: later)
     second = await client.get("/api/github", params={"from": week[-1], "to": week[0]})
     asked_then = len(seen)
     # Six hours on, with the last read long past its hour, only settled days can answer.
-    monkeypatch.setattr("kasten_backend.github._now", lambda: later + timedelta(hours=6))
+    monkeypatch.setattr(
+        "kasten_backend.github.contributions._now", lambda: later + timedelta(hours=6)
+    )
     third = await client.get("/api/github", params={"from": week[-1], "to": week[0]})
 
     assert {
@@ -527,12 +529,14 @@ async def test_807_i8_a_day_is_not_settled_before_it_ends_in_utc(
 
     # 22:30 UTC on the 24th is already the 25th in Berlin, but the 24th has not ended in UTC.
     monkeypatch.setattr(
-        "kasten_backend.github._now", lambda: datetime(2026, 10, 24, 22, 30, tzinfo=UTC)
+        "kasten_backend.github.contributions._now",
+        lambda: datetime(2026, 10, 24, 22, 30, tzinfo=UTC),
     )
     first = await client.get("/api/github", params={"from": "2026-10-24", "to": "2026-10-24"})
     # An hour and a quarter on, still the 24th in UTC: the day is not settled, so it is read again.
     monkeypatch.setattr(
-        "kasten_backend.github._now", lambda: datetime(2026, 10, 24, 23, 45, tzinfo=UTC)
+        "kasten_backend.github.contributions._now",
+        lambda: datetime(2026, 10, 24, 23, 45, tzinfo=UTC),
     )
     second = await client.get("/api/github", params={"from": "2026-10-24", "to": "2026-10-24"})
 

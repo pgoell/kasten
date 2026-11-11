@@ -27,7 +27,8 @@ from kasten_backend.graph import typed_notes
 router = APIRouter()
 
 MAX_TEXT = 200_000
-TITLE = re.compile(r"^# (.+?)[ \t]*$", re.MULTILINE)
+# A text ends only after a non-blank, or is one blank, so a long blank run is read once (#1905).
+TITLE = re.compile(r"^# ([ \t]|.+?(?<![ \t]))[ \t]*$", re.MULTILINE)
 
 
 class RecipeEntry(BaseModel):

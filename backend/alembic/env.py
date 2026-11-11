@@ -6,7 +6,7 @@ from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from kasten_backend import push, rsvp, token_activity  # noqa: F401
+from kasten_backend import push, rsvp, tokens  # noqa: F401
 from kasten_backend.config import get_settings
 from kasten_backend.db import Base
 from kasten_backend.finance.budget import models as finance_budget_models  # noqa: F401
