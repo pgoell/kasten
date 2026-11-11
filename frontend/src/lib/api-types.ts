@@ -1598,7 +1598,7 @@ export interface paths {
         put?: never;
         /**
          * Post Training Lines
-         * @description Add lines under the day's `## Training`, leaving out any the note already holds.
+         * @description Add lines under the day's `## Training`, each one, a copy of a line there too.
          *
          *     Every line must read as a training line, or nothing is written and the answer is `422`.
          */

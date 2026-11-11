@@ -184,6 +184,6 @@ class KastenApi:
         return self._json(self.client.get("/api/training", params={"from": start, "to": end}))
 
     def post_training_lines(self, day: str, lines: list[str]) -> list[str]:
-        """`POST /api/training/days/{day}`: the lines that were not in the note yet."""
+        """`POST /api/training/days/{day}`: the lines written, in order."""
         answer = self._json(self.client.post(f"/api/training/days/{day}", json={"lines": lines}))
         return answer["added"]

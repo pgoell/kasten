@@ -1,6 +1,7 @@
-"""Training lines added to a day's note by a job, such as the Garmin sync, never one twice.
+"""Training lines added to a day's note by a job, such as the Garmin sync.
 
-A line already in the note, word for word, is left out, so a job that runs again writes nothing.
+Every line is written, a copy of one already there too: two rides can read the same, and the
+job's own state is what keeps a rerun from writing again.
 """
 
 from typing import TYPE_CHECKING
@@ -18,21 +19,17 @@ TRAINING = "## Training"
 
 
 async def add_lines(settings: Settings, day: date, lines: list[str]) -> list[str]:
-    """Put each line not yet in `day`'s note under its `## Training`, making note and section.
+    """Put each line under `day`'s `## Training`, making note and section where missing.
 
     Answers the lines it added, in order. Read and write share one hold of the vault lock.
     """
     added: list[str] = []
 
-    def change(text: str) -> str | None:
-        held = {line.rstrip() for line in text.split("\n")}
+    def change(text: str) -> str:
         for line in lines:
-            if line in held:
-                continue
             text = append_under(text, TRAINING, line)
-            held.add(line)
             added.append(line)
-        return text if added else None
+        return text
 
     await rewrite(
         settings,

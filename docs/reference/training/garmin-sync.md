@@ -93,11 +93,20 @@ the average heart rate after `❤`, left out when Garmin has none:
   again, so a line deleted by hand stays gone. The file is written through a
   temp file and a rename, so a crash leaves the old one whole. A dry run keeps
   no state.
-* **The note.** Kasten leaves out a line the day's note already holds word for
-  word, so a lost state file or a run cut off halfway writes no copy.
 * **A typed line.** An activity is left out when its day already has a line of
   the same kind whose minutes lie within 15 % of it, or 2 minutes, whichever is
-  more. Its id goes into the state, so it is not looked at again.
+  more. Its id goes into the state, so it is not looked at again. One typed
+  line stands for one activity, so a second ride of the same length is still
+  written.
+* **Its own lines.** The state also keeps the day, kind and minutes of each
+  line the job wrote, and those lines never count as typed. So a ride home
+  after the morning's ride was written is written too. Without the state file,
+  as after it is lost, every line on the day counts as typed, so nothing is
+  written twice.
+
+The state is saved after each day's lines, so a run cut off halfway writes no
+day again. Kasten itself writes every line it is sent, a copy of one already
+there too, since two rides may read the same.
 
 ## The route it writes through
 

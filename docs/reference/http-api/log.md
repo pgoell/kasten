@@ -136,9 +136,9 @@ through it. The body holds one to fifty lines:
 { "path": "01 Periodic/00 Daily/2026-11-11.md", "added": ["- 🚲 [[Radfahren]] 22 min 7.4 km ❤ 131"] }
 ```
 
-`added` holds the lines written, in order. A line the note already holds word
-for word, anywhere in it, is left out, so sending the same lines twice writes
-them once. A note without `## Training` gets the section at its end; a day with
+`added` holds the lines written, in order. Every line is written, a copy of
+one the note holds too, since two rides may read the same; the sender keeps
+track of what it sent. A note without `## Training` gets the section at its end; a day with
 no note gets one, made as `<leader>gd` makes it. Read and write share one hold
 of the vault lock, so a browser save between them is not written over.
 

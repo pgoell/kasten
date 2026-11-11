@@ -12,9 +12,7 @@ RIDE = "- 🚲 [[Radfahren]] 22 min 7.4 km ❤ 131"
 WALK = "- 🚶 [[Gehen]] 35 min 2.9 km"
 
 
-async def test_1720_lines_land_under_training_and_never_twice(
-    client: AsyncClient, vault: Path
-) -> None:
+async def test_1720_lines_land_under_training_copies_too(client: AsyncClient, vault: Path) -> None:
     note = vault / DAILY / "2026-11-10.md"
     note.parent.mkdir(parents=True, exist_ok=True)
     note.write_text(
@@ -23,14 +21,14 @@ async def test_1720_lines_land_under_training_and_never_twice(
     )
 
     first = await client.post("/api/training/days/2026-11-10", json={"lines": [RIDE, WALK]})
+    # A second ride that reads the same as the first is its own line.
     again = await client.post("/api/training/days/2026-11-10", json={"lines": [RIDE]})
 
     assert first.status_code == 200
     assert first.json() == {"path": f"{DAILY}/2026-11-10.md", "added": [RIDE, WALK]}
-    assert again.json()["added"] == []
+    assert again.json()["added"] == [RIDE]
     text = note.read_text(encoding="utf-8")
-    assert f"- 🏋 [[Kniebeuge]] 80 kg 8 8\n{RIDE}\n{WALK}\n\n## Log" in text
-    assert text.count(RIDE) == 1
+    assert f"- 🏋 [[Kniebeuge]] 80 kg 8 8\n{RIDE}\n{WALK}\n{RIDE}\n\n## Log" in text
 
 
 async def test_1720_a_missing_note_is_made_as_the_daily_key_makes_it(

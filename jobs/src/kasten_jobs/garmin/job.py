@@ -1,7 +1,8 @@
 """The command: read the last days' activities, and write each new walk, run or ride once.
 
 The ids written are kept in a state file on the server, so a line deleted by hand stays gone.
-An activity a hand-typed line already holds, the same kind within a few minutes, is left out.
+An activity a hand-typed line already holds, the same kind within a few minutes, is left out;
+the lines this job wrote itself, which the state also keeps, never count as typed.
 """
 
 import argparse
@@ -9,7 +10,7 @@ import json
 import logging
 import os
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -57,30 +58,66 @@ class Settings:
         )
 
 
-def read_state(path: Path) -> list[int]:
-    """The ids written so far, none before the first run."""
+@dataclass
+class State:
+    """The ids looked at, and the day, kind and whole minutes of each line written."""
+
+    written: list[int] = field(default_factory=list)
+    own: list[list[Any]] = field(default_factory=list)
+
+    def wrote(self, activity: Activity) -> None:
+        """Count `activity` as written: its id, and what its line says."""
+        self.written.append(activity.id)
+        self.own.append([activity.day, activity.kind, minutes_of(activity)])
+
+
+def read_state(path: Path) -> State:
+    """What earlier runs kept, nothing before the first run."""
     if not path.exists():
-        return []
-    return [int(i) for i in json.loads(path.read_text(encoding="utf-8")).get("written", [])]
+        return State()
+    kept = json.loads(path.read_text(encoding="utf-8"))
+    return State([int(i) for i in kept.get("written", [])], list(kept.get("own", [])))
 
 
-def write_state(path: Path, written: list[int]) -> None:
-    """Keep the newest ids, through a temp file so a crash leaves the old state whole."""
+def write_state(path: Path, state: State) -> None:
+    """Keep the newest, through a temp file so a crash leaves the old state whole."""
     path.parent.mkdir(parents=True, exist_ok=True)
     held = path.with_suffix(".tmp")
-    held.write_text(json.dumps({"written": written[-KEPT_IDS:]}), encoding="utf-8")
+    kept = {"written": state.written[-KEPT_IDS:], "own": state.own[-KEPT_IDS:]}
+    held.write_text(json.dumps(kept), encoding="utf-8")
     held.replace(path)
 
 
-def typed(activity: Activity, entries: list[dict[str, Any]]) -> bool:
-    """Whether the day already holds a line of the same kind and about the same minutes."""
+def minutes_of(activity: Activity) -> int:
+    """The minutes as its line writes them."""
+    return max(1, round(activity.minutes))
+
+
+def hand_typed(
+    entries: list[dict[str, Any]], day: str, own: list[list[Any]]
+) -> list[dict[str, Any]]:
+    """The day's entries less one for each line this job wrote there."""
+    left = list(entries)
+    for wrote_day, kind, minutes in own:
+        if wrote_day != day:
+            continue
+        match = next(
+            (e for e in left if e.get("kind") == kind and e.get("minutes") == minutes), None
+        )
+        if match is not None:
+            left.remove(match)
+    return left
+
+
+def typed(activity: Activity, entries: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """The typed entry of the same kind and about the same minutes, if the day holds one."""
     for entry in entries:
         minutes = entry.get("minutes")
         if entry.get("kind") != activity.kind or not isinstance(minutes, int | float):
             continue
         if abs(minutes - activity.minutes) <= max(2, activity.minutes * CLOSE):
-            return True
-    return False
+            return entry
+    return None
 
 
 def run(
@@ -88,27 +125,36 @@ def run(
 ) -> int:
     """One pass over the look-back. Answers the exit code: 0, also when nothing was new."""
     start = (today - timedelta(days=settings.days)).isoformat()
-    written = read_state(settings.state)
+    state = read_state(settings.state)
     rows = garmin.activities(start, today.isoformat())
-    fresh = [a for row in rows if (a := activity_of(row)) is not None and a.id not in written]
-    days = {day["date"]: day["entries"] for day in kasten.training(start, today.isoformat())}
+    fresh = [a for row in rows if (a := activity_of(row)) is not None and a.id not in state.written]
+    days = {
+        day["date"]: hand_typed(day["entries"], day["date"], state.own)
+        for day in kasten.training(start, today.isoformat())
+    }
     by_day: dict[str, list[Activity]] = defaultdict(list)
     for activity in fresh:
-        if typed(activity, days.get(activity.day, [])):
-            log.info("%s %s is typed by hand already; left out", activity.day, activity.kind)
-            written.append(activity.id)
-        else:
+        entries = days.get(activity.day, [])
+        match = typed(activity, entries)
+        if match is None:
             by_day[activity.day].append(activity)
+            continue
+        # One typed line stands for one activity, so a second ride of the day still gets written.
+        entries.remove(match)
+        log.info("%s %s is typed by hand already; left out", activity.day, activity.kind)
+        state.written.append(activity.id)
     for day, activities in sorted(by_day.items()):
         lines = [line_of(a, settings.notes) for a in activities]
         if dry_run:
             print("\n".join(f"{day} {line}" for line in lines))
             continue
         added = kasten.post_training_lines(day, lines)
-        log.info("%s: %d new of %d", day, len(added), len(lines))
-        written.extend(a.id for a in activities)
+        log.info("%s: %d written", day, len(added))
+        for activity in activities:
+            state.wrote(activity)
+        write_state(settings.state, state)
     if not dry_run:
-        write_state(settings.state, written)
+        write_state(settings.state, state)
     return 0
 
 

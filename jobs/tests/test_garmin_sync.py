@@ -54,10 +54,8 @@ class Fakes:
             return httpx.Response(200, json=self.days)
         day = request.url.path.rsplit("/", 1)[1]
         lines = json.loads(request.content)["lines"]
-        held = self.posted.setdefault(day, [])
-        added = [line for line in lines if line not in held]
-        held.extend(added)
-        return httpx.Response(200, json={"path": f"x/{day}.md", "added": added})
+        self.posted.setdefault(day, []).extend(lines)
+        return httpx.Response(200, json={"path": f"x/{day}.md", "added": lines})
 
     def apis(self) -> tuple[GarminApi, KastenApi]:
         garmin = httpx.Client(base_url="https://g", transport=httpx.MockTransport(self.garmin))
@@ -105,6 +103,29 @@ def test_1720_leaves_out_what_a_typed_line_already_holds(tmp_path: Path) -> None
 
     assert fakes.posted == {}
     assert json.loads((tmp_path / "s.json").read_text())["written"] == [11]
+
+
+def test_1720_its_own_line_is_no_typed_line_for_a_second_ride(tmp_path: Path) -> None:
+    home = row(16, "road_biking", "2026-11-11 18:00:00", 1380, distance=7300.0)
+    fakes = Fakes([RIDE], [])
+    run(*fakes.apis(), settings(tmp_path), TODAY)
+
+    # The next run reads the morning's line back, and a ride home of about the same length.
+    morning = {"kind": "ride", "minutes": 22}
+    fakes = Fakes([RIDE, home], [{"date": "2026-11-11", "entries": [morning]}])
+    run(*fakes.apis(), settings(tmp_path), TODAY)
+
+    assert fakes.posted == {"2026-11-11": ["- 🚲 [[Radfahren]] 23 min 7.3 km"]}
+
+
+def test_1720_one_typed_line_stands_for_one_activity(tmp_path: Path) -> None:
+    again = row(17, "road_biking", "2026-11-11 18:00:00", 1324.5, distance=7412.0, averageHR=131.4)
+    typed = {"date": "2026-11-11", "entries": [{"kind": "ride", "minutes": 22}]}
+    fakes = Fakes([RIDE, again], [typed])
+
+    run(*fakes.apis(), settings(tmp_path), TODAY)
+
+    assert fakes.posted == {"2026-11-11": ["- 🚲 [[Radfahren]] 22 min 7.4 km ❤ 131"]}
 
 
 def test_1720_a_dry_run_prints_and_keeps_no_state(
