@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TrainingPane } from "@/components/log/training/training-pane";
 import { fetchNote } from "@/lib/core/api";
 import { fetchLog } from "@/lib/log/food-api";
+import { parseBlock } from "@/lib/log/training/block/block-note";
+import { fetchBlocks } from "@/lib/log/training/block/blocks";
 import { fetchTraining, type TrainingDay } from "@/lib/log/training/exercises";
 import { parseTrainingLine } from "@/lib/log/training/training-lines";
 import { stubCommands } from "../stub-commands";
@@ -13,6 +15,10 @@ import { stubCommands } from "../stub-commands";
 vi.mock("@/lib/log/training/exercises", async (actual) => ({
   ...(await actual<object>()),
   fetchTraining: vi.fn(),
+}));
+vi.mock("@/lib/log/training/block/blocks", async (actual) => ({
+  ...(await actual<object>()),
+  fetchBlocks: vi.fn(),
 }));
 vi.mock("@/lib/log/food-api", async (actual) => ({
   ...(await actual<object>()),
@@ -71,6 +77,7 @@ describe("the training pane", () => {
       .mockReset()
       .mockResolvedValue([weighIn("2026-11-08", 80), weighIn("2026-11-10", 79.4)] as never);
     vi.mocked(fetchNote).mockReset().mockResolvedValue("- ⚖ weight: kg, last\n");
+    vi.mocked(fetchBlocks).mockReset().mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -108,6 +115,29 @@ describe("the training pane", () => {
     expect(screen.queryByRole("region", { name: "Kniebeuge" })).toBeNull();
     fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
     expect(commands.closeNote).toHaveBeenCalled();
+  });
+
+  it("takes the cardio target and the deload weeks from a block note", async () => {
+    const text = [
+      "---",
+      "type: Training Block",
+      "start: 2026-11-02",
+      "weeks: 2",
+      "---",
+      "## Weeks",
+      "- 2: deload",
+      "## Cardio",
+      "- 🚶 [[Gehen]] 60 min",
+    ].join("\n");
+    const block = parseBlock(text);
+    if (block === null) throw new Error("no block");
+    vi.mocked(fetchBlocks).mockResolvedValue([{ path: "Block.md", text, block }]);
+    mount();
+
+    expect(await screen.findByText("this week, target 60 min")).toBeTruthy();
+    expect(screen.getByText("minutes per week, target met in 2 of 12 weeks")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Kniebeuge, open in depth" }));
+    expect(screen.getByText(/1 deload week shaded/)).toBeTruthy();
   });
 
   it("switches to a year with w", async () => {

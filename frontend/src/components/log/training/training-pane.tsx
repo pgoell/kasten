@@ -12,6 +12,7 @@ import { shiftDay } from "@/lib/core/clock";
 import { LOG_NOTE } from "@/lib/core/layout";
 import { fetchLog } from "@/lib/log/food-api";
 import { DEFAULT_CONFIG, parseConfig } from "@/lib/log/log-kinds";
+import { blockWeeks, fetchBlocks } from "@/lib/log/training/block/blocks";
 import { fetchTraining } from "@/lib/log/training/exercises";
 import {
   cardioWeeks,
@@ -62,6 +63,7 @@ export function TrainingPane({ commands, focusSignal, today }: TrainingPaneProps
     queryFn: () => fetchNote(LOG_NOTE),
     select: parseConfig,
   });
+  const blocks = useQuery({ queryKey: ["log", "training", "blocks"], queryFn: fetchBlocks });
   const range = span * 7;
   const from = shiftDay(today, -(range - 1));
   const log = useQuery({ queryKey: ["log", from, today], queryFn: () => fetchLog(from, today) });
@@ -78,6 +80,7 @@ export function TrainingPane({ commands, focusSignal, today }: TrainingPaneProps
     config.error instanceof NoteMissing ? DEFAULT_CONFIG.kinds : (config.data?.kinds ?? []);
   const weightKind = kinds.find((kind) => kind.last === true);
   const thisWeek = mondayOf(today);
+  const held = blockWeeks(blocks.data ?? [], starts);
   const records = recordsOf(all).filter((record) => record.date >= thisWeek);
 
   // The panel takes the focus before the tile or the back button it came from unmounts.
@@ -139,7 +142,10 @@ export function TrainingPane({ commands, focusSignal, today }: TrainingPaneProps
               {mainLifts(days).map((name) => (
                 <LiftTile key={name} lift={name} days={days} starts={starts} onOpen={show} />
               ))}
-              <CardioTile weeks={cardioWeeks(days, starts)} />
+              <CardioTile
+                weeks={cardioWeeks(days, starts)}
+                targets={held.map((week) => week.cardio)}
+              />
               <WeightTile kind={weightKind} from={from} range={range} days={log.data ?? []} />
               <FigureTiles
                 sessions={sessionsIn(days, first, today)}
@@ -155,7 +161,13 @@ export function TrainingPane({ commands, focusSignal, today }: TrainingPaneProps
             ) : null}
           </div>
         ) : (
-          <LiftDetail lift={lift} days={days} starts={starts} onBack={() => show(null)} />
+          <LiftDetail
+            lift={lift}
+            days={days}
+            starts={starts}
+            marked={held.map((week) => week.deload)}
+            onBack={() => show(null)}
+          />
         )}
       </div>
     </section>

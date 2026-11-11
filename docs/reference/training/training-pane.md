@@ -11,7 +11,8 @@ status: draft
 
 A pane of tiles that shows how the training is going, read only off the
 [training lines](/reference/training/training-format.md) under `## Training`
-in the daily notes, and the weigh-ins under `## Log`. It writes nothing.
+in the daily notes, the weigh-ins under `## Log` and the
+[block notes](/reference/training/block-note.md). It writes nothing.
 `<leader>gF` opens it in the focused pane; its keys are in
 [the editor keys](/reference/editor-keys.md#the-training-pane).
 
@@ -27,7 +28,7 @@ today, so the records always count against the year before.
 | Tile | Figure | Words | Chart |
 | --- | --- | --- | --- |
 | One per main lift | the lift's best e1RM in the last week that has one | the change between the first and last week with an e1RM | a sparkline of the best e1RM per week |
-| Cardio | this week's minutes | the weekly target, 150 min | minutes per week stacked as walking, cycling and jogging, the target as a dashed line |
+| Cardio | this week's minutes | this week's target | minutes per week stacked as walking, cycling and jogging, the target as a dashed line |
 | Body weight | the last 7-day average | the change since the first weigh-in in the span | the 7-day average per day |
 | Sessions | sessions in the span | sessions a week on average | none |
 | 5 km pace | the pace of the latest run of 5 km or more | the best such pace | none |
@@ -36,8 +37,11 @@ today, so the records always count against the year before.
 * **Main lifts**: the strength exercises that have an e1RM, most often trained
   first by days in the span, at most four. The e1RM is the line's own, the
   Epley estimate the training format gives.
-* **Cardio target**: 150 minutes a week, the WHO's figure, until a block note
-  sets its own (#1719). The words under the chart count the weeks that met it.
+* **Cardio target**: per week, the weekly minutes of the
+  [block note](/reference/training/block-note.md) that holds the week, its
+  cardio lines without `long` added up; else 150 minutes, the WHO's figure.
+  The dashed line is this week's target, and the words under the chart count
+  the weeks that met their own.
 * **Body weight**: the log's last kind with the mark `⚖`, the 7-day average the
   log pane draws, over the span's days.
 * **Session**: a day with at least one set or cardio line. A day with only a
@@ -53,9 +57,10 @@ With no training line in the span, the pane says so under the tiles.
 `All tiles` or `Escape` goes back.
 
 * **Estimated 1RM**: the best e1RM per week, as a line, with the deload weeks
-  shaded. A week reads as a deload when the lift's volume, kilograms times
-  reps, falls under 60 % of the mean of the up to three trained weeks before.
-  A block note will mark its own deload weeks (#1719).
+  shaded. A week a block note holds is a deload when the block says so. A
+  week no block holds reads as a deload when the lift's volume, kilograms
+  times reps, falls under 60 % of the mean of the up to three trained weeks
+  before.
 * **Heaviest set**, **Most reps** (the most reps in one set, the heavier
   weight winning a tie) and **Most volume** (the most kilograms in one
   session) over the span.

@@ -7,7 +7,7 @@ import {
   setEdit,
   setLabel,
   setsOf,
-} from "@/lib/log/training/session-lines";
+} from "@/lib/log/training/session/lines";
 import {
   hasTraining,
   parseTrainingLine,

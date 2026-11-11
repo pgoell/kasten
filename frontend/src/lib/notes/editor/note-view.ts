@@ -8,6 +8,7 @@ import { basicSetup } from "codemirror";
 import { logCard } from "@/lib/log/log-card";
 import { recipeCard } from "@/lib/log/recipe/recipe-card";
 import { weekPlanCard } from "@/lib/log/recipe/week-plan";
+import { blockCard } from "@/lib/log/training/block/block-card";
 import { trainingCard } from "@/lib/log/training/training-card";
 import { noteLanguage } from "@/lib/markdown/note-language";
 import { tagCompletions, vaultTags } from "@/lib/markdown/tag";
@@ -88,6 +89,7 @@ function previewExtensions(): Extension[] {
     weatherCard,
     logCard,
     trainingCard,
+    blockCard,
     recipeCard,
     weekPlanCard,
     readMode.of(true),

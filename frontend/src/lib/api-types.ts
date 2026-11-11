@@ -1567,6 +1567,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/training/blocks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Blocks
+         * @description Every training block note outside the archive, by start: a note whose `type` says so.
+         */
+        get: operations["read_blocks_api_training_blocks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/food/search": {
         parameters: {
             query?: never;
@@ -7306,6 +7326,18 @@ export interface components {
             mine?: components["schemas"]["MineTotal"][] | null;
         };
         /**
+         * TrainingBlock
+         * @description One block note: its `start` as written and its whole text.
+         */
+        TrainingBlock: {
+            /** Path */
+            path: string;
+            /** Start */
+            start: string;
+            /** Text */
+            text: string;
+        };
+        /**
          * TrainingDay
          * @description A day whose note holds a `## Training`: the lines that parsed, in line order.
          */
@@ -9690,6 +9722,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Exercise"][];
+                };
+            };
+        };
+    };
+    read_blocks_api_training_blocks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingBlock"][];
                 };
             };
         };

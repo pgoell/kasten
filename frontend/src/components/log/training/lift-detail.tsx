@@ -11,7 +11,7 @@ import {
   liftWeeks,
   volumeWeeks,
 } from "@/lib/log/training/progress";
-import { dayLabel } from "@/lib/log/training/session-lines";
+import { dayLabel } from "@/lib/log/training/session/lines";
 
 const LAST = 5;
 
@@ -19,12 +19,17 @@ interface LiftDetailProps {
   lift: string;
   days: TrainingDay[];
   starts: string[];
+  /** Per week, whether a block note marks it a deload; null where no block holds the week. */
+  marked: (boolean | null)[];
   onBack: () => void;
 }
 
-export function LiftDetail({ lift, days, starts, onBack }: LiftDetailProps) {
+export function LiftDetail({ lift, days, starts, marked, onBack }: LiftDetailProps) {
   const weeks = liftWeeks(days, lift, starts);
-  const deloads = deloadWeeks(volumeWeeks(days, starts, lift));
+  // A block's word wins; the guess from volume fills the weeks no block holds.
+  const deloads = deloadWeeks(volumeWeeks(days, starts, lift)).map(
+    (guess, at) => marked[at] ?? guess,
+  );
   const bests = bestsOf(days, lift);
   const sessions = lastSessions(days, lift, LAST);
   const shaded = deloads.filter(Boolean).length;

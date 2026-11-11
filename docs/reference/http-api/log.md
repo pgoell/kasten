@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: "HTTP API: log"
-description: The route that adds up each day's water, coffee, alcohol and food from its daily note, the one that reads its training lines, and the one that lists the exercise notes.
+description: The route that adds up each day's water, coffee, alcohol and food from its daily note, the one that reads its training lines, the one that lists the exercise notes, and the one that lists the training block notes.
 resource: backend/src/kasten_backend/log.py
 tags: [api, backend, openapi]
 status: stable
@@ -10,7 +10,8 @@ status: stable
 # HTTP API: log
 
 The route that adds up each day's water, coffee, alcohol and food from its daily note,
-the one that reads its training lines, and the one that lists the exercise notes.
+the one that reads its training lines, the one that lists the exercise notes, and the
+one that lists the training block notes.
 
 ## GET /api/log
 
@@ -151,3 +152,25 @@ exercise notes.
 `weight-reps` for the rest. The lists are empty where the note gives none.
 The session screen picks from this list; see
 [Training session](/reference/training/session-screen.md).
+
+## GET /api/training/blocks
+
+Every training block note outside the archive folder, sorted by `start`, then
+by path. A block note is one whose frontmatter `type` is `Training Block`, in
+any case; where it sits does not matter. Takes nothing and answers `200` with a
+list, empty in a vault with none.
+
+```json
+[
+  {
+    "path": "03 Areas/11 Fitness/Blöcke/Block 2026-11 Grundlage.md",
+    "start": "2026-11-16",
+    "text": "---\ntype: Training Block\nstart: 2026-11-16\nweeks: 4\n---\n\n# Block 2026-11 Grundlage\n…"
+  }
+]
+```
+
+`start` is the frontmatter's as written, empty when the note has none, and
+`text` is the whole note. The browser reads the sections itself, as
+[Block note](/reference/training/block-note.md) describes; the card, the
+session screen and the training pane all read this list.

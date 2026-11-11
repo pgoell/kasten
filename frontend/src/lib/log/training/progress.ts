@@ -7,7 +7,7 @@ import { shiftDay } from "@/lib/core/clock";
 import type { TrainingDay } from "@/lib/log/training/exercises";
 import type { CardioKind, TrainingEntry } from "@/lib/log/training/training-lines";
 
-/** The weekly cardio aim until a block note sets one (#1719): the WHO's 150 minutes. */
+/** The weekly cardio aim for a week no block note holds: the WHO's 150 minutes. */
 export const CARDIO_TARGET = 150;
 
 /** A week's strength volume under this share of the weeks before reads as a deload. */
@@ -129,7 +129,7 @@ function volumeOf(entries: TrainingEntry[]): number {
 
 /**
  * Which weeks read as a deload: volume under 60 % of the mean of the trained weeks before, as a
- * block's deload drops load and sets. A block note will say so itself (#1719).
+ * block's deload drops load and sets. The guess for a week no block note holds.
  */
 export function deloadWeeks(volumes: number[]): boolean[] {
   return volumes.map((volume, index) => {

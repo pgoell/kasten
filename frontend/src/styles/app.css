@@ -13,6 +13,7 @@
 @import "./log/log-card.css";
 @import "./training/session.css";
 @import "./training/progress.css";
+@import "./training/block.css";
 @import "./food/food-sheet.css";
 @import "./food/recipe.css";
 @import "./food/cook-mode.css";
