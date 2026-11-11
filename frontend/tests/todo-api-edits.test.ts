@@ -181,7 +181,9 @@ describe("addTodoInVault", () => {
 
     void addTodoInVault("call the dentist", "2026-08-06", [daily]);
     const second = addTodoInVault("buy milk", "2026-08-06", [daily]);
-    await vi.advanceTimersByTimeAsync(10_000);
+    await vi.advanceTimersByTimeAsync(9_999);
+    expect(saveNote).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
     await second;
 
     expect(saveNote).toHaveBeenCalledExactlyOnceWith(
