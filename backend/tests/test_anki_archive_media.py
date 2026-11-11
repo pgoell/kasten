@@ -53,7 +53,7 @@ def test_reads_a_media_entry_by_its_legacy_zip_name() -> None:
 
 @pytest.mark.parametrize(
     ("name", "data"),
-    [("cat.svg", b"<svg/>"), ("cat.png", MP3), ("cat.png", None), ("cat.pdf", b"%PDF-1")],
+    [("cat.mp4", b"\0\0\0\x18ftyp"), ("cat.png", MP3), ("cat.png", None), ("cat.pdf", b"%PDF-1")],
     ids=["suffix", "magic", "missing", "book"],
 )
 def test_drops_media_it_cannot_carry(name: str, data: bytes | None) -> None:
@@ -63,6 +63,16 @@ def test_drops_media_it_cannot_carry(name: str, data: bytes | None) -> None:
 
     assert sides(decks) == {"French": [("a cat", "le chat")]}
     assert decks[0].media == {}
+
+
+def test_carries_an_svg_as_the_vault_takes_one() -> None:
+    svg = b'<?xml version="1.0"?><svg viewBox="0 0 1 1"/>'
+    notes = ((1, BASIC, '<img src="cat.svg"> a cat\x1fle chat'),)
+
+    decks = read_apkg(apkg(notes, CARDS[:1], media=(("cat.svg", svg),)))
+
+    assert sides(decks) == {"French": [("![](French%20media/cat.svg) a cat", "le chat")]}
+    assert decks[0].media == {"cat.svg": svg}
 
 
 def test_encodes_a_media_name_into_a_link_that_works() -> None:
