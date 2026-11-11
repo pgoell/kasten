@@ -1,20 +1,20 @@
 """`GET /api/training`: the days of a range whose note holds a `## Training`, and its entries."""
 
 import asyncio
+from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from pydantic import BaseModel, Field
 
 from kasten_backend.config import Settings, get_settings
-from kasten_backend.periodic import DATE_PATTERN, date_range, day_sections
+from kasten_backend.periodic import DATE_PATTERN, daily_path, date_range, day_sections
 from kasten_backend.training.blocks import TrainingBlock, blocks
+from kasten_backend.training.days import TRAINING, add_lines
 from kasten_backend.training.exercises import Exercise, exercises
 from kasten_backend.training.lines import TrainingEntry, parse_line
 
 router = APIRouter()
-
-TRAINING = "## Training"
 
 
 class TrainingDay(BaseModel):
@@ -61,3 +61,37 @@ async def read_exercises(settings: Annotated[Settings, Depends(get_settings)]) -
 async def read_blocks(settings: Annotated[Settings, Depends(get_settings)]) -> list[TrainingBlock]:
     """Every training block note outside the archive, by start: a note whose `type` says so."""
     return await asyncio.to_thread(blocks, settings.vault_path, settings.archive_path)
+
+
+class NewLines(BaseModel):
+    """Training lines for one day, each one line as the training format writes it."""
+
+    lines: list[str] = Field(min_length=1, max_length=50)
+
+
+class AddedLines(BaseModel):
+    """The day's note, and the lines that were not in it yet."""
+
+    path: str
+    added: list[str]
+
+
+@router.post("/api/training/days/{day}")
+async def post_training_lines(
+    day: Annotated[str, Path(pattern=DATE_PATTERN)],
+    body: NewLines,
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> AddedLines:
+    """Add lines under the day's `## Training`, each one, a copy of a line there too.
+
+    Every line must read as a training line, or nothing is written and the answer is `422`.
+    """
+    try:
+        when = date.fromisoformat(day)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail="Not a day") from error
+    lines = [line.rstrip() for line in body.lines]
+    if any("\n" in line or "\r" in line or parse_line(line, 0) is None for line in lines):
+        raise HTTPException(status_code=422, detail="Not a training line")
+    added = await add_lines(settings, when, lines)
+    return AddedLines(path=daily_path(when, settings.periodic_path), added=added)

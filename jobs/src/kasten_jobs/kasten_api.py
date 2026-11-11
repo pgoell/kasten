@@ -178,3 +178,12 @@ class KastenApi:
             return False
         response.raise_for_status()
         return True
+
+    def training(self, start: str, end: str) -> list[dict[str, Any]]:
+        """`GET /api/training`: the days from `start` to `end` with their training entries."""
+        return self._json(self.client.get("/api/training", params={"from": start, "to": end}))
+
+    def post_training_lines(self, day: str, lines: list[str]) -> list[str]:
+        """`POST /api/training/days/{day}`: the lines written, in order."""
+        answer = self._json(self.client.post(f"/api/training/days/{day}", json={"lines": lines}))
+        return answer["added"]

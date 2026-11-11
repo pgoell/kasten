@@ -97,7 +97,7 @@ def drop_done(text: str, id_: str) -> str | None:
     return None if len(kept) == len(lines) else "\n".join(kept)
 
 
-async def _rewrite(
+async def rewrite(
     settings: Settings, path: str, change: Callable[[str], str | None], fresh: str | None = None
 ) -> None:
     """Write one note as `change` makes it from the text on disk, under one hold.
@@ -153,7 +153,7 @@ async def log(settings: Settings, note_path: str, rest: str, today: date) -> Non
             return
 
     line = done_line(rest, note_path, daily, today.isoformat())
-    await _rewrite(
+    await rewrite(
         settings,
         daily,
         lambda text: None if drop_done(text, id_) is not None else append_under(text, DONE, line),
@@ -201,4 +201,4 @@ async def unlog(settings: Settings, note_path: str, rest: str) -> None:
     if id_ is None:
         return
     for path in await _holding(settings, id_, note_path):
-        await _rewrite(settings, path, lambda text: drop_done(text, id_))
+        await rewrite(settings, path, lambda text: drop_done(text, id_))

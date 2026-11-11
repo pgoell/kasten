@@ -1464,6 +1464,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/training/days/{day}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Training Lines
+         * @description Add lines under the day's `## Training`, each one, a copy of a line there too.
+         *
+         *     Every line must read as a training line, or nothing is written and the answer is `422`.
+         */
+        post: operations["post_training_lines_api_training_days__day__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/food/search": {
         parameters: {
             query?: never;
@@ -3711,6 +3733,16 @@ export interface components {
             under?: number | null;
         };
         /**
+         * AddedLines
+         * @description The day's note, and the lines that were not in it yet.
+         */
+        AddedLines: {
+            /** Path */
+            path: string;
+            /** Added */
+            added: string[];
+        };
+        /**
          * Alcohol
          * @description What the alcohol lines add up to: drinks, millilitres and grams of ethanol.
          */
@@ -5482,6 +5514,14 @@ export interface components {
         MovePreview: {
             /** Rewrites */
             rewrites: string[];
+        };
+        /**
+         * NewLines
+         * @description Training lines for one day, each one line as the training format writes it.
+         */
+        NewLines: {
+            /** Lines */
+            lines: string[];
         };
         /**
          * Note
@@ -9373,6 +9413,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TrainingBlock"][];
+                };
+            };
+        };
+    };
+    post_training_lines_api_training_days__day__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                day: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewLines"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AddedLines"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

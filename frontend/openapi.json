@@ -3070,6 +3070,57 @@
         }
       }
     },
+    "/api/training/days/{day}": {
+      "post": {
+        "summary": "Post Training Lines",
+        "description": "Add lines under the day's `## Training`, each one, a copy of a line there too.\n\nEvery line must read as a training line, or nothing is written and the answer is `422`.",
+        "operationId": "post_training_lines_api_training_days__day__post",
+        "parameters": [
+          {
+            "name": "day",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+              "title": "Day"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewLines"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddedLines"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/food/search": {
       "get": {
         "summary": "Search Food",
@@ -8744,6 +8795,28 @@
         "title": "Add",
         "description": "One item to append, and the digest of the list the caller read, if it read one."
       },
+      "AddedLines": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "added": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Added"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "added"
+        ],
+        "title": "AddedLines",
+        "description": "The day's note, and the lines that were not in it yet."
+      },
       "Alcohol": {
         "properties": {
           "count": {
@@ -13485,6 +13558,25 @@
         ],
         "title": "MovePreview",
         "description": "What a move would rewrite, asked before it is made."
+      },
+      "NewLines": {
+        "properties": {
+          "lines": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Lines"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lines"
+        ],
+        "title": "NewLines",
+        "description": "Training lines for one day, each one line as the training format writes it."
       },
       "Note": {
         "properties": {

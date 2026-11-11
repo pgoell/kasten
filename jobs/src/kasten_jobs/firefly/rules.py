@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-    from kasten_jobs.firefly import Trigger
+    from kasten_jobs.firefly.database import Trigger
 
 KIND = {
     "Salary": "income",

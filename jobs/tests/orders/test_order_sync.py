@@ -15,7 +15,7 @@ from kasten_jobs.kasten_api import ORDER_BATCH
 from kasten_jobs.orders import amazon as orders_amazon
 from kasten_jobs.orders import sync as order_sync
 
-from .fake_kasten import FakeKasten  # noqa: TID252
+from ..fake_kasten import FakeKasten  # noqa: TID252
 from .order_mails import (  # noqa: TID252
     CONFIRMATION,
     DIGITAL,

@@ -2,7 +2,7 @@
 type: Reference
 title: Firefly import
 description: The kasten-firefly-import command, its env file, what it reads from Firefly III and writes to kasten in what order, the source key of each booking and of each transfer half, the category kinds it guesses, how Firefly's rules become kasten's, and what a second run does.
-resource: jobs/src/kasten_jobs/firefly_import.py
+resource: jobs/src/kasten_jobs/firefly/job.py
 tags: [finance, jobs, firefly]
 status: draft
 ---
