@@ -1068,7 +1068,10 @@ export interface paths {
         };
         /**
          * Search Files
-         * @description Find every line in the vault containing `q`, ignoring case; the client ranks the hits.
+         * @description Find every line in the vault matching `q`, ignoring case; the client ranks the hits.
+         *
+         *     `q` is a literal unless `regex`, and `word` keeps whole words only. A regex rg cannot
+         *     read answers 422 with rg's message as a string `detail`.
          */
         get: operations["search_files_api_search_get"];
         put?: never;
@@ -8821,6 +8824,8 @@ export interface operations {
             query: {
                 q: string;
                 archive?: boolean;
+                regex?: boolean;
+                word?: boolean;
             };
             header?: never;
             path?: never;

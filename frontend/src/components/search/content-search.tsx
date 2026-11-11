@@ -12,7 +12,8 @@ import {
 } from "react";
 import { SearchFilters } from "@/components/search/search-filters";
 import { SearchHistogram } from "@/components/search/search-histogram";
-import type { Mention, SearchHit } from "@/lib/core/api";
+import { SearchToggles, toggleOf } from "@/components/search/search-toggles";
+import type { Mention, SearchFlags, SearchHit } from "@/lib/core/api";
 import { noteName } from "@/lib/notes/links/note-path";
 import { type Filters, facets, filterHits, termRuns } from "@/lib/search/search-facets";
 import {
@@ -50,9 +51,10 @@ const keepFocus = (event: MouseEvent) => event.preventDefault();
 function runsAt(
   text: string,
   term: string,
+  flags: SearchFlags,
 ): (ReturnType<typeof termRuns>[number] & { start: number })[] {
   let start = 0;
-  return termRuns(text, term).map((run) => {
+  return termRuns(text, term, flags).map((run) => {
     const at = start;
     start += run.text.length;
     return { ...run, start: at };
@@ -99,6 +101,12 @@ function searchHint(pending: boolean, typed: string, matched: number): string {
   return matched === 0 ? "no notes match" : "";
 }
 
+/** The line under the list. rg's message marks its fault with a caret, so it keeps its columns. */
+function statusOf(refused: string | undefined, hint: string, cap: string) {
+  if (refused !== undefined) return { text: refused, mono: true };
+  return { text: [hint, cap].filter((text) => text !== "").join(" "), mono: false };
+}
+
 function plural(count: number, word: string): string {
   return `${count} ${word}${count === 1 ? "" : "s"}`;
 }
@@ -114,6 +122,7 @@ function LineRow({
   place,
   text,
   term,
+  flags,
   selected,
   onOpen,
 }: {
@@ -122,6 +131,7 @@ function LineRow({
   place: SearchHit["place"];
   text: string;
   term: string;
+  flags: SearchFlags;
   selected: boolean;
   onOpen: () => void;
 }) {
@@ -145,7 +155,7 @@ function LineRow({
         {place ? place.label : line}
       </span>
       <span className="min-w-0 flex-1 break-words font-sans text-k-ink">
-        {runsAt(text, term).map((run) => (
+        {runsAt(text, term, flags).map((run) => (
           <Fragment key={run.start}>
             {run.term ? <span className="font-medium text-k-accent">{run.text}</span> : run.text}
           </Fragment>
@@ -164,6 +174,7 @@ function NoteGroup({
   ordered,
   listId,
   term,
+  flags,
   cursor,
   entering,
   onAccept,
@@ -175,6 +186,7 @@ function NoteGroup({
   ordered: number[];
   listId: string;
   term: string;
+  flags: SearchFlags;
   cursor: number;
   entering: boolean;
   onAccept: (index: number) => void;
@@ -211,6 +223,7 @@ function NoteGroup({
             place={isMention(hit) ? undefined : hit.place}
             text={hit.text}
             term={term}
+            flags={flags}
             selected={row === cursor}
             onOpen={() => onAccept(index)}
           />
@@ -249,6 +262,8 @@ export function ContentSearch({
   now,
 }: ContentSearchProps) {
   const [query, setQuery] = useState("");
+  /** How the query is read, which resets with the panel. */
+  const [flags, setFlags] = useState<SearchFlags>({});
   /** Which hit Enter would open. */
   const [active, setActive] = useState(0);
   const [filters, setFilters] = useState<Filters>({ folder: null, tag: null });
@@ -264,12 +279,13 @@ export function ContentSearch({
   const typed = query.trim();
 
   const keep = useCallback((hit: SearchHit) => kept(hit, filters, week), [filters, week]);
-  const { found, groups, ordered, pending, archived, capped } = useSearchHits({
+  const { found, groups, ordered, pending, archived, capped, refused } = useSearchHits({
     mode: "search",
     typed,
     archive,
     keep,
     visible: ROWS,
+    flags,
   });
   // The notes admitted to the entrance are the ones the first answer named, so
   // a note that turns up under a later query arrives without the animation.
@@ -339,8 +355,19 @@ export function ContentSearch({
     onWeek?.(picked === week ? undefined : picked);
   }
 
+  function toggle(flag: keyof SearchFlags) {
+    setActive(0);
+    setFlags((previous) => ({ ...previous, [flag]: !previous[flag] }));
+  }
+
   function onKeyDown(event: KeyboardEvent) {
     if (buttonsOwn(event)) return;
+    const flag = toggleOf(event);
+    if (flag !== undefined) {
+      event.preventDefault();
+      toggle(flag);
+      return;
+    }
     const move = step(event);
     if (move !== 0) {
       // Prevented before the empty list is checked: an empty list is where Tab
@@ -369,6 +396,7 @@ export function ContentSearch({
   const summary = `${plural(chosen.length, "line")} in ${plural(new Set(chosen.map((hit) => hit.path)).size, "note")}`;
   const hint = searchHint(pending, typed, answer.length);
   const cap = capped ? "Counts are of the first 2,000 lines." : "";
+  const status = statusOf(refused, hint, cap);
 
   const column = (
     <SearchFilters
@@ -395,7 +423,7 @@ export function ContentSearch({
       className={BACKDROP}
     >
       <div className="flex max-h-full min-h-0 w-[min(80rem,96vw)] h-[min(56rem,80dvh)] flex-col overflow-hidden rounded-md border border-k-rule bg-k-paper font-sans shadow-xl">
-        <div className="border-b border-k-rule px-4 pt-5 pb-3 md:px-6">
+        <div className="flex items-center gap-3 border-b border-k-rule px-4 pt-5 pb-3 md:px-6">
           <label htmlFor={`${listId}-query`} className="sr-only">
             search notes
           </label>
@@ -414,8 +442,9 @@ export function ContentSearch({
             aria-activedescendant={ordered.length > 0 ? `${listId}-${cursor}` : undefined}
             autoComplete="off"
             spellCheck={false}
-            className="w-full bg-transparent font-serif text-k-36 text-k-ink outline-none placeholder:text-k-muted"
+            className="w-full min-w-0 bg-transparent font-serif text-k-36 text-k-ink outline-none placeholder:text-k-muted"
           />
+          <SearchToggles flags={flags} onToggle={toggle} />
         </div>
 
         <div className="flex min-h-0 flex-1">
@@ -486,6 +515,7 @@ export function ContentSearch({
                       ordered={ordered}
                       listId={listId}
                       term={typed}
+                      flags={flags}
                       cursor={cursor}
                       entering={entering(group.name ?? "")}
                       onAccept={accept}
@@ -500,9 +530,9 @@ export function ContentSearch({
             {/* The rule is drawn only while there is something to say: an empty line
                 would otherwise run a rule across the last note for nothing. */}
             <output
-              className={`px-4 py-1 text-[11px] text-k-muted md:px-6 ${hint || cap ? "border-t border-k-rule" : ""}`}
+              className={`px-4 py-1 text-[11px] text-k-muted md:px-6 ${status.text ? "border-t border-k-rule" : ""} ${status.mono ? "whitespace-pre-wrap font-mono" : ""}`}
             >
-              {[hint, cap].filter((text) => text !== "").join(" ")}
+              {status.text}
             </output>
           </div>
         </div>

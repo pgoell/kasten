@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from kasten_backend import file_search
 from kasten_backend.config import Settings, get_settings
@@ -11,7 +11,7 @@ from kasten_backend.file_search import (
     FilePlace,  # noqa: TC001  pydantic reads the annotation at runtime
 )
 from kasten_backend.routes.queries import LineHit
-from kasten_backend.search import search_vault
+from kasten_backend.search import PatternError, check_pattern, literal_matcher, search_vault
 from kasten_backend.search_meta import day_of, notes_meta
 
 router = APIRouter()
@@ -45,16 +45,31 @@ class SearchHit(LineHit):
 
 @router.get("/api/search")
 async def search_files(
-    q: str, settings: Annotated[Settings, Depends(get_settings)], archive: bool = False
+    q: str,
+    settings: Annotated[Settings, Depends(get_settings)],
+    archive: bool = False,
+    regex: bool = False,
+    word: bool = False,
 ) -> list[SearchHit]:
-    """Find every line in the vault containing `q`, ignoring case; the client ranks the hits."""
+    """Find every line in the vault matching `q`, ignoring case; the client ranks the hits.
+
+    `q` is a literal unless `regex`, and `word` keeps whole words only. A regex rg cannot
+    read answers 422 with rg's message as a string `detail`.
+    """
     if not q.strip():
         return []
+    if regex:
+        try:
+            await check_pattern(literal_matcher(q, regex=regex, word=word))
+        except PatternError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
     skip = None if archive else settings.archive_path
     root = settings.vault_path
 
-    notes = await search_vault(root, q, skip)
-    texts = await file_search.search_files(root, settings.text_cache_path, q, len(notes), skip)
+    notes = await search_vault(root, q, skip, regex=regex, word=word)
+    texts = await file_search.search_files(
+        root, settings.text_cache_path, q, len(notes), skip, regex=regex, word=word
+    )
 
     # A file dated by its note, as the note's own lines are; with no note, by its name or its file.
     note_of = {hit.path: str(Path(hit.path).with_suffix(".md")) for hit in texts}

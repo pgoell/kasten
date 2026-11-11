@@ -4,6 +4,7 @@ ripgrep runs as a subprocess, so the event loop is never held while it scans.
 """
 
 import asyncio
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple, cast
 
@@ -200,17 +201,45 @@ def skipped(path: str, folder: str | None) -> bool:
     return folder is not None and folder != "" and f"/{folder}/" in f"/{path}"
 
 
-def literal_matcher(query: str) -> tuple[str, ...]:
-    """The rg flags that find `query` as a literal, ignoring case.
+def literal_matcher(query: str, *, regex: bool = False, word: bool = False) -> tuple[str, ...]:
+    """The rg flags that find `query`, ignoring case: as a regex if `regex`, whole words if `word`.
 
-    A literal, so `index.` or a half-typed `[[like` is a query, not an error. Shared
-    so the notes and extracted text are searched with one matcher.
+    A literal by default, so `index.` or a half-typed `[[like` is a query, not an error.
+    Shared so the notes and extracted text are searched with one matcher.
     """
-    return ("--fixed-strings", "--ignore-case", "-e", query)
+    kind = () if regex else ("--fixed-strings",)
+    edges = ("--word-regexp",) if word else ()
+    return (*kind, *edges, "--ignore-case", "-e", query)
 
 
-async def search_vault(root: Path, query: str, skip: str | None = None) -> list[Hit]:
-    """Every line in the vault containing `query`, ignoring case, up to `MOST_HITS`.
+class PatternError(ValueError):
+    """rg refused the pattern, with its own message saying why."""
+
+
+async def check_pattern(matcher: Sequence[str]) -> None:
+    """Raise `PatternError` when rg cannot read `matcher`'s pattern.
+
+    `scan_vault` drops rg's stderr, so a bad pattern would read as no hits there.
+    An empty file is the target, so the check reads nothing.
+    """
+    process = await asyncio.create_subprocess_exec(
+        "rg",
+        *matcher,
+        "--",
+        os.devnull,
+        stdin=asyncio.subprocess.DEVNULL,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    _, stderr = await process.communicate()
+    if process.returncode is not None and process.returncode > 1:
+        raise PatternError(stderr.decode(errors="replace").strip())
+
+
+async def search_vault(
+    root: Path, query: str, skip: str | None = None, *, regex: bool = False, word: bool = False
+) -> list[Hit]:
+    """Every line in the vault matching `query`, ignoring case, up to `MOST_HITS`.
 
     `skip` keeps a folder out, as the archive is by default. It matters because
     `MOST_HITS` caps the answer, so a growing archive would crowd live notes out.
@@ -219,4 +248,4 @@ async def search_vault(root: Path, query: str, skip: str | None = None) -> list[
     if not query.strip():
         return []
 
-    return await scan_vault(root, literal_matcher(query), MOST_HITS, skip)
+    return await scan_vault(root, literal_matcher(query, regex=regex, word=word), MOST_HITS, skip)

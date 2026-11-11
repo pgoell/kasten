@@ -3,7 +3,7 @@
  * three matching lines under `#reading` count three in its tag.
  */
 
-import type { SearchHit } from "@/lib/core/api";
+import type { SearchFlags, SearchHit } from "@/lib/core/api";
 
 /** The top folder a path sits in, "" for a note at the vault's root. */
 export function topFolder(path: string): string {
@@ -52,18 +52,40 @@ export function filterHits(hits: SearchHit[], filters: Filters): SearchHit[] {
   );
 }
 
-/**
- * `text` cut into runs, each saying whether it is the term. The term is matched as text, as the
- * backend's `rg --fixed-strings --ignore-case` matches it. Offsets are the text's own UTF-16,
- * since a case-folded copy can change length and drift off the words it marks.
- */
-export function termRuns(text: string, term: string): { text: string; term: boolean }[] {
-  if (term.trim() === "") return [{ text, term: false }];
+/** A letter, digit or underscore: what rg's `--word-regexp` counts as part of a word, Unicode too. */
+const WORD = "[\\p{L}\\p{N}_]";
 
-  const literal = term.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
+/** The query as the browser's regex, as rg reads it under `flags`; null when the browser cannot. */
+function patternOf(term: string, flags: SearchFlags): RegExp | null {
+  const body = flags.regex ? term : term.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
+  const source = flags.word ? `(?<!${WORD})(?:${body})(?!${WORD})` : body;
+  try {
+    return new RegExp(source, "giu");
+  } catch (error) {
+    // rg's regex is not the browser's: a pattern only rg reads goes unmarked rather than wrong.
+    if (error instanceof SyntaxError) return null;
+    throw error;
+  }
+}
+
+/**
+ * `text` cut into runs, each saying whether it is the term. The term is matched as the backend's
+ * rg matches it: as text unless `flags` say otherwise, ignoring case. Offsets are the text's own
+ * UTF-16, since a case-folded copy can change length and drift off the words it marks.
+ */
+export function termRuns(
+  text: string,
+  term: string,
+  flags: SearchFlags = {},
+): { text: string; term: boolean }[] {
+  const pattern = term.trim() === "" ? null : patternOf(term, flags);
+  if (pattern === null) return [{ text, term: false }];
+
   const runs: { text: string; term: boolean }[] = [];
   let last = 0;
-  for (const match of text.matchAll(new RegExp(literal, "giu"))) {
+  for (const match of text.matchAll(pattern)) {
+    // A pattern that matches nothing, such as `a*`, marks no run of nothing.
+    if (match[0] === "") continue;
     const at = match.index ?? 0;
     if (at > last) runs.push({ text: text.slice(last, at), term: false });
     runs.push({ text: match[0], term: true });

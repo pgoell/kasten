@@ -2,7 +2,8 @@
  * Pictures of the search page (#783), to look at by eye: at 1440 by 900 in light and
  * dark, narrowed to one week and with the busiest bar under the pointer; at 390 by 844
  * with touch, one column, Filters opened in the light picture only; and in the three
- * accent palettes the app has besides the default.
+ * accent palettes the app has besides the default; and with the regex toggle on at 1440 and
+ * at 414 with touch (#1773).
  *
  * The answer is a fixed vault of about 120 lines in 25 notes over the last fourteen
  * weeks. Weeks 33 and 36 are empty, week 38 is the busy one, and week 43 (the current
@@ -163,6 +164,8 @@ interface Options {
   hover?: boolean;
   /** Open the filter column folded into the Filters button, on a phone. */
   filters?: boolean;
+  /** Turn the regex toggle on, so one toggle shows on and one off (#1773). */
+  regex?: boolean;
 }
 
 /** One picture of the search page at one size and theme, once its answer is in and its rows have arrived. */
@@ -218,6 +221,9 @@ async function shootSearch(
       fireEvent.click(host.querySelector('button[aria-expanded="false"]') as HTMLElement);
     }
     if (options.hover) fireEvent.mouseEnter(bar(host, 38));
+    if (options.regex) {
+      fireEvent.click(host.querySelector('button[aria-label="Regular expression"]') as HTMLElement);
+    }
 
     // The lines arrive on a stagger, so the picture waits until every entrance has
     // finished and shows the end state, not a row mid-slide.
@@ -255,6 +261,14 @@ shotTest("search-touch-390-light", () =>
   shootSearch("search-touch-390-light", TOUCH, "light", { filters: true }),
 );
 shotTest("search-touch-390-dark", () => shootSearch("search-touch-390-dark", TOUCH, "dark"));
+shotTest("search-toggles-1440-light", () =>
+  shootSearch("search-toggles-1440-light", DESKTOP, "light", { regex: true }),
+);
+shotTest("search-toggles-414-light", () =>
+  shootSearch("search-toggles-414-light", { width: 414, height: 896, coarse: true }, "light", {
+    regex: true,
+  }),
+);
 for (const palette of ["russet", "peach", "pansy"]) {
   for (const theme of ["light", "dark"] as const) {
     const name = `search-palette-${palette}-1440-${theme}`;

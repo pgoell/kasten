@@ -4,6 +4,7 @@ import {
   fetchMentions,
   fetchTodos,
   type Mention,
+  type SearchFlags,
   type SearchHit,
   searchNotes,
 } from "@/lib/core/api";
@@ -16,6 +17,13 @@ import { isOpen, parseTodo } from "@/lib/todo/todo";
 
 /** Which of the three lists the panel is drawing, and where its lines come from. */
 export type SearchMode = "search" | "backlinks" | "todos";
+
+const NO_FLAGS: SearchFlags = {};
+
+/** The flags' part of a query key: none for a literal, so its key is the one every literal shares. */
+function flagKey(flags: SearchFlags): SearchFlags[] {
+  return flags.regex || flags.word ? [{ regex: !!flags.regex, word: !!flags.word }] : [];
+}
 
 /** Rows the list will mount. Beyond this, another letter narrows faster than a scroll. */
 const VISIBLE_HITS = 20;
@@ -108,6 +116,7 @@ export function useSearchHits({
   archive,
   keep,
   visible = VISIBLE_HITS,
+  flags = NO_FLAGS,
 }: {
   mode: SearchMode;
   typed: string;
@@ -118,6 +127,8 @@ export function useSearchHits({
   keep?: (hit: SearchHit) => boolean;
   /** Search only: how many rows the list keeps. */
   visible?: number;
+  /** Search only: read the query as a regex or as whole words. Callers pass a stable one. */
+  flags?: SearchFlags;
 }): {
   found: (SearchHit | Mention)[];
   groups: Group[];
@@ -127,6 +138,8 @@ export function useSearchHits({
   archived: number | undefined;
   /** Search only: whether the answer hit the backend's cap. */
   capped: boolean;
+  /** Search only: rg's message when it could not read the query as a regex. */
+  refused: string | undefined;
 } {
   /** What a typed query settled on, which trails what has been typed. */
   const [settled, setSettled] = useState("");
@@ -148,8 +161,8 @@ export function useSearchHits({
     ...(mode === "todos"
       ? { queryKey: ["todos", archive], queryFn: () => fetchTodos(archive) }
       : {
-          queryKey: ["search", asked, archive],
-          queryFn: asked === "" ? skipToken : () => searchNotes(asked, archive),
+          queryKey: ["search", asked, archive, ...flagKey(flags)],
+          queryFn: asked === "" ? skipToken : () => searchNotes(asked, archive, flags),
         }),
     // Keeps the last answer on screen while the next loads, so there is something to narrow.
     // A cleared query keeps nothing, or the old answer would stay under an empty field.
@@ -161,8 +174,8 @@ export function useSearchHits({
   // Search only: the same question with the archive in, so the filter counts the archive before
   // it is on. With the archive in, this shares the answer's key and costs nothing.
   const withArchive = useQuery<SearchHit[]>({
-    queryKey: ["search", asked, true],
-    queryFn: mode !== "search" || asked === "" ? skipToken : () => searchNotes(asked, true),
+    queryKey: ["search", asked, true, ...flagKey(flags)],
+    queryFn: mode !== "search" || asked === "" ? skipToken : () => searchNotes(asked, true, flags),
     placeholderData: asked === "" ? undefined : keepPreviousData,
     retry: false,
   });
@@ -198,7 +211,8 @@ export function useSearchHits({
   // Ranked against what is typed now, so the list narrows while the next scan is out. Ranked whole
   // and cut after, so the rows are the best of the answer. Mentions are cut on their own.
   const hits = useMemo(() => {
-    const ranked = rankIndexes(candidates, typed);
+    // A regex is no subsequence of the lines it matches, so its answer keeps rg's order.
+    const ranked = flags.regex ? found.map((_, index) => index) : rankIndexes(candidates, typed);
     // Filter before the cut, so the rows are the best of what is shown.
     if (mode === "search") {
       const allowed = ranked.filter((index) => {
@@ -214,7 +228,7 @@ export function useSearchHits({
       (hit !== undefined && isMention(hit) ? unlinked : linked).push(index);
     }
     return [...linked.slice(0, VISIBLE_HITS), ...unlinked.slice(0, VISIBLE_HITS)];
-  }, [candidates, typed, found, mode, keep, visible]);
+  }, [candidates, typed, found, mode, keep, visible, flags.regex]);
   // Backlinks group under their relation, search under the note. Todos form one unnamed group,
   // so rows keep their rank order and nothing moves on screen.
   const groups = useMemo(() => {
@@ -242,5 +256,7 @@ export function useSearchHits({
     pending: search.isFetching || mentions.isFetching,
     archived,
     capped: mode === "search" && (search.data?.length ?? 0) >= MOST_HITS,
+    // By name, not `instanceof`: the many tests that mock the api module leave the class out.
+    refused: search.error?.name === "PatternError" ? search.error.message : undefined,
   };
 }

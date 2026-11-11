@@ -40,8 +40,8 @@ at all.
 ## GET /api/search
 
 Finds every line in the vault holding `q`, ignoring case, in its notes and in
-its pdf, epub and html files. Takes `q` and an optional `archive`, and answers
-with at most 2,000 matches.
+its pdf, epub and html files. Takes `q`, and `archive`, `regex` and `word`, each
+`false` unless given, and answers with at most 2,000 matches.
 
 ```json
 [
@@ -103,13 +103,22 @@ pdf text comes through pypdfium2. On a copy of the live vault, 612 notes beside
 19 pdfs (310 MB), 12 epubs and 75 html pages, the first search after a release
 takes about 3.2s, extracting every file, and each search after it about 50ms.
 
-The match is literal. `q` is not a regex, so `index.` finds the end of a
+The match is literal by default. `q` is not a regex, so `index.` finds the end of a
 sentence rather than any five letters followed by one more, and a half-typed
 `[[like` is a query instead of an error. It is not a fuzzy match either: a
 query read as a subsequence finds most of a vault whatever you type, which is
 measurably useless over prose. Ranking the answer is the client's job, and
 [The note search](/reference/editor-keys/finding.md#the-note-search) is where that
 happens.
+
+`regex=true` reads `q` as a regex in `rg`'s syntax, still ignoring case, so
+`\bplan\b` finds "plan" and not "planned". `word=true` keeps a match only where
+no letter, digit or underscore stands on either side, so `plan` finds "plan" and
+not "planned"; on a literal, the dot in `a.b` stays a dot. The two go together:
+`plan|trip` with both finds either word whole. Both reach the notes and the
+files' text alike. A pattern `rg` cannot read, such as `(open`, answers 422 with
+`rg`'s own message as a string `detail`, and nothing is searched. The agent's
+`search_notes` takes neither flag and stays literal.
 
 Search sees the notes `GET /api/files` lists, and the pdf, epub and html files
 in the vault. Hidden files and directories are skipped, and a `.gitignore`

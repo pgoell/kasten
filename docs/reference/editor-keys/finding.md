@@ -208,6 +208,8 @@ to name a path, and search never writes.
 | Up / Ctrl+p / Shift+Tab | Move the highlight up one row |
 | Enter | Open the note or file on the line the match is on |
 | Escape | Close, and hand the focus back |
+| Alt+R or click `.*` | Read the query as a regex, or as text again |
+| Alt+W or click `W` | Keep whole words only, or every match again |
 | Click a bar | Narrow the results to that week, or clear it |
 | Click a folder or a tag | Narrow to it, or clear it |
 | Click Include the archive | Turn the archive in or out, as `<leader>a` does |
@@ -258,6 +260,15 @@ That split is also why typing keeps narrowing. Reading the vault waits for the
 typing to settle, but the lines already in hand are ranked against every
 keystroke, so the list tightens while the next scan is still out rather than
 freezing until it lands.
+
+Beside the field sit two toggles, `.*` for a regex and `W` for whole words, as
+`regex` and `word` of [GET /api/search](/reference/http-api/finding.md#get-apisearch)
+read them. Each reads as pressed while on, a tap works on a phone, and both are off
+whenever the search opens. With the regex on, the list keeps the order the vault
+answered in, since a pattern is no subsequence of the lines it finds, and it
+changes only once the typing settles. The accent marks what the pattern matched
+where the browser reads it the same way. A pattern the vault cannot read puts its
+message in place of the line underneath.
 
 The line underneath says `type to search every note` before anything is typed,
 `reading the vault` while a scan is out, and `no notes match` when the vault

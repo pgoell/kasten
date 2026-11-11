@@ -2283,7 +2283,7 @@
     "/api/search": {
       "get": {
         "summary": "Search Files",
-        "description": "Find every line in the vault containing `q`, ignoring case; the client ranks the hits.",
+        "description": "Find every line in the vault matching `q`, ignoring case; the client ranks the hits.\n\n`q` is a literal unless `regex`, and `word` keeps whole words only. A regex rg cannot\nread answers 422 with rg's message as a string `detail`.",
         "operationId": "search_files_api_search_get",
         "parameters": [
           {
@@ -2303,6 +2303,26 @@
               "type": "boolean",
               "default": false,
               "title": "Archive"
+            }
+          },
+          {
+            "name": "regex",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Regex"
+            }
+          },
+          {
+            "name": "word",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Word"
             }
           }
         ],
