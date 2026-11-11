@@ -1,8 +1,8 @@
 # Folders over the fan-out limit, as "<folder> <count>". A folder fails
 # when it grows past its count. check-fan-out --update-baseline only
 # lowers or drops lines; to raise one, edit this file by hand.
-backend/src/kasten_backend 82
-backend/src/kasten_backend/routes 14
+backend/src/kasten_backend 74
+backend/src/kasten_backend/routes 13
 backend/tests 170
 docs 8
 docs/assets/shared-lists 15

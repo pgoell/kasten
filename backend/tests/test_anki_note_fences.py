@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 
 from backend.tests.anki_build import basic_deck, mark, unhashed
-from kasten_backend.anki_note import as_note
+from kasten_backend.anki import as_note
 
 
 def test_a_side_opening_a_fence_opens_none() -> None:
@@ -84,7 +84,7 @@ def test_679_b1_a_line_of_many_quote_markers_and_no_fence_returns_at_once() -> N
     expected = f"#flashcards/x\n\n{side}::b{mark(1)}\n"
     code = (
         "from backend.tests.anki_build import basic_deck, unhashed\n"
-        "from kasten_backend.anki_note import as_note\n"
+        "from kasten_backend.anki import as_note\n"
         f"text = unhashed(as_note(basic_deck(({side!r}, 'b'))))\n"
         f"assert text == {expected!r}, text\n"
     )

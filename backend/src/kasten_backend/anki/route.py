@@ -11,18 +11,19 @@ from fastapi.responses import (
 )
 from pydantic import BaseModel
 
-from kasten_backend import ankiweb, files, uploads
-from kasten_backend.anki import media_path, read_apkg
-from kasten_backend.anki_merge import joined, marked_cards, merge
-from kasten_backend.anki_note import as_note, card_count, note_cards
+from kasten_backend import files, uploads
+from kasten_backend.anki import ankiweb
+from kasten_backend.anki import imports as anki_imports
+from kasten_backend.anki.archive.apkg import media_path, read_apkg
+from kasten_backend.anki.card_moves import marked_elsewhere, moves
+from kasten_backend.anki.imports import AnkiImporting
+from kasten_backend.anki.note.merge import joined, marked_cards, merge
+from kasten_backend.anki.note.write import as_note, card_count, note_cards
 from kasten_backend.change import vault_change, vault_write
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.files import store
 from kasten_backend.folders import create_note
 from kasten_backend.frontmatter import reserved, stamp
-from kasten_backend.routes.anki import imports as anki_imports
-from kasten_backend.routes.anki.card_moves import marked_elsewhere, moves
-from kasten_backend.routes.anki.imports import AnkiImporting
 from kasten_backend.vault import (
     relative_path,
     resolve_asset_path,
@@ -34,7 +35,7 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator
     from pathlib import Path
 
-    from kasten_backend.anki_deck import Deck
+    from kasten_backend.anki.archive.deck import Deck
 
 router = APIRouter()
 

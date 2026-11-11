@@ -1,6 +1,5 @@
 from backend.tests.anki_build import CARDS, CLOZE, apkg, cloze_note, mark, unhashed
-from kasten_backend.anki import read_apkg
-from kasten_backend.anki_note import as_note
+from kasten_backend.anki import as_note, read_apkg
 
 
 def test_a1_a_schedule_comment_in_a_cloze_answer_is_escaped() -> None:

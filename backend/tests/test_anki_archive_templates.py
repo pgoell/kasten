@@ -16,8 +16,7 @@ from backend.tests.anki_build import (
     one_deck,
     sides,
 )
-from kasten_backend.anki import read_apkg
-from kasten_backend.anki_deck import Card, Template
+from kasten_backend.anki import Card, Template, read_apkg
 
 
 @pytest.mark.parametrize("layout", LAYOUTS)

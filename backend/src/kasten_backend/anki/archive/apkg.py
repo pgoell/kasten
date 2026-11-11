@@ -16,9 +16,9 @@ from compression import zstd
 from pathlib import Path
 from urllib.parse import quote, unquote
 
-from kasten_backend.anki_collection import media_map, rendered
-from kasten_backend.anki_deck import Card, Deck
-from kasten_backend.anki_html import media_names, plain
+from kasten_backend.anki.archive.collection import media_map, rendered
+from kasten_backend.anki.archive.deck import Card, Deck
+from kasten_backend.anki.archive.html import media_names, plain
 from kasten_backend.files import ASSET_LIMIT_BYTES
 from kasten_backend.vault import AUDIO_SUFFIXES, IMAGE_SUFFIXES, fits, legal_name
 

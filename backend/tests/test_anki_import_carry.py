@@ -3,8 +3,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from backend.tests.anki_build import BASIC, CLOZE, NO_ROW, apkg, mark, unhashed
-from kasten_backend.anki import read_apkg
-from kasten_backend.anki_note import as_note
+from kasten_backend.anki import as_note, read_apkg
 
 if TYPE_CHECKING:
     from pathlib import Path

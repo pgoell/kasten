@@ -13,6 +13,7 @@ from pydantic import BaseModel
 
 from kasten_backend import (
     agent_mcp,
+    anki,
     db,
     food,
     log,
@@ -55,7 +56,6 @@ from kasten_backend.okf import prepare
 from kasten_backend.pieces import indexer
 from kasten_backend.pieces import route as pieces_route
 from kasten_backend.routes import (
-    anki,
     assets,
     github,
     listing,

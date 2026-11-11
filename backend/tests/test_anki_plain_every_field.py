@@ -1,6 +1,6 @@
 import pytest
 
-from kasten_backend.anki_html import plain
+from kasten_backend.anki import plain
 
 
 @pytest.mark.parametrize(

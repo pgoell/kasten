@@ -5,14 +5,14 @@ from typing import TYPE_CHECKING
 
 from fastapi import HTTPException
 
-from kasten_backend.anki_merge import marked_cards, taken
-from kasten_backend.anki_note import deck_tag, note_cards
+from kasten_backend.anki.note.merge import marked_cards, taken
+from kasten_backend.anki.note.write import deck_tag, note_cards
 from kasten_backend.search import SearchError, notes_holding
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from kasten_backend.anki_deck import Deck
+    from kasten_backend.anki.archive.deck import Deck
     from kasten_backend.config import Settings
 
 

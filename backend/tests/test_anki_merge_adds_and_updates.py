@@ -1,7 +1,6 @@
 from backend.tests.anki_build import SR1, SR2, SR3, basic_deck, mark, marked, unhashed
-from kasten_backend.anki_deck import Card, Deck, Template
-from kasten_backend.anki_merge import _replaced, _Span, merge
-from kasten_backend.anki_note import as_note
+from kasten_backend.anki import Card, Deck, Template, as_note, merge
+from kasten_backend.anki.note.merge import _replaced, _Span
 
 CLOZED = "<!--SR:c1!2026-10-24,4,250--> <!--SR:c2!2026-10-25,5,250-->"
 

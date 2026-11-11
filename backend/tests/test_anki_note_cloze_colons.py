@@ -1,8 +1,7 @@
 import pytest
 
 from backend.tests.anki_build import BASIC, CARDS, apkg, cloze_note, mark, unhashed
-from kasten_backend.anki import read_apkg
-from kasten_backend.anki_note import as_note, card_count
+from kasten_backend.anki import as_note, card_count, read_apkg
 
 
 @pytest.mark.parametrize(

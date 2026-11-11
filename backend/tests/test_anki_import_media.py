@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 
 from backend.tests.anki_build import BASIC, CAT_EXPORT, MP3, PNG, apkg, mark, unhashed
-from kasten_backend.routes.anki import routes as anki_routes
+from kasten_backend.anki import route as anki_routes
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -125,7 +125,7 @@ async def test_a_merge_keeps_media_already_there(client: AsyncClient, vault: Pat
 KILLED = """
 import asyncio, os, pathlib, signal, sys
 from kasten_backend.config import Settings
-from kasten_backend.routes.anki import routes as anki
+from kasten_backend.anki import route as anki
 
 vault, export, point, nth = sys.argv[1:]
 calls = 0

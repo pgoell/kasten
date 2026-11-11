@@ -1,7 +1,7 @@
 import pytest
 
 from backend.tests.anki_build import cloze_note, mark, unhashed
-from kasten_backend.anki_note import as_note, card_count
+from kasten_backend.anki import as_note, card_count
 
 
 @pytest.mark.parametrize("back", ["", "extra"], ids=["no-extra", "extra"])

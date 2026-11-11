@@ -9,11 +9,11 @@ import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from kasten_backend.anki_html import ends_card
-from kasten_backend.anki_note import card_lines, digest, fence, note_cards, place, written
+from kasten_backend.anki.archive.html import ends_card
+from kasten_backend.anki.note.write import card_lines, digest, fence, note_cards, place, written
 
 if TYPE_CHECKING:
-    from kasten_backend.anki_deck import Card, Deck
+    from kasten_backend.anki.archive.deck import Card, Deck
 
 _ANKI_ID = re.compile(r"<!--anki:(\d+):(\d+):([0-9a-f]{8})-->")
 """`ANKI_ID` in `card-line.ts`: the Anki note, template and hash `as_note` writes after a card."""
