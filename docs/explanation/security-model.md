@@ -261,6 +261,24 @@ The page script acts on a theme message only when the message comes from its
 parent. The frame fetches nothing for the theme, and the frame still has no
 `allow-same-origin`.
 
+## The two sites a page may load video from
+
+The app's policy names the only other sites it loads anything active from.
+Two of them serve video:
+
+* `frame-src` holds `https://www.youtube.com`, for the video pane, and
+  `https://www.youtube-nocookie.com`, for the player on an
+  [exercise page](/reference/training/exercise-page.md). The cookieless player
+  sets no cookie until you press play, which is why the exercise page uses it.
+  A YouTube frame runs YouTube's script in YouTube's origin, so it reads
+  nothing of kasten, and the link it plays comes from your own note.
+* `media-src` holds `https://wger.de`, where the exercise notes the import
+  writes link their videos. A `<video>` plays the file and runs no script.
+
+Every other video host stays shut: a link to it shows no player, and opening
+one up means adding its origin to `frontend/src/lib/app/csp.ts` and
+`frontend/nginx.conf`, which a test keeps in step.
+
 ## What none of this covers
 
 A leaked token reads the whole vault, and no revoke takes back a copy. The

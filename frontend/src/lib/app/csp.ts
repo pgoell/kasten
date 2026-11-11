@@ -13,9 +13,9 @@ const DIRECTIVES = [
   // `https:` is for pictures a clipped article links, which cannot run code.
   "img-src 'self' data: blob: https:",
   "font-src 'self' data: blob:",
-  "media-src 'self' blob:",
+  "media-src 'self' blob: https://wger.de",
   "connect-src 'self'",
-  "frame-src 'self' blob: https://www.youtube.com",
+  "frame-src 'self' blob: https://www.youtube.com https://www.youtube-nocookie.com",
   // Not `'none'`: foliate rewrites each book `object[data]` to a blob URL.
   "object-src blob:",
   "base-uri 'none'",
