@@ -94,7 +94,7 @@ def test_a_module_importing_a_router_fails(tmp_path: Path) -> None:
 
 def test_a_new_router_import_beside_an_accepted_one_fails(tmp_path: Path) -> None:
     src = copy_tree(tmp_path)
-    append(src / "kasten_backend/agent_finance.py", "\nimport kasten_backend.routes.notes\n")
+    append(src / "kasten_backend/agent/finance/reads.py", "\nimport kasten_backend.routes.notes\n")
     assert_broken(tmp_path, contract("protected", "kasten_backend.routes"))
 
 
@@ -115,7 +115,7 @@ def test_a_new_cycle_fails(tmp_path: Path) -> None:
 
 def test_a_stale_ignore_fails(tmp_path: Path) -> None:
     src = copy_tree(tmp_path)
-    path = src / "kasten_backend/agent_finance.py"
+    path = src / "kasten_backend/agent/finance/reads.py"
     text = path.read_text(encoding="utf-8")
     cut = re.sub(
         r"from kasten_backend\.finance\.routes\.records\.sorting import \([^)]*\)\n", "", text
@@ -125,7 +125,7 @@ def test_a_stale_ignore_fails(tmp_path: Path) -> None:
     # A stale ignore has no contract line of its own; lint-imports names the pair instead.
     out = assert_broken(tmp_path, "No matches for ignored import")
     assert (
-        "kasten_backend.agent_finance -> kasten_backend.finance.routes.records.sorting"
+        "kasten_backend.agent.finance.reads -> kasten_backend.finance.routes.records.sorting"
         in " ".join(out.split())
     )
 

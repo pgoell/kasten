@@ -25,9 +25,9 @@ bun.lock @pgoell
 /scripts/apply-github-settings.sh @pgoell
 /scripts/release.py @pgoell
 /backend/alembic/ @pgoell
-/backend/src/kasten_backend/agent_oauth.py @pgoell
-/backend/src/kasten_backend/agent_routes.py @pgoell
-/backend/src/kasten_backend/agent_mcp.py @pgoell
+/backend/src/kasten_backend/agent/oauth.py @pgoell
+/backend/src/kasten_backend/agent/route.py @pgoell
+/backend/src/kasten_backend/agent/mcp_server.py @pgoell
 /backend/src/kasten_backend/routes/share.py @pgoell
 /backend/src/kasten_backend/routes/tokens.py @pgoell
 /backend/src/kasten_backend/tokens.py @pgoell

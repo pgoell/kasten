@@ -2,14 +2,14 @@
 
 The pane's route functions mounted again, so a token holder gets the browser's answer.
 Nothing writes to finance; the one POST writes cancel-by todos into contract notes.
-`agent_routes.py` includes this router, which is how the token check reaches it.
+`agent/route.py` includes this router, which is how the token check reaches it.
 """
 
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query
 
-from kasten_backend import agent_finance
+from kasten_backend.agent.finance import reads as agent_finance
 from kasten_backend.finance.records.ledger import Scope  # noqa: TC001  FastAPI reads it at runtime
 from kasten_backend.finance.routes.budget import budget as finance_budget
 from kasten_backend.finance.routes.budget import drill as finance_drill

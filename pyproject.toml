@@ -124,22 +124,22 @@ type = "protected"
 protected_modules = ["kasten_backend.routes", "kasten_backend.finance.routes"]
 allowed_importers = ["kasten_backend.main"]
 ignore_imports = [
-    "kasten_backend.agent_finance -> kasten_backend.finance.routes.records.records",  # today's breach, to fix later; #718
-    "kasten_backend.agent_finance -> kasten_backend.finance.routes.plans.plans",  # today's breach, to fix later; #718
-    "kasten_backend.agent_finance -> kasten_backend.finance.routes.records.sorting",  # today's breach, to fix later; #718
-    "kasten_backend.agent_finance_routes -> kasten_backend.finance.routes.records.records",  # today's breach, to fix later; #718
-    "kasten_backend.agent_finance_routes -> kasten_backend.finance.routes.budget.budget",  # today's breach, to fix later; #718
-    "kasten_backend.agent_finance_routes -> kasten_backend.finance.routes.budget.drill",  # today's breach, to fix later; #718
-    "kasten_backend.agent_finance_routes -> kasten_backend.finance.routes.plans.goals",  # today's breach, to fix later; #718
-    "kasten_backend.agent_finance_routes -> kasten_backend.finance.routes.plans.plans",  # today's breach, to fix later; #718
-    "kasten_backend.agent_finance_routes -> kasten_backend.finance.routes.feeds.sync",  # today's breach, to fix later; #718
-    "kasten_backend.agent_finance_routes -> kasten_backend.finance.routes.tax.tax",  # today's breach, to fix later; #718
-    "kasten_backend.agent_mcp_finance -> kasten_backend.finance.routes.budget.budget",  # today's breach, to fix later; #718
-    "kasten_backend.agent_mcp_finance -> kasten_backend.finance.routes.budget.drill",  # today's breach, to fix later; #718
-    "kasten_backend.agent_mcp_finance -> kasten_backend.finance.routes.plans.goals",  # today's breach, to fix later; #718
-    "kasten_backend.agent_mcp_finance -> kasten_backend.finance.routes.plans.plans",  # today's breach, to fix later; #718
-    "kasten_backend.agent_mcp_finance -> kasten_backend.finance.routes.feeds.sync",  # today's breach, to fix later; #718
-    "kasten_backend.agent_mcp_finance -> kasten_backend.finance.routes.tax.tax",  # today's breach, to fix later; #718
+    "kasten_backend.agent.finance.reads -> kasten_backend.finance.routes.records.records",  # today's breach, to fix later; #718
+    "kasten_backend.agent.finance.reads -> kasten_backend.finance.routes.plans.plans",  # today's breach, to fix later; #718
+    "kasten_backend.agent.finance.reads -> kasten_backend.finance.routes.records.sorting",  # today's breach, to fix later; #718
+    "kasten_backend.agent.finance.route -> kasten_backend.finance.routes.records.records",  # today's breach, to fix later; #718
+    "kasten_backend.agent.finance.route -> kasten_backend.finance.routes.budget.budget",  # today's breach, to fix later; #718
+    "kasten_backend.agent.finance.route -> kasten_backend.finance.routes.budget.drill",  # today's breach, to fix later; #718
+    "kasten_backend.agent.finance.route -> kasten_backend.finance.routes.plans.goals",  # today's breach, to fix later; #718
+    "kasten_backend.agent.finance.route -> kasten_backend.finance.routes.plans.plans",  # today's breach, to fix later; #718
+    "kasten_backend.agent.finance.route -> kasten_backend.finance.routes.feeds.sync",  # today's breach, to fix later; #718
+    "kasten_backend.agent.finance.route -> kasten_backend.finance.routes.tax.tax",  # today's breach, to fix later; #718
+    "kasten_backend.agent.finance.mcp_tools -> kasten_backend.finance.routes.budget.budget",  # today's breach, to fix later; #718
+    "kasten_backend.agent.finance.mcp_tools -> kasten_backend.finance.routes.budget.drill",  # today's breach, to fix later; #718
+    "kasten_backend.agent.finance.mcp_tools -> kasten_backend.finance.routes.plans.goals",  # today's breach, to fix later; #718
+    "kasten_backend.agent.finance.mcp_tools -> kasten_backend.finance.routes.plans.plans",  # today's breach, to fix later; #718
+    "kasten_backend.agent.finance.mcp_tools -> kasten_backend.finance.routes.feeds.sync",  # today's breach, to fix later; #718
+    "kasten_backend.agent.finance.mcp_tools -> kasten_backend.finance.routes.tax.tax",  # today's breach, to fix later; #718
 ]
 
 [[tool.importlinter.contracts]]

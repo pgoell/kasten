@@ -1,4 +1,4 @@
-"""The MCP tools at `/agent/mcp`: thin wrappers over `agent.py`, defined nowhere in `routes/`.
+"""The MCP tools at `/agent/mcp`: thin wrappers over `capabilities`, defined nowhere in `routes/`.
 
 Mounted at `/agent`, since the SDK's app owns `/mcp`. At `/agent/mcp` it would answer
 307, which many clients will not follow on POST. Only POST is served: a GET would
@@ -18,9 +18,11 @@ from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import CallToolResult, InputRequiredResult, ToolAnnotations
 from starlette.responses import JSONResponse
 
-from kasten_backend import agent, agent_mcp_finance, files, page_store, skills, token_activity, vcs
-from kasten_backend.agent_oauth import challenge
-from kasten_backend.agent_routes import BEARER, REFUSED
+from kasten_backend import files, page_store, skills, token_activity, vcs
+from kasten_backend.agent import capabilities as agent
+from kasten_backend.agent.finance import mcp_tools as agent_mcp_finance
+from kasten_backend.agent.oauth import challenge
+from kasten_backend.agent.route import BEARER, REFUSED
 from kasten_backend.config import DEFAULTS, get_settings
 from kasten_backend.graph import MOST_DEPTH, GraphError
 from kasten_backend.tokens import identify

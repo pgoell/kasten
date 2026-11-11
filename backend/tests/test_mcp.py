@@ -15,7 +15,7 @@ from asgi_lifespan import LifespanManager
 from httpx import ASGITransport, AsyncClient
 
 from backend.tests.conftest import JJ, descriptions
-from kasten_backend.agent_mcp import INSTRUCTIONS
+from kasten_backend.agent import INSTRUCTIONS
 from kasten_backend.config import get_settings
 from kasten_backend.main import app
 from kasten_backend.tokens import REVOKED
@@ -401,7 +401,7 @@ async def test_the_guide_says_where_a_new_note_goes(
     client: AsyncClient, agent_vault: Path, bearer: dict[str, str]
 ) -> None:
     # Advisory rather than enforced, the way this vault's other conventions are.
-    # Nothing in `agent.py` moves a write, so this sentence is the whole of the
+    # Nothing in `capabilities.py` moves a write, so this sentence is the whole of the
     # rule and a test is what keeps it from being edited away by accident.
     response = await client.post(ENDPOINT, json=call("read_guide", {}), headers={**bearer, **RPC})
 

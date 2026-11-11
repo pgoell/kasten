@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 
 from asgi_lifespan import LifespanManager
 
-from kasten_backend.agent_mcp import INSTRUCTIONS, instructions
+from kasten_backend.agent import INSTRUCTIONS, instructions
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.main import app
 from kasten_backend.periodic import daily_note, daily_path
