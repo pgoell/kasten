@@ -3024,6 +3024,29 @@
         }
       }
     },
+    "/api/training/exercises": {
+      "get": {
+        "summary": "Read Exercises",
+        "description": "Every exercise note outside the archive, by name: a note whose `kind` names an exercise.",
+        "operationId": "read_exercises_api_training_exercises_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Exercise"
+                  },
+                  "type": "array",
+                  "title": "Response Read Exercises Api Training Exercises Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/food/search": {
       "get": {
         "summary": "Search Food",
@@ -11088,6 +11111,67 @@
         ],
         "title": "EntryOut",
         "description": "A marked booking of the year. `counted` is negative for money in: it comes off the line."
+      },
+      "Exercise": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "counts": {
+            "type": "string",
+            "title": "Counts"
+          },
+          "aliases": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Aliases"
+          },
+          "muscles_primary": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Muscles Primary"
+          },
+          "muscles_secondary": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Muscles Secondary"
+          },
+          "equipment": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Equipment"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "name",
+          "kind",
+          "counts",
+          "aliases",
+          "muscles_primary",
+          "muscles_secondary",
+          "equipment"
+        ],
+        "title": "Exercise",
+        "description": "One exercise note: its name is the file name a `[[link]]` takes."
       },
       "Fetch": {
         "properties": {

@@ -1,5 +1,6 @@
 """`GET /api/training`: the days of a range whose note holds a `## Training`, and its entries."""
 
+import asyncio
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
@@ -7,6 +8,7 @@ from pydantic import BaseModel
 
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.periodic import DATE_PATTERN, date_range, day_sections
+from kasten_backend.training.exercises import Exercise, exercises
 from kasten_backend.training.lines import TrainingEntry, parse_line
 
 router = APIRouter()
@@ -46,3 +48,9 @@ def read_training(
             settings.vault_path, settings.periodic_path, first, last, TRAINING
         )
     ]
+
+
+@router.get("/api/training/exercises")
+async def read_exercises(settings: Annotated[Settings, Depends(get_settings)]) -> list[Exercise]:
+    """Every exercise note outside the archive, by name: a note whose `kind` names an exercise."""
+    return await asyncio.to_thread(exercises, settings.vault_path, settings.archive_path)

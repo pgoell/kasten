@@ -8,6 +8,7 @@ import { basicSetup } from "codemirror";
 import { logCard } from "@/lib/log/log-card";
 import { recipeCard } from "@/lib/log/recipe/recipe-card";
 import { weekPlanCard } from "@/lib/log/recipe/week-plan";
+import { trainingCard } from "@/lib/log/training/training-card";
 import { noteLanguage } from "@/lib/markdown/note-language";
 import { tagCompletions, vaultTags } from "@/lib/markdown/tag";
 import { backticks } from "@/lib/notes/editor/backticks";
@@ -81,7 +82,15 @@ const preview = new Compartment();
 
 /** What the preview compartment holds when on: the live preview and the cards under a title. */
 function previewExtensions(): Extension[] {
-  return [livePreview(), weatherCard, logCard, recipeCard, weekPlanCard, readMode.of(true)];
+  return [
+    livePreview(),
+    weatherCard,
+    logCard,
+    trainingCard,
+    recipeCard,
+    weekPlanCard,
+    readMode.of(true),
+  ];
 }
 
 /**

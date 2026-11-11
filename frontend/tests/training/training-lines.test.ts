@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import cases from "@/lib/log/cases/training-cases.json";
-import { e1rm, parseTrainingLine } from "@/lib/log/training-lines";
+import { e1rm, parseTrainingLine } from "@/lib/log/training/training-lines";
 
 interface Row {
   id: string;

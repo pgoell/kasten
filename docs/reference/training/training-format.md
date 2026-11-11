@@ -46,7 +46,9 @@ optional decimal part, the mark a point or a comma. Units ignore case.
 The link is a wikilink, `[[Kniebeuge]]`, and its target is the entry's
 `exercise`: `[[Kniebeuge|Squat]]` is `Kniebeuge`. An empty link is no entry.
 The exercise notes come from
-[the exercise import](/reference/training/exercise-import.md).
+[the exercise import](/reference/training/exercise-import.md). The phone's
+[session screen](/reference/training/session-screen.md) writes these lines as
+each set is done.
 
 | Kind | Marker | Fields |
 | --- | --- | --- |
@@ -97,5 +99,5 @@ marker this page does not name.
 `frontend/src/lib/log/cases/training-cases.json` holds one row per case: a line
 and the entry it parses to, or `null` for a plain bullet. The backend parser,
 `backend/src/kasten_backend/training/lines.py`, and the browser's,
-`frontend/src/lib/log/training-lines.ts`, run the whole table in their tests. A
+`frontend/src/lib/log/training/training-lines.ts`, run the whole table in their tests. A
 change to the format is a change to that table first.
