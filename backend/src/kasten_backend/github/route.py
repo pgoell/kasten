@@ -7,8 +7,7 @@ from pydantic import BaseModel
 
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.github import contributions as github
-from kasten_backend.periodic import DATE_PATTERN
-from kasten_backend.periodic import date_range as day_range
+from kasten_backend.periodic import DATE_PATTERN, date_range
 
 router = APIRouter()
 
@@ -30,7 +29,7 @@ async def read_github(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> Contributions:
     """The contributions the configured GitHub user made each day from `from` to `to`."""
-    first, last = day_range(start, end)
+    first, last = date_range(start, end)
     # Both ends in, so a range of 366 days is the most one read asks GitHub for.
     if (last - first).days >= github.MOST_DAYS:
         raise HTTPException(status_code=400, detail="A range is at most 366 days")

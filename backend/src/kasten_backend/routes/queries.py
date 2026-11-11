@@ -13,7 +13,7 @@ from kasten_backend.graph import MOST_DEPTH, Graph, GraphError
 from kasten_backend.graph_query import query_graph
 from kasten_backend.history import HistoryError, list_changes, plain, read_version
 from kasten_backend.mentions import find_mentions
-from kasten_backend.periodic import DATE_PATTERN
+from kasten_backend.periodic import DATE_PATTERN, date_range
 from kasten_backend.search_meta import (
     cached_tags,
     day_of,
@@ -269,17 +269,6 @@ class WrittenNote(BaseModel):
     """
 
 
-def day_range(start: str, end: str) -> tuple[date, date]:
-    """The two dates a range is asked by, or the 422 or 400 a bad pair answers with."""
-    try:
-        first, last = date.fromisoformat(start), date.fromisoformat(end)
-    except ValueError as error:
-        raise HTTPException(status_code=422, detail="`from` and `to` must be real dates") from error
-    if first > last:
-        raise HTTPException(status_code=400, detail="`from` is after `to`")
-    return first, last
-
-
 def _bounds(first: date, last: date) -> tuple[str, str]:
     """The first and last day a written note may fall on: the range, and a day either side."""
     # Clamped at the calendar's ends, where a day either side would overflow.
@@ -342,7 +331,7 @@ async def list_written(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> list[str]:
     """The day each note outside the archive counts on, for notes written from `from` to `to`."""
-    first, last = day_range(start, end)
+    first, last = date_range(start, end)
 
     archive = f"{settings.archive_path}/"
     paths = [
@@ -363,7 +352,7 @@ async def list_written_notes(
     so the two cannot disagree about which note is in a week. Sorted by day, then
     path, and read only: nothing is written or stored.
     """
-    first, last = day_range(start, end)
+    first, last = date_range(start, end)
 
     everything = list_markdown_files(settings.vault_path)
     archive = f"{settings.archive_path}/"
