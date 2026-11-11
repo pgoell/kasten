@@ -23,7 +23,7 @@ from youtube_transcript_api import (
     YouTubeRequestFailed,
 )
 
-from kasten_backend import transcripts
+from kasten_backend.web import transcripts
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence

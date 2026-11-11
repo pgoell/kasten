@@ -5,10 +5,10 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
-from kasten_backend import github
 from kasten_backend.config import Settings, get_settings
+from kasten_backend.github import contributions as github
 from kasten_backend.periodic import DATE_PATTERN
-from kasten_backend.routes.queries import day_range
+from kasten_backend.periodic import date_range as day_range
 
 router = APIRouter()
 

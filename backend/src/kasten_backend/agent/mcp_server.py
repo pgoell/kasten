@@ -18,13 +18,14 @@ from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import CallToolResult, InputRequiredResult, ToolAnnotations
 from starlette.responses import JSONResponse
 
-from kasten_backend import files, page_store, skills, token_activity, vcs
+from kasten_backend import files, page_store, skills, vcs
 from kasten_backend.agent import capabilities as agent
 from kasten_backend.agent.finance import mcp_tools as agent_mcp_finance
 from kasten_backend.agent.oauth import challenge
 from kasten_backend.agent.route import BEARER, REFUSED
 from kasten_backend.config import DEFAULTS, get_settings
 from kasten_backend.graph import MOST_DEPTH, GraphError
+from kasten_backend.tokens import activity as token_activity
 from kasten_backend.tokens import identify
 
 if TYPE_CHECKING:
