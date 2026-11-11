@@ -2,7 +2,7 @@
 type: Reference
 title: "Save path orderings: the log pane's sheet and quick buttons"
 description: The orders in which a food logged from the log pane's food sheet, or a tap on one of its quick buttons, can meet a refused write, a day moved, the pane closed or the pane drawn again, and what must hold in each.
-resource: frontend/src/components/log/log-pane.tsx
+resource: [frontend/src/components/log/log-pane.tsx, frontend/src/components/log/use-log-food-sheet.ts]
 tags: [saving, frontend, tests, log]
 status: stable
 ---

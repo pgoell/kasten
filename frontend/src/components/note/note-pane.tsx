@@ -15,7 +15,7 @@ import { PersonFooter } from "@/components/person-card";
 import { Rsvp } from "@/components/rsvp";
 import { Sheet } from "@/components/sheet";
 import { TodayPane } from "@/components/today-pane";
-import type { Outline as OutlineState } from "@/lib/notes/note/note-head";
+import type { Outline as OutlineState } from "@/lib/notes/note/head/note-head";
 import type { useAutosave } from "@/lib/notes/note/use-autosave";
 import type { BufferSync } from "@/lib/notes/note/use-buffer-sync";
 import type { NoteOpening } from "@/lib/notes/note/use-note-opening";

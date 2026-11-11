@@ -1,12 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { type KeyboardEvent, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import {
-  dropFoodSheet,
-  hideFoodSheet,
-  type SheetOwner,
-  showFoodSheet,
-} from "@/components/food-sheet";
-import {
   capital,
   type Editing,
   EntryList,
@@ -15,23 +9,21 @@ import {
 } from "@/components/log/log-pane-rows";
 import { type Day, foodTotal, type Line, LogTrends, totalOf } from "@/components/log/log-trends";
 import { hintOf, WeightRows, weightButton } from "@/components/log/log-weight";
+import { useLogFoodSheet } from "@/components/log/use-log-food-sheet";
 import { fetchNote, NoteMissing } from "@/lib/core/api";
 import { shiftDay } from "@/lib/core/clock";
 import { LOG_NOTE } from "@/lib/core/layout";
 import { fetchLog } from "@/lib/log/food-api";
-import { type FoodPanel, foodPanel } from "@/lib/log/food-search";
 import { foodButton, quickButton } from "@/lib/log/log-card-view";
 import { editedLine } from "@/lib/log/log-edit";
 import {
   DEFAULT_CONFIG,
   type FoodField,
-  type FoodGoals,
   kindLine,
   type LogConfig,
   type LogKind,
   parseConfig,
 } from "@/lib/log/log-kinds";
-import type { DrinkTotals } from "@/lib/log/log-lines";
 import { rangeDates } from "@/lib/log/log-weight";
 import type { LogActions } from "@/lib/log/use-log-actions";
 import { useViewport } from "@/lib/ui/input/use-viewport";
@@ -116,25 +108,9 @@ export function LogPane({ commands, onOpen, focusSignal, today, actions, onNotic
   const form = useRef<HTMLFormElement>(null);
   const amountField = useRef<HTMLInputElement>(null);
   const quickBox = useRef<HTMLDivElement>(null);
-  // The sheet's host sits in this pane's root. Made once, so the sheet keeps the same owner.
-  const owner = useRef<SheetOwner>({
-    get dom() {
-      return panel.current as HTMLElement;
-    },
-    focus: () => panel.current?.focus(),
-  });
-  // The food search the sheet shows, while one is up.
-  const sheetPanel = useRef<FoodPanel | null>(null);
-  // The food panel outlives the render that opened it, so it writes through the latest actions.
-  const writer = useRef(actions);
   // The card's buttons call through these, so a press is handled by the render that drew it.
   const tapKindRef = useRef<(kind: LogKind) => void>(() => {});
   const openFoodRef = useRef<() => void>(() => {});
-  // Read by the food panel each time it draws a figure, so it sees the day as it is now.
-  const todayFood = useRef<{ eaten: DrinkTotals["food"]; goals: FoodGoals }>({
-    eaten: { kcal: 0, protein: 0, carbs: 0, fat: 0 },
-    goals: {},
-  });
   const leader = useLeader(commands);
 
   // The raw note under the key every reader of log.md shares, parsed on the way out, so the
@@ -174,58 +150,14 @@ export function LogPane({ commands, onOpen, focusSignal, today, actions, onNotic
       form.current?.querySelector<HTMLElement>("input, select")?.focus();
   }, [editingLine]);
 
-  useEffect(() => {
-    writer.current = actions;
-    todayFood.current = {
-      eaten: entryDay?.totals.food ?? { kcal: 0, protein: 0, carbs: 0, fat: 0 },
-      goals: config.food,
-    };
+  const { openFood, closeFood } = useLogFoodSheet(panel, day, actions.addLine, {
+    eaten: entryDay?.totals.food ?? { kcal: 0, protein: 0, carbs: 0, fat: 0 },
+    goals: config.food,
   });
-
-  // Taken down with the pane, so no sheet is left over whatever pane comes next.
-  useEffect(() => {
-    const self = owner.current;
-    return () => {
-      sheetPanel.current?.stop();
-      sheetPanel.current = null;
-      dropFoodSheet(self);
-    };
-  }, []);
 
   useEffect(() => {
     if (focusSignal) panel.current?.focus();
   }, [focusSignal]);
-
-  /** Takes the food search down, when `made` (or the one up) is still the one shown. */
-  function closeFood(made: FoodPanel | null = sheetPanel.current) {
-    if (made === null || sheetPanel.current !== made) return;
-    sheetPanel.current = null;
-    made.stop();
-    hideFoodSheet(owner.current);
-  }
-
-  /** The food search, in the shared sheet, for the day shown. */
-  function openFood() {
-    if (sheetPanel.current !== null) return;
-    const shown = day;
-    const made = foodPanel(shown, {
-      // A refused write keeps the search open, so the line can be tried again.
-      log: (line) => {
-        void writer.current.addLine(shown, line).then((ok) => {
-          if (ok) closeFood(made);
-        });
-      },
-      close: () => closeFood(made),
-      today: () => todayFood.current,
-    });
-    sheetPanel.current = made;
-    showFoodSheet(owner.current, made, () => {
-      sheetPanel.current = null;
-      // The sheet closed by its own hand and still reads as open to its host, so it is drawn
-      // shut here, or the next show would mount nothing. The focus is already where it belongs.
-      hideFoodSheet(owner.current);
-    });
-  }
 
   /** The day moves, and what was open on the old one closes with it. */
   function moveTo(next: string) {

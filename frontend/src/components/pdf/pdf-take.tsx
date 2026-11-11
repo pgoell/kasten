@@ -150,7 +150,7 @@ export function usePdfTake(o: {
     coarseRef.current = coarse;
   });
 
-  // The held selection, mirrored in a ref for the reason `html-pane.tsx` gives:
+  // The held selection, mirrored in a ref for the reason `use-html-take.tsx` gives:
   // the listener reads it as it is now, and a `y` answered a render late would
   // take the one before.
   const [held, setHeld] = useState<Held | null>(null);
@@ -163,7 +163,7 @@ export function usePdfTake(o: {
     setHeld(next);
   }, []);
 
-  /** A collapse during a press on the button, which the press guard holds back (see `html-pane.tsx`). */
+  /** A collapse during a press on the button, which the press guard holds back (see `use-html-take.tsx`). */
   const lost = useRef(false);
   const { pressing, press } = usePressGuard(() => {
     if (lost.current) {

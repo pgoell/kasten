@@ -8,7 +8,7 @@ import {
   type ViewUpdate,
 } from "@codemirror/view";
 import { isRow } from "@/lib/notes/editor/table";
-import { readMode } from "@/lib/notes/note/note-head";
+import { readMode } from "@/lib/notes/note/head/note-read-hiding";
 
 /**
  * Marks a table's source where live preview does not draw it, so Edit and Read show the same face.

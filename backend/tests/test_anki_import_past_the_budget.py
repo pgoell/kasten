@@ -17,8 +17,8 @@ from httpx import ASGITransport, AsyncClient
 from backend.tests.anki_build import BASIC, CAT_EXPORT, apkg
 from kasten_backend import files, uploads
 from kasten_backend.main import app
-from kasten_backend.routes import anki as anki_routes
-from kasten_backend.routes import anki_imports
+from kasten_backend.routes.anki import imports as anki_imports
+from kasten_backend.routes.anki import routes as anki_routes
 
 if TYPE_CHECKING:
     from pathlib import Path

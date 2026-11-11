@@ -13,7 +13,7 @@ import {
 } from "@/lib/notes/editor/note-view";
 import { useVim } from "@/lib/notes/editor/vim-setting";
 import type { EmbedSource } from "@/lib/notes/embeds/embed";
-import type { Outline } from "@/lib/notes/note/note-head";
+import type { Outline } from "@/lib/notes/note/head/note-head";
 import type { ReviewSource } from "@/lib/review/periodic-review";
 import type { CycleHandler } from "@/lib/todo/todo-commands";
 import { keyboardUnasked } from "@/lib/ui/input/last-input";

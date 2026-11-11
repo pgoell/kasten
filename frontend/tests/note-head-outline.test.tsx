@@ -3,7 +3,7 @@ import { act, fireEvent, render } from "@testing-library/react";
 import { useState } from "react";
 import { Editor } from "@/components/editor";
 import { Outline as OutlineRows } from "@/components/note/note-margins";
-import type { Outline } from "@/lib/notes/note/note-head";
+import type { Outline } from "@/lib/notes/note/head/note-head";
 
 const PATH = "02 Projects/Kasten/Reader.md";
 // The fenced `#` line is code, and the closing hashes of the last heading are not its words.

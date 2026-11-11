@@ -12,7 +12,7 @@ import { EditorView } from "@codemirror/view";
 import { fireEvent, waitFor } from "@testing-library/react";
 import { fetchFiles, fetchNote, fetchTodos, NoteMissing, searchNotes } from "@/lib/core/api";
 import { fetchGraph } from "@/lib/graph/graph-api";
-import { readMode } from "@/lib/notes/note/note-head";
+import { readMode } from "@/lib/notes/note/head/note-read-hiding";
 import {
   DESKTOP,
   fontsIn,

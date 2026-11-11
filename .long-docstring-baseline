@@ -6,7 +6,7 @@ backend/src/kasten_backend/agent_mcp_finance.py 4
 backend/src/kasten_backend/agent_oauth.py 4
 backend/src/kasten_backend/agent_routes.py 1
 backend/src/kasten_backend/main.py 1
-backend/src/kasten_backend/routes/anki.py 1
+backend/src/kasten_backend/routes/anki/routes.py 1
 backend/src/kasten_backend/routes/assets.py 4
 backend/src/kasten_backend/finance/routes/records/records.py 1
 backend/src/kasten_backend/finance/routes/tax/receipts.py 1

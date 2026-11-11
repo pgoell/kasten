@@ -55,7 +55,6 @@ from kasten_backend.pieces import indexer
 from kasten_backend.pieces import route as pieces_route
 from kasten_backend.routes import (
     anki,
-    anki_imports,
     assets,
     github,
     listing,
@@ -69,6 +68,7 @@ from kasten_backend.routes import (
     tokens,
     web,
 )
+from kasten_backend.routes.anki import imports as anki_imports
 from kasten_backend.trash import purge_trash
 from kasten_backend.vcs import is_versioned, write_ignores
 
