@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 import httpx
 
 from kasten_jobs.exercises.mobility import mobility
-from kasten_jobs.exercises.note import Exercise, file_name, render
+from kasten_jobs.exercises.note import Exercise, file_name, folder, render
 from kasten_jobs.exercises.sources import fetch_free_db, fetch_wger, from_wger
 from kasten_jobs.kasten_api import KastenApi
 
@@ -66,11 +66,11 @@ def named(exercises: list[Exercise]) -> list[tuple[str, Exercise]]:
     return out
 
 
-def run(api: KastenApi, folder: str, exercises: list[Exercise], *, dry_run: bool) -> int:
+def run(api: KastenApi, root: str, exercises: list[Exercise], *, dry_run: bool) -> int:
     """Create every note not there yet, and answer 1 when kasten refused one."""
     created = existing = failed = 0
     for name, exercise in named(exercises):
-        path = f"{folder}/{name}.md"
+        path = f"{root}/{folder(exercise)}/{name}.md"
         if dry_run:
             sys.stdout.write(f"{path}\n")
             continue

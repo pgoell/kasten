@@ -9,7 +9,8 @@ status: draft
 # Import the exercise library
 
 The import writes one note per exercise into `03 Areas/11 Fitness/Übungen/`
-from wger and free-exercise-db, and one per exercise of the mobility programme.
+from wger and free-exercise-db, and one per exercise of the mobility programme,
+grouped into subfolders such as `Kraft/Brust/` and `Mobilität/`.
 It never touches a note that is there. What it writes and why is in
 [Exercise import](/reference/training/exercise-import.md).
 

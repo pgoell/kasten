@@ -34,7 +34,7 @@ Read from the environment; neither is a secret.
 | Variable | Default | Meaning |
 |---|---|---|
 | `KASTEN_API` | `http://kasten-backend-prod:8000` | The backend, by its name on the docker network `web` |
-| `EXERCISE_FOLDER` | `03 Areas/11 Fitness/Übungen` | The vault folder the notes go in |
+| `EXERCISE_FOLDER` | `03 Areas/11 Fitness/Übungen` | The vault folder the notes go in, each in [its subfolder](#folders) |
 
 ## Sources
 
@@ -55,6 +55,7 @@ the fallback source should these two fall short; it is paid and not wired in.
 ```markdown
 ---
 type: Reference
+tags: [übung, kraft, brust, langhantel, bank]
 kind: strength
 aliases: [Bench Press, Flachbankdrücken]
 muscles_primary: [chest]
@@ -81,6 +82,7 @@ kasten adds `id`, `created` and `modified` to the block as it writes the note.
 | Field | Holds |
 |---|---|
 | `type` | `Reference`, as the test notes already in the folder carry |
+| `tags` | `übung`, the kind in German (`kraft`, `cardio`, `mobilität`), the body part of the first primary muscle when there is one, and the equipment, all lowercase |
 | `kind` | `strength`, `cardio`, `mobility` or `test`; the import writes the first three, and the `test` notes already in the folder stay as they are |
 | `aliases` | The English name first, then the source's other names, so search and [unlinked mentions](/reference/http-api/finding.md#get-apimentions) find either |
 | `muscles_primary`, `muscles_secondary` | Groups from the set below; a group named as both stays primary only |
@@ -94,6 +96,25 @@ kasten adds `id`, `created` and `modified` to the block as it writes the note.
 The body is the cues, then the credit line in italics, then an empty
 `## Meine Notizen`. A wger exercise whose German description is empty gets
 "Die Quelle gibt keine Hinweise." in place of cues.
+
+## Folders
+
+Each note goes in a subfolder of `EXERCISE_FOLDER` by its kind: `Cardio/`,
+`Mobilität/`, and for strength `Kraft/` and then the body part of the first
+primary muscle.
+
+| Body part | Muscles |
+|---|---|
+| `Brust` | `chest` |
+| `Rücken` | `upper-back`, `lower-back`, `trapezius` |
+| `Schultern` | `front-deltoids`, `back-deltoids`, `neck` |
+| `Arme` | `biceps`, `triceps`, `forearm` |
+| `Rumpf` | `abs`, `obliques` |
+| `Beine` | `quadriceps`, `hamstring`, `gluteal`, `abductors`, `adductor`, `calves` |
+| `Sonstige` | none named |
+
+The test notes live in `Tests/` by hand. A link names a note, not a folder, so
+the folders change no `[[link]]`, and file names stay unique across them all.
 
 ## Muscle groups
 
@@ -131,4 +152,5 @@ Bench Press)`; one that clashes even so is skipped and logged.
 Each note is a create, and kasten answers a create at a path that holds a note
 with `409` and leaves that note alone. So a note you have edited, or one of the
 test notes, is never overwritten, and with the same source data a second run
-creates nothing. A note you rename or delete comes back on the next run.
+creates nothing. A note you rename, delete or move out of its folder comes back
+on the next run.

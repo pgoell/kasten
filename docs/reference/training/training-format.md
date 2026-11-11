@@ -77,7 +77,7 @@ unit, or a result:
 * `ok` for passed, `nicht ok` for not.
 
 The commas inside a number, `10,5 cm`, do not split groups: only a comma
-followed by a space does. The test notes in `03 Areas/11 Fitness/Übungen/`
+followed by a space does. The test notes in `03 Areas/11 Fitness/Übungen/Tests/`
 (`kind: test`, with `unit` and `sides`) show the lines each test takes. The
 parser does not read those notes, so a line's unit is the one written in it.
 
