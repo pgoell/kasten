@@ -60,7 +60,7 @@ class Settings:
 
 @dataclass
 class State:
-    """The ids looked at, and the day, kind and whole minutes of each line written."""
+    """The ids looked at, and the day, kind and minutes of each line written or standing in."""
 
     written: list[int] = field(default_factory=list)
     own: list[list[Any]] = field(default_factory=list)
@@ -139,10 +139,12 @@ def run(
         if match is None:
             by_day[activity.day].append(activity)
             continue
-        # One typed line stands for one activity, so a second ride of the day still gets written.
+        # One typed line stands for one activity, this run and later ones, so a second ride of
+        # the day still gets written. Its own minutes, as `hand_typed` matches them exactly.
         entries.remove(match)
         log.info("%s %s is typed by hand already; left out", activity.day, activity.kind)
         state.written.append(activity.id)
+        state.own.append([activity.day, activity.kind, match["minutes"]])
     for day, activities in sorted(by_day.items()):
         lines = [line_of(a, settings.notes) for a in activities]
         if dry_run:

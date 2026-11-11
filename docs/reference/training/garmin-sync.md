@@ -96,8 +96,8 @@ the average heart rate after `❤`, left out when Garmin has none:
 * **A typed line.** An activity is left out when its day already has a line of
   the same kind whose minutes lie within 15 % of it, or 2 minutes, whichever is
   more. Its id goes into the state, so it is not looked at again. One typed
-  line stands for one activity, so a second ride of the same length is still
-  written.
+  line stands for one activity, on this run and every later one, so a second
+  ride of the same length is still written.
 * **Its own lines.** The state also keeps the day, kind and minutes of each
   line the job wrote, and those lines never count as typed. So a ride home
   after the morning's ride was written is written too. Without the state file,

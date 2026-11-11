@@ -145,3 +145,16 @@ def test_1720_the_token_answer_never_reaches_the_log() -> None:
     with pytest.raises(GarminError, match=r"\['secret_thing'\]") as raised:
         token_of({"secret_thing": "hunter2"})
     assert "hunter2" not in str(raised.value)
+
+
+def test_1720_a_typed_line_stands_for_one_activity_on_later_runs_too(tmp_path: Path) -> None:
+    home = row(18, "road_biking", "2026-11-11 18:00:00", 1380, distance=7300.0)
+    typed = {"date": "2026-11-11", "entries": [{"kind": "ride", "minutes": 22}]}
+    fakes = Fakes([RIDE], [typed])
+    run(*fakes.apis(), settings(tmp_path), TODAY)
+    assert fakes.posted == {}
+
+    fakes = Fakes([RIDE, home], [typed])
+    run(*fakes.apis(), settings(tmp_path), TODAY)
+
+    assert fakes.posted == {"2026-11-11": ["- 🚲 [[Radfahren]] 23 min 7.3 km"]}
