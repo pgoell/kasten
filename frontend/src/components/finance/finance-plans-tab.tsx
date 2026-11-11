@@ -2,14 +2,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { type RefObject, useState } from "react";
 import { Contracts } from "@/components/finance/finance-contracts";
 import { Forecast } from "@/components/finance/finance-forecast";
-import { GoalBar, GoalForm, NotReserved } from "@/components/finance/finance-goals";
-import { MoveLeftover } from "@/components/finance/finance-leftover";
+import { assignKeys, GoalForm, GoalList } from "@/components/finance/finance-goals";
 import { PlanForm, scheduleName } from "@/components/finance/finance-plan-form";
 import type { TabKeys } from "@/components/finance/finance-sort-bar";
 import { type Category, fetchCategories } from "@/lib/panes/finance/finance-api";
 import { type Account, fetchAccounts, fetchBudget } from "@/lib/panes/finance/finance-budget-api";
 import {
-  adding,
   assignGoal,
   type Due,
   deleteGoal,
@@ -18,7 +16,6 @@ import {
   fetchPlans,
   fetchProposals,
   fetchUpcoming,
-  type Goal,
   type Goals,
   makeContract,
   type Plan,
@@ -29,7 +26,7 @@ import {
   writeGoal,
   writePlan,
 } from "@/lib/panes/finance/finance-plans-api";
-import { euros, money, monthName, monthOf } from "@/lib/panes/finance/finance-words";
+import { money, monthName } from "@/lib/panes/finance/finance-words";
 
 /** The keys proposals take, one each in the order they are listed. */
 const PROPOSAL_KEYS = "123456789";
@@ -203,159 +200,6 @@ function Plans({
       </button>
     </section>
   );
-}
-
-interface GoalsProps {
-  goals: Goals;
-  at: number;
-  today: string;
-  left: number | undefined;
-  busy: boolean;
-  onSelect: (index: number) => void;
-  onAssign: (goal: Goal) => void;
-  onUndo: (goal: Goal) => void;
-  onEdit: (goal: Goal) => void;
-  onNew: () => void;
-}
-
-/** Whether this month's contribution was assigned to the goal already. */
-function assigned(goal: Goal, today: string): boolean {
-  return goal.assigned_month === monthOf(today);
-}
-
-/** Whether a goal can take its contribution now: not yet this month, and its account holds it. */
-export function canAssign(goal: Goal, goals: Goals, today: string): boolean {
-  const account = goals.accounts.find((found) => found.id === goal.account_id);
-  const amount = adding(goal);
-  return !assigned(goal, today) && amount > 0 && amount <= Number(account?.unreserved ?? 0);
-}
-
-/** Why a goal cannot take its contribution now, in words beside the greyed button. */
-function whyNot(goal: Goal, goals: Goals): string {
-  if (Number(goal.reserved) >= Number(goal.target)) return "target reached";
-  if (adding(goal) <= 0) return "no monthly contribution set";
-  const account = goals.accounts.find((found) => found.id === goal.account_id);
-  return `only ${euros(Math.max(0, Number(account?.unreserved ?? 0)))} not reserved on ${account?.name ?? "its account"}`;
-}
-
-/** Assign, or once assigned this month the amount with a tick and an undo. */
-function AssignButton({
-  goal,
-  goals,
-  today,
-  cursor,
-  busy,
-  onAssign,
-  onUndo,
-}: {
-  goal: Goal;
-  goals: Goals;
-  today: string;
-  cursor: boolean;
-  busy: boolean;
-  onAssign: (goal: Goal) => void;
-  onUndo: (goal: Goal) => void;
-}) {
-  if (assigned(goal, today)) {
-    return (
-      <>
-        <span className="finance-status-text-ok finance-goal-assigned">
-          {`${euros(goal.assigned_amount ?? 0)} assigned ✓`}
-        </span>
-        <button
-          type="button"
-          className="finance-pane-button finance-small"
-          aria-label={`Undo assigning to ${goal.name}`}
-          disabled={busy}
-          onClick={() => onUndo(goal)}
-        >
-          {cursor ? <kbd>u</kbd> : null} Undo
-        </button>
-      </>
-    );
-  }
-  const able = canAssign(goal, goals, today);
-  return (
-    <>
-      <button
-        type="button"
-        className="finance-pane-button finance-small"
-        disabled={!able || busy}
-        aria-label={`Assign ${euros(adding(goal))} to ${goal.name}`}
-        onClick={() => onAssign(goal)}
-      >
-        {cursor ? <kbd>a</kbd> : null} Assign {euros(adding(goal))}
-      </button>
-      {able ? null : <span className="finance-muted finance-goal-why">{whyNot(goal, goals)}</span>}
-    </>
-  );
-}
-
-function GoalList(props: GoalsProps) {
-  const { goals, at, today, left, onSelect, onEdit, onNew } = props;
-  const names = new Map(goals.accounts.map((account) => [account.id, account.name]));
-  return (
-    <section aria-label="Goals" className="finance-plans-group">
-      <h3>Goals</h3>
-      <ul className="finance-plans-list">
-        {goals.goals.map((goal, index) => (
-          // biome-ignore lint/a11y/useAriaPropsSupportedByRole: the cursor row is the one marked, as the budget's is.
-          <li
-            key={goal.id}
-            aria-selected={index === at}
-            className={index === at ? "finance-goal-row finance-pane-selected" : "finance-goal-row"}
-          >
-            <button type="button" className="finance-goal-pick" onClick={() => onSelect(index)}>
-              <GoalBar goal={goal} account={names.get(goal.account_id)} />
-            </button>
-            <div className="finance-budget-actions">
-              <AssignButton
-                goal={goal}
-                goals={goals}
-                today={today}
-                cursor={index === at}
-                busy={props.busy}
-                onAssign={props.onAssign}
-                onUndo={props.onUndo}
-              />
-              <button
-                type="button"
-                className="finance-pane-button finance-small"
-                aria-label={`Edit ${goal.name}`}
-                onClick={() => onEdit(goal)}
-              >
-                {index === at ? <kbd>e</kbd> : null} Edit
-              </button>
-            </div>
-          </li>
-        ))}
-      </ul>
-      <NotReserved goals={goals} />
-      {left === undefined ? null : (
-        <div className="finance-goal-leftover">
-          <span>{`Left from limits: ${money(left)}`}</span>
-          <MoveLeftover left={left} today={today} />
-        </div>
-      )}
-      <button type="button" className="finance-pane-button finance-small" onClick={onNew}>
-        <kbd>g</kbd> New goal
-      </button>
-    </section>
-  );
-}
-
-/** `a` assigns the goal's contribution while it can take one; `u` undoes this month's. */
-function assignKeys(
-  goal: Goal | undefined,
-  goals: Goals | undefined,
-  today: string,
-  run: (write: () => Promise<void>) => Promise<void>,
-): Record<string, (() => void) | undefined> {
-  if (goal === undefined || goals === undefined) return {};
-  return {
-    a: canAssign(goal, goals, today) ? () => void run(() => assignGoal(goal.id, today)) : undefined,
-    u: assigned(goal, today) ? () => void run(() => undoAssign(goal.id, today)) : undefined,
-  };
 }
 
 interface FormsProps {
