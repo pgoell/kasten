@@ -33,7 +33,8 @@ is there and do not teach; for that, read a [tutorial](/tutorials/index.md) or a
 * [Order sync](order-sync.md): the order mail job's commands and exit codes, its env file and Gmail login on the server, and the PayPal and Amazon mails it reads and the orders it makes of them
 * [Receipt jobs](receipt-jobs.md): the receipt job's commands and exit codes, its env file with the Claude Code token, the Gmail search it sends PDFs from, and how it reads a receipt with headless Claude Code
 * [Bank sync](bank-sync.md): the bank sync job's commands and exit codes, its env file, the files it keeps on the server, where each window starts, and the source key a booking is stored by, which the Firefly import computes alike
-* [Configuration](configuration.md): every backend setting and compose variable with its default, the finance receipts folder among them, the folders a vault can name for itself, the startup type pass, and the shell container: the `JJ_USER` and `JJ_EMAIL` it reads, the uid it runs as and the Claude Code it installs on first start
+* [Configuration](configuration.md): every backend setting and compose variable with its default, the finance receipts folder among them, the folders a vault can name for itself, the startup type pass, and the slow-request log line
+* [The shell container](configuration/shell-container.md): the `JJ_USER` and `JJ_EMAIL` it reads, the uid it runs as and the Claude Code it installs on first start
 * [Reverse-proxy routes](reverse-proxy-routes.md): every path the proxy in front of kasten routes, which carry the login gate, and the event stream and WebSocket rules
 * [The self-host stack](configuration/self-host-stack.md): the variables `deploy/selfhost/compose.yaml` reads from its `.env`, and the two files beside it
 * [The shared lists](configuration/shared-lists.md): the host the lists app is served on, whose header links back to kasten, and whether its ticks write the done log line

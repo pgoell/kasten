@@ -58,7 +58,7 @@ happens once and survives rebuilds and releases:
 jj and git take their author from `JJ_USER` and `JJ_EMAIL`, which the
 container reads at start and writes into the home volume only where no name or
 email is set yet. See
-[the shell container](/reference/configuration.md#the-shell-container).
+[the shell container](/reference/configuration/shell-container.md).
 
 This is a full shell with write access to the vault and every agent login you
 have made. It must only be reachable behind the login gate; see
