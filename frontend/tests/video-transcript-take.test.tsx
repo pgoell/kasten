@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { type TranscriptHandle, VideoTranscript } from "@/components/video-transcript";
+import { type TranscriptHandle, VideoTranscript } from "@/components/video/video-transcript";
 import { addHighlight, type Passage } from "@/lib/takes/highlight";
 
 const { fetchNote, saveNote, updateNote, searchNotes } = vi.hoisted(() => ({

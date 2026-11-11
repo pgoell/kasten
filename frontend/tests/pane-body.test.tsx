@@ -19,7 +19,7 @@ import { PersonPane } from "@/components/person-pane";
 import { ReviewPane } from "@/components/review/review-pane";
 import { TerminalPane } from "@/components/terminal-pane";
 import { TodoPane } from "@/components/todo/todo-pane";
-import { VideoPane } from "@/components/video-pane";
+import { VideoPane } from "@/components/video/video-pane";
 import { TimersPane } from "@/lib/app/push/timers-pane";
 import { type KindField, PANE_KINDS, type Pane } from "@/lib/panes/layout/pane-kinds";
 import type { TreeCommands } from "@/lib/ui/keys/key-bindings";

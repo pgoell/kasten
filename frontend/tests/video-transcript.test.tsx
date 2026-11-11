@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { type TranscriptHandle, VideoTranscript } from "@/components/video-transcript";
+import { type TranscriptHandle, VideoTranscript } from "@/components/video/video-transcript";
 
 const NOTE = "20 Video/Talk.md";
 const ID = "dQw4w9WgXcQ";
