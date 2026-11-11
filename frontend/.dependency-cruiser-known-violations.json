@@ -452,8 +452,8 @@
   {
     "type": "dependency",
     "from": "src/components/pane-body.tsx",
-    "to": "src/components/terminal-pane.tsx",
-    "unresolvedTo": "@/components/terminal-pane",
+    "to": "src/components/terminal/terminal-pane.tsx",
+    "unresolvedTo": "@/components/terminal/terminal-pane",
     "dependencyTypes": ["undetermined", "dynamic-import"],
     "rule": {
       "severity": "error",

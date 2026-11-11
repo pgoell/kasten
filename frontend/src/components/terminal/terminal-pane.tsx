@@ -1,7 +1,12 @@
 import { FitAddon } from "@xterm/addon-fit";
 import { type ITheme, Terminal } from "@xterm/xterm";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { keyBytes, type TerminalKey, TerminalKeys, withCtrl } from "@/components/terminal-keys";
+import {
+  keyBytes,
+  type TerminalKey,
+  TerminalKeys,
+  withCtrl,
+} from "@/components/terminal/terminal-keys";
 import { type EditorCommands, TERMINAL, TERMINAL_CHORD } from "@/lib/ui/keys/key-bindings";
 import { onThemeChange } from "@/lib/ui/theme";
 import "@xterm/xterm/css/xterm.css";

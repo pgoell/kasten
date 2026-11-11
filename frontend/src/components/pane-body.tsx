@@ -141,7 +141,7 @@ const TerminalLost = () => (
 // xterm is heavy, so it loads when a terminal pane first opens, as pdf.js does. A failed load
 // rejects with an Error and shows in this pane alone, not as the route's error screen.
 const TerminalPane = lazy(() =>
-  import("@/components/terminal-pane").then(
+  import("@/components/terminal/terminal-pane").then(
     ({ TerminalPane }) => ({ default: TerminalPane }),
     (error: unknown) => {
       if (!(error instanceof Error)) throw error;
