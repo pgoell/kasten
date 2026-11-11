@@ -88,11 +88,14 @@ def clock(monkeypatch: pytest.MonkeyPatch) -> Clock:
     return fake
 
 
-def answering(clock: Clock, ms: float, *, status: int = 200, fails: bool = False) -> ASGIApp:
+def answering(
+    clock: Clock, ms: float, *, status: int = 200, fails: bool = False, kind: bytes = b"text/plain"
+) -> ASGIApp:
     """An app that sends its headers at once and its last chunk `ms` later."""
 
     async def app(_scope: Scope, _receive: Receive, send: Send) -> None:
-        await send({"type": "http.response.start", "status": status, "headers": []})
+        headers = [(b"content-type", kind)]
+        await send({"type": "http.response.start", "status": status, "headers": headers})
         await send({"type": "http.response.body", "body": b"a", "more_body": True})
         clock.now += ms / 1000
         await send({"type": "http.response.body", "body": b"b", "more_body": False})
@@ -160,6 +163,19 @@ async def test_the_streams_that_stay_open_leave_no_line(
     await request(answering(clock, 60_000), "GET", "/api/events")
     await request(answering(clock, 60_000), "GET", "/agent/mcp")
     await request(answering(clock, 60_000), "GET", "/agent/mcp/")
+    await request(answering(clock, 60_000), "GET", "/share/events")
+    await request(answering(clock, 60_000), "GET", "/api/events/")
+
+    assert slow_lines(caplog) == []
+
+
+async def test_any_event_stream_leaves_no_line_whatever_its_path(
+    clock: Clock, caplog: pytest.LogCaptureFixture
+) -> None:
+    sse = b"text/event-stream; charset=utf-8"
+    await request(answering(clock, 60_000, kind=sse), "GET", "/api/some-new-stream")
+    with pytest.raises(RuntimeError):
+        await request(answering(clock, 60_000, kind=sse, fails=True), "GET", "/api/dying-stream")
 
     assert slow_lines(caplog) == []
 

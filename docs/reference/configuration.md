@@ -239,8 +239,9 @@ slow request: GET '/api/search' 200 312 ms
 ```
 
 The line holds the method, the path, the status and the time, never the query
-string, which can hold a token. `GET /api/events` and `GET /agent/mcp` stay
-open by design and never log; an MCP tool call (`POST /agent/mcp`) does.
+string, which can hold a token. Streams stay open by design and never log:
+`/api/events`, `/share/events`, `GET /agent/mcp` and any other answer sent as
+`text/event-stream`. An MCP tool call (`POST /agent/mcp`) does log.
 
 | | |
 | --- | --- |

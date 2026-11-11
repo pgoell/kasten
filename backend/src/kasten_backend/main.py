@@ -116,7 +116,16 @@ PATH_CAP = 1024
 
 def _stays_open(method: str, path: str) -> bool:
     """Whether the request is a stream that stays open by design, so its length means nothing."""
-    return path == "/api/events" or (method == "GET" and path.rstrip("/") == "/agent/mcp")
+    path = path.rstrip("/")
+    return path in {"/api/events", "/share/events"} or (method == "GET" and path == "/agent/mcp")
+
+
+def _is_stream(message: Message) -> bool:
+    """Whether the answer is server-sent events, which stay open whatever their path."""
+    return any(
+        name.lower() == b"content-type" and value.startswith(b"text/event-stream")
+        for name, value in message.get("headers", [])
+    )
 
 
 class SlowRequests:
@@ -137,20 +146,24 @@ class SlowRequests:
 
         start = clock()
         status = 500
+        streamed = False
 
         async def sending(message: Message) -> None:
-            nonlocal status
+            nonlocal status, streamed
             if message["type"] == "http.response.start":
                 status = message["status"]
+                streamed = _is_stream(message)
             await send(message)
 
         # Not `finally`: a client that leaves cancels the request, which is no 500.
         try:
             await self.app(scope, receive, sending)
         except Exception:
-            _report(scope, status, start)
+            if not streamed:
+                _report(scope, status, start)
             raise
-        _report(scope, status, start)
+        if not streamed:
+            _report(scope, status, start)
 
 
 def _report(scope: Scope, status: int, start: float) -> None:
