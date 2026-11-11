@@ -113,7 +113,8 @@ def test_the_note_carries_its_fields_its_cues_and_an_empty_notes_heading() -> No
 
     text = render(exercise)
 
-    assert text.startswith("---\ntype: Reference\nkind: strength\n")
+    tags = "tags: [übung, kraft, brust, langhantel, bank]"
+    assert text.startswith(f"---\ntype: Reference\n{tags}\nkind: strength\n")
     assert "aliases: [Bench Press, Flachbankdrücken]\n" in text
     assert "muscles_primary: [chest]\n" in text
     assert "counts: weight-reps\nsource: wger\n" in text
@@ -158,6 +159,8 @@ class Vault:
             return httpx.Response(200, json={"results": [BENCH], "next": None})
         if str(request.url) == FREE_DB:
             return httpx.Response(200, json=[FREE_BENCH])
+        if request.method == "GET":
+            return httpx.Response(200, json=sorted(self.notes))
         self.posts += 1
         path = request.url.path.removeprefix("/api/files/")
         if path in self.notes:
@@ -171,7 +174,7 @@ class Vault:
 
 def test_a_second_run_writes_nothing_and_a_note_there_is_never_overwritten() -> None:
     folder = "03 Areas/11 Fitness/Übungen"
-    mine = f"{folder}/Bankdrücken LH.md"
+    mine = f"{folder}/Kraft/Brust/Bankdrücken LH.md"
     vault = Vault({mine: "my own words"})
     with vault.client() as client:
         exercises = gather(client)
@@ -184,4 +187,15 @@ def test_a_second_run_writes_nothing_and_a_note_there_is_never_overwritten() -> 
     assert vault.notes[mine] == "my own words"
     assert len(made) == len(exercises)
     assert vault.notes == made
-    assert f"{folder}/Wadendehnung an der Wand.md" in made
+    assert f"{folder}/Mobilität/Wadendehnung an der Wand.md" in made
+
+
+def test_a_note_moved_to_another_folder_is_not_made_again() -> None:
+    folder = "03 Areas/11 Fitness/Übungen"
+    moved = f"{folder}/Kraft/Sonstige/bankdrücken lh.md"
+    vault = Vault({moved: "my own words"})
+    with vault.client() as client:
+        run(KastenApi(client), folder, gather(client), dry_run=False)
+
+    assert not any(p.endswith("/Bankdrücken LH.md") for p in vault.notes)
+    assert vault.notes[moved] == "my own words"

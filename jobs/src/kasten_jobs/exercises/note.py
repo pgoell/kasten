@@ -26,7 +26,30 @@ MUSCLES = (
 )
 """The muscle groups a note may name: the body model's keys that part 7 paints (#1721)."""
 
+REGIONS = {
+    "chest": "Brust",
+    "upper-back": "Rücken",
+    "lower-back": "Rücken",
+    "trapezius": "Rücken",
+    "front-deltoids": "Schultern",
+    "back-deltoids": "Schultern",
+    "neck": "Schultern",
+    "biceps": "Arme",
+    "triceps": "Arme",
+    "forearm": "Arme",
+    "abs": "Rumpf",
+    "obliques": "Rumpf",
+    "quadriceps": "Beine",
+    "hamstring": "Beine",
+    "gluteal": "Beine",
+    "abductors": "Beine",
+    "adductor": "Beine",
+    "calves": "Beine",
+}
+"""The body part a muscle belongs to, which names a strength note's folder."""
+
 KINDS = ("strength", "cardio", "mobility", "test")
+KIND_NAMES = {"strength": "Kraft", "cardio": "Cardio", "mobility": "Mobilität", "test": "Tests"}
 COUNTS = ("weight-reps", "reps", "time")
 
 _UNSAFE = re.compile(r'[*?"<>#^\[\]]')
@@ -57,6 +80,25 @@ def file_name(name: str) -> str:
     return re.sub(r"\s+", " ", spaced).strip(" .-")[:120]
 
 
+def region(exercise: Exercise) -> str:
+    """The body part of the first primary muscle, or `Sonstige` for a note that names none."""
+    return next((REGIONS[m] for m in exercise.muscles_primary[:1]), "Sonstige")
+
+
+def folder(exercise: Exercise) -> str:
+    """The subfolder the note goes in: strength by body part, every other kind on its own."""
+    kind = KIND_NAMES[exercise.kind]
+    return f"{kind}/{region(exercise)}" if exercise.kind == "strength" else kind
+
+
+def tags(exercise: Exercise) -> tuple[str, ...]:
+    """`übung`, the kind, the body part and the equipment, lowercase as the vault's tags are."""
+    found = ["übung", KIND_NAMES[exercise.kind], *exercise.equipment]
+    if exercise.muscles_primary:
+        found.insert(2, region(exercise))
+    return tuple(dict.fromkeys(t.lower().replace(" ", "-") for t in found))
+
+
 def _value(value: str | tuple[str, ...]) -> str:
     if isinstance(value, tuple):
         return "[" + ", ".join(_scalar(v) for v in value) + "]"
@@ -74,6 +116,7 @@ def render(exercise: Exercise) -> str:
     """The note: frontmatter, title, cues, credit and an empty `## Meine Notizen`."""
     fields: list[tuple[str, str | tuple[str, ...]]] = [
         ("type", "Reference"),
+        ("tags", tags(exercise)),
         ("kind", exercise.kind),
         ("aliases", exercise.aliases),
         ("muscles_primary", exercise.muscles_primary),
