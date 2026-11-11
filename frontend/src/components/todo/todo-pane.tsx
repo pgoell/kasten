@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useDeferredValue, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { type BoardKeys, TodoBoard } from "@/components/todo/todo-board";
 import { TodoFooter } from "@/components/todo/todo-footer";
 import { TodoHeader } from "@/components/todo/todo-header";
@@ -12,7 +12,7 @@ import { useTodoFilter } from "@/lib/todo/use-todo-filter";
 import { useTodoFocus } from "@/lib/todo/use-todo-focus";
 import { useTodoHold } from "@/lib/todo/use-todo-hold";
 import { SET, type TodoKeyActions, useTodoKeys } from "@/lib/todo/use-todo-keys";
-import { type Mode, rowKey, useTodoRows } from "@/lib/todo/use-todo-rows";
+import { type Mode, type Row, rowKey, useTodoRows } from "@/lib/todo/use-todo-rows";
 import { useTodoTwins } from "@/lib/todo/use-todo-twins";
 import { useViewport } from "@/lib/ui/input/use-viewport";
 import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
@@ -151,6 +151,10 @@ export function TodoPane({
     shared: narrowing.shared,
   });
 
+  /** The rows and cursor as last drawn, and the rows to land on once a settled hold lets go. */
+  const drawn = useRef<{ rows: Row[]; cursor: number }>({ rows: [], cursor: 0 });
+  const follow = useRef<string[] | null>(null);
+
   // The order the rows are drawn in, held while a press is being read.
   const { groups, groupRows, foldRows, pressing, release } = useTodoHold({
     data,
@@ -159,6 +163,10 @@ export function TodoPane({
     listed,
     board,
     doneOpen,
+    onSettle: () => {
+      const { rows: before, cursor: was } = drawn.current;
+      follow.current = before.slice(was).map((row) => rowKey(row.hit));
+    },
   });
   // What `j` and `k` walk: the groups, and the Done this week rows once their
   // fold is open. A folded row is not on screen, so the cursor does not stop on it.
@@ -171,6 +179,18 @@ export function TodoPane({
   const cursor = Math.min(active, Math.max(rows.length - 1, 0));
   const at = rows[cursor];
   const cursorKey = at === undefined ? "" : rowKey(at.hit);
+  drawn.current = { rows, cursor };
+
+  // Done rows leave as the hold lets go, so the cursor follows its row rather than its place,
+  // or the first row under it that stays where its own row left.
+  useLayoutEffect(() => {
+    const keys = follow.current;
+    if (keys === null) return;
+    follow.current = null;
+    const places = new Map(rows.map((row, index) => [rowKey(row.hit), index]));
+    const found = keys.map((key) => places.get(key)).find((index) => index !== undefined);
+    if (found !== undefined) setActive(found);
+  }, [rows]);
   const refile = pressing(onRefile);
   const { onCycle, onTimer, onAgent } = useTodoTwins({
     data,

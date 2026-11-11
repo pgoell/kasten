@@ -36,10 +36,12 @@ just closed or reopened are rewritten wherever they live.
 
 A press on a row of the open list (`x`, a state key, `t`, `@`, `m`, or the
 state button on a phone) changes that row only, and the page draws that row
-again, not the whole list. The list keeps the order it was
-drawn in: a row checked off stays where it was, struck through, and a todo
-written elsewhere meanwhile joins the end of its group. The order goes once the
-focus leaves the pane, the pane closes or the page reloads, and `d`, `n`, `v`,
+again, not the whole list. While presses follow each other, the list keeps the
+order it was drawn in: a row checked off stays where it was, struck through, and
+a todo written elsewhere meanwhile joins the end of its group. The order goes a
+second after the last press, and the done rows leave; the cursor stays on its row,
+or on the first row under it that stays where its own row left. It also goes once
+the focus leaves the pane, the pane closes or the page reloads, and `d`, `n`, `v`,
 `c`, `b`, `i`, `s` and the filter draw the list afresh too. A press redraws the
 list once, after its last write, whether every write landed or not, and
 presses of `x`, the state keys, `t`, `@`, `e`, `b` and `m` that overlap redraw it once, after the last lands; the vault's

@@ -5,6 +5,7 @@ import { TodoPane } from "@/components/todo/todo-pane";
 import { fetchFiles } from "@/lib/core/api";
 import { periodicNote } from "@/lib/notes/text/periodic";
 import { useTodoActions } from "@/lib/todo/use-todo-actions";
+import { SETTLE_MS } from "@/lib/todo/use-todo-hold";
 import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
 import { useVaultEvents } from "@/lib/vault/events/use-vault-events";
 import { digestOf, type VaultEvent } from "@/lib/vault/events/vault-events";
@@ -261,24 +262,23 @@ describe("the todo pane holds the order it is drawn in while a press is made", (
     vi.useRealTimers();
   });
 
-  it("#947 A2 a row checked off stays in place, struck, until the pane is left", async () => {
+  it("#947 A2 a row checked off stays in place, struck, until a beat after the last press", async () => {
     await mount();
     const first = order();
-    const outside = document.createElement("button");
-    document.body.append(outside);
 
     panel().focus();
     press("x");
     await settle();
+    press("j");
+    await advance(SETTLE_MS - 1);
     expect(order()).toEqual(first);
     expect(rowOf(first[0] ?? "")?.querySelector(".line-through")?.textContent).toBe(first[0]);
 
-    outside.focus();
-    await settle();
+    // It leaves, and the cursor keeps its row.
+    await advance(1);
     expect(order()).toHaveLength(first.length - 1);
     expect(order()).not.toContain(first[0]);
-    expect(document.querySelector(".line-through")).toBeNull();
-    outside.remove();
+    expect(document.querySelector('[data-row][tabindex="0"]')?.textContent).toContain(first[1]);
   });
 
   it("#947 I1 pressing O on a struck row reopens it in place", async () => {
@@ -357,10 +357,7 @@ describe("the todo pane holds the order it is drawn in while a press is made", (
     await settle();
     expect(order()).toEqual([...first, "hotel"]);
 
-    // Past the echo's window, so the write to the pressed note is somebody else's.
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(3000);
-    });
+    // No digest, so the write to the pressed note is somebody else's, inside the hold.
     vault.notes["a.md"] = (vault.notes["a.md"] ?? "").replace("- [/] charlie\n", "");
     stream().send({ path: "a.md", change: "written", digest: null });
     await settle();
