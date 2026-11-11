@@ -120,10 +120,9 @@ verify_security_updates() {
     rc=5
   fi
   local off
-  off=$(gh api "/repos/$OWNER_REPO" --jq '.security_and_analysis
-    | to_entries[]
-    | select(.key == "secret_scanning" or .key == "secret_scanning_push_protection")
-    | select(.value.status != "enabled") | .key')
+  off=$(gh api "/repos/$OWNER_REPO" --jq '.security_and_analysis as $s
+    | ["secret_scanning", "secret_scanning_push_protection"][]
+    | select($s[.].status? != "enabled")') || off="security_and_analysis unreadable"
   if [[ -n "$off" ]]; then
     echo "✖ off: $(echo $off)" >&2
     rc=5
@@ -193,6 +192,10 @@ JSON
 # Leaving out languages scans every language GitHub detects in the repo.
 gh api --method PATCH "/repos/$OWNER_REPO/code-scanning/default-setup" \
   -f state=configured -f query_suite=default >/dev/null
+for _ in {1..30}; do
+  [[ "$(gh api "/repos/$OWNER_REPO/code-scanning/default-setup" --jq .state 2>/dev/null)" == "configured" ]] && break
+  sleep 2
+done
 gh api --method PUT "/repos/$OWNER_REPO/private-vulnerability-reporting" >/dev/null
 
 echo "→ applying branch protection"
