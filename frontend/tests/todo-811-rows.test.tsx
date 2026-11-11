@@ -5,8 +5,14 @@ import { TodoRow } from "@/components/todo/todo-row";
 import { STATE_ORDER, TodoStateBox } from "@/components/todo/todo-state-box";
 import type { TodoHit } from "@/lib/core/api";
 import { parseTodo, type Todo } from "@/lib/todo/todo";
-import { namedTodos } from "@/lib/todo/todo-view";
+import { namedTodos, waitOf } from "@/lib/todo/todo-view";
 import { type Row, type RowFacts, rowKey } from "@/lib/todo/use-todo-rows";
+
+// Spied, so a test can tell a row that drew again from one that kept its last drawing.
+vi.mock("@/lib/todo/todo-view", async (original) => {
+  const real = await original<typeof import("@/lib/todo/todo-view")>();
+  return { ...real, waitOf: vi.fn(real.waitOf) };
+});
 
 /**
  * The rows, the list, the legend and the state boxes of #811, drawn from plain
@@ -299,5 +305,49 @@ describe("the legend of the todo list", () => {
     expect(
       document.querySelector(`[data-row="${PATH}:1"] svg[data-state="waiting"]`),
     ).not.toBeNull();
+  });
+});
+
+describe("a press redraws only the row it changed", () => {
+  it("a row read anew with the same line keeps its drawing, and a changed line draws again", () => {
+    // One list for every render, as the pane hands it: a fresh one is a change.
+    const files: string[] = [];
+    const draw = (text: string) => (
+      <TodoRow
+        row={rowOf(1, text)}
+        facts={factsOf()}
+        today={TODAY}
+        cursor={false}
+        muted={false}
+        coarse={false}
+        indent={{ paddingLeft: "0.75rem" }}
+        files={files}
+        onClick={vi.fn()}
+        onPerson={vi.fn()}
+      />
+    );
+    const { rerender } = render(draw("- [ ] wire the pane"));
+    const drawn = vi.mocked(waitOf).mock.calls.length;
+
+    // Every answer parses the rows into fresh objects, so equal content is what counts.
+    rerender(draw("- [ ] wire the pane"));
+    expect(vi.mocked(waitOf).mock.calls.length).toBe(drawn);
+
+    rerender(draw("- [x] wire the pane ✅ 2026-10-25"));
+    expect(vi.mocked(waitOf).mock.calls.length).toBe(drawn + 1);
+    expect(document.querySelector('[data-row] svg[data-state="done"]')).not.toBeNull();
+  });
+
+  it("a row kept from an earlier render calls the handler of the latest one", () => {
+    const row = rowOf(1, "- [ ] wire the pane");
+    const groups = [{ heading: "Later", rows: [row] }];
+    const first = vi.fn();
+    const latest = vi.fn();
+    const { rerender } = render(<TodoList {...listProps({ groups, onRow: first })} />);
+    rerender(<TodoList {...listProps({ groups, onRow: latest })} />);
+
+    fireEvent.click(screen.getByTitle(rowKey(row.hit)));
+    expect(first).not.toHaveBeenCalled();
+    expect(latest).toHaveBeenCalledWith(row.hit);
   });
 });

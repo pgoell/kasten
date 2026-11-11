@@ -35,7 +35,8 @@ parent, a recurring todo gets its next copy, and the dependents of a todo that
 just closed or reopened are rewritten wherever they live.
 
 A press on a row of the open list (`x`, a state key, `t`, `@`, `m`, or the
-state button on a phone) changes that row only. The list keeps the order it was
+state button on a phone) changes that row only, and the page draws that row
+again, not the whole list. The list keeps the order it was
 drawn in: a row checked off stays where it was, struck through, and a todo
 written elsewhere meanwhile joins the end of its group. The order goes once the
 focus leaves the pane, the pane closes or the page reloads, and `d`, `n`, `v`,

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { TodoHints } from "@/components/todo/todo-hints";
 import { TodoMore } from "@/components/todo/todo-more";
 import { TodoRow } from "@/components/todo/todo-row";
@@ -111,6 +111,15 @@ export function TodoList(p: {
   const keys = groups.flatMap((group) => group.rows.map((row) => rowKey(row.hit)));
   const entering = useEntrance(keys);
   const place = new Map(keys.map((key, index) => [key, index]));
+  // A row skips the renders that change nothing it draws and keeps its first handlers,
+  // so they read the latest props here: a blocker pick began since is still seen.
+  const live = useRef({ onRow, onPerson, picking });
+  useLayoutEffect(() => {
+    live.current = { onRow, onPerson, picking };
+  });
+  const opens = (hit: SearchHit) => () => live.current.onRow(hit);
+  const chips = (hit: SearchHit) => (path: string) =>
+    live.current.picking ? live.current.onRow(hit) : live.current.onPerson(path);
 
   /** One row of a group, drawn for the way it is used now. */
   function drawRow(row: Row) {
@@ -139,9 +148,9 @@ export function TodoList(p: {
           coarse={coarse}
           indent={indent}
           files={files}
-          onClick={() => onRow(hit)}
+          onClick={opens(hit)}
           // Picking a blocker, a chip is the row it sits on, as the row is.
-          onPerson={(path) => (picking ? onRow(hit) : onPerson(path))}
+          onPerson={chips(hit)}
           enter={entering(key) ? place.get(key) : undefined}
         />
       );
@@ -267,8 +276,8 @@ export function TodoList(p: {
           coarse={coarse}
           indent={indent}
           files={files}
-          onClick={() => onRow(hit)}
-          onPerson={(path) => (picking ? onRow(hit) : onPerson(path))}
+          onClick={opens(hit)}
+          onPerson={chips(hit)}
         />
       </TodoMore>
     );
@@ -333,8 +342,8 @@ export function TodoList(p: {
                   coarse={coarse}
                   indent={indent}
                   files={files}
-                  onClick={() => onRow(row.hit)}
-                  onPerson={(path) => (picking ? onRow(row.hit) : onPerson(path))}
+                  onClick={opens(row.hit)}
+                  onPerson={chips(row.hit)}
                 />
               );
               // On touch the row has no state button, so its box stands in the

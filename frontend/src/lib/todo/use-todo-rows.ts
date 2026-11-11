@@ -35,6 +35,21 @@ interface Read {
   session: Session | null;
 }
 
+/**
+ * Reads kept by the hit they came from. A write or refetch hands back the same object for
+ * every line it left alone (the query shares structure), so a press parses one line, not all.
+ */
+const reads = new WeakMap<TodoHit, Read>();
+
+function readOf(hit: TodoHit): Read {
+  const known = reads.get(hit);
+  if (known !== undefined) return known;
+  const todo = parseTodo(hit.text);
+  const read = { hit, todo, session: todo === null ? parseSession(hit.text) : null };
+  reads.set(hit, read);
+  return read;
+}
+
 /** One drawn row: the line the vault answered with, and that line read. */
 export interface Row {
   hit: TodoHit;
@@ -274,14 +289,7 @@ export function useTodoRows(o: {
   // Every line the vault answered with, read once. One endpoint answers both
   // shapes, so a line is a todo or a session and never both, and the four memos
   // below read this rather than parsing the same list four times over.
-  const parsed = useMemo(
-    () =>
-      (data ?? []).map((hit): Read => {
-        const todo = parseTodo(hit.text);
-        return { hit, todo, session: todo === null ? parseSession(hit.text) : null };
-      }),
-    [data],
-  );
+  const parsed = useMemo(() => (data ?? []).map(readOf), [data]);
 
   // The forest each note's todos make, and the hit each line arrived on. Both
   // the count on a row and the `n` list are questions about this one tree, and

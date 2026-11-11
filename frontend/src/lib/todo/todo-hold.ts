@@ -14,6 +14,18 @@ export interface HeldGroup {
   rows: HeldRow[];
 }
 
+/** Stems kept by hit: the query hands back the same object for a line nothing changed. */
+const stems = new WeakMap<TodoHit, string>();
+
+function stemOf(hit: TodoHit): string {
+  let stem = stems.get(hit);
+  if (stem === undefined) {
+    stem = `${hit.path}\n${wordsOf(parseTodo(hit.text)?.text ?? hit.text)}`;
+    stems.set(hit, stem);
+  }
+  return stem;
+}
+
 /**
  * A row's identity across writes: its note, its words, and which twin it is, counted in
  * line order. A press moves lines, so the line number alone is no identity.
@@ -25,7 +37,7 @@ export function identities(hits: TodoHit[]): Map<string, string> {
   const seen = new Map<string, number>();
   const ids = new Map<string, string>();
   for (const hit of inOrder) {
-    const stem = `${hit.path}\n${wordsOf(parseTodo(hit.text)?.text ?? hit.text)}`;
+    const stem = stemOf(hit);
     const nth = seen.get(stem) ?? 0;
     seen.set(stem, nth + 1);
     ids.set(rowKey(hit), `${stem}\n${nth}`);
