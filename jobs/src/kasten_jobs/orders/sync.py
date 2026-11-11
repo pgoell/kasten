@@ -17,17 +17,18 @@ from typing import TYPE_CHECKING, Any, Protocol
 
 import httpx
 
-from kasten_jobs import orders_amazon, orders_paypal
 from kasten_jobs.gmail import Gmail
 from kasten_jobs.kasten_api import KastenApi
+from kasten_jobs.orders import amazon as orders_amazon
+from kasten_jobs.orders import paypal as orders_paypal
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
     from datetime import date
 
     from kasten_jobs.gmail import Mail
-    from kasten_jobs.orders_amazon import Confirmation, Item, Shipment
-    from kasten_jobs.orders_paypal import Payment, Refund
+    from kasten_jobs.orders.amazon import Confirmation, Item, Shipment
+    from kasten_jobs.orders.paypal import Payment, Refund
 
 log = logging.getLogger("kasten_jobs.order_sync")
 

@@ -2,7 +2,7 @@
 type: Reference
 title: Order sync
 description: The order mail job's commands and exit codes, its env file and Gmail login on the server, the mails it reads and the orders it makes of them.
-resource: jobs/src/kasten_jobs/order_sync.py
+resource: jobs/src/kasten_jobs/orders/sync.py
 tags: [finance, jobs, gmail]
 status: draft
 ---

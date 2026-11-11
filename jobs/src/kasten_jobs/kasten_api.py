@@ -6,6 +6,7 @@ A job runs in a container on the docker network `web` and names the backend
 
 import logging
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 
@@ -169,3 +170,11 @@ class KastenApi:
     def put_reading(self, receipt_id: int, reading: dict[str, Any]) -> None:
         """`PUT /api/finance/receipts/{id}/reading`: what the reader found, or why nothing."""
         self._json(self.client.put(f"/api/finance/receipts/{receipt_id}/reading", json=reading))
+
+    def create_note(self, path: str, content: str) -> bool:
+        """`POST /api/files/{path}`: True when made, False when a note is there; it stays."""
+        response = self.client.post(f"/api/files/{quote(path)}", json={"content": content})
+        if response.status_code == httpx.codes.CONFLICT:
+            return False
+        response.raise_for_status()
+        return True

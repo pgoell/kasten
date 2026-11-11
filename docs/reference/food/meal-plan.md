@@ -70,7 +70,7 @@ by name, anywhere in the vault.
 
 `- Mo 🏋`, or `- Mo training`, marks Monday as a training day. A day whose
 daily note holds a training entry under `## Training` (see
-[Training format](/reference/training-format.md)) is one too, when the plan
+[Training format](/reference/training/training-format.md)) is one too, when the plan
 names its week.
 
 ## The card

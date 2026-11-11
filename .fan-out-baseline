@@ -35,6 +35,6 @@ frontend/tests 581
 frontend/tests/fixtures 10
 frontend/tests/fixtures/barcodes 10
 frontend/tests/frame 180
-jobs/src/kasten_jobs 15
+jobs/src/kasten_jobs 14
 jobs/tests 10
 scripts 8

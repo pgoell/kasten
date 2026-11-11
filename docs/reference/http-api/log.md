@@ -95,7 +95,7 @@ the pane writes goes through the note's own save, never through this route.
 Takes `from` and `to` as `GET /api/log` does, answers with the same errors, and
 reads the daily notes the same way. A day is in the list when its note has a
 `## Training` heading, and holds the lines under it that parse, in line order,
-as [the training format](/reference/training-format.md) describes them. A day
+as [the training format](/reference/training/training-format.md) describes them. A day
 whose `## Training` holds no such line is there with `"entries": []`. There are
 no totals.
 
