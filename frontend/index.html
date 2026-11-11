@@ -16,6 +16,27 @@
     <!-- Beside the viewport script, for the same reason: data-theme has to be
          set before the first paint, or a dark reader sees a light flash (I2). -->
     <script src="/theme.js"></script>
+    <!-- The loading screen until React replaces #root, inline so it paints at
+         once. Its colours copy kasten-theme.css; tests/theme.test.ts holds them. -->
+    <style>
+      html { --boot-bg: #f6f6f4; --boot-ink: #1c1c1b; --boot-accent: #316f90; background: var(--boot-bg); }
+      html[data-theme="dark"] { --boot-bg: #141414; --boot-ink: #e8e7e4; --boot-accent: #82b9d9; }
+      html[data-palette="russet"] { --boot-accent: #9a5143; }
+      html[data-palette="russet"][data-theme="dark"] { --boot-accent: #e59c8d; }
+      html[data-palette="peach"] { --boot-accent: #b93100; }
+      html[data-palette="peach"][data-theme="dark"] { --boot-accent: #fd8e70; }
+      html[data-palette="pansy"] { --boot-accent: #a83f5d; }
+      html[data-palette="pansy"][data-theme="dark"] { --boot-accent: #f48da5; }
+      .boot { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding-bottom: 40px; background: var(--boot-bg); }
+      .boot .a { stroke: var(--boot-accent); }
+      .boot .i { fill: var(--boot-ink); }
+      .boot-mark { width: 112px; height: 112px; }
+      .boot-word { height: 44px; }
+      .boot-bar { position: absolute; bottom: calc(92px + env(safe-area-inset-bottom)); width: 120px; height: 3px; border-radius: 2px; overflow: hidden; background: color-mix(in srgb, var(--boot-ink) 10%, transparent); }
+      .boot-bar::after { content: ""; display: block; width: 40%; height: 100%; border-radius: 2px; background: var(--boot-accent); animation: boot-slide 1.2s cubic-bezier(0.23, 1, 0.32, 1) infinite; }
+      @keyframes boot-slide { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+      @media (prefers-reduced-motion: reduce) { .boot-bar::after { animation: none; transform: translateX(75%); } }
+    </style>
     <title>kasten</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <!-- use-credentials, because the whole site sits behind oauth2-proxy and a
@@ -33,7 +54,7 @@
     <link rel="apple-touch-icon" href="/icons/app-maskable-512.png" />
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><div class="boot"><svg class="boot-mark" viewBox="0 0 100 100" aria-hidden="true"><path class="a" d="M24 22H16V78H24M33 22H25V78H33M76 22H84V78H76M67 22H75V78H67" fill="none" stroke-width="4.2" stroke-linecap="square"/><path class="i" d="M47.73 52.6 49.22 50.98 62.48 66.28 65.49 67.19V68H52.42V67.19L55.78 66.37L45.15 54.17H43.22V52.63H45.57L56.9 43.23L53.01 42.32V41.37H63.52V42.32L59.57 43.27ZM44.37 66.26 48.09 67.19V68H35.11V67.19L38.85 66.26V33.51Q38.49 33.26 37.88 32.91Q37.26 32.56 36.41 32.11Q35.56 31.66 34.51 31.13V30.57L44.17 28.29H44.44L44.37 32.89Z"/></svg><svg class="boot-word" viewBox="0 0 103 44" role="img" aria-label="kasten"><path class="i" d="M8.49 24.31 9.42 23.28 17.77 32.92 19.67 33.49V34H11.44V33.49L13.55 32.97L6.86 25.29H5.65V24.32H7.13L14.26 18.4L11.81 17.83V17.23H18.42V17.83L15.94 18.43ZM6.37 32.9 8.71 33.49V34H0.54V33.49L2.89 32.9V12.28Q2.67 12.13 2.28 11.91Q1.89 11.69 1.36 11.4Q0.82 11.12 0.16 10.79V10.43L6.24 9H6.41L6.37 11.89ZM30.8 23.19 30.97 24.04Q28.81 24.69 27.47 25.29Q26.13 25.89 25.42 26.51Q24.7 27.12 24.44 27.8Q24.17 28.48 24.17 29.31Q24.17 30.69 24.93 31.38Q25.69 32.07 26.81 32.07Q27.68 32.07 28.34 31.71Q29.01 31.34 29.39 30.66Q29.77 29.98 29.77 29.02V21.54Q29.77 19.97 28.98 19.13Q28.2 18.3 26.56 18.3Q25.81 18.3 25.04 18.42Q24.27 18.54 23.78 18.78L24.63 18.01Q24.57 18.71 24.46 19.35Q24.34 20 24.19 20.5Q24.04 20.99 23.83 21.25Q23.58 21.54 23.13 21.71Q22.67 21.87 22.17 21.87Q21.53 21.87 21.17 21.62Q20.8 21.36 20.8 20.86Q20.8 20.18 21.47 19.48Q22.13 18.78 23.2 18.2Q24.27 17.61 25.54 17.26Q26.82 16.9 28.03 16.9Q29.93 16.9 31.07 17.46Q32.21 18.02 32.73 19.03Q33.25 20.05 33.25 21.44V30.85Q33.25 31.38 33.41 31.71Q33.58 32.04 33.88 32.19Q34.19 32.35 34.59 32.35Q35.1 32.35 35.62 32.18Q36.14 32.01 36.68 31.66V32.25Q35.54 33.55 34.57 33.95Q33.61 34.35 32.6 34.35Q31.58 34.35 30.96 33.91Q30.35 33.47 30.07 32.63Q29.79 31.79 29.75 30.59L29.84 30.58Q29.55 31.7 28.91 32.56Q28.27 33.41 27.37 33.88Q26.46 34.36 25.38 34.36Q23.3 34.36 21.97 33.26Q20.64 32.16 20.64 30.1Q20.64 29.02 21.02 28.19Q21.4 27.35 22.47 26.59Q23.53 25.83 25.54 25.02Q27.55 24.21 30.8 23.19ZM44.05 16.87Q45.21 16.87 46.14 17.1Q47.07 17.33 48.08 17.81L48.57 22.34H47.98L45.8 17.82L47.13 19.32Q46.27 18.47 45.53 18.11Q44.79 17.76 43.8 17.76Q42.37 17.76 41.58 18.39Q40.79 19.01 40.79 20.2Q40.79 20.91 41.1 21.47Q41.41 22.03 42.25 22.56Q43.1 23.08 44.7 23.69Q45.9 24.14 46.74 24.69Q47.57 25.23 48.09 25.88Q48.6 26.53 48.84 27.31Q49.07 28.08 49.07 29.02Q49.07 30.62 48.2 31.83Q47.33 33.03 45.88 33.7Q44.43 34.36 42.64 34.36Q41.35 34.36 40.33 34.13Q39.31 33.89 38.41 33.43L37.5 28.34H38.16L40.92 33.57L39.76 32.56Q40.25 32.88 40.74 33.08Q41.22 33.28 41.72 33.37Q42.21 33.47 42.72 33.47Q44.19 33.47 45.27 32.69Q46.35 31.92 46.35 30.35Q46.35 29.7 46.12 29.19Q45.89 28.68 45.4 28.24Q44.91 27.79 44.13 27.38Q43.35 26.97 42.23 26.56Q40.74 26 39.84 25.29Q38.94 24.58 38.53 23.66Q38.13 22.75 38.13 21.59Q38.13 20.09 38.94 19.04Q39.74 17.98 41.09 17.43Q42.43 16.87 44.05 16.87ZM56.65 29.5Q56.65 30.7 57.4 31.31Q58.16 31.92 59.46 31.92Q60.18 31.92 60.98 31.79Q61.78 31.66 62.82 31.36V31.96Q61.33 32.89 60.36 33.42Q59.38 33.94 58.66 34.15Q57.93 34.36 57.16 34.36Q56.07 34.36 55.16 33.9Q54.26 33.45 53.72 32.48Q53.17 31.51 53.17 29.97V19.63L51 18.18V17.89Q51.23 17.74 51.62 17.49Q52.02 17.24 52.54 16.9Q53.05 16.57 53.67 16.17Q54.29 15.77 54.97 15.33Q55.66 14.89 56.36 14.43H56.65V17.8ZM55.4 19.15V17.23H62.32L62.03 19.15ZM72.02 16.87Q73.84 16.87 75.18 17.63Q76.51 18.39 77.29 19.84Q78.07 21.3 78.23 23.42H67.12L67.12 22.33L76.29 22.24L74.76 22.96Q74.61 21.21 74.22 20.09Q73.83 18.97 73.17 18.43Q72.52 17.88 71.55 17.88Q70.3 17.88 69.4 18.6Q68.5 19.32 68.01 20.75Q67.53 22.17 67.53 24.28Q67.53 26.87 68.24 28.53Q68.96 30.19 70.32 30.97Q71.68 31.76 73.61 31.76Q74.48 31.76 75.3 31.53Q76.13 31.3 76.88 30.83Q77.62 30.37 78.22 29.66L78.55 29.95Q77.52 31.56 76.47 32.53Q75.42 33.5 74.27 33.93Q73.11 34.36 71.75 34.36Q69.54 34.36 67.79 33.37Q66.04 32.37 65.04 30.48Q64.03 28.59 64.03 25.91Q64.03 23.46 64.97 21.4Q65.91 19.35 67.7 18.11Q69.49 16.87 72.02 16.87ZM86.01 20.14V32.91L88.35 33.49V34H80.18V33.49L82.54 32.9V20.34Q82.26 20.11 81.74 19.77Q81.23 19.43 80.15 18.78V18.42L85.71 16.74H85.89ZM90.96 33.49 93.31 32.91V22.7Q93.31 21.65 92.94 20.94Q92.56 20.23 91.8 19.88Q91.04 19.52 89.86 19.52Q88.6 19.52 87.47 19.89Q86.34 20.26 85.61 20.71L85.31 20.31Q86.55 19.26 87.49 18.58Q88.43 17.91 89.19 17.54Q89.96 17.17 90.67 17.03Q91.39 16.89 92.21 16.89Q94.59 16.89 95.69 18.22Q96.79 19.55 96.79 22.37V32.9L99.15 33.49V34H90.96Z"/></svg><div class="boot-bar"></div></div></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

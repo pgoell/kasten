@@ -219,6 +219,34 @@ describe("the theme", () => {
     });
   });
 
+  it("the loading screen in index.html copies the theme's colours", () => {
+    const html = readFileSync(path.resolve(import.meta.dirname, "../index.html"), "utf8");
+    const css = readFileSync(
+      path.resolve(import.meta.dirname, "../src/styles/kasten-theme.css"),
+      "utf8",
+    );
+    const token = (source: string, selector: string, name: string) =>
+      new RegExp(
+        `${selector.replace(/[[\]]/g, "\\$&")}\\s*\\{[^}]*--(?:k|boot)-${name}:\\s*(#\\w+)`,
+      ).exec(source)?.[1];
+    const dark = '[data-theme="dark"]';
+    const read = (source: string, prefix: string, at: (p: string) => string) => ({
+      bg: [token(source, prefix, "bg"), token(source, prefix + dark, "bg")],
+      ink: [token(source, prefix, "ink"), token(source, prefix + dark, "ink")],
+      accents: PALETTES.map((p) => [
+        token(source, at(p), "accent"),
+        token(source, at(p) + dark, "accent"),
+      ]),
+    });
+
+    const boot = read(html, "html", (p) => (p === "poel" ? "html" : `html[data-palette="${p}"]`));
+    const theme = read(css, ":root", (p) => `[data-palette="${p}"]`);
+    theme.bg[1] = token(css, dark, "bg");
+    theme.ink[1] = token(css, dark, "ink");
+
+    expect(boot).toEqual(theme);
+  });
+
   it("sets data-palette poel on html with nothing chosen", () => {
     stubMatchMedia({});
     applyTheme();
