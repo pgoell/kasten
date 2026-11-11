@@ -248,6 +248,13 @@ describe("the lists app in a browser, by touch, keys and mouse", () => {
     expect(screen.queryByRole("textbox", { name: "Wörter" })).toBeNull();
   }, 30_000);
 
+  it("#1885 a request no stub answers gets a 502 at once, whatever listens on the backend's port", async () => {
+    for (const path of ["/share/lists/Einkauf", "/api/layout", "/chat/sessions"]) {
+      const res = await fetch(path, { signal: AbortSignal.timeout(2_000) });
+      expect(res.status).toBe(502);
+    }
+  });
+
   it("at 1440x900 a mouse deletes a row with its × in one click", async () => {
     await page.viewport(1440, 900);
     await draw();
