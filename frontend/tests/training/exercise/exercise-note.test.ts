@@ -42,6 +42,7 @@ describe("reading an exercise note", () => {
     expect(videoOf(file)).toEqual({ kind: "file", src: file });
     expect(videoOf("http://wger.de/a.mp4")).toBeNull();
     expect(videoOf("https://vimeo.com/123")).toBeNull();
+    expect(videoOf("https://example.com/a.mp4")).toBeNull();
     expect(videoOf("")).toBeNull();
   });
 });

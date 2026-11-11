@@ -277,7 +277,8 @@ Two of them serve video:
 
 Every other video host stays shut: a link to it shows no player, and opening
 one up means adding its origin to `frontend/src/lib/app/csp.ts` and
-`frontend/nginx.conf`, which a test keeps in step.
+`frontend/nginx.conf`, which a test keeps in step, and to the link the
+exercise page reads in `frontend/src/lib/log/training/exercise/exercise-note.ts`.
 
 ## What none of this covers
 

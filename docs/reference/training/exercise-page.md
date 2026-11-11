@@ -33,13 +33,13 @@ the name a training line links.
 | `video` holds | The card shows |
 | --- | --- |
 | a YouTube link, any shape the [video pane](/reference/editor-keys/video-pane.md) reads | YouTube's player from `www.youtube-nocookie.com` |
-| an `https://` link to an `.mp4`, `.webm`, `.mov` or `.m4v` file | the browser's own player |
+| an `https://wger.de/` link to an `.mp4`, `.webm`, `.mov` or `.m4v` file | the browser's own player |
 | anything else, or nothing | no video |
 
 The app's content security policy lets the player frame
 `www.youtube-nocookie.com` and plays files from `wger.de`, where the imported
-notes link their videos. A file on any other host is refused by the browser and
-the player stays empty.
+notes link their videos. A file on any other host would be refused by the
+browser, so the card draws no player for it.
 [The security model](/explanation/security-model.md#the-two-sites-a-page-may-load-video-from)
 says why these two and how to add one.
 

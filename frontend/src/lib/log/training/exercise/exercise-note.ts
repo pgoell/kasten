@@ -11,7 +11,8 @@ export const KINDS = ["strength", "cardio", "mobility", "test"] as const;
 /** The player YouTube serves without cookies, so a page view sets none. */
 export const NOCOOKIE = "https://www.youtube-nocookie.com";
 
-const FILE_VIDEO = /^https:\/\/[^\s"'<>]+\.(?:mp4|webm|mov|m4v)(?:[?#][^\s"'<>]*)?$/iu;
+/** Only wger's files, the one host the content security policy lets a `<video>` load. */
+const FILE_VIDEO = /^https:\/\/wger\.de\/[^\s"'<>]+\.(?:mp4|webm|mov|m4v)(?:[?#][^\s"'<>]*)?$/iu;
 
 export interface ExerciseNote {
   kind: (typeof KINDS)[number];
