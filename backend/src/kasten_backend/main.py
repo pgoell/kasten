@@ -15,12 +15,16 @@ from kasten_backend import (
     anki,
     db,
     food,
+    github,
     log,
     model_use,
     push,
-    token_activity,
+    rsvp,
+    share,
+    tokens,
     training,
     uploads,
+    web,
 )
 from kasten_backend.agent import (
     ConflictError,
@@ -60,17 +64,13 @@ from kasten_backend.pieces import indexer
 from kasten_backend.pieces import route as pieces_route
 from kasten_backend.routes import (
     assets,
-    github,
     listing,
     moves,
     notes,
     queries,
-    rsvp,
     search,
-    share,
-    tokens,
-    web,
 )
+from kasten_backend.tokens import activity as token_activity
 from kasten_backend.trash import purge_trash
 from kasten_backend.vcs import is_versioned, write_ignores
 

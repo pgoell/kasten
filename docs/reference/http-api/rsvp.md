@@ -2,7 +2,7 @@
 type: Reference
 title: "HTTP API: RSVP"
 description: The two routes that read and save where an RSVP run stopped in a note, HTML page, PDF or book.
-resource: backend/src/kasten_backend/routes/rsvp.py
+resource: backend/src/kasten_backend/rsvp/route.py
 tags: [api, backend, openapi, rsvp, database]
 status: stable
 ---

@@ -9,9 +9,9 @@ from sqlalchemy.ext.asyncio import (
     AsyncSession,  # noqa: TC002  FastAPI reads the annotation at runtime
 )
 
-from kasten_backend import rsvp
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.db import get_session
+from kasten_backend.rsvp import positions as rsvp
 from kasten_backend.vault import relative_path, resolve_asset, resolve_html, resolve_note
 
 router = APIRouter()
