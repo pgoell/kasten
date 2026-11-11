@@ -27,6 +27,7 @@ import {
 import { muscleMap } from "@/lib/log/training/exercise/muscle-map";
 import { fetchTraining, type TrainingDay } from "@/lib/log/training/exercises";
 import { weekStarts } from "@/lib/log/training/progress";
+import { noteName } from "@/lib/notes/links/note-path";
 import { cardLine } from "@/lib/notes/note/weather-card";
 import { notePath } from "@/lib/todo/todo-commands";
 
@@ -62,8 +63,7 @@ function today(): string {
 
 /** The exercise a training line links: the note's file name, as `[[Kniebeuge]]` names it. */
 function nameOf(state: EditorState): string {
-  const path = state.facet(notePath) ?? "";
-  return path.slice(path.lastIndexOf("/") + 1).replace(/\.md$/u, "");
+  return noteName(state.facet(notePath) ?? "");
 }
 
 function player(video: Video, name: string): HTMLElement {

@@ -9,6 +9,7 @@ import type { TrainingDay } from "@/lib/log/training/exercises";
 import { bestsOf, liftWeeks } from "@/lib/log/training/progress";
 import { dayLabel, written } from "@/lib/log/training/session/lines";
 import type { TrainingEntry } from "@/lib/log/training/training-lines";
+import { noteName } from "@/lib/notes/links/note-path";
 
 const SVG = "http://www.w3.org/2000/svg";
 const LAST = 5;
@@ -31,8 +32,7 @@ export function blocksWith(blocks: HeldBlock[], exercise: string): UsedIn[] {
         .filter(([, lines]) => lines.some((p) => p.exercise === exercise))
         .map(([letter]) => `session ${letter}`);
       if (block.cardio.some((target) => target.exercise === exercise)) where.push("cardio");
-      const name = path.slice(path.lastIndexOf("/") + 1).replace(/\.md$/u, "");
-      return where.length === 0 ? [] : [{ name, path, where, start: block.start }];
+      return where.length === 0 ? [] : [{ name: noteName(path), path, where, start: block.start }];
     })
     .sort((a, b) => b.start.localeCompare(a.start))
     .map(({ name, path, where }) => ({ name, path, where }));
