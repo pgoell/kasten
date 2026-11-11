@@ -17,6 +17,9 @@ import { useTodoTwins } from "@/lib/todo/use-todo-twins";
 import { useViewport } from "@/lib/ui/input/use-viewport";
 import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
 
+/** One empty list for every render, so a row that compares its props sees no change. */
+const NO_FILES: string[] = [];
+
 /** The row the pane's `@` acts on, with its twins where it has any. */
 export interface AgentRow {
   hit: SearchHit;
@@ -403,7 +406,7 @@ export function TodoPane({
           named={facts.links.named}
           closed={facts.links.closed}
           progress={facts.progress}
-          files={narrowing.files ?? []}
+          files={narrowing.files ?? NO_FILES}
           today={today}
           coarse={coarse}
           held={held}
@@ -428,7 +431,7 @@ export function TodoPane({
           armed={armed.armed}
           onArm={armed.arm}
           onRow={onRow}
-          files={narrowing.files ?? []}
+          files={narrowing.files ?? NO_FILES}
           onPerson={(path) => onOpen(path, 1)}
           onWrite={onEdit}
           onCycle={onCycle}

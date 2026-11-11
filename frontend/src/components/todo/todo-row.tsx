@@ -1,3 +1,5 @@
+import { replaceEqualDeep } from "@tanstack/react-query";
+import { memo } from "react";
 import { chipNote, PersonChip } from "@/components/person-chip";
 import { TodoStateBox } from "@/components/todo/todo-state-box";
 import { isOpen, PRIORITY_SYMBOL, type Todo } from "@/lib/todo/todo";
@@ -152,24 +154,7 @@ function metaLine({
   );
 }
 
-/**
- * One row of the list: the line as a button that opens its note. The date turns the
- * danger colour once past. The row sits on the pane's ground, not a surface:
- * `--k-danger` reads 4.34:1 on `--k-surface`, short of 4.5.
- */
-export function TodoRow({
-  row,
-  facts,
-  today,
-  cursor,
-  muted,
-  coarse,
-  indent,
-  files,
-  onClick,
-  onPerson,
-  enter,
-}: {
+interface RowProps {
   row: Row;
   facts: RowFacts;
   today: string;
@@ -184,16 +169,72 @@ export function TodoRow({
   onPerson(path: string): void;
   /** Set on a row of the first load, the place it staggers in at. */
   enter?: number;
-}) {
+}
+
+/** What a row reads off the list-wide facts, which are built anew on every answer. */
+function faceOf({ row, facts, today }: Pick<RowProps, "row" | "facts" | "today">) {
+  const { todo } = row;
+  return {
+    mark: timerMark(todo.id === undefined ? undefined : facts.running.get(todo.id), today),
+    blockers: waitsFor(todo, facts.links.named, facts.links.closed),
+    dependents:
+      todo.id !== undefined && isOpen(todo) ? facts.links.dependents.get(todo.id) : undefined,
+    progress: facts.progress.get(rowKey(row.hit)),
+  };
+}
+
+/** Deep equality of plain data: the same tree back means nothing in it differs. */
+const same = (a: unknown, b: unknown) => replaceEqualDeep(a, b) === a;
+
+/**
+ * Whether two renders of a row draw the same thing. Every answer parses the rows anew, so this
+ * compares what is drawn, not identities. The handlers are left out: the list routes them through a ref.
+ */
+function sameRow(a: RowProps, b: RowProps): boolean {
+  const [x, y] = [a.row, b.row];
+  return (
+    a.today === b.today &&
+    a.cursor === b.cursor &&
+    a.muted === b.muted &&
+    a.coarse === b.coarse &&
+    a.files === b.files &&
+    a.enter === b.enter &&
+    same(a.indent, b.indent) &&
+    x.hit.path === y.hit.path &&
+    x.hit.line === y.hit.line &&
+    x.hit.text === y.hit.text &&
+    x.hit.project === y.hit.project &&
+    x.under === y.under &&
+    x.depth === y.depth &&
+    x.struck === y.struck &&
+    same(x.todo, y.todo) &&
+    same(faceOf(a), faceOf(b))
+  );
+}
+
+/**
+ * One row of the list: the line as a button that opens its note. The date turns the
+ * danger colour once past. The row sits on the pane's ground, not a surface:
+ * `--k-danger` reads 4.34:1 on `--k-surface`, short of 4.5.
+ */
+export const TodoRow = memo(function TodoRow({
+  row,
+  facts,
+  today,
+  cursor,
+  muted,
+  coarse,
+  indent,
+  files,
+  onClick,
+  onPerson,
+  enter,
+}: RowProps) {
   const { hit, todo, under, struck } = row;
   const key = rowKey(hit);
-  const mark = timerMark(todo.id === undefined ? undefined : facts.running.get(todo.id), today);
+  const { mark, blockers, dependents, progress } = faceOf({ row, facts, today });
   const time = clocks(todo);
   const wait = waitOf(todo, today);
-  const blockers = waitsFor(todo, facts.links.named, facts.links.closed);
-  const dependents =
-    todo.id !== undefined && isOpen(todo) ? facts.links.dependents.get(todo.id) : undefined;
-  const progress = facts.progress.get(key);
   // A date that is past on a todo still open. A finished one is a record, not a debt.
   const overdue = todo.due !== undefined && isOpen(todo) && todo.due < today;
 
@@ -253,4 +294,4 @@ export function TodoRow({
       )}
     </button>
   );
-}
+}, sameRow);
