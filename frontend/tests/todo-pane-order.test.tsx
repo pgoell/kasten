@@ -498,12 +498,12 @@ describe("the todo pane holds the order it is drawn in while a press is made", (
     await settle();
     await advance(2900);
 
-    // A held list answer keeps a third press running, so the echo check comes
-    // after the first press's window and while the second press is still open.
-    vault.held = new Promise<void>(() => {});
+    // A held list answer keeps the third press running, so the echo of the
+    // second's write comes past the first's window, with a press still open.
     press("j");
     press("x");
     await settle();
+    vault.held = new Promise<void>(() => {});
     press("j");
     press("x");
     await settle();
