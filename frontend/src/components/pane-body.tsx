@@ -9,7 +9,7 @@ import { GraphPane } from "@/components/graph-pane";
 import { HistoryPane } from "@/components/history-pane";
 import { HtmlPane } from "@/components/html-pane";
 import { ImagePane } from "@/components/image-pane";
-import { LogPane } from "@/components/log-pane";
+import { LogPane } from "@/components/log/log-pane";
 import { NotePane } from "@/components/note/note-pane";
 import { OverviewPane } from "@/components/overview-pane";
 import { PdfPane } from "@/components/pdf-pane";

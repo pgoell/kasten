@@ -10,7 +10,7 @@ import {
   WeightHead,
   WeightSlot,
   WeightTiles,
-} from "@/components/log-weight";
+} from "@/components/log/log-weight";
 import { shiftDay } from "@/lib/core/clock";
 import type { LogDay } from "@/lib/log/food-api";
 import { overMax } from "@/lib/log/log-day";
