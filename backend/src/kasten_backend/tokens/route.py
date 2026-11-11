@@ -9,9 +9,10 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.exc import SQLAlchemyError
 
-from kasten_backend import db, token_activity
+from kasten_backend import db
 from kasten_backend.config import Settings, get_settings
-from kasten_backend.tokens import Minted, Scope, Token, listing, mint, revoke
+from kasten_backend.tokens import activity as token_activity
+from kasten_backend.tokens.bearer import Minted, Scope, Token, listing, mint, revoke
 
 router = APIRouter()
 

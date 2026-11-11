@@ -16,7 +16,7 @@ import httpx
 import pytest
 
 from kasten_backend import files
-from kasten_backend.routes import web
+from kasten_backend.web import route as web
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable

@@ -2,7 +2,7 @@
 type: Reference
 title: GitHub settings
 description: The three settings that switch on the year and week review's GitHub section, what each does, and where the cache of read days lives.
-resource: backend/src/kasten_backend/github.py
+resource: backend/src/kasten_backend/github/contributions.py
 tags: [config, github, review, environment]
 status: stable
 ---

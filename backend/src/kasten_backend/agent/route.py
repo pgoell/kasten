@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from starlette.requests import ClientDisconnect
 
-from kasten_backend import files, page_store, posts, skills, token_activity, vcs
+from kasten_backend import files, page_store, posts, skills, vcs
 from kasten_backend.agent import capabilities as agent
 from kasten_backend.agent.finance.route import router as finance_router
 from kasten_backend.books.library import fraction, named_book, note_text
@@ -22,6 +22,7 @@ from kasten_backend.frontmatter import field
 from kasten_backend.graph import MOST_DEPTH, Graph, GraphError
 from kasten_backend.search import notes_holding
 from kasten_backend.tokens import Holder, Scope, identify
+from kasten_backend.tokens import activity as token_activity
 from kasten_backend.vault import HTML_SUFFIX, list_markdown_files
 
 if TYPE_CHECKING:
