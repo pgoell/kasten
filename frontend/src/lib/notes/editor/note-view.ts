@@ -9,6 +9,7 @@ import { logCard } from "@/lib/log/log-card";
 import { recipeCard } from "@/lib/log/recipe/recipe-card";
 import { weekPlanCard } from "@/lib/log/recipe/week-plan";
 import { blockCard } from "@/lib/log/training/block/block-card";
+import { exerciseCard } from "@/lib/log/training/exercise/exercise-card";
 import { trainingCard } from "@/lib/log/training/training-card";
 import { noteLanguage } from "@/lib/markdown/note-language";
 import { tagCompletions, vaultTags } from "@/lib/markdown/tag";
@@ -90,6 +91,7 @@ function previewExtensions(): Extension[] {
     logCard,
     trainingCard,
     blockCard,
+    exerciseCard,
     recipeCard,
     weekPlanCard,
     readMode.of(true),

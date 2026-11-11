@@ -1,0 +1,189 @@
+/* The card on an exercise note: the video on top, then the muscle map with the history beside it
+   once the pane is wide. Narrower, tabs show one panel at a time; Cues shows none, leaving the
+   note's body under the video. The map paints the primary muscles in the accent, the secondary in
+   its wash, so both themes read. */
+.cm-exercise {
+  container-type: inline-size;
+  display: grid;
+  gap: 12px;
+  max-width: var(--k-measure);
+  padding: 6px 24px 14px 0;
+  font-family: var(--k-sans);
+  font-variant-numeric: tabular-nums;
+  cursor: default;
+}
+
+.cm-exercise-video {
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--k-surface);
+}
+
+.cm-exercise-video iframe,
+.cm-exercise-video video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.cm-exercise-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--k-rule);
+}
+
+.cm-exercise-tab {
+  padding: 6px 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--k-muted);
+  font: inherit;
+  font-size: var(--k-text-15);
+  cursor: pointer;
+}
+
+.cm-exercise-tab[aria-selected="true"] {
+  border-bottom-color: var(--k-accent);
+  color: var(--k-ink);
+}
+
+.cm-exercise-body {
+  display: grid;
+  gap: 16px;
+}
+
+.cm-exercise[data-tab="muscles"] .cm-exercise-body > :not([data-panel="muscles"]),
+.cm-exercise[data-tab="history"] .cm-exercise-body > :not([data-panel="history"]),
+.cm-exercise[data-tab="cues"] .cm-exercise-body {
+  display: none;
+}
+
+@container (min-width: 560px) {
+  .cm-exercise-tabs {
+    display: none;
+  }
+
+  .cm-exercise[data-tab] .cm-exercise-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .cm-exercise[data-tab] .cm-exercise-body > [data-panel] {
+    display: grid;
+  }
+}
+
+.cm-exercise-map {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.cm-exercise-bodies {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  max-width: 320px;
+  margin: 0 auto;
+}
+
+.cm-exercise-figure {
+  width: 100%;
+  height: auto;
+}
+
+.cm-exercise-part {
+  fill: var(--k-rule);
+  stroke: var(--k-paper);
+  stroke-width: 4;
+}
+
+.cm-exercise-part.is-secondary {
+  fill: color-mix(in srgb, var(--k-accent) 40%, var(--k-rule));
+}
+
+.cm-exercise-part.is-primary {
+  fill: var(--k-accent);
+}
+
+.cm-exercise-legend,
+.cm-exercise-quiet {
+  margin: 0;
+  color: var(--k-muted);
+  font-size: var(--k-text-13);
+  text-align: center;
+}
+
+.cm-exercise-quiet {
+  text-align: start;
+}
+
+.cm-exercise-history {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+}
+
+.cm-exercise-head {
+  margin: 6px 0 0;
+  color: var(--k-muted);
+  font-size: var(--k-text-13);
+  font-weight: 600;
+}
+
+.cm-exercise-trend {
+  width: 100%;
+  height: auto;
+}
+
+.cm-exercise-trend polyline {
+  fill: none;
+  stroke: var(--k-accent);
+  stroke-width: 2;
+}
+
+.cm-exercise-trend circle {
+  fill: var(--k-accent);
+}
+
+.cm-exercise-records {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+}
+
+.cm-exercise-record {
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--k-surface);
+}
+
+.cm-exercise-record dt {
+  color: var(--k-muted);
+  font-size: var(--k-text-13);
+}
+
+.cm-exercise-record dd {
+  margin: 0;
+  font-size: var(--k-text-15);
+}
+
+.cm-exercise-list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--k-text-15);
+}
+
+.cm-exercise-date {
+  display: inline-block;
+  min-width: 4.5em;
+  color: var(--k-muted);
+}

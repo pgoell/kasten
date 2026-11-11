@@ -14,6 +14,7 @@
 @import "./training/session.css";
 @import "./training/progress.css";
 @import "./training/block.css";
+@import "./training/exercise.css";
 @import "./food/food-sheet.css";
 @import "./food/recipe.css";
 @import "./food/cook-mode.css";
