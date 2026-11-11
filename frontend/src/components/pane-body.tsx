@@ -12,7 +12,7 @@ import { ImagePane } from "@/components/image-pane";
 import { LogPane } from "@/components/log/log-pane";
 import { NotePane } from "@/components/note/note-pane";
 import { OverviewPane } from "@/components/overview-pane";
-import { PdfPane } from "@/components/pdf-pane";
+import { PdfPane } from "@/components/pdf/pdf-pane";
 import { PersonPane } from "@/components/person-pane";
 import { ReviewPane } from "@/components/review/review-pane";
 import { type AgentRow, TodoPane } from "@/components/todo/todo-pane";
