@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from backend.tests.conftest import JJ, descriptions
-from kasten_backend import agent
+from kasten_backend.agent import capabilities as agent
 from kasten_backend.code_spans import code_spans, inside
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.main import app

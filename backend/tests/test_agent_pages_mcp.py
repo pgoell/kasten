@@ -12,7 +12,7 @@ import pytest
 
 from backend.tests.test_mcp import ENDPOINT, RPC, call, payload
 from kasten_backend import files
-from kasten_backend.agent_mcp import REDUNDANT, instructions
+from kasten_backend.agent import REDUNDANT, instructions
 
 if TYPE_CHECKING:
     from collections.abc import Callable

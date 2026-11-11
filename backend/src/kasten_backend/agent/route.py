@@ -13,8 +13,9 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from starlette.requests import ClientDisconnect
 
-from kasten_backend import agent, files, page_store, posts, skills, token_activity, vcs
-from kasten_backend.agent_finance_routes import router as finance_router
+from kasten_backend import files, page_store, posts, skills, token_activity, vcs
+from kasten_backend.agent import capabilities as agent
+from kasten_backend.agent.finance.route import router as finance_router
 from kasten_backend.books.library import fraction, named_book, note_text
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.frontmatter import field

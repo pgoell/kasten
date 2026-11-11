@@ -2,7 +2,7 @@
 type: Reference
 title: Agent API
 description: The routes an agent outside the box reaches the vault with, the bearer token they require, and the OAuth flow that issues one to a browser product.
-resource: backend/src/kasten_backend/agent_routes.py
+resource: backend/src/kasten_backend/agent/route.py
 tags: [api, agent, tokens, oauth, backend, books]
 status: stable
 ---

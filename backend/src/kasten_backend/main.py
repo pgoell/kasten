@@ -12,7 +12,6 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from kasten_backend import (
-    agent_mcp,
     anki,
     db,
     food,
@@ -23,16 +22,19 @@ from kasten_backend import (
     training,
     uploads,
 )
-from kasten_backend.agent import ConflictError, EmptyCaptureError, TooLargeError
-from kasten_backend.agent_oauth import router as oauth_router
-from kasten_backend.agent_routes import (
+from kasten_backend.agent import (
+    ConflictError,
+    EmptyCaptureError,
+    TooLargeError,
     note_changed,
     nothing_to_capture,
+    oauth_router,
     reading_router,
     refused,
     too_large,
 )
-from kasten_backend.agent_routes import router as agent_router
+from kasten_backend.agent import mcp_server as agent_mcp
+from kasten_backend.agent import router as agent_router
 from kasten_backend.books import route as books_route
 from kasten_backend.build import build_id
 from kasten_backend.change import settled

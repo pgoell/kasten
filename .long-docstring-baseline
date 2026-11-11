@@ -1,10 +1,10 @@
 # Files with docstrings or JSDoc blocks over 6 lines, as "<file> <count>".
 # A file fails when it gains one.
 # check-comments --update-baseline only lowers or drops lines; never raise one.
-backend/src/kasten_backend/agent_mcp.py 4
-backend/src/kasten_backend/agent_mcp_finance.py 4
-backend/src/kasten_backend/agent_oauth.py 4
-backend/src/kasten_backend/agent_routes.py 1
+backend/src/kasten_backend/agent/mcp_server.py 4
+backend/src/kasten_backend/agent/finance/mcp_tools.py 4
+backend/src/kasten_backend/agent/oauth.py 4
+backend/src/kasten_backend/agent/route.py 1
 backend/src/kasten_backend/main.py 1
 backend/src/kasten_backend/finance/routes/records/records.py 1
 backend/src/kasten_backend/finance/routes/tax/receipts.py 1

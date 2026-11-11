@@ -25,7 +25,10 @@ from backend.tests.test_finance_plans import (
     setup,
 )
 from backend.tests.test_mcp import ENDPOINT, RPC, call, payload
-from kasten_backend import agent, agent_finance, agent_mcp_finance, db
+from kasten_backend import db
+from kasten_backend.agent import capabilities as agent
+from kasten_backend.agent.finance import mcp_tools as agent_mcp_finance
+from kasten_backend.agent.finance import reads as agent_finance
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator

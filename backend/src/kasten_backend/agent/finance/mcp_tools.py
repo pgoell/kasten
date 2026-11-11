@@ -13,7 +13,8 @@ from fastapi import HTTPException
 from mcp.server.mcpserver.exceptions import ToolError
 from sqlalchemy.exc import SQLAlchemyError
 
-from kasten_backend import agent_finance, db
+from kasten_backend import db
+from kasten_backend.agent.finance import reads as agent_finance
 from kasten_backend.config import get_settings
 from kasten_backend.finance.routes.budget import budget as finance_budget
 from kasten_backend.finance.routes.budget import drill as finance_drill

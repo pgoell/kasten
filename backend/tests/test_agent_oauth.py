@@ -21,8 +21,8 @@ from urllib.parse import parse_qs, urlsplit
 import pytest
 
 from backend.tests.test_mcp import ENDPOINT, RPC, call
-from kasten_backend import agent_oauth
-from kasten_backend.agent_routes import BEARER
+from kasten_backend.agent import BEARER
+from kasten_backend.agent import oauth as agent_oauth
 from kasten_backend.config import get_settings
 
 if TYPE_CHECKING:
