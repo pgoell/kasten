@@ -17,7 +17,7 @@ import { PersonPane } from "@/components/person-pane";
 import { ReviewPane } from "@/components/review/review-pane";
 import { type AgentRow, TodoPane } from "@/components/todo/todo-pane";
 import type { PaneMoves } from "@/components/use-pane-moves";
-import { VideoPane } from "@/components/video-pane";
+import { VideoPane } from "@/components/video/video-pane";
 import { TimersPane } from "@/lib/app/push/timers-pane";
 import type { SearchHit } from "@/lib/core/api";
 import { readClock } from "@/lib/core/clock";

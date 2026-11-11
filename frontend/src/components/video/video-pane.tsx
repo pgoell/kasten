@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { VideoDetails } from "@/components/video-details";
-import { VideoShield } from "@/components/video-shield";
-import { VideoTakes } from "@/components/video-takes";
-import { type TranscriptHandle, VideoTranscript } from "@/components/video-transcript";
+import { VideoDetails } from "@/components/video/video-details";
+import { VideoShield } from "@/components/video/video-shield";
+import { VideoTakes } from "@/components/video/video-takes";
+import { type TranscriptHandle, VideoTranscript } from "@/components/video/video-transcript";
 import { fetchNote } from "@/lib/core/api";
 import { noteName } from "@/lib/notes/links/note-path";
 import { readField } from "@/lib/notes/text/note-frontmatter";

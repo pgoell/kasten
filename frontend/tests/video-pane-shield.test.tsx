@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { ComponentProps } from "react";
-import { VideoPane } from "@/components/video-pane";
+import { VideoPane } from "@/components/video/video-pane";
 import { addHighlight } from "@/lib/takes/highlight";
 import { hostLeader } from "@/lib/ui/keys/which-key";
 import { stubCommands } from "./stub-commands";

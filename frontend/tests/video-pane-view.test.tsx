@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
-import { VideoPane } from "@/components/video-pane";
+import { VideoPane } from "@/components/video/video-pane";
 import { stubCommands } from "./stub-commands";
 
 // Standing in for the module rather than for `fetch`, the way the exam pane's
@@ -20,8 +20,8 @@ vi.mock("@/lib/core/api", () => {
 // handle, which is what most tests here need from it. A test that needs the
 // real transcript sets `real.on`, and the real one is drawn instead.
 const { take, real } = vi.hoisted(() => ({ take: vi.fn(() => true), real: { on: false } }));
-vi.mock("@/components/video-transcript", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/components/video-transcript")>();
+vi.mock("@/components/video/video-transcript", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/components/video/video-transcript")>();
   const { createElement } = await import("react");
   return {
     ...actual,
@@ -36,7 +36,7 @@ vi.mock("@/components/video-transcript", async (importOriginal) => {
     },
   };
 });
-vi.mock("@/components/video-takes", async () => {
+vi.mock("@/components/video/video-takes", async () => {
   const { createElement } = await import("react");
   return { VideoTakes: () => createElement("div", { "data-testid": "takes" }) };
 });

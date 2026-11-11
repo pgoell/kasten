@@ -1,4 +1,4 @@
-import { CLOCK, clockOf } from "@/components/video-transcript";
+import { CLOCK, clockOf } from "@/components/video/video-transcript";
 import { videoTakes } from "@/lib/panes/video/video-notes";
 
 /** The takes of this video in the note, each with its time as a button that seeks. */

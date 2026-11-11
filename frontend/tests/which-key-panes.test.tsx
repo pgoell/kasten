@@ -10,7 +10,7 @@ import { HtmlPane } from "@/components/html-pane";
 import { ImagePane } from "@/components/image-pane";
 import { PdfPane } from "@/components/pdf-pane";
 import { PersonPane } from "@/components/person-pane";
-import { VideoPane } from "@/components/video-pane";
+import { VideoPane } from "@/components/video/video-pane";
 import { hostLeader, type LeaderOpener } from "@/lib/ui/keys/which-key";
 import { draw } from "./book-pane-fixture";
 import { press, renderTree } from "./file-explorer-fixture";
