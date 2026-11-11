@@ -7,9 +7,13 @@ import {
   setEdit,
   setLabel,
   setsOf,
-  trainingLines,
 } from "@/lib/log/training/session-lines";
-import { parseTrainingLine, type TrainingEntry } from "@/lib/log/training/training-lines";
+import {
+  hasTraining,
+  parseTrainingLine,
+  type TrainingEntry,
+  trainingLines,
+} from "@/lib/log/training/training-lines";
 import type { Edit } from "@/lib/notes/text/note-section";
 
 const DAY = "---\ntype: Periodic Note\n---\n\n# 2026-11-11\n\n## Log\n- 💧 250 ml\n";
@@ -81,6 +85,13 @@ describe("trainingLines", () => {
     );
     expect(extended).toContain("- 🏋 [[Kniebeuge]] 80 kg 8 7\n");
     expect(setsOf(extended, "Kniebeuge")).toHaveLength(2);
+  });
+
+  it("marks a training day by the same reader", () => {
+    expect(hasTraining(`${DAY}\n### training\n- 🏋 [[Dips]] bw 5\n`)).toBe(false);
+    expect(
+      hasTraining(`${DAY}\n### training\n- note\n\n## Training\n- 🏋 [[Kniebeuge]] 80 kg 8\n`),
+    ).toBe(true);
   });
 });
 

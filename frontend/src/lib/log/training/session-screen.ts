@@ -22,10 +22,9 @@ import {
   setEdit,
   setLabel,
   setsOf,
-  trainingLines,
 } from "@/lib/log/training/session-lines";
 import { button, choiceRow, clock, element, stepperRow } from "@/lib/log/training/session-parts";
-import { CARDIO_MARK, type CardioKind } from "@/lib/log/training/training-lines";
+import { CARDIO_MARK, type CardioKind, trainingLines } from "@/lib/log/training/training-lines";
 import type { Edit } from "@/lib/notes/text/note-section";
 
 export const REST_SECONDS = 120;
@@ -96,7 +95,11 @@ export function openSession(view: EditorView, day: string): () => void {
   progress.setAttribute("aria-hidden", "true");
   const body = element("div", "k-train-body");
   const restBar = element("div", "k-train-rest");
-  restBar.setAttribute("aria-live", "polite");
+  const restWords = element("div", "k-train-rest-words");
+  const restAfter = element("span", "k-train-rest-after");
+  restAfter.setAttribute("aria-live", "polite");
+  const restClock = element("span", "k-train-rest-clock");
+  restWords.append(restAfter, restClock);
   root.append(head, progress, body, restBar);
 
   const text = () => view.state.doc.toString();
@@ -152,33 +155,31 @@ export function openSession(view: EditorView, day: string): () => void {
     paintRest();
   }
 
-  function paintRest(): void {
-    restBar.replaceChildren();
-    restBar.hidden = rest === null;
-    if (rest === null) return;
-    const left = (rest.endsAt - Date.now()) / 1000;
-    const words = element("div", "k-train-rest-words");
-    words.append(
-      element(
-        "span",
-        "k-train-rest-after",
-        left > 0 ? `Rest after set ${rest.after}` : "Rest over",
-      ),
-      element("span", "k-train-rest-clock", clock(left)),
-    );
-    const more = button("k-train-rest-more", `+${REST_MORE} s`, () => {
+  // Built once and only relabelled, so a focused +30 s or Go keeps its focus through the ticks.
+  restBar.append(
+    restWords,
+    button("k-train-rest-more", `+${REST_MORE} s`, () => {
       if (rest === null) return;
       rest = { ...rest, endsAt: Math.max(rest.endsAt, Date.now()) + REST_MORE * 1000 };
       clearInterval(tick);
       tick = setInterval(count, 250);
       paintRest();
-    });
-    const go = button("k-train-rest-go", "Go", () => {
+    }),
+    button("k-train-rest-go", "Go", () => {
       rest = null;
       clearInterval(tick);
       paintRest();
-    });
-    restBar.append(words, more, go);
+      root.focus();
+    }),
+  );
+
+  function paintRest(): void {
+    restBar.hidden = rest === null;
+    if (rest === null) return;
+    const left = (rest.endsAt - Date.now()) / 1000;
+    const after = left > 0 ? `Rest after set ${rest.after}` : "Rest over";
+    if (restAfter.textContent !== after) restAfter.textContent = after;
+    restClock.textContent = clock(left);
   }
 
   function paintProgress(): void {

@@ -3,7 +3,8 @@
  * `cases/training-cases.json` holds it to the backend parser in `training/lines.py`.
  */
 
-import { sectionOf } from "@/lib/notes/text/note-section";
+import { noteBody } from "@/lib/notes/text/note-frontmatter";
+import { fencedLines } from "@/lib/notes/text/note-section";
 
 export const TRAINING_HEADING = "## Training";
 
@@ -195,8 +196,41 @@ export function parseTrainingLine(text: string): TrainingEntry | null {
   return fields && { kind, exercise: target.trim(), ...fields };
 }
 
-/** Whether a note's `## Training` section holds an entry, which makes its day a training day. */
+/** A training line of the note, with where it sits. */
+export interface Placed {
+  /** Offset of the line's first character in the note. */
+  from: number;
+  text: string;
+  entry: TrainingEntry;
+}
+
+const SECTION_END = /^#{1,2}[ \t]/;
+
+/**
+ * Every line that parses under each exact `## Training`, the heading `appendUnderEdit` writes
+ * under; a `### training` elsewhere is not the log. Fenced and frontmatter lines never count.
+ */
+export function trainingLines(text: string): Placed[] {
+  const lines = text.split("\n");
+  const above = lines.length - noteBody(text).split("\n").length;
+  const { coded } = fencedLines(lines.slice(above));
+  const placed: Placed[] = [];
+  let inside = false;
+  let offset = 0;
+  for (const [index, line] of lines.entries()) {
+    const counts = index >= above && !coded.has(index - above);
+    if (counts && line.trimEnd() === TRAINING_HEADING) inside = true;
+    else if (counts && SECTION_END.test(line)) inside = false;
+    else if (counts && inside) {
+      const entry = parseTrainingLine(line);
+      if (entry !== null) placed.push({ from: offset, text: line, entry });
+    }
+    offset += line.length + 1;
+  }
+  return placed;
+}
+
+/** Whether a note's `## Training` holds an entry, which makes its day a training day. */
 export function hasTraining(text: string): boolean {
-  const lines = sectionOf(text, "Training")?.text.split("\n") ?? [];
-  return lines.some((line) => parseTrainingLine(line) !== null);
+  return trainingLines(text).length > 0;
 }

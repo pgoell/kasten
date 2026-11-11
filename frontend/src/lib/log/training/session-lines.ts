@@ -6,12 +6,12 @@
 import {
   CARDIO_MARK,
   type CardioKind,
-  parseTrainingLine,
+  type Placed,
   TRAINING_HEADING,
   type TrainingEntry,
+  trainingLines,
 } from "@/lib/log/training/training-lines";
-import { noteBody } from "@/lib/notes/text/note-frontmatter";
-import { appendUnderEdit, type Edit, fencedLines } from "@/lib/notes/text/note-section";
+import { appendUnderEdit, type Edit } from "@/lib/notes/text/note-section";
 
 /** One set as the screen shows it: a weight in kg, or null for body weight. */
 export interface DoneSet {
@@ -28,43 +28,9 @@ export interface WeightedSet {
   rpe: number | null;
 }
 
-/** A training line of the note, with where it sits. */
-export interface Placed {
-  /** Offset of the line's first character in the note. */
-  from: number;
-  text: string;
-  entry: TrainingEntry;
-}
-
 /** A number as a line writes it: a point, and no trailing zeros. */
 export function written(value: number): string {
   return String(Math.round(value * 100) / 100);
-}
-
-const SECTION_END = /^#{1,2}[ \t]/;
-
-/**
- * Every line that parses under each exact `## Training`, the heading `appendUnderEdit` writes
- * under; a `### training` elsewhere is not the log. Fenced and frontmatter lines never count.
- */
-export function trainingLines(text: string): Placed[] {
-  const lines = text.split("\n");
-  const above = lines.length - noteBody(text).split("\n").length;
-  const { coded } = fencedLines(lines.slice(above));
-  const placed: Placed[] = [];
-  let inside = false;
-  let offset = 0;
-  for (const [index, line] of lines.entries()) {
-    const counts = index >= above && !coded.has(index - above);
-    if (counts && line.trimEnd() === TRAINING_HEADING) inside = true;
-    else if (counts && SECTION_END.test(line)) inside = false;
-    else if (counts && inside) {
-      const entry = parseTrainingLine(line);
-      if (entry !== null) placed.push({ from: offset, text: line, entry });
-    }
-    offset += line.length + 1;
-  }
-  return placed;
 }
 
 /** The sets the note holds for one exercise today, line by line. */
