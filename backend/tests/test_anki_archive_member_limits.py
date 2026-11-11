@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from backend.tests.anki_build import CAT_EXPORT, apkg, deflated, sides, zipped
-from kasten_backend import anki
+from kasten_backend.anki import apkg as anki
 from kasten_backend.anki import read_apkg
 
 if TYPE_CHECKING:

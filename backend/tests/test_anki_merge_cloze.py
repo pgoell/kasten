@@ -1,5 +1,5 @@
 from backend.tests.anki_build import cloze_note, mark, marked, unhashed
-from kasten_backend.anki_merge import merge
+from kasten_backend.anki import merge
 
 COMMENT_FIELD = "{{c1::&lt;!--SR:c1!2026-01-01,1,250--&gt;}}"
 """A cloze field whose answer is a schedule comment, as #356's first case has it."""

@@ -5,8 +5,9 @@ from typing import TYPE_CHECKING
 import pytest
 
 from backend.tests.anki_build import BASIC, CAT_EXPORT, apkg
-from kasten_backend import ankiweb, files
-from kasten_backend.routes.anki import routes as anki_routes
+from kasten_backend import files
+from kasten_backend.anki import ankiweb
+from kasten_backend.anki import route as anki_routes
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -14,7 +15,7 @@ if TYPE_CHECKING:
 
     from httpx import AsyncClient
 
-    from kasten_backend.anki_deck import Deck
+    from kasten_backend.anki import Deck
 
 
 def counted(*chunks: bytes) -> tuple[AsyncIterator[bytes], list[int]]:

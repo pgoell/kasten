@@ -8,7 +8,7 @@ import html
 import re
 from typing import TYPE_CHECKING
 
-from kasten_backend.anki_markdown import KEPT, markdown, ticked
+from kasten_backend.anki.archive.markdown import KEPT, markdown, ticked
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping

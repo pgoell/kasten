@@ -20,8 +20,7 @@ from typing import Any
 
 import pytest
 
-from kasten_backend.anki import read_apkg
-from kasten_backend.anki_deck import Card, Deck, Template
+from kasten_backend.anki import Card, Deck, Template, read_apkg
 
 type NoteType = tuple[int, str, int, tuple[str, ...], tuple[tuple[str, str, str], ...]]
 """A note type as the builder takes it: id, name, kind, field names, and templates."""

@@ -9,10 +9,10 @@ import hashlib
 import re
 from typing import TYPE_CHECKING
 
-from kasten_backend.anki_html import ends_card, marks, reads_mark, undivided
+from kasten_backend.anki.archive.html import ends_card, marks, reads_mark, undivided
 
 if TYPE_CHECKING:
-    from kasten_backend.anki_deck import Card, Deck
+    from kasten_backend.anki.archive.deck import Card, Deck
 
 _SCHEDULE = re.compile(r"<!--SR:!(\d{4}-\d{2}-\d{2}),(\d+),(\d+)-->")
 """`SR` in `card-line.ts`, the whole comment: `srs.ts` stops a back at nothing less."""

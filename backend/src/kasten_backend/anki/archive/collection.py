@@ -13,8 +13,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from kasten_backend.anki_deck import Review, Template
-from kasten_backend.anki_template import render
+from kasten_backend.anki.archive.deck import Review, Template
+from kasten_backend.anki.archive.template import render
 
 SEPARATOR = "\x1f"
 """Anki's separator: it joins a note's fields, and from schema 18 the levels of a deck name."""

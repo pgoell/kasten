@@ -1,7 +1,7 @@
 import pytest
 
 from backend.tests.anki_build import SR1, SR2, basic_deck, mark, marked, unhashed
-from kasten_backend.anki_merge import merge
+from kasten_backend.anki import merge
 
 JOINED = "q2\n?\na2\nb2"
 """An imported `?` card's lines, which the tests below set right against the user's."""

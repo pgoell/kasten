@@ -1,6 +1,6 @@
 import pytest
 
-from kasten_backend.anki_html import plain
+from kasten_backend.anki import plain
 
 
 def test_plain_escapes_markdown_characters_in_text() -> None:

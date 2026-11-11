@@ -13,10 +13,7 @@ from backend.tests.anki_build import (
     sides,
     unhashed,
 )
-from kasten_backend.anki import read_apkg
-from kasten_backend.anki_deck import Card, Deck, Template
-from kasten_backend.anki_html import plain
-from kasten_backend.anki_note import as_note, card_count
+from kasten_backend.anki import Card, Deck, Template, as_note, card_count, plain, read_apkg
 
 
 @pytest.mark.parametrize("layout", LAYOUTS)

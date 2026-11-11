@@ -1,5 +1,5 @@
 from backend.tests.anki_build import SR1, SR2, basic_deck, mark, marked, unhashed
-from kasten_backend.anki_merge import merge
+from kasten_backend.anki import merge
 
 
 def test_a_re_import_leaves_unmarked_lines_byte_for_byte() -> None:

@@ -1,4 +1,4 @@
-from kasten_backend.anki_html import plain
+from kasten_backend.anki import plain
 
 
 def test_plain_strips_a_tag_it_has_no_markdown_for() -> None:
