@@ -133,3 +133,18 @@ describe("the cases shared with graph.py", () => {
     });
   });
 });
+
+// `links.LINK_BLANKS` is held to the same case, so the backend strips what `trim()` does (#1857).
+describe("the every-blank case", () => {
+  it("holds each character trim() strips but the line break, which ends a link", () => {
+    const strips: string[] = [];
+    for (let code = 0; code <= 0x10ffff; code++) {
+      if (code >= 0xd800 && code <= 0xdfff) continue;
+      const char = String.fromCodePoint(code);
+      if (char !== "\n" && char.trim() === "") strips.push(char);
+    }
+    const line = cases.find((found) => found.id === "every-blank-around-name")?.line ?? "";
+    const held = line.slice(line.indexOf("[[") + 2, line.indexOf("A"));
+    expect([...held]).toEqual(strips);
+  });
+});
