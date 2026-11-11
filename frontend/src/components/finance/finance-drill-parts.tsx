@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { type RefObject, useState } from "react";
-import { BookingList, type TabKeys } from "@/components/finance-sort-bar";
+import { BookingList, type TabKeys } from "@/components/finance/finance-sort-bar";
 import type { Transaction } from "@/lib/panes/finance/finance-budget-api";
 import type { DrillStep } from "@/lib/panes/finance/finance-drill-api";
 import type { Span } from "@/lib/panes/finance/finance-span";

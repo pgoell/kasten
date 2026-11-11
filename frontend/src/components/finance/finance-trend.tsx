@@ -1,4 +1,4 @@
-import { MonthChart } from "@/components/finance-month-chart";
+import { MonthChart } from "@/components/finance/finance-month-chart";
 import type { Trend } from "@/lib/panes/finance/finance-budget-api";
 import { euros, monthName } from "@/lib/panes/finance/finance-words";
 

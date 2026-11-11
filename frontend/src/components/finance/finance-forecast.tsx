@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { MonthChart } from "@/components/finance-month-chart";
+import { MonthChart } from "@/components/finance/finance-month-chart";
 import { fetchForecast } from "@/lib/panes/finance/finance-plans-api";
 import { euros, monthName } from "@/lib/panes/finance/finance-words";
 

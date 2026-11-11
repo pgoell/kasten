@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { amountOf, positive } from "@/components/finance-budget-tab";
-import { Meter } from "@/components/finance-meter";
+import { amountOf, positive } from "@/components/finance/finance-budget-tab";
+import { Meter } from "@/components/finance/finance-meter";
 import {
   fetchGoals,
   type Goal,

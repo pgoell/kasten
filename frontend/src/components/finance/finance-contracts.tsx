@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { scheduleName } from "@/components/finance-plan-form";
+import { scheduleName } from "@/components/finance/finance-plan-form";
 import { type Contract, fetchContracts } from "@/lib/panes/finance/finance-plans-api";
 import { euros, money } from "@/lib/panes/finance/finance-words";
 

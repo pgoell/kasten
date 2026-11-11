@@ -1,7 +1,7 @@
 import { useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { BoardCard, SET } from "@/components/board-card";
 import { HEADING, LaneHeading } from "@/components/board-lane-heading";
 import { BoardPicker } from "@/components/board-picker";
+import { BoardCard, SET } from "@/components/todo/board-card";
 import type { SearchHit, TodoHit } from "@/lib/core/api";
 import type { Todo, TodoState } from "@/lib/todo/todo";
 import type { Closed } from "@/lib/todo/todo-blocked";

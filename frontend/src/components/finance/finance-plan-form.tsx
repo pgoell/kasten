@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { amountOf, positive } from "@/components/finance-budget-tab";
+import { amountOf, positive } from "@/components/finance/finance-budget-tab";
 import type { Category } from "@/lib/panes/finance/finance-api";
 import type { Account } from "@/lib/panes/finance/finance-budget-api";
 import type { PlanIn } from "@/lib/panes/finance/finance-plans-api";

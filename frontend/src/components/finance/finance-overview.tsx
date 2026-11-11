@@ -1,11 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { BankCard, type Pull } from "@/components/finance-bank";
-import { CompareTable, spanMadeOf } from "@/components/finance-compare";
-import { GoalsCard } from "@/components/finance-goals";
-import { MoveLeftover } from "@/components/finance-leftover";
-import { Meter, statusWords } from "@/components/finance-meter";
-import { FinanceSankey } from "@/components/finance-sankey";
-import { SpendingTrend } from "@/components/finance-trend";
+import { BankCard, type Pull } from "@/components/finance/finance-bank";
+import { CompareTable, spanMadeOf } from "@/components/finance/finance-compare";
+import { GoalsCard } from "@/components/finance/finance-goals";
+import { MoveLeftover } from "@/components/finance/finance-leftover";
+import { Meter, statusWords } from "@/components/finance/finance-meter";
+import { FinanceSankey } from "@/components/finance/finance-sankey";
+import { SpendingTrend } from "@/components/finance/finance-trend";
 import {
   type Budget,
   type Free,

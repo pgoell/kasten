@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { amountOf } from "@/components/finance-budget-tab";
-import { useWrite } from "@/components/finance-drill-parts";
+import { amountOf } from "@/components/finance/finance-budget-tab";
+import { useWrite } from "@/components/finance/finance-drill-parts";
 import {
   type ConfirmBody,
   confirmReceipt,

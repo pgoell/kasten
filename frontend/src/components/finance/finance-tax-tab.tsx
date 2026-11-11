@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { type RefObject, useState } from "react";
-import type { TabKeys } from "@/components/finance-sort-bar";
+import type { TabKeys } from "@/components/finance/finance-sort-bar";
 import type { DrillStep } from "@/lib/panes/finance/finance-drill-api";
 import {
   fetchTaxYear,
