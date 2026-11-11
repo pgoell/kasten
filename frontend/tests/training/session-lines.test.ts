@@ -7,6 +7,7 @@ import {
   setEdit,
   setLabel,
   setsOf,
+  trainingLines,
 } from "@/lib/log/training/session-lines";
 import { parseTrainingLine, type TrainingEntry } from "@/lib/log/training/training-lines";
 import type { Edit } from "@/lib/notes/text/note-section";
@@ -66,6 +67,20 @@ describe("setEdit", () => {
     const next = apply(text, setEdit(text, { exercise: "Kniebeuge", kg: 80, reps: 7, rpe: null }));
 
     expect(next).toBe("## Training\n- 🏋️ [[Kniebeuge|Squat]] 80 kg 8 7 @8\n");
+  });
+});
+
+describe("trainingLines", () => {
+  it("reads every exact ## Training and skips a ### training before it", () => {
+    const text = `${DAY}\n### training\n- 🏋 [[Dips]] bw 5\n\n## Training\n- 🏋 [[Kniebeuge]] 80 kg 8\n\n## Notes\n- 🏋 [[Plank]] 1x 45 s\n\n## Training\n- 🚶 [[Gehen]] 30 min\n`;
+
+    expect(trainingLines(text).map(({ entry: e }) => e.exercise)).toEqual(["Kniebeuge", "Gehen"]);
+    const extended = apply(
+      text,
+      setEdit(text, { exercise: "Kniebeuge", kg: 80, reps: 7, rpe: null }),
+    );
+    expect(extended).toContain("- 🏋 [[Kniebeuge]] 80 kg 8 7\n");
+    expect(setsOf(extended, "Kniebeuge")).toHaveLength(2);
   });
 });
 

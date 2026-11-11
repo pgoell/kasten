@@ -16,7 +16,6 @@ import {
   type TrainingDay,
 } from "@/lib/log/training/exercises";
 import {
-  type CardioKind,
   cardioEdit,
   dayLabel,
   heldEdit,
@@ -26,6 +25,7 @@ import {
   trainingLines,
 } from "@/lib/log/training/session-lines";
 import { button, choiceRow, clock, element, stepperRow } from "@/lib/log/training/session-parts";
+import { CARDIO_MARK, type CardioKind } from "@/lib/log/training/training-lines";
 import type { Edit } from "@/lib/notes/text/note-section";
 
 export const REST_SECONDS = 120;
@@ -33,11 +33,15 @@ export const REST_MORE = 30;
 const KG_STEP = 2.5;
 const LISTED = 40;
 const RPES = [7, 8, 9, 10].map((value) => ({ value, text: String(value) }));
-const CARDIO: { value: CardioKind; text: string; note: string }[] = [
-  { value: "walk", text: "Walk", note: "Gehen" },
-  { value: "run", text: "Run", note: "Joggen" },
-  { value: "ride", text: "Ride", note: "Radfahren" },
-];
+const SHORTCUTS: Record<CardioKind, { text: string; note: string }> = {
+  walk: { text: "Walk", note: "Gehen" },
+  run: { text: "Run", note: "Joggen" },
+  ride: { text: "Ride", note: "Radfahren" },
+};
+const CARDIO = (Object.keys(CARDIO_MARK) as CardioKind[]).map((value) => ({
+  value,
+  ...SHORTCUTS[value],
+}));
 
 interface Form {
   kg: number | null;
@@ -257,17 +261,23 @@ export function openSession(view: EditorView, day: string): () => void {
       );
       pick();
     });
+    // A shortcut's note fixes the kind; a ride linked to the walking note would be wrong.
+    const kind = CARDIO.some((c) => c.note === exercise.name)
+      ? []
+      : [
+          choiceRow(
+            "Kind",
+            CARDIO,
+            () => form.cardio,
+            (value) => {
+              if (value !== null) form.cardio = value;
+            },
+          ),
+        ];
     body.replaceChildren(
       element("p", "k-train-where", "Cardio"),
       element("h1", "k-train-title", exercise.name),
-      choiceRow(
-        "Kind",
-        CARDIO,
-        () => form.cardio,
-        (value) => {
-          if (value !== null) form.cardio = value;
-        },
-      ),
+      ...kind,
       stepperRow({
         label: "Minutes",
         value: () => form.minutes,

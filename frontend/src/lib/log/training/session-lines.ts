@@ -4,11 +4,14 @@
  */
 
 import {
+  CARDIO_MARK,
+  type CardioKind,
   parseTrainingLine,
   TRAINING_HEADING,
   type TrainingEntry,
 } from "@/lib/log/training/training-lines";
-import { appendUnderEdit, type Edit, sectionOf } from "@/lib/notes/text/note-section";
+import { noteBody } from "@/lib/notes/text/note-frontmatter";
+import { appendUnderEdit, type Edit, fencedLines } from "@/lib/notes/text/note-section";
 
 /** One set as the screen shows it: a weight in kg, or null for body weight. */
 export interface DoneSet {
@@ -25,10 +28,6 @@ export interface WeightedSet {
   rpe: number | null;
 }
 
-export type CardioKind = "walk" | "run" | "ride";
-
-const CARDIO_MARK: Record<CardioKind, string> = { walk: "🚶", run: "🏃", ride: "🚲" };
-
 /** A training line of the note, with where it sits. */
 export interface Placed {
   /** Offset of the line's first character in the note. */
@@ -42,19 +41,27 @@ export function written(value: number): string {
   return String(Math.round(value * 100) / 100);
 }
 
-/** Every line under the note's first `## Training` that parses, in order. */
+const SECTION_END = /^#{1,2}[ \t]/;
+
+/**
+ * Every line that parses under each exact `## Training`, the heading `appendUnderEdit` writes
+ * under; a `### training` elsewhere is not the log. Fenced and frontmatter lines never count.
+ */
 export function trainingLines(text: string): Placed[] {
-  const section = sectionOf(text, "Training");
-  if (section === null) return [];
   const lines = text.split("\n");
-  let offset = 0;
-  for (let index = 0; index < section.line - 1; index += 1) {
-    offset += (lines[index] ?? "").length + 1;
-  }
+  const above = lines.length - noteBody(text).split("\n").length;
+  const { coded } = fencedLines(lines.slice(above));
   const placed: Placed[] = [];
-  for (const line of section.text.split("\n")) {
-    const entry = parseTrainingLine(line);
-    if (entry !== null) placed.push({ from: offset, text: line, entry });
+  let inside = false;
+  let offset = 0;
+  for (const [index, line] of lines.entries()) {
+    const counts = index >= above && !coded.has(index - above);
+    if (counts && line.trimEnd() === TRAINING_HEADING) inside = true;
+    else if (counts && SECTION_END.test(line)) inside = false;
+    else if (counts && inside) {
+      const entry = parseTrainingLine(line);
+      if (entry !== null) placed.push({ from: offset, text: line, entry });
+    }
     offset += line.length + 1;
   }
   return placed;

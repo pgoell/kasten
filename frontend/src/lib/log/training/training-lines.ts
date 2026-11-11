@@ -72,7 +72,14 @@ const GROUP = new RegExp(
 const VALUE_PARTS = new RegExp(`^(?:(-?${NUMBER})[ \\t]*(${UNIT})|(nicht[ \\t]+)?ok)$`, "iu");
 const GROUP_SPLIT = /,[ \t]+/;
 
-const CARDIO_KINDS: Record<string, TrainingKind> = { "🚶": "walk", "🏃": "run", "🚲": "ride" };
+export type CardioKind = "walk" | "run" | "ride";
+
+/** The mark a cardio line opens with, by kind; the one table both reading and writing use. */
+export const CARDIO_MARK: Record<CardioKind, string> = { walk: "🚶", run: "🏃", ride: "🚲" };
+
+const CARDIO_KINDS = new Map<string, TrainingKind>(
+  (Object.keys(CARDIO_MARK) as CardioKind[]).map((kind) => [CARDIO_MARK[kind], kind]),
+);
 
 /** Epley drifts past ten reps, so a longer set gives no estimate. */
 const MAX_E1RM_REPS = 10;
@@ -177,7 +184,7 @@ function test(rest: string): Fields | null {
 function fieldsOf(mark: string, rest: string): [TrainingKind, Fields | null] {
   if (mark === "🏋") return ["strength", strength(rest)];
   if (mark === "📏") return ["test", test(rest)];
-  return [CARDIO_KINDS[mark] ?? "walk", cardio(rest)];
+  return [CARDIO_KINDS.get(mark) ?? "walk", cardio(rest)];
 }
 
 /** The entry a training line holds, or null for a line that is a plain bullet. */

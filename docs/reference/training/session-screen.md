@@ -71,9 +71,10 @@ writes nothing.
 
 ### The cardio form
 
-For a note whose `kind` is `cardio`, and for `Walk`, `Run` and `Ride`: a choice
-of Walk, Run or Ride, Minutes by 5 from 1, 30 to start, and Distance by
-0.5 km, where 0 writes no distance. `Save` writes the line and goes back to
+For a note whose `kind` is `cardio`, and for `Walk`, `Run` and `Ride`: Minutes
+by 5 from 1, 30 to start, and Distance by 0.5 km, where 0 writes no distance.
+Any cardio note but `Gehen`, `Joggen` and `Radfahren` also gets a choice of
+Walk, Run or Ride for the line's marker; on those three the note sets it. `Save` writes the line and goes back to
 the list. A run from the watch comes in on its own once the Garmin job exists
 (#1720).
 
@@ -91,7 +92,9 @@ own save takes it, and one `u` takes back one set.
 A line keeps one RPE, the format's rule, so a line whose sets were rated
 7, 8 and 9 reads `@9`. An extended line keeps its marker, link and alias as
 written. A new line goes at the end of the first `## Training`; a note without
-one gets the heading at its end. Weights and distances are written with a
+one gets the heading at its end. The screen and the card read the lines under
+every `## Training` of the note, spelled just so: a `### Training` or
+`## training` is not the log. Weights and distances are written with a
 point and no trailing zeros, `82.5`, `8`.
 
 ## The rest timer
