@@ -229,8 +229,9 @@ such a file has nothing left to ask and is left out.
   move each card's lines into the deck's note: one in a note that is no deck's
   own note and holds other cards too, one in two notes, or one edited in
   kasten whose marker line is not alone (a line above that ends no card, or a
-  schedule line below, as on a `?` card). An old note outside the export that
-  is not UTF-8 answers 409 `<path> is not UTF-8…` rather than lose its bytes.
+  schedule line below, as on a `?` card). A deck's own note, or an old note
+  outside the export, that is not UTF-8 answers 409 `<path> is not UTF-8…`
+  rather than lose its bytes.
   A deck note from before the marker gets the refusal above first. Where rg
   cannot read the whole vault to look, the import
   answers 503 `The vault could not be read whole…` and writes nothing.
