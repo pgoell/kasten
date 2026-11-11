@@ -16,10 +16,7 @@ export interface DayFood {
   goals: FoodGoals;
 }
 
-/**
- * The food search in the shared sheet, for the day the pane shows. `food` is passed in
- * rather than the date, because the sheet's figures need the day's totals and goals.
- */
+/** The food search in the shared sheet, for the day the pane shows. */
 export function useLogFoodSheet(
   panel: RefObject<HTMLElement | null>,
   day: string,

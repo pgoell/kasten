@@ -251,7 +251,10 @@ brackets and the cook taken off. Nothing is written.
 
 Answers a server-sent event stream in the wire format of
 [`GET /api/events`](/reference/http-api/system.md). It carries only the events
-for paths inside the shared folder. A change to any other note sends nothing.
+for paths inside the shared folder. A change to any other note sends nothing:
+the filter reads each event as the watcher yields it, so such a change never
+reaches the stream. The watcher runs in a task of its own, so a keepalive goes
+out without cancelling it.
 
 The stream is not compressed, as [the reverse-proxy page](/reference/reverse-proxy-routes.md#rules)
 says for the other streams.

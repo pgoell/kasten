@@ -89,27 +89,7 @@ async def import_anki(
     carry: bool = False,
     upload: str | None = None,
 ) -> AnkiImport | JSONResponse:
-    """Turn an Anki export into one markdown note per deck.
-
-    The bytes come as the raw body rather than as a multipart form, the way
-    `POST /api/assets/{path}` takes a book: one file, no fields beside it, and
-    no dependency on a form parser for a request that carries nothing to parse.
-
-    A deck already imported is merged into its note by `merge`, which keeps
-    every schedule in it, since that is a note you may have answered fifty
-    cards in. One imported before the cards carried their Anki ids is refused
-    instead, there being no telling its cards apart. A deck whose cards another
-    note already holds is refused too, since merging would add them a second time.
-
-    `carry` writes Anki's schedule onto every card Anki has in review, as the
-    comment a rating would leave, so the review picks up where Anki left off.
-    Only on a card the import adds: one already in the note keeps kasten's.
-
-    `upload` names a file sent in pieces through `/api/uploads`, read in place
-    of the body, which is then empty. Its import runs on past the request: an
-    answer within `anki_imports.ANSWER_BUDGET_SECONDS` is the one above, a slower one is a
-    202, and `GET /api/anki/imports/{upload}` answers for it after.
-    """
+    """Turn an Anki export into one markdown note per deck."""
     if upload is None:
         # Counted as it arrives, so an over-cap body is refused before it is held in RAM.
         # Read here, not at import, so a test lowering the cap reaches this.

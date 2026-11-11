@@ -28,6 +28,13 @@ def test_the_repo_passes() -> None:
     assert result.returncode == 0, result.stderr
 
 
+def test_no_route_file_keeps_a_long_docstring() -> None:
+    # A route's reasoning lives on its page under docs/reference/http-api/ (#1767).
+    baseline = (REPO / ".long-docstring-baseline").read_text(encoding="utf-8").splitlines()
+    routes = "backend/src/kasten_backend/routes/"
+    assert [line for line in baseline if line.startswith(routes)] == []
+
+
 def test_a_dense_file_fails(make_repo: Callable[..., Path]) -> None:
     root = make_repo()
     put(root, "backend/src/a.py", "# why\n" * 6 + CODE)  # 6 of 26 is 23%

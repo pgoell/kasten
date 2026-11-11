@@ -29,20 +29,7 @@ router = APIRouter()
 async def read_asset(
     path: str, settings: Annotated[Settings, Depends(get_settings)]
 ) -> FileResponse:
-    """Read one book or image out of the vault.
-
-    The only endpoint that answers with bytes rather than with a note. It
-    resolves a path, checks a suffix and streams a file; it never opens what it
-    sends, so nothing here knows what an epub or a png is beyond its name.
-
-    No `media_type`: `mimetypes` answers `application/epub+zip` for `.epub` and
-    `image/png` for `.png`, and starlette reads it off the path. `Range` comes
-    free with `FileResponse` and nothing uses it, the client asking for the whole
-    file once.
-
-    The `POST` below is the other half. Between them a book or an image gets into
-    the vault and back out of it without a terminal.
-    """
+    """Read one book, image or sound out of the vault, streamed unopened."""
     asset = resolve_asset(settings.vault_path, path)
     if asset is None:
         raise HTTPException(status_code=404, detail="No such file")
@@ -50,6 +37,8 @@ async def read_asset(
     return FileResponse(asset)
 
 
+# Without status_code OpenAPI documents a 200; without response_class it documents
+# a JSON body, which openapi-typescript turns into a body this answer never has.
 @router.post("/api/assets/{path:path}", status_code=201, response_class=Response)
 async def write_asset(
     path: str,
@@ -57,15 +46,9 @@ async def write_asset(
     settings: Annotated[Settings, Depends(get_settings)],
     upload: str | None = None,
 ) -> Response:
-    """Put one book or image into the vault, and never over one already there.
+    """Put one book, image or sound into the vault, and never over one already there.
 
-    Both decorator arguments earn their place. Without `status_code` the runtime
-    answers 201 while OpenAPI documents a 200; without `response_class` FastAPI
-    documents the 201 as JSON carrying an empty schema, and
-    `openapi-typescript` turns that into a body for a response that has none.
-
-    `upload` names a file sent in pieces through `/api/uploads`, streamed
-    through `store` in place of the body.
+    `upload` names a file sent in pieces through `/api/uploads`, read in place of the body.
     """
     limit = files.UPLOAD_LIMIT_BYTES
     if upload is not None:
@@ -128,27 +111,7 @@ async def write_piece(upload: str, n: Annotated[int, Segment(ge=0)], request: Re
 async def delete_asset(
     path: str, settings: Annotated[Settings, Depends(get_settings)]
 ) -> TrashEntry:
-    """Take one image out of the vault, and hold it in the trash.
-
-    The note delete's route read for an image, down to the entry it answers
-    with: `move_to_trash` moves whatever path it is handed, and the trash names
-    an entry after where it came from, so an image sits in there beside the notes
-    and `PATCH /api/trash/{entry}` puts it back with no rule of its own. That is
-    what makes a mistyped key cost a keypress rather than a picture in a vault
-    with no other delete.
-
-    Images and sounds, though `resolve_asset` answers for books too. A sound has
-    no note it travels with, so it goes the way an image does. A book travels
-    with the note beside it, and which of the pair a delete should take is a
-    decision nothing here has made; the file tree, which is what this route
-    serves, lists images and no books. So a book is a 404 like any other path
-    this does not serve, whichever of `BOOK_SUFFIXES` it ends in.
-
-    The notes pointing at the image are left alone, for the reason the note
-    delete leaves `[[link]]`s alone: rewriting them to say the picture is gone
-    would be the one edit a restore could not take back. The editor draws a
-    reference to a file that is not there as a picture that will not load.
-    """
+    """Take one image or sound out of the vault, and hold it in the trash."""
     async with vault_write():
         asset = resolve_asset(settings.vault_path, path)
         # Lowered, because `resolve_asset` answers for `Plan.PDF` too, and a
@@ -180,26 +143,7 @@ async def delete_asset(
 async def read_book(
     path: str, settings: Annotated[Settings, Depends(get_settings)]
 ) -> FileResponse:
-    """Read the book filed beside one note.
-
-    The path is the note's, `20 Literature/DDIA.md`, and never the book's. The
-    pair is a convention rather than a record, so the vault is the only thing
-    that can resolve it: a client working from the note alone would have to ask
-    for one suffix, read the 404 and ask for the next, which is a request per
-    format and a guess about the order they should be tried in. Here it is one
-    question, and `BOOK_SUFFIXES` answers it in the order the vault prefers.
-
-    `X-Book-Path` says which of the pair came back, spelled from the vault root.
-    A header rather than a body, the body being the book: the client names the
-    file it hands the reader after this, and draws the path in the panel it puts
-    up when a note has no book. Percent-encoded, because a header goes down the
-    wire as latin-1 and a book called `Grundzüge.pdf` would otherwise raise on
-    its way out.
-
-    No `media_type`, for the reason the asset read gives: `mimetypes` answers
-    `application/epub+zip` and `application/pdf` off the suffix, and starlette
-    reads it off the path.
-    """
+    """Read the book filed beside one note, named in `X-Book-Path`."""
     book = resolve_book(settings.vault_path, path)
     if book is None:
         raise HTTPException(status_code=404, detail="No book beside that note")

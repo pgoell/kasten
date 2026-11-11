@@ -81,8 +81,8 @@ other, so the vault holds them and its history shows each change.
 ## POST /api/anki
 
 Turns an Anki export into one markdown note per deck. Takes the `.apkg` bytes as
-the raw request body, the way `POST /api/assets/{path}` takes a book, and
-answers 201 with what was written.
+the raw request body, the way `POST /api/assets/{path}` takes a book: one file
+and no fields, so it needs no form parser. It answers 201 with what was written.
 
 The body is counted as it arrives. Past the upload cap it is refused with 413
 at the chunk that crosses it, and nothing after that chunk is read.

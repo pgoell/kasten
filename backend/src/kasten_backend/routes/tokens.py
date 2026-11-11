@@ -51,14 +51,7 @@ class TokenActionRead(BaseModel):
 
 @router.get("/api/tokens")
 async def read_tokens(settings: Annotated[Settings, Depends(get_settings)]) -> list[TokenUse]:
-    """Every agent token the store holds, by name, creation date and last use.
-
-    Never a digest and never a secret. Only the digest is kept at all, so there
-    is no way back to a secret from here even by mistake.
-
-    The list still answers when no database does: `last_used` is then null, and
-    a warning says why.
-    """
+    """Every agent token the store holds, by name, creation date and last use, with no secret."""
     tokens = await listing(settings.tokens_path)
     try:
         async with asyncio.timeout(settings.activity_timeout_seconds):
@@ -109,17 +102,7 @@ async def read_token_actions(
 async def create_token(
     named: TokenName, settings: Annotated[Settings, Depends(get_settings)]
 ) -> Minted:
-    """Mint one agent token, and hand back the only copy of its secret.
-
-    Under `/api/`, so it inherits oauth2-proxy and needs no authentication of
-    its own. That does put minting inside the internal trust zone, which
-    `the-agent-boundary.md` states plainly: the shell container reaches this
-    over the docker network without a session. It grants that container nothing,
-    since it already has the vault bind-mounted and every other `/api/` route.
-
-    A taken name is a 409, the create's answer, because the user is about to
-    retype it and has to know which it was.
-    """
+    """Mint one agent token, and hand back the only copy of its secret."""
     try:
         return await mint(settings.tokens_path, named.name, named.scope)
     except ValueError as taken:

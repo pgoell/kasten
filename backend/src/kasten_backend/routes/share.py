@@ -251,13 +251,7 @@ async def read_meals(
 
 @router.get("/events")
 async def stream_events(settings: Annotated[Settings, Depends(get_settings)]) -> StreamingResponse:
-    """Report every change to a note in the share folder, in the wire format `/api/events` uses.
-
-    The filter runs one event at a time, after the watcher, so a change anywhere
-    else is never written to the stream at all. The shape otherwise follows
-    `main.py`'s stream: the watcher runs in a task of its own, so a keepalive can
-    be written without cancelling it.
-    """
+    """Report every change to a note in the share folder, in the wire format `/api/events` uses."""
 
     async def report() -> AsyncIterator[str]:
         yield format_retry(RECONNECT_SECONDS)

@@ -71,7 +71,8 @@ The reply is the file, and the content type comes off the suffix. Nothing here
 opens what it sends: this resolves a path, checks the suffix and streams a file,
 so a `.epub` holding anything at all is served unchanged and the reader in the
 browser is what decides whether it is a book. `Range` comes free with the file
-response and nothing uses it, the client asking for the whole file once.
+response and nothing uses it, the client asking for the whole file once. With
+the `POST` below, a file gets into the vault and back out without a terminal.
 
 Anything that is not a readable file of one of those suffixes inside the vault
 is a `404`, on the same rules the note read follows: a path that climbs out with
@@ -222,11 +223,13 @@ with the entry it became.
 
 The note delete's route read for an image, down to the entry: the trash names an
 entry after where it came from, so an image sits in there beside the notes, and
-[the restore](/reference/http-api/trash-and-history.md#patch-apitrashentry) puts it back with no rule of its own. The
-folder the image emptied goes with it, the way a note's delete takes the one it
-emptied.
+[the restore](/reference/http-api/trash-and-history.md#patch-apitrashentry) puts it back with no rule of its own. So
+a mistyped key costs a keypress rather than a picture, in a vault with no other
+delete. The folder the image emptied goes with it, the way a note's delete
+takes the one it emptied.
 
-Images alone. A book is a `404` like any other path this does not serve,
+Images and sounds alone: a sound has no note it travels with, so it goes the
+way an image does. A book is a `404` like any other path this does not serve,
 whichever of the two suffixes it ends in: a book travels with the note beside it, and which of the pair a delete should take
 is a decision nothing here has made. The file tree, which is what this route
 serves, lists images and no books.
@@ -254,7 +257,9 @@ should be tried in. Here it is one question.
 
 `.epub` first and `.pdf` second, so a note with both beside it is answered with
 the epub, which is the one that reflows. Which of the two came back is in a
-header rather than in the body, the body being the book:
+header rather than in the body, the body being the book. The client names the
+file it hands the reader by it, and draws it in the panel it shows when a note
+has no book:
 
 | Header | Carries |
 | --- | --- |

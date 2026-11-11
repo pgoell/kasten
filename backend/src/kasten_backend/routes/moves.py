@@ -88,29 +88,7 @@ class Restored(BaseModel):
 async def move_file(
     path: str, move: NoteMove, settings: Annotated[Settings, Depends(get_settings)]
 ) -> Note:
-    """Give one note a new path, moving it between folders as well as renaming it.
-
-    `PATCH` rather than a `/rename` route because the path is the note's
-    identity: `POST` starts a note, `PUT` replaces its text, and this changes
-    where it lives. A verb in the URL would be the same thing spelled as a
-    remote procedure call.
-
-    A missing source is a 404, matching the read and the write, so a note you
-    cannot open stays a note you cannot move. The target names its refusal the
-    way a create does, a 400 for a path the vault will not have and a 409 for
-    one already taken, because the user is about to retype it and has to know
-    which it was.
-
-    The text comes back read off disk rather than carried over from the client.
-    Both the URL and the query key change on a move, and seeding the new one
-    from here is what stops a note edited outside kasten arriving stale on the
-    other side.
-
-    The books beside the note travel with it, or the pair stops being a pair.
-    The answer says nothing about that, because there is nothing a client does
-    differently: it asks `/api/books` about the path it moved the note to, the
-    way it always has.
-    """
+    """Give one note a new path, between folders or by a rename; the books beside it go too."""
     async with vault_write():
         note = resolve_note(settings.vault_path, path)
         if note is None:
@@ -150,27 +128,7 @@ async def move_file(
 async def move_folder(
     path: str, move: FolderMove, settings: Annotated[Settings, Depends(get_settings)]
 ) -> Folder:
-    """Give one folder a new path, and every note under it a new path with it.
-
-    Its own route rather than the one above, because a folder is not a note and
-    `/api/files/inbox` cannot mean the folder on a `PATCH` and nothing at all on
-    a `GET`. What the two share is the shape: the URL says where it lives now,
-    the body where it should live from here on.
-
-    The refusals are the note's, read for a folder. A source that is not a
-    folder is a 404, a note at that path included, so the one way to move a note
-    stays the route above. The target names its refusal, a 400 for a path the
-    vault will not have and a 409 for one already taken, because the user is
-    about to retype it.
-
-    A target inside the source is a 400 too. A folder cannot hold itself, and
-    `rename` raises on that rather than refusing, so it is caught here with the
-    rest.
-
-    No content comes back. The notes under the folder are at new paths now, but
-    they are unchanged, and the client works out where they went from the folder
-    path alone.
-    """
+    """Give one folder a new path, and every note under it a new path with it."""
     async with vault_write():
         folder = resolve_folder(settings.vault_path, path)
         if folder is None:
@@ -212,17 +170,7 @@ class MovePreview(BaseModel):
 async def preview_move(
     source: str, target: str, settings: Annotated[Settings, Depends(get_settings)]
 ) -> MovePreview:
-    """Which files moving `source` to `target` would rewrite, and nothing written.
-
-    A `GET` beside the two `PATCH` routes rather than a flag on them, because
-    it changes nothing and answers with something neither of them does. The
-    tree asks it before a drop, so the confirm can say how far a move reaches.
-
-    `source` is a note or a folder, whichever the vault holds there. Nothing
-    there is a 404 and a target the vault will not take is a 400, the refusals
-    the move itself would give. A target already taken is not refused: the
-    move will say so, and the question here is only about links.
-    """
+    """Which files moving `source` to `target` would rewrite, and nothing written."""
     async with vault_write():
         note = resolve_note(settings.vault_path, source)
         found = note or resolve_folder(settings.vault_path, source)
@@ -246,21 +194,7 @@ async def preview_move(
 async def delete_file(
     path: str, settings: Annotated[Settings, Depends(get_settings)]
 ) -> TrashEntry:
-    """Take one note out of the vault, and hold it in the trash.
-
-    A `DELETE` that keeps the note is not a contradiction: what the vault holds
-    is what these routes answer about, and the note stops being one of them the
-    moment it moves. Nothing lists it, nothing searches it and no path reaches
-    it, because everything here refuses a hidden folder.
-
-    A missing note is a 404, matching the read, the write and the move, so a
-    note you cannot open is a note you cannot delete.
-
-    The links pointing at it are left alone. A `[[link]]` names a note rather
-    than a place, the editor already draws one nothing answers to as missing,
-    and rewriting the vault to say a note is gone would be the one edit a
-    restore could not take back.
-    """
+    """Take one note out of the vault, and hold it in the trash."""
     async with vault_write():
         note = resolve_note(settings.vault_path, path)
         if note is None:
@@ -275,17 +209,7 @@ async def delete_file(
 async def delete_folder(
     path: str, settings: Annotated[Settings, Depends(get_settings)]
 ) -> TrashEntry:
-    """Take one folder out of the vault, and every note under it with it.
-
-    Its own route rather than the one above, for the reason the folder's move
-    has one: `/api/files/inbox` cannot mean the folder here and nothing at all
-    on a `GET`. A source that is not a folder is a 404, a note at that path
-    included, so the one way to delete a note stays the route above.
-
-    One entry in the trash, not one per note. The folder went in one rename and
-    it comes back in one, so the thing you get back is the folder you deleted
-    rather than a list of notes to put back yourself.
-    """
+    """Take one folder out of the vault, and every note under it with it, as one trash entry."""
     async with vault_write():
         folder = resolve_folder(settings.vault_path, path)
         if folder is None:
@@ -298,13 +222,7 @@ async def delete_folder(
 
 @router.get("/api/trash")
 async def read_trash(settings: Annotated[Settings, Depends(get_settings)]) -> list[TrashEntry]:
-    """Everything the trash is holding, newest first.
-
-    Read off the names in `.trash` rather than out of a list somebody has to
-    keep in step. The name of an entry says where it came from and when it
-    went, which is the whole record, so a note moved out of the trash by hand
-    stops being on this list by the same act.
-    """
+    """Everything the trash is holding, newest first, read off the entry names in `.trash`."""
     return [TrashEntry.of(found) for found in list_trash(settings.vault_path)]
 
 
@@ -312,13 +230,7 @@ async def read_trash(settings: Annotated[Settings, Depends(get_settings)]) -> li
 async def restore_entry(
     entry: str, settings: Annotated[Settings, Depends(get_settings)]
 ) -> Restored:
-    """Put one entry back where it was deleted from.
-
-    `PATCH`, and no body, for the reason a move is one: this changes where
-    something lives, and where it should live is already written in the entry's
-    own name. An entry the trash has not got is a 404, and a path something has
-    taken since is a 409, which is the create's answer and the move's.
-    """
+    """Put one entry back where it was deleted from, the place its own name records."""
     async with vault_write():
         found = resolve_entry(settings.vault_path, entry)
         if found is None:

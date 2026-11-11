@@ -706,13 +706,7 @@ export interface paths {
         };
         /**
          * List Vault Assets
-         * @description List every image and book in the vault as a relative POSIX path, sorted.
-         *
-         *     What the editor asks before it draws a `[[plan.pdf]]` as live or dead, so
-         *     the books are in it where `/api/images` leaves them out. Not `/api/assets`,
-         *     whose `GET` with a path serves one file: an empty path there is a 404 for a
-         *     file nobody named, and a listing beside it would be the same URL meaning two
-         *     things.
+         * @description List every image, sound and book in the vault as a relative POSIX path, sorted.
          */
         get: operations["list_vault_assets_api_vault_assets_get"];
         put?: never;
@@ -734,10 +728,7 @@ export interface paths {
          * Read Html
          * @description Read one HTML page out of the vault, to be drawn in a frame and not trusted.
          *
-         *     The page is whatever a research run or a terminal left there, script
-         *     included, and this is kasten's origin. `HTML_POLICY` is what keeps the two
-         *     apart. `theme` and `palette` are the frame's colours for a page that opts in
-         *     with the kasten-theme meta; `serve_page` says what they do.
+         *     `HTML_POLICY` keeps its script off kasten's origin; `serve_page` applies `theme` and `palette`.
          */
         get: operations["read_html_api_html__path__get"];
         put?: never;
@@ -780,16 +771,7 @@ export interface paths {
         };
         /**
          * List Terminals
-         * @description Name every herdr session a terminal pane could attach to, sorted.
-         *
-         *     A listing of a directory the shell container owns, and nothing more. herdr
-         *     is not run and the sessions are not touched, so this cannot say which are
-         *     running; a name is enough for the prompt, and `herdr --session` attaches to
-         *     a stopped session and starts a missing one alike.
-         *
-         *     An absent directory is not an error. The mount is optional and the shell
-         *     container need not be up for the notebook to work, so the prompt falls back
-         *     to a name typed by hand.
+         * @description Name every herdr session a terminal pane could attach to, sorted; no directory is `[]`.
          */
         get: operations["list_terminals_api_terminals_get"];
         put?: never;
@@ -809,28 +791,7 @@ export interface paths {
         };
         /**
          * Fetch Page
-         * @description Read one web page off the internet and hand it back unchanged.
-         *
-         *     One of two endpoints that read something other than the vault, the other
-         *     being `/api/transcripts`, and it writes nothing: what comes back is markup,
-         *     and turning it into a note happens in the browser, where defuddle runs.
-         *     That is where it has to run. defuddle is a DOM library, the browser has the
-         *     DOM, and the alternative is a second extractor in Python that would read the
-         *     same pages differently.
-         *
-         *     Fetching cannot happen there, though: a page from another origin is one the
-         *     browser will request and not let the script read, so the request comes from
-         *     here.
-         *
-         *     http and https and nothing else. The scheme is the trust boundary: `file://`
-         *     would read this container's disk and hand it to the browser, and the check
-         *     is made before anything is opened. The address is the other half of it, and
-         *     `files._PublicOnly` holds every connection, redirects included, to the
-         *     public internet.
-         *
-         *     A page that could not be read is a 502 rather than the status the other end
-         *     gave. The reader asked kasten for a note and kasten could not get one; a
-         *     404 here would say the endpoint is missing.
+         * @description Read one web page off the internet and hand it back unchanged, for defuddle to read.
          */
         get: operations["fetch_page_api_fetch_get"];
         put?: never;
@@ -850,18 +811,7 @@ export interface paths {
         };
         /**
          * Fetch Transcript
-         * @description Read the captions of one YouTube video.
-         *
-         *     The second endpoint that reaches the internet, and a narrower one than
-         *     `/api/fetch`: it takes the eleven characters YouTube names a video with and
-         *     nothing else, so what it asks for is always a YouTube video and never an
-         *     address someone chose. The pattern is the `[\w-]{11}` `video.ts` reads off
-         *     a note, spelled out: `\w` in the Rust regex pydantic checks with is every
-         *     letter in Unicode, where in JavaScript it is ASCII.
-         *
-         *     A video with nothing to read is a 404, and YouTube refusing to answer this
-         *     machine is a 502, the line `/api/fetch` draws too: the first is about the
-         *     video, the second about kasten failing to ask.
+         * @description Read the captions of one YouTube video, named by its eleven-character id.
          */
         get: operations["fetch_transcript_api_transcripts__video_id__get"];
         put?: never;
@@ -882,11 +832,6 @@ export interface paths {
         /**
          * Read Day Weather
          * @description The weather on one day, hour by hour, for each place the settings name.
-         *
-         *     The third endpoint that reaches the internet, and the narrowest: a date
-         *     goes out and nothing else, to one fixed host. A day Open-Meteo cannot
-         *     answer for is a 404, the card's cue to draw nothing; Open-Meteo failing to
-         *     answer is a 502, the line the other two draw.
          */
         get: operations["read_day_weather_api_weather_get"];
         put?: never;
@@ -906,13 +851,7 @@ export interface paths {
         };
         /**
          * List Mentions
-         * @description Find every line in another note that names this one in plain text.
-         *
-         *     Obsidian's unlinked mentions: the note's title and its aliases, whole and
-         *     ignoring case, outside links, code and frontmatter. What the backlinks pane
-         *     lists under the links, so one key can turn a mention into a link.
-         *
-         *     `archive` walks the archive folder too, off by default as on a search.
+         * @description Find every line in another note that names this one in plain text, outside links.
          */
         get: operations["list_mentions_api_mentions_get"];
         put?: never;
@@ -979,24 +918,7 @@ export interface paths {
         };
         /**
          * List Todos
-         * @description Find every checkbox line and every time session line in the vault.
-         *
-         *     Candidate lines, not todos. Whether one of these is open or overdue is read
-         *     on the client, off the same parser the editor draws a todo with, so the
-         *     vault has one reader of the format rather than two in two languages.
-         *
-         *     The project is the exception, read here off each line's indent, tags and
-         *     links by `projects_of`, so an agent reading this sees the lane the board
-         *     draws without a copy of the rule. The links resolve against the notes
-         *     `GET /api/files` lists, the archive among them.
-         *
-         *     Answers in search's shape plus the project, which is what lets the overlay
-         *     rank these through the ranking it already has and open a note on the line it
-         *     found.
-         *
-         *     `archive` walks the archive folder too, and is off for the reason it is off
-         *     on a search: a finished project's open checkboxes are true of the note and
-         *     false of the week.
+         * @description Find every checkbox line and every time session line in the vault, each with its project.
          */
         get: operations["list_todos_api_todos_get"];
         put?: never;
@@ -1016,19 +938,7 @@ export interface paths {
         };
         /**
          * List Cards
-         * @description Find every line in the vault that could be part of a flashcard.
-         *
-         *     Candidate lines, not cards. Which of them is a question, which note is a
-         *     deck and which card is due are all read on the client, off the same parser
-         *     the review pane draws a card with, so the vault has one reader of the format
-         *     rather than two in two languages.
-         *
-         *     Answers in search's shape, so the client can open the note a card is in on
-         *     the line it sits on.
-         *
-         *     `archive` walks the archive folder too, and is off for the reason it is off
-         *     on a search: moving a deck into the archive is how you stop being asked
-         *     about it, and nothing else about the note changes.
+         * @description Find every line in the vault that could be part of a flashcard; the client parses them.
          */
         get: operations["list_cards_api_cards_get"];
         put?: never;
@@ -1048,13 +958,7 @@ export interface paths {
         };
         /**
          * List Written
-         * @description The day each note outside the archive counts on, for the notes written from `from` to `to`.
-         *
-         *     Each answer is the date a note counts on, as search dates its hits: the name's
-         *     day, else `created`, else the file's modification time. A day is an answer
-         *     as written, and an instant keeps its offset, so the client works out the
-         *     reader's own day. A day either side of the range is answered too, for the
-         *     same reason. Sorted, and read only: nothing is written or stored.
+         * @description The day each note outside the archive counts on, for notes written from `from` to `to`.
          */
         get: operations["list_written_api_written_get"];
         put?: never;
@@ -1145,15 +1049,6 @@ export interface paths {
         /**
          * Show Graph
          * @description The notes as a graph, narrowed by a filter or asked a pattern.
-         *
-         *     The query is text and the backend reads it, so the pane, this route and the
-         *     agent's tool share one parser. `around` names a note and draws only what is
-         *     within `depth` links of it, which is the local graph. A query that cannot
-         *     be read is a 400 whose detail says why, in words the pane shows as they are.
-         *
-         *     `archive` walks the archive folder too, off for the reason it is off on a
-         *     search: a finished project's links are true of the note and not of the
-         *     vault as it is now.
          */
         get: operations["show_graph_api_graph_get"];
         put?: never;
@@ -1173,20 +1068,7 @@ export interface paths {
         };
         /**
          * Search Files
-         * @description Find every line in the vault containing `q`, ignoring case.
-         *
-         *     A literal match, not a regex and not a fuzzy one. The client ranks what
-         *     comes back, which is what makes the finder feel fuzzy without asking a
-         *     subsequence match to mean something over prose, where it matches everything.
-         *
-         *     The notes come first and then the lines of the pdf, epub and html files, read
-         *     from the text cache, which is brought up to date before the search. A blank
-         *     query answers nothing and extracts nothing.
-         *
-         *     `archive` walks the archive folder too. Off by default, because what is
-         *     filed away is not usually what is being looked for, and the cap on what
-         *     comes back means an archive left in would eventually push live notes out of
-         *     the answer rather than merely lengthening it.
+         * @description Find every line in the vault containing `q`, ignoring case; the client ranks the hits.
          */
         get: operations["search_files_api_search_get"];
         put?: never;
@@ -1463,11 +1345,6 @@ export interface paths {
         /**
          * Read Github
          * @description The contributions the configured GitHub user made each day from `from` to `to`.
-         *
-         *     Off, with GitHub never asked, unless both `KASTEN_GITHUB_TOKEN` and
-         *     `KASTEN_GITHUB_USER` are set. The token and the user name are never in the
-         *     answer. A day already read is answered from the cache file, as
-         *     [the reference](/reference/http-api/capture.md#get-apigithub) says.
          */
         get: operations["read_github_api_github_get"];
         put?: never;
@@ -1753,25 +1630,6 @@ export interface paths {
         /**
          * Import Anki
          * @description Turn an Anki export into one markdown note per deck.
-         *
-         *     The bytes come as the raw body rather than as a multipart form, the way
-         *     `POST /api/assets/{path}` takes a book: one file, no fields beside it, and
-         *     no dependency on a form parser for a request that carries nothing to parse.
-         *
-         *     A deck already imported is merged into its note by `merge`, which keeps
-         *     every schedule in it, since that is a note you may have answered fifty
-         *     cards in. One imported before the cards carried their Anki ids is refused
-         *     instead, there being no telling its cards apart. A deck whose cards another
-         *     note already holds is refused too, since merging would add them a second time.
-         *
-         *     `carry` writes Anki's schedule onto every card Anki has in review, as the
-         *     comment a rating would leave, so the review picks up where Anki left off.
-         *     Only on a card the import adds: one already in the note keeps kasten's.
-         *
-         *     `upload` names a file sent in pieces through `/api/uploads`, read in place
-         *     of the body, which is then empty. Its import runs on past the request: an
-         *     answer within `anki_imports.ANSWER_BUDGET_SECONDS` is the one above, a slower one is a
-         *     202, and `GET /api/anki/imports/{upload}` answers for it after.
          */
         post: operations["import_anki_api_anki_post"];
         delete?: never;
@@ -1837,28 +1695,13 @@ export interface paths {
         };
         /**
          * Read Tokens
-         * @description Every agent token the store holds, by name, creation date and last use.
-         *
-         *     Never a digest and never a secret. Only the digest is kept at all, so there
-         *     is no way back to a secret from here even by mistake.
-         *
-         *     The list still answers when no database does: `last_used` is then null, and
-         *     a warning says why.
+         * @description Every agent token the store holds, by name, creation date and last use, with no secret.
          */
         get: operations["read_tokens_api_tokens_get"];
         put?: never;
         /**
          * Create Token
          * @description Mint one agent token, and hand back the only copy of its secret.
-         *
-         *     Under `/api/`, so it inherits oauth2-proxy and needs no authentication of
-         *     its own. That does put minting inside the internal trust zone, which
-         *     `the-agent-boundary.md` states plainly: the shell container reaches this
-         *     over the docker network without a session. It grants that container nothing,
-         *     since it already has the vault bind-mounted and every other `/api/` route.
-         *
-         *     A taken name is a 409, the create's answer, because the user is about to
-         *     retype it and has to know which it was.
          */
         post: operations["create_token_api_tokens_post"];
         delete?: never;
@@ -3407,11 +3250,6 @@ export interface paths {
         /**
          * Stream Events
          * @description Report every change to a note in the share folder, in the wire format `/api/events` uses.
-         *
-         *     The filter runs one event at a time, after the watcher, so a change anywhere
-         *     else is never written to the stream at all. The shape otherwise follows
-         *     `main.py`'s stream: the watcher runs in a task of its own, so a keepalive can
-         *     be written without cancelling it.
          */
         get: operations["stream_events_share_events_get"];
         put?: never;
@@ -3494,57 +3332,20 @@ export interface paths {
         };
         /**
          * Read Asset
-         * @description Read one book or image out of the vault.
-         *
-         *     The only endpoint that answers with bytes rather than with a note. It
-         *     resolves a path, checks a suffix and streams a file; it never opens what it
-         *     sends, so nothing here knows what an epub or a png is beyond its name.
-         *
-         *     No `media_type`: `mimetypes` answers `application/epub+zip` for `.epub` and
-         *     `image/png` for `.png`, and starlette reads it off the path. `Range` comes
-         *     free with `FileResponse` and nothing uses it, the client asking for the whole
-         *     file once.
-         *
-         *     The `POST` below is the other half. Between them a book or an image gets into
-         *     the vault and back out of it without a terminal.
+         * @description Read one book, image or sound out of the vault, streamed unopened.
          */
         get: operations["read_asset_api_assets__path__get"];
         put?: never;
         /**
          * Write Asset
-         * @description Put one book or image into the vault, and never over one already there.
+         * @description Put one book, image or sound into the vault, and never over one already there.
          *
-         *     Both decorator arguments earn their place. Without `status_code` the runtime
-         *     answers 201 while OpenAPI documents a 200; without `response_class` FastAPI
-         *     documents the 201 as JSON carrying an empty schema, and
-         *     `openapi-typescript` turns that into a body for a response that has none.
-         *
-         *     `upload` names a file sent in pieces through `/api/uploads`, streamed
-         *     through `store` in place of the body.
+         *     `upload` names a file sent in pieces through `/api/uploads`, read in place of the body.
          */
         post: operations["write_asset_api_assets__path__post"];
         /**
          * Delete Asset
-         * @description Take one image out of the vault, and hold it in the trash.
-         *
-         *     The note delete's route read for an image, down to the entry it answers
-         *     with: `move_to_trash` moves whatever path it is handed, and the trash names
-         *     an entry after where it came from, so an image sits in there beside the notes
-         *     and `PATCH /api/trash/{entry}` puts it back with no rule of its own. That is
-         *     what makes a mistyped key cost a keypress rather than a picture in a vault
-         *     with no other delete.
-         *
-         *     Images and sounds, though `resolve_asset` answers for books too. A sound has
-         *     no note it travels with, so it goes the way an image does. A book travels
-         *     with the note beside it, and which of the pair a delete should take is a
-         *     decision nothing here has made; the file tree, which is what this route
-         *     serves, lists images and no books. So a book is a 404 like any other path
-         *     this does not serve, whichever of `BOOK_SUFFIXES` it ends in.
-         *
-         *     The notes pointing at the image are left alone, for the reason the note
-         *     delete leaves `[[link]]`s alone: rewriting them to say the picture is gone
-         *     would be the one edit a restore could not take back. The editor draws a
-         *     reference to a file that is not there as a picture that will not load.
+         * @description Take one image or sound out of the vault, and hold it in the trash.
          */
         delete: operations["delete_asset_api_assets__path__delete"];
         options?: never;
@@ -3606,25 +3407,7 @@ export interface paths {
         };
         /**
          * Read Book
-         * @description Read the book filed beside one note.
-         *
-         *     The path is the note's, `20 Literature/DDIA.md`, and never the book's. The
-         *     pair is a convention rather than a record, so the vault is the only thing
-         *     that can resolve it: a client working from the note alone would have to ask
-         *     for one suffix, read the 404 and ask for the next, which is a request per
-         *     format and a guess about the order they should be tried in. Here it is one
-         *     question, and `BOOK_SUFFIXES` answers it in the order the vault prefers.
-         *
-         *     `X-Book-Path` says which of the pair came back, spelled from the vault root.
-         *     A header rather than a body, the body being the book: the client names the
-         *     file it hands the reader after this, and draws the path in the panel it puts
-         *     up when a note has no book. Percent-encoded, because a header goes down the
-         *     wire as latin-1 and a book called `Grundzüge.pdf` would otherwise raise on
-         *     its way out.
-         *
-         *     No `media_type`, for the reason the asset read gives: `mimetypes` answers
-         *     `application/epub+zip` and `application/pdf` off the suffix, and starlette
-         *     reads it off the path.
+         * @description Read the book filed beside one note, named in `X-Book-Path`.
          */
         get: operations["read_book_api_books__path__get"];
         put?: never;
@@ -3652,115 +3435,26 @@ export interface paths {
         get: operations["read_file_api_files__path__get"];
         /**
          * Save File
-         * @description Write one note back to the vault.
-         *
-         *     Only over a note that is already there. Everything the read refuses is
-         *     refused here too, and for the same reason, so a note you cannot open is a
-         *     note you cannot overwrite.
-         *
-         *     The text is stamped on the way through, which dates the note and gives one
-         *     written before kasten its id. The note on disk is read for that, so the id
-         *     it already has outlives a client that sends the note back without one. What
-         *     comes back is therefore what landed on disk rather than what arrived, and it
-         *     is the only thing the client may believe: its own copy is a save behind from
-         *     the moment it sends it.
-         *
-         *     The jj change is started before the write and the snapshot taken after, so
-         *     the edit is bracketed by the history rather than trailing it. A vault that
-         *     is not a jj repo skips both.
-         *
-         *     A `base` makes the write conditional, a 409 when the disk no longer holds
-         *     that text. An autosave in the air when another writer wrote would otherwise
-         *     land over that writer's text unasked. The base sets `modified` aside because
-         *     every save restamps it, so a client that sent its text and has not heard
-         *     back yet can still name that text as its base.
-         *
-         *     For the same reason the base may name the text with the lines `stamp` added
-         *     set aside: an id, a creation date or a type at the head of the block, or the
-         *     whole block on a note sent without one. A page-hide keepalive typed behind a
-         *     quiet write names the text that write sent, and the stamp it landed with is
-         *     no other writer's. The body must match exactly, and anything else is a 409.
-         *
-         *     A stale base over a disk that already holds the text is a 200 with the note
-         *     as it stands, and nothing is written. A page-hide keepalive and the quiet
-         *     write it repeats can land in either order, and the second is no conflict.
+         * @description Write one note back to the vault, conditional on `base` when one is sent.
          */
         put: operations["save_file_api_files__path__put"];
         /**
          * Create File
          * @description Start a new note in the vault, empty unless a body comes with it.
          *
-         *     This one says why it refused, unlike the read and the write: a 409 for a
-         *     path already taken and a 400 for one the vault will not have. The user is
-         *     about to retype the path and has to know which it was, and the one user
-         *     behind oauth2-proxy learns nothing from a 409 that `GET /api/files` did not
-         *     already hand them.
-         *
-         *     The path that comes back is the canonical spelling, not the URL's, because
-         *     the client navigates to it and `ideas/./kasten.md` must not end up in the
-         *     address bar.
-         *
-         *     The note starts with its frontmatter, so it has an id from the first moment
-         *     it exists rather than from its first save. A body is written under that
-         *     block and is stamped on the way through, the way a save's text is, so a
-         *     body carrying a block of its own keeps the fields in it.
-         *
-         *     The body is optional because most creates have nothing to write: a note the
-         *     reader is about to type is one they type themselves. It exists for the
-         *     client that already knows the text, the periodic notes above all, which
-         *     would otherwise have to save straight over the note they just made. That
-         *     second write is a second event on `/api/events`, and one arriving while the
-         *     reader types into the note it names reads as another writer.
-         *
-         *     The new note gets its own jj change, bracketed the way a save is. Both
-         *     refusals return before any of that, so a bounced create leaves no change
-         *     behind.
+         *     A 409 for a path taken and a 400 for one the vault will not have, both before any write.
          */
         post: operations["create_file_api_files__path__post"];
         /**
          * Delete File
          * @description Take one note out of the vault, and hold it in the trash.
-         *
-         *     A `DELETE` that keeps the note is not a contradiction: what the vault holds
-         *     is what these routes answer about, and the note stops being one of them the
-         *     moment it moves. Nothing lists it, nothing searches it and no path reaches
-         *     it, because everything here refuses a hidden folder.
-         *
-         *     A missing note is a 404, matching the read, the write and the move, so a
-         *     note you cannot open is a note you cannot delete.
-         *
-         *     The links pointing at it are left alone. A `[[link]]` names a note rather
-         *     than a place, the editor already draws one nothing answers to as missing,
-         *     and rewriting the vault to say a note is gone would be the one edit a
-         *     restore could not take back.
          */
         delete: operations["delete_file_api_files__path__delete"];
         options?: never;
         head?: never;
         /**
          * Move File
-         * @description Give one note a new path, moving it between folders as well as renaming it.
-         *
-         *     `PATCH` rather than a `/rename` route because the path is the note's
-         *     identity: `POST` starts a note, `PUT` replaces its text, and this changes
-         *     where it lives. A verb in the URL would be the same thing spelled as a
-         *     remote procedure call.
-         *
-         *     A missing source is a 404, matching the read and the write, so a note you
-         *     cannot open stays a note you cannot move. The target names its refusal the
-         *     way a create does, a 400 for a path the vault will not have and a 409 for
-         *     one already taken, because the user is about to retype it and has to know
-         *     which it was.
-         *
-         *     The text comes back read off disk rather than carried over from the client.
-         *     Both the URL and the query key change on a move, and seeding the new one
-         *     from here is what stops a note edited outside kasten arriving stale on the
-         *     other side.
-         *
-         *     The books beside the note travel with it, or the pair stops being a pair.
-         *     The answer says nothing about that, because there is nothing a client does
-         *     differently: it asks `/api/books` about the path it moved the note to, the
-         *     way it always has.
+         * @description Give one note a new path, between folders or by a rename; the books beside it go too.
          */
         patch: operations["move_file_api_files__path__patch"];
         trace?: never;
@@ -3776,23 +3470,7 @@ export interface paths {
         put?: never;
         /**
          * Capture Dump
-         * @description Add one paragraph to the `## Dump` section of a day's note.
-         *
-         *     The daily ritual reads that section at 17:00 and plans the next day from it,
-         *     and this is the way into it from anywhere else: a key in the app, a page on
-         *     a phone, a share from another app. The note and the section are made where
-         *     the vault has neither, the note exactly as `<leader>gd` would make it.
-         *
-         *     A route of its own rather than a read and a `PUT` from the client, because
-         *     the read and the write happen under one hold of the lock. A phone and an
-         *     editor autosaving the same note would otherwise race, and the loser's
-         *     paragraph would vanish.
-         *
-         *     `agent.dump` is the whole of it, and `POST /agent/dump` calls the same
-         *     function: one rule about where a thought lands, whoever sent it. Text with
-         *     nothing in it after the trim is a 422, answered by the handler registered
-         *     above. Only this route takes the capture's `id`, which makes a phone's
-         *     resend of a queued capture write nothing the second time.
+         * @description Add one paragraph to the `## Dump` section of a day's note, under one hold of the lock.
          */
         post: operations["capture_dump_api_dump_post"];
         delete?: never;
@@ -3813,16 +3491,7 @@ export interface paths {
         post?: never;
         /**
          * Delete Folder
-         * @description Take one folder out of the vault, and every note under it with it.
-         *
-         *     Its own route rather than the one above, for the reason the folder's move
-         *     has one: `/api/files/inbox` cannot mean the folder here and nothing at all
-         *     on a `GET`. A source that is not a folder is a 404, a note at that path
-         *     included, so the one way to delete a note stays the route above.
-         *
-         *     One entry in the trash, not one per note. The folder went in one rename and
-         *     it comes back in one, so the thing you get back is the folder you deleted
-         *     rather than a list of notes to put back yourself.
+         * @description Take one folder out of the vault, and every note under it with it, as one trash entry.
          */
         delete: operations["delete_folder_api_folders__path__delete"];
         options?: never;
@@ -3830,25 +3499,6 @@ export interface paths {
         /**
          * Move Folder
          * @description Give one folder a new path, and every note under it a new path with it.
-         *
-         *     Its own route rather than the one above, because a folder is not a note and
-         *     `/api/files/inbox` cannot mean the folder on a `PATCH` and nothing at all on
-         *     a `GET`. What the two share is the shape: the URL says where it lives now,
-         *     the body where it should live from here on.
-         *
-         *     The refusals are the note's, read for a folder. A source that is not a
-         *     folder is a 404, a note at that path included, so the one way to move a note
-         *     stays the route above. The target names its refusal, a 400 for a path the
-         *     vault will not have and a 409 for one already taken, because the user is
-         *     about to retype it.
-         *
-         *     A target inside the source is a 400 too. A folder cannot hold itself, and
-         *     `rename` raises on that rather than refusing, so it is caught here with the
-         *     rest.
-         *
-         *     No content comes back. The notes under the folder are at new paths now, but
-         *     they are unchanged, and the client works out where they went from the folder
-         *     path alone.
          */
         patch: operations["move_folder_api_folders__path__patch"];
         trace?: never;
@@ -3863,15 +3513,6 @@ export interface paths {
         /**
          * Preview Move
          * @description Which files moving `source` to `target` would rewrite, and nothing written.
-         *
-         *     A `GET` beside the two `PATCH` routes rather than a flag on them, because
-         *     it changes nothing and answers with something neither of them does. The
-         *     tree asks it before a drop, so the confirm can say how far a move reaches.
-         *
-         *     `source` is a note or a folder, whichever the vault holds there. Nothing
-         *     there is a 404 and a target the vault will not take is a 400, the refusals
-         *     the move itself would give. A target already taken is not refused: the
-         *     move will say so, and the question here is only about links.
          */
         get: operations["preview_move_api_move_preview_get"];
         put?: never;
@@ -3891,12 +3532,7 @@ export interface paths {
         };
         /**
          * Read Trash
-         * @description Everything the trash is holding, newest first.
-         *
-         *     Read off the names in `.trash` rather than out of a list somebody has to
-         *     keep in step. The name of an entry says where it came from and when it
-         *     went, which is the whole record, so a note moved out of the trash by hand
-         *     stops being on this list by the same act.
+         * @description Everything the trash is holding, newest first, read off the entry names in `.trash`.
          */
         get: operations["read_trash_api_trash_get"];
         put?: never;
@@ -3922,12 +3558,7 @@ export interface paths {
         head?: never;
         /**
          * Restore Entry
-         * @description Put one entry back where it was deleted from.
-         *
-         *     `PATCH`, and no body, for the reason a move is one: this changes where
-         *     something lives, and where it should live is already written in the entry's
-         *     own name. An entry the trash has not got is a 404, and a path something has
-         *     taken since is a 409, which is the create's answer and the move's.
+         * @description Put one entry back where it was deleted from, the place its own name records.
          */
         patch: operations["restore_entry_api_trash__entry__patch"];
         trace?: never;
