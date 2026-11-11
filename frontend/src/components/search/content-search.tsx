@@ -10,8 +10,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { SearchFilters } from "@/components/search-filters";
-import { SearchHistogram } from "@/components/search-histogram";
+import { SearchFilters } from "@/components/search/search-filters";
+import { SearchHistogram } from "@/components/search/search-histogram";
 import type { Mention, SearchHit } from "@/lib/core/api";
 import { noteName } from "@/lib/notes/links/note-path";
 import { type Filters, facets, filterHits, termRuns } from "@/lib/search/search-facets";

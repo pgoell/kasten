@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useId, useRef, useState } from "react";
-import { ContentSearch } from "@/components/content-search";
-import { SearchPreview } from "@/components/search-preview";
-import { SearchRow } from "@/components/search-row";
+import { ContentSearch } from "@/components/search/content-search";
+import { SearchPreview } from "@/components/search/search-preview";
+import { SearchRow } from "@/components/search/search-row";
 import type { Mention, SearchHit } from "@/lib/core/api";
 import { isMention, type SearchMode, useSearchHits } from "@/lib/search/use-search-hits";
 import {
