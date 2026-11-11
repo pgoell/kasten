@@ -53,6 +53,10 @@ The PIN is never logged: the job leaves it out of every object it logs, and
 turns python-fints' own logging down to warnings, as its debug output carries
 whole bank messages.
 
+A `pull` or `poll` logs an IBAN by its country and last four characters,
+`DE…2051`. The run's error that kasten stores keeps the whole IBAN, and so does
+`setup`, whose account list is where you copy an IBAN from to make its account.
+
 ## Files on the server
 
 | Path | Mode | Holds |

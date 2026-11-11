@@ -117,7 +117,11 @@ class Run:
         """
         spelled = _spelled(iban)
         if spelled in self.settings.skip_ibans:
-            log.info("[%s] %s: skipped, BANK_SYNC_SKIP_IBANS names it", bank.name, iban)
+            log.info(
+                "[%s] %s: skipped, BANK_SYNC_SKIP_IBANS names it",
+                bank.name,
+                fints_bank.masked(iban),
+            )
             return None
         row = self.rows.get(spelled)
         if row is None:
@@ -149,9 +153,9 @@ def _store(run: Run, bank: Bank, account_id: int, pull: AccountPull) -> dict[str
             balance = {"account_id": account_id, "date": str(day), "amount": str(amount)}
             run.api.post_balances([balance])
     except httpx.HTTPError as error:
-        log.error("[%s] %s: %s", bank.name, pull.iban, _refusal(error))
+        log.error("[%s] %s: %s", bank.name, fints_bank.masked(pull.iban), _refusal(error))
         return {**line, "outcome": "failed", "error": _refusal(error)}
-    log.info("[%s] %s: %d new, %d known", bank.name, pull.iban, created, skipped)
+    log.info("[%s] %s: %d new, %d known", bank.name, fints_bank.masked(pull.iban), created, skipped)
     return {**line, "outcome": "ok", "created": created, "skipped": skipped}
 
 

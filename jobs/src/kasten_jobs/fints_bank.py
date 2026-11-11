@@ -40,6 +40,12 @@ common German banks, and an unregistered id is tolerated for read-only access.""
 DECOUPLED_NAMES = ("direktfreigabe", "securego", "decoupled", "dkb app", "pushtan")
 
 
+def masked(iban: str) -> str:
+    """An IBAN as a run's log shows it: its country and last four characters."""
+    spelled = "".join(iban.split())
+    return f"{spelled[:2]}…{spelled[-4:]}"
+
+
 class BankError(RuntimeError):
     """The bank answered something the sync cannot go on from."""
 
@@ -203,12 +209,14 @@ def _balance(
         if isinstance(response, NeedTANResponse):
             response = approve_tan(client, response, interactive=False, sleep=sleep)
     except (FinTSClientError, BankError, TimeoutError) as error:
-        log.warning("%s: no balance: %s", account.iban, error)
+        log.warning("%s: no balance: %s", masked(account.iban), error)
         return None
     amount = getattr(getattr(response, "amount", None), "amount", None)
     day = getattr(response, "date", None)
     if amount is None or day is None:
-        log.warning("%s: no balance in the answer %s", account.iban, type(response).__name__)
+        log.warning(
+            "%s: no balance in the answer %s", masked(account.iban), type(response).__name__
+        )
         return None
     return day, amount
 
@@ -235,13 +243,13 @@ def fetch(
             if since is None:
                 continue
             pull = AccountPull(account.iban, since, until)
-            log.info("[%s] %s: %s to %s", bank.name, account.iban, since, until)
+            log.info("[%s] %s: %s to %s", bank.name, masked(account.iban), since, until)
             try:
                 pull.records = _records(client, account, pull, sleep)
             # A TAN timed out on one account fails that account alone: the
             # others' records and the state saved below are still good.
             except (FinTSClientError, BankError, TimeoutError) as error:
-                log.error("[%s] %s: %s", bank.name, account.iban, error)
+                log.error("[%s] %s: %s", bank.name, masked(account.iban), error)
                 pull.error = str(error)
             else:
                 pull.balance = _balance(client, account, sleep)

@@ -218,6 +218,33 @@ def test_the_pin_is_never_logged(tmp_path: Path, caplog: pytest.LogCaptureFixtur
     assert PIN not in repr(dkb(tmp_path))
 
 
+def test_a_pull_logs_an_iban_by_its_last_four(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.DEBUG)
+    skipping = Settings.from_env(
+        {"BANK_SYNC_STATE_DIR": str(tmp_path), "BANK_SYNC_SKIP_IBANS": SAVING}
+    )
+    for client, refuse in [
+        (FakeClient({GIRO: [record("-4.20")], SAVING: []}), set()),
+        (FakeClient({GIRO: [record("-4.20")]}, fail={GIRO}), set()),
+        (FakeClient({GIRO: [record("-4.20")]}), {1}),
+    ]:
+        bank_sync.pull(
+            FakeKasten([account(1, GIRO)], refuse=refuse).api(),
+            [dkb(tmp_path)],
+            skipping,
+            "request",
+            today=TODAY,
+            make=lambda _bank, _state, client=client: cast("FinTS3PinTanClient", client),
+            sleep=Clock(),
+        )
+
+    assert (GIRO[-10:] in caplog.text, SAVING[-10:] in caplog.text) == (False, False)
+    assert f"DE…{GIRO[-4:]}" in caplog.text
+    assert f"DE…{SAVING[-4:]}" in caplog.text
+
+
 def test_check_fails_after_a_week_without_success(tmp_path: Path) -> None:
     assert bank_sync.check(FakeKasten([], days_since_success=6).api(), settings(tmp_path)) == 0
     assert bank_sync.check(FakeKasten([], days_since_success=7).api(), settings(tmp_path)) == 1
