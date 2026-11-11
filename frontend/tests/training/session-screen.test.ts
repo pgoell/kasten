@@ -159,6 +159,26 @@ describe("the session screen", () => {
     expect(document.querySelectorAll(".k-train-segment")).toHaveLength(4);
   });
 
+  it("keeps Escape and Tab working after a repaint takes the focused button away", async () => {
+    const view = mount(`# ${DAY}\n`);
+    await openFrom(view);
+    const key = (name: string, shiftKey = false) =>
+      document.body.dispatchEvent(
+        new KeyboardEvent("keydown", { key: name, shiftKey, bubbles: true }),
+      );
+    press("Kniebeuge");
+    (document.activeElement as HTMLElement | null)?.blur();
+
+    key("Tab");
+    expect(document.querySelector(".k-train")?.contains(document.activeElement)).toBe(true);
+    key("Escape");
+    expect(document.querySelector(".k-train-title")?.textContent).toBe("Pick an exercise");
+    key("Escape");
+    expect(document.querySelector(".k-train")).toBeNull();
+    key("Escape");
+    expect(view.state.doc.toString()).toBe(`# ${DAY}\n`);
+  });
+
   it("finds an exercise by an alias", async () => {
     const view = mount(`# ${DAY}\n`);
     await openFrom(view);

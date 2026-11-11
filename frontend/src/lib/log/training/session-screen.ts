@@ -82,6 +82,7 @@ export function openSession(view: EditorView, day: string): () => void {
   const close = () => {
     clearInterval(tick);
     awake.release();
+    document.removeEventListener("keydown", keys, true);
     root.remove();
     opener?.focus();
   };
@@ -382,15 +383,33 @@ export function openSession(view: EditorView, day: string): () => void {
     if (current === null) paintPick();
     else if (current.kind === "cardio") paintCardio(current);
     else paintExercise(current);
+    if (root.isConnected && !root.contains(document.activeElement)) root.focus();
   }
 
-  root.addEventListener("keydown", (event) => {
+  /** Tab and Shift+Tab go round the screen's controls, never out to the note behind. */
+  function trap(event: KeyboardEvent): void {
+    const controls = [...root.querySelectorAll<HTMLElement>("button, input")];
+    const at = document.activeElement;
+    const inside = at instanceof HTMLElement && at !== root && root.contains(at);
+    const edge = event.shiftKey ? controls[0] : controls.at(-1);
+    const wrap = event.shiftKey ? controls.at(-1) : controls[0];
+    if (inside && at !== edge) return;
+    event.preventDefault();
+    wrap?.focus();
+  }
+
+  // On the document, since a repaint takes the focused button away and focus falls to the body.
+  function keys(event: KeyboardEvent): void {
+    if (event.key === "Tab") {
+      trap(event);
+      return;
+    }
     if (event.key !== "Escape") return;
     event.preventDefault();
     event.stopPropagation();
     if (current === null) close();
     else pick();
-  });
+  }
 
   Promise.all([fetchExercises(), fetchEarlier(day)]).then(
     ([all, days]) => {
@@ -407,6 +426,7 @@ export function openSession(view: EditorView, day: string): () => void {
 
   paint();
   document.body.append(root);
+  document.addEventListener("keydown", keys, true);
   root.focus();
   return close;
 }
