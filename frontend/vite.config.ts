@@ -20,7 +20,7 @@ import { buildId } from "./build-id.ts";
 import { devPolicy } from "./src/lib/app/csp.ts";
 import { serviceWorker } from "./sw/plugin.ts";
 import { emulateMedia } from "./tests/frame/emulate-media.ts";
-import { serveCommands } from "./tests/frame/serve-page.ts";
+import { noBackend, serveCommands } from "./tests/frame/serve-page.ts";
 import { mouseDrag, touchDrag, touches, wheel } from "./tests/frame/touch-input.ts";
 
 const BACKEND = process.env.KASTEN_DEV_BACKEND ?? "http://localhost:8000";
@@ -390,6 +390,7 @@ export default defineConfig({
       },
       {
         extends: true,
+        plugins: [noBackend()],
         test: {
           name: "frame",
           // jsdom lays nothing out and paints nothing, so the only honest
@@ -429,6 +430,7 @@ export default defineConfig({
             headless: true,
             ui: false,
             screenshotFailures: false,
+            traceView: "off",
             // vitest 5's import-map mocks go unapplied in Chromium.
             importMapMocks: false,
             provider: playwright({ contextOptions: { viewport: { width: 1440, height: 900 } } }),

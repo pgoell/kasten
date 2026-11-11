@@ -9,6 +9,7 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { BrowserContext } from "playwright";
+import type { Plugin } from "vite";
 import type { BrowserCommand, BrowserCommandContext } from "vitest/node";
 
 /** Where `kasten_backend.html_page` runs from, so `uv` finds the backend's environment. */
@@ -196,3 +197,21 @@ export const serveCommands = {
   serveSlowly,
   unservePages,
 };
+
+/**
+ * Answers the backend's paths at once with the 502 a proxy to no backend gives, as on CI.
+ * Proxied, a request that slips past a test's mocks reaches whatever listens on the dev
+ * backend's port; one that accepts and never answers held Chromium's six connections and
+ * stalled every later module load (#1885). Routes `servePage` adds still win in the browser.
+ */
+export function noBackend(): Plugin {
+  return {
+    name: "kasten-frame-no-backend",
+    configureServer: (server) => {
+      server.middlewares.use((req, res, next) => {
+        if (!/^\/(api|share|chat)(\/|\?|$)/.test(req.url ?? "")) return next();
+        res.writeHead(502, { "Content-Type": "text/plain" }).end();
+      });
+    },
+  };
+}
