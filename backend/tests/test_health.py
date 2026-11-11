@@ -40,7 +40,7 @@ async def late_startup(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture
 async def late_shutdown(monkeypatch: pytest.MonkeyPatch) -> None:
     """Make the loop believe six seconds passed while the lifespan shuts down."""
-    original = main.anki_imports.stop
+    original = main.anki.stop
 
     async def slow() -> None:
         await original()
@@ -51,7 +51,7 @@ async def late_shutdown(monkeypatch: pytest.MonkeyPatch) -> None:
         # reports the shutdown complete.
         await asyncio.sleep(0)
 
-    monkeypatch.setattr(main.anki_imports, "stop", slow)
+    monkeypatch.setattr(main.anki, "stop", slow)
 
 
 async def test_the_client_waits_out_a_startup_slower_than_five_seconds(

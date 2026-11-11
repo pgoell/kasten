@@ -15,7 +15,11 @@ The route that finds every todo line in the vault, and works out which project e
 
 Finds every line in the vault that could be a todo. Takes an optional
 `archive` and answers with at most 100,000 matches, in the shape
-`GET /api/search` returns plus a `project` and a `shared` on each.
+`GET /api/search` returns plus a `project` and a `shared` on each. That shape
+lets the overlay rank the lines through the ranking it already has and open a
+note on the line it found. `archive` is off for the reason it is off on a
+search: a finished project's open checkboxes are true of the note and false of
+the week.
 
 ```json
 [{ "path": "02 Projects/kasten/plan.md", "line": 12, "text": "- [/] wire up the pane 📅 2026-08-14 ⏫", "project": "02 Projects/kasten", "shared": false }]

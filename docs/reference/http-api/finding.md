@@ -250,6 +250,8 @@ Finds the unlinked mentions of one note: every place another note names it in
 plain text without linking to it. Takes `path`, the note's vault path, and an
 optional `archive`, and answers with at most 1,000 mentions, sorted by path,
 then line, then place on the line. A note that does not exist is a `404`.
+These are Obsidian's unlinked mentions, which the backlinks pane lists under
+the links, so one key can turn a mention into a link.
 
 ```json
 [{ "path": "journal.md", "line": 3, "text": "Read Borges today.", "start": 5, "end": 11, "name": "Borges" }]
@@ -355,6 +357,8 @@ edges, answers in about 50ms.
 live note to an archived one is then dropped rather than drawn as a note nobody
 wrote.
 
-A query it cannot read is a `400` whose `detail` says why, and so is an
-`around` naming a note not in the graph.
+A query it cannot read is a `400` whose `detail` says why, in words the pane
+shows as they are, and so is an `around` naming a note not in the graph. The
+backend reads the query so the pane, this route and the agent's tool share one
+parser.
 

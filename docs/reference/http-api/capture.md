@@ -138,9 +138,9 @@ finally came from.
 { "url": "https://example.com/2025/post", "html": "<!doctype html>…" }
 ```
 
-One of the endpoints that touch nothing of the vault, and one of the three that
-go outside the machine; `GET /api/transcripts/{video_id}` below asks YouTube
-alone, and `GET /api/weather` asks Open-Meteo alone. It writes nothing: turning the markup into a note is
+One of three endpoints that go outside the machine, beside
+`GET /api/transcripts/{video_id}` (YouTube alone) and `GET /api/weather`
+(Open-Meteo alone). It writes nothing: turning the markup into a note is
 [defuddle](https://github.com/kepano/defuddle) running in the browser, and the
 note is made through `POST /api/files/{path}` like any other.
 
@@ -161,20 +161,18 @@ or IPv6, with an IPv4 address inside an IPv6 one checked as the IPv4 address.
 The backend shares a docker network with the database and the shell, and this
 is not a way to reach them.
 
-The check runs inside the connection rather than in front of the request. The
-name is looked up once, and the socket opens to the address that passed, so a
-name that answers a public address and then `127.0.0.1` has no second lookup
-to answer. TLS still checks the certificate against the name.
+The check runs inside the connection: the name is looked up once and the
+socket opens to the address that passed, so a name that answers a public
+address and then `127.0.0.1` gets no second lookup. TLS still checks the certificate against the name.
 
 Redirects are followed, at most twenty, and every hop connects the same way. A
-public page that redirects to the box itself is the obvious way round a check
-made once. A redirect to anything but `http` or `https` is a `502`.
+redirect to the box itself would otherwise get round a check made once. A redirect to anything but `http` or `https` is a `502`.
 
-The address that comes back is the one after redirects, because a page's
-relative links are relative to that and the client resolves them.
+The address that comes back is the one after redirects, since the client
+resolves the page's relative links against it.
 
-Four refusals beside the address, and each says which it is, because the reader
-is looking at the address they pasted and is the one who can fix it:
+Four more refusals, each saying which it is, since the reader who pasted the
+address is the one who can fix it:
 
 * `415` when the answer is not HTML, which is what a link to a PDF gets
 * `502` when the name does not resolve, or the page redirects more than twenty
@@ -184,12 +182,11 @@ is looking at the address they pasted and is the one who can fix it:
   than believed off `content-length`, or when it did not answer inside twenty
   seconds
 
-A page that answers `404` is a `502` here rather than a `404`, which would say
-this endpoint is missing rather than that the page is.
+A page that answers `404` is a `502` here: a `404` would say this endpoint is
+missing.
 
-The request goes out under a browser's user agent string. A great many sites
-answer an unfamiliar agent with a challenge page, and this is one page asked
-for by hand, by somebody who could have opened it in a tab.
+The request goes out under a browser's user agent string: many sites answer an
+unknown agent with a challenge page, and this is one page asked for by hand.
 
 ## GET /api/transcripts/{video_id}
 
@@ -219,13 +216,16 @@ English, then the first track the video has in any language. Any region counts
 as English, `en-GB` as much as `en`.
 
 The id must match `[A-Za-z0-9_-]{11}`, the alphabet YouTube writes ids in, and
-anything else is a `422` before YouTube is asked. That check is what keeps the
-route from being turned into a fetch of an address someone chose. The captions
+anything else is a `422` before YouTube is asked. That check keeps the route
+from fetching an address someone chose. It is the
+`[\w-]{11}` `video.ts` reads off a note, spelled out: `\w` in the Rust regex
+pydantic checks with is every Unicode letter, where in JavaScript it is ASCII. The captions
 are read with [youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api),
 which is synchronous, so the request runs on a worker thread and leaves the
 event loop free.
 
-Two refusals, each with one sentence in `detail`:
+Two refusals, each with one sentence in `detail`, the first about the video,
+the second about kasten failing to ask:
 
 * `404` when the video has no transcript, has them turned off, is not
   available, or is age-restricted or unplayable
@@ -265,7 +265,7 @@ coordinates leave the machine. The backend keeps a day's answer for 30 minutes.
 
 | Status | When |
 | --- | --- |
-| `404` | the day is more than 92 days back or 15 days ahead, which Open-Meteo's forecast does not reach |
+| `404` | the day is more than 92 days back or 15 days ahead, which Open-Meteo's forecast does not reach; the card then draws nothing |
 | `502` | Open-Meteo did not answer, or answered with an error |
 
 An empty `KASTEN_WEATHER_PLACES` answers `[]` and asks nobody.
@@ -318,16 +318,18 @@ days the file holds for the range, and logs one warning that names no token.
 
 ## POST /api/dump
 
-Adds one paragraph to the `## Dump` section of a day's daily note. The body
-carries the text and the day:
+Adds one paragraph to the `## Dump` section of a day's daily note, which the
+daily ritual reads at 17:00 to plan the next day. It takes a thought from
+a key in the app, a page on a phone or a share from another app. The
+body carries the text and the day:
 
 ```json
 { "text": "answer Jonas about the flat", "date": "2026-09-29" }
 ```
 
-`date` is the sender's own date, `YYYY-MM-DD`, never the server's. The server's
-clock may keep another timezone, and a thought typed at half past midnight
-belongs to the day the person typing it is in. The note is
+`date` is the sender's own date, `YYYY-MM-DD`, never the server's, whose clock
+may keep another timezone: a thought typed at half past midnight belongs to the
+typist's day. The note is
 `00 Daily/<date>.md` in the periodic folder, `01 Periodic` unless
 [`KASTEN_PERIODIC_PATH`](/reference/configuration.md#the-vaults-folders) names
 another.
@@ -342,9 +344,8 @@ leaves one paragraph, not two. The server keeps the last 1000 ids in
 the database. A post without an id is written every time. `POST /agent/dump`
 takes no `id`.
 
-The reply is the note as it landed, in the shape `GET /api/files/{path}`
-returns, and the status is `200` whether the note was made or was already
-there:
+The reply is the note as it landed, shaped as `GET /api/files/{path}` returns
+it, `200` whether the note was made or was there:
 
 ```json
 { "path": "01 Periodic/00 Daily/2026-09-29.md", "content": "---\nid: …" }
@@ -371,8 +372,8 @@ The heading is found the way the readers find it: the line reads exactly
 (backtick or tilde) and below the frontmatter. A `## Dump` in a fence or the
 frontmatter is skipped, so the text does not land where the readers never look.
 
-Each capture is a paragraph of its own, a blank line apart from the one before
-it, because the dump is prose rather than a list. The first sits straight under
+Each capture is a paragraph of its own, a blank line apart from the last,
+because the dump is prose, not a list. The first sits straight under
 the heading. The text is trimmed and otherwise kept as written, line breaks
 included. A closing line may follow it, as the paragraph on fences below says.
 

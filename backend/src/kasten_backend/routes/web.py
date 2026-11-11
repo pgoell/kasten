@@ -75,29 +75,7 @@ class Transcript(BaseModel):
 
 @router.get("/api/fetch")
 async def fetch_page(url: str) -> Page:
-    """Read one web page off the internet and hand it back unchanged.
-
-    One of two endpoints that read something other than the vault, the other
-    being `/api/transcripts`, and it writes nothing: what comes back is markup,
-    and turning it into a note happens in the browser, where defuddle runs.
-    That is where it has to run. defuddle is a DOM library, the browser has the
-    DOM, and the alternative is a second extractor in Python that would read the
-    same pages differently.
-
-    Fetching cannot happen there, though: a page from another origin is one the
-    browser will request and not let the script read, so the request comes from
-    here.
-
-    http and https and nothing else. The scheme is the trust boundary: `file://`
-    would read this container's disk and hand it to the browser, and the check
-    is made before anything is opened. The address is the other half of it, and
-    `files._PublicOnly` holds every connection, redirects included, to the
-    public internet.
-
-    A page that could not be read is a 502 rather than the status the other end
-    gave. The reader asked kasten for a note and kasten could not get one; a
-    404 here would say the endpoint is missing.
-    """
+    """Read one web page off the internet and hand it back unchanged, for defuddle to read."""
     if urlsplit(url).scheme not in ("http", "https"):
         raise HTTPException(status_code=400, detail="Only http and https addresses")
 
@@ -139,19 +117,7 @@ async def _read_page(response: httpx.Response) -> Page:
 async def fetch_transcript(
     video_id: Annotated[str, Segment(pattern=r"^[A-Za-z0-9_-]{11}$")],
 ) -> Transcript:
-    r"""Read the captions of one YouTube video.
-
-    The second endpoint that reaches the internet, and a narrower one than
-    `/api/fetch`: it takes the eleven characters YouTube names a video with and
-    nothing else, so what it asks for is always a YouTube video and never an
-    address someone chose. The pattern is the `[\w-]{11}` `video.ts` reads off
-    a note, spelled out: `\w` in the Rust regex pydantic checks with is every
-    letter in Unicode, where in JavaScript it is ASCII.
-
-    A video with nothing to read is a 404, and YouTube refusing to answer this
-    machine is a 502, the line `/api/fetch` draws too: the first is about the
-    video, the second about kasten failing to ask.
-    """
+    """Read the captions of one YouTube video, named by its eleven-character id."""
     try:
         # The library is synchronous and a fetch is two or three round trips to
         # YouTube, so it runs on a worker thread rather than holding the loop.
@@ -181,13 +147,7 @@ async def fetch_transcript(
 async def read_day_weather(
     day: Annotated[date, Query(alias="date")], settings: Annotated[Settings, Depends(get_settings)]
 ) -> list[Forecast]:
-    """The weather on one day, hour by hour, for each place the settings name.
-
-    The third endpoint that reaches the internet, and the narrowest: a date
-    goes out and nothing else, to one fixed host. A day Open-Meteo cannot
-    answer for is a 404, the card's cue to draw nothing; Open-Meteo failing to
-    answer is a 502, the line the other two draw.
-    """
+    """The weather on one day, hour by hour, for each place the settings name."""
     if not in_reach(day, date.today()):
         raise HTTPException(status_code=404, detail="No weather for that day")
     try:

@@ -6,16 +6,5 @@ backend/src/kasten_backend/agent_mcp_finance.py 4
 backend/src/kasten_backend/agent_oauth.py 4
 backend/src/kasten_backend/agent_routes.py 1
 backend/src/kasten_backend/main.py 1
-backend/src/kasten_backend/routes/anki/routes.py 1
-backend/src/kasten_backend/routes/assets.py 4
 backend/src/kasten_backend/finance/routes/records/records.py 1
 backend/src/kasten_backend/finance/routes/tax/receipts.py 1
-backend/src/kasten_backend/routes/github.py 1
-backend/src/kasten_backend/routes/listing.py 3
-backend/src/kasten_backend/routes/moves.py 7
-backend/src/kasten_backend/routes/notes.py 3
-backend/src/kasten_backend/routes/queries.py 5
-backend/src/kasten_backend/routes/search.py 1
-backend/src/kasten_backend/routes/share.py 1
-backend/src/kasten_backend/routes/tokens.py 2
-backend/src/kasten_backend/routes/web.py 3

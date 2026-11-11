@@ -29,13 +29,7 @@ async def read_github(
     end: Annotated[str, Query(alias="to", pattern=DATE_PATTERN)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> Contributions:
-    """The contributions the configured GitHub user made each day from `from` to `to`.
-
-    Off, with GitHub never asked, unless both `KASTEN_GITHUB_TOKEN` and
-    `KASTEN_GITHUB_USER` are set. The token and the user name are never in the
-    answer. A day already read is answered from the cache file, as
-    [the reference](/reference/http-api/capture.md#get-apigithub) says.
-    """
+    """The contributions the configured GitHub user made each day from `from` to `to`."""
     first, last = day_range(start, end)
     # Both ends in, so a range of 366 days is the most one read asks GitHub for.
     if (last - first).days >= github.MOST_DAYS:

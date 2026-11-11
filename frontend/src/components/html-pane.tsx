@@ -55,8 +55,13 @@ export function HtmlPane({
   /** The keys of an unfinished leader sequence, starting with the space. */
   const [pending, setPending] = useState("");
   const { coarse } = useViewport();
-  const html = useHtmlTake({ path, archive, frame, wrapper, coarse });
-  const { held, heldNow, press, toast, take, forget, onSelection, onShare } = html;
+  const { held, heldNow, press, toast, take, forget, onSelection, onShare } = useHtmlTake({
+    path,
+    archive,
+    frame,
+    wrapper,
+    coarse,
+  });
   /** A relayed `y` took this visit, where no activation is spent. */
   const relayedTaken = useRef(false);
 

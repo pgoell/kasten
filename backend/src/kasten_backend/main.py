@@ -68,7 +68,6 @@ from kasten_backend.routes import (
     tokens,
     web,
 )
-from kasten_backend.routes.anki import imports as anki_imports
 from kasten_backend.trash import purge_trash
 from kasten_backend.vcs import is_versioned, write_ignores
 
@@ -141,7 +140,7 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
         if indexing is not None:
             indexing.cancel()
         # After requests close, so only a running import is left to stop.
-        await anki_imports.stop()
+        await anki.stop()
         # Last, so the history holds every save this process answered.
         await settled()
 

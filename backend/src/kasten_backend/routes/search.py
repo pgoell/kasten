@@ -47,21 +47,7 @@ class SearchHit(LineHit):
 async def search_files(
     q: str, settings: Annotated[Settings, Depends(get_settings)], archive: bool = False
 ) -> list[SearchHit]:
-    """Find every line in the vault containing `q`, ignoring case.
-
-    A literal match, not a regex and not a fuzzy one. The client ranks what
-    comes back, which is what makes the finder feel fuzzy without asking a
-    subsequence match to mean something over prose, where it matches everything.
-
-    The notes come first and then the lines of the pdf, epub and html files, read
-    from the text cache, which is brought up to date before the search. A blank
-    query answers nothing and extracts nothing.
-
-    `archive` walks the archive folder too. Off by default, because what is
-    filed away is not usually what is being looked for, and the cap on what
-    comes back means an archive left in would eventually push live notes out of
-    the answer rather than merely lengthening it.
-    """
+    """Find every line in the vault containing `q`, ignoring case; the client ranks the hits."""
     if not q.strip():
         return []
     skip = None if archive else settings.archive_path

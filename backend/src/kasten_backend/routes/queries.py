@@ -150,14 +150,7 @@ class ReviewLimits(BaseModel):
 async def list_mentions(
     path: str, settings: Annotated[Settings, Depends(get_settings)], archive: bool = False
 ) -> list[Mention]:
-    """Find every line in another note that names this one in plain text.
-
-    Obsidian's unlinked mentions: the note's title and its aliases, whole and
-    ignoring case, outside links, code and frontmatter. What the backlinks pane
-    lists under the links, so one key can turn a mention into a link.
-
-    `archive` walks the archive folder too, off by default as on a search.
-    """
+    """Find every line in another note that names this one in plain text, outside links."""
     note = resolve_note(settings.vault_path, path)
     if note is None:
         raise HTTPException(status_code=404, detail="No such note")
@@ -232,25 +225,7 @@ async def read_history_version(
 async def list_todos(
     settings: Annotated[Settings, Depends(get_settings)], archive: bool = False
 ) -> list[TodoHit]:
-    """Find every checkbox line and every time session line in the vault.
-
-    Candidate lines, not todos. Whether one of these is open or overdue is read
-    on the client, off the same parser the editor draws a todo with, so the
-    vault has one reader of the format rather than two in two languages.
-
-    The project is the exception, read here off each line's indent, tags and
-    links by `projects_of`, so an agent reading this sees the lane the board
-    draws without a copy of the rule. The links resolve against the notes
-    `GET /api/files` lists, the archive among them.
-
-    Answers in search's shape plus the project, which is what lets the overlay
-    rank these through the ranking it already has and open a note on the line it
-    found.
-
-    `archive` walks the archive folder too, and is off for the reason it is off
-    on a search: a finished project's open checkboxes are true of the note and
-    false of the week.
-    """
+    """Find every checkbox line and every time session line in the vault, each with its project."""
     hits = await find_todos(settings.vault_path, None if archive else settings.archive_path)
     projects = projects_of(hits, list_markdown_files(settings.vault_path))
     return [
@@ -269,20 +244,7 @@ async def list_todos(
 async def list_cards(
     settings: Annotated[Settings, Depends(get_settings)], archive: bool = False
 ) -> list[LineHit]:
-    """Find every line in the vault that could be part of a flashcard.
-
-    Candidate lines, not cards. Which of them is a question, which note is a
-    deck and which card is due are all read on the client, off the same parser
-    the review pane draws a card with, so the vault has one reader of the format
-    rather than two in two languages.
-
-    Answers in search's shape, so the client can open the note a card is in on
-    the line it sits on.
-
-    `archive` walks the archive folder too, and is off for the reason it is off
-    on a search: moving a deck into the archive is how you stop being asked
-    about it, and nothing else about the note changes.
-    """
+    """Find every line in the vault that could be part of a flashcard; the client parses them."""
     hits = await find_cards(settings.vault_path, None if archive else settings.archive_path)
     return [LineHit(path=hit.path, line=hit.line, text=hit.text) for hit in hits]
 
@@ -379,14 +341,7 @@ async def list_written(
     end: Annotated[str, Query(alias="to", pattern=DATE_PATTERN)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> list[str]:
-    """The day each note outside the archive counts on, for the notes written from `from` to `to`.
-
-    Each answer is the date a note counts on, as search dates its hits: the name's
-    day, else `created`, else the file's modification time. A day is an answer
-    as written, and an instant keeps its offset, so the client works out the
-    reader's own day. A day either side of the range is answered too, for the
-    same reason. Sorted, and read only: nothing is written or stored.
-    """
+    """The day each note outside the archive counts on, for notes written from `from` to `to`."""
     first, last = day_range(start, end)
 
     archive = f"{settings.archive_path}/"
@@ -450,17 +405,7 @@ async def show_graph(
     depth: Annotated[int, Query(ge=0, le=MOST_DEPTH)] = 1,
     archive: bool = False,
 ) -> Graph:
-    """The notes as a graph, narrowed by a filter or asked a pattern.
-
-    The query is text and the backend reads it, so the pane, this route and the
-    agent's tool share one parser. `around` names a note and draws only what is
-    within `depth` links of it, which is the local graph. A query that cannot
-    be read is a 400 whose detail says why, in words the pane shows as they are.
-
-    `archive` walks the archive folder too, off for the reason it is off on a
-    search: a finished project's links are true of the note and not of the
-    vault as it is now.
-    """
+    """The notes as a graph, narrowed by a filter or asked a pattern."""
     try:
         return await query_graph(
             settings.vault_path, q, around, depth, None if archive else settings.archive_path
