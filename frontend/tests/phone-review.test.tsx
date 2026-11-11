@@ -1,5 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
-import { ReviewAnswer } from "@/components/review-answer";
+import { ReviewAnswer } from "@/components/review/review-answer";
 
 // The footer as a card's two sides draw it, with no interval known yet.
 const props = {

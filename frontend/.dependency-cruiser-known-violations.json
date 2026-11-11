@@ -46,8 +46,8 @@
   {
     "type": "dependency",
     "from": "src/lib/review/periodic-review.ts",
-    "to": "src/components/review-block.tsx",
-    "unresolvedTo": "@/components/review-block",
+    "to": "src/components/review/review-block.tsx",
+    "unresolvedTo": "@/components/review/review-block",
     "dependencyTypes": ["undetermined", "import"],
     "rule": {
       "severity": "error",
@@ -99,7 +99,7 @@
   },
   {
     "type": "cycle",
-    "from": "src/components/review-block.tsx",
+    "from": "src/components/review/review-block.tsx",
     "to": "src/components/week-review.tsx",
     "unresolvedTo": "@/components/week-review",
     "dependencyTypes": ["undetermined", "import"],
@@ -117,14 +117,14 @@
         "dependencyTypes": ["undetermined", "import", "type-only"]
       },
       {
-        "name": "src/components/review-block.tsx",
+        "name": "src/components/review/review-block.tsx",
         "dependencyTypes": ["undetermined", "import"]
       }
     ]
   },
   {
     "type": "cycle",
-    "from": "src/components/review-block.tsx",
+    "from": "src/components/review/review-block.tsx",
     "to": "src/lib/review/periodic-review.ts",
     "unresolvedTo": "@/lib/review/periodic-review",
     "dependencyTypes": ["undetermined", "import", "type-only"],
@@ -138,7 +138,7 @@
         "dependencyTypes": ["undetermined", "import", "type-only"]
       },
       {
-        "name": "src/components/review-block.tsx",
+        "name": "src/components/review/review-block.tsx",
         "dependencyTypes": ["undetermined", "import"]
       }
     ]

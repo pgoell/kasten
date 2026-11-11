@@ -1,6 +1,6 @@
 import { act, render, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { SwipeCard } from "@/components/review-swipe";
+import { SwipeCard } from "@/components/review/review-swipe";
 import { stubMatchMedia } from "./match-media";
 
 const REDUCED = "(prefers-reduced-motion: reduce)";

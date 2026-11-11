@@ -2,7 +2,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { createRoot } from "react-dom/client";
 import { PaneLayout } from "@/components/pane-layout";
-import { ReviewDecks } from "@/components/review-decks";
+import { ReviewDecks } from "@/components/review/review-decks";
 import { TabStrip } from "@/components/tab-strip";
 import * as api from "@/lib/core/api";
 import {

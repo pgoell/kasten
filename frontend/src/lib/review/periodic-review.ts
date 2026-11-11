@@ -7,7 +7,7 @@ import { type EditorState, type Extension, Facet, StateField, type Text } from "
 import { Decoration, type DecorationSet, EditorView, WidgetType } from "@codemirror/view";
 import type { QueryClient } from "@tanstack/react-query";
 import type { Root } from "react-dom/client";
-import { mountReview } from "@/components/review-block";
+import { mountReview } from "@/components/review/review-block";
 import { cardLine } from "@/lib/notes/note/weather-card";
 import { closing } from "@/lib/notes/text/note-frontmatter";
 import { weeklyWeek, yearlyYear } from "@/lib/notes/text/periodic";

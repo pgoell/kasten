@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { ReviewDecks } from "@/components/review-decks";
+import { ReviewDecks } from "@/components/review/review-decks";
 import * as api from "@/lib/core/api";
 import { useReviewWaiting } from "@/lib/review/use-review-waiting";
 

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { TryAgain } from "@/components/review-answer";
+import { TryAgain } from "@/components/review/review-answer";
 import { TimersRow } from "@/lib/app/push/timers-row";
 import { fetchTodos, type TodoHit } from "@/lib/core/api";
 import { readClock } from "@/lib/core/clock";

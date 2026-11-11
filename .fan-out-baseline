@@ -15,8 +15,9 @@ docs/reference/http-api 23
 docs/reference/save-path-orderings 16
 frontend 21
 frontend/src 8
-frontend/src/components 93
+frontend/src/components 85
 frontend/src/components/finance 28
+frontend/src/components/review 9
 frontend/src/components/todo 12
 frontend/src/lib 21
 frontend/src/lib/graph 9

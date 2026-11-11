@@ -1,6 +1,6 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { ReviewPane } from "@/components/review-pane";
+import { ReviewPane } from "@/components/review/review-pane";
 import * as api from "@/lib/core/api";
 import * as review from "@/lib/review/review";
 import { shownCard } from "./review-card";

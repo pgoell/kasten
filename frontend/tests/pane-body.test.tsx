@@ -16,7 +16,7 @@ import { OverviewPane } from "@/components/overview-pane";
 import { PaneBody, type PaneExtras, type PaneShared } from "@/components/pane-body";
 import { PdfPane } from "@/components/pdf-pane";
 import { PersonPane } from "@/components/person-pane";
-import { ReviewPane } from "@/components/review-pane";
+import { ReviewPane } from "@/components/review/review-pane";
 import { TerminalPane } from "@/components/terminal-pane";
 import { TodoPane } from "@/components/todo/todo-pane";
 import { VideoPane } from "@/components/video-pane";

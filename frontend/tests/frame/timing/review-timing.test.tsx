@@ -14,7 +14,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Profiler } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { commands, page } from "vitest/browser";
-import { ReviewSession } from "@/components/review-session";
+import { ReviewSession } from "@/components/review/review-session";
 import type { Deck } from "@/lib/review/review";
 import "@/styles/app.css";
 
