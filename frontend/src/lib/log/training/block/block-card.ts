@@ -54,6 +54,8 @@ interface Shown {
   muscle: string | null;
   picked: string | null;
   said: string | null;
+  /** The next block's name once this card wrote it, so the button does not offer it twice. */
+  planned: string | null;
 }
 
 const arrived = StateEffect.define<Loaded>();
@@ -98,7 +100,7 @@ function nextButton(view: EditorView, block: Block, loaded: Loaded): HTMLElement
     const body = text.replace(/^#\s+.+$/mu, `# ${name}`);
     next.disabled = true;
     createNote(`${folderOf(view)}${name}.md`, body).then(
-      () => view.dispatch({ effects: changed.of({ said: `Wrote [[${name}]]` }) }),
+      () => view.dispatch({ effects: changed.of({ said: `Wrote [[${name}]]`, planned: name }) }),
       (error: unknown) => {
         if (!(error instanceof Error)) throw error;
         next.disabled = false;
@@ -169,7 +171,8 @@ class BlockCard extends WidgetType {
       card.append(element("p", "cm-block-said", `Pick a day for ${shown.picked}`));
     }
     const lastWeek = shiftDay(endOf(block), -6);
-    if (shown.loaded !== null && on >= lastWeek && !hasNext(shown.loaded.blocks, block)) {
+    const offer = shown.planned === null && !hasNext(shown.loaded?.blocks ?? [], block);
+    if (shown.loaded !== null && on >= lastWeek && offer) {
       card.append(nextButton(view, block, shown.loaded));
     }
     const words = shown.said ?? shown.failed;
@@ -198,7 +201,14 @@ function build(state: EditorState, shown: Shown): Card {
 
 const field = StateField.define<Card>({
   create: (state) =>
-    build(state, { loaded: null, failed: null, muscle: null, picked: null, said: null }),
+    build(state, {
+      loaded: null,
+      failed: null,
+      muscle: null,
+      picked: null,
+      said: null,
+      planned: null,
+    }),
   update(value, tr) {
     let next: Shown = value;
     for (const effect of tr.effects) {

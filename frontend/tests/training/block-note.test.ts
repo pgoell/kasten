@@ -133,6 +133,13 @@ describe("writing a block note", () => {
     expect(parseBlock(onSaturday)?.days[5]).toBe("C");
   });
 
+  it("gives a new session a letter no day names yet", () => {
+    const text = "---\ntype: Training Block\nstart: 2026-11-16\n---\n## Days\n- Mon: A\n";
+    const read = parseBlock(text);
+    if (read === null) throw new Error("no block");
+    expect(addToDay(text, read, 1, { name: "Dips", counts: "reps" })).toContain("- Tue: B");
+  });
+
   it("is one edit between two texts", () => {
     expect(editBetween("abcd", "abXd")).toEqual({ from: 2, to: 3, insert: "X" });
     expect(editBetween("ab", "abc")).toEqual({ from: 2, to: 2, insert: "c" });
@@ -146,12 +153,13 @@ describe("writing a block note", () => {
         entries: [parseTrainingLine("- 🏋 [[Kniebeuge]] 85 kg 10 10 9")].flatMap((e) => e ?? []),
       },
     ];
-    const next = nextBlockText(`---\nid: x1\n${NOTE.slice(4)}`, b, days, "2026-12-10");
+    const aliased = NOTE.replace("[[Klimmzug]] 3x6", "[[Klimmzug|Pull-up]] 3x6");
+    const next = nextBlockText(`---\nid: x1\n${aliased.slice(4)}`, b, days, "2026-12-10");
     expect(next).toContain("start: 2026-12-14");
     expect(next).not.toContain("id: x1");
     expect(next).toContain("- [[Kniebeuge]] 3x8-10, double, 85 kg");
     expect(next).toContain("- [[Bankdrücken]] 3x5 @8, +2.5 kg, 65 kg");
-    expect(next).toContain("- [[Klimmzug]] 3x6, +1 rep, bw");
+    expect(next).toContain("- [[Klimmzug|Pull-up]] 3x6, +1 rep, bw");
     expect(next).toContain("- 🏃 [[Joggen]] long 30 min");
     expect(nextStart(b, "2026-12-30")).toBe("2027-01-04");
     expect(nextName("Block 2026-11 Grundlage", "2026-12-14")).toBe("Block 2026-12 Grundlage");

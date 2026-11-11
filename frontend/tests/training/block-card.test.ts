@@ -161,6 +161,7 @@ describe("the block card", () => {
         "Wrote [[Block 2026-11-16 Grundlage]]",
       ),
     );
+    expect(document.querySelector(".cm-block-next")).toBeNull();
     const [path, text] = vi.mocked(createNote).mock.calls[0] ?? [];
     expect(path).toBe(`${FOLDER}Block 2026-11-16 Grundlage.md`);
     expect(text).toContain("start: 2026-11-16");

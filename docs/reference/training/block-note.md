@@ -169,7 +169,7 @@ folder:
 * the name takes the new start's month, `Block 2026-12 Grundlage`, or its
   whole date when the month is the same; a name without a date gets the month
   added. The `#` title follows the name;
-* every session line keeps its sets, reps and rule, and its weight becomes the
+* every session line keeps its text, link, sets, reps and rule, and its weight becomes the
   heaviest set logged for the exercise in the last two build weeks, else the
   weight the last build week planned;
 * the rest of the note is copied as it is, without its `id`, `created` and

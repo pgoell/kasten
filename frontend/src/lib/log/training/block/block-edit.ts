@@ -85,7 +85,8 @@ export function addToDay(
   const line = startingLine(exercise);
   let lines = text.split("\n");
   const held = block.days[day] ?? null;
-  const letter = held ?? [...LETTERS].find((free) => !block.sessions.has(free)) ?? "Z";
+  const taken = (free: string) => block.sessions.has(free) || block.days.includes(free);
+  const letter = held ?? [...LETTERS].find((free) => !taken(free)) ?? "Z";
   const sessions = headingAt(lines, "## Sessions");
   const sessionsEnd = sessions === -1 ? -1 : regionEnd(lines, sessions, 2);
   const own = sessions === -1 ? -1 : headingAt(lines, `### ${letter}`, sessions, sessionsEnd);
@@ -99,16 +100,19 @@ export function addToDay(
   return lines.join("\n");
 }
 
-/** A prescription written back as a line, the weight replaced. */
-export function prescriptionLine(p: Prescription, kg: number | null): string {
-  const range = p.high > p.low ? `${p.low}-${p.high}` : String(p.low);
-  const parts = [`${p.sets}x${range}${p.held ? " s" : ""}${p.rpe === null ? "" : ` @${p.rpe}`}`];
-  if (p.rule === "double") parts.push("double");
-  if (p.rule === "kg") parts.push(`+${written(p.step)} kg`);
-  if (p.rule === "reps") parts.push(`+${p.step} ${p.step === 1 ? "rep" : "reps"}`);
-  if (p.bodyweight) parts.push("bw");
-  else if (kg !== null) parts.push(`${written(kg)} kg`);
-  return `- [[${p.exercise}]] ${parts.join(", ")}`;
+const WEIGHT = /(?<![+\d.,])\d+(?:[.,]\d+)?\s*kg/iu;
+
+/** The line with its weight set to `kg`, all else as written, links and aliases included. */
+export function withWeight(line: string, p: Prescription, kg: number | null): string {
+  if (p.bodyweight || kg === null) return line;
+  const weight = `${written(kg)} kg`;
+  // A `+2.5 kg` step is no weight, so it is kept out of the search.
+  const step = /\+\s*\d+(?:[.,]\d+)?\s*kg/iu.exec(line);
+  const from = step === null ? 0 : step.index + step[0].length;
+  const found = WEIGHT.exec(line.slice(from));
+  if (found === null) return `${line.trimEnd()}, ${weight}`;
+  const at = from + found.index;
+  return line.slice(0, at) + weight + line.slice(at + found[0].length);
 }
 
 /** The heaviest set of `exercise` logged in the block's last two build weeks, or null. */
@@ -164,7 +168,7 @@ export function nextBlockText(
     if (link === null || link.mark !== "") return line;
     const p = prescriptionOf(link.exercise, link.rest);
     const kg = loggedTop(block, days, p.exercise) ?? targetOf(block, p, last).kg;
-    return prescriptionLine(p, kg);
+    return withWeight(line, p, kg);
   });
   // The server stamps a new note's own id and dates, so the old block's go.
   const fresh = lines.filter((line, at) => at === 0 || !STAMPS.test(line) || !inHead(lines, at));
