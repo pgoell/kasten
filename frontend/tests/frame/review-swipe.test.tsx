@@ -11,7 +11,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRoot, type Root } from "react-dom/client";
 import { commands, page } from "vitest/browser";
-import { ReviewSession } from "@/components/review-session";
+import { ReviewSession } from "@/components/review/review-session";
 import { readClock } from "@/lib/core/clock";
 import type { Deck } from "@/lib/review/review";
 import { nextSchedule } from "@/lib/review/srs-schedule";

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ReviewDecks } from "@/components/review-decks";
-import { ReviewParked } from "@/components/review-parked";
-import { ReviewSession } from "@/components/review-session";
+import { ReviewDecks } from "@/components/review/review-decks";
+import { ReviewParked } from "@/components/review/review-parked";
+import { ReviewSession } from "@/components/review/review-session";
 import type { Deck } from "@/lib/review/review";
 import type { Rating } from "@/lib/review/srs";
 import type { EditorCommands } from "@/lib/ui/keys/key-bindings";

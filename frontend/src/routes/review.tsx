@@ -1,8 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { ReviewDecks } from "@/components/review-decks";
-import { ReviewParked } from "@/components/review-parked";
-import { ReviewSession } from "@/components/review-session";
+import { ReviewDecks } from "@/components/review/review-decks";
+import { ReviewParked } from "@/components/review/review-parked";
+import { ReviewSession } from "@/components/review/review-session";
 import type { Deck } from "@/lib/review/review";
 import { PageNav } from "./-pages";
 

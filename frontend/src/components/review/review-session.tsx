@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { NotePreview } from "@/components/note-preview";
-import { BUTTON, ReviewAnswer, ReviewSource, TryAgain } from "@/components/review-answer";
-import { SwipeCard } from "@/components/review-swipe";
+import { BUTTON, ReviewAnswer, ReviewSource, TryAgain } from "@/components/review/review-answer";
+import { SwipeCard } from "@/components/review/review-swipe";
 import { shiftDay } from "@/lib/core/clock";
 import { noteName } from "@/lib/notes/links/note-path";
 import { unescaped } from "@/lib/review/card-line";

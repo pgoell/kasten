@@ -15,8 +15,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactElement } from "react";
 import { createRoot } from "react-dom/client";
 import { commands, page } from "vitest/browser";
-import { ReviewDecks } from "@/components/review-decks";
-import { ReviewParked } from "@/components/review-parked";
+import { ReviewDecks } from "@/components/review/review-decks";
+import { ReviewParked } from "@/components/review/review-parked";
 import { shot } from "./shots";
 import "@/styles/app.css";
 

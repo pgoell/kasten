@@ -14,7 +14,7 @@ import { waitFor } from "@testing-library/react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { commands, page } from "vitest/browser";
-import { ReviewSession } from "@/components/review-session";
+import { ReviewSession } from "@/components/review/review-session";
 import { fetchCards, fetchNote, fetchReviewLimits, NoteMissing } from "@/lib/core/api";
 import { openInFocused } from "@/lib/panes/layout/pane-contents";
 import { emptyLayout, splitFocused } from "@/lib/panes/layout/panes";

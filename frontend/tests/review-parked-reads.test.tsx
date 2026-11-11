@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { ReviewParked } from "@/components/review-parked";
+import { ReviewParked } from "@/components/review/review-parked";
 import * as api from "@/lib/core/api";
 
 const SR = "<!--SR:!2026-08-20,4,270-->";

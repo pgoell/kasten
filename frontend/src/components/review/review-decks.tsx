@@ -1,7 +1,7 @@
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { Fragment, useState } from "react";
-import { TryAgain } from "@/components/review-answer";
-import { ReviewImport } from "@/components/review-import";
+import { TryAgain } from "@/components/review/review-answer";
+import { ReviewImport } from "@/components/review/review-import";
 import { fetchCards, fetchNote } from "@/lib/core/api";
 import { readClock } from "@/lib/core/clock";
 import { readRetry } from "@/lib/core/read-retry";

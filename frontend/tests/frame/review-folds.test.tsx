@@ -9,7 +9,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRoot } from "react-dom/client";
 import { page } from "vitest/browser";
-import { ReviewDecks } from "@/components/review-decks";
+import { ReviewDecks } from "@/components/review/review-decks";
 import { shot } from "./shots";
 import "@/styles/app.css";
 
