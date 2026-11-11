@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { TodoHints } from "@/components/todo-hints";
-import { TodoMore } from "@/components/todo-more";
-import { TodoRow } from "@/components/todo-row";
-import { TodoStateBox } from "@/components/todo-state-box";
+import { TodoHints } from "@/components/todo/todo-hints";
+import { TodoMore } from "@/components/todo/todo-more";
+import { TodoRow } from "@/components/todo/todo-row";
+import { TodoStateBox } from "@/components/todo/todo-state-box";
 import type { SearchHit, TodoHit } from "@/lib/core/api";
 import { cycleLine, parseTodo, type TodoState } from "@/lib/todo/todo";
 import { lineSuggestions } from "@/lib/todo/todo-suggest";

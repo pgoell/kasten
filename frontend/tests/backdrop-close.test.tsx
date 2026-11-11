@@ -9,7 +9,7 @@ import { KeyHelp } from "@/components/key-help";
 import { NotePrompt } from "@/components/note-prompt";
 import { NoteSearch } from "@/components/note-search";
 import { TerminalPrompt } from "@/components/terminal-prompt";
-import { TodoPrompt } from "@/components/todo-prompt";
+import { TodoPrompt } from "@/components/todo/todo-prompt";
 
 vi.mock("@/lib/core/api", () => ({
   fetchNote: vi.fn().mockResolvedValue(""),

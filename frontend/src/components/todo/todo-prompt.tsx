@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { TodoHints } from "@/components/todo-hints";
+import { TodoHints } from "@/components/todo/todo-hints";
 import { formatTodo } from "@/lib/todo/todo";
 import { expandShorthand } from "@/lib/todo/todo-shorthand";
 import { shorthandSuggestions } from "@/lib/todo/todo-suggest";

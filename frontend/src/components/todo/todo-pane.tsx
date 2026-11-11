@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useDeferredValue, useMemo, useRef, useState } from "react";
-import { type BoardKeys, TodoBoard } from "@/components/todo-board";
-import { TodoFooter } from "@/components/todo-footer";
-import { TodoHeader } from "@/components/todo-header";
-import { TodoList } from "@/components/todo-list";
+import { type BoardKeys, TodoBoard } from "@/components/todo/todo-board";
+import { TodoFooter } from "@/components/todo/todo-footer";
+import { TodoHeader } from "@/components/todo/todo-header";
+import { TodoList } from "@/components/todo/todo-list";
 import { fetchTodos, type SearchHit, type TodoHit } from "@/lib/core/api";
 import type { TodoState } from "@/lib/todo/todo";
 import { useArmed } from "@/lib/todo/use-armed";

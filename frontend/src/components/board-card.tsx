@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { chipNote, PersonChip } from "@/components/person-chip";
-import type { Card } from "@/components/todo-board";
-import { wordsOf } from "@/components/todo-row";
+import type { Card } from "@/components/todo/todo-board";
+import { wordsOf } from "@/components/todo/todo-row";
 import type { SearchHit, TodoHit } from "@/lib/core/api";
 import { isOpen, PRIORITY_SYMBOL, type Todo, type TodoState } from "@/lib/todo/todo";
 import type { Closed } from "@/lib/todo/todo-blocked";

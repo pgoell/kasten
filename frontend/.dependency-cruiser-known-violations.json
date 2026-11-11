@@ -57,8 +57,8 @@
   {
     "type": "dependency",
     "from": "src/lib/todo/use-todo-keys.ts",
-    "to": "src/components/todo-board.tsx",
-    "unresolvedTo": "@/components/todo-board",
+    "to": "src/components/todo/todo-board.tsx",
+    "unresolvedTo": "@/components/todo/todo-board",
     "dependencyTypes": ["undetermined", "import", "type-only"],
     "rule": {
       "severity": "error",
@@ -79,8 +79,8 @@
   {
     "type": "cycle",
     "from": "src/components/board-card.tsx",
-    "to": "src/components/todo-board.tsx",
-    "unresolvedTo": "@/components/todo-board",
+    "to": "src/components/todo/todo-board.tsx",
+    "unresolvedTo": "@/components/todo/todo-board",
     "dependencyTypes": ["undetermined", "import", "type-only"],
     "rule": {
       "severity": "error",
@@ -88,7 +88,7 @@
     },
     "cycle": [
       {
-        "name": "src/components/todo-board.tsx",
+        "name": "src/components/todo/todo-board.tsx",
         "dependencyTypes": ["undetermined", "import", "type-only"]
       },
       {

@@ -1,4 +1,4 @@
-import { TodoLegend } from "@/components/todo-legend";
+import { TodoLegend } from "@/components/todo/todo-legend";
 import type { TodoState } from "@/lib/todo/todo";
 import type { Mode, Row } from "@/lib/todo/use-todo-rows";
 

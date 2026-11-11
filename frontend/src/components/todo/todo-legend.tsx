@@ -1,4 +1,4 @@
-import { STATE_ORDER, TodoStateBox } from "@/components/todo-state-box";
+import { STATE_ORDER, TodoStateBox } from "@/components/todo/todo-state-box";
 import type { TodoState } from "@/lib/todo/todo";
 
 /**

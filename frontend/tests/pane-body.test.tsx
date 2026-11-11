@@ -18,7 +18,7 @@ import { PdfPane } from "@/components/pdf-pane";
 import { PersonPane } from "@/components/person-pane";
 import { ReviewPane } from "@/components/review-pane";
 import { TerminalPane } from "@/components/terminal-pane";
-import { TodoPane } from "@/components/todo-pane";
+import { TodoPane } from "@/components/todo/todo-pane";
 import { VideoPane } from "@/components/video-pane";
 import { TimersPane } from "@/lib/app/push/timers-pane";
 import { type KindField, PANE_KINDS, type Pane } from "@/lib/panes/layout/pane-kinds";
