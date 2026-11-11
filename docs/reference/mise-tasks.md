@@ -172,7 +172,7 @@ the tree is clean, on `main` or detached in a worktree. See [Cut a release](/how
 
 | Task | What it does |
 |---|---|
-| `repo:apply-settings` | Apply GitHub repo and branch-protection settings and the Actions allowlist from `.github/*.json`, turn on vulnerability alerts, Dependabot security updates, secret scanning with push protection and CodeQL default setup |
+| `repo:apply-settings` | Apply GitHub repo and branch-protection settings and the Actions allowlist from `.github/*.json`, turn on vulnerability alerts, Dependabot security updates, secret scanning with push protection, CodeQL default setup and private vulnerability reporting |
 | `repo:check-settings` | Diff live branch protection against the checked-in file, check the security settings are on |
 
 ## Related

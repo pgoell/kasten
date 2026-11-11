@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Apply GitHub repo + branch-protection settings from .github/*.json, and turn
 # on vulnerability alerts, Dependabot security updates, secret scanning with
-# push protection and CodeQL default setup.
+# push protection, CodeQL default setup and private vulnerability reporting.
 #
 # Reading branch protection (used by --check and the post-apply verify) requires
 # a token with the "Administration" (read) permission. A local `gh auth login`
@@ -21,7 +21,7 @@ Usage: scripts/apply-github-settings.sh [--check | --dry-run | --skip-verify] [-
 
 Applies .github/repo-settings.json via PATCH /repos/:owner/:repo, turns on
 vulnerability alerts, Dependabot security updates, secret scanning with push
-protection and CodeQL default setup, then
+protection, CodeQL default setup and private vulnerability reporting, then
 .github/branch-protection.json via PUT /repos/:owner/:repo/branches/:default/protection,
 then the Actions settings: .github/actions-permissions.json (allowlist on, every
 action pinned to a commit SHA) and .github/selected-actions.json (the allowlist).
@@ -128,12 +128,16 @@ verify_security_updates() {
     echo "✖ off: $(echo $off)" >&2
     rc=5
   fi
+  if [[ "$(gh api "/repos/$OWNER_REPO/private-vulnerability-reporting" --jq .enabled 2>/dev/null)" != "true" ]]; then
+    echo "✖ private vulnerability reporting is off" >&2
+    rc=5
+  fi
   # A fresh setup reads back "configured" only after its first analysis starts.
   if [[ "$(gh api "/repos/$OWNER_REPO/code-scanning/default-setup" --jq .state 2>/dev/null)" != "configured" ]]; then
     echo "✖ CodeQL default setup is not configured" >&2
     rc=5
   fi
-  (( rc == 0 )) && echo "✔ vulnerability alerts, Dependabot security updates, secret scanning, push protection and CodeQL are on"
+  (( rc == 0 )) && echo "✔ vulnerability alerts, Dependabot security updates, secret scanning, push protection, CodeQL and private vulnerability reporting are on"
   return $rc
 }
 
@@ -157,6 +161,7 @@ if [[ "$DRY_RUN" == "1" ]]; then
   echo "→ would run: gh api --method PUT  /repos/$OWNER_REPO/automated-security-fixes"
   echo "→ would run: gh api --method PATCH /repos/$OWNER_REPO (secret scanning and push protection on)"
   echo "→ would run: gh api --method PATCH /repos/$OWNER_REPO/code-scanning/default-setup -f state=configured"
+  echo "→ would run: gh api --method PUT  /repos/$OWNER_REPO/private-vulnerability-reporting"
   echo "→ would run: gh api --method PUT  /repos/$OWNER_REPO/branches/$DEFAULT_BRANCH/protection --input $BRANCH_PROTECTION"
   echo "→ would run: gh api --method PUT  /repos/$OWNER_REPO/actions/permissions --input $ACTIONS_PERMISSIONS"
   echo "→ would run: gh api --method PUT  /repos/$OWNER_REPO/actions/permissions/selected-actions --input $SELECTED_ACTIONS"
@@ -188,6 +193,7 @@ JSON
 # Leaving out languages scans every language GitHub detects in the repo.
 gh api --method PATCH "/repos/$OWNER_REPO/code-scanning/default-setup" \
   -f state=configured -f query_suite=default >/dev/null
+gh api --method PUT "/repos/$OWNER_REPO/private-vulnerability-reporting" >/dev/null
 
 echo "→ applying branch protection"
 gh api --method PUT "/repos/$OWNER_REPO/branches/$DEFAULT_BRANCH/protection" \
