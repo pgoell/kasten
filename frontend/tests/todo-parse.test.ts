@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { formatTodo, parseTodo, type Todo } from "@/lib/todo/todo";
+import { readFields } from "@/lib/todo/todo-fields";
 import { EXAMPLE, parsed } from "./todo-fixture";
 
 describe("parseTodo", () => {
@@ -192,5 +193,45 @@ describe("parseTodo", () => {
   it("counts what the line is indented by, and writes it back", () => {
     expect(parsed("    - [ ] nested").indent).toBe(4);
     expect(formatTodo(parsed("    - [ ] nested"))).toBe("    - [ ] nested");
+  });
+});
+
+describe("#1889 a field value before a long run of blanks", () => {
+  // A field value, 40,000 blanks, then a word: linear time (#1889).
+  const BLANKS = " ".repeat(40_000);
+  const timed = (line: string) => {
+    const start = performance.now();
+    readFields(line);
+    return performance.now() - start;
+  };
+
+  it("reads a recurrence in linear time", () => {
+    expect(timed(`🔁 a${BLANKS}x`)).toBeLessThan(1000);
+  });
+
+  it("reads a wait's name in linear time", () => {
+    expect(timed(`👤 2026-01-01 a${BLANKS}x`)).toBeLessThan(1000);
+  });
+
+  it("reads an assignee in linear time", () => {
+    expect(timed(`👤 a${BLANKS}x`)).toBeLessThan(1000);
+  });
+
+  // The fix moves no value on a normal line.
+  it.each([
+    ["🔁 every week 📅 2026-01-02", { recurrence: "every week", due: "2026-01-02" }],
+    ["🔁 every week \t", { recurrence: "every week" }],
+    ["🔁\tevery\tweek\t#t", { recurrence: "every\tweek" }],
+    // A value of blanks alone reads as one blank.
+    ["🔁   ", { recurrence: " " }],
+    ["🔁  📅 2026-01-02", { recurrence: " ", due: "2026-01-02" }],
+    ["👤 2026-01-01 [[Ada]] 📅 2026-01-02", { waitingSince: "2026-01-01", waitingOn: "[[Ada]]" }],
+    ["👤 2026-01-01   ", { waitingSince: "2026-01-01", waitingOn: undefined }],
+    ["👤 2026-01-01\tAda\t", { waitingSince: "2026-01-01", waitingOn: "Ada" }],
+    ["👤 [[Pascal]] 👤 2026-10-25", { assignee: "[[Pascal]]", waitingSince: "2026-10-25" }],
+    ["👤\tAda Lovelace\t^b-1", { assignee: "Ada Lovelace" }],
+    ["👤   ", { assignee: undefined, text: "👤" }],
+  ])("reads %j as main does", (line, fields) => {
+    expect(readFields(line)).toMatchObject(fields);
   });
 });

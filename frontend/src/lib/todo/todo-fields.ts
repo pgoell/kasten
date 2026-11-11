@@ -78,9 +78,10 @@ const WORKED = /⏱️?[ \t]+(?!📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|�
 // The one field whose value is free text, so it runs to the next marker rather
 // than to the next space. A tag ends it too: a recurrence never carries one,
 // and a tag belongs to the words, as does a `^block` id that ends the line. A
-// stop where a field was taken out ends it as well.
+// stop where a field was taken out ends it as well. The end is tried only after a
+// non-blank, or at a cut or the line end, so a long blank run is read once (#1889).
 const RECURRENCE =
-  /🔁️?[ \t]+(.+?)(?=[ \t]*(?:📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🏁|🆔|⛔|⏲|⏱|👤|#)|[ \t]+\^[\w-]+[ \t]*(?:\n|$)|[ \t]*\n|[ \t]*$)/d;
+  /🔁️?[ \t]+(.+?)(?:(?<![ \t])(?=[ \t]*(?:📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🏁|🆔|⛔|⏲|⏱|👤|#)|[ \t]+\^[\w-]+[ \t]*(?:\n|$)|[ \t]*\n|[ \t]*$)|(?=\n|$))/d;
 
 // Where a field was taken out, a stop for the fields read after it. Without it a
 // value would run across the gap the field left, so `🔁 every week 📅 …` would
@@ -95,7 +96,7 @@ const CUT = "\n";
 // last, `??` rather than `?`, or a date stamped in front of a `^block` id would
 // read the id as who the todo waits on.
 const WAITING =
-  /👤️?[ \t]+(\d{4}-\d{2}-\d{2})(?:[ \t]+(.+?))??(?=[ \t]+(?:📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🔁|🏁|🆔|⛔|⏲|⏱|👤|#|\^[\w-]+[ \t]*(?:\n|$))|[ \t]*\n|[ \t]*$)/d;
+  /👤️?[ \t]+(\d{4}-\d{2}-\d{2})(?:[ \t]+(.+?))??(?:(?<![ \t])(?=[ \t]+(?:📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🔁|🏁|🆔|⛔|⏲|⏱|👤|#|\^[\w-]+[ \t]*(?:\n|$))|[ \t]*\n|[ \t]*$)|(?=\n|$))/d;
 
 // A `👤` followed by anything that is no date and no marker is the assignee:
 // who the todo is for, in any state. It runs to the same stops as the wait's
@@ -103,7 +104,7 @@ const WAITING =
 // The value may not open on a space, or the spaces would give back one and
 // read the rest of the gap as the name; a `^block` id is never a name either.
 const ASSIGNEE =
-  /👤️?[ \t]+(?![ \t])(?!\d{4}-\d{2}-\d{2}(?:[ \t]|$))(?!(?:📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🔁|🏁|🆔|⛔|⏲|⏱|👤|#|\^[\w-]+[ \t]*(?:\n|$)))(.+?)(?=[ \t]+(?:📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🔁|🏁|🆔|⛔|⏲|⏱|👤|#|\^[\w-]+[ \t]*(?:\n|$))|[ \t]*\n|[ \t]*$)/d;
+  /👤️?[ \t]+(?![ \t])(?!\d{4}-\d{2}-\d{2}(?:[ \t]|$))(?!(?:📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🔁|🏁|🆔|⛔|⏲|⏱|👤|#|\^[\w-]+[ \t]*(?:\n|$)))(.+?)(?:(?<![ \t])(?=[ \t]+(?:📅|📆|🗓|⏳|🛫|➕|✅|❌|🔺|⏫|🔼|🔽|⏬|🔁|🏁|🆔|⛔|⏲|⏱|👤|#|\^[\w-]+[ \t]*(?:\n|$))|[ \t]*\n|[ \t]*$)|(?=\n|$))/d;
 
 /** Every field in the order `tail` writes them, which is where a stamp is added. */
 const ORDER = [

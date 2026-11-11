@@ -26,8 +26,20 @@ _ONE_WORD = r"[ \t]+(?!(?:" + STOP + r"|🔁))" + _WORD
 _DATE = r"[ \t]+([0-9]{4}-[0-9]{2}-[0-9]{2})"
 DONE = re.compile("✅" + _VS + _DATE)
 _BLOCK_ID = r"\^[A-Za-z0-9_-]+[ \t]*(?:\n|$)"
+# The end of a free-text value is tried only after a non-blank, or at a cut or the line end, so
+# a long blank run is read once (#1889). A `🔁` then blanks at the end still takes one blank.
+_AFTER_WORD = r"(?:(?<![ \t])(?="
+_AT_CUT = r")|(?=\n|$))"
 # A `🔁` value runs to the next field, tag, `👤`, block id or cut, as the editor's does.
-_RECURRENCE_END = r"(?=[ \t]*(?:" + STOP + r"|👤|#)|[ \t]+" + _BLOCK_ID + r"|[ \t]*\n|[ \t]*$)"
+_RECURRENCE_END = (
+    _AFTER_WORD
+    + r"[ \t]*(?:"
+    + STOP
+    + r"|👤|#)|[ \t]+"
+    + _BLOCK_ID
+    + r"|[ \t]*\n|[ \t]*$"
+    + _AT_CUT
+)
 ID = re.compile("🆔" + _VS + _ONE_WORD)
 """The id field `🆔 kt-…`: a `🆔` whose next word is no marker."""
 RECURRENCE = re.compile("🔁" + _VS + r"[ \t]+(.+?)" + _RECURRENCE_END)
@@ -54,7 +66,9 @@ BLOCKED_BY = re.compile("⛔" + _VS + _ONE_WORD)
 # it does not run across the gap. `_WORD` and the `🔁` value already refuse it.
 _CUT = "\n"
 # A `👤` value ends at a field, tag, block id, `👤` or cut; a wait's name is optional.
-_ENDS = r"(?=[ \t]+(?:" + STOP + r"|🔁|👤|#|" + _BLOCK_ID + r")|[ \t]*\n|[ \t]*$)"
+_ENDS = (
+    _AFTER_WORD + r"[ \t]+(?:" + STOP + r"|🔁|👤|#|" + _BLOCK_ID + r")|[ \t]*\n|[ \t]*$" + _AT_CUT
+)
 WAITING = re.compile("👤" + _VS + _DATE + r"(?:[ \t]+(.+?))??" + _ENDS)
 # The assignee: a `👤` whose value is no date, marker or block id. The
 # `(?![ \t])` stops a backtrack from leaving a space to start the value.

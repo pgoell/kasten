@@ -3,6 +3,8 @@
 import hashlib
 import json
 import re
+import subprocess
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -277,3 +279,59 @@ async def test_1055_read_gives_every_case_the_editors_words(
     assert {
         case["id"]: item["text"] for case, item in zip(CASES, response.json()["items"], strict=True)
     } == {case["id"]: unblocked.sub("", case["text"]) for case in CASES}
+
+
+# A field value, 40,000 blanks, then a word: linear time (#1889).
+_LONG = "a" + " " * 40_000 + "x"
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        f"place('🔁 {_LONG}', RECURRENCE)",
+        f"WAITING.search('👤 2026-01-01 {_LONG}')",
+        f"ASSIGNEE.search('👤 {_LONG}')",
+    ],
+    ids=["recurrence", "waiting", "assignee"],
+)
+def test_1889_a_field_value_before_a_long_blank_run_reads_in_linear_time(call: str) -> None:
+    # A child process, since `re` cannot be stopped from inside.
+    code = f"from kasten_backend.todo_fields import *; {call}"
+
+    # The timeout sits far under main's time and above a slow interpreter start.
+    subprocess.run([sys.executable, "-c", code], check=True, timeout=10)  # noqa: S603
+
+
+# The fix moves no match on a normal line.
+@pytest.mark.parametrize(
+    ("pattern", "line", "found"),
+    [
+        ("RECURRENCE", "🔁 every week 📅 2026-01-02", ("🔁 every week", ("every week",))),
+        ("RECURRENCE", "🔁 every week \t", ("🔁 every week", ("every week",))),
+        ("RECURRENCE", "🔁\tevery\tweek\t#t", ("🔁\tevery\tweek", ("every\tweek",))),
+        # A value of blanks alone reads as the last blank, at a cut or the line end.
+        ("RECURRENCE", "🔁   ", ("🔁   ", (" ",))),
+        ("RECURRENCE", "🔁 \t\n", ("🔁 \t", ("\t",))),
+        ("RECURRENCE", "🔁 \n", None),
+        (
+            "WAITING",
+            "👤 2026-01-01 [[Ada]] 📅 2026-01-02",
+            ("👤 2026-01-01 [[Ada]]", ("2026-01-01", "[[Ada]]")),
+        ),
+        ("WAITING", "👤 2026-01-01   ", ("👤 2026-01-01", ("2026-01-01", None))),
+        (
+            "WAITING",
+            "👤 2026-01-01\tAda\t",
+            ("👤 2026-01-01\tAda", ("2026-01-01", "Ada")),
+        ),
+        ("ASSIGNEE", "👤 [[Pascal]] 👤 2026-10-25", ("👤 [[Pascal]]", ("[[Pascal]]",))),
+        ("ASSIGNEE", "👤\tAda Lovelace\t^b-1", ("👤\tAda Lovelace", ("Ada Lovelace",))),
+        ("ASSIGNEE", "👤   ", None),
+    ],
+)
+def test_1889_a_field_reads_as_on_main(
+    pattern: str, line: str, found: tuple[str, tuple[str | None, ...]] | None
+) -> None:
+    match = getattr(todo_fields, pattern).search(line)
+
+    assert (match and (match[0], match.groups())) == found
