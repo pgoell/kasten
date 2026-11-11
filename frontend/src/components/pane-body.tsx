@@ -27,7 +27,7 @@ import type { useAutosave } from "@/lib/notes/note/use-autosave";
 import type { BufferSync } from "@/lib/notes/note/use-buffer-sync";
 import type { NoteOpening } from "@/lib/notes/note/use-note-opening";
 import { openBeside, openBookInFocused } from "@/lib/panes/layout/pane-contents";
-import { heldKind, type KindField, type Pane } from "@/lib/panes/layout/pane-kinds";
+import { heldKind, type KindField, PANE_KINDS, type Pane } from "@/lib/panes/layout/pane-kinds";
 import { atPane, focusPane, type Layout } from "@/lib/panes/layout/panes";
 import type { useRsvpAsked } from "@/lib/panes/rsvp/use-rsvp";
 import type { VideoAsks } from "@/lib/panes/video/use-video-player";
@@ -401,17 +401,9 @@ export function PaneBody({
   return (BODIES[kind] as Body<KindField>)(shown[kind] as never, at);
 }
 
-/** Whether a pane holds one of the seven kinds that fill the whole pane. */
-export function isWholePane(
-  pane: Pick<Pane, "overview" | "finance" | "log" | "todos" | "review" | "library" | "training">,
-): boolean {
-  return (
-    pane.overview === true ||
-    pane.training === true ||
-    pane.library === true ||
-    pane.finance === true ||
-    pane.log === true ||
-    pane.todos === true ||
-    pane.review === true
+/** Whether a pane holds one of the kinds that fill the whole pane. */
+export function isWholePane(pane: Pane): boolean {
+  return (Object.keys(PANE_KINDS) as KindField[]).some(
+    (kind) => PANE_KINDS[kind].whole === true && pane[kind] !== undefined,
   );
 }

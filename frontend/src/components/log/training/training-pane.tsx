@@ -24,7 +24,6 @@ import {
 import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
 import { useLeader } from "@/lib/ui/keys/use-leader";
 
-/** The two spans, in weeks. */
 const SPANS = [
   { weeks: 12, name: "12 weeks" },
   { weeks: 52, name: "Year" },

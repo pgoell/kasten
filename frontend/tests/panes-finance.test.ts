@@ -25,3 +25,9 @@ describe("the finance pane in a pane", () => {
     expect(loadWorkspace(false)?.layout.tabs[0]?.root).toMatchObject({ finance: true });
   });
 });
+
+it("#1718 the training pane fills the whole pane, and a chat pane does not", () => {
+  expect(isWholePane({ id: "p", training: true })).toBe(true);
+  expect(isWholePane({ id: "p", chat: true })).toBe(false);
+  expect(isWholePane({ id: "p", path: "a.md" })).toBe(false);
+});
