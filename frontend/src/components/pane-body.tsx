@@ -27,7 +27,7 @@ import type { useAutosave } from "@/lib/notes/note/use-autosave";
 import type { BufferSync } from "@/lib/notes/note/use-buffer-sync";
 import type { NoteOpening } from "@/lib/notes/note/use-note-opening";
 import { openBeside, openBookInFocused } from "@/lib/panes/layout/pane-contents";
-import { heldKind, type KindField, PANE_KINDS, type Pane } from "@/lib/panes/layout/pane-kinds";
+import { heldKind, type KindField, type Pane } from "@/lib/panes/layout/pane-kinds";
 import { atPane, focusPane, type Layout } from "@/lib/panes/layout/panes";
 import type { useRsvpAsked } from "@/lib/panes/rsvp/use-rsvp";
 import type { VideoAsks } from "@/lib/panes/video/use-video-player";
@@ -399,10 +399,4 @@ export function PaneBody({
   // An empty pane is the note pane, which shows Today.
   if (kind === undefined) return note(at);
   return (BODIES[kind] as Body<KindField>)(shown[kind] as never, at);
-}
-
-/** Whether a pane holds one of the kinds that fill the whole pane. */
-export function isWholePane(pane: Pane): boolean {
-  const kind = heldKind(pane);
-  return kind !== undefined && PANE_KINDS[kind].whole === true;
 }
