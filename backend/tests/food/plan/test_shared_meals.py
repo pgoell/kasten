@@ -1,5 +1,7 @@
 """`GET /share/meals`: the week plans' meals for the lists app's Essen tab, from today on."""
 
+import subprocess
+import sys
 from typing import TYPE_CHECKING
 
 import pytest
@@ -65,3 +67,15 @@ async def test_a_cooked_meal_carries_its_servings_and_cook(client: AsyncClient) 
         {"slot": "dinner", "kind": "cook", "dish": "Linsen-Dal", "servings": 4, "cook": "Alicia"}
     ]
     assert all(day["date"] <= "2026-11-15" for day in days)
+
+
+def test_a_meal_of_open_links_and_blanks_reads_in_linear_time() -> None:
+    # A child process, since `re` cannot be stopped from inside: a link target that may hold
+    # `[` rescans from every `[[`, and a cook gap from every blank, for minutes here.
+    code = (
+        "from kasten_backend.food.plan.shared import _words; "
+        "_words('[[' * 10**6); _words('a' + ' ' * 10**6 + 'b')"
+    )
+
+    # The timeout is a hang ceiling: interpreter start is slow on a loaded box.
+    subprocess.run([sys.executable, "-c", code], check=True, timeout=60)  # noqa: S603
