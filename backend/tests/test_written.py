@@ -8,6 +8,8 @@ import os
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
+import pytest
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -127,4 +129,29 @@ async def test_806_nothing_is_written(client: AsyncClient, vault: Path) -> None:
     assert {"status": r.status_code, "unchanged": snapshot(vault) == before} == {
         "status": 200,
         "unchanged": True,
+    }
+
+
+RANGE_ROUTES = ["/api/written", "/api/written/notes", "/api/github"]
+RANGE_ROUTES += ["/api/model-use", "/api/log", "/api/training"]
+
+
+BAD_PAIRS = {
+    "impossible-day": ("2026-02-01", "2026-02-30", 422, "`from` and `to` must be real dates"),
+    "from-after-to": ("2026-03-11", "2026-03-10", 400, "`from` is after `to`"),
+}
+
+
+@pytest.mark.parametrize("route", RANGE_ROUTES)
+@pytest.mark.parametrize("pair", BAD_PAIRS.values(), ids=BAD_PAIRS.keys())
+async def test_1899_every_range_route_answers_a_bad_pair_alike(
+    client: AsyncClient, vault: Path, route: str, pair: tuple[str, str, int, str]
+) -> None:
+    # #1899: one shared check, so each route keeps the same status and text.
+    start, end, status, detail = pair
+    r = await client.get(route, params={"from": start, "to": end})
+
+    assert {"status": r.status_code, "body": r.json()} == {
+        "status": status,
+        "body": {"detail": detail},
     }
