@@ -6,6 +6,7 @@ import { TodoHeader } from "@/components/todo/todo-header";
 import { TodoList } from "@/components/todo/todo-list";
 import { fetchTodos, type SearchHit, type TodoHit } from "@/lib/core/api";
 import type { TodoState } from "@/lib/todo/todo";
+import { cursorAfter } from "@/lib/todo/todo-hold";
 import { useArmed } from "@/lib/todo/use-armed";
 import { useBlockerPick } from "@/lib/todo/use-blocker-pick";
 import { useTodoFilter } from "@/lib/todo/use-todo-filter";
@@ -152,8 +153,12 @@ export function TodoPane({
   });
 
   /** The rows and cursor as last drawn, and the rows to land on once a settled hold lets go. */
-  const drawn = useRef<{ rows: Row[]; cursor: number }>({ rows: [], cursor: 0 });
-  const follow = useRef<string[] | null>(null);
+  const drawn = useRef<{ rows: Row[]; cursor: number; open: number }>({
+    rows: [],
+    cursor: 0,
+    open: 0,
+  });
+  const follow = useRef<{ keys: string[]; inFold: boolean } | null>(null);
 
   // The order the rows are drawn in, held while a press is being read.
   const { groups, groupRows, foldRows, pressing, release } = useTodoHold({
@@ -164,8 +169,11 @@ export function TodoPane({
     board,
     doneOpen,
     onSettle: () => {
-      const { rows: before, cursor: was } = drawn.current;
-      follow.current = before.slice(was).map((row) => rowKey(row.hit));
+      const { rows: before, cursor: was, open } = drawn.current;
+      follow.current = {
+        keys: before.slice(was).map((row) => rowKey(row.hit)),
+        inFold: was >= open,
+      };
     },
   });
   // What `j` and `k` walk: the groups, and the Done this week rows once their
@@ -179,19 +187,18 @@ export function TodoPane({
   const cursor = Math.min(active, Math.max(rows.length - 1, 0));
   const at = rows[cursor];
   const cursorKey = at === undefined ? "" : rowKey(at.hit);
-  drawn.current = { rows, cursor };
+  drawn.current = { rows, cursor, open: groupRows.length };
 
   // Done rows leave as the hold lets go, so the cursor follows its row rather than its place,
   // or the first row under it that stays where its own row left.
   useLayoutEffect(() => {
-    const keys = follow.current;
-    if (keys === null) return;
+    const from = follow.current;
+    if (from === null) return;
     follow.current = null;
-    // The open rows only: a row that just left them reappears in an open fold under the same key.
-    const places = new Map(groupRows.map((row, index) => [rowKey(row.hit), index]));
-    const found = keys.map((key) => places.get(key)).find((index) => index !== undefined);
+    const keysOf = (each: Row[]) => each.map((row) => rowKey(row.hit));
+    const found = cursorAfter(from, keysOf(groupRows), keysOf(rows));
     if (found !== undefined) setActive(found);
-  }, [groupRows]);
+  }, [groupRows, rows]);
   const refile = pressing(onRefile);
   const { onCycle, onTimer, onAgent } = useTodoTwins({
     data,
