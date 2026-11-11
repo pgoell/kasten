@@ -1,7 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Page } from "@playwright/test";
-import { phone } from "../../../harness/app.ts";
+import { phone, tapHeight } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
 import { bothTexts, OUTSIDE, sign, welcome } from "../conflict/conflicted.ts";
 
@@ -207,5 +207,75 @@ test.describe("on a phone", () => {
     expect(inScroller).toEqual([false, false]);
     await expect(page.getByRole("button", { name: "Write my text" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Take the vault's" })).toBeVisible();
+  });
+});
+
+/** Sets the browser's default font, as Chrome's Settings > Appearance > Font size does. */
+async function defaultFont(page: Page, px: number) {
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Page.setFontSizes", { fontSizes: { standard: px } });
+}
+
+/** What each `*-11` class on screen computes to, as `kind px`, the kinds a tap target sizes by (#1854). */
+const elevens = (page: Page) =>
+  page.evaluate(() => {
+    const props: Record<string, ("minHeight" | "minWidth" | "height" | "width")[]> = {
+      "min-h": ["minHeight"],
+      "min-w": ["minWidth"],
+      h: ["height"],
+      w: ["width"],
+      size: ["width", "height"],
+    };
+    const shown = [...document.querySelectorAll<HTMLElement>("[class*='-11']")].filter((element) =>
+      element.checkVisibility(),
+    );
+    const seen = shown.flatMap((element) =>
+      [...element.classList].flatMap((name) => {
+        const kind = /^(?:pointer-coarse:)?(min-h|min-w|size|h|w)-11$/.exec(name)?.[1] ?? "";
+        return (props[kind] ?? []).map((prop) => `${kind} ${getComputedStyle(element)[prop]}`);
+      }),
+    );
+    return [...new Set(seen)].sort();
+  });
+
+test.describe("on a phone at another default font", () => {
+  test.use(phone);
+
+  /** Opens the chat and the search's filters, so a target of every kind is on screen at once. */
+  async function everyKind(page: Page) {
+    await load(page);
+    await page.getByRole("button", { name: "Open the chat with Claude Code" }).tap();
+    await expect(page.getByRole("textbox").last()).toBeVisible();
+    await page.getByRole("button", { name: "Run a command by name" }).tap();
+    await page.getByRole("option", { name: /^Search note content/ }).tap();
+    await page.getByRole("button", { name: "Filters" }).tap();
+    await expect(page.getByRole("group", { name: "Folders" })).toBeVisible();
+  }
+
+  test("at 14 pixels every tap target of every kind still holds 44 pixels", async ({ page }) => {
+    await defaultFont(page, 14);
+    await everyKind(page);
+    const kinds = ["h", "min-h", "min-w", "size", "w"];
+    expect(await elevens(page)).toEqual(kinds.map((kind) => `${kind} 44px`));
+    const search = page.getByRole("dialog", { name: "Search notes" });
+    // `TAP` on a filter, and `HEADER_ROW` around the search's input.
+    for (const target of [
+      search.getByRole("button", { name: "Include the archive" }),
+      search.getByRole("combobox", { name: "search notes" }).locator(".."),
+    ])
+      expect(await tapHeight(target)).toBeGreaterThanOrEqual(44);
+  });
+
+  test("at 16 pixels every tap target is 44 pixels, and at 20 it grows with the font as before", async ({
+    page,
+  }) => {
+    await everyKind(page);
+    expect(await elevens(page)).toEqual(
+      ["h", "min-h", "min-w", "size", "w"].map((k) => `${k} 44px`),
+    );
+    await defaultFont(page, 20);
+    expect(await elevens(page)).toEqual(
+      ["h", "min-h", "min-w", "size", "w"].map((k) => `${k} 55px`),
+    );
   });
 });
