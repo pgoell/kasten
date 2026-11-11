@@ -23,10 +23,11 @@ export const GLUED = /[\p{L}\p{N}_/]$/u;
 /**
  * Links, code spans and same-line HTML comments, where a hash is no tag; `<!-->` opens no comment,
  * nor one holding `--`, as in the editor's parser (#657, #1474). Global, so use it through
- * `matchAll` or `replace` only, never `exec`. `todo_fields.SPANS` is the same pattern.
+ * `matchAll` or `replace` only, never `exec`. A markdown link holds no `[`, so a long line of
+ * brackets reads in linear time. `todo_fields.SPANS` is the same pattern.
  */
 export const SPANS =
-  /\[\[[^[\]\n]+\]\]|\[[^\]\n]*\]\([^)\n]*\)|`[^`\n]*`|<!--[^>\n](?:-?[^-\n])*?-->/g;
+  /\[\[[^[\]\n]+\]\]|\[[^[\]\n]*\]\([^[)\n]*\)|`[^`\n]*`|<!--[^>\n](?:-?[^-\n])*?-->/g;
 
 /**
  * What opens an HTML block that may break a paragraph, CommonMark's kinds 1 to 6, with the

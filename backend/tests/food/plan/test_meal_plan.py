@@ -1,5 +1,7 @@
 """`POST /api/meal-plan`: a week plan as the view draws it, batches as bands with servings left."""
 
+import subprocess
+import sys
 from datetime import date
 from typing import TYPE_CHECKING
 
@@ -139,3 +141,28 @@ async def test_the_training_protein_goal_wins_where_the_config_has_one(
     config.write_text("- 🍽 food: protein min 120\n- 🍽 training: protein min 160\n", "utf-8")
     week = (await client.post("/api/meal-plan", json={"text": PLAN})).json()
     assert week["protein_goal"] == {"type": "floor", "value": 160.0}
+
+
+def test_a_meal_line_of_open_links_reads_in_linear_time() -> None:
+    # A child process, since `re` cannot be stopped from inside: a link whose two parts
+    # overlap rescans from every `[[`, cubic here, and runs for hours.
+    code = (
+        "from kasten_backend.food.plan.note import parse_plan; "
+        "parse_plan('- Mo dinner: ' + '[[\"' * 10**5 + '\\n- Di dinner: 👤 ' + '[[' * 10**6"
+        " + '\\n- Mi dinner: x' + ' ' * 10**6 + 'y')"
+    )
+
+    # The timeout is a hang ceiling: interpreter start is slow on a loaded box.
+    subprocess.run([sys.executable, "-c", code], check=True, timeout=60)  # noqa: S603
+
+
+def test_a_meal_keeps_its_words_without_the_trailing_blanks() -> None:
+    plan = parse_plan("- Mo dinner: cook [[Dal|das Dal]] x2 👤 [[Alicia|A]] \t \n")
+
+    meal = plan.meals[0]
+    assert (meal.text, meal.target, meal.servings, meal.cook) == (
+        "cook [[Dal|das Dal]] x2 👤 [[Alicia|A]]",
+        "Dal",
+        2,
+        "Alicia",
+    )

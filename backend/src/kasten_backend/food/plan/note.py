@@ -26,18 +26,19 @@ SLOTS: dict[str, Slot] = {
     "abendessen": "dinner",
 }
 MEAL = re.compile(
-    rf"[-*+] (?:\[[ xX]\] )?{DAY}[ \t]+(?P<slot>{'|'.join(SLOTS)})[ \t]*:[ \t]*(?P<rest>.*?)[ \t]*",
+    rf"[-*+] (?:\[[ xX]\] )?{DAY}[ \t]+(?P<slot>{'|'.join(SLOTS)})[ \t]*:[ \t]*(?P<rest>.*)",
     re.IGNORECASE,
 )
 TRAINING = re.compile(rf"[-*+] {DAY}:?[ \t]+(?:🏋️?|training)[ \t]*", re.IGNORECASE)
-LINK = r"\[\[(?P<target>[^\]|#]+)(?:[^\]]*)\]\]"
+# Neither part holds a `[`, nor overlaps the other, so a search runs in linear time.
+LINK = r"\[\[(?P<target>[^\[\]|#]+)(?:[|#][^\[\]]*)?\]\]"
 COOK = re.compile(
     rf"(?:cook|kochen|koch)[ \t]+{LINK}(?:[ \t]*[x\u00d7][ \t]*(?P<servings>[0-9]{{1,3}}))?",
     re.IGNORECASE,
 )
 FROM = re.compile(rf"(?:from|aus|von)[ \t]+{LINK}", re.IGNORECASE)
 ANY_LINK = re.compile(LINK)
-COOK_NAME = re.compile(r"👤[ \t]*(?:\[\[([^\]|#]+)[^\]]*\]\]|(\S+))")
+COOK_NAME = re.compile(r"👤[ \t]*(?:\[\[([^\[\]|#]+)(?:[|#][^\[\]]*)?\]\]|(\S+))")
 WEEK = re.compile(r"([0-9]{4})-?W([0-9]{1,2})", re.IGNORECASE)
 FRIDGE_DAYS = 2
 """A batch's meal this many days after cooking is on its third day in the fridge, and warns."""
@@ -116,7 +117,7 @@ def parse_plan(content: str) -> Plan:
         if (found := MEAL.fullmatch(text)) is not None:
             day = DAYS.index(found["day"].lower())
             slot = SLOTS[found["slot"].lower()]
-            plan.meals.append(_meal(index + 1, day, slot, found["rest"]))
+            plan.meals.append(_meal(index + 1, day, slot, found["rest"].rstrip(" \t")))
         elif (marked := TRAINING.fullmatch(text)) is not None:
             plan.training.add(DAYS.index(marked["day"].lower()))
     return plan

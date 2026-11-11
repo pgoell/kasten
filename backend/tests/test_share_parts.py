@@ -2,6 +2,8 @@
 
 import hashlib
 import re
+import subprocess
+import sys
 from typing import TYPE_CHECKING
 
 import pytest
@@ -201,3 +203,15 @@ async def test_clear_takes_a_closed_item_whole_and_keeps_open_work(
     await post(client, "clear", sha=sha)
 
     assert body(folder) == "- [x] halb\n  - [ ] offen\n- [ ] laufend\n  - [x] Teil fertig\n"
+
+
+def test_a_tick_on_a_line_of_blanks_runs_in_linear_time() -> None:
+    # A child process, since `re` cannot be stopped from inside: a block id gap that may
+    # start on any blank rescans the run from each one and runs for minutes here.
+    code = (
+        "from datetime import date; from kasten_backend.share.lines import ticked; "
+        "ticked('a' + '\\t' * 10**6 + 'x', date(2026, 11, 11))"
+    )
+
+    # The timeout is a hang ceiling: interpreter start is slow on a loaded box.
+    subprocess.run([sys.executable, "-c", code], check=True, timeout=60)  # noqa: S603

@@ -8,6 +8,8 @@ them all, each case its own vault so the answer says which case it came from.
 
 import json
 import re
+import subprocess
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -282,3 +284,12 @@ def test_657_the_comment_patterns_match_tag_rule_ts() -> None:
             "[^-\\n]", "(?:[^-\\n]" + goes_on
         ),
     ) == (todo_fields.SPANS.pattern, todos.COMMENT.pattern)
+
+
+def test_a_long_line_of_brackets_is_masked_in_linear_time() -> None:
+    # A child process, since `re` cannot be stopped from inside: a link that may hold `[`
+    # rescans the line from every bracket and runs for an hour here.
+    code = "from kasten_backend.todo_fields import mask; mask('[' * 10**6); mask('[](' * 10**6)"
+
+    # The timeout is a hang ceiling: interpreter start is slow on a loaded box.
+    subprocess.run([sys.executable, "-c", code], check=True, timeout=60)  # noqa: S603
