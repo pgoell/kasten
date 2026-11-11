@@ -1,11 +1,11 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { type RefObject, useState } from "react";
-import { Contracts } from "@/components/finance-contracts";
-import { Forecast } from "@/components/finance-forecast";
-import { GoalBar, GoalForm, NotReserved } from "@/components/finance-goals";
-import { MoveLeftover } from "@/components/finance-leftover";
-import { PlanForm, scheduleName } from "@/components/finance-plan-form";
-import type { TabKeys } from "@/components/finance-sort-bar";
+import { Contracts } from "@/components/finance/finance-contracts";
+import { Forecast } from "@/components/finance/finance-forecast";
+import { GoalBar, GoalForm, NotReserved } from "@/components/finance/finance-goals";
+import { MoveLeftover } from "@/components/finance/finance-leftover";
+import { PlanForm, scheduleName } from "@/components/finance/finance-plan-form";
+import type { TabKeys } from "@/components/finance/finance-sort-bar";
 import { type Category, fetchCategories } from "@/lib/panes/finance/finance-api";
 import { type Account, fetchAccounts, fetchBudget } from "@/lib/panes/finance/finance-budget-api";
 import {

@@ -1,13 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
-import { CompareTable, partsOf, spentIn } from "@/components/finance-compare";
+import { CompareTable, partsOf, spentIn } from "@/components/finance/finance-compare";
 import {
   AmountRows,
   categoryNames,
   DrillBookings,
   type DrillProps,
   Waiting,
-} from "@/components/finance-drill-parts";
-import { MonthChart } from "@/components/finance-month-chart";
+} from "@/components/finance/finance-drill-parts";
+import { MonthChart } from "@/components/finance/finance-month-chart";
 import { fetchAccountDrill, fetchScope, type Scope } from "@/lib/panes/finance/finance-drill-api";
 import { euros, monthName, monthOf } from "@/lib/panes/finance/finance-words";
 

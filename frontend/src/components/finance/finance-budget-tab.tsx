@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { type RefObject, useState } from "react";
-import { Meter, statusWords } from "@/components/finance-meter";
-import type { TabKeys } from "@/components/finance-sort-bar";
+import { Meter, statusWords } from "@/components/finance/finance-meter";
+import type { TabKeys } from "@/components/finance/finance-sort-bar";
 import {
   type BudgetCategory,
   fetchBudget,

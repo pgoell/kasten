@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { type DragEvent, useRef, useState } from "react";
-import { amountOf } from "@/components/finance-budget-tab";
-import { useWrite } from "@/components/finance-drill-parts";
+import { amountOf } from "@/components/finance/finance-budget-tab";
+import { useWrite } from "@/components/finance/finance-drill-parts";
 import {
   type BookingTax,
   deleteMark,

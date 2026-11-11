@@ -1,8 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { type RefObject, useState } from "react";
-import { UnmatchedOrders } from "@/components/finance-orders";
-import { ReceiptsToSort } from "@/components/finance-receipts";
-import { BookingList, SortBar, sortKeys, type TabKeys } from "@/components/finance-sort-bar";
+import { UnmatchedOrders } from "@/components/finance/finance-orders";
+import { ReceiptsToSort } from "@/components/finance/finance-receipts";
+import {
+  BookingList,
+  SortBar,
+  sortKeys,
+  type TabKeys,
+} from "@/components/finance/finance-sort-bar";
 import { fetchToSort, type ToSort } from "@/lib/panes/finance/finance-api";
 import type { CategorySort } from "@/lib/panes/finance/use-category-sort";
 

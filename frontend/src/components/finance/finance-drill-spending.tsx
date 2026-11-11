@@ -7,8 +7,8 @@ import {
   type DrillProps,
   useWrite,
   Waiting,
-} from "@/components/finance-drill-parts";
-import { MonthChart } from "@/components/finance-month-chart";
+} from "@/components/finance/finance-drill-parts";
+import { MonthChart } from "@/components/finance/finance-month-chart";
 import { sortPayee } from "@/lib/panes/finance/finance-api";
 import {
   type CategoryDrill,

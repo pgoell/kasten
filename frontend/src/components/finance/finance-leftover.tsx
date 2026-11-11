@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { positive } from "@/components/finance-budget-tab";
+import { positive } from "@/components/finance/finance-budget-tab";
 import { fetchGoals, moveLeftover } from "@/lib/panes/finance/finance-plans-api";
 import { money } from "@/lib/panes/finance/finance-words";
 

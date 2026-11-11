@@ -1,13 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { type RefObject, useRef, useState } from "react";
-import { categoryOf } from "@/components/finance-drill-parts";
+import { categoryOf } from "@/components/finance/finance-drill-parts";
 import {
   type BookingLine,
   BookingList,
   SortBar,
   sortKeys,
   type TabKeys,
-} from "@/components/finance-sort-bar";
+} from "@/components/finance/finance-sort-bar";
 import type { Category } from "@/lib/panes/finance/finance-api";
 import {
   fetchAccounts,

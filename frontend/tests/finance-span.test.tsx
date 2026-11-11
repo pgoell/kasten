@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { parseLimit } from "@/components/finance-budget-setup";
-import { FinancePane } from "@/components/finance-pane";
+import { parseLimit } from "@/components/finance/finance-budget-setup";
+import { FinancePane } from "@/components/finance/finance-pane";
 import { spanName, spanOf, stepMonth } from "@/lib/panes/finance/finance-span";
 import { stubCommands } from "./stub-commands";
 

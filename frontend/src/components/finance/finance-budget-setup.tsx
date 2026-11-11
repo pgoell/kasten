@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { type RefObject, useState } from "react";
-import { type DrillProps, useWrite, Waiting } from "@/components/finance-drill-parts";
-import type { TabKeys } from "@/components/finance-sort-bar";
+import { type DrillProps, useWrite, Waiting } from "@/components/finance/finance-drill-parts";
+import type { TabKeys } from "@/components/finance/finance-sort-bar";
 import { fetchSetup, type Setup, writeLimits } from "@/lib/panes/finance/finance-budget-api";
 import { euros, monthName, monthOf } from "@/lib/panes/finance/finance-words";
 

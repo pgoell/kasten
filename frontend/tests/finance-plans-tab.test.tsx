@@ -1,8 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { amountOf, positive } from "@/components/finance-budget-tab";
-import { madeOf } from "@/components/finance-overview";
-import { FinancePane } from "@/components/finance-pane";
+import { amountOf, positive } from "@/components/finance/finance-budget-tab";
+import { madeOf } from "@/components/finance/finance-overview";
+import { FinancePane } from "@/components/finance/finance-pane";
 import { euros, money } from "@/lib/panes/finance/finance-words";
 import { stubCommands } from "./stub-commands";
 

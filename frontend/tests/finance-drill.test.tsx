@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { FinancePane } from "@/components/finance-pane";
+import { FinancePane } from "@/components/finance/finance-pane";
 import { stubCommands } from "./stub-commands";
 
 /** A read the test does not look at: it never answers, so its card stays empty. */

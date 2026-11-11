@@ -78,7 +78,7 @@
   },
   {
     "type": "cycle",
-    "from": "src/components/board-card.tsx",
+    "from": "src/components/todo/board-card.tsx",
     "to": "src/components/todo/todo-board.tsx",
     "unresolvedTo": "@/components/todo/todo-board",
     "dependencyTypes": ["undetermined", "import", "type-only"],
@@ -92,7 +92,7 @@
         "dependencyTypes": ["undetermined", "import", "type-only"]
       },
       {
-        "name": "src/components/board-card.tsx",
+        "name": "src/components/todo/board-card.tsx",
         "dependencyTypes": ["undetermined", "import"]
       }
     ]
