@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import { NoteFinder } from "@/components/finder/note-finder";
-import { NoteSearch } from "@/components/note-search";
+import { NoteSearch } from "@/components/note/note-search";
 
 /**
  * The finder and the line lists (backlinks and todos) are panels doing one

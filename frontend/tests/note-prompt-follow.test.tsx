@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { noteAfterPrompt } from "@/components/note-prompt";
+import { noteAfterPrompt } from "@/components/note/note-prompt";
 
 describe("what the editor follows", () => {
   it("opens the note a create made", () => {

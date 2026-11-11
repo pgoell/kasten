@@ -12,7 +12,7 @@ import { EditorView } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
 import { createRoot, type Root } from "react-dom/client";
 import { page, userEvent } from "vitest/browser";
-import { NotePreview } from "@/components/note-preview";
+import { NotePreview } from "@/components/note/note-preview";
 import { noteLanguage } from "@/lib/markdown/note-language";
 import { kastenTheme } from "@/lib/notes/editor/editor-theme";
 import { vimKeys } from "@/lib/notes/editor/vim-mode";

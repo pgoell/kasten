@@ -1,6 +1,6 @@
 import { skipToken, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { NotePreview } from "@/components/note-preview";
+import { NotePreview } from "@/components/note/note-preview";
 import { fetchNote, type SearchHit } from "@/lib/core/api";
 import { useViewport } from "@/lib/ui/input/use-viewport";
 import { PANE, PANE_MESSAGE } from "@/lib/ui/overlay-styles";

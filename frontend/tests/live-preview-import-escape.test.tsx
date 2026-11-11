@@ -1,6 +1,6 @@
 import { vim } from "@replit/codemirror-vim";
 import { render } from "@testing-library/react";
-import { NotePreview } from "@/components/note-preview";
+import { NotePreview } from "@/components/note/note-preview";
 import { imagePaths } from "@/lib/notes/embeds/image";
 import { vaultPaths } from "@/lib/notes/links/wikilink";
 import { livePreview } from "@/lib/notes/live/live-preview";

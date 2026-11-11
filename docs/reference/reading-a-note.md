@@ -2,7 +2,7 @@
 type: Reference
 title: Reading a note
 description: What the top bar holds, the three-column grid the note pane lays out with its numbers, the header block at the top of a note, Read and Edit, the frontmatter behind Properties, the outline, the container query's breaks, the local graph in the right margin and its sheet, and the Today screen an empty pane shows, with its timers.
-resource: frontend/src/components/note-pane.tsx
+resource: frontend/src/components/note/note-pane.tsx
 tags: [frontend, design, reader]
 status: stable
 ---

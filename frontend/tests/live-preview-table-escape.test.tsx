@@ -2,7 +2,7 @@ import type { Extension } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
 import { act, render } from "@testing-library/react";
-import { NotePreview } from "@/components/note-preview";
+import { NotePreview } from "@/components/note/note-preview";
 import { imagePaths } from "@/lib/notes/embeds/image";
 import { vaultPaths } from "@/lib/notes/links/wikilink";
 import { livePreview } from "@/lib/notes/live/live-preview";

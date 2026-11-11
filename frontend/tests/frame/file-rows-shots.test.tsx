@@ -15,7 +15,7 @@ import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { commands, page } from "vitest/browser";
 import { NoteFinder } from "@/components/finder/note-finder";
-import { NoteSearch } from "@/components/note-search";
+import { NoteSearch } from "@/components/note/note-search";
 import type { SearchHit } from "@/lib/core/api";
 import { applyTheme, PALETTE_KEY, THEME_KEY, type Theme } from "@/lib/ui/theme";
 import { COARSE, NARROW, stubMatchMedia } from "../match-media";

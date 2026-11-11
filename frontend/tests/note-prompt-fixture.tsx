@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { NotePrompt, type PromptMode } from "@/components/note-prompt";
+import { NotePrompt, type PromptMode } from "@/components/note/note-prompt";
 
 // The test files beside this one mock the api modules at this level:
 // The api module builds its client at import time and captures `fetch` there,

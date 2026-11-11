@@ -9,8 +9,8 @@ import {
 } from "react";
 import { Editor } from "@/components/editor";
 import { LocalGraph } from "@/components/local-graph";
-import { NoteEditor } from "@/components/note-editor";
-import { Outline } from "@/components/note-margins";
+import { NoteEditor } from "@/components/note/note-editor";
+import { Outline } from "@/components/note/note-margins";
 import { PersonFooter } from "@/components/person-card";
 import { Rsvp } from "@/components/rsvp";
 import { Sheet } from "@/components/sheet";

@@ -14,7 +14,7 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRoot } from "react-dom/client";
-import { NotePrompt } from "@/components/note-prompt";
+import { NotePrompt } from "@/components/note/note-prompt";
 import type * as Fuzzy from "@/lib/search/fuzzy";
 import { syntheticVault } from "../../bench/fixtures";
 
