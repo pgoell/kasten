@@ -88,6 +88,12 @@ export function useTodoHold(o: {
     if (hold === null) setFoldHeld(null);
   }, [hold]);
 
+  /** Both holds in one update, so the render after it draws the fold as it will stay. */
+  function letGo() {
+    setHold(null);
+    setFoldHeld(null);
+  }
+
   /** The first press of the open list holds the order it is drawn in, the fold's too while it is open. */
   function holdNow() {
     if (listed !== "open" || board) return;
@@ -107,7 +113,7 @@ export function useTodoHold(o: {
       clearTimeout(timer.current);
       timer.current = setTimeout(() => {
         if (holds.current) settle.current?.();
-        setHold(null);
+        letGo();
       }, SETTLE_MS);
     };
   }
@@ -120,7 +126,7 @@ export function useTodoHold(o: {
     /** Lets the hold go, so the list is drawn fresh. */
     release: () => {
       clearTimeout(timer.current);
-      setHold(null);
+      letGo();
     },
   };
 }
