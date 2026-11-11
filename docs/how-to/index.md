@@ -18,8 +18,9 @@ on its code.
 * [Plan costs and goals](plan-costs-and-goals.md): confirm plans proposed from history, add and change a plan, keep a note per contract with a todo before its cancel-by date, see what is due this month and what met it, set a saving goal and assign money to it each month
 * [Sort finance transactions](sort-finance-transactions.md): open the finance pane on the bookings still to sort, sort one with a key or a tap, and send every booking of a payee to one category
 * [Use the log pane](use-the-log-pane.md): open the log pane, read a day's totals against your goals, log on any day, fix or delete an entry, and read the trends
-* [Add a food of your own](add-a-food-of-your-own.md): save a food Open Food Facts lacks to the foods note, from the food search or by hand, so the search lists it first and its barcode scans
-* [Log food from a phone](log-food-from-a-phone.md): scan a food's barcode with the phone camera and log it on today's note, and what to do when the camera is refused or the barcode is unknown
+* [Add a food of your own](food/add-a-food-of-your-own.md): save a food Open Food Facts lacks to the foods note, from the food search or by hand, so the search lists it first and its barcode scans
+* [Log food from a phone](food/log-food-from-a-phone.md): scan a food's barcode with the phone camera and log it on today's note, and what to do when the camera is refused or the barcode is unknown
+* [Plan a week of meals](food/plan-a-week-of-meals.md): save recipes, set goals for training days, plan the week by hand or with `/meal-planner`, shop for the cooked batches, cook, log and rate
 * [Read the overview](read-the-overview.md): open the overview of scores and streaks, read its eight cards, open the pane behind one, and know the streak rules and what counts as a note written
 * [Read the year and week review](read-the-year-and-week-review.md): read the year review on a yearly note and the week review on a weekly one, know what each section counts and how each number is worked out, and switch on the GitHub section
 * [Rebuild the pieces index](back-up-and-restore.md#rebuild-the-pieces-index): empty the index of the vault's note pieces and let the backend embed the vault again, on dev or on prod

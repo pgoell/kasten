@@ -268,7 +268,7 @@ draw of the card or stream open.
 
 Foods of your own, the ones Open Food Facts lacks, are lines in
 `99 Misc/01 Config/foods.md`, in the config folder. The food search reads the
-note each time it opens. [Add a food of your own](/how-to/add-a-food-of-your-own.md)
+note each time it opens. [Add a food of your own](/how-to/food/add-a-food-of-your-own.md)
 shows how to add one.
 
 ```markdown

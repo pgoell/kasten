@@ -15,6 +15,8 @@ what is eaten. A dish cooked once in a batch feeds the meals after it, and
 the card under the note's title draws the week as a grid with each batch as a
 band down the days it covers. `POST /api/meal-plan` does the work; see
 [HTTP API: food](/reference/http-api/food.md#post-apimeal-plan).
+[Plan a week of meals](/how-to/food/plan-a-week-of-meals.md) walks through a
+week from recipe to rating.
 
 ```markdown
 ---
