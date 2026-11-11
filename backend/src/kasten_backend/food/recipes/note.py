@@ -17,12 +17,14 @@ STEPS = frozenset({"schritte", "zubereitung", "steps"})
 COOKED = frozenset({"gekocht", "cooked"})
 Verdict = Literal["lieber nicht", "geht so", "gern wieder"]
 VERDICTS: tuple[Verdict, ...] = get_args(Verdict)
-SECTION = re.compile(r"## (.+?)[ \t]*")
-GROUP = re.compile(r"### (.+?)[ \t]*")
+# A text ends only after a non-blank, or is one blank, so a long blank run is read once (#1905).
+_TEXT = r"([ \t]|.+?(?<![ \t]))[ \t]*"
+SECTION = re.compile("## " + _TEXT)
+GROUP = re.compile("### " + _TEXT)
 INGREDIENT = re.compile(r"[-*+] (?:\[[ xX]\] )?(.*\S)[ \t]*")
 """An ingredient bullet at column 0. A todo box is passed over, so a ticked line still counts."""
 STEP = re.compile(r"[0-9]+[.)] (.*\S)[ \t]*")
-COOKED_LINE = re.compile(r"[-*+] ([0-9]{4}-[0-9]{2}-[0-9]{2})\b[ \t]*(.*?)[ \t]*")
+COOKED_LINE = re.compile(r"[-*+] ([0-9]{4}-[0-9]{2}-[0-9]{2})\b[ \t]*(|.+?(?<![ \t]))[ \t]*")
 VERDICT = re.compile(rf"({'|'.join(VERDICTS)})\b[ \t]*(.*)", re.IGNORECASE)
 FENCE = re.compile(r"(```|~~~)")
 MOST_SERVINGS = 1000

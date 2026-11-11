@@ -26,7 +26,8 @@ PIN = re.compile(r"[ \t]*🏷️?[ \t]*[0-9]{8,14}\b")
 OPEN = re.compile(r"- \[ \] (.*?)(\r?)")
 LINKS = re.compile(r"[ \t]*\((\[\[[^\]]+\]\](?:,[ \t]*\[\[[^\]]+\]\])*)\)")
 NAME = re.compile(r"\[\[([^\]|#]+)[^\]]*\]\]")
-HEADING = re.compile(r"#{1,6} (.+?)[ \t]*\r?")
+# A text ends only after a non-blank, or is one blank, so a long blank run is read once (#1905).
+HEADING = re.compile(r"#{1,6} ([ \t]|.+?(?<![ \t]))[ \t]*\r?")
 SHORT = 2
 """A word this short, such as `ei`, names a food only when it is the whole name."""
 

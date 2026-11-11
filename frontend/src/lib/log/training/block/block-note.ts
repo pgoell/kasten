@@ -12,6 +12,9 @@ const KG_STEP = 2.5;
 const DELOAD_LOAD = 0.6;
 const LONG_GROWTH = 0.1;
 
+/** A `## ` heading; its text ends only after a non-blank, or is one blank, so a blank run is read once (#1905). */
+export const SECTION_HEADING = /^##\s+((?=\s).|.+?(?<!\s))\s*$/u;
+
 /** Monday first, as the calendar and `## Days` read. */
 export const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 const DAY_WORDS: Record<string, number> = {
@@ -223,7 +226,7 @@ export function parseBlock(text: string): Block | null {
   };
   let section: ((line: string, read: Reading) => void) | undefined;
   for (const line of text.split("\n")) {
-    const heading = /^##\s+(.+?)\s*$/u.exec(line);
+    const heading = SECTION_HEADING.exec(line);
     if (heading !== null) {
       section = SECTIONS[(heading[1] ?? "").toLowerCase()];
       read.letter = null;
