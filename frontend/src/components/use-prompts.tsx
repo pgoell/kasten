@@ -4,7 +4,7 @@ import { ClipPrompt } from "@/components/clip-prompt";
 import { DumpPrompt } from "@/components/dump-prompt";
 import { MoveConfirm } from "@/components/move-confirm";
 import { NotePrompt, noteAfterPrompt, type PromptMode } from "@/components/note/note-prompt";
-import { TerminalPrompt } from "@/components/terminal-prompt";
+import { TerminalPrompt } from "@/components/terminal/terminal-prompt";
 import { TodoPrompt } from "@/components/todo/todo-prompt";
 import type { PaneMoves } from "@/components/use-pane-moves";
 import { importPage } from "@/lib/capture/clip";

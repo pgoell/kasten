@@ -8,7 +8,7 @@ import { NoteFinder } from "@/components/finder/note-finder";
 import { KeyHelp } from "@/components/key-help";
 import { NotePrompt } from "@/components/note/note-prompt";
 import { NoteSearch } from "@/components/note/note-search";
-import { TerminalPrompt } from "@/components/terminal-prompt";
+import { TerminalPrompt } from "@/components/terminal/terminal-prompt";
 import { TodoPrompt } from "@/components/todo/todo-prompt";
 
 vi.mock("@/lib/core/api", () => ({
