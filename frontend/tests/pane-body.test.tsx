@@ -14,7 +14,7 @@ import { LogPane } from "@/components/log/log-pane";
 import { NotePane } from "@/components/note/note-pane";
 import { OverviewPane } from "@/components/overview-pane";
 import { PaneBody, type PaneExtras, type PaneShared } from "@/components/pane-body";
-import { PdfPane } from "@/components/pdf-pane";
+import { PdfPane } from "@/components/pdf/pdf-pane";
 import { PersonPane } from "@/components/person-pane";
 import { ReviewPane } from "@/components/review/review-pane";
 import { TerminalPane } from "@/components/terminal/terminal-pane";

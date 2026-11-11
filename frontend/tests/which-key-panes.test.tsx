@@ -8,7 +8,7 @@ import { GraphPane } from "@/components/graph/graph-pane";
 import { HistoryPane } from "@/components/history-pane";
 import { HtmlPane } from "@/components/html-pane";
 import { ImagePane } from "@/components/image-pane";
-import { PdfPane } from "@/components/pdf-pane";
+import { PdfPane } from "@/components/pdf/pdf-pane";
 import { PersonPane } from "@/components/person-pane";
 import { VideoPane } from "@/components/video/video-pane";
 import { hostLeader, type LeaderOpener } from "@/lib/ui/keys/which-key";

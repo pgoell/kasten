@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { useRef } from "react";
-import { usePdfTake } from "@/components/pdf-take";
+import { usePdfTake } from "@/components/pdf/pdf-take";
 import { reset, waiting } from "@/lib/capture/outbox";
 import { noteBase } from "@/lib/notes/note-base";
 import { periodicNote } from "@/lib/notes/text/periodic";

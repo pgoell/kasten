@@ -16,7 +16,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook } from "@testing-library/react";
 import { flushSync } from "react-dom";
 import { commands as browser, page, userEvent } from "vitest/browser";
-import { PdfPane } from "@/components/pdf-pane";
+import { PdfPane } from "@/components/pdf/pdf-pane";
 import { useVim } from "@/lib/notes/editor/vim-setting";
 import "@/styles/app.css";
 import { type Mounted, setUp, tearDown } from "./html-take-fixture";
