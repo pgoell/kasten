@@ -117,13 +117,16 @@ def test_a_stale_ignore_fails(tmp_path: Path) -> None:
     src = copy_tree(tmp_path)
     path = src / "kasten_backend/agent_finance.py"
     text = path.read_text(encoding="utf-8")
-    cut = re.sub(r"from kasten_backend\.routes\.finance_sorting import \([^)]*\)\n", "", text)
+    cut = re.sub(
+        r"from kasten_backend\.finance\.routes\.records\.sorting import \([^)]*\)\n", "", text
+    )
     assert cut != text
     path.write_text(cut, encoding="utf-8")
     # A stale ignore has no contract line of its own; lint-imports names the pair instead.
     out = assert_broken(tmp_path, "No matches for ignored import")
-    assert "kasten_backend.agent_finance -> kasten_backend.routes.finance_sorting" in " ".join(
-        out.split()
+    assert (
+        "kasten_backend.agent_finance -> kasten_backend.finance.routes.records.sorting"
+        in " ".join(out.split())
     )
 
 

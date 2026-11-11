@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 from backend.tests.finance_rows import API, SAVING, booking, category, post
 from backend.tests.test_finance_drill import settled
-from kasten_backend import finance_drill_reads as drill_reads
+from kasten_backend.finance.budget.drill import reads as drill_reads
 
 if TYPE_CHECKING:
     import pytest

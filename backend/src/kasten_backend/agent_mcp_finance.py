@@ -15,14 +15,12 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from kasten_backend import agent_finance, db
 from kasten_backend.config import get_settings
-from kasten_backend.routes import (
-    finance_budget,
-    finance_drill,
-    finance_goals,
-    finance_plans,
-    finance_tax,
-)
-from kasten_backend.routes import finance_sync as sync
+from kasten_backend.finance.routes.budget import budget as finance_budget
+from kasten_backend.finance.routes.budget import drill as finance_drill
+from kasten_backend.finance.routes.feeds import sync
+from kasten_backend.finance.routes.plans import goals as finance_goals
+from kasten_backend.finance.routes.plans import plans as finance_plans
+from kasten_backend.finance.routes.tax import tax as finance_tax
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable

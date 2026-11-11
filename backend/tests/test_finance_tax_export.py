@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from backend.tests.finance_rows import API, GIRO, account, booking, post
 from backend.tests.finance_tax_rows import JPEG, PDF, PNG, ids, kept, mark
-from kasten_backend.finance_tax_export import safe
+from kasten_backend.finance.tax.export import safe
 
 if TYPE_CHECKING:
     from httpx import AsyncClient

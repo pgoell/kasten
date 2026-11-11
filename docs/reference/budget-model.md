@@ -2,7 +2,7 @@
 type: Reference
 title: Budget model
 description: How the finance budget counts money, the two scopes mine and household, free to spend and each part of it, plans, reserves and goals, where the month's money went, the salary cutoff, limits over time, the overspend carried into the next month, unreserved, status, pace and the suggestion to change a limit, with every threshold.
-resource: backend/src/kasten_backend/finance_budget.py
+resource: backend/src/kasten_backend/finance/budget/budget.py
 tags: [finance, budget, reference]
 status: draft
 ---
@@ -15,10 +15,10 @@ category against its limit. Its settings live in the database, not the code:
 each category's kind, its limit, which income is salary and the salary cutoff
 day. The routes are in [HTTP API: finance budget](/reference/http-api/finance-budget.md).
 
-The code is `finance_ledger.py` (where each booking counts),
-`finance_free.py` (free to spend), `finance_plans.py` (plans, reserves and
-goals), `finance_flow.py` (where the money went), `finance_drill.py` (the
-drilldowns) and `finance_budget.py` (limits). This page states what they do; a change to one changes this page.
+The code is `finance/records/ledger.py` (where each booking counts),
+`finance/budget/free.py` (free to spend), `finance/plans/plans.py` (plans, reserves and
+goals), `finance/budget/drill/flow.py` (where the money went), `finance/budget/drill/drill.py` (the
+drilldowns) and `finance/budget/budget.py` (limits). This page states what they do; a change to one changes this page.
 
 ## Months
 

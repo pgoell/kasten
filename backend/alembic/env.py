@@ -6,19 +6,15 @@ from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from kasten_backend import (  # noqa: F401  (registers the finance, rsvp and token tables)
-    finance_budget_models,
-    finance_models,
-    finance_orders,
-    finance_plan_models,
-    finance_sync_models,
-    finance_tax_models,
-    push,
-    rsvp,
-    token_activity,
-)
+from kasten_backend import push, rsvp, token_activity  # noqa: F401
 from kasten_backend.config import get_settings
 from kasten_backend.db import Base
+from kasten_backend.finance.budget import models as finance_budget_models  # noqa: F401
+from kasten_backend.finance.feeds import orders as finance_orders  # noqa: F401
+from kasten_backend.finance.feeds import sync_models as finance_sync_models  # noqa: F401
+from kasten_backend.finance.plans import models as finance_plan_models  # noqa: F401
+from kasten_backend.finance.records import models as finance_models  # noqa: F401
+from kasten_backend.finance.tax import models as finance_tax_models  # noqa: F401
 from kasten_backend.pieces import (
     models as pieces_models,  # noqa: F401  (registers the pieces tables)
 )

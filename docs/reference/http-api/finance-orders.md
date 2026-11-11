@@ -2,7 +2,7 @@
 type: Reference
 title: "HTTP API: finance orders"
 description: The two routes for PayPal and Amazon orders, the post the order mail job sends and the orders no booking holds yet, with the rules that match a charge to its booking and split it into items.
-resource: backend/src/kasten_backend/routes/finance_orders.py
+resource: backend/src/kasten_backend/finance/routes/feeds/orders.py
 tags: [api, backend, openapi, finance]
 status: draft
 ---

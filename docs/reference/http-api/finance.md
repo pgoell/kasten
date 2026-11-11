@@ -2,7 +2,7 @@
 type: Reference
 title: "HTTP API: finance"
 description: The routes host jobs write accounts, balances and bookings through, the splits under a booking, and the two reads; what reaches them, and the 503 without a database.
-resource: backend/src/kasten_backend/routes/finance.py
+resource: backend/src/kasten_backend/finance/routes/records/records.py
 tags: [api, backend, openapi, finance]
 status: draft
 ---

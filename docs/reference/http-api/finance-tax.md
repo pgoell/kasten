@@ -2,7 +2,7 @@
 type: Reference
 title: "HTTP API: finance tax"
 description: A booking's tax mark on a line of the German return and the money rules it is held to, the tax year's totals per line, and its exports, a CSV per line and a ZIP of receipts.
-resource: backend/src/kasten_backend/routes/finance_tax.py
+resource: backend/src/kasten_backend/finance/routes/tax/tax.py
 tags: [api, backend, openapi, finance, tax]
 status: draft
 ---

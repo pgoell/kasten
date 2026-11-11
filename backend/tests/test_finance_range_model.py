@@ -27,12 +27,10 @@ from backend.tests.test_finance_budget_model import (
 )
 from backend.tests.test_finance_drill_model import at
 from backend.tests.test_finance_flow import flows
-from kasten_backend.finance_budget import budget_of, step_of
-from kasten_backend.finance_drill import scope_month
-from kasten_backend.finance_flow import month_flow
-from kasten_backend.finance_free import free_to_spend
-from kasten_backend.finance_plans import Book, Plan
-from kasten_backend.finance_range import (
+from kasten_backend.finance.budget.budget import budget_of, step_of
+from kasten_backend.finance.budget.drill.drill import scope_month
+from kasten_backend.finance.budget.drill.flow import month_flow
+from kasten_backend.finance.budget.drill.range import (
     available_in,
     category_compared,
     expected_income,
@@ -41,6 +39,8 @@ from kasten_backend.finance_range import (
     scope_span,
     setup,
 )
+from kasten_backend.finance.budget.free import free_to_spend
+from kasten_backend.finance.plans.plans import Book, Plan
 
 AUG, SEP, NOV = month(-2), month(-1), month(1)
 

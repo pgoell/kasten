@@ -20,8 +20,9 @@ from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async
 from sqlalchemy.pool import NullPool
 
 from backend.tests.finance_rows import GIRO, account, booking, post
-from kasten_backend import db, finance
-from kasten_backend.finance_models import BalanceSnapshot
+from kasten_backend import db
+from kasten_backend.finance.records import writes as finance
+from kasten_backend.finance.records.models import BalanceSnapshot
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator

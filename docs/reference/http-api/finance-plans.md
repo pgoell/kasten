@@ -2,7 +2,7 @@
 type: Reference
 title: "HTTP API: finance plans and goals"
 description: The routes behind plans, contracts and goals, the plans and the bookings that met them, contract notes with their cancel-by dates, the dates a month holds, the 12-month forecast, plans proposed from history, and saving goals with each saving account's balance, reserved and unreserved.
-resource: backend/src/kasten_backend/routes/finance_plans.py
+resource: backend/src/kasten_backend/finance/routes/plans/plans.py
 tags: [api, backend, openapi, finance]
 status: draft
 ---
@@ -14,7 +14,7 @@ write. They sit beside [the finance routes](/reference/http-api/finance.md),
 under the same `/api/finance/` prefix and gate, and answer `503` the same way
 when there is no database. [Budget model](/reference/budget-model.md) says how
 plans and goals count in free to spend; the code is
-`routes/finance_plans.py` and `routes/finance_goals.py`.
+`finance/routes/plans/plans.py` and `finance/routes/plans/goals.py`.
 
 Amounts are euros as JSON strings, to the cent. A plan's `amount` is signed
 like a booking, a cost negative; every other figure here is positive.

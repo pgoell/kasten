@@ -24,8 +24,8 @@ from backend.tests.test_finance_budget_model import (
     month,
 )
 from backend.tests.test_finance_flow import NOVEMBER, flows, october
-from kasten_backend.finance_budget import average_spent
-from kasten_backend.finance_drill import (
+from kasten_backend.finance.budget.budget import average_spent
+from kasten_backend.finance.budget.drill.drill import (
     account_flow,
     balance_on,
     booking_months,
@@ -37,10 +37,10 @@ from kasten_backend.finance_drill import (
     payee_view,
     scope_month,
 )
-from kasten_backend.finance_flow import month_flow
-from kasten_backend.finance_free import free_to_spend
-from kasten_backend.finance_ledger import Category, Line
-from kasten_backend.finance_plans import Book, Plan
+from kasten_backend.finance.budget.drill.flow import month_flow
+from kasten_backend.finance.budget.free import free_to_spend
+from kasten_backend.finance.plans.plans import Book, Plan
+from kasten_backend.finance.records.ledger import Category, Line
 
 SEP = month(-1)
 REWE, BOSS, ME = 1, 2, 3

@@ -1,6 +1,6 @@
 /**
  * The PayPal and Amazon orders the finance pane shows: the ones no booking holds yet, and the
- * words for where a charge stands. The answers are the ones `routes/finance_orders.py` gives;
+ * words for where a charge stands. The answers are the ones `finance/routes/feeds/orders.py` gives;
  * the order a booking paid comes with the booking's drilldown.
  */
 

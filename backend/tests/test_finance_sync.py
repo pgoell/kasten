@@ -7,8 +7,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from kasten_backend import finance_sync
 from kasten_backend.config import get_settings
+from kasten_backend.finance.feeds import sync as finance_sync
 
 from .finance_rows import GIRO, SAVING, account, booking, post  # noqa: TID252
 

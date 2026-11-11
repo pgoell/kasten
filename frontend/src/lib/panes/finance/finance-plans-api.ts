@@ -1,7 +1,7 @@
 /**
  * The calls the Plans & goals tab and the overview's goals card make: plans, the month's
  * dates, the forecast, the proposals, and goals. The answers are the ones
- * `routes/finance_plans.py` and `routes/finance_goals.py` give.
+ * `finance/routes/plans/plans.py` and `finance/routes/plans/goals.py` give.
  */
 
 import type { components } from "@/lib/api-types";

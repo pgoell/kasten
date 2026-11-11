@@ -2,7 +2,7 @@
 type: Reference
 title: "HTTP API: finance drilldowns"
 description: The routes behind the finance pane's drilldowns, one scope, account, category, payee or booking month by month, with the bookings that count in the month and where one booking counts.
-resource: backend/src/kasten_backend/routes/finance_drill.py
+resource: backend/src/kasten_backend/finance/routes/budget/drill.py
 tags: [api, backend, openapi, finance]
 status: draft
 ---

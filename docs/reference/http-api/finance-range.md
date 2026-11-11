@@ -2,7 +2,7 @@
 type: Reference
 title: "HTTP API: finance spans and setup"
 description: The routes behind the finance pane's time ranges and budget setup, both scopes over a span of months against a year before and the 6-month average, every spending category's limit on one screen, and every limit set at once.
-resource: backend/src/kasten_backend/routes/finance_range.py
+resource: backend/src/kasten_backend/finance/routes/budget/range.py
 tags: [api, backend, openapi, finance]
 status: draft
 ---

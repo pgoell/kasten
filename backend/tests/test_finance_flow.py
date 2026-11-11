@@ -23,10 +23,10 @@ from backend.tests.test_finance_budget_model import (
     line,
     month,
 )
-from kasten_backend.finance_flow import Flow, month_flow
-from kasten_backend.finance_free import free_to_spend
-from kasten_backend.finance_ledger import Category, Ledger, Line
-from kasten_backend.finance_plans import Book, Plan
+from kasten_backend.finance.budget.drill.flow import Flow, month_flow
+from kasten_backend.finance.budget.free import free_to_spend
+from kasten_backend.finance.plans.plans import Book, Plan
+from kasten_backend.finance.records.ledger import Category, Ledger, Line
 
 NOVEMBER = dt.date(2026, 11, 1)
 

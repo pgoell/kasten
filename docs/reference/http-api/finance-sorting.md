@@ -2,7 +2,7 @@
 type: Reference
 title: "HTTP API: finance sorting"
 description: The routes that sort bookings into categories, the payees and rules that do it and the order the rules fire in, the hand's choice, and the to-sort list.
-resource: backend/src/kasten_backend/routes/finance_sorting.py
+resource: backend/src/kasten_backend/finance/routes/records/sorting.py
 tags: [api, backend, openapi, finance]
 status: draft
 ---
