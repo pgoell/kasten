@@ -114,6 +114,7 @@ const LEADER_GROUPS: Record<string, string[]> = {
     "gt",
     "gT",
     "gf",
+    "gF",
     "gk",
     "ga",
     "e",

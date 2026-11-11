@@ -1,0 +1,87 @@
+/* The training pane (components/log/training/): tiles in the log pane's chart language. The
+   cardio parts take three tag colours, each 3:1 or more on the ground in both themes (#777), and
+   a deload week is a band in the rule colour. */
+.training-title {
+  margin: 0;
+  font-size: var(--k-text-19);
+}
+
+.training-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: 16px;
+  min-width: 0;
+}
+
+.training-tile .log-summary-figure,
+.training-tile .log-summary-words {
+  margin: 0;
+}
+
+/* A lift tile is a button that looks like the other tiles, with a full-size hit area. */
+.training-lift {
+  display: block;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px;
+  margin: -8px;
+  border: 1px solid transparent;
+  border-radius: var(--k-radius-8);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.training-lift:hover,
+.training-lift:focus-visible {
+  border-color: var(--k-rule);
+  background: var(--k-surface);
+}
+
+.training-walk {
+  fill: var(--tg-1);
+  background: var(--tg-1);
+}
+
+.training-ride {
+  fill: var(--tg-4);
+  background: var(--tg-4);
+}
+
+.training-run {
+  fill: var(--tg-7);
+  background: var(--tg-7);
+}
+
+.chart-shade {
+  fill: var(--k-rule);
+  opacity: 0.6;
+}
+
+.training-detail {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.training-sessions {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.training-sessions li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--k-rule);
+}
+
+.training-sessions li span:first-child {
+  min-width: 4rem;
+  color: var(--k-muted);
+}

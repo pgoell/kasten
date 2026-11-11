@@ -41,6 +41,11 @@ vi.mock("@/lib/log/food-api", async (importOriginal) => ({
   fetchLog: async () => [],
 }));
 
+vi.mock("@/lib/log/training/exercises", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/log/training/exercises")>()),
+  fetchTraining: async () => [],
+}));
+
 vi.mock("@/lib/vault/move/trash-api", async (original) => ({
   ...(await original<typeof import("@/lib/vault/move/trash-api")>()),
   fetchTrash: async () => [],
@@ -144,7 +149,7 @@ it("#806 A9 at 1440x900 the cards stand four across", async () => {
   // `offsetTop` reads the grid's placement and not the entrance's transform, so the
   // arrival still playing does not move the answer.
   const tops = cards().map((card) => card.offsetTop);
-  expect(tops).toHaveLength(8);
+  expect(tops).toHaveLength(9);
   expect(new Set(tops.slice(0, 4)).size).toBe(1);
   expect(tops[4]).toBeGreaterThan(tops[0] as number);
 });
@@ -169,7 +174,7 @@ it("#806 I7 every card's button is at least 44 px tall on touch", async () => {
   await openPhone();
 
   const heights = buttons().map((button) => button.getBoundingClientRect().height);
-  expect(heights).toHaveLength(8);
+  expect(heights).toHaveLength(9);
   for (const height of heights) expect(height).toBeGreaterThanOrEqual(44);
 });
 

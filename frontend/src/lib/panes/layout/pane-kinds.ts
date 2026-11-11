@@ -32,6 +32,8 @@ export interface Pane {
   finance?: boolean;
   /** The library pane's: every book note, a list and the chosen one. */
   library?: boolean;
+  /** The training pane's: the progress the training lines show. */
+  training?: boolean;
   /**
    * The literature note whose book this pane reads, absent otherwise. The note's path, since the
    * reader swaps its suffix to find the epub.
@@ -92,6 +94,7 @@ export type PaneKind =
   | "finance"
   | "overview"
   | "library"
+  | "training"
   | "chat"
   | "terminal";
 
@@ -109,6 +112,7 @@ const LABELS: Record<PaneKind, string> = {
   finance: "Finance",
   overview: "Overview",
   library: "Library",
+  training: "Training",
   chat: "Chat",
   terminal: "Terminal",
 };
@@ -171,6 +175,7 @@ export const PANE_KINDS: { [K in KindField]: Row<K> } = {
   overview: flag("overview"),
   finance: flag("finance"),
   library: flag("library"),
+  training: flag("training"),
   // A reader, a player, an exam and a card are each named by the note they sit beside (#363).
   book: named("book"),
   exam: named("review"),

@@ -48,7 +48,8 @@ The link is a wikilink, `[[Kniebeuge]]`, and its target is the entry's
 The exercise notes come from
 [the exercise import](/reference/training/exercise-import.md). The phone's
 [session screen](/reference/training/session-screen.md) writes these lines as
-each set is done.
+each set is done, and the [training pane](/reference/training/training-pane.md)
+charts them.
 
 | Kind | Marker | Fields |
 | --- | --- | --- |

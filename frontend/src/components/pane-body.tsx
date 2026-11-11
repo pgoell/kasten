@@ -10,6 +10,7 @@ import { HistoryPane } from "@/components/history-pane";
 import { HtmlPane } from "@/components/html-pane";
 import { ImagePane } from "@/components/image-pane";
 import { LogPane } from "@/components/log/log-pane";
+import { TrainingPane } from "@/components/log/training/training-pane";
 import { NotePane } from "@/components/note/note-pane";
 import { OverviewPane } from "@/components/overview-pane";
 import { PdfPane } from "@/components/pdf/pdf-pane";
@@ -209,6 +210,14 @@ const BODIES: { [K in KindField]: Body<K> } = {
       today={readClock(new Date()).date}
     />
   ),
+  training: (_, { shared, signal }) => (
+    <TrainingPane
+      commands={shared.commands}
+      focusSignal={signal}
+      // Read at the render, so a tab left open across midnight redraws.
+      today={readClock(new Date()).date}
+    />
+  ),
   library: (_, { shown, shared, extras, signal }) => (
     <LibraryPane
       commands={shared.commands}
@@ -392,12 +401,13 @@ export function PaneBody({
   return (BODIES[kind] as Body<KindField>)(shown[kind] as never, at);
 }
 
-/** Whether a pane holds one of the six kinds that fill the whole pane. */
+/** Whether a pane holds one of the seven kinds that fill the whole pane. */
 export function isWholePane(
-  pane: Pick<Pane, "overview" | "finance" | "log" | "todos" | "review" | "library">,
+  pane: Pick<Pane, "overview" | "finance" | "log" | "todos" | "review" | "library" | "training">,
 ): boolean {
   return (
     pane.overview === true ||
+    pane.training === true ||
     pane.library === true ||
     pane.finance === true ||
     pane.log === true ||

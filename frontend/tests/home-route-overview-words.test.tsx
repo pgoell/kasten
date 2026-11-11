@@ -125,6 +125,10 @@ vi.mock("@/lib/log/food-api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/log/food-api")>()),
   fetchLog,
 }));
+vi.mock("@/lib/log/training/exercises", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/log/training/exercises")>()),
+  fetchTraining: async () => [],
+}));
 vi.mock("@/lib/vault/move/move-api", () => ({ renameNote, moveFolder }));
 vi.mock("@/lib/vault/move/trash-api", () => ({
   deleteNote,
@@ -213,6 +217,7 @@ describe("the overview's words, on the route", () => {
       "todos done per day, 14 days",
       "notes written per day, 14 days",
       "notes written per day this year",
+      "sessions per week, 8 weeks",
     ]);
   });
 

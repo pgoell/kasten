@@ -1,4 +1,5 @@
 import { Bars } from "@/components/charts";
+import { WeekTraining } from "@/components/log/training/week-training";
 import {
   Caption,
   Failed,
@@ -66,6 +67,7 @@ function WeekBody({ week, open }: { week: WeekOf; open: ReviewSource["open"] }) 
         <Kcal reads={reads} dates={dates} todayIndex={todayIndex} />
         <Todos reads={reads} dates={dates} today={today} todayIndex={todayIndex} />
       </div>
+      <WeekTraining monday={week.monday} sunday={week.sunday} />
       <Rows
         heading="Done"
         hits={doneIn(reads.todos.data, week.monday, week.sunday)}

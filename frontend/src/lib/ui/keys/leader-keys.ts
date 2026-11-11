@@ -84,6 +84,8 @@ export const LEADER: readonly LeaderBinding[] = [
   { key: "gT", label: "Open the timers", command: "openTimers" },
   { key: "gf", label: "Open the log", command: "openLog" },
   { key: "gk", label: "Open the finance pane", command: "openFinance" },
+  // Capital, as `gf` is the log, where the food and the weight are.
+  { key: "gF", label: "Open the training pane", command: "openTraining" },
   { key: "gv", label: "Watch this note's video beside it", command: "openVideo", needs: "video" },
   { key: "gw", label: "Open this week's note", command: "openWeekly" },
   { key: "gy", label: "Open this year's note", command: "openYearly" },
@@ -202,6 +204,7 @@ export const LEADER_COLUMNS: readonly { title: string; keys: readonly string[] }
       "gt",
       "gT",
       "gf",
+      "gF",
       "gk",
       "e",
       "E",
