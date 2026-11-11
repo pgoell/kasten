@@ -5,8 +5,8 @@
  */
 
 import { Fragment, type RefObject } from "react";
-import type { Line } from "@/components/log-trends";
-import { share } from "@/components/log-trends";
+import type { Line } from "@/components/log/log-trends";
+import { share } from "@/components/log/log-trends";
 import { overMax } from "@/lib/log/log-day";
 import type { Goal } from "@/lib/log/log-kinds";
 import { goalPhrase, grouped } from "@/lib/log/log-words";

@@ -1,5 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
-import { LogTrends } from "@/components/log-trends";
+import { LogTrends } from "@/components/log/log-trends";
 import { shiftDay } from "@/lib/core/clock";
 import type { LogDay } from "@/lib/log/food-api";
 import { parseConfig } from "@/lib/log/log-kinds";

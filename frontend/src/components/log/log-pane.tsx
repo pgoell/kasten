@@ -6,9 +6,15 @@ import {
   type SheetOwner,
   showFoodSheet,
 } from "@/components/food-sheet";
-import { capital, type Editing, EntryList, mealGroups, Reading } from "@/components/log-pane-rows";
-import { type Day, foodTotal, type Line, LogTrends, totalOf } from "@/components/log-trends";
-import { hintOf, WeightRows, weightButton } from "@/components/log-weight";
+import {
+  capital,
+  type Editing,
+  EntryList,
+  mealGroups,
+  Reading,
+} from "@/components/log/log-pane-rows";
+import { type Day, foodTotal, type Line, LogTrends, totalOf } from "@/components/log/log-trends";
+import { hintOf, WeightRows, weightButton } from "@/components/log/log-weight";
 import { fetchNote, NoteMissing } from "@/lib/core/api";
 import { shiftDay } from "@/lib/core/clock";
 import { LOG_NOTE } from "@/lib/core/layout";
