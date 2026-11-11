@@ -345,54 +345,164 @@
     "links": ["A"]
   },
   {
-    "id": "bom-target",
+    "id": "bom-only-link",
+    "line": "see [[\ufeff]]",
+    "relation": null,
+    "links": []
+  },
+  {
+    "id": "bom-only-target",
+    "line": "depends-on:: [[\ufeff]]",
+    "relation": null,
+    "links": []
+  },
+  {
+    "id": "bom-around-name",
     "line": "depends-on:: [[\ufeffA\ufeff]]",
     "relation": {
       "name": "depends-on",
       "target": "A"
     },
-    "links": ["\ufeffA\ufeff"],
-    "departs": {
-      "backend": 1857
-    }
-  },
-  {
-    "id": "bom-only-link",
-    "line": "see [[\ufeff]]",
-    "relation": null,
-    "links": [],
-    "departs": {
-      "backend": 1857
-    }
-  },
-  {
-    "id": "separator-char-target",
-    "line": "depends-on:: [[A\u001c]]",
-    "relation": {
-      "name": "depends-on",
-      "target": "A\u001c"
-    },
-    "links": ["A\u001c"],
-    "departs": {
-      "backend": 1858
-    }
-  },
-  {
-    "id": "separator-char-only-link",
-    "line": "see [[\u001f]]",
-    "relation": null,
-    "links": ["\u001f"],
-    "departs": {
-      "backend": 1858
-    }
+    "links": ["\ufeffA\ufeff"]
   },
   {
     "id": "next-line-only-link",
     "line": "see [[\u0085]]",
     "relation": null,
-    "links": ["\u0085"],
-    "departs": {
-      "backend": 1858
-    }
+    "links": ["\u0085"]
+  },
+  {
+    "id": "next-line-only-target",
+    "line": "depends-on:: [[\u0085]]",
+    "relation": {
+      "name": "depends-on",
+      "target": "\u0085"
+    },
+    "links": ["\u0085"]
+  },
+  {
+    "id": "next-line-around-name",
+    "line": "depends-on:: [[\u0085A\u0085]]",
+    "relation": {
+      "name": "depends-on",
+      "target": "\u0085A\u0085"
+    },
+    "links": ["\u0085A\u0085"]
+  },
+  {
+    "id": "fs-only-link",
+    "line": "see [[\u001c]]",
+    "relation": null,
+    "links": ["\u001c"]
+  },
+  {
+    "id": "fs-only-target",
+    "line": "depends-on:: [[\u001c]]",
+    "relation": {
+      "name": "depends-on",
+      "target": "\u001c"
+    },
+    "links": ["\u001c"]
+  },
+  {
+    "id": "fs-around-name",
+    "line": "depends-on:: [[\u001cA\u001c]]",
+    "relation": {
+      "name": "depends-on",
+      "target": "\u001cA\u001c"
+    },
+    "links": ["\u001cA\u001c"]
+  },
+  {
+    "id": "gs-only-link",
+    "line": "see [[\u001d]]",
+    "relation": null,
+    "links": ["\u001d"]
+  },
+  {
+    "id": "gs-only-target",
+    "line": "depends-on:: [[\u001d]]",
+    "relation": {
+      "name": "depends-on",
+      "target": "\u001d"
+    },
+    "links": ["\u001d"]
+  },
+  {
+    "id": "gs-around-name",
+    "line": "depends-on:: [[\u001dA\u001d]]",
+    "relation": {
+      "name": "depends-on",
+      "target": "\u001dA\u001d"
+    },
+    "links": ["\u001dA\u001d"]
+  },
+  {
+    "id": "rs-only-link",
+    "line": "see [[\u001e]]",
+    "relation": null,
+    "links": ["\u001e"]
+  },
+  {
+    "id": "rs-only-target",
+    "line": "depends-on:: [[\u001e]]",
+    "relation": {
+      "name": "depends-on",
+      "target": "\u001e"
+    },
+    "links": ["\u001e"]
+  },
+  {
+    "id": "rs-around-name",
+    "line": "depends-on:: [[\u001eA\u001e]]",
+    "relation": {
+      "name": "depends-on",
+      "target": "\u001eA\u001e"
+    },
+    "links": ["\u001eA\u001e"]
+  },
+  {
+    "id": "us-only-link",
+    "line": "see [[\u001f]]",
+    "relation": null,
+    "links": ["\u001f"]
+  },
+  {
+    "id": "us-only-target",
+    "line": "depends-on:: [[\u001f]]",
+    "relation": {
+      "name": "depends-on",
+      "target": "\u001f"
+    },
+    "links": ["\u001f"]
+  },
+  {
+    "id": "us-around-name",
+    "line": "depends-on:: [[\u001fA\u001f]]",
+    "relation": {
+      "name": "depends-on",
+      "target": "\u001fA\u001f"
+    },
+    "links": ["\u001fA\u001f"]
+  },
+  {
+    "id": "every-blank-around-name",
+    "line": "depends-on:: [[\t\u000b\f\r \u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000\ufeffA\t\u000b\f\r \u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]]",
+    "relation": {
+      "name": "depends-on",
+      "target": "A"
+    },
+    "links": [
+      "\t\u000b\f\r \u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000\ufeffA\t\u000b\f\r \u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000\ufeff"
+    ]
+  },
+  {
+    "id": "bom-inside-name",
+    "line": "depends-on:: [[A\ufeffB]]",
+    "relation": {
+      "name": "depends-on",
+      "target": "A\ufeffB"
+    },
+    "links": ["A\ufeffB"]
   }
 ]

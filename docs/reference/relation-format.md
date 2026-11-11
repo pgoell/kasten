@@ -69,6 +69,10 @@ It has to be a wikilink the editor's own parser would accept: not empty, no
 brackets, no line break. `depends-on:: [[   ]]` is a plain line. One grammar for
 links, not two.
 
+The target is trimmed of what JavaScript's `trim()` strips, U+FEFF included and
+U+0085 and U+001C to U+001F not. The graph trims by `links.LINK_BLANKS`, the
+same set, since Python's `str.strip()` takes a different one.
+
 ### 6. No wikilink, no relation
 
 A line with no wikilink on it is a plain line, which keeps `std::vector is fast`

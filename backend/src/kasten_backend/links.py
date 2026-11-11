@@ -42,6 +42,21 @@ SCHEME = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:")
 """An href that names a place outside the vault: `https:`, `mailto:` and the rest."""
 
 
+LINK_BLANKS = (
+    "\t\n\v\f\r \xa0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a"
+    "\u2028\u2029\u202f\u205f\u3000\ufeff"
+)
+"""What the editor's `trim()` takes off a link target's ends, and so what the backend takes (#1857).
+
+`str.strip()` differs: it keeps U+FEFF and takes U+0085 and U+001C to U+001F (#1858).
+"""
+
+
+def trim(text: str) -> str:
+    """`text` without the blanks at its ends, as JavaScript's `trim()` reads them."""
+    return text.strip(LINK_BLANKS)
+
+
 class Target(NamedTuple):
     """What `[[name#heading|alias]]` is made of: the note, its heading, and the link's words."""
 
@@ -61,7 +76,7 @@ def split_target(target: str) -> Target:
     if bar:
         named = named.removesuffix("\\")
     name, _, heading = named.partition("#")
-    return Target(name.strip(), heading.strip() or None, alias.strip() or None)
+    return Target(trim(name), trim(heading) or None, trim(alias) or None)
 
 
 def names_a_file(name: str) -> bool:

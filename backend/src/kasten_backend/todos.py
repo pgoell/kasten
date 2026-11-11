@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 
 from kasten_backend.code_spans import BLOCK_NAMES, FENCES, WIKILINK, blocks
 from kasten_backend.frontmatter import body_start
-from kasten_backend.links import link_path
+from kasten_backend.links import link_path, trim
 from kasten_backend.search import Hit, rg_lines, rg_order, skipped
 from kasten_backend.todo_fields import SPANS, blank, mask
 from kasten_backend.todo_fields import words as _words
@@ -364,7 +364,7 @@ def _link_project(text: str, paths: list[str]) -> str | None:
     """The project of the first link on `text` that lands on a note in one."""
     for target in WIKILINK.findall(text):
         # A name of only spaces is no name, as the editor's `wikiLinkTargets` has it.
-        if not target.strip():
+        if not trim(target):
             continue
         linked = link_path(target, paths)
         if linked not in paths:

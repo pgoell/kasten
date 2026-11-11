@@ -330,6 +330,20 @@ describe("wikiLinkCompletions", () => {
 });
 
 describe("splitTarget", () => {
+  // `links.split_target` holds the same row; both trim the name, heading and alias alike (#1857).
+  it("trims a byte order mark off the name, heading and alias, and keeps a separator", () => {
+    expect(splitTarget("\ufeffA\ufeff#\ufeffH\ufeff|\ufeffx\ufeff")).toEqual({
+      name: "A",
+      heading: "H",
+      alias: "x",
+    });
+    expect(splitTarget("\u001cA#H\u001f|\u0085x")).toEqual({
+      name: "\u001cA",
+      heading: "H\u001f",
+      alias: "\u0085x",
+    });
+  });
+
   it("reads a bare name as the name alone", () => {
     expect(splitTarget(" borges ")).toEqual({ name: "borges", heading: null, alias: null });
   });

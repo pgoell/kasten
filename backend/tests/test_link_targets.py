@@ -3,9 +3,14 @@ from pathlib import Path
 
 import pytest
 
-from kasten_backend.links import FILE_SUFFIXES, link_path, relink, split_target
+from kasten_backend.links import FILE_SUFFIXES, LINK_BLANKS, link_path, relink, split_target
 from kasten_backend.search import SearchError, notes_holding
 
+CASES = json.loads(
+    (Path(__file__).parents[2] / "frontend/src/lib/notes/links/relation-cases.json").read_text(
+        encoding="utf-8"
+    )
+)
 LINK_PATHS = json.loads((Path(__file__).parent / "fixtures" / "link_paths.json").read_text())
 """The cases `wikiLinkPath` in the frontend is tested against too, so the two copies agree."""
 
@@ -35,12 +40,30 @@ def test_link_path_reads_the_name_past_a_heading_and_an_alias(target: str, expec
         ("#Ficciones", ("", "Ficciones", None)),
         ("borges#|", ("borges", None, None)),
         ("borges\\|his", ("borges", None, "his")),
+        # The editor's `splitTarget` holds these two rows too (#1857, #1858).
+        ("\ufeffA\ufeff#\ufeffH\ufeff|\ufeffx\ufeff", ("A", "H", "x")),
+        ("\x1cA#H\x1f|\x85x", ("\x1cA", "H\x1f", "\x85x")),
     ],
 )
 def test_split_target_takes_the_bar_before_the_hash(
     target: str, expected: tuple[str, str | None, str | None]
 ) -> None:
     assert split_target(target) == expected
+
+
+def test_link_blanks_are_the_every_blank_case_and_the_line_break() -> None:
+    # `relation.test.ts` holds the same case to every character JavaScript's `trim()` strips.
+    case = next(case for case in CASES if case["id"] == "every-blank-around-name")
+    line = case["line"]
+
+    assert sorted(line[line.index("[[") + 2 : line.index("A")] + "\n") == sorted(LINK_BLANKS)
+
+
+def test_link_path_follows_a_name_behind_a_byte_order_mark() -> None:
+    assert link_path("\ufeffborges\ufeff", ["reading/borges.md"]) == "reading/borges.md"
+    assert relink(
+        "[[\ufeffborges]]", {"reading/borges.md": "x/jorge.md"}, ["reading/borges.md"]
+    ) == ("[[jorge]]")
 
 
 @pytest.mark.parametrize(
