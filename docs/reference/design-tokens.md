@@ -207,6 +207,13 @@ The switch cross-fades through a view transition, and lands at once under
 before the first paint, so a page never flashes the other theme while it loads,
 and the browser bar's `theme-color` follows `--k-bg` on every switch.
 
+Until the app has loaded, `index.html` shows a loading screen: the `[[k]]` mark
+and the wordmark on `--k-bg`, in `--k-ink` and the palette's `--k-accent`. Its
+style is inline, so it copies those colours rather than reading the tokens, and
+`tests/theme.test.ts` fails when the two drift apart. The manifest's
+`background_color`, which Android paints behind the icon as the app starts, is
+the light `--k-bg`.
+
 ## Accent palettes
 
 Four palettes set the accent colours. Each comes from Sanzo Wada's *A Dictionary

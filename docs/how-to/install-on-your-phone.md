@@ -28,7 +28,8 @@ What changes for you:
 * The share sheet entry reads **kasten**, not **kasten capture**.
 * There is no separate icon for the dump. A long press on the kasten icon
   offers **Capture**.
-* The icon is the card box, and it opens the notebook, not the capture page.
+* The icon is a **k** in wikilink brackets, and it opens the notebook, not the
+  capture page.
 
 ## Install it on Android
 
