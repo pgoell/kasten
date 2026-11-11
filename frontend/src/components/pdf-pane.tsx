@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePdfTake } from "@/components/pdf-take";
 import { PdfThumbs, THUMBS_FROM, type ThumbsHandle } from "@/components/pdf-thumbs";
 import { Rsvp } from "@/components/rsvp";
-import { TAKE_HOST } from "@/components/take-button-view";
+import { TAKE_HOST } from "@/components/takes/take-button-view";
 import { encodePath } from "@/lib/notes/links/note-path";
 import {
   type PdfFile,

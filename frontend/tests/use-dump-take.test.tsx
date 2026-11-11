@@ -1,6 +1,6 @@
 import "fake-indexeddb/auto";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { type Taking, useDumpTake } from "@/components/use-dump-take";
+import { type Taking, useDumpTake } from "@/components/takes/use-dump-take";
 import { reset, waiting } from "@/lib/capture/outbox";
 import { readClock } from "@/lib/core/clock";
 import { noteBase } from "@/lib/notes/note-base";

@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { useBookNoteTake } from "@/components/use-book-note-take";
+import { useBookNoteTake } from "@/components/takes/use-book-note-take";
 import { addHighlight, type Passage } from "@/lib/takes/highlight";
 import { VIDEO_REFUSED } from "@/lib/takes/page-undo";
 
