@@ -1,6 +1,6 @@
 import { fireEvent, screen } from "@testing-library/react";
 import { useMemo } from "react";
-import type { TodoHit } from "@/lib/core/api";
+import { NoteMissing, type TodoHit } from "@/lib/core/api";
 import { noteBase } from "@/lib/notes/note-base";
 import type { PdfRenderer } from "@/lib/panes/book/pdf-view";
 import type { TodoState } from "@/lib/todo/todo";
@@ -350,7 +350,11 @@ describe("the route", () => {
      */
     async function listing(rows: TodoHit[], text: string, phone = false) {
       fetchFiles.mockImplementation(async () => [...Object.keys(VAULT), PATH]);
-      fetchNote.mockImplementation(async (path: string) => (path === PATH ? text : VAULT[path]));
+      fetchNote.mockImplementation(async (path: string) => {
+        const found = path === PATH ? text : VAULT[path];
+        if (found === undefined) throw new NoteMissing(path);
+        return found;
+      });
       fetchTodos.mockResolvedValue(rows);
       const app = await renderApp();
       await settle();

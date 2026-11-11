@@ -35,20 +35,29 @@ import {
 
 /**
  * Today's daily note and its text, which every write here lands in or beside. `known`
- * is a note the caller has read already, so it is not asked for twice.
+ * is a note the caller has read already, so it is not asked for twice. `listed` is
+ * `paths` with today's note in it exactly when the note exists, for `send`.
  */
 async function dailyNote(
   paths: string[],
   known: Record<string, string> = {},
-): Promise<{ path: string; text: string }> {
+): Promise<{ path: string; text: string; listed: string[] }> {
   const daily = periodicNote("daily", new Date());
-  const text =
-    known[daily.path] ??
+  const listed = [...paths, daily.path];
+  const text = known[daily.path];
+  if (text !== undefined) return { path: daily.path, text, listed };
+  try {
+    // Asked even when the listing lacks it: a press queued behind the day's first
+    // still holds the listing from before that press made the note.
+    return { path: daily.path, text: await fetchNote(daily.path), listed };
+  } catch (error) {
+    if (!(error instanceof NoteMissing)) throw error;
     // The body goes over as it stands, the way `follow` sends one: `periodic.ts`
     // opens it with the frontmatter block, and a line in front of that fence
     // would leave the note untyped.
-    (paths.includes(daily.path) ? await fetchNote(daily.path) : daily.body);
-  return { path: daily.path, text };
+    const without = paths.filter((path) => path !== daily.path);
+    return { path: daily.path, text: daily.body, listed: without };
+  }
 }
 
 /**
@@ -70,14 +79,18 @@ async function send(writes: Write[], paths: string[], read: Record<string, strin
 }
 
 /** Put what was typed into today's note, under `## TODOs`. */
-export async function addTodoInVault(input: string, today: string, paths: string[]): Promise<void> {
+export function addTodoInVault(input: string, today: string, paths: string[]): Promise<void> {
+  return inTurn(() => addTodo(input, today, paths));
+}
+
+async function addTodo(input: string, today: string, paths: string[]): Promise<void> {
   const daily = await dailyNote(paths);
   const writes = addTodoWrites({
     dailyPath: daily.path,
     dailyText: daily.text,
     todo: expandShorthand(input, today),
   });
-  await send(writes, paths, { [daily.path]: daily.text });
+  await send(writes, daily.listed, { [daily.path]: daily.text });
 }
 
 /**
@@ -116,27 +129,35 @@ export function cycleTodoAside(
   today: string,
   paths: string[],
 ): Promise<void> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const bound = new Promise<void>((resolve) => {
-    timer = setTimeout(resolve, ASIDE_WAIT_MS);
-  });
-  const turn = Promise.race([asideTurns, bound])
-    .finally(() => clearTimeout(timer))
-    .then(() => cycleAside(path, cycle, today, paths));
-  // Settled either way, so the next press waits on this one and never on why
-  // it failed.
-  asideTurns = Promise.allSettled([turn]);
-  return turn;
+  return inTurn(() => cycleAside(path, cycle, today, paths));
 }
 
-/** The press before this one, which the next waits on. */
-let asideTurns: Promise<unknown> = Promise.resolve();
+/** The write before this one, which the next waits on. */
+let turns: Promise<unknown> = Promise.resolve();
 
 /**
- * How long a press waits on the one before it, then goes on alone. The api client has
+ * How long a write waits on the one before it, then goes on alone. The api client has
  * no timeout, so a lost answer would otherwise hold every later press until reload.
  */
-const ASIDE_WAIT_MS = 10_000;
+const TURN_WAIT_MS = 10_000;
+
+/**
+ * Run `work` once the write before it has settled. Every write here reads a note and
+ * saves it back, today's note most of all, so two at once would race and one get a 409.
+ */
+function inTurn<T>(work: () => Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const bound = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, TURN_WAIT_MS);
+  });
+  const turn = Promise.race([turns, bound])
+    .finally(() => clearTimeout(timer))
+    .then(work);
+  // Settled either way, so the next write waits on this one and never on why
+  // it failed.
+  turns = Promise.allSettled([turn]);
+  return turn;
+}
 
 async function cycleAside(
   path: string,
@@ -285,13 +306,24 @@ export function agentTodoIn(
 }
 
 /** Read what the press needs, work out the writes, and send them. */
-export async function cycleTodoInVault(
+export function cycleTodoInVault(
   hit: SearchHit,
   today: string,
   paths: string[],
   state?: TodoState,
   twins?: number[],
   id = newId(),
+): Promise<void> {
+  return inTurn(() => cycleInVault(hit, today, paths, state, twins, id));
+}
+
+async function cycleInVault(
+  hit: SearchHit,
+  today: string,
+  paths: string[],
+  state: TodoState | undefined,
+  twins: number[] | undefined,
+  id: string,
 ): Promise<void> {
   // The vault, not the row: the list is as old as the last fetch, and the note
   // is what the press is about to overwrite.
@@ -351,7 +383,7 @@ export async function cycleTodoInVault(
     state,
   });
 
-  await send(writes, paths, { ...logged, [hit.path]: text, [daily.path]: daily.text });
+  await send(writes, daily.listed, { ...logged, [hit.path]: text, [daily.path]: daily.text });
 
   // After the send, so the dependents in this note are read as the write above
   // left them. No note is skipped: this half can see every blocker, where the
@@ -365,11 +397,20 @@ export async function cycleTodoInVault(
  * Start a session on one todo, or close the ones it has running. Reads only the notes
  * naming its id, not the vault. A todo with no id is always a start.
  */
-export async function toggleTimerInVault(
+export function toggleTimerInVault(
   hit: SearchHit,
   clock: { date: string; time: string },
   paths: string[],
   twins?: number[],
+): Promise<void> {
+  return inTurn(() => toggleTimer(hit, clock, paths, twins));
+}
+
+async function toggleTimer(
+  hit: SearchHit,
+  clock: { date: string; time: string },
+  paths: string[],
+  twins: number[] | undefined,
 ): Promise<void> {
   // The vault, not the row: the list is as old as the last fetch.
   const text = await fetchNote(hit.path);
@@ -411,5 +452,5 @@ export async function toggleTimerInVault(
     id: newId(),
   });
 
-  await send(writes, paths, notes);
+  await send(writes, daily.listed, notes);
 }

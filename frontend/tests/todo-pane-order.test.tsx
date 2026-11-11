@@ -5,6 +5,7 @@ import { TodoPane } from "@/components/todo/todo-pane";
 import { fetchFiles } from "@/lib/core/api";
 import { periodicNote } from "@/lib/notes/text/periodic";
 import { useTodoActions } from "@/lib/todo/use-todo-actions";
+import { SETTLE_MS } from "@/lib/todo/use-todo-hold";
 import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
 import { useVaultEvents } from "@/lib/vault/events/use-vault-events";
 import { digestOf, type VaultEvent } from "@/lib/vault/events/vault-events";
@@ -35,8 +36,7 @@ vi.mock("@/lib/core/api-client", async (importOriginal) => {
         // Nothing else in the vault names a todo's id, which is all a search answers.
         if (url === "/api/search") return ok([]);
         if (url === "/api/todos") {
-          // Every answer comes back in another order, the way the vault's search
-          // does not promise one, so a list that is redrawn from it reorders.
+          // Each answer comes in another order, so a redrawn list reorders.
           const hits = Object.entries(vault.notes).flatMap(([path, text]) =>
             // rg keeps a CRLF line's `\r`, and `find_todos` cuts it.
             text
@@ -261,24 +261,23 @@ describe("the todo pane holds the order it is drawn in while a press is made", (
     vi.useRealTimers();
   });
 
-  it("#947 A2 a row checked off stays in place, struck, until the pane is left", async () => {
+  it("#947 A2 a row checked off stays in place, struck, until a beat after the last press", async () => {
+    vault.notes["b.md"] += "\n- [x] kilo ✅ 2026-08-09";
     await mount();
+    // Open the fold, where a done row turns up.
+    fireEvent.click(screen.getByRole("button", { name: /Done this week/ }));
     const first = order();
-    const outside = document.createElement("button");
-    document.body.append(outside);
 
     panel().focus();
     press("x");
-    await settle();
+    await advance(SETTLE_MS - 1);
     expect(order()).toEqual(first);
     expect(rowOf(first[0] ?? "")?.querySelector(".line-through")?.textContent).toBe(first[0]);
 
-    outside.focus();
-    await settle();
-    expect(order()).toHaveLength(first.length - 1);
-    expect(order()).not.toContain(first[0]);
-    expect(document.querySelector(".line-through")).toBeNull();
-    outside.remove();
+    // It leaves; the cursor goes to the next row.
+    await advance(1);
+    expect(order().slice(0, first.length - 2)).not.toContain(first[0]);
+    expect(document.querySelector('[data-row][tabindex="0"]')?.textContent).toContain(first[1]);
   });
 
   it("#947 I1 pressing O on a struck row reopens it in place", async () => {
@@ -287,7 +286,7 @@ describe("the todo pane holds the order it is drawn in while a press is made", (
 
     press("x");
     await settle();
-    // `x` on a done row takes its checkbox off the line; `O` sets it open again.
+    // `x` on a done row takes its checkbox off; `O` sets it open.
     press("O");
     await settle();
 
@@ -305,8 +304,7 @@ describe("the todo pane holds the order it is drawn in while a press is made", (
     await settle();
     expect(fetches()).toBe(1);
 
-    // The writes the press made, reported by the stream after its answer landed.
-    // Each echo carries the digest of the text the press wrote, as the vault reports it.
+    // The press's writes, echoed by the stream with the digest of each text.
     stream().send({
       path: note,
       change: "written",
@@ -320,7 +318,7 @@ describe("the todo pane holds the order it is drawn in while a press is made", (
     await settle();
     expect(fetches()).toBe(1);
 
-    // A write nobody pressed for still asks, which is what keeps other writers on screen.
+    // A write nobody pressed for still asks, so other writers show.
     vault.notes["zz.md"] = "- [ ] hotel";
     stream().send({ path: "zz.md", change: "written", digest: null });
     await settle();
@@ -357,10 +355,7 @@ describe("the todo pane holds the order it is drawn in while a press is made", (
     await settle();
     expect(order()).toEqual([...first, "hotel"]);
 
-    // Past the echo's window, so the write to the pressed note is somebody else's.
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(3000);
-    });
+    // No digest, so the write is somebody else's.
     vault.notes["a.md"] = (vault.notes["a.md"] ?? "").replace("- [/] charlie\n", "");
     stream().send({ path: "a.md", change: "written", digest: null });
     await settle();
@@ -501,12 +496,13 @@ describe("the todo pane holds the order it is drawn in while a press is made", (
     await settle();
     await advance(2900);
 
-    // A held list answer keeps a third press running, so the echo check comes
-    // after the first press's window and while the second press is still open.
-    vault.held = new Promise<void>(() => {});
+    // A held list answer keeps the third press running, so the echo of the
+    // second's write comes past the first's window, with a press still open.
     press("j");
     press("x");
     await settle();
+    let free = () => {};
+    vault.held = new Promise<void>((done) => (free = done));
     press("j");
     press("x");
     await settle();
@@ -520,6 +516,9 @@ describe("the todo pane holds the order it is drawn in while a press is made", (
     });
     await settle();
     expect(fetches()).toBe(before);
+    // Writes queue: a hung press would hold the next test's.
+    free();
+    await settle();
   });
 
   it("#947 B7 a press on a note with CRLF line endings fetches the list once", async () => {
@@ -574,7 +573,7 @@ describe("the todo pane holds the order it is drawn in while a press is made", (
     );
     expect(rowOf(first[0] ?? "")?.querySelector(".line-through")).toBeNull();
 
-    // A later write from elsewhere still shuffles the answer; the refused row stays put.
+    // A later write elsewhere shuffles; the refused row stays put.
     vault.refuse = false;
     stream().send({ path: "b.md", change: "written", digest: null });
     await settle();

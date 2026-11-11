@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { TodoHit } from "@/lib/core/api";
 import {
   type HeldGroup,
@@ -10,6 +10,12 @@ import {
 } from "@/lib/todo/todo-hold";
 import { heldFold } from "@/lib/todo/todo-scope";
 import { type Mode, type Row, rowKey } from "@/lib/todo/use-todo-rows";
+
+/**
+ * How long after the last press the order lets go and the done rows leave. Long enough that a
+ * run of presses keeps the rows still, short enough that the list reads as answering.
+ */
+export const SETTLE_MS = 1000;
 
 /**
  * The order the pane draws its rows in while a press holds it. A press keeps every other row where it was,
@@ -24,10 +30,19 @@ export function useTodoHold(o: {
   listed: Mode;
   board: boolean;
   doneOpen: boolean;
+  /** Called just before the hold lets go on its own, `SETTLE_MS` after the last press. */
+  onSettle?: () => void;
 }) {
   const { data, current, doneWeek, listed, board, doneOpen } = o;
+  const settle = useRef(o.onSettle);
+  settle.current = o.onSettle;
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(timer.current), []);
 
   const [hold, setHold] = useState<HeldGroup[] | null>(null);
+  // Read by the timer, which outlives the render that set it: the board and other lists hold nothing.
+  const holds = useRef(false);
+  holds.current = hold !== null;
   /**
    * The Done this week rows as the press that held them found them. Cleared
    * with `hold`, so the fold is drawn fresh whenever the list is.
@@ -68,10 +83,11 @@ export function useTodoHold(o: {
     setHold((previous) => (previous === null || sameOrder(previous, holding) ? previous : holding));
   }, [holding]);
 
-  // Dropped with the hold, so the next press takes a fresh look at the fold.
-  useEffect(() => {
-    if (hold === null) setFoldHeld(null);
-  }, [hold]);
+  /** Both holds in one update, so the render after it draws the fold as it will stay. */
+  function letGo() {
+    setHold(null);
+    setFoldHeld(null);
+  }
 
   /** The first press of the open list holds the order it is drawn in, the fold's too while it is open. */
   function holdNow() {
@@ -89,6 +105,11 @@ export function useTodoHold(o: {
     return (...args: A) => {
       holdNow();
       press(...args);
+      clearTimeout(timer.current);
+      timer.current = setTimeout(() => {
+        if (holds.current) settle.current?.();
+        letGo();
+      }, SETTLE_MS);
     };
   }
 
@@ -98,6 +119,9 @@ export function useTodoHold(o: {
     foldRows,
     pressing,
     /** Lets the hold go, so the list is drawn fresh. */
-    release: () => setHold(null),
+    release: () => {
+      clearTimeout(timer.current);
+      letGo();
+    },
   };
 }

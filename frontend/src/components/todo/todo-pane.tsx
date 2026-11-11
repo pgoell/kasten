@@ -1,18 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
-import { useDeferredValue, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { type BoardKeys, TodoBoard } from "@/components/todo/todo-board";
 import { TodoFooter } from "@/components/todo/todo-footer";
 import { TodoHeader } from "@/components/todo/todo-header";
 import { TodoList } from "@/components/todo/todo-list";
 import { fetchTodos, type SearchHit, type TodoHit } from "@/lib/core/api";
 import type { TodoState } from "@/lib/todo/todo";
+import { cursorAfter } from "@/lib/todo/todo-hold";
 import { useArmed } from "@/lib/todo/use-armed";
 import { useBlockerPick } from "@/lib/todo/use-blocker-pick";
 import { useTodoFilter } from "@/lib/todo/use-todo-filter";
 import { useTodoFocus } from "@/lib/todo/use-todo-focus";
 import { useTodoHold } from "@/lib/todo/use-todo-hold";
 import { SET, type TodoKeyActions, useTodoKeys } from "@/lib/todo/use-todo-keys";
-import { type Mode, rowKey, useTodoRows } from "@/lib/todo/use-todo-rows";
+import { type Mode, type Row, rowKey, useTodoRows } from "@/lib/todo/use-todo-rows";
 import { useTodoTwins } from "@/lib/todo/use-todo-twins";
 import { useViewport } from "@/lib/ui/input/use-viewport";
 import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
@@ -151,6 +152,14 @@ export function TodoPane({
     shared: narrowing.shared,
   });
 
+  /** The rows and cursor as last drawn, and the rows to land on once a settled hold lets go. */
+  const drawn = useRef<{ rows: Row[]; cursor: number; open: number }>({
+    rows: [],
+    cursor: 0,
+    open: 0,
+  });
+  const follow = useRef<{ keys: string[]; inFold: boolean } | null>(null);
+
   // The order the rows are drawn in, held while a press is being read.
   const { groups, groupRows, foldRows, pressing, release } = useTodoHold({
     data,
@@ -159,6 +168,13 @@ export function TodoPane({
     listed,
     board,
     doneOpen,
+    onSettle: () => {
+      const { rows: before, cursor: was, open } = drawn.current;
+      follow.current = {
+        keys: before.slice(was).map((row) => rowKey(row.hit)),
+        inFold: was >= open,
+      };
+    },
   });
   // What `j` and `k` walk: the groups, and the Done this week rows once their
   // fold is open. A folded row is not on screen, so the cursor does not stop on it.
@@ -171,6 +187,18 @@ export function TodoPane({
   const cursor = Math.min(active, Math.max(rows.length - 1, 0));
   const at = rows[cursor];
   const cursorKey = at === undefined ? "" : rowKey(at.hit);
+  drawn.current = { rows, cursor, open: groupRows.length };
+
+  // Done rows leave as the hold lets go, so the cursor follows its row rather than its place,
+  // or the first row under it that stays where its own row left.
+  useLayoutEffect(() => {
+    const from = follow.current;
+    if (from === null) return;
+    follow.current = null;
+    const keysOf = (each: Row[]) => each.map((row) => rowKey(row.hit));
+    const found = cursorAfter(from, keysOf(groupRows), keysOf(rows));
+    if (found !== undefined) setActive(found);
+  }, [groupRows, rows]);
   const refile = pressing(onRefile);
   const { onCycle, onTimer, onAgent } = useTodoTwins({
     data,

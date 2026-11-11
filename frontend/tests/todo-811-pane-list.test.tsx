@@ -1,4 +1,5 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { cursorAfter } from "@/lib/todo/todo-hold";
 import { paneHooks, renderPane } from "./todo-pane-fixture";
 
 // The doubles, the same in every todo-pane file: see todo-pane-fixture.tsx.
@@ -93,5 +94,18 @@ describe("the todo pane's list", () => {
     fireEvent.click(screen.getByRole("button", { name: /^Done this week/ }));
     pane.press("j");
     expect(at()).toContain("read the spec");
+  });
+});
+
+describe("where the cursor lands as a held order lets go", () => {
+  const open = ["b", "c"];
+  const all = [...open, "a", "k", "l"];
+
+  it("an open cursor whose row left goes to the next open row, not the row in the fold", () => {
+    expect(cursorAfter({ keys: ["a", "b", "c"], inFold: false }, open, all)).toBe(0);
+  });
+
+  it("a cursor in the fold keeps its row there", () => {
+    expect(cursorAfter({ keys: ["k", "l"], inFold: true }, open, all)).toBe(3);
   });
 });

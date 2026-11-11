@@ -33,30 +33,32 @@ test("clicking a todo opens its note on the todo's line", async ({ page }) => {
   await expect(page.locator(".cm-activeLine")).toContainText("reply to the far away letter");
 });
 
-test("checking off three todos in a row keeps the rows in their order", async ({ page, stack }) => {
+test("checking off three todos in a row keeps the rows in their order, then they leave", async ({
+  page,
+  stack,
+}) => {
   await openApp(page);
   await leader(page, "gt");
-  // A checked row stays put, struck through (#947), so each row is found again by its words.
+  // A checked row stays put, struck through, while presses follow each other (#947),
+  // so each row is found again by its words.
   for (const name of HOME_TODOS.slice(0, 3)) {
     await cursorTo(page, name);
     await page.keyboard.press("X");
-    // The list redraws once the write lands, so wait for the line before the next row is found.
-    await expect
-      .poll(() => noteText(stack.vault, HOME), { timeout: 15_000 })
-      .toMatch(new RegExp(`^- \\[x\\] ${name}`, "m"));
   }
-  const texts = await page
-    .locator(TODO_ROW)
-    .evaluateAll((rows) => rows.map((row) => row.textContent ?? ""));
-  const order = texts
-    .map((text) => HOME_TODOS.find((name) => text.includes(name)))
-    .filter((name) => name !== undefined);
-  expect(order).toEqual(HOME_TODOS);
+  const named = async () =>
+    (await page.locator(TODO_ROW).evaluateAll((rows) => rows.map((row) => row.textContent ?? "")))
+      .map((text) => HOME_TODOS.find((name) => text.includes(name)))
+      .filter((name) => name !== undefined);
+  expect(await named()).toEqual(HOME_TODOS);
   await expect
     .poll(() => noteText(stack.vault, HOME), { timeout: 15_000 })
     .toMatch(
       /^- \[x\] empty the dishwasher.*\n- \[x\] fold the laundry.*\n- \[x\] take out the bins/m,
     );
+  // A beat after the last press the done rows leave, the cursor's own among them, so
+  // the cursor lands on the first row under it that stays.
+  await expect.poll(named).toEqual(HOME_TODOS.slice(3));
+  await expect(page.locator(`${TODO_ROW}[tabindex="0"]`)).toContainText(HOME_TODOS[3] ?? "");
 });
 
 test("marking a recurring todo done writes its next copy above it", async ({ page, stack }) => {

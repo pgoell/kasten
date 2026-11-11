@@ -160,3 +160,17 @@ export function sameOrder(one: HeldGroup[], other: HeldGroup[]): boolean {
     )
   );
 }
+
+/**
+ * Where the cursor lands once a held order lets go: its own row, or the first row under it that
+ * stays. A cursor in the open rows looks only there, since a row that just left them turns up
+ * again in an open fold under the same key; one already in the fold looks through every row.
+ */
+export function cursorAfter(
+  from: { keys: string[]; inFold: boolean },
+  open: string[],
+  all: string[],
+): number | undefined {
+  const places = new Map((from.inFold ? all : open).map((key, index) => [key, index]));
+  return from.keys.map((key) => places.get(key)).find((index) => index !== undefined);
+}
