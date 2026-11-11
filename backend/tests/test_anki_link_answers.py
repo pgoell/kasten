@@ -271,3 +271,19 @@ async def test_i4_an_unreadable_member_reads_as_the_file_import_gives_it(
     assert by_link.json() == by_file.json()
     assert by_link.json()["detail"].startswith("unreadable Anki export: collection.anki2: ")
     assert not (vault / "03 Flashcards").exists()
+
+
+async def test_a_link_over_a_deck_note_that_is_not_utf8_is_refused_like_the_file(
+    client: AsyncClient, vault: Path, answer: Callable
+) -> None:
+    answer(deck_file)
+    await link(client, "https://example.com/French.apkg")
+    note = vault / "03 Flashcards" / "French.md"
+    note.write_bytes(note.read_bytes() + b"caf\xff\n")
+    before = note.read_bytes()
+
+    response = await link(client, "https://example.com/French.apkg")
+
+    assert response.status_code == 409
+    assert response.json()["detail"].endswith("Save it as UTF-8, then import again.")
+    assert note.read_bytes() == before

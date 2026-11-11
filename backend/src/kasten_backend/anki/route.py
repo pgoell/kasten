@@ -15,7 +15,7 @@ from kasten_backend import files, uploads
 from kasten_backend.anki import ankiweb
 from kasten_backend.anki import imports as anki_imports
 from kasten_backend.anki.archive.apkg import media_path, read_apkg
-from kasten_backend.anki.card_moves import marked_elsewhere, moves
+from kasten_backend.anki.card_moves import marked_elsewhere, moves, strict
 from kasten_backend.anki.imports import AnkiImporting
 from kasten_backend.anki.note.merge import joined, marked_cards, merge
 from kasten_backend.anki.note.write import as_note, card_count, note_cards
@@ -208,7 +208,9 @@ async def _import_bytes(body: bytes, settings: Settings, *, carry: bool, limit: 
             homes.append((deck, note))
         paths = {deck.name: relative_path(settings.vault_path, note) for deck, note in homes}
         olds = {
-            paths[deck.name]: note.read_text(encoding="utf-8")
+            paths[deck.name]: strict(
+                settings, paths[deck.name], f"the import cannot merge {deck.name} into it"
+            )
             for deck, note in homes
             if note.exists()
         }

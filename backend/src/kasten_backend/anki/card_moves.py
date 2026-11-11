@@ -112,7 +112,8 @@ def moves(
     gains: dict[str, dict[tuple[int, int], list[str]]] = {}
     for path, keys in leaving.items():
         name = into[keys[0]]
-        text = texts[path] if path in paths.values() else _strict(settings, path, name)
+        why = f"{name}'s cards cannot move out of it"
+        text = texts[path] if path in paths.values() else strict(settings, path, why)
         result = taken(text, keys)
         if result is None:
             raise _stuck(name, [path], paths[name])
@@ -122,15 +123,14 @@ def moves(
     return cut, gains
 
 
-def _strict(settings: Settings, path: str, deck: str) -> str:
-    """The text of `path` read strictly, as a card cut out of it is written back over it."""
+def strict(settings: Settings, path: str, why: str) -> str:
+    """The text of `path` read strictly, as the import writes it back; else a 409 saying `why`."""
     try:
         return (settings.vault_path / path).read_text(encoding="utf-8")
     except UnicodeDecodeError as error:
         raise HTTPException(
             status_code=409,
-            detail=f"{path} is not UTF-8, so {deck}'s cards cannot move out of it. "
-            "Save it as UTF-8, then import again.",
+            detail=f"{path} is not UTF-8, so {why}. Save it as UTF-8, then import again.",
         ) from error
 
 
