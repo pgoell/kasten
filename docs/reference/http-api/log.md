@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: "HTTP API: log"
-description: The route that adds up each day's water, coffee, alcohol and food from its daily note, and the one that reads its training lines.
+description: The route that adds up each day's water, coffee, alcohol and food from its daily note, the one that reads its training lines, and the one that lists the exercise notes.
 resource: backend/src/kasten_backend/log.py
 tags: [api, backend, openapi]
 status: stable
@@ -10,7 +10,7 @@ status: stable
 # HTTP API: log
 
 The route that adds up each day's water, coffee, alcohol and food from its daily note,
-and the one that reads its training lines.
+the one that reads its training lines, and the one that lists the exercise notes.
 
 ## GET /api/log
 
@@ -120,3 +120,34 @@ GET /api/training?from=2026-11-09&to=2026-11-15
 Every field of an entry is there, `null` where its kind has none, and so is
 every field of a test's group and value. `kind` is `strength`, `walk`, `run`,
 `ride` or `test`.
+
+## GET /api/training/exercises
+
+Every exercise note outside the archive folder, by name, ignoring case. An
+exercise note is one whose frontmatter `kind` is `strength`, `cardio`,
+`mobility` or `test`, in any case; where it sits does not matter.
+[Exercise import](/reference/training/exercise-import.md#the-note) gives the
+fields. Takes nothing and answers `200` with a list, empty in a vault with no
+exercise notes.
+
+```json
+[
+  {
+    "path": "03 Areas/11 Fitness/Übungen/Kniebeuge.md",
+    "name": "Kniebeuge",
+    "kind": "strength",
+    "counts": "weight-reps",
+    "aliases": ["Squat"],
+    "muscles_primary": ["quadriceps", "gluteal"],
+    "muscles_secondary": ["hamstring"],
+    "equipment": ["Langhantel"]
+  }
+]
+```
+
+`name` is the file name without `.md`, which is what a training line links.
+`kind` comes back in lower case. `counts` is the note's when it is
+`weight-reps`, `reps` or `time`; else `time` for cardio and mobility and
+`weight-reps` for the rest. The lists are empty where the note gives none.
+The session screen picks from this list; see
+[Training session](/reference/training/session-screen.md).

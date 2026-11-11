@@ -1,0 +1,240 @@
+/* The training card on a daily note, and the session screen it opens: over the whole window,
+   every button at least 48px tall so a sweaty thumb hits it, and nothing that needs the keyboard. */
+.cm-training {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  max-width: var(--k-measure);
+  padding: 6px 24px 14px 0;
+  font-family: var(--k-sans);
+  cursor: default;
+}
+
+.cm-training-words {
+  color: var(--k-muted);
+  font-size: var(--k-text-15);
+}
+
+.cm-training-start {
+  min-height: 44px;
+  padding: 0 var(--k-space-16);
+  border: 1px solid var(--k-accent);
+  border-radius: var(--k-radius-8);
+  background: var(--k-accent-wash);
+  color: var(--k-ink);
+  font: inherit;
+  font-size: var(--k-text-15);
+  cursor: pointer;
+}
+
+.k-train {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  gap: var(--k-space-12);
+  padding: max(var(--k-space-16), env(safe-area-inset-top)) var(--k-space-16)
+    max(var(--k-space-16), env(safe-area-inset-bottom));
+  background: var(--k-bg);
+  color: var(--k-ink);
+  font-family: var(--k-sans);
+}
+
+.k-train button,
+.k-train-search {
+  min-height: 48px;
+  padding: 0 var(--k-space-12);
+  border: 1px solid var(--k-rule);
+  border-radius: var(--k-radius-8);
+  background: var(--k-paper);
+  color: var(--k-ink);
+  font: inherit;
+  font-size: var(--k-text-15);
+}
+
+/* 16px or more, so a phone's Safari does not zoom into the field. */
+.k-train-search {
+  width: 100%;
+  font-size: max(16px, var(--k-text-15));
+}
+
+.k-train-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--k-space-8);
+}
+
+.k-train-lock,
+.k-train-wait,
+.k-train-last,
+.k-train-item-meta {
+  margin: 0;
+  color: var(--k-muted);
+  font-size: var(--k-text-13);
+}
+
+.k-train-progress {
+  display: flex;
+  gap: 4px;
+  min-height: 4px;
+}
+
+.k-train-segment {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--k-rule);
+}
+
+.k-train-segment.is-done {
+  background: var(--k-accent);
+}
+
+.k-train-segment.is-now {
+  background: var(--k-accent-wash);
+  box-shadow: inset 0 0 0 1px var(--k-accent);
+}
+
+.k-train-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-12);
+  width: 100%;
+  max-width: var(--k-measure);
+  margin: 0 auto;
+  overflow-y: auto;
+}
+
+.k-train-where {
+  margin: 0;
+  color: var(--k-accent);
+  font-size: var(--k-text-13);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.k-train-title {
+  margin: 0;
+  font-size: clamp(var(--k-text-27), 7vw, var(--k-text-36));
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.k-train-panel {
+  display: grid;
+  gap: var(--k-space-12);
+  padding: var(--k-space-12);
+  border: 1px solid var(--k-rule);
+  border-radius: var(--k-radius-8);
+  background: var(--k-paper);
+}
+
+.k-train-row {
+  display: grid;
+  grid-template-columns: minmax(4.5rem, auto) 56px minmax(0, 1fr) 56px;
+  align-items: center;
+  gap: var(--k-space-8);
+}
+
+.k-train-choices {
+  grid-template-columns: minmax(4.5rem, auto) repeat(auto-fit, minmax(48px, 1fr));
+}
+
+.k-train-label {
+  color: var(--k-muted);
+  font-size: var(--k-text-15);
+}
+
+.k-train-value {
+  text-align: center;
+  font-family: var(--k-mono);
+  font-size: var(--k-text-36);
+  font-variant-numeric: tabular-nums;
+}
+
+.k-train .k-train-step {
+  min-height: 56px;
+  font-size: var(--k-text-27);
+}
+
+.k-train .k-train-choice[aria-pressed="true"] {
+  border-color: var(--k-accent);
+  background: var(--k-accent);
+  color: var(--k-bg);
+}
+
+.k-train-sets {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--k-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.k-train-set {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--k-space-8) 0;
+  border-bottom: 1px solid var(--k-rule);
+}
+
+.k-train .k-train-done {
+  min-height: 64px;
+  border-color: var(--k-accent);
+  background: var(--k-accent);
+  color: var(--k-bg);
+  font-size: var(--k-text-19);
+  font-weight: 600;
+}
+
+.k-train .k-train-skip {
+  border-color: transparent;
+  background: transparent;
+  color: var(--k-accent);
+}
+
+.k-train-list {
+  display: grid;
+  gap: var(--k-space-8);
+}
+
+.k-train .k-train-item {
+  display: grid;
+  justify-items: start;
+  gap: 2px;
+  padding: var(--k-space-8) var(--k-space-12);
+  text-align: left;
+}
+
+.k-train-rest {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--k-space-8);
+  width: 100%;
+  max-width: var(--k-measure);
+  margin: 0 auto;
+  padding: var(--k-space-12);
+  border-radius: var(--k-radius-8);
+  background: var(--k-ink);
+  color: var(--k-bg);
+}
+
+.k-train-rest-words {
+  display: grid;
+}
+
+.k-train-rest-clock {
+  font-family: var(--k-mono);
+  font-size: var(--k-text-36);
+  font-variant-numeric: tabular-nums;
+}
+
+[hidden].k-train-rest,
+[hidden].k-train-last {
+  display: none;
+}

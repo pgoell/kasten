@@ -141,6 +141,11 @@ def aliases(content: str) -> list[str]:
     return _list(content, "aliases")
 
 
+def list_field(content: str, name: str) -> list[str]:
+    """The values of the block's list field `name`, in any of Obsidian's three spellings."""
+    return _list(content, name)
+
+
 def tags(content: str) -> list[str]:
     """The tags the block's `tags` field gives the note, as written, a hash or none."""
     return _list(content, "tags")

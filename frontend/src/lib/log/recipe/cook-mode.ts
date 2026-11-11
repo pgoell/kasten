@@ -3,6 +3,7 @@
  * on through the Wake Lock API. A step's ingredients come scaled to the servings it opened with.
  */
 
+import { Awake, ring } from "@/lib/core/awake";
 import type { Recipe } from "@/lib/log/food-api";
 import {
   clock,
@@ -44,68 +45,6 @@ function button(className: string, text: string, onClick: () => void): HTMLButto
   made.type = "button";
   made.addEventListener("click", onClick);
   return made;
-}
-
-/** Holds a screen wake lock while cook mode is open, and takes it again when the tab returns. */
-class Awake {
-  private sentinel: WakeLockSentinel | null = null;
-  private closed = false;
-  private readonly said: (held: boolean) => void;
-
-  constructor(said: (held: boolean) => void) {
-    this.said = said;
-    document.addEventListener("visibilitychange", this.again);
-    void this.take();
-  }
-
-  private readonly again = () => {
-    if (document.visibilityState === "visible" && this.sentinel === null) void this.take();
-  };
-
-  private async take(): Promise<void> {
-    if (!("wakeLock" in navigator)) {
-      this.said(false);
-      return;
-    }
-    try {
-      const sentinel = await navigator.wakeLock.request("screen");
-      if (this.closed) {
-        await sentinel.release();
-        return;
-      }
-      this.sentinel = sentinel;
-      this.said(true);
-      // The browser lets go when the tab is hidden; `again` takes it back on return.
-      sentinel.addEventListener("release", () => {
-        this.sentinel = null;
-        if (!this.closed) this.said(false);
-      });
-    } catch (error) {
-      // NotAllowedError: a low battery, a policy, or a page that is not visible.
-      if (!(error instanceof DOMException)) throw error;
-      this.said(false);
-    }
-  }
-
-  release(): void {
-    this.closed = true;
-    document.removeEventListener("visibilitychange", this.again);
-    void this.sentinel?.release();
-    this.sentinel = null;
-  }
-}
-
-/** Three short pulses and a tone when a timer runs out, where the device has either. */
-function ring(): void {
-  navigator.vibrate?.([300, 150, 300, 150, 300]);
-  if (typeof AudioContext === "undefined") return;
-  const audio = new AudioContext();
-  const tone = audio.createOscillator();
-  tone.frequency.value = 880;
-  tone.connect(audio.destination);
-  tone.start();
-  tone.stop(audio.currentTime + 0.6);
-  tone.addEventListener("ended", () => void audio.close());
 }
 
 /** Opens cook mode over the page, and answers a function that closes it. */

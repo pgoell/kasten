@@ -64,7 +64,7 @@ counts: weight-reps
 source: wger
 source_url: "https://wger.de/de/exercise/192/view/"
 license: CC-BY-SA 4
-video: https://wger.de/media/exercise-video/192/….mp4
+video: "https://wger.de/media/exercise-video/192/….mp4"
 ---
 
 # Bankdrücken LH
@@ -81,7 +81,7 @@ kasten adds `id`, `created` and `modified` to the block as it writes the note.
 | Field | Holds |
 |---|---|
 | `type` | `Reference`, as the test notes already in the folder carry |
-| `kind` | `strength`, `cardio`, `mobility` or `test`; the import writes the first three, and the seven `test` notes stay as they are |
+| `kind` | `strength`, `cardio`, `mobility` or `test`; the import writes the first three, and the `test` notes already in the folder stay as they are |
 | `aliases` | The English name first, then the source's other names, so search and [unlinked mentions](/reference/http-api/finding.md#get-apimentions) find either |
 | `muscles_primary`, `muscles_secondary` | Groups from the set below; a group named as both stays primary only |
 | `equipment` | In German: `Langhantel`, `Kurzhantel`, `Kabelzug`, `Bank`, `Schrägbank`, `Kettlebell`, `Matte`, `SZ-Stange`, `Klimmzugstange`, `Widerstandsband`, `Gymnastikball`; empty for body weight |

@@ -1547,6 +1547,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/training/exercises": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Exercises
+         * @description Every exercise note outside the archive, by name: a note whose `kind` names an exercise.
+         */
+        get: operations["read_exercises_api_training_exercises_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/food/search": {
         parameters: {
             query?: never;
@@ -4880,6 +4900,28 @@ export interface components {
             shared: boolean;
             /** Note */
             note: string | null;
+        };
+        /**
+         * Exercise
+         * @description One exercise note: its name is the file name a `[[link]]` takes.
+         */
+        Exercise: {
+            /** Path */
+            path: string;
+            /** Name */
+            name: string;
+            /** Kind */
+            kind: string;
+            /** Counts */
+            counts: string;
+            /** Aliases */
+            aliases: string[];
+            /** Muscles Primary */
+            muscles_primary: string[];
+            /** Muscles Secondary */
+            muscles_secondary: string[];
+            /** Equipment */
+            equipment: string[];
         };
         /**
          * Fetch
@@ -9628,6 +9670,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_exercises_api_training_exercises_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Exercise"][];
                 };
             };
         };

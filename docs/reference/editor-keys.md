@@ -84,6 +84,16 @@ phone, `run` and then `Open the log` does the same.
 | `Escape` | Close cook mode |
 | `Tab`, `Shift+Tab` | Move round its buttons, never out to the page behind |
 
+## Training session
+
+`Start session` on a daily note's training card opens the session screen;
+[Training session](/reference/training/session-screen.md) says what it shows.
+Every part of it is a button, so it needs no key at all.
+
+| Key | Does |
+| --- | --- |
+| `Escape` | Back to the exercise list from an exercise; close the screen from the list |
+
 ## The finance pane
 
 `<leader>gk` puts the finance pane in the focused pane, in place of whatever it

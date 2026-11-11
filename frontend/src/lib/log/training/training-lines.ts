@@ -3,7 +3,8 @@
  * `cases/training-cases.json` holds it to the backend parser in `training/lines.py`.
  */
 
-import { sectionOf } from "@/lib/notes/text/note-section";
+import { noteBody } from "@/lib/notes/text/note-frontmatter";
+import { fencedLines } from "@/lib/notes/text/note-section";
 
 export const TRAINING_HEADING = "## Training";
 
@@ -72,7 +73,14 @@ const GROUP = new RegExp(
 const VALUE_PARTS = new RegExp(`^(?:(-?${NUMBER})[ \\t]*(${UNIT})|(nicht[ \\t]+)?ok)$`, "iu");
 const GROUP_SPLIT = /,[ \t]+/;
 
-const CARDIO_KINDS: Record<string, TrainingKind> = { "🚶": "walk", "🏃": "run", "🚲": "ride" };
+export type CardioKind = "walk" | "run" | "ride";
+
+/** The mark a cardio line opens with, by kind; the one table both reading and writing use. */
+export const CARDIO_MARK: Record<CardioKind, string> = { walk: "🚶", run: "🏃", ride: "🚲" };
+
+const CARDIO_KINDS = new Map<string, TrainingKind>(
+  (Object.keys(CARDIO_MARK) as CardioKind[]).map((kind) => [CARDIO_MARK[kind], kind]),
+);
 
 /** Epley drifts past ten reps, so a longer set gives no estimate. */
 const MAX_E1RM_REPS = 10;
@@ -177,7 +185,7 @@ function test(rest: string): Fields | null {
 function fieldsOf(mark: string, rest: string): [TrainingKind, Fields | null] {
   if (mark === "🏋") return ["strength", strength(rest)];
   if (mark === "📏") return ["test", test(rest)];
-  return [CARDIO_KINDS[mark] ?? "walk", cardio(rest)];
+  return [CARDIO_KINDS.get(mark) ?? "walk", cardio(rest)];
 }
 
 /** The entry a training line holds, or null for a line that is a plain bullet. */
@@ -188,8 +196,41 @@ export function parseTrainingLine(text: string): TrainingEntry | null {
   return fields && { kind, exercise: target.trim(), ...fields };
 }
 
-/** Whether a note's `## Training` section holds an entry, which makes its day a training day. */
+/** A training line of the note, with where it sits. */
+export interface Placed {
+  /** Offset of the line's first character in the note. */
+  from: number;
+  text: string;
+  entry: TrainingEntry;
+}
+
+const SECTION_END = /^#{1,2}[ \t]/;
+
+/**
+ * Every line that parses under each exact `## Training`, the heading `appendUnderEdit` writes
+ * under; a `### training` elsewhere is not the log. Fenced and frontmatter lines never count.
+ */
+export function trainingLines(text: string): Placed[] {
+  const lines = text.split("\n");
+  const above = lines.length - noteBody(text).split("\n").length;
+  const { coded } = fencedLines(lines.slice(above));
+  const placed: Placed[] = [];
+  let inside = false;
+  let offset = 0;
+  for (const [index, line] of lines.entries()) {
+    const counts = index >= above && !coded.has(index - above);
+    if (counts && line.trimEnd() === TRAINING_HEADING) inside = true;
+    else if (counts && SECTION_END.test(line)) inside = false;
+    else if (counts && inside) {
+      const entry = parseTrainingLine(line);
+      if (entry !== null) placed.push({ from: offset, text: line, entry });
+    }
+    offset += line.length + 1;
+  }
+  return placed;
+}
+
+/** Whether a note's `## Training` holds an entry, which makes its day a training day. */
 export function hasTraining(text: string): boolean {
-  const lines = sectionOf(text, "Training")?.text.split("\n") ?? [];
-  return lines.some((line) => parseTrainingLine(line) !== null);
+  return trainingLines(text).length > 0;
 }

@@ -4,7 +4,7 @@
  */
 
 import { amountLine, type DrinkKind, type DrinkTotals, logLines, tenth } from "@/lib/log/log-lines";
-import { hasTraining } from "@/lib/log/training-lines";
+import { hasTraining } from "@/lib/log/training/training-lines";
 import { closing } from "@/lib/notes/text/note-frontmatter";
 
 export interface Goal {
