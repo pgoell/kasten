@@ -174,7 +174,7 @@ run = "uv run python -m kasten_backend.indexes ../vault"
 # ─── GitHub repo config ─────────────────────────────────────────────────────
 
 [tasks."repo:apply-settings"]
-description = "Apply GitHub repo + branch-protection settings from .github/*.json, turn on Dependabot security updates, secret scanning and CodeQL"
+description = "Apply GitHub repo + branch-protection settings from .github/*.json, turn on vulnerability alerts, Dependabot security updates, secret scanning with push protection, CodeQL and private vulnerability reporting"
 run = "bash scripts/apply-github-settings.sh"
 
 [tasks."repo:check-settings"]
