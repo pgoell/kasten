@@ -278,6 +278,14 @@ describe("#1926 a card with the plugin's !fsrs comment is read and rated by FSRS
       [["\\[...\\] b", FH, null], ["a \\[...\\]", null, null], N],
     ],
     ["a ? cloze under c1!fsrs", `{{c1::a}}\n?\nextra\n${CF}`, [["\\[...\\]", FH, null], N]],
+    // A plain card takes no cloze number's line, FSRS's as SM-2's (review round 1).
+    ["a plain ? card over a c1!fsrs line", `q\n?\na\n${CF}`, [["q", null, null], N]],
+    [
+      "a plain ? card over a c1 SM-2 line",
+      `q\n?\na\n${S.replace("SR:!", "SR:c1!")}`,
+      [["q", null, null], N],
+    ],
+    ["a plain ? card under SM-2 over a c1!fsrs line", `q\n?\na\n${S}\n${CF}`, [["q", SH, null], N]],
     ...BAD.map((bad, at) => [`an !fsrs comment that does not read, ${at}`, `q::a ${bad}`, [N]]),
     ["a ? card under an !fsrs comment that does not read", `q\n?\na\n${BAD[0]}`, [N]],
     ["a ? card under SM-2 over one that does not read", `q\n?\na\n${S}\n${BAD[0]}`, [N]],
@@ -352,6 +360,13 @@ describe("#1926 a card with the plugin's !fsrs comment is read and rated by FSRS
       at(6, false, 2),
       `{{c1::a}} {{c2::b}}\n?\nx\n${W.replace("SR:!", "SR:c2!")} ${CF}`,
     ],
+    ["a plain ? card over a c1!fsrs line", `q\n?\na\n${CF}`, at(4, false), `q\n?\na\n${W}\n${CF}`],
+    [
+      "a plain ? card under SM-2 over a c1!fsrs line",
+      `q\n?\na\n${S}\n${CF}`,
+      at(5, false),
+      `q\n?\na\n${W}\n${CF}`,
+    ],
     ...BAD.map((bad, at_) => [
       `an !fsrs comment that does not read, ${at_}`,
       `q::a ${bad}`,
@@ -372,20 +387,26 @@ describe("#1926 a card with the plugin's !fsrs comment is read and rated by FSRS
     },
   );
 
-  it("#1926 every card the reader reads, rated, reads back as the schedule written", () => {
+  it("#1926 every card the reader reads, rated, reads back as the schedule written, and a second rating adds no comment", () => {
     const bodies = [
       `q::a ${F} ${S}`,
       `q\n?\na\n${T}\n${F}`,
       `q\n?\na\n!suspended ${F}`,
       `{{c1::a}} {{c2::b}} ${CF}`,
+      `q\n?\na\n${CF}`,
     ];
     for (const body of bodies) {
       for (const [ordinal, card] of parseCards(note(body)).entries()) {
-        const after = parseCards(writeSchedule(note(body), card, NEXT));
-        expect({ body, ordinal, held: after[ordinal]?.held }).toEqual({
+        const once = writeSchedule(note(body), card, NEXT);
+        const after = parseCards(once);
+        // A second rating rewrites the comment it wrote and adds none.
+        const twice = writeSchedule(once, after[ordinal] as Card, NEXT);
+        const count = (text: string) => text.match(/<!--SR:/g)?.length;
+        expect({ body, ordinal, held: after[ordinal]?.held, comments: count(twice) }).toEqual({
           body,
           ordinal,
           held: NEXT,
+          comments: count(once),
         });
       }
     }

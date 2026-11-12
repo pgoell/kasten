@@ -14,8 +14,8 @@ import {
   type Divided,
   divide,
   FSRS,
-  FSRS_LINE,
   fsrsComment,
+  fsrsOf,
   holdsCloze,
   parks,
   SR,
@@ -308,11 +308,13 @@ function backOf(
   // Only a cloze's comments do the same for a cloze: a plain card would splice its own under them.
   const under = lines[to + 1] ?? "";
   const held = parks(under);
+  // A plain card takes no cloze number's comment, FSRS's as SM-2's.
+  const own = fsrsOf(cloze);
   const takes =
-    readSchedule(under) !== null || held || FSRS.test(under) || (cloze && CLOZE_SR.test(under));
+    readSchedule(under) !== null || held || own.head.test(under) || (cloze && CLOZE_SR.test(under));
   // A tab from before #1929 put its SM-2 line between the back and an FSRS line: the card takes both.
   const below = lines[to + 2] ?? "";
-  const stacked = takes && !FSRS.test(under) && FSRS_LINE.test(below);
+  const stacked = takes && !FSRS.test(under) && own.line.test(below);
   if (takes) to++;
   if (stacked) to++;
   const schedule = stacked ? `${under} ${below}` : under;

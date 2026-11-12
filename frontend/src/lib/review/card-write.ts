@@ -3,8 +3,8 @@ import {
   CLOZE_SRS,
   clozeComment,
   FSRS,
-  FSRS_LINE,
   fsrsComment,
+  fsrsOf,
   PLAIN_SRS,
   parks,
   SR,
@@ -62,7 +62,7 @@ function fold(lines: string[], card: Card): number | null {
   const last = lines[card.to] ?? "";
   const stacked =
     !card.inline &&
-    FSRS_LINE.test(last) &&
+    fsrsOf(card.cloze !== null).line.test(last) &&
     !FSRS.test(over) &&
     (SR.test(over) || CLOZE_SR.test(over) || parks(over));
   if (unread(stacked ? `${over} ${last}` : last)) return null;

@@ -14,7 +14,7 @@ import { commands, page } from "vitest/browser";
 import { ReviewSession } from "@/components/review/review-session";
 import { readClock } from "@/lib/core/clock";
 import type { Deck } from "@/lib/review/review";
-import { nextSchedule } from "@/lib/review/srs-schedule";
+import { nextFsrs } from "@/lib/review/srs-schedule";
 import "@/styles/app.css";
 
 // The writes the sitting makes, counted here; the note is answered, not stored.
@@ -166,16 +166,29 @@ it("a tap on the question shows the answer", async () => {
   await expect.poll(() => screen.querySelector('[data-testid="review-back"]')).not.toBeNull();
 });
 
+/** The FSRS comment a rating writes for `next` (#1926). */
+function fsrs(next: ReturnType<typeof nextFsrs>): string {
+  const { interval, stability, difficulty, state, reps, lapses, steps } = next;
+  const fields = [
+    interval,
+    stability.toFixed(2),
+    difficulty.toFixed(2),
+    state,
+    reps,
+    lapses,
+    steps,
+  ];
+  return `<!--SR:!fsrs,${next.due}T00:00:00.000Z,${fields.join(",")},${next.last}T00:00:00.000Z-->`;
+}
+
 it("a swipe right past 38 % grades the card Good and shows the next", async () => {
   const screen = await mount();
   await reveal(screen);
   await slide(cardOf(screen), 260, 6);
 
-  const good = nextSchedule(null, "good", readClock(new Date()).date);
+  const good = nextFsrs(null, "good", readClock(new Date()).date);
   await expect.poll(() => writes.mock.calls.length).toBe(1);
-  expect(writes.mock.calls[0]?.[1]).toContain(
-    `<!--SR:!${good.due},${good.interval},${good.ease}-->`,
-  );
+  expect(writes.mock.calls[0]?.[1]).toContain(fsrs(good));
   await expect.poll(() => cardOf(screen).textContent).toContain(S3);
 });
 
@@ -184,11 +197,9 @@ it("a swipe left past 38 % grades the card Again", async () => {
   await reveal(screen);
   await slide(cardOf(screen), -260, 6);
 
-  const again = nextSchedule(null, "again", readClock(new Date()).date);
+  const again = nextFsrs(null, "again", readClock(new Date()).date);
   await expect.poll(() => writes.mock.calls.length).toBe(1);
-  expect(writes.mock.calls[0]?.[1]).toContain(
-    `<!--SR:!${again.due},${again.interval},${again.ease}-->`,
-  );
+  expect(writes.mock.calls[0]?.[1]).toContain(fsrs(again));
   // Again sends the card to the back of the queue, so the second card comes up.
   await expect.poll(() => cardOf(screen).textContent).toContain(S3);
 });

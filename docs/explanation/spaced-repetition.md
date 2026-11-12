@@ -19,8 +19,8 @@ consequences of the review being the one thing worth doing on a phone.
 
 ## The schedule is in the note
 
-A card's due date, interval and ease are three numbers that change every time
-you answer it. They are exactly the kind of thing that wants to be a row in
+A card's schedule, its due date, interval and the state behind them, changes
+every time you answer it. They are exactly the kind of thing that wants to be a row in
 Postgres, and putting them there would be the end of the vault being the source
 of truth: drop the schema and you would lose a year of scheduling with no way to
 rebuild it from the files.
@@ -28,7 +28,7 @@ rebuild it from the files.
 So they go in the file, in a comment beside the card:
 
 ```markdown
-What does S3 stand for?::Simple Storage Service <!--SR:!2026-08-20,4,270-->
+What does S3 stand for?::Simple Storage Service <!--SR:!fsrs,2026-11-20T00:00:00.000Z,8,8.30,1.00,2,1,0,0,2026-11-12T00:00:00.000Z-->
 ```
 
 The cost is a write to a note per answer, and it is not much of a cost: the todo
@@ -37,8 +37,8 @@ the phone this morning is a deck whose progress is in the git history, in the jj
 repo, in the Obsidian vault, and in the backup you already have because the
 vault is text.
 
-A whole note marked `#review` keeps the same three numbers in its frontmatter
-for the same reason. There is no card to hang a comment on, and there is always
+A whole note marked `#review` keeps its schedule in its frontmatter for the same
+reason, as SM-2's three numbers. There is no card to hang a comment on, and there is always
 a block at the top.
 
 ## The format was borrowed
