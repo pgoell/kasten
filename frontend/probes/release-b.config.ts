@@ -1,5 +1,5 @@
 /**
- * Release N+1 for `e2e/release.ts`: the same app, every asset under a new name.
+ * Release N+1 for `probes/release.ts`: the same app, every asset under a new name.
  *
  * Two plain builds of one tree would be byte-identical, so nothing would 404
  * after the flip. The `-b` marker gives every chunk the name a later release

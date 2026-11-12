@@ -18,8 +18,8 @@ SUFFIXES = (".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs")
 RATIO_LIMIT = 20  # percent of a file's lines that are comments, docstrings left out
 MIN_LINES = 20  # in a smaller file one comment is a large share
 DOC_LIMIT = 6  # lines in one docstring or JSDoc block
-RATIO_BASELINE = ".comment-ratio-baseline"
-DOC_BASELINE = ".long-docstring-baseline"
+RATIO_BASELINE = ".config/comment-ratio-baseline"
+DOC_BASELINE = ".config/long-docstring-baseline"
 
 # A "/" after one of these starts a regex literal, not a division.
 REGEX_AFTER = set("(,=:[!&|?{};+-*%<>~^") | {"", "return", "typeof", "case", "do", "else"}

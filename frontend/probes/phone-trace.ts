@@ -5,7 +5,7 @@
  * the built app, opens it at 390 px with touch and a 4x CPU throttle, and runs the
  * three things a thumb does (a tab switch, opening a note from the tree, typing
  * ten characters). Each sits between two `performance.mark`s in a Chrome trace,
- * and `e2e/phone-trace-report.ts` reads the trace back between those marks.
+ * and `probes/phone-trace-report.ts` reads the trace back between those marks.
  *
  * The vault is generated here and stubbed over `/api/`, so both builds see the
  * same notes. Nothing in `src/` is changed for the trace.
@@ -17,7 +17,7 @@ import { type BrowserContext, chromium, type Route } from "playwright";
 const DIST = process.argv[2];
 const LABEL = process.argv[3];
 if (DIST === undefined || LABEL === undefined) {
-  console.error("usage: bun e2e/phone-trace.ts <dist dir> <label>");
+  console.error("usage: bun probes/phone-trace.ts <dist dir> <label>");
   process.exit(1);
 }
 const dist = path.resolve(DIST);

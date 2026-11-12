@@ -6,7 +6,7 @@
 #   check-fan-out <path>...        checks the folders above each path
 #   check-fan-out --all            checks every folder
 #   check-fan-out --update-baseline
-#                                  lowers or drops lines in .fan-out-baseline,
+#                                  lowers or drops lines in .config/fan-out-baseline,
 #                                  never raises or adds one; a missing file is
 #                                  written from today's overages
 # Exit 1 reports folders. Exit 2 is a usage error or an excludes file that costs too
@@ -86,11 +86,11 @@ git -C "$top" ls-files -z --cached --others --exclude-standard >"$list"
 # folder over the limit. A folder they fail to skip gets reported.
 # tr first: a NUL between two "*" would hide a "**" from awk.
 fresh=1
-if [ -f "$top/.fan-out-baseline" ]; then
+if [ -f "$top/.config/fan-out-baseline" ]; then
   fresh=0
-  head -c 1048576 "$top/.fan-out-baseline" >"$base" 2>/dev/null || :
+  head -c 1048576 "$top/.config/fan-out-baseline" >"$base" 2>/dev/null || :
 fi
-if [ -f "$top/.fan-out-excludes" ]; then head -c 1048576 "$top/.fan-out-excludes" 2>/dev/null | LC_ALL=C tr '\0' '\1' 2>/dev/null | LC_ALL=C awk 'length($0) <= 512 && !/^[ \t\r]*(#|$)/ && gsub(/\*\*+/, "&") <= 4 { if (++n > 1024) exit; print }' >"$excl" || :; fi
+if [ -f "$top/.config/fan-out-excludes" ]; then head -c 1048576 "$top/.config/fan-out-excludes" 2>/dev/null | LC_ALL=C tr '\0' '\1' 2>/dev/null | LC_ALL=C awk 'length($0) <= 512 && !/^[ \t\r]*(#|$)/ && gsub(/\*\*+/, "&") <= 4 { if (++n > 1024) exit; print }' >"$excl" || :; fi
 while IFS= read -r -d '' path; do
   escape "$path"
   printf '%s\n' "$escaped"
@@ -139,7 +139,7 @@ function compile(g,   i, c) {
 # can still stop.
 function spend(k) {
   if ((steps += k) <= budget) return
-  print "check-fan-out: .fan-out-excludes costs too much to match here. Use fewer globs or fewer wildcards in a glob." > "/dev/stderr"
+  print "check-fan-out: .config/fan-out-excludes costs too much to match here. Use fewer globs or fewer wildcards in a glob." > "/dev/stderr"
   exit 2
 }
 # Walks the tokens of glob g over d and keeps, in rising order, each offset in d the
@@ -318,7 +318,7 @@ if [ "$mode" = update ]; then
   else
     cat "$out"
   fi >"$list"
-  cp "$list" "$top/.fan-out-baseline"
+  cp "$list" "$top/.config/fan-out-baseline"
   exit 0
 fi
 
@@ -338,7 +338,7 @@ printf '%s\n' \
   'interface, the rest hidden behind it. Then fix the imports and links.' \
   '' \
   'If no grouping fits (a log of dated files, one file per item of a list), add' \
-  'the folder to .fan-out-excludes at the repo root, with a comment line above' \
-  'it that says why. Raising its number in .fan-out-baseline by hand is not a' \
+  'the folder to .config/fan-out-excludes, with a comment line above' \
+  'it that says why. Raising its number in .config/fan-out-baseline by hand is not a' \
   'fix.' >&2
 exit 1

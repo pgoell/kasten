@@ -34,7 +34,7 @@ and cheap enough to run on every commit.
 
 The check skips only what nobody writes by hand. Its defaults are lock files,
 images, fonts, PDFs and license texts. A repo adds its own globs in
-`.file-size-excludes` at the root. This repo adds the bun lock, the OpenAPI file
+`.config/file-size-excludes`. This repo adds the bun lock, the OpenAPI file
 and the generated API types, a saved graph answer, EPUBs and SVGs. A file that
 needs an exception should be split instead.
 
@@ -51,7 +51,7 @@ and names that start with a dot are skipped.
 
 ## The baseline
 
-Some folders hold more than seven entries today. `.fan-out-baseline` lists them
+Some folders hold more than seven entries today. `.config/fan-out-baseline` lists them
 as `<folder> <count>`. A folder fails only when it grows past its count, so the
 baseline may only go down. `check-fan-out --update-baseline` lowers or drops a
 line and never raises or adds one. Raising a number is a hand edit that a
@@ -61,7 +61,7 @@ number to get past a failure.
 ## Lists by design
 
 Some folders are lists on purpose: one dated page per day of changes, and one
-file per database migration. `.fan-out-excludes` names them, with a comment above
+file per database migration. `.config/fan-out-excludes` names them, with a comment above
 each that says why.
 
 ## The editor hook

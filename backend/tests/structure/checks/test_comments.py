@@ -30,7 +30,7 @@ def test_the_repo_passes() -> None:
 
 def test_no_route_file_keeps_a_long_docstring() -> None:
     # A route's reasoning lives on its page under docs/reference/http-api/ (#1767).
-    baseline = (REPO / ".long-docstring-baseline").read_text(encoding="utf-8").splitlines()
+    baseline = (REPO / ".config/long-docstring-baseline").read_text(encoding="utf-8").splitlines()
     routes = "backend/src/kasten_backend/routes/"
     assert [line for line in baseline if line.startswith(routes)] == []
 
@@ -79,7 +79,7 @@ def test_comment_markers_inside_strings_are_code(make_repo: Callable[..., Path])
 
 def test_growth_past_a_baseline_line_fails(make_repo: Callable[..., Path]) -> None:
     root = make_repo()
-    (root / ".comment-ratio-baseline").write_text("backend/src/a.py 23\n", encoding="utf-8")
+    (root / ".config/comment-ratio-baseline").write_text("backend/src/a.py 23\n", encoding="utf-8")
     put(root, "backend/src/a.py", "# why\n" * 6 + CODE)
     assert run(root, *CHECK).returncode == 0
 
@@ -107,7 +107,7 @@ def test_a_new_long_docstring_fails(make_repo: Callable[..., Path]) -> None:
 
 def test_a_file_may_keep_its_baselined_long_docstrings(make_repo: Callable[..., Path]) -> None:
     root = make_repo()
-    (root / ".long-docstring-baseline").write_text("backend/src/a.py 1\n", encoding="utf-8")
+    (root / ".config/long-docstring-baseline").write_text("backend/src/a.py 1\n", encoding="utf-8")
     put(root, "backend/src/a.py", doc(9) + CODE)
     assert run(root, *CHECK).returncode == 0
 
@@ -119,18 +119,18 @@ def test_a_file_may_keep_its_baselined_long_docstrings(make_repo: Callable[..., 
 
 def test_update_lowers_and_drops_but_never_raises_or_adds(make_repo: Callable[..., Path]) -> None:
     root = make_repo()
-    (root / ".comment-ratio-baseline").write_text(
+    (root / ".config/comment-ratio-baseline").write_text(
         "backend/src/a.py 40\nbackend/src/gone.py 30\nbackend/src/b.py 21\n", encoding="utf-8"
     )
-    (root / ".long-docstring-baseline").write_text("backend/src/a.py 3\n", encoding="utf-8")
+    (root / ".config/long-docstring-baseline").write_text("backend/src/a.py 3\n", encoding="utf-8")
     put(root, "backend/src/a.py", doc(9) + "# why\n" * 6 + CODE)
     put(root, "backend/src/b.py", "# why\n" * 10 + CODE)
     put(root, "backend/src/new.py", doc(9) + "# why\n" * 10 + CODE)
 
     assert run(root, *CHECK, "--update-baseline").returncode == 0
 
-    ratios = (root / ".comment-ratio-baseline").read_text(encoding="utf-8")
-    docs = (root / ".long-docstring-baseline").read_text(encoding="utf-8")
+    ratios = (root / ".config/comment-ratio-baseline").read_text(encoding="utf-8")
+    docs = (root / ".config/long-docstring-baseline").read_text(encoding="utf-8")
     assert [line for line in ratios.splitlines() if not line.startswith("#")] == [
         "backend/src/a.py 23",
         "backend/src/b.py 21",
@@ -149,9 +149,10 @@ def test_a_missing_baseline_is_written_from_todays_overages(
 
     assert run(root, *CHECK, "--update-baseline").returncode == 0
 
-    assert "jobs/src/a.py 23\n" in (root / ".comment-ratio-baseline").read_text(encoding="utf-8")
+    ratios = (root / ".config/comment-ratio-baseline").read_text(encoding="utf-8")
+    assert "jobs/src/a.py 23\n" in ratios
     assert (
-        (root / ".long-docstring-baseline")
+        (root / ".config/long-docstring-baseline")
         .read_text(encoding="utf-8")
         .endswith("lines; never raise one.\njobs/src/a.py 1\n")
     )

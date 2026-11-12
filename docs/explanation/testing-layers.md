@@ -22,7 +22,7 @@ most for that cost, and the rule below says where that is.
 | e2e | `e2e/journeys/` | `mise run e2e` | Everything: the built frontend behind nginx, a backend and a database per test, a copy of the fixture vault on disk | Nothing in the API. The journeys block the service worker, which crashed Chromium at a context close (#1606) |
 
 `mise run fe:e2e` is not the e2e layer. It is one script,
-`frontend/e2e/offline.ts`, that proves offline capture against the build; the
+`frontend/probes/offline.ts`, that proves offline capture against the build; the
 journeys in `e2e/` are the layer this page means by e2e.
 
 A unit test file that touches no `window` or `document` starts with
@@ -58,7 +58,7 @@ one only where no higher layer can reach the case, such as a state a journey
 cannot set up in reasonable time, and say why in a comment in the test.
 
 There is a plainer limit too. `frontend/tests/` holds 594 entries, which is its
-baseline in `.fan-out-baseline`, so the folder is full: a new jsdom test goes
+baseline in `.config/fan-out-baseline`, so the folder is full: a new jsdom test goes
 into a test file that exists.
 
 ## What CI runs

@@ -212,19 +212,19 @@ run = [
 description = "Check every tracked file against the 5,000-token limit"
 # No arguments, so every file committed at HEAD is checked, not only the staged
 # ones. The cap and its reason are in docs/explanation/file-size-limit.md; the
-# script is the structure plugin's, kept byte-identical, and kasten's own
-# excludes are in .file-size-excludes.
+# script is the structure plugin's but reads kasten's own excludes from
+# .config/file-size-excludes (#1772).
 run = "scripts/structure/check-file-size"
 
 [tasks."lint:fanout"]
-description = "Check that no folder holds more than 7 entries, past its line in .fan-out-baseline"
-# Today's big folders are in .fan-out-baseline and may only shrink; lists by
-# design are in .fan-out-excludes. The reason is in
+description = "Check that no folder holds more than 7 entries, past its line in .config/fan-out-baseline"
+# Today's big folders are in .config/fan-out-baseline and may only shrink; lists by
+# design are in .config/fan-out-excludes. The reason is in
 # docs/explanation/file-size-limit.md.
 run = "scripts/structure/check-fan-out --all"
 
 [tasks."lint:comments"]
-description = "Check that no file gets denser in comments or gains a docstring over 6 lines, past .comment-ratio-baseline and .long-docstring-baseline"
+description = "Check that no file gets denser in comments or gains a docstring over 6 lines, past .config/comment-ratio-baseline and .config/long-docstring-baseline"
 # The rule is in .claude/CLAUDE.md, the reason in docs/explanation/code-quality-checks.md.
 run = "uv run python scripts/structure/check-comments"
 
@@ -233,8 +233,8 @@ description = "Fail when more than 1% of frontend/src, backend/src and jobs/src 
 # In the pre-commit gate although jscpd alone takes about 6 s: mise runs the
 # depends side by side, so it adds about 2.5 s to `lint` (4.6 s to 7.2 s). The
 # quiet run prints nothing; only a failure runs it again to list the clones.
-# Limits and paths are in .jscpd.json.
-run = "frontend/node_modules/.bin/jscpd --silent >/dev/null 2>&1 || frontend/node_modules/.bin/jscpd"
+# Limits and paths are in .config/jscpd.json.
+run = "frontend/node_modules/.bin/jscpd --config .config/jscpd.json --silent >/dev/null 2>&1 || frontend/node_modules/.bin/jscpd --config .config/jscpd.json"
 
 [tasks."lint:openapi"]
 description = "Fail when the backend's OpenAPI schema differs from the committed frontend/openapi.json"
@@ -311,7 +311,7 @@ run = "bun run --cwd frontend vitest run --project frame"
 description = "Prove offline capture in Chromium against the production build (needs a browser install)"
 # The service worker exists only in the build, so the proof runs against dist.
 depends = ["fe:build"]
-run = "bun frontend/e2e/offline.ts"
+run = "bun frontend/probes/offline.ts"
 
 [tasks.e2e]
 description = "Run the Playwright journeys against the real stack: nginx and Postgres in Docker, a backend per test (needs Docker and a browser install)"
@@ -327,20 +327,20 @@ dir = "{{config_root}}/frontend"
 # Release N as `fe:build` makes it, and N+1 with every asset renamed.
 run = [
   "bunx vite build --logLevel warn --outDir dist-e2e-a --emptyOutDir",
-  "bunx vite build --logLevel warn --config e2e/release-b.config.ts --outDir dist-e2e-b --emptyOutDir",
-  "bun e2e/release.ts",
+  "bunx vite build --logLevel warn --config probes/release-b.config.ts --outDir dist-e2e-b --emptyOutDir",
+  "bun probes/release.ts",
 ]
 
 [tasks."fe:trace:phone"]
 description = "Trace a phone session on a release build at 390 px with a 4x CPU throttle, in Chromium: mise run fe:trace:phone -- <dist> <label> (needs a browser install)"
 # Run from `frontend/`, where the script writes `traces/` beside itself.
 dir = "{{config_root}}/frontend"
-run = "bun e2e/phone-trace.ts"
+run = "bun probes/phone-trace.ts"
 
 [tasks."fe:trace:report"]
 description = "Print the phone trace tables for label prefixes: mise run fe:trace:report -- new old"
 dir = "{{config_root}}/frontend"
-run = "bun e2e/phone-trace-report.ts"
+run = "bun probes/phone-trace-report.ts"
 
 [tasks."fe:types"]
 description = "Regenerate the OpenAPI-derived types for the frontend"

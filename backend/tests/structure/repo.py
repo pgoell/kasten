@@ -40,6 +40,7 @@ def repo_builder(tmp_path: Path) -> Callable[..., Path]:
 
     def build(files: dict[str, int] | None = None, *, copy: tuple[str, ...] = ()) -> Path:
         shutil.copytree(SCRIPTS, tmp_path / "scripts" / "structure")
+        (tmp_path / ".config").mkdir()
         for name in copy:
             (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy(REPO / name, tmp_path / name)
