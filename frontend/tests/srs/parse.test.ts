@@ -335,6 +335,7 @@ describe("#1931 a card line of comment openers parses in time that grows with it
     ["openers with a :: after them", "<!--SR:!fsrs,", " x::y"],
     ["openers with the token after them", "<!--SR:!fsrs,", " !suspended"],
     ["openers whose dashes close none", "<!--a--b", "-->"],
+    ["openers each on a line of its own", "<!--SR:x\n", ""],
   ])("#1931 %s: 40,000 characters take under 3 times 20,000", (_, unit, tail) => {
     best(filled(unit, 2_000, tail));
     const ratio = best(filled(unit, 40_000, tail)) / Math.max(best(filled(unit, 20_000, tail)), 1);

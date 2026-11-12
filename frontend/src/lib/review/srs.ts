@@ -279,7 +279,7 @@ function frontOf(walk: Walk, at: number, cloze: boolean): number {
   const { lines, bare, code, ends, schedules, inline } = walk;
   // A card's own schedule ends its line, or is code. One with text after it is the front's own (#1939).
   const owned = (line: number) =>
-    schedules(line) && (code[line] || /-->\s*$/.test(lines[line] ?? ""));
+    schedules(line) && (code[line] || (lines[line] ?? "").trimEnd().endsWith("-->"));
   let from = at;
   while (!ends(from - 1) && !holdsCloze(bare[from - 1]) && !owned(from - 1) && !inline(from - 1))
     from--;

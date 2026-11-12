@@ -7,8 +7,8 @@ import { Tag } from "@/lib/markdown/tag";
 import { WikiLink } from "@/lib/notes/links/wikilink";
 import { type CodeSpan, isUnclosed, spanLines } from "@/lib/notes/text/note-code";
 
-/** What ends a comment's reach: its `-->`, or the end of its line. */
-const REACH_END = /-->|[\n\r\u2028\u2029]/g;
+/** The end of a line, as `.` in a pattern reads it. */
+const LINE_END = /[\n\r\u2028\u2029]/g;
 
 /**
  * Whether a `<!--` runs on past its line, or holds a `::` or the token before its `-->`.
@@ -16,13 +16,24 @@ const REACH_END = /-->|[\n\r\u2028\u2029]/g;
  * comment must not park (#1590). One walk, not a pattern per opener, which was quadratic (#1931).
  */
 function hidesCard(text: string): boolean {
+  // The next `-->` and line end, kept while ahead of the walk so no search repeats.
+  let close = -1;
+  let lineEnd = -1;
   let open = text.indexOf("<!--");
   while (open !== -1) {
-    REACH_END.lastIndex = open + 4;
-    const stop = REACH_END.exec(text);
-    const end = stop?.index ?? text.length;
-    const inside = text.slice(open + 4, end);
-    if (stop?.[0] === "\n" || inside.includes("::") || inside.includes("!suspended")) return true;
+    const from = open + 4;
+    if (close < from) {
+      close = text.indexOf("-->", from);
+      if (close === -1) close = text.length;
+    }
+    if (lineEnd < from) {
+      LINE_END.lastIndex = from;
+      lineEnd = LINE_END.exec(text)?.index ?? text.length;
+    }
+    const end = Math.min(close, lineEnd);
+    const inside = text.slice(from, end);
+    if (text[end] === "\n" && end < close) return true;
+    if (inside.includes("::") || inside.includes("!suspended")) return true;
     // An opener before `end - 3` reaches the same end, so only one overlapping it can differ.
     open = text.indexOf("<!--", Math.max(open + 1, end - 3));
   }
