@@ -41,7 +41,7 @@ ASSET_MAGIC: dict[str, re.Pattern[bytes]] = {
     # doctype. Each part ends at its first closer, so a failed match backtracks in linear time.
     ".svg": re.compile(
         rb"(?:\xef\xbb\xbf)?(?:\s|<\?xml(?:[^?]|\?(?!>))*\?>|<!--(?:[^-]|-(?!->))*-->"
-        rb"|(?i:<!doctype)[^>\[]*(?:\[[^\]]*\])?\s*>)*<svg[\s/>]"
+        rb"|(?i:<!doctype)(?:[^>\[]|\[[^\]]*\])*>)*<svg[\s/>]"
     ),
 }
 """What the vault takes beside its notes, and what the head of each one matches.

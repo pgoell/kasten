@@ -100,6 +100,8 @@ def test_the_svg_check_backtracks_in_linear_time() -> None:
     assert not fits(".svg", head)
     assert not fits(".svg", b"<!--" * 300)
     assert not fits(".svg", b"<?xml" * 300)
+    # A doctype's blank space before its `>` is read one way only, or these split 2**100 ways.
+    assert not fits(".svg", b"<!doctype" + b" ><!doctype" * 100)
 
 
 async def test_an_svg_is_served_so_its_script_cannot_run(client: AsyncClient, vault: Path) -> None:
