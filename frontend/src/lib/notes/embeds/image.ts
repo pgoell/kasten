@@ -16,7 +16,7 @@ import { readClock } from "@/lib/core/clock";
 import { IMAGE_FOLDER } from "@/lib/core/layout";
 import { encodePath } from "@/lib/notes/links/note-path";
 import { vaultPaths } from "@/lib/notes/links/wikilink";
-import { isClip } from "@/lib/vault/file-kind";
+import { isClip, isClipFile } from "@/lib/vault/file-kind";
 
 /**
  * One folder for all pasted images, not one beside each note: a moved note would strand its
@@ -155,14 +155,13 @@ async function fileImage(view: EditorView, file: File, name: string): Promise<vo
 }
 
 /**
- * Files a pasted image or video file, or a dropped video file, and references it. Text is left
- * to CodeMirror. The handler must answer
- * at once, so the upload runs after it.
+ * Files a pasted image, or a pasted or dropped video file, and references it. Text is left to
+ * CodeMirror; the handler must answer at once, so the upload runs after it.
  */
 export function imagePaste() {
   return EditorView.domEventHandlers({
     paste(event, view) {
-      const clips = [...(event.clipboardData?.files ?? [])].filter(isVideo);
+      const clips = [...(event.clipboardData?.files ?? [])].filter(isClipFile);
       if (clips.length > 0) {
         event.preventDefault();
         void fileClips(view, clips);
@@ -177,7 +176,7 @@ export function imagePaste() {
     },
     // Ahead of CodeMirror's own drop, which reads a file as text and drops a binary one.
     drop(event, view) {
-      const clips = [...(event.dataTransfer?.files ?? [])].filter(isVideo);
+      const clips = [...(event.dataTransfer?.files ?? [])].filter(isClipFile);
       if (clips.length === 0) return false;
       event.preventDefault();
       const at = view.posAtCoords({ x: event.clientX, y: event.clientY });
@@ -189,15 +188,8 @@ export function imagePaste() {
   });
 }
 
-/** A video file's type, for a name that carries no suffix. */
-const CLIP_TYPE = /^video\/(?:mp4|webm)$/;
-
 /** What a wikilink cannot carry in a name, as Obsidian refuses them in one (#1922). */
 const UNLINKABLE = /[[\]|#^]/g;
-
-function isVideo(file: File): boolean {
-  return isClip(file.name) || CLIP_TYPE.test(file.type);
-}
 
 /**
  * The file's own name, with ` 1`, ` 2` before the suffix while any folder holds it in any case:
@@ -228,7 +220,6 @@ async function fileClips(view: EditorView, files: File[]): Promise<void> {
     try {
       await uploadAsset(`${IMAGE_FOLDER}/${name}`, file);
     } catch (error: unknown) {
-      // Typed `unknown`, as in `fileImage`.
       view.state.facet(noticeHandler)?.(
         error instanceof Error ? error.message : "The video did not go in",
       );
