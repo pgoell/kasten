@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { setSuspended, writeSchedule } from "@/lib/review/card-write";
-import { parseCards } from "@/lib/review/srs";
+import { type Card, parseCards } from "@/lib/review/srs";
 import { only } from "./fixture";
 
 describe("#678 two ? cards with no blank line between them are one card", () => {
@@ -211,5 +211,72 @@ describe("#1590 parking reads the token where the reader does", () => {
         after: null,
       });
     }
+  });
+});
+
+describe("#1929 a card with the plugin's !fsrs comment is left alone until FSRS lands", () => {
+  const F = "<!--SR:!fsrs,2026-11-20T00:00:00.000Z,8,8.30,1.00,2,1,0,0,2026-11-12T00:00:00.000Z-->";
+  const CF = F.replace("SR:!", "SR:c1!");
+  const S = "<!--SR:!2026-08-20,4,270-->";
+  const note = (body: string) => `#flashcards/x\n\n${body}\n\nn::m\n`;
+  const read = (body: string) =>
+    parseCards(note(body)).map((card) => [card.front, card.held?.due ?? null]);
+  const N = ["n", null];
+
+  it.each([
+    ["an SM-2 comment", `q::a ${S}`, [["q", "2026-08-20"], N]],
+    ["no comment", "q::a", [["q", null], N]],
+    ["an !fsrs comment", `q::a ${F}`, [N]],
+    ["!fsrs then SM-2", `q::a ${F} ${S}`, [N]],
+    ["SM-2 then !fsrs", `q::a ${S} ${F}`, [N]],
+    ["an escaped !fsrs comment", `q::a ${F.replace("SR:", "SR\\:")}`, [["q", null], N]],
+    ["a ? card under SM-2", `q\n?\na\n${S}`, [["q", "2026-08-20"], N]],
+    ["a ? card under !fsrs", `q\n?\na::b\n${F}`, [N]],
+    ["a ? card under SM-2 then !fsrs", `q\n?\na::b\n${S}\n${F}`, [N]],
+    ["a ? card under !fsrs then SM-2", `q\n?\na::b\n${F}\n${S}`, [N]],
+    ["a parked ? card under !fsrs", `q\n?\na\n!suspended ${F}`, [N]],
+    // The fence runs to the end, so it takes the card under it too.
+    ["a ? card under !fsrs in an unclosed fence", `q\n?\na\n\`\`\`\n${F}`, []],
+    ["a cloze with c1!fsrs", `{{c1::a}} {{c2::b}} ${CF}`, [N]],
+    ["a ? cloze under c1!fsrs", `{{c1::a}}\n?\nextra\n${CF}`, [N]],
+  ])("#1929 the reader on %s", (_, body, cards) => {
+    expect(read(body)).toEqual(cards);
+  });
+
+  it("#1929 a left-alone card keeps the tags at its head off the other cards", () => {
+    const decks = (body: string) => parseCards(note(body)).at(-1)?.decks;
+    expect(decks(`#flashcards/y q::a ${F}`)).toEqual(decks(`#flashcards/y q::a ${S}`));
+  });
+
+  const NEXT = { due: "2026-09-01", interval: 9, ease: 250 };
+  const W = "<!--SR:!2026-09-01,9,250-->";
+  const at = (to: number, inline: boolean, cloze: number | null = null) =>
+    ({ from: 2, to, inline, cloze }) as Card;
+
+  it.each([
+    ["no comment", "q::a", at(2, true), `q::a ${W}`],
+    ["an SM-2 comment", `q::a ${S}`, at(2, true), `q::a ${W}`],
+    ["an !fsrs comment", `q::a ${F}`, at(2, true), null],
+    ["!fsrs then SM-2", `q::a ${F} ${S}`, at(2, true), null],
+    ["SM-2 then !fsrs", `q::a ${S} ${F}`, at(2, true), null],
+    ["a ? card with none", "q\n?\na", at(4, false), `q\n?\na\n${W}`],
+    ["a ? card under SM-2", `q\n?\na\n${S}`, at(5, false), `q\n?\na\n${W}`],
+    ["a ? card under !fsrs", `q\n?\na\n${F}`, at(4, false), null],
+    ["a ? card under SM-2 then !fsrs", `q\n?\na\n${S}\n${F}`, at(5, false), null],
+    ["a ? card under !fsrs then SM-2", `q\n?\na\n${F}\n${S}`, at(4, false), null],
+    ["a cloze with c1!fsrs, rating c2", `{{c1::a}} {{c2::b}} ${CF}`, at(2, true, 2), null],
+    ["a ? cloze under c1!fsrs", `{{c1::a}}\n?\nextra\n${CF}`, at(4, false, 1), null],
+  ])("#1929 the writer on %s", (_, body, card, written) => {
+    const text = note(body);
+    expect(writeSchedule(text, card, NEXT)).toBe(written === null ? text : note(written));
+  });
+
+  it("#1929 rating the card beside an !fsrs one leaves that line byte for byte", () => {
+    const text = note(`q::a ${F}`);
+    const [card] = parseCards(text);
+    expect(card?.front).toBe("n");
+    expect(writeSchedule(text, card as Card, NEXT)).toBe(
+      note(`q::a ${F}`).replace("n::m", `n::m ${W}`),
+    );
   });
 });

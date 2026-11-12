@@ -217,6 +217,12 @@ number rewrites its own comment and no other. The name is what makes the order
 free, and it is kasten's: obsidian-spaced-repetition's `<!--SR:!` does not
 match these comments.
 
+A card whose comment is the plugin's FSRS one, `<!--SR:!fsrs,…-->`, or a cloze's
+`<!--SR:c1!fsrs,…-->`, is left alone until kasten schedules by FSRS (#1926). The
+review does not ask it, a deck does not count it, and nothing writes to its
+lines. That holds where the comment sits beside an SM-2 one too, on the card's
+line or on the line under that one.
+
 A comment written with a backslash, `<!--SR\:c1!2026-01-01,1,250-->`, is text
 and no schedule, wherever it sits on the line, a cloze answer or a code span
 included. The schedule is only a comment without one. Review shows and types

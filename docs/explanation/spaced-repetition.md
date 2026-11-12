@@ -146,7 +146,7 @@ And the second reader moved. obsidian-spaced-repetition 1.15 ships FSRS beside
 SM-2, through ts-fsrs, with a comment format of its own. The reason SM-2 fit,
 that it held the three numbers the plugin's comment held, no longer argues for
 it: the plugin now writes a longer comment too, and a card answered there with
-FSRS on is one today's kasten cannot read.
+FSRS on is one today's kasten cannot read, and so leaves out of the review.
 
 ### What staying would cost
 

@@ -1,6 +1,7 @@
 import {
   CLOZE_SR,
   clozeComment,
+  FSRS,
   parks,
   SR,
   SUSPEND_TOKEN,
@@ -15,6 +16,11 @@ function comment(next: Schedule, cloze: number | null = null): string {
   return `<!--SR:${cloze === null ? "" : `c${cloze}`}!${next.due},${next.interval},${next.ease}-->`;
 }
 
+/** Whether the plugin schedules this card by FSRS, which is left alone until #1926 reads it (#1929). */
+function byFsrs(lines: string[], card: Card): boolean {
+  return FSRS.test(lines[card.to] ?? "") || (!card.inline && FSRS.test(lines[card.to + 1] ?? ""));
+}
+
 /**
  * `text` with this card's schedule set, every other line byte-identical.
  * A line splice, not a rebuild: the note is the user's, and a rating does not reflow it.
@@ -22,6 +28,7 @@ function comment(next: Schedule, cloze: number | null = null): string {
 export function writeSchedule(text: string, card: Card, next: Schedule): string {
   const lines = text.split("\n");
   const last = lines[card.to] ?? "";
+  if (byFsrs(lines, card)) return text;
 
   // A cloze rewrites its own number's comment and no other. Where it has none
   // yet it joins the line the others sit on, which is the cloze's own line, or
