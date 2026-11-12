@@ -174,7 +174,8 @@ cut it short. Each `::` of the question outside a code span is written
 a card of its own; the answer keeps its `::`. Such a card is left out when its
 answer is empty or `?`, or when either side is a heading, a line of only tags
 or a line opening with `!suspended`, or its answer holds a whole schedule
-comment, any of which would end the card.
+comment, `<!--SR:!…-->` or a cloze's `<!--SR:c1!…-->`, or the head of an FSRS
+one, any of which would end the card.
 A question ending in `:` is written `question ::answer`, so the colon stays on
 the question, and a side that would open its line with three backticks gets a
 backslash in front, so it opens no code block.
