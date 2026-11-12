@@ -22,8 +22,11 @@ export interface Outline {
 /**
  * An ATX heading: one to six hashes, a space, the words, and any closing hashes. The words end only
  * after a non-blank, or are one blank, and one `\s*` owns each blank run, so it reads in linear time (#1905).
+ * The leading run is taken whole as in `SECTION_HEADING`, and closing hashes start only where a run
+ * of hashes starts or right after the words' first `#`, so a long closing run is read once (#1908).
  */
-export const ATX = /^(#{1,6})\s+((?=\s).|.+?(?<!\s))\s*(?:#+\s*)?$/;
+export const ATX =
+  /^(#{1,6})(?:\s+(?!\s)|\s+(?=[^\S\n\r\u2028\u2029][\n\r\u2028\u2029]*$))((?=\s).|.+?(?<!\s))\s*(?:(?<!\S#)#+\s*)?$/;
 
 /** How far below the top of the scroller a heading still counts as the one being read. */
 const READING_LINE = 24;

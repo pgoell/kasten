@@ -12,8 +12,12 @@ const KG_STEP = 2.5;
 const DELOAD_LOAD = 0.6;
 const LONG_GROWTH = 0.1;
 
-/** A `## ` heading; its text ends only after a non-blank, or is one blank, so a blank run is read once (#1905). */
-export const SECTION_HEADING = /^##\s+((?=\s).|.+?(?<!\s))\s*$/u;
+/**
+ * A `## ` heading; its text ends only after a non-blank, or is one blank, so a blank run is read once (#1905).
+ * The leading run is taken whole, or up to the last blank a `.` reads before an all-blank end (#1908).
+ */
+export const SECTION_HEADING =
+  /^##(?:\s+(?!\s)|\s+(?=[^\S\n\r\u2028\u2029][\n\r\u2028\u2029]*$))((?=\s).|.+?(?<!\s))\s*$/u;
 
 /** Monday first, as the calendar and `## Days` read. */
 export const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
