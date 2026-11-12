@@ -25,3 +25,13 @@ export function soundsIn(markdown: string): string[] {
     .map(imageSource)
     .filter((source) => source !== null);
 }
+
+/** The player a sound is drawn as, in live preview and in the pane alike; read only once it plays. */
+export function soundPlayer(source: string): HTMLAudioElement {
+  const audio = document.createElement("audio");
+  audio.className = "cm-audio";
+  audio.controls = true;
+  audio.preload = "none";
+  audio.src = source;
+  return audio;
+}

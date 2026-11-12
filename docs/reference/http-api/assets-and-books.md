@@ -270,7 +270,7 @@ serves, lists images, sounds, csvs and videos, and no books.
 
 | Status | Means |
 | --- | --- |
-| `200` | The image is in the trash, and the body says where it came from |
+| `200` | The file is in the trash, and the body says where it came from |
 | `404` | `No such asset`: nothing this deletes at that path, a book, a `.md` and a directory included |
 
 The notes referencing the image are left alone, for the reason a delete leaves

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { soundPlayer } from "@/lib/notes/embeds/audio";
 import { clipPlayer } from "@/lib/notes/embeds/clip";
 import { showCsv } from "@/lib/notes/embeds/csv";
 import { encodePath } from "@/lib/notes/links/note-path";
@@ -138,11 +139,8 @@ function Sound({ path }: { path: string }) {
   useEffect(() => {
     const element = box.current;
     if (element === null) return;
-    const player = document.createElement("audio");
-    player.controls = true;
-    player.preload = "none";
-    player.className = "w-full";
-    player.src = `/api/assets/${encodePath(path)}`;
+    const player = soundPlayer(`/api/assets/${encodePath(path)}`);
+    player.classList.add("w-full");
     element.replaceChildren(player);
     // Emptied as the clip is, so a player taken off the page stops reading the file.
     return () => {
