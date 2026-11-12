@@ -1,6 +1,5 @@
 import { noteName } from "@/lib/notes/links/note-path";
 import { noteBody } from "@/lib/notes/text/note-frontmatter";
-import { clozeComment, SR } from "@/lib/review/card-line";
 import { inDeck } from "@/lib/review/deck-tag";
 import { type Deck, decksFrom, type Limits } from "@/lib/review/review";
 import { type Card, parseCards, readSchedule } from "@/lib/review/srs";
@@ -119,7 +118,7 @@ export function regraded(
   const moved = lines.length - lineCount(text);
   if (moved !== 0 && moved !== 1) return undefined;
   const to = card.to + moved;
-  const held = readSchedule(lines[to] ?? "", card.cloze === null ? SR : clozeComment(card.cloze));
+  const held = readSchedule(lines[to] ?? "", card.cloze);
   return cards.map((each) =>
     each === card
       ? { ...each, to, held }

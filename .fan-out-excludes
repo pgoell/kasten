@@ -4,3 +4,5 @@
 docs/log/**
 # one file per migration, in the order Alembic writes them
 backend/alembic/versions
+# one file per URL the app serves at its root (manifests, workers, notices); a subfolder moves the URL
+frontend/public

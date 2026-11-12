@@ -13,9 +13,10 @@ import {
   seatsFor,
   withText,
 } from "@/lib/review/review-queue";
-import type { Card, Rating, Schedule } from "@/lib/review/srs";
+import { type Card, type Held, isFsrs, type Rating } from "@/lib/review/srs";
 import {
   answeredToday,
+  nextFsrs,
   nextSchedule,
   writeNoteSchedule,
   writeNoteSuspended,
@@ -35,8 +36,18 @@ const NOTE_UNREAD = "The note could not be read: ";
  * The schedule a rating writes, so the write and the interval the button shows never disagree.
  * A card new at the start keeps answering as a first answer until it leaves the queue, as Anki's learning steps do.
  */
-function scheduleFor(seat: Seat, held: Card, rating: Rating, today: string): Schedule {
-  return nextSchedule(seat.fresh ? null : held.held, rating, today);
+function scheduleFor(seat: Seat, held: Card, rating: Rating, today: string, whole: boolean): Held {
+  const was = seat.fresh ? null : held.held;
+  // A whole note stays on SM-2 in its frontmatter, where FSRS has no fields (#1926).
+  if (whole && (was === null || !isFsrs(was))) return nextSchedule(was, rating, today);
+  return nextFsrs(was, rating, today);
+}
+
+/** `text` with the rating written: a whole note's in its frontmatter, a card's in its comment. */
+function written(deck: Deck, text: string, card: Card, moved: Held): string {
+  return deck.whole && !isFsrs(moved)
+    ? writeNoteSchedule(text, moved)
+    : writeSchedule(text, card, moved);
 }
 
 /**
@@ -171,9 +182,9 @@ export function useReviewSitting(
   // both come from `scheduleFor`.
   const next = useMemo(() => {
     if (seat === undefined || card === undefined) return null;
-    const days = (rating: Rating) => scheduleFor(seat, card, rating, today).interval;
+    const days = (rating: Rating) => scheduleFor(seat, card, rating, today, deck.whole).interval;
     return { again: days("again"), hard: days("hard"), good: days("good"), easy: days("easy") };
-  }, [card, seat, today]);
+  }, [card, seat, today, deck.whole]);
 
   // The done screen's "next due": the earliest day after today a card of this
   // deck comes back. A parked card comes back on no day the screen can name.
@@ -213,8 +224,8 @@ export function useReviewSitting(
       const held = cards.get(seat.note)?.[seat.at];
       if (text === undefined || held === undefined) return;
 
-      const moved = scheduleFor(seat, held, rating, today);
-      const next = deck.whole ? writeNoteSchedule(text, moved) : writeSchedule(text, held, moved);
+      const moved = scheduleFor(seat, held, rating, today, deck.whole);
+      const next = written(deck, text, held, moved);
       const before = cards.get(seat.note);
       // Shifted only from the text these cards were read off; else parsed, as before #1379.
       const after = regraded(deck, before, held, text, next);

@@ -11,7 +11,7 @@ const NOTE =
   "#flashcards/aws\n\nWhat is a VPC?\n?\nA private cloud\n\nWhat is S3?::Storage\n\nWhat is IAM?::Identity\n";
 const ALL_NEW: Deck = { ...DECK, fresh: 3 };
 const DECKS = "99 Misc/01 Config/decks.md";
-const COMMENT = String.raw`<!--SR:!\d{4}-\d{2}-\d{2},\d+,\d+-->`;
+const COMMENT = "<!--SR:!fsrs,[^>]*-->";
 const FRONT = /^---\n[\s\S]*?\n---\n/;
 
 // The note as the expected text reads once each card's comment is `<SR>`, with the frontmatter left out.
