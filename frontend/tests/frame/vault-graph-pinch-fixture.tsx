@@ -102,6 +102,12 @@ export async function tap(host: HTMLElement, at: Point) {
   await browser.touchDrag([inPage(host, at)]);
 }
 
+/** Two real taps in one command: two commands' round trips under load outlast a double tap (#1698). */
+export async function doubleTap(host: HTMLElement, at: Point) {
+  const finger = { id: 0, ...at };
+  await fingers(host, [[finger], [], [finger]]);
+}
+
 /** The vault graph on a phone, settled at its first zoom. */
 export async function phone(vim: "on" | "off" = "on", theme: "light" | "dark" = "light") {
   await setUp(PHONE, theme, "folders", vim);

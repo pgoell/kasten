@@ -139,13 +139,13 @@ async function typeInField(control: string) {
 it("posts hello once the page has loaded", async () => {
   await mount(TALL);
 
-  await expect.poll(() => messages).toContainEqual({ kasten: "hello" });
+  await expect.poll(() => messages).toContainEqual({ kasten: "hello", doc: expect.any(String) });
 });
 
 it("posts hello on a page with no body tag", async () => {
   await mount(`<!doctype html><title>plain</title><p>no body</p>`);
 
-  await expect.poll(() => messages).toContainEqual({ kasten: "hello" });
+  await expect.poll(() => messages).toContainEqual({ kasten: "hello", doc: expect.any(String) });
 });
 
 it("posts Space, ? and Escape to kasten, and the page does not scroll on Space", async () => {
@@ -235,7 +235,7 @@ it("in a tab of its own, the script stops no default and posts nothing", async (
 
 it("a page that declares its own parent still sends hello and Space", async () => {
   const element = await mount(SHADOWED);
-  await expect.poll(() => messages).toContainEqual({ kasten: "hello" });
+  await expect.poll(() => messages).toContainEqual({ kasten: "hello", doc: expect.any(String) });
 
   await userEvent.click(element);
   await userEvent.keyboard(" ");
@@ -286,7 +286,7 @@ it("a page with its own var parent still sends hello and Space", async () => {
   const element = await mount(
     atStart(`<div style="height:3000px"></div><script>var parent = { postMessage() {} };</script>`),
   );
-  await expect.poll(() => messages).toContainEqual({ kasten: "hello" });
+  await expect.poll(() => messages).toContainEqual({ kasten: "hello", doc: expect.any(String) });
 
   await userEvent.click(element);
   await userEvent.keyboard(" ");

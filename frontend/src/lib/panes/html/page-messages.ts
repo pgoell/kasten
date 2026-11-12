@@ -11,6 +11,14 @@ export function pageData(event: MessageEvent, frame: HTMLIFrameElement | null) {
 }
 
 /**
+ * The bye a page posts as it leaves, whose `source` is no longer the frame's window by then, so
+ * the id its hello gave, `doc`, says whose it is (#1729).
+ */
+export function isBye(event: MessageEvent, doc: unknown): boolean {
+  return typeof doc === "string" && event.data?.kasten === "bye" && event.data.doc === doc;
+}
+
+/**
  * The page's `innerText`, asked of its script: the frame has no
  * `allow-same-origin`, so the page is the only thing that can read it. A page
  * that never answers, one whose script a page error stopped, is given up on.
