@@ -125,10 +125,10 @@ of the queue, and neither is a worse way of doing the other.
 
 ## FSRS, not SM-2
 
-kasten schedules with SM-2 today: one short function in `srs-schedule.ts` that
-holds exactly the three numbers the borrowed comment carries. The decision of
-2026-11-12 (#1776) is to swap to FSRS, and #1926 builds it. Until it
-lands, everything else on this page describes SM-2, as the code does.
+kasten scheduled with SM-2 until #1926: one short function in `srs-schedule.ts`
+that held exactly the three numbers the borrowed comment carried. The decision
+of 2026-11-12 (#1776) was to swap to FSRS, and #1926 built it. A card now
+schedules by FSRS; a whole note marked `#review` stays on SM-2.
 
 ### Why swap
 
@@ -223,7 +223,10 @@ converts at the first answer.
 ts-fsrs 6.0.0 (MIT), the library the plugin uses at 5.4.1, with its one dependency
 `@open-spaced-repetition/srs-kit` 1.0.0 (BSD-3-Clause, whose notice has to ship
 with the bundle). Both licenses were read from the files in the packages.
-Default FSRS-6 weights, 90 percent recall asked, no fuzz, as now.
+Default FSRS-6 weights, 90 percent recall asked, no fuzz, as now. ts-fsrs keeps
+its learning steps on, as the plugin does, so a new card answered anything but
+Easy stays in learning, due the same day. Both licenses ship whole in
+`THIRD-PARTY-NOTICES.txt` at the root of the built app.
 
 ## Two front ends, one session
 
@@ -247,11 +250,13 @@ history: three numbers per card, which obsidian-spaced-repetition reads too, so
 a fourth was not on offer. A store of its own in the browser or the database
 would count wrong after a reload on another device.
 
-The three numbers are enough. Every rating writes a due date of today plus the
-interval, so a card whose two agree was answered today, and a first answer
-always lands on the starting ease with a gap of 1 or 4. Two rare cases read
-wrong, both named in [the format](/reference/flashcard-format/reviewing-cards.md#daily-limits),
-and the cost of either is one card more or less in a day's sitting.
+The comment is enough. An FSRS comment names the day of its last answer, and a
+card on its first answer or still in learning was new. An SM-2 comment's due
+date is the rating's day plus the interval, so a card whose two agree was
+answered today, and a first answer always lands on the starting ease with a gap
+of 1 or 4. A few rare cases read wrong, all named in
+[the format](/reference/flashcard-format/reviewing-cards.md#daily-limits),
+and the cost of each is one card more or less in a day's sitting.
 
 The limits themselves live in a note, `decks.md`, rather than in settings, for
 the reason the schedule does: the vault is the record, and its history shows

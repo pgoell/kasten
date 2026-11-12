@@ -187,9 +187,23 @@ it is.
 What does S3 stand for?::Simple Storage Service <!--SR:!2026-08-20,4,270-->
 ```
 
-An HTML comment, so it renders as nothing and reads as nothing. It holds the
-date the card is next due, the days between this answer and that date, and the
-ease as a percent. A card carrying no comment has never been answered.
+An HTML comment, so it renders as nothing and reads as nothing. This one is
+SM-2's: the date the card is next due, the days between this answer and that
+date, and the ease as a percent. A card carrying no comment has never been
+answered. kasten reads it and writes FSRS's in its place at the card's next
+answer:
+
+```markdown
+What does S3 stand for?::Simple Storage Service <!--SR:!fsrs,2026-11-20T00:00:00.000Z,8,8.30,1.00,2,1,0,0,2026-11-12T00:00:00.000Z-->
+```
+
+After `fsrs` come the due day as a timestamp, the interval in days, stability
+and difficulty to two places, the state (0 new, 1 learning, 2 review,
+3 relearning), the answers, the lapses, the learning step, and the last answer
+as a timestamp or `-`. kasten writes midnight UTC and reads the date part
+alone, so every zone reads the day it was written for.
+[FSRS, not SM-2](/explanation/spaced-repetition.md#fsrs-not-sm-2) has each
+field and the conversion.
 
 On a one-line card the comment goes on the end of the line. On a longer one it
 goes on its own line under the answer:
@@ -198,7 +212,7 @@ goes on its own line under the answer:
 The three storage classes worth knowing
 ?
 Standard, Infrequent Access, Glacier
-<!--SR:!2026-08-14,1,230-->
+<!--SR:!fsrs,2026-11-20T00:00:00.000Z,8,8.30,1.00,2,1,0,0,2026-11-12T00:00:00.000Z-->
 ```
 
 kasten writes this line and nothing else. Every other line of the note is
@@ -207,7 +221,7 @@ byte-identical after a rating, because a rating is not licence to reflow a note.
 A cloze keeps one comment per number, named by it after the colon:
 
 ```markdown
-The capital of {{c1::France}} is {{c2::Paris}}. <!--SR:c1!2026-08-20,4,270--> <!--SR:c2!2026-08-15,1,250-->
+The capital of {{c1::France}} is {{c2::Paris}}. <!--SR:c1!2026-08-20,4,270--> <!--SR:c2!fsrs,2026-11-20T00:00:00.000Z,8,8.30,1.00,2,1,0,0,2026-11-12T00:00:00.000Z-->
 ```
 
 They go where any schedule goes: on the end of a one-line cloze, or on the line
@@ -217,11 +231,13 @@ number rewrites its own comment and no other. The name is what makes the order
 free, and it is kasten's: obsidian-spaced-repetition's `<!--SR:!` does not
 match these comments.
 
-A card whose comment is the plugin's FSRS one, `<!--SR:!fsrs,…-->`, or a cloze's
-`<!--SR:c1!fsrs,…-->`, is left alone until kasten schedules by FSRS (#1926). The
-review does not ask it, a deck does not count it, and nothing writes to its
-lines. That holds where the comment sits beside an SM-2 one too, on the card's
-line or on the line under that one.
+A card can hold an SM-2 and an FSRS comment at once, where a tab from before
+0.177.1 answered it beside the FSRS one, on its line or on a line over the FSRS
+line. The later answer counts, and a tie goes to the SM-2 one, which only such a
+tab writes. The next rating folds both into one FSRS comment. A card whose
+`!fsrs` comment does not read, such as the plugin's run of several in one
+comment, is left alone: the review does not ask it, a deck does not count it,
+and nothing writes to its lines.
 
 A comment written with a backslash, `<!--SR\:c1!2026-01-01,1,250-->`, is text
 and no schedule, wherever it sits on the line, a cloze answer or a code span
@@ -231,7 +247,15 @@ import's `<!--anki\:` are the only escapes kasten reads.
 
 ## The schedule kasten writes
 
-SM-2, the algorithm Anki used for twenty years, with four ratings.
+FSRS by ts-fsrs, the library the plugin uses, with its default FSRS-6 weights,
+90 percent recall and no fuzz. Its learning steps are on, as the plugin has
+them, so a new card answered Again, Hard or Good stays in learning, due the same
+day, and the next sitting asks it again; Easy sends it out of learning at once.
+An SM-2 card turns into FSRS at its next answer, by the plugin's
+`sm2ScheduleToFsrsCard`, with its ease held to 130..370 first.
+
+A [whole note for review](/reference/flashcard-format/writing-cards-and-decks.md#a-whole-note-for-review)
+keeps SM-2, the algorithm Anki used for twenty years, with four ratings.
 
 | Rating | A card nobody has answered | A card with an interval |
 | --- | --- | --- |
@@ -277,18 +301,22 @@ subdecks set; sitting `trivia/geography` asks at most 5. The cards answered
 today count against the deck you sit, across every card under it.
 
 The count of what was answered today comes off the schedule in the note, so a
-reload and a second device read the same number. A card whose due date is today
-plus its interval was answered today, and one that also sits on ease 250 with an
-interval of 0, 1 or 4 was new.
+reload and a second device read the same number. An FSRS card whose last answer
+is today was answered today, and was new if that was its first answer or it is
+still in learning. An SM-2 card whose due date is today plus its interval was
+answered today, and one that also sits on ease 250 with an interval of 0, 1 or 4
+was new.
 
-A new card answered `Again` goes into learning: it is written due today with an
-interval of 0, `<!--SR:!2026-10-24,0,250-->`, and comes round again in that
-sitting. A reload or a later sitting the same day asks it again too, first and
-past the review limit, because its new slot was spent on its first answer. Each
-answer it gets in learning is scheduled as a first answer, so the one that
-passes it sets its first gap, the way Anki's learning steps do. Two cases read
-wrong: a review that lands back on ease 250 with an interval of 1 or 4 counts as
-new, and so does a card left in learning yesterday and passed today.
+A card in learning is written due today with an interval of 0. One answered
+`Again` comes round again in that sitting; a reload or a later sitting the same
+day asks any card in learning again, first and past the review limit, because
+its new slot was spent on its first answer. A whole note answered `Again` is
+scheduled as a first answer at each answer in learning, so the one that passes
+it sets its first gap. A few cases read wrong: an FSRS card that leaves learning
+on its first day counts as a review, and one still in learning a day later
+counts as new again; an SM-2 review that lands back on ease 250 with an interval
+of 1 or 4 counts as new, and so does an SM-2 card left in learning yesterday and
+passed today.
 
 The overview shows what today's sitting will ask, its limit less what was
 answered today, and the sitting asks exactly that. A deck with nothing left

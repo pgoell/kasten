@@ -386,9 +386,9 @@ its whole size under **new** in the overview and the first sitting starts at
 the top. [The schedule](/reference/flashcard-format/reviewing-cards.md#the-schedule-kasten-writes)
 starts from there.
 
-With it, a card Anki has in review arrives with Anki's due date, interval and
-ease in its schedule comment, so a mature deck comes due as it would have in
-Anki. A card that is new or still in learning in Anki arrives new.
+With it, a card Anki has in review arrives with Anki's schedule, so a mature
+deck comes due as it would have in Anki: the FSRS comment where Anki keeps FSRS
+state, else the SM-2 one. A card new or in learning in Anki arrives new.
 
 ## See also
 
