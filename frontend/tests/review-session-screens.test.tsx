@@ -2,8 +2,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ReviewSession } from "@/components/review/review-session";
 import * as api from "@/lib/core/api";
-import { readClock } from "@/lib/core/clock";
+import { readClock, shiftDay } from "@/lib/core/clock";
 import type { Deck } from "@/lib/review/review";
+import { dayWords } from "@/lib/review/review-days";
 import { shownCard } from "./review-card";
 
 // The sitting reads the day when it runs, so a run crossing midnight would see
@@ -145,10 +146,10 @@ it("#790 I6 a card new at the start shows first-answer intervals on its buttons"
   await shownCard();
   reveal();
 
-  // FSRS keeps a new card in learning, due today, on all but Easy (#1926).
-  expect(screen.getByRole("button", { name: "Again" })).toHaveAccessibleDescription("today");
-  expect(screen.getByRole("button", { name: "Hard" })).toHaveAccessibleDescription("today");
-  expect(screen.getByRole("button", { name: "Good" })).toHaveAccessibleDescription("today");
+  // FSRS's first answers, learning steps off (#1926).
+  expect(screen.getByRole("button", { name: "Again" })).toHaveAccessibleDescription("1d");
+  expect(screen.getByRole("button", { name: "Hard" })).toHaveAccessibleDescription("2d");
+  expect(screen.getByRole("button", { name: "Good" })).toHaveAccessibleDescription("3d");
   expect(screen.getByRole("button", { name: "Easy" })).toHaveAccessibleDescription("8d");
 });
 
@@ -158,9 +159,9 @@ it("#790 A3 a card with a schedule shows the interval each rating writes", async
   reveal();
 
   // Ten days at the starting ease, turned into FSRS at this answer (#1926): again
-  // relearns today, hard, good and easy come back in 22, 30 and 48 days. The strings
+  // comes back tomorrow, hard, good and easy in 22, 30 and 48 days. The strings
   // are the ones the overview draws for those counts: days under a fortnight, weeks after.
-  expect(screen.getByRole("button", { name: "Again" })).toHaveAccessibleDescription("today");
+  expect(screen.getByRole("button", { name: "Again" })).toHaveAccessibleDescription("1d");
   expect(screen.getByRole("button", { name: "Hard" })).toHaveAccessibleDescription("3w");
   expect(screen.getByRole("button", { name: "Good" })).toHaveAccessibleDescription("4w");
   expect(screen.getByRole("button", { name: "Easy" })).toHaveAccessibleDescription("7w");
@@ -185,8 +186,10 @@ it("#790 A4 the done screen says what was done and when the next cards are due",
 
   expect(await screen.findByRole("heading", { name: "Done for today" })).toBeInTheDocument();
   expect(screen.getByTestId("review-done")).toHaveTextContent("1 answered today in aws.");
-  // Good keeps a new card in FSRS's learning, so the next sitting today asks it again.
-  expect(screen.getByTestId("review-done")).toHaveTextContent("The next cards are due today.");
+  // A first Good is three days out by FSRS (#1926).
+  expect(screen.getByTestId("review-done")).toHaveTextContent(
+    `The next cards are due ${dayWords(shiftDay(TODAY, 3), TODAY)}.`,
+  );
 });
 
 it("#790 A4 the done screen says when nothing in the deck is scheduled", async () => {

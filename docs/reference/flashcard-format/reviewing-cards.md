@@ -248,9 +248,10 @@ import's `<!--anki\:` are the only escapes kasten reads.
 ## The schedule kasten writes
 
 FSRS by ts-fsrs, the library the plugin uses, with its default FSRS-6 weights,
-90 percent recall and no fuzz. Its learning steps are on, as the plugin has
-them, so a new card answered Again, Hard or Good stays in learning, due the same
-day, and the next sitting asks it again; Easy sends it out of learning at once.
+90 percent recall and no fuzz. Its learning steps are off, unlike the plugin's,
+so every answer comes due another day: a new card answered Again comes back
+tomorrow, Good in three days. A card the plugin left in learning still reads as
+learning.
 An SM-2 card turns into FSRS at its next answer, by the plugin's
 `sm2ScheduleToFsrsCard`, with its ease held to 130..370 first.
 
@@ -307,16 +308,15 @@ still in learning. An SM-2 card whose due date is today plus its interval was
 answered today, and one that also sits on ease 250 with an interval of 0, 1 or 4
 was new.
 
-A card in learning is written due today with an interval of 0. One answered
-`Again` comes round again in that sitting; a reload or a later sitting the same
-day asks any card in learning again, first and past the review limit, because
-its new slot was spent on its first answer. A whole note answered `Again` is
-scheduled as a first answer at each answer in learning, so the one that passes
-it sets its first gap. A few cases read wrong: an FSRS card that leaves learning
-on its first day counts as a review, and one still in learning a day later
-counts as new again; an SM-2 review that lands back on ease 250 with an interval
-of 1 or 4 counts as new, and so does an SM-2 card left in learning yesterday and
-passed today.
+A card answered `Again` comes round again in that sitting. A card new at the
+start of the sitting answers as a first answer each time, so the answer that
+passes it sets its first gap and it counts as one new card. A card in learning,
+a whole note's SM-2 gap of 0 or the plugin's FSRS state 1 or 3, is due today:
+a reload or a later sitting asks it again, first and past the review limit,
+because its new slot was spent on its first answer. A few cases read wrong: an
+FSRS card the plugin left in learning, answered here, counts as new; an SM-2
+review that lands back on ease 250 with an interval of 1 or 4 counts as new,
+and so does an SM-2 card left in learning yesterday and passed today.
 
 The overview shows what today's sitting will ask, its limit less what was
 answered today, and the sitting asks exactly that. A deck with nothing left

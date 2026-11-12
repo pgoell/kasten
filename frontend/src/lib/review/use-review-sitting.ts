@@ -38,11 +38,10 @@ const NOTE_UNREAD = "The note could not be read: ";
  * A card new at the start keeps answering as a first answer until it leaves the queue, as Anki's learning steps do.
  */
 function scheduleFor(seat: Seat, held: Card, rating: Rating, today: string, whole: boolean): Held {
-  // FSRS keeps its own learning steps in the comment, so a card goes by what it holds (#1926).
-  if (!whole) return nextFsrs(held.held, rating, today);
-  const was = seat.fresh || held.held === null || isFsrs(held.held) ? null : held.held;
-  // A whole note stays on SM-2 in its frontmatter, where FSRS has no fields.
-  return nextSchedule(was, rating, today);
+  const was = seat.fresh ? null : held.held;
+  if (!whole) return nextFsrs(was, rating, today);
+  // A whole note stays on SM-2 in its frontmatter, where FSRS has no fields (#1926).
+  return nextSchedule(was === null || isFsrs(was) ? null : was, rating, today);
 }
 
 /** `text` with the rating written: a whole note's in its frontmatter, a card's in its comment. */

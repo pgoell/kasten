@@ -55,8 +55,11 @@ export function nextSchedule(held: Schedule | null, rating: Rating, today: strin
   return { due: shiftDay(today, interval), interval, ease };
 }
 
-/** FSRS-6's default weights, 90 percent recall, no fuzz (#1926). Learning steps on, as the plugin has them. */
-const FSRS = fsrs({ request_retention: 0.9, enable_fuzz: false });
+/**
+ * FSRS-6's default weights, 90 percent recall, no fuzz (#1926). Learning steps off, unlike the plugin:
+ * a step comes due the same day, and a card that leaves learning then reads as a review, so a daily new limit would not hold.
+ */
+const FSRS = fsrs({ request_retention: 0.9, enable_fuzz: false, enable_short_term: false });
 
 const GRADES = { again: Grade.Again, hard: Grade.Hard, good: Grade.Good, easy: Grade.Easy };
 

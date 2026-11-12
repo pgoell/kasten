@@ -39,10 +39,10 @@ it.each(["on", "off"])(
     expect(screen.getByTestId("review-back")).toHaveTextContent("d");
     fireEvent.keyDown(pane, { key: "Enter" });
 
-    // A fresh card's first Good is a day out, which the note writes as a gap of 1.
+    // A fresh card's first Good is three days out by FSRS (#1926).
     await waitFor(() => expect(saved).toHaveBeenCalledOnce());
     expect(saved.mock.calls[0]?.[1]).toMatch(
-      /<!--SR:!fsrs,[\d-]+T00:00:00\.000Z,0,2\.31,2\.12,1,1,0,1,/,
+      /<!--SR:!fsrs,[\d-]+T00:00:00\.000Z,3,2\.31,2\.12,2,1,0,0,/,
     );
     await waitFor(() => expect(screen.getByTestId("review-card")).toHaveTextContent("e"));
   },
@@ -55,7 +55,8 @@ it.each(["on", "off"])(
     const { pane, saved } = await sitBeta();
 
     fireEvent.keyDown(pane, { key: "Enter" });
-    expect(screen.getByRole("button", { name: "Again" })).toHaveAccessibleDescription("today");
+    // FSRS's first Again is a day out (#1926); the sitting still asks it again.
+    expect(screen.getByRole("button", { name: "Again" })).toHaveAccessibleDescription("1d");
 
     // Again sends the card to the back of the sitting, so the next one is `e`.
     fireEvent.keyDown(pane, { key: "1" });

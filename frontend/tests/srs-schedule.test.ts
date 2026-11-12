@@ -259,7 +259,7 @@ describe("#1926 nextFsrs", () => {
   });
 
   it("#1926 A1 the schedule is ts-fsrs's at 90 percent, default weights and no fuzz", () => {
-    const f = fsrs({ request_retention: 0.9, enable_fuzz: false });
+    const f = fsrs({ request_retention: 0.9, enable_fuzz: false, enable_short_term: false });
     const now = new Date(`${TODAY}T00:00:00.000Z`);
     for (const [rating, grade] of [
       ["again", 1],
@@ -320,21 +320,23 @@ describe("#1926 nextFsrs", () => {
   });
 
   it("#1926 A5 learning and answeredToday read an FSRS card's state and last answer", () => {
+    // Learning steps off: every first answer comes due another day, so a card is asked once a day.
     const again = nextFsrs(null, "again", TODAY);
     const good = nextFsrs(null, "good", TODAY);
     const easy = nextFsrs(null, "easy", TODAY);
-    const graduated = nextFsrs(good, "good", TODAY);
-    const relearning = nextFsrs(easy, "again", "2026-11-20");
+    const lapsed = nextFsrs(easy, "again", "2026-11-20");
+    // A card the plugin left in learning or relearning, with its steps on.
+    const steps = [1, 3].map((state) => ({ ...good, state }));
     expect({
       due: [again.due, good.due],
-      learning: [again, good, easy, graduated, relearning].map((held) => learning(held)),
-      today: [again, good, easy, graduated].map((held) => answeredToday(held, TODAY)),
+      learning: [again, good, easy, lapsed, ...steps].map((held) => learning(held)),
+      today: [again, good, easy].map((held) => answeredToday(held, TODAY)),
       tomorrow: answeredToday(easy, "2026-11-13"),
-      lapsed: answeredToday(relearning, "2026-11-20"),
+      lapsed: answeredToday(lapsed, "2026-11-20"),
     }).toEqual({
-      due: [TODAY, TODAY],
-      learning: [true, true, false, false, true],
-      today: ["new", "new", "new", "review"],
+      due: ["2026-11-13", "2026-11-15"],
+      learning: [false, false, false, false, true, true],
+      today: ["new", "new", "new"],
       tomorrow: null,
       lapsed: "review",
     });
