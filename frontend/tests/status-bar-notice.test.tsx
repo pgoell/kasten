@@ -5,6 +5,7 @@ import { StatusBar } from "@/components/status-bar";
 import { NoteMissing } from "@/lib/core/api";
 import { IMAGE_FOLDER } from "@/lib/notes/embeds/image";
 import { saveQueue } from "@/lib/notes/note/save-queue";
+import { Leaving } from "@/lib/ui/motion/leaving";
 
 // The upload and the conditional write are the two requests a paste sends; what the bar and
 // the note show of them is what these tests own (#1945).
@@ -125,17 +126,27 @@ function paste(file: File, container: HTMLElement = document.body) {
 }
 
 /** A note's editor beside the bar, the route's way: a notice goes to the bar. */
-function Page({ path = "a.md", quiet }: { path?: string; quiet?: boolean }) {
+function Page({
+  path = "a.md",
+  quiet,
+  leaving = false,
+}: {
+  path?: string;
+  quiet?: boolean;
+  leaving?: boolean;
+}) {
   const [notice, setNotice] = useState<string>();
   return (
     <>
-      <Editor
-        key={path}
-        path={path}
-        initialDoc={`text of ${path}`}
-        onNotice={setNotice}
-        onChange={changed}
-      />
+      <Leaving.Provider value={leaving}>
+        <Editor
+          key={path}
+          path={path}
+          initialDoc={`text of ${path}`}
+          onNotice={setNotice}
+          onChange={changed}
+        />
+      </Leaving.Provider>
       <StatusBar notice={notice} quiet={quiet} />
     </>
   );
@@ -213,6 +224,8 @@ describe("an upload pasted into a note (#1945)", () => {
     const { rerender } = render(<Page path="a.md" />);
     paste(clip());
     await waitFor(() => expect(held).toHaveLength(1));
+    // The way a pane leaves a note: the editor stays a task longer with its callbacks emptied.
+    rerender(<Page path="a.md" leaving />);
     rerender(<Page path="b.md" />);
 
     act(() => held[0]?.end());
@@ -301,6 +314,8 @@ describe("an upload pasted into a note (#1945)", () => {
     const { rerender } = render(<Page path="a.md" />);
     paste(clip());
     await waitFor(() => expect(held).toHaveLength(1));
+    // The way a pane leaves a note: the editor stays a task longer with its callbacks emptied.
+    rerender(<Page path="a.md" leaving />);
     rerender(<Page path="b.md" />);
 
     act(() => held[0]?.end());
@@ -310,5 +325,21 @@ describe("an upload pasted into a note (#1945)", () => {
         `The file is in ${IMAGE_FOLDER}, but a.md is gone`,
       ),
     );
+  });
+
+  it("still says so when the upload fails after its note closed", async () => {
+    const held = holdUploads();
+    const { rerender } = render(<Page path="a.md" />);
+    paste(clip());
+    await waitFor(() => expect(held).toHaveLength(1));
+    rerender(<Page path="a.md" leaving />);
+    rerender(<Page path="b.md" />);
+
+    act(() => held[0]?.end(new Error("POST /api/assets failed with 413")));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("notice")).toHaveTextContent("POST /api/assets failed with 413"),
+    );
+    expect(updateNote).not.toHaveBeenCalled();
   });
 });

@@ -29,6 +29,17 @@ export { IMAGE_FOLDER };
 /** What a pasted image is called, minus the suffix its type names. */
 const NAMED = /^image\//;
 
+/**
+ * The handler itself, read when a paste starts: an upload's notice comes after its editor may have
+ * left, which empties the callbacks `noticeHandler` reads (#1945).
+ */
+export const noticeSource = Facet.define<
+  () => NoticeHandler | undefined,
+  () => NoticeHandler | undefined
+>({
+  combine: (getters) => getters[0] ?? (() => undefined),
+});
+
 /** Every image in the vault. Null, not empty, when unset. */
 export const imagePaths = Facet.define<string[], string[] | null>({
   combine: (values) => values[0] ?? null,
@@ -138,7 +149,7 @@ export function filedName(type: string): string {
 
 /** Uploads `file` with its progress on the status bar, and reports a refusal; answers whether it went in. */
 async function upload(
-  view: EditorView,
+  notice: NoticeHandler | undefined,
   path: string,
   file: File,
   failed: string,
@@ -150,7 +161,7 @@ async function upload(
     return true;
   } catch (error: unknown) {
     // Typed `unknown`, as `chooseBook` does: a dropped connection has no status to name.
-    view.state.facet(noticeHandler)?.(error instanceof Error ? error.message : failed);
+    notice?.(error instanceof Error ? error.message : failed);
     return false;
   }
 }
@@ -161,8 +172,9 @@ async function upload(
  */
 async function fileImage(view: EditorView, file: File, name: string): Promise<void> {
   const path = `${IMAGE_FOLDER}/${name}`;
-  if (await upload(view, path, file, "The image did not go in")) {
-    await place(view, `![](${encodePath(path)})`, false);
+  const notice = view.state.facet(noticeSource)();
+  if (await upload(notice, path, file, "The image did not go in")) {
+    await place(view, notice, `![](${encodePath(path)})`, false);
   }
 }
 
@@ -190,13 +202,17 @@ function appended(text: string, line: string): string {
  * of the note: in an editor open on it now, else in its file by a conditional write behind
  * the note's own writes, so text written meanwhile stays.
  */
-async function place(view: EditorView, reference: string, newline: boolean): Promise<void> {
+async function place(
+  view: EditorView,
+  notice: NoticeHandler | undefined,
+  reference: string,
+  newline: boolean,
+): Promise<void> {
   if (!closed.has(view)) {
     view.dispatch(view.state.replaceSelection(`${newline ? "\n" : ""}${reference}`));
     return;
   }
   const path = closed.get(view);
-  const notice = view.state.facet(noticeHandler);
   const kept = `The file is in ${IMAGE_FOLDER}, but`;
   if (path === undefined) {
     notice?.(`${kept} the note it was pasted into had closed`);
@@ -293,14 +309,15 @@ function clipName(file: File, taken: string[]): string {
  */
 async function fileClips(view: EditorView, files: File[]): Promise<void> {
   const taken = [...(view.state.facet(vaultPaths) ?? []), ...(view.state.facet(imagePaths) ?? [])];
+  const notice = view.state.facet(noticeSource)();
   let written = 0;
   for (const file of files) {
     const name = clipName(file, taken);
     taken.push(name);
     const path = `${IMAGE_FOLDER}/${name}`;
-    if (!(await upload(view, path, file, "The file did not go in"))) continue;
+    if (!(await upload(notice, path, file, "The file did not go in"))) continue;
     const reference = isClipFile(file) ? `![[${name}]]` : `![](${encodePath(path)})`;
-    await place(view, reference, written > 0);
+    await place(view, notice, reference, written > 0);
     written++;
   }
 }

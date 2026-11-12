@@ -32,7 +32,13 @@ import { tableLineup } from "@/lib/notes/editor/table-lineup";
 import { tableSource } from "@/lib/notes/editor/table-source";
 import { vimInsertUndo, vimKeys } from "@/lib/notes/editor/vim-mode";
 import { type EmbedSource, embedSource } from "@/lib/notes/embeds/embed";
-import { imageCompletions, imagePaste, imagePaths, noticeHandler } from "@/lib/notes/embeds/image";
+import {
+  imageCompletions,
+  imagePaste,
+  imagePaths,
+  noticeHandler,
+  noticeSource,
+} from "@/lib/notes/embeds/image";
 import { relationCompletions, vaultRelations } from "@/lib/notes/links/ontology";
 import { vaultPaths, wikiLinkCompletions } from "@/lib/notes/links/wikilink";
 import { livePreview } from "@/lib/notes/live/live-preview";
@@ -285,6 +291,7 @@ export function createNoteView(o: {
         // every paste that carries text.
         imagePaste(o.path),
         noticeHandler.of((message) => latest.current.onNotice?.(message)),
+        noticeSource.of(() => latest.current.onNotice),
         followOnClick(),
         followOnTap(),
         byName,
