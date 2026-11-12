@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Editor keys, images
-description: Pasting, drawing and toggling images in the editor, and the keys that take them.
+description: Pasting, dropping, drawing and toggling images in the editor, and the keys that take them.
 tags: [editor, keyboard, images, frontend]
 status: stable
 ---
@@ -52,7 +52,14 @@ suffix, so the vault overwrites nothing and the link names this file alone.
 The characters a wikilink cannot carry, `[ ] | # ^`, become `-`. Several files
 go in order, one embed to a line, and a file over 10MiB goes up in pieces through
 [`POST /api/uploads`](/reference/http-api/assets-and-books.md#post-apiuploads).
-A dropped image is still left to the editor, which drops it.
+
+An image file dropped into a note goes in the same way, as in Obsidian: under
+its own name, numbered the same way, with the same characters made `-`. What
+lands where it fell is `![](that path)`, the form a pasted image gets. An image
+file whose name has no suffix the vault takes is named for today, as a pasted
+one is. Images and video files dropped together go in the order they came, one
+to a line. A phone browser takes no file drop from another app, so there paste
+is the way in.
 
 `<leader>ci` is the other half. On a link it writes the `!` that makes an image
 of it, on an image it takes the same character away, and on neither it writes

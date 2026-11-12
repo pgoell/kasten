@@ -1,6 +1,6 @@
 /**
  * `![](path)`, the one non-text thing in a note. Pasting, completion and the toggle are here,
- * and the paste and drop of a video file. Drawing is `live-preview-images.ts`; the request is `api.ts`.
+ * the paste and drop of a video file and the drop of an image file. Drawing is `live-preview-images.ts`; the request is `api.ts`.
  */
 
 import {
@@ -16,7 +16,7 @@ import { readClock } from "@/lib/core/clock";
 import { IMAGE_FOLDER } from "@/lib/core/layout";
 import { encodePath } from "@/lib/notes/links/note-path";
 import { vaultPaths } from "@/lib/notes/links/wikilink";
-import { isClip, isClipFile } from "@/lib/vault/file-kind";
+import { CLIP_SUFFIXES, IMAGE_SUFFIXES, isClipFile } from "@/lib/vault/file-kind";
 
 /**
  * One folder for all pasted images, not one beside each note: a moved note would strand its
@@ -155,7 +155,7 @@ async function fileImage(view: EditorView, file: File, name: string): Promise<vo
 }
 
 /**
- * Files a pasted image, or a pasted or dropped video file, and references it. Text is left to
+ * Files a pasted image, a pasted or dropped video file or a dropped image file, and references it. Text is left to
  * CodeMirror; the handler must answer at once, so the upload runs after it.
  */
 export function imagePaste() {
@@ -176,13 +176,15 @@ export function imagePaste() {
     },
     // Ahead of CodeMirror's own drop, which reads a file as text and drops a binary one.
     drop(event, view) {
-      const clips = [...(event.dataTransfer?.files ?? [])].filter(isClipFile);
-      if (clips.length === 0) return false;
+      const files = [...(event.dataTransfer?.files ?? [])].filter(
+        (file) => isClipFile(file) || NAMED.test(file.type) || keepsName(file.name, IMAGE_SUFFIXES),
+      );
+      if (files.length === 0) return false;
       event.preventDefault();
       const at = view.posAtCoords({ x: event.clientX, y: event.clientY });
       if (at !== null) view.dispatch({ selection: { anchor: at } });
       view.focus();
-      void fileClips(view, clips);
+      void fileClips(view, files);
       return true;
     },
   });
@@ -191,14 +193,22 @@ export function imagePaste() {
 /** What a wikilink cannot carry in a name, as Obsidian refuses them in one (#1922). */
 const UNLINKABLE = /[[\]|#^]/g;
 
+/** Whether a name ends in one of the suffixes, any case, after a stem that is not blank. */
+function keepsName(name: string, suffixes: string[]): boolean {
+  const dot = name.lastIndexOf(".");
+  return (
+    dot > 0 && suffixes.includes(name.slice(dot).toLowerCase()) && name.slice(0, dot).trim() !== ""
+  );
+}
+
 /**
  * The file's own name, with ` 1`, ` 2` before the suffix while any folder holds it in any case:
  * the vault overwrites nothing, and `![[name]]` must name this file and no other.
  */
-export function clipName(file: File, taken: string[]): string {
+function clipName(file: File, taken: string[]): string {
   const own = file.name.replace(UNLINKABLE, "-");
-  const dot = own.lastIndexOf(".");
-  const name = isClip(own) && own.slice(0, dot).trim() !== "" ? own : filedName(file.type);
+  const kept = keepsName(own, [...CLIP_SUFFIXES, ...IMAGE_SUFFIXES]);
+  const name = kept ? own : filedName(file.type);
   const used = new Set(taken.map((path) => path.slice(path.lastIndexOf("/") + 1).toLowerCase()));
   const stem = name.slice(0, name.lastIndexOf("."));
   const suffix = name.slice(name.lastIndexOf("."));
@@ -208,24 +218,27 @@ export function clipName(file: File, taken: string[]): string {
 }
 
 /**
- * Uploads each video in turn, then writes its embed where the cursor is by then, one to a line.
- * A refusal is reported and leaves the note alone; the next file still goes.
+ * Uploads each file in turn, then writes its reference where the cursor is by then, one to a
+ * line: `![[name]]` for a video, `![](path)` for an image as a paste writes it. A refusal is
+ * reported and leaves the note alone; the next file still goes.
  */
 async function fileClips(view: EditorView, files: File[]): Promise<void> {
-  const taken = [...(view.state.facet(vaultPaths) ?? [])];
+  const taken = [...(view.state.facet(vaultPaths) ?? []), ...(view.state.facet(imagePaths) ?? [])];
   let written = 0;
   for (const file of files) {
     const name = clipName(file, taken);
     taken.push(name);
+    const path = `${IMAGE_FOLDER}/${name}`;
     try {
-      await uploadAsset(`${IMAGE_FOLDER}/${name}`, file);
+      await uploadAsset(path, file);
     } catch (error: unknown) {
       view.state.facet(noticeHandler)?.(
-        error instanceof Error ? error.message : "The video did not go in",
+        error instanceof Error ? error.message : "The file did not go in",
       );
       continue;
     }
-    view.dispatch(view.state.replaceSelection(`${written > 0 ? "\n" : ""}![[${name}]]`));
+    const reference = isClipFile(file) ? `![[${name}]]` : `![](${encodePath(path)})`;
+    view.dispatch(view.state.replaceSelection(`${written > 0 ? "\n" : ""}${reference}`));
     written++;
   }
 }
