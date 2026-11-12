@@ -120,10 +120,11 @@ export function listening(backend: ChildProcess, log: string[]): Promise<number>
   });
 }
 
-// Plays Caddy's part in production: `/api/*` to the backend, the rest to nginx.
+// Plays Caddy's part in production: `/api/*` and the lists app's `/share/*` to the backend, the rest to nginx.
 export function serve(apiPort: number, webPort: number): Promise<Server> {
   const server = createServer((req, res) => {
-    const port = req.url?.startsWith("/api/") ? apiPort : webPort;
+    const backend = req.url?.startsWith("/api/") || req.url?.startsWith("/share/");
+    const port = backend ? apiPort : webPort;
     const upstream = request(
       { host: "127.0.0.1", port, method: req.method, path: req.url, headers: req.headers },
       (answer) => {
