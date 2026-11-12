@@ -129,6 +129,17 @@ describe("queryEmbedSource", () => {
     expect(open).toHaveBeenCalledWith("a.md", 7);
   });
 
+  it("opens a csv in its table, in any case, not in a tab", () => {
+    const openTable = vi.fn();
+    const opened = vi.spyOn(window, "open").mockReturnValue(null);
+
+    queryEmbedSource(new QueryClient(), vi.fn(), vi.fn(), openTable).open("data/Sales.CSV");
+
+    expect(openTable).toHaveBeenCalledWith("data/Sales.CSV");
+    expect(opened).not.toHaveBeenCalled();
+    opened.mockRestore();
+  });
+
   it("I1 opens a pdf in kasten's pdf view, not the browser's, at no page", () => {
     const open = vi.fn();
     const openPdf = vi.fn();
@@ -206,6 +217,12 @@ describe("parseCsv", () => {
     expect(cutNote(csv, false)).toBe(
       `Showing ${ROW_CAP} of ${ROW_CAP + 100} rows. Showing ${COLUMN_CAP} of ${COLUMN_CAP + 10} columns.`,
     );
+  });
+
+  it("skips blank lines past the row cap too, so the count stays the rows", () => {
+    const csv = parseCsv("x\n\n".repeat(ROW_CAP + 100));
+
+    expect([csv.rows.length, csv.total]).toEqual([ROW_CAP, ROW_CAP + 100]);
   });
 
   it("reads a long file in one pass, quotes and commas alike", () => {

@@ -50,8 +50,8 @@ which is the only thing in the app that asks.
 
 ## GET /api/assets/{path}
 
-Reads one book, image or sound out of the vault and answers with the bytes.
-`path` is a vault-relative POSIX path ending in one of fourteen suffixes, in any case, so
+Reads one book, image, sound or csv out of the vault and answers with the bytes.
+`path` is a vault-relative POSIX path ending in one of thirteen suffixes, in any case, so
 `Plan.PDF` is served as a pdf. A slash inside it may be sent raw or
 percent-encoded.
 

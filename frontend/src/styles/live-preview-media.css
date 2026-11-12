@@ -95,3 +95,8 @@
   font-size: 0.85em;
   margin: 0.25em 0 0;
 }
+
+/* In a pane the table scrolls within the pane's height, not the editor's 70vh. */
+[data-csv-table] .cm-table-scroll {
+  max-height: 100%;
+}

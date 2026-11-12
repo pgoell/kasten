@@ -44,8 +44,11 @@ class Rows {
   widest = 0;
   private row: string[] = [];
   private cells = 0;
+  /** The first cell's text, kept past the caps, so a blank line is told apart there too. */
+  private first = "";
 
   cell(text: string): void {
+    if (this.cells === 0) this.first = text;
     if (this.rows.length < ROW_CAP && this.row.length < COLUMN_CAP) this.row.push(text);
     this.cells += 1;
   }
@@ -57,7 +60,7 @@ class Rows {
 
   /** Ends the row the last `cell` closed. A blank line is no row, as a spreadsheet reads it. */
   end(): void {
-    const blank = this.cells === 1 && this.row.length === 1 && this.row[0] === "";
+    const blank = this.cells === 1 && this.first === "";
     if (!blank) {
       this.widest = Math.max(this.widest, this.cells);
       if (this.rows.length < ROW_CAP) this.rows.push(this.row);

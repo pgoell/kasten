@@ -101,7 +101,13 @@ function Table({ path }: { path: string }) {
     const name = path.slice(path.lastIndexOf("/") + 1);
     return showCsv(element, `/api/assets/${encodePath(path)}`, name, () => {});
   }, [path]);
-  return <div ref={box} data-csv-table className="cm-table-block min-h-0 flex-1 p-4 text-[13px]" />;
+  return (
+    <div
+      ref={box}
+      data-csv-table
+      className="cm-table-block flex min-h-0 flex-1 flex-col overflow-hidden p-4 text-[13px]"
+    />
+  );
 }
 
 /**

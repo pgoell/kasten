@@ -77,6 +77,32 @@ test("a csv opens from the file tree as a table", async ({ page, stack }) => {
   await expectTable(page, "[data-csv-table]");
 });
 
+test("in a short pane the last row and the side scroll of a long csv can be reached", async ({
+  page,
+  stack,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 420 });
+  const rows = Array.from({ length: 300 }, (_, i) => `row ${i + 1},${"wide ".repeat(60)}`);
+  await vaultWith(stack.vault, { "data/long.csv": `n,text\n${rows.join("\n")}\n` });
+  await openApp(page);
+
+  await page.getByRole("button", { name: "data", exact: true }).click();
+  await page.getByRole("button", { name: "long.csv", exact: true }).click();
+  const scroll = page.locator("[data-csv-table] .cm-table-scroll");
+  await expect(scroll.locator("tbody tr")).toHaveCount(300);
+  await scroll.evaluate((box) => box.scrollTo(box.scrollWidth, box.scrollHeight));
+
+  const pane = await page.locator("[data-image-pane]").boundingBox();
+  const shown = await scroll.boundingBox();
+  const last = await scroll.locator("tbody tr").last().boundingBox();
+  expect((shown?.y ?? 0) + (shown?.height ?? 0)).toBeLessThanOrEqual(
+    (pane?.y ?? 0) + (pane?.height ?? 0) + 1,
+  );
+  expect((last?.y ?? 0) + (last?.height ?? 0)).toBeLessThanOrEqual(
+    (shown?.y ?? 0) + (shown?.height ?? 0) + 1,
+  );
+});
+
 test("the raw csv opened in a tab is text, never html", async ({ page, stack }) => {
   await seeded(stack.vault);
   const ran = ranRequests(page);
