@@ -189,3 +189,17 @@ export function describeFolderPath(
   if (holdsANote(paths, typed)) return { kind: "open", path: typed };
   return { kind: "create", path: typed };
 }
+
+/** Whether an address's decoded path ends in one of `suffixes`, any case, query and hash left off. */
+export function endsIn(address: string, suffixes: string[]): boolean {
+  const path = address.replace(/[?#].*$/, "");
+  let name = path;
+  try {
+    name = decodeURIComponent(path);
+  } catch (error: unknown) {
+    // A stray `%` is a path nobody encoded, and its suffix reads as written.
+    if (!(error instanceof URIError)) throw error;
+  }
+  const lower = name.toLowerCase();
+  return suffixes.some((suffix) => lower.endsWith(suffix));
+}

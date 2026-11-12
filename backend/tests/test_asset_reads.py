@@ -116,7 +116,9 @@ async def test_a_video_lands_and_reads_back_whole(
     assert name not in (await client.get("/api/images")).json()
 
 
-@pytest.mark.parametrize("brand", [b"isom", b"iso2", b"iso6", b"mp41", b"mp42", b"avc1", b"dash"])
+@pytest.mark.parametrize(
+    "brand", [b"isom", b"iso2", b"iso6", b"mp41", b"mp42", b"avc1", b"dash", b"XAVC"]
+)
 async def test_an_mp4_lands_under_each_brand_a_camera_or_encoder_writes(
     client: AsyncClient, vault: Path, brand: bytes
 ) -> None:

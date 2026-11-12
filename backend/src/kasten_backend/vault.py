@@ -44,8 +44,8 @@ ASSET_MAGIC: dict[str, re.Pattern[bytes]] = {
     ".m4a": re.compile(rb".{4}ftyp", re.DOTALL),
     ".ogg": re.compile(rb"OggS"),
     ".wav": re.compile(rb"RIFF"),
-    # An ftyp box with an ISO, MPEG-4, H.264, AV1 or DASH brand; QuickTime and 3GP are refused.
-    ".mp4": re.compile(rb".{4}ftyp(?:iso[2-9m]|mp4[12]|avc1|av01|dash|M4V |mmp4)", re.DOTALL),
+    # An ftyp box with an ISO, MPEG-4, H.264, AV1, DASH or Sony XAVC brand; QuickTime, 3GP refused.
+    ".mp4": re.compile(rb".{4}ftyp(?:iso[2-9m]|mp4[12]|avc1|av01|dash|M4V |mmp4|XAVC)", re.DOTALL),
     # The EBML head, whose DocType element names webm; a Matroska file says matroska.
     ".webm": re.compile(rb"\x1a\x45\xdf\xa3.{1,64}?\x42\x82\x84webm", re.DOTALL),
     # No magic bytes: the root tag, behind a BOM, space, an XML prolog, comments and a

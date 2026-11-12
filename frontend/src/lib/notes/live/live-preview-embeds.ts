@@ -3,7 +3,7 @@ import { Decoration, EditorView, WidgetType } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
 import { noteLanguage } from "@/lib/markdown/note-language";
 import { kastenTheme } from "@/lib/notes/editor/editor-theme";
-import { clipPlayer, isClip } from "@/lib/notes/embeds/clip";
+import { clipPlayer } from "@/lib/notes/embeds/clip";
 import { showCsv } from "@/lib/notes/embeds/csv";
 import { EMBED_DEPTH, type EmbedSource, embedDepth, embedSource } from "@/lib/notes/embeds/embed";
 import { imagePaths } from "@/lib/notes/embeds/image";
@@ -20,6 +20,7 @@ import { embeddedPicture, Picture } from "@/lib/notes/live/live-preview-images";
 import { noteBody } from "@/lib/notes/text/note-frontmatter";
 import { noteSectionOf } from "@/lib/notes/text/note-section";
 import { type PdfRenderer, pdfRenderer, showPdf } from "@/lib/panes/book/pdf-view";
+import { isClip } from "@/lib/vault/file-kind";
 
 /** What a mounted embed has to let go of, keyed by its box. */
 interface Held {

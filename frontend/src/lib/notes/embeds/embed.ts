@@ -11,9 +11,9 @@ import {
   type QueryObserverResult,
 } from "@tanstack/react-query";
 import { fetchNote } from "@/lib/core/api";
-import { isClip } from "@/lib/notes/embeds/clip";
 import { encodePath } from "@/lib/notes/links/note-path";
 import { namesAFile } from "@/lib/notes/links/wikilink";
+import { opensInFilePane } from "@/lib/vault/file-kind";
 
 /** Hands an embed the text of its note, now and on every later change. */
 export interface EmbedSource {
@@ -106,7 +106,7 @@ export function queryEmbedSource(
     // video file to the image's pane. Other files get a tab, since `open` would read their bytes as note text.
     open(path, line) {
       if (path.toLowerCase().endsWith(".pdf")) openPdf(path, line);
-      else if (openTable && (path.toLowerCase().endsWith(".csv") || isClip(path))) openTable(path);
+      else if (openTable && opensInFilePane(path)) openTable(path);
       else if (namesAFile(path)) window.open(`/api/assets/${encodePath(path)}`, "_blank");
       else open(path, line);
     },

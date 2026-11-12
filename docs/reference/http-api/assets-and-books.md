@@ -154,7 +154,7 @@ root tag `<svg` must open. HTML, plain text, another XML root, a UTF-16 file
 and a root pushed past those 1024 bytes are refused.
 A video has a box or element head: an `.mp4` opens with an `ftyp` box behind
 the four bytes of its size, whose major brand is one of `isom`, `iso2` to
-`iso9`, `mp41`, `mp42`, `avc1`, `av01`, `dash`, `M4V ` or `mmp4`, what cameras,
+`iso9`, `mp41`, `mp42`, `avc1`, `av01`, `dash`, `M4V `, `mmp4` or `XAVC` (Sony), what cameras,
 phones and encoders write. A QuickTime `qt  ` file and a 3GP are refused. A
 `.webm` opens with the EBML head `\x1a\x45\xdf\xa3`, and within its first 64
 bytes a DocType element reading `webm`; a Matroska file, whose DocType reads

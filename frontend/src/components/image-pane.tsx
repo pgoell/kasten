@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { clipPlayer, isClip } from "@/lib/notes/embeds/clip";
+import { clipPlayer } from "@/lib/notes/embeds/clip";
 import { showCsv } from "@/lib/notes/embeds/csv";
 import { encodePath } from "@/lib/notes/links/note-path";
 import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
 import { useLeader } from "@/lib/ui/keys/use-leader";
+import { paneKind } from "@/lib/vault/file-kind";
 
 interface ImagePaneProps {
   /** Vault-relative path of the image to show. */
@@ -159,7 +160,7 @@ export function ImagePane({ path, commands, focusSignal, onDelete }: ImagePanePr
   /** Where each pointer that is down was last seen. A ref: nothing draws it. */
   const pointers = useRef(new Map<number, Point>());
   // A csv and a video file ride in this pane, as files of the vault's that no note owns.
-  const kind = path.toLowerCase().endsWith(".csv") ? "table" : isClip(path) ? "clip" : "image";
+  const kind = paneKind(path);
 
   // A freshly focused pane is handed a raised signal and takes the cursor, the
   // way the exam pane and the todo pane do. It has to: the pane holds no

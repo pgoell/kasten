@@ -3,16 +3,8 @@
  * Not the YouTube player, which `panes/video` owns and calls a video.
  */
 
-import { endsIn } from "@/lib/notes/embeds/audio";
-
-/** What a video file's name ends in, as the backend's `CLIP_SUFFIXES`. */
-export const CLIP_SUFFIXES = [".mp4", ".webm"];
-
-/** Whether a vault path names a video file, by its suffix in any case. Raw: a `#` is part of the name. */
-export function isClip(path: string): boolean {
-  const lower = path.toLowerCase();
-  return CLIP_SUFFIXES.some((suffix) => lower.endsWith(suffix));
-}
+import { endsIn } from "@/lib/notes/links/note-path";
+import { CLIP_SUFFIXES } from "@/lib/vault/file-kind";
 
 /** Whether an `![](address)` names a video file, read as `isAudio` reads a sound's. */
 export function isClipAddress(address: string): boolean {
