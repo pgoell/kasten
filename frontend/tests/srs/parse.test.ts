@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { appendStub } from "@/lib/review/card-write";
+import { appendStub, writeSchedule } from "@/lib/review/card-write";
 import { parseCards, readSchedule } from "@/lib/review/srs";
 import { NOTE, only } from "./fixture";
 
@@ -263,5 +263,77 @@ describe("#1590 a !suspended inside a one-line comment parks nothing", () => {
   it("#1590 a comment running past the line's end holds no token", () => {
     const card = only("#flashcards/x\n\nq::a <!-- !suspended\nmore -->\n");
     expect(card.parked).toBeNull();
+  });
+});
+
+describe("#1939 a schedule comment inside a front ends no question", () => {
+  const front = (comment: string) => `#flashcards/x\n\nIs ${comment} a:&#58;b?\n?\nyes\n`;
+  const FSRS_FRONT =
+    "<!--SR:!fsrs,2026-08-20T00:00:00.000Z,4,3.1,5.2,2,3,0,0,2026-08-16T00:00:00.000Z-->";
+
+  it.each([
+    ["an SM-2", "<!--SR:!2026-08-20,4,270-->"],
+    ["a cloze", "<!--SR:c1!2026-08-20,4,270-->"],
+    ["an FSRS", FSRS_FRONT],
+  ])("#1939 reads the ? card whose front holds %s comment, as new", (_, comment) => {
+    const cards = parseCards(front(comment), "x.md");
+    expect(cards).toHaveLength(1);
+    expect(cards[0]).toMatchObject({ front: `Is ${comment} a::b?`, back: "yes", held: null });
+    expect(cards[0]).toMatchObject({ from: 2, to: 4, cloze: null, decks: ["x"] });
+  });
+
+  it("#1939 a rating writes under the back and leaves the front's comment as written", () => {
+    const text = front("<!--SR:!2026-08-20,4,270-->");
+    const next = { due: "2026-11-13", interval: 1, ease: 250 };
+    const written = writeSchedule(text, only(text), next);
+    expect(written).toBe(`${text.slice(0, -1)}\n<!--SR:!2026-11-13,1,250-->\n`);
+    expect(only(written)).toMatchObject({
+      front: "Is <!--SR:!2026-08-20,4,270--> a::b?",
+      held: next,
+    });
+  });
+
+  it("#1939 a front of two lines runs up through the comment on its first", () => {
+    const card = only("#flashcards/x\n\nIs <!--SR:!2026-08-20,4,270--> a\nb?\n?\nyes\n");
+    expect(card.front).toBe("Is <!--SR:!2026-08-20,4,270--> a\nb?");
+  });
+
+  it("#1939 the schedule line of the card above still ends the front under it", () => {
+    const text = "#flashcards/x\n\nq1\n?\na1\n<!--SR:!2026-08-20,4,270-->\nq2\n?\na2\n";
+    expect(parseCards(text).map((card) => [card.front, card.held?.due ?? null])).toEqual([
+      ["q1", "2026-08-20"],
+      ["q2", null],
+    ]);
+  });
+
+  it("#1939 a schedule ending a line over the front still ends it", () => {
+    const text = "#flashcards/x\n\nq1\n?\na1 <!--SR:!2026-08-20,4,270-->\nq2\n?\na2\n";
+    expect(parseCards(text).map((card) => [card.from, card.front])).toEqual([[5, "q2"]]);
+  });
+});
+
+describe("#1931 a card line of comment openers parses in time that grows with its length", () => {
+  const HEAD = "#flashcards/x\n\nq::a ";
+  const filled = (unit: string, size: number, tail: string) =>
+    HEAD + unit.repeat(size / unit.length).slice(0, size - HEAD.length - tail.length) + tail;
+  // Best of three, so a busy box slows neither size alone; a square would read about 4.
+  const best = (text: string) =>
+    Math.min(
+      ...[1, 2, 3].map(() => {
+        const start = performance.now();
+        parseCards(text, "x.md");
+        return performance.now() - start;
+      }),
+    );
+
+  it.each([
+    ["unclosed openers", "<!--SR:!fsrs,", ""],
+    ["openers with a :: after them", "<!--SR:!fsrs,", " x::y"],
+    ["openers with the token after them", "<!--SR:!fsrs,", " !suspended"],
+    ["openers whose dashes close none", "<!--a--b", "-->"],
+  ])("#1931 %s: 40,000 characters take under 3 times 20,000", (_, unit, tail) => {
+    best(filled(unit, 2_000, tail));
+    const ratio = best(filled(unit, 40_000, tail)) / Math.max(best(filled(unit, 20_000, tail)), 1);
+    expect(ratio).toBeLessThan(3);
   });
 });

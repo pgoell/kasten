@@ -255,7 +255,7 @@ The comment is enough. An FSRS comment names the day of its last answer, and a
 card on its first answer, or one the plugin left in learning, was new. An SM-2 comment's due
 date is the rating's day plus the interval, so a card whose two agree was
 answered today, and a first answer always lands on the starting ease with a gap
-of 1 or 4. A few rare cases read wrong, all named in
+of 0, 1 or 4. A few rare cases read wrong, all named in
 [the format](/reference/flashcard-format/reviewing-cards.md#daily-limits),
 and the cost of each is one card more or less in a day's sitting.
 
@@ -274,8 +274,9 @@ Each of these is a real feature of Anki, left out on purpose:
   job. The import reports how many cards lost one rather than hiding it.
 * **Interval fuzz.** Cards imported on one day come due on one day. Add it when
   the bunching is felt.
-* **Undo.** A rating is written immediately, and the schedule before it is in
-  the vault's history like every other edit.
+* **Undo past one step.** A sitting takes back its last rating or suspend
+  ([Undo](/reference/flashcard-format/reviewing-cards.md)), and no more. An
+  older schedule is in the vault's history like every other edit.
 
 ## Related
 

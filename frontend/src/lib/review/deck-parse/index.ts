@@ -7,17 +7,32 @@ import { Tag } from "@/lib/markdown/tag";
 import { WikiLink } from "@/lib/notes/links/wikilink";
 import { type CodeSpan, isUnclosed, spanLines } from "@/lib/notes/text/note-code";
 
+/** What ends a comment's reach: its `-->`, or the end of its line. */
+const REACH_END = /-->|[\n\r\u2028\u2029]/g;
+
+/**
+ * Whether a `<!--` runs on past its line, or holds a `::` or the token before its `-->`.
+ * A schedule holds neither, so a card's own line stays unparsed; a copy of the token in a
+ * comment must not park (#1590). One walk, not a pattern per opener, which was quadratic (#1931).
+ */
+function hidesCard(text: string): boolean {
+  let open = text.indexOf("<!--");
+  while (open !== -1) {
+    REACH_END.lastIndex = open + 4;
+    const stop = REACH_END.exec(text);
+    const end = stop?.index ?? text.length;
+    const inside = text.slice(open + 4, end);
+    if (stop?.[0] === "\n" || inside.includes("::") || inside.includes("!suspended")) return true;
+    // An opener before `end - 3` reaches the same end, so only one overlapping it can differ.
+    open = text.indexOf("<!--", Math.max(open + 1, end - 3));
+  }
+  return false;
+}
+
 /**
  * No inline parse of a paragraph lacking a deck tag or a `<!--`, which is most of a deck note (#669).
  * One with both, a comment over several lines (#1477) or a `::` in a comment (#1547) is parsed as the editor parses it.
  */
-// A `<!--` with no `-->` before the line ends, unlike the schedule on a card's line.
-const OPEN_OVER_LINES = /<!--(?:(?!-->).)*\n/;
-// A schedule holds no `::`, so a card's own line stays unparsed.
-const HIDES_DIVIDER = /<!--(?:(?!-->).)*::/;
-// Nor the token, which a comment's copy must not park (#1590).
-const HIDES_TOKEN = /<!--(?:(?!-->).)*!suspended/;
-
 const Untagged: MarkdownConfig = {
   parseInline: [
     {
@@ -26,9 +41,7 @@ const Untagged: MarkdownConfig = {
       parse: (cx, _next, pos) =>
         pos === cx.offset &&
         !(cx.text.includes("#flashcards") && cx.text.includes("<!--")) &&
-        !OPEN_OVER_LINES.test(cx.text) &&
-        !HIDES_DIVIDER.test(cx.text) &&
-        !HIDES_TOKEN.test(cx.text)
+        !hidesCard(cx.text)
           ? cx.end
           : -1,
     },

@@ -46,4 +46,12 @@ describe("decksFrom on an imported question holding `::`", () => {
     expect(decksFrom(one("x.md", text), TODAY)).toMatchObject([{ fresh: 1, parked: 0 }]);
     expect(parseCards(text)).toHaveLength(1);
   });
+
+  it("#1939 counts a question whose front holds a schedule comment, as the sitting does", () => {
+    // The text `as_note` writes for `front-schedule` in `backend/tests/test_anki_note_writes.py`.
+    const text = "#flashcards/x\n\nIs <!--SR:!2026-08-20,4,270--> a:&#58;b?\n?\nyes\n";
+
+    expect(decksFrom(one("x.md", text), TODAY)).toMatchObject([{ name: "x", fresh: 1 }]);
+    expect(parseCards(text)).toHaveLength(1);
+  });
 });
