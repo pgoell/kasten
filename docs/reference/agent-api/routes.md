@@ -300,8 +300,9 @@ explains.
 Only a page overwrites. The replace is atomic: the bytes go to a hidden temporary
 file that is renamed over the old page, and the change lands as one jj change, so
 the old page stays in the vault's history. There is no delete here. A file sent
-to the wrong path stays there until someone removes it from the browser (an
-image) or the shell (a book or a page).
+to the wrong path stays there until someone removes it: the browser's file tree
+deletes an image, a video or a csv, and anything with its folder;
+`DELETE /api/assets/{path}` takes a sound too; the shell takes anything.
 
 No MCP tool carries a PDF, epub or image. A tool call is JSON the model writes, so a file would
 have to travel as base64 the model types out, which fails long before a paper's
