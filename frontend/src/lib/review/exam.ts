@@ -77,7 +77,8 @@ export type Answers = Record<string, string[]>;
 // `Q` as well as `Question`, and the number optional: `### Question 1.1`,
 // `### Q7` and a bare `### Question` all open one. `#{2,6}` rather than a fixed
 // level, because nothing about an exam depends on how deep its headings sit.
-const QUESTION = /^(#{2,6})\s+(?:Question|Q)\.?\s*([\d.]+)?\s*(?:[·|:-]\s*(.*))?$/i;
+// One `\s*` owns the run before the number, and the text after the dash starts on a non-blank (#1911).
+const QUESTION = /^(#{2,6})\s+(?:Question|Q)\.?\s*(?:([\d.]+)\s*)?(?:[·|:-]\s*(?!\s)(.*))?$/i;
 
 // A text is one blank right before its tail, or starts and ends on a non-blank, and
 // `ROW`'s dash takes its whole blank run, so each pattern reads a blank run once (#1907).

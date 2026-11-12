@@ -314,3 +314,12 @@ describe("todoCompletions", () => {
     expect(complete("a note: about bob :", true)).toBeNull();
   });
 });
+
+describe("#1904 a 🔁 rule before a long run of blanks", () => {
+  it("reads in linear time", () => {
+    // A run after the 🔁 that ends on a character a rule cannot hold; main's took about 4 s.
+    const start = performance.now();
+    names(`- [ ] call bob 🔁${" ".repeat(80_000)}.`);
+    expect(performance.now() - start).toBeLessThan(200);
+  });
+});

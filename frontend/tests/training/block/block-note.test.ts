@@ -208,3 +208,21 @@ describe("#1905 a section heading before a long run of blanks", () => {
     expect(SECTION_HEADING.exec(line)?.[1]).toBe(text);
   });
 });
+
+describe("#1908 a section heading after a long run of blanks", () => {
+  it("reads in linear time", () => {
+    // A run before the text, then a mid-line `\r`; main's took about 4 s.
+    const start = performance.now();
+    SECTION_HEADING.exec(`##${" ".repeat(60_000)}a\rb`);
+    expect(performance.now() - start).toBeLessThan(200);
+  });
+
+  // An all-blank heading is its last blank that a `.` can read.
+  it.each([
+    ["##  \r\n", " "],
+    ["##\t  ", " "],
+    ["## \n", undefined],
+  ])("reads %j as on main", (line, text) => {
+    expect(SECTION_HEADING.exec(line)?.[1]).toBe(text);
+  });
+});

@@ -136,3 +136,25 @@ describe("#1905 an outline heading before a long run of blanks", () => {
     expect(ATX.exec(line)?.[2]).toBe(words);
   });
 });
+
+describe("#1908 an outline heading after a long run of blanks or closing hashes", () => {
+  // A run before the words then a mid-line `\r`, and a run of closing hashes then a word; main's took seconds.
+  it.each([
+    ["leading blanks", `##${" ".repeat(40_000)}a\rb`],
+    ["closing hashes", `# a${" ".repeat(40_000)}${"#".repeat(50_000)}x`],
+  ])("reads %s in linear time", (_, line) => {
+    const start = performance.now();
+    ATX.exec(line);
+    expect(performance.now() - start).toBeLessThan(200);
+  });
+
+  it.each([
+    ["# ###", "#"],
+    ["# a##", "a"],
+    ["# a#b ##", "a#b"],
+    ["# ## #x", "## #x"],
+    ["#  \r\n", " "],
+  ])("reads %j as on main", (line, words) => {
+    expect(ATX.exec(line)?.[2]).toBe(words);
+  });
+});

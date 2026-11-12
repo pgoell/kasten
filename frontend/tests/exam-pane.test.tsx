@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ExamPane } from "@/components/exam-pane";
+import { parseExam } from "@/lib/review/exam";
 import { stubCommands } from "./stub-commands";
 
 // Standing in for the module rather than for `fetch`, the way the todo pane's
@@ -495,5 +496,30 @@ describe("ExamPane", () => {
     fetchNote.mockResolvedValue("# Just a note\n\nSome prose.\n");
     open();
     expect((await screen.findByRole("alert")).textContent).toContain("No exam in");
+  });
+});
+
+describe("#1911 a question heading before a long run of blanks", () => {
+  // A run that does not reach the line end, before or after the dash; main's took seconds.
+  it.each([
+    ["before the dash", `### Q${" ".repeat(60_000)}x`],
+    ["after the dash", `### Q5 -${" ".repeat(60_000)}a\rb`],
+  ])("reads a run %s in linear time", (_, line) => {
+    const start = performance.now();
+    parseExam(`# Exam\n\n${line}\n`);
+    expect(performance.now() - start).toBeLessThan(200);
+  });
+
+  // The number and the pick count read as on main, a long run after the dash included.
+  it.each([
+    ["### Q1", "1", 1],
+    ["### Question 1.2 · select TWO", "1.2", 2],
+    ["### Q.3 - choose 3", "3", 3],
+    ["### Q 4 |   pick two", "4", 2],
+    ["### Q", "1", 1],
+  ])("reads %j as on main", (line, id, pick) => {
+    const question = parseExam(`# Exam\n\n${line}\n\n- A. a\n- B. b\n- C. c\n`)?.questions[0];
+    expect(question?.id).toBe(id);
+    expect(question?.pick).toBe(pick);
   });
 });

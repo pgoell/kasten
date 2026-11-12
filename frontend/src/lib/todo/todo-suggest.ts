@@ -112,8 +112,9 @@ const TERM = /(due|sched|start|est):(\S*)$/;
 /**
  * A `🔁` at the end of a todo line, with whatever has been typed after it. A
  * rule is several words, so this runs over spaces where a date stops at one.
+ * The rule starts on a non-blank, so one run of blanks is read once (#1904).
  */
-const RULE = /🔁(️?)[ \t]*([\w, \t]*)$/;
+const RULE = /🔁(️?)[ \t]*((?:[\w,][\w, \t]*)?)$/;
 
 /** The same at the end of the shorthand, where a rule is one word. */
 const EVERY_TERM = /every:(\S*)$/;

@@ -136,3 +136,29 @@ def test_1905_a_title_reads_as_on_main(line: str, found: str | None) -> None:
     match = HEADING.match(line)
 
     assert (match and match[1]) == found
+
+
+def test_1908_a_title_before_a_long_closing_hash_run_reads_in_linear_time() -> None:
+    # A title, 40,000 blanks, 20,000 hashes, then a word; main's took about 6 s.
+    code = (
+        "import time; from kasten_backend.posts.published import HEADING;"
+        " start = time.perf_counter(); HEADING.match('# a' + ' ' * 40_000 + '#' * 20_000 + 'x');"
+        " print(time.perf_counter() - start)"
+    )
+
+    done = subprocess.run(  # noqa: S603
+        [sys.executable, "-c", code], check=True, timeout=60, capture_output=True, text=True
+    )
+
+    assert float(done.stdout) < 1
+
+
+# Closing hashes start where a run starts, or right after a title's first `#`.
+@pytest.mark.parametrize(
+    ("line", "found"),
+    [("# ###", "#"), ("# a##", "a"), ("# a#b ##", "a#b"), ("# ## #x", "## #x"), ("# \t", "\t")],
+)
+def test_1908_a_title_reads_as_on_main(line: str, found: str | None) -> None:
+    match = HEADING.match(line)
+
+    assert (match and match[1]) == found
