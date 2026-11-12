@@ -13,7 +13,7 @@ const LINE_END = /[\n\r\u2028\u2029]/g;
 /**
  * Whether a `<!--` runs on past its line, or holds a `::` or the token before its `-->`.
  * A schedule holds neither, so a card's own line stays unparsed; a copy of the token in a
- * comment must not park (#1590). One walk, not a pattern per opener, which was quadratic (#1931).
+ * comment must not park (#1590). Linear in the text's length (#1931).
  */
 function hidesCard(text: string): boolean {
   // The next `-->` and line end, kept while ahead of the walk so no search repeats.

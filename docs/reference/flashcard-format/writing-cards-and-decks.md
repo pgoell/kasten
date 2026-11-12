@@ -149,7 +149,8 @@ the card's. A fence nobody closed is the one exception: there a blank line ends
 the side as it does outside code, so a card above it never reaches a card the
 fence hides. A schedule comment or `!suspended` ends the answer in code too,
 and the question never runs up past a schedule comment that ends its line, as a
-card's own does. One with text after it on its line is part of the question.
+card's own does, past one in code, or into a line the card above took. Outside
+code, one with text after it on its line is part of the question.
 
 Nor does the question run up past a one-line card, with a schedule or without.
 obsidian-spaced-repetition asks a `::` line over the question as a card of its
