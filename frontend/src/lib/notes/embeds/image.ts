@@ -1,6 +1,6 @@
 /**
  * `![](path)`, the one non-text thing in a note. Pasting, completion and the toggle are here,
- * the paste and drop of a video file and the drop of an image file. Drawing is `live-preview-images.ts`; the request is `api.ts`.
+ * the paste and drop of a video file and the drop of an image file; the pick is `pick.ts`. Drawing is `live-preview-images.ts`; the request is `api.ts`.
  */
 
 import {
@@ -44,6 +44,15 @@ export const noticeSource = Facet.define<
 export const savesEdits = Facet.define<() => boolean, () => boolean>({
   combine: (getters) => getters[0] ?? (() => true),
 });
+
+/**
+ * Opens the file picker into a view. A facet, so the key tables load without `pick.ts`,
+ * whose key-up wait needs a window.
+ */
+export const filePicker = Facet.define<
+  (view: EditorView) => void,
+  ((view: EditorView) => void) | undefined
+>({ combine: (pickers) => pickers[0] });
 
 /** Every image in the vault. Null, not empty, when unset. */
 export const imagePaths = Facet.define<string[], string[] | null>({
@@ -267,10 +276,7 @@ export function imagePaste(path: string | undefined) {
       },
       // Ahead of CodeMirror's own drop, which reads a file as text and drops a binary one.
       drop(event, view) {
-        const files = [...(event.dataTransfer?.files ?? [])].filter(
-          (file) =>
-            isClipFile(file) || NAMED.test(file.type) || keepsName(file.name, IMAGE_SUFFIXES),
-        );
+        const files = [...(event.dataTransfer?.files ?? [])].filter(vaultTakes);
         if (files.length === 0) return false;
         event.preventDefault();
         const at = view.posAtCoords({ x: event.clientX, y: event.clientY });
@@ -281,6 +287,11 @@ export function imagePaste(path: string | undefined) {
       },
     }),
   ];
+}
+
+/** Whether a dropped or picked file is an image or a video file the vault takes. */
+export function vaultTakes(file: File): boolean {
+  return isClipFile(file) || NAMED.test(file.type) || keepsName(file.name, IMAGE_SUFFIXES);
 }
 
 /** What a wikilink cannot carry in a name, as Obsidian refuses them in one (#1922). */
@@ -315,7 +326,7 @@ function clipName(file: File, taken: string[]): string {
  * line: `![[name]]` for a video, `![](path)` for an image as a paste writes it. A refusal is
  * reported and leaves the note alone; the next file still goes.
  */
-async function fileClips(view: EditorView, files: File[]): Promise<void> {
+export async function fileClips(view: EditorView, files: File[]): Promise<void> {
   const taken = [...(view.state.facet(vaultPaths) ?? []), ...(view.state.facet(imagePaths) ?? [])];
   const notice = view.state.facet(noticeSource)();
   let written = 0;

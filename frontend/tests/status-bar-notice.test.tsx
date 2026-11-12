@@ -1,11 +1,17 @@
+import { undo } from "@codemirror/commands";
+import { EditorView } from "@codemirror/view";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import { Editor } from "@/components/editor";
 import { StatusBar } from "@/components/status-bar";
 import { NoteMissing } from "@/lib/core/api";
+import { toggleVim } from "@/lib/notes/editor/vim-setting";
 import { IMAGE_FOLDER } from "@/lib/notes/embeds/image";
 import { saveQueue } from "@/lib/notes/note/save-queue";
+import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
 import { Leaving } from "@/lib/ui/motion/leaving";
+import { paletteEntries } from "@/lib/ui/palette";
+import { CLIP_SUFFIXES, IMAGE_SUFFIXES } from "@/lib/vault/file-kind";
 
 // The upload and the conditional write are the two requests a paste sends; what the bar and
 // the note show of them is what these tests own (#1945).
@@ -368,5 +374,148 @@ describe("an upload pasted into a note (#1945)", () => {
       expect(container.querySelector(".cm-content")?.textContent).toContain("walk.mp4"),
     );
     expect(updateNote).not.toHaveBeenCalled();
+  });
+});
+
+const ROW = "Pick an image or video file into this note";
+const noCommands = new Proxy({}, { get: () => () => undefined }) as EditorCommands;
+const shot = (name = "shot.png", type = "image/png") => new File(["b"], name, { type });
+
+/** Taps the palette's row over the note's editor, and answers the input it clicked and its pick. */
+function openPicker(container: HTMLElement = document.body) {
+  const view = EditorView.findFromDOM(container.querySelector(".cm-editor") as HTMLElement);
+  const click = vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(() => undefined);
+  const row = paletteEntries(noCommands, view).find((entry) => entry.label === ROW);
+  act(() => row?.run());
+  // In the tap itself, no await between: the browser shows no picker after one.
+  expect(click).toHaveBeenCalledTimes(1);
+  const input = click.mock.contexts[0] as HTMLInputElement;
+  click.mockRestore();
+  const pick = (...files: File[]) => {
+    Object.defineProperty(input, "files", { value: files, configurable: true });
+    fireEvent.change(input);
+  };
+  return { view: view as EditorView, input, pick };
+}
+
+describe("a file picked into a note (#1946)", () => {
+  beforeEach(() => {
+    uploadAsset.mockReset();
+    updateNote.mockReset();
+    updateNote.mockResolvedValue(null);
+    changed.mockReset();
+  });
+
+  it.each(["on", "off"])(
+    "with vim %s goes up on the bar and lands at the cursor as a paste",
+    async (vim) => {
+      if (vim === "off") act(() => toggleVim());
+      onTestFinished(() => {
+        if (vim === "off") act(() => toggleVim());
+      });
+      const held = holdUploads();
+      render(<Page />);
+      const { view, input, pick } = openPicker();
+      expect(input.multiple).toBe(true);
+      act(() => view.dispatch({ selection: { anchor: 4 } }));
+
+      pick(clip());
+      await waitFor(() => expect(reading()).toBe("Uploading walk.mp4 0%"));
+      act(() => held[0]?.end());
+
+      await waitFor(() => expect(changed).toHaveBeenLastCalledWith("text![[walk.mp4]] of a.md"));
+      expect(reading()).toBeUndefined();
+      act(() => {
+        undo(view);
+      });
+      expect(view.state.doc.toString()).toBe("text of a.md");
+    },
+  );
+
+  it("files an image under its own name, several in order, a taken name numbered", async () => {
+    uploadAsset.mockResolvedValue(undefined);
+    render(<Page />);
+    const { view, pick } = openPicker();
+    act(() => view.dispatch({ selection: { anchor: 0 } }));
+
+    pick(shot(), clip(), shot());
+
+    const ref = (name: string) => `![](${encodeURI(`${IMAGE_FOLDER}/${name}`)})`;
+    await waitFor(() =>
+      expect(changed).toHaveBeenLastCalledWith(
+        `${ref("shot.png")}\n![[walk.mp4]]\n${ref("shot 1.png")}text of a.md`,
+      ),
+    );
+    expect(uploadAsset.mock.calls.map(([path]) => path)).toEqual(
+      ["shot.png", "walk.mp4", "shot 1.png"].map((name) => `${IMAGE_FOLDER}/${name}`),
+    );
+  });
+
+  it("writes into the file of a note closed while the picker was open", async () => {
+    uploadAsset.mockResolvedValue(undefined);
+    const { rerender } = render(<Page path="a.md" />);
+    const { pick } = openPicker();
+    rerender(<Page path="b.md" />);
+
+    pick(clip());
+
+    await waitFor(() => expect(updateNote).toHaveBeenCalledWith("a.md", expect.any(Function)));
+    const write = updateNote.mock.lastCall?.[1] as (text: string) => string;
+    expect(write("x")).toBe("x\n![[walk.mp4]]\n");
+    expect(changed).not.toHaveBeenCalled();
+  });
+
+  it("names a file the vault does not take and sends the rest, and a cancel sends nothing", async () => {
+    uploadAsset.mockResolvedValue(undefined);
+    render(<Page />);
+    const { view, pick } = openPicker();
+    act(() => view.dispatch({ selection: { anchor: 0 } }));
+
+    pick();
+    pick(new File(["m"], "IMG_0001.MOV", { type: "video/quicktime" }), clip());
+
+    await waitFor(() =>
+      expect(screen.getByTestId("notice")).toHaveTextContent(
+        "IMG_0001.MOV is not an image or a video file the vault takes",
+      ),
+    );
+    await waitFor(() => expect(changed).toHaveBeenLastCalledWith("![[walk.mp4]]text of a.md"));
+    expect(uploadAsset).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens on <leader>ca once the last key is up, as <leader>cb does", () => {
+    render(<Page />);
+    const click = vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(() => undefined);
+    const editor = document.querySelector(".cm-content") as HTMLElement;
+    for (const key of [" ", "c", "a"]) fireEvent.keyDown(editor, { key, code: key });
+    expect(click).not.toHaveBeenCalled();
+    for (const key of [" ", "c", "a"]) fireEvent.keyUp(editor, { key, code: key });
+    expect(click).toHaveBeenCalledTimes(1);
+    click.mockRestore();
+  });
+
+  it("writes nothing when the vault refuses, and the bar says why", async () => {
+    uploadAsset.mockRejectedValue(new Error("Something is already there"));
+    render(<Page />);
+    openPicker().pick(shot());
+
+    await waitFor(() =>
+      expect(screen.getByTestId("notice")).toHaveTextContent("Something is already there"),
+    );
+    expect(changed).not.toHaveBeenCalled();
+  });
+
+  it("offers only what the vault takes, and clears the last pick so the same file fires again", () => {
+    render(<Page />);
+    const cleared = vi.spyOn(HTMLInputElement.prototype, "value", "set");
+    const { input } = openPicker();
+
+    expect(input.accept.split(",").sort()).toEqual(
+      [...IMAGE_SUFFIXES, ...CLIP_SUFFIXES, "image/gif", "image/jpeg", "image/png"]
+        .concat(["image/svg+xml", "image/webp", "video/mp4", "video/webm"])
+        .sort(),
+    );
+    expect(cleared).toHaveBeenCalledWith("");
+    cleared.mockRestore();
   });
 });

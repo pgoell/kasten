@@ -33,6 +33,7 @@ import { tableSource } from "@/lib/notes/editor/table-source";
 import { vimInsertUndo, vimKeys } from "@/lib/notes/editor/vim-mode";
 import { type EmbedSource, embedSource } from "@/lib/notes/embeds/embed";
 import {
+  filePicker,
   imageCompletions,
   imagePaste,
   imagePaths,
@@ -40,6 +41,7 @@ import {
   noticeSource,
   savesEdits,
 } from "@/lib/notes/embeds/image";
+import { pickFiles } from "@/lib/notes/embeds/pick";
 import { relationCompletions, vaultRelations } from "@/lib/notes/links/ontology";
 import { vaultPaths, wikiLinkCompletions } from "@/lib/notes/links/wikilink";
 import { livePreview } from "@/lib/notes/live/live-preview";
@@ -293,6 +295,7 @@ export function createNoteView(o: {
         // handler on the same event and runs when this one declines, which is
         // every paste that carries text.
         imagePaste(o.path),
+        filePicker.of(pickFiles),
         noticeHandler.of((message) => latest.current.onNotice?.(message)),
         noticeSource.of(() => latest.current.onNotice),
         savesEdits.of(() => latest.current.left !== true),
