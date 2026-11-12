@@ -116,7 +116,8 @@ The endpoint takes any legal path and decides nothing about where a book or an
 image belongs. On the default layout, `<leader>cb` sends
 `00 Inbox/02 Books/<the file's own name>.epub` and writes the note beside it
 afterwards; a pasted image goes to
-`99 Misc/02 Assets/01 Images/<today>-<eight hex digits>.png`. Both are choices
+`99 Misc/02 Assets/01 Images/<today>-<eight hex digits>.png`, and a pasted or
+dropped video file to that folder under its own name. These are choices
 made in the client and not rules of this endpoint.
 
 | Status | Means |

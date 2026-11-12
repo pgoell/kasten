@@ -20,7 +20,7 @@ picture where the source at least says what was meant.
 
 | Key | Does |
 | --- | --- |
-| Ctrl+v | Put the clipboard's image in the vault and write the reference to it |
+| Ctrl+v | Put the clipboard's image or video file in the vault and write the reference to it |
 | `<leader>ci` | Toggle the link at the cursor into an image, and back |
 | `<leader>w` | Download the picture in the pane, in an image pane |
 
@@ -43,6 +43,16 @@ disagree with the suffix they arrived under, all three on the rules
 [POST /api/assets/{path}](/reference/http-api/assets-and-books.md#post-apiassetspath) sets out.
 An `image/svg+xml` on the clipboard is filed under `.svg`, and drawn as an
 `<img>`, which runs none of its script.
+
+A video file, an mp4 or a webm, goes in by a paste or a drop, as in Obsidian.
+It goes to the same folder under its own name, and `![[walk.mp4]]` lands where
+the cursor is when the upload ends; a drop first puts the cursor where the file
+fell. A name any folder already holds, in any case, gets ` 1`, ` 2` before the
+suffix, so the vault overwrites nothing and the link names this file alone.
+The characters a wikilink cannot carry, `[ ] | # ^`, become `-`. Several files
+go in order, one embed to a line, and a file over 10MiB goes up in pieces through
+[`POST /api/uploads`](/reference/http-api/assets-and-books.md#post-apiuploads).
+A dropped image is still left to the editor, which drops it.
 
 `<leader>ci` is the other half. On a link it writes the `!` that makes an image
 of it, on an image it takes the same character away, and on neither it writes

@@ -28,6 +28,13 @@ export function isClip(path: string): boolean {
   return CLIP_SUFFIXES.some((suffix) => lower.endsWith(suffix));
 }
 
+/** Whether a file is a video the vault takes: by its suffix, or by its type for a name with none. */
+export function isClipFile(file: { name: string; type: string }): boolean {
+  return (
+    isClip(file.name) || CLIP_SUFFIXES.some((suffix) => file.type === `video/${suffix.slice(1)}`)
+  );
+}
+
 /** What the image's pane draws a vault file as: a csv as a table, a video file as a player. */
 export function paneKind(path: string): "table" | "clip" | "image" {
   if (path.toLowerCase().endsWith(".csv")) return "table";

@@ -251,7 +251,7 @@ written in it, with `<leader>fg`, and `[[wikilinks]]` are followed with `gf` or
 Enter, read both ways with `<leader>gb` and `<leader>go`, and carried along when
 the note or the folder they name is renamed.
 An image pasted from the clipboard goes into the vault and is drawn where you
-pasted it. A table is drawn as a table until the cursor goes into it, where its
+pasted it, and so does a video file pasted or dropped into a note. A table is drawn as a table until the cursor goes into it, where its
 pipes show in the monospaced face; Tab walks its cells, and a table you typed
 into has its columns lined up when you leave it or save.
 

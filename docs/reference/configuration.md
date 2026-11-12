@@ -89,7 +89,7 @@ agent instructions spell them as set.
 | --- | --- | --- |
 | `KASTEN_INBOX_PATH` | `00 Inbox` | a note made from a `[[link]]` nothing answers to, a clipped page, an imported markdown file; books in `02 Books` and documents in `02 Documents` under it; an agent's notes in `00 Agent` under it |
 | `KASTEN_PERIODIC_PATH` | `01 Periodic` | the periodic notes, in `00 Daily`, `01 Weekly`, `02 Monthly`, `03 Quarterly` and `04 Yearly` under it, and the dump |
-| `KASTEN_IMAGES_PATH` | `99 Misc/02 Assets/01 Images` | an image pasted or dropped into a note |
+| `KASTEN_IMAGES_PATH` | `99 Misc/02 Assets/01 Images` | an image pasted into a note, and a video file pasted or dropped into one |
 | `KASTEN_CONFIG_PATH` | `99 Misc/01 Config` | `reading-this-vault.md`, `todo-views.md` and `reading-now.md`, and the ontology and three agent guides in `01 Agents` under it |
 | `KASTEN_ARCHIVE_PATH` | `98 Archive` | see [its own section](#kasten_archive_path) |
 | `KASTEN_SKILLS_PATH` | `.claude/skills` | the skills the agent's `list_skills`, `read_skill` and `GET /agent/skills` read, never write. A missing folder lists none |

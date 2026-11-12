@@ -1,17 +1,21 @@
 import { CompletionContext } from "@codemirror/autocomplete";
+import { undo } from "@codemirror/commands";
 import { forceParsing } from "@codemirror/language";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { Editor } from "@/components/editor";
 import { ARCHIVE, applyLayout, INBOX, type Layout, PERIODIC } from "@/lib/core/layout";
+import { toggleVim } from "@/lib/notes/editor/vim-setting";
 import { IMAGE_FOLDER, imageCompletions, imagePaths } from "@/lib/notes/embeds/image";
+import { uploads } from "./upload-backend-fixture";
 
 // The upload is the one thing here that leaves the browser. Standing in for the
 // module is the right level: what these tests own is which path the paste writes
 // and what it puts in the note, not the HTTP.
 const { uploadAsset } = vi.hoisted(() => ({ uploadAsset: vi.fn() }));
-vi.mock("@/lib/core/api", () => ({ uploadAsset }));
+// Partial, so the video file past 100 MB can go through the real pieces.
+vi.mock("@/lib/core/api", async (actual) => ({ ...(await actual<object>()), uploadAsset }));
 
 const SHOT = `${IMAGE_FOLDER}/2026-08-12-abcdef01.png`;
 
@@ -27,11 +31,17 @@ const LAYOUT: Layout = {
 /** The path as a note spells it, which is the one a markdown destination takes. */
 const ENCODED = encodeURI(SHOT);
 
-function open(initialDoc: string, images?: string[]) {
+function open(initialDoc: string, images?: string[], paths?: string[]) {
   const onChange = vi.fn();
   const onNotice = vi.fn();
   const { container } = render(
-    <Editor initialDoc={initialDoc} images={images} onChange={onChange} onNotice={onNotice} />,
+    <Editor
+      initialDoc={initialDoc}
+      images={images}
+      paths={paths}
+      onChange={onChange}
+      onNotice={onNotice}
+    />,
   );
   // The parse at state creation gets 20ms of wall clock; on a loaded machine
   // the first draw can come before the image node exists (#365, #436).
@@ -42,6 +52,7 @@ function open(initialDoc: string, images?: string[]) {
 
   return {
     container,
+    view: view as EditorView,
     editor: container.querySelector(".cm-content") as HTMLElement,
     onNotice,
     /** The document itself, which the rendering hides the marks of. */
@@ -252,5 +263,162 @@ describe("pasting an image", () => {
     fireEvent.paste(editor, { clipboardData: { files: [], getData: () => "some text" } });
 
     expect(uploadAsset).not.toHaveBeenCalled();
+  });
+});
+
+/** Video files as a paste or a drop hands them over. */
+function hand(how: "paste" | "drop", editor: HTMLElement, files: File[]) {
+  if (how === "paste") {
+    fireEvent.paste(editor, { clipboardData: { files, getData: () => "" } });
+  } else {
+    fireEvent.drop(editor, { dataTransfer: { files, getData: () => "" } });
+  }
+}
+
+const walk = (name = "walk.mp4", type = "video/mp4") => new File(["bytes"], name, { type });
+
+describe("pasting or dropping a video file (#1922)", () => {
+  beforeEach(() => {
+    uploadAsset.mockReset();
+    uploadAsset.mockResolvedValue(undefined);
+  });
+
+  // Vim is on in a test unless toggled, a pointer being fine.
+  it.each([
+    ["paste", "on"],
+    ["drop", "on"],
+    ["paste", "off"],
+    ["drop", "off"],
+  ] as const)("a %s with vim %s files it under its own name and embeds it", async (how, vim) => {
+    if (vim === "off") act(() => toggleVim());
+    try {
+      const { editor, doc } = open("");
+      const file = walk();
+
+      hand(how, editor, [file]);
+
+      await waitFor(() =>
+        expect(uploadAsset).toHaveBeenCalledWith(`${IMAGE_FOLDER}/walk.mp4`, file),
+      );
+      await waitFor(() => expect(doc()).toBe("![[walk.mp4]]"));
+    } finally {
+      if (vim === "off") act(() => toggleVim());
+    }
+  });
+
+  it("writes the embed at the cursor of a paste", async () => {
+    act(() => toggleVim());
+    onTestFinished(() => act(() => toggleVim()));
+    const { editor, view, doc } = open("before after");
+    act(() => view.dispatch({ selection: { anchor: 7 } }));
+
+    hand("paste", editor, [walk("run.webm", "video/webm")]);
+
+    await waitFor(() => expect(doc()).toBe("before ![[run.webm]]after"));
+  });
+
+  it("writes the embed where the file was dropped", async () => {
+    act(() => toggleVim());
+    onTestFinished(() => act(() => toggleVim()));
+    const { editor, view, doc } = open("ab");
+    act(() => view.dispatch({ selection: { anchor: 2 } }));
+    // jsdom lays nothing out, so the point under the drop is stood in for.
+    const at = vi.spyOn(view, "posAtCoords").mockReturnValue(1);
+
+    hand("drop", editor, [walk()]);
+
+    await waitFor(() => expect(doc()).toBe("a![[walk.mp4]]b"));
+    at.mockRestore();
+  });
+
+  it("numbers a name any folder holds in any case, and overwrites nothing", async () => {
+    const paths = ["a.md", "clips/WALK.mp4", "x/walk 1.mp4"];
+    const { editor, doc } = open("", undefined, paths);
+
+    hand("paste", editor, [walk()]);
+
+    await waitFor(() => expect(doc()).toBe("![[walk 2.mp4]]"));
+    expect(uploadAsset).toHaveBeenCalledWith(`${IMAGE_FOLDER}/walk 2.mp4`, expect.any(File));
+  });
+
+  it("files each of several, one embed to a line, two of one name apart", async () => {
+    const { editor, doc } = open("");
+
+    hand("drop", editor, [walk(), walk(), walk("run.webm", "video/webm")]);
+
+    await waitFor(() => expect(doc()).toBe("![[walk.mp4]]\n![[walk 1.mp4]]\n![[run.webm]]"));
+  });
+
+  it("writes nothing into the note when the vault refuses, and says why", async () => {
+    uploadAsset.mockRejectedValue(new Error("Something is already there"));
+    const { editor, doc, onNotice } = open("plain");
+
+    hand("drop", editor, [walk()]);
+
+    await waitFor(() => expect(onNotice).toHaveBeenCalledWith("Something is already there"));
+    expect(doc()).toBe("plain");
+  });
+
+  it("takes the embed back out with one undo", async () => {
+    act(() => toggleVim());
+    onTestFinished(() => act(() => toggleVim()));
+    const { editor, view, doc } = open("plain");
+
+    hand("paste", editor, [walk()]);
+    await waitFor(() => expect(doc()).toBe("![[walk.mp4]]plain"));
+
+    act(() => {
+      undo(view);
+    });
+    expect(view.state.doc.toString()).toBe("plain");
+  });
+
+  it("files a name a wikilink cannot carry under one it can, and a nameless one by date", async () => {
+    const { editor, doc } = open("");
+
+    hand("paste", editor, [walk("a [b] | c#d^e.mp4"), walk("clip", "video/webm")]);
+
+    await waitFor(() => expect(uploadAsset).toHaveBeenCalledTimes(2));
+    const [nameless] = uploadAsset.mock.lastCall as [string, File];
+    expect(nameless).toMatch(
+      new RegExp(`^${IMAGE_FOLDER}/\\d{4}-\\d{2}-\\d{2}-[\\da-f]{8}\\.webm$`),
+    );
+    const name = nameless.slice(nameless.lastIndexOf("/") + 1);
+    await waitFor(() => expect(doc()).toBe(`![[a -b- - c-d-e.mp4]]\n![[${name}]]`));
+  });
+
+  it("leaves a drop carrying no video file to the editor's own", () => {
+    const { editor } = open("");
+
+    hand("drop", editor, [new File(["text"], "notes.txt", { type: "text/plain" })]);
+
+    expect(uploadAsset).not.toHaveBeenCalled();
+  });
+
+  it("sends a file past 100 MB in pieces through /api/uploads, then embeds it", async () => {
+    const { uploadAsset: real } = await vi.importActual<{ uploadAsset: typeof uploadAsset }>(
+      "@/lib/core/api",
+    );
+    uploadAsset.mockImplementation(real);
+    const sent = uploads();
+    // A fake: it says 105 MiB and hands out pieces of the size asked, holding no bytes itself.
+    const big = walk();
+    const size = 105 * 1024 * 1024;
+    const sized = (bytes: number) => Object.defineProperty(new Blob(), "size", { value: bytes });
+    Object.defineProperties(big, {
+      size: { value: size },
+      slice: { value: (start: number, end: number) => sized(end - start) },
+    });
+    const { editor, doc } = open("");
+
+    hand("paste", editor, [big]);
+
+    await waitFor(() => expect(doc()).toBe("![[walk.mp4]]"));
+    expect(sent[0]).toBe(`POST /api/uploads {"size":${size}}`);
+    expect(sent.filter((line) => line.startsWith("PUT /api/uploads/u1/"))).toHaveLength(11);
+    expect(sent.at(-1)).toBe(
+      `POST /api/assets/${encodeURIComponent(`${IMAGE_FOLDER}/walk.mp4`)}?upload=u1`,
+    );
+    vi.unstubAllGlobals();
   });
 });
