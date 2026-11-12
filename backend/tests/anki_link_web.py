@@ -51,12 +51,15 @@ def apkg(deck: str = "French", *, review: bool = False) -> bytes:
             db.execute("CREATE TABLE notes (id INTEGER PRIMARY KEY, mid INTEGER, flds TEXT)")
             db.execute(
                 "CREATE TABLE cards (id INTEGER PRIMARY KEY, nid INTEGER, did INTEGER,"
-                " ord INTEGER, type INTEGER, ivl INTEGER, factor INTEGER, due INTEGER)"
+                " ord INTEGER, type INTEGER, ivl INTEGER, factor INTEGER, due INTEGER,"
+                " reps INTEGER DEFAULT 0, lapses INTEGER DEFAULT 0, data TEXT DEFAULT '')"
             )
             db.execute("CREATE TABLE col (decks TEXT, models TEXT, crt INTEGER)")
             db.execute("INSERT INTO notes VALUES (1, 1, 'Bonjour\x1fhello')")
             db.execute(
-                "INSERT INTO cards VALUES (1, 1, 10, 0, ?, 4, 2500, 10)", (2 if review else 0,)
+                "INSERT INTO cards (id, nid, did, ord, type, ivl, factor, due)"
+                " VALUES (1, 1, 10, 0, ?, 4, 2500, 10)",
+                (2 if review else 0,),
             )
             db.execute(
                 "INSERT INTO col VALUES (?, ?, 1767225600)",
