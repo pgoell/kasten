@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import { leader, openApp, openNote, panes, readAll } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
+import { focusedPane } from "./workspace/stored.ts";
 
 /** The saved layout of each tab: split direction, zoom, pane count and focused pane, and the active tab. */
 const saved = (page: Page) =>
@@ -53,11 +54,16 @@ test.describe("the pane and tab keys", () => {
     await leader(page, "%");
     await expect(panes(page)).toHaveCount(2);
     await expect(page.locator(".cm-content:focus")).toHaveCount(1);
-    const state = async () => [await panes(page).count(), (await saved(page)).tabs[0].zoom];
+    // The focused pane counts among the panes on screen, so the hidden one leaves it first.
+    const state = async () => [
+      await panes(page).count(),
+      (await saved(page)).tabs[0].zoom,
+      await focusedPane(page),
+    ];
     await leader(page, "z");
-    await expect.poll(state).toEqual([1, true]);
+    await expect.poll(state).toEqual([1, true, 0]);
     await leader(page, "z");
-    await expect.poll(state).toEqual([2, false]);
+    await expect.poll(state).toEqual([2, false, 1]);
   });
 
   test("Space q on a split closes the note, then the pane, and keeps the tab", async ({ page }) => {
