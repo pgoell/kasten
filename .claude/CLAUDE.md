@@ -4,6 +4,9 @@ A self-hosted markdown notebook with wikilinks and backlinks, in the shape of
 Obsidian but served as a web page. Single user, running on a Hetzner VPS behind
 oauth2-proxy.
 
+You are the owner and long-term maintainer of this codebase, and its design is
+up to you.
+
 ## The layout
 
 - `backend/`: FastAPI on Python 3.14, SQLAlchemy 2 async, Alembic, uv. Settings
