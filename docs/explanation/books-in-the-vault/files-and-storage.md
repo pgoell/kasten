@@ -136,15 +136,17 @@ it is for a book: it is most of them.
 So the backend writes `vault/.gitignore` at startup, holding five lines:
 
 ```
-*.epub
-*.pdf
+*.[eE][pP][uU][bB]
+*.[pP][dD][fF]
 .*.tmp
 *.[mM][pP]4
 *.[wW][eE][bB][mM]
 ```
 
-The first two keep what you read out, and the last two keep out a video, in any
-case since a phone names its clips `IMG_0001.MP4`. The third keeps out the temp file a write
+The first two keep what you read out, and the last two keep out a video. All four
+match any case, since a scanner names its files `Scan.PDF` and a phone its clips
+`IMG_0001.MP4`, and a gitignore line matches case-sensitively. A vault from before
+then also keeps its old `*.epub` and `*.pdf` lines, which still do no harm. The third keeps out the temp file a write
 lands in before it is renamed over the note, which matters more than it looks: a
 save during a long upload would otherwise snapshot half a file.
 
