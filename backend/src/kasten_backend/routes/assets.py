@@ -128,13 +128,13 @@ async def write_piece(upload: str, n: Annotated[int, Segment(ge=0)], request: Re
 async def delete_asset(
     path: str, settings: Annotated[Settings, Depends(get_settings)]
 ) -> TrashEntry:
-    """Take one image or sound out of the vault, and hold it in the trash."""
+    """Take one file no note owns, any asset but a book, out of the vault into the trash."""
     async with vault_write():
         asset = resolve_asset(settings.vault_path, path)
         # Lowered, because `resolve_asset` answers for `Plan.PDF` too, and a
         # book missed here is one this deletes.
         if asset is None or asset.suffix.lower() in BOOK_SUFFIXES:
-            raise HTTPException(status_code=404, detail="No such image")
+            raise HTTPException(status_code=404, detail="No such asset")
 
         relative = relative_path(settings.vault_path, asset)
 

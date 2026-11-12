@@ -54,7 +54,7 @@ async def test_refuses_to_delete_a_book(
     response = await client.delete(f"/api/assets/{name}")
 
     assert response.status_code == 404
-    assert response.json()["detail"] == "No such image"
+    assert response.json()["detail"] == "No such asset"
     assert (vault / name).exists()
 
 

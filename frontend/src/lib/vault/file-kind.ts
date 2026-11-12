@@ -38,13 +38,27 @@ export function isClipFile(file: { name: string; type: string }): boolean {
 /** What an image the vault takes ends in, as the backend's `IMAGE_SUFFIXES`. */
 export const IMAGE_SUFFIXES = [".gif", ".jpeg", ".jpg", ".png", ".svg", ".webp"];
 
-/** What the image's pane draws a vault file as: a csv as a table, a video file as a player. */
-export function paneKind(path: string): "table" | "clip" | "image" {
-  if (path.toLowerCase().endsWith(".csv")) return "table";
+/** What a sound's name ends in, as the backend's `AUDIO_SUFFIXES`. */
+export const SOUND_SUFFIXES = [".m4a", ".mp3", ".ogg", ".wav"];
+
+/** What the image's pane draws a vault file as: a csv as a table, a video or a sound as a player. */
+export function paneKind(path: string): "table" | "clip" | "sound" | "image" {
+  const lower = path.toLowerCase();
+  if (lower.endsWith(".csv")) return "table";
+  if (SOUND_SUFFIXES.some((suffix) => lower.endsWith(suffix))) return "sound";
   return isClip(path) ? "clip" : "image";
 }
 
-/** Whether a file no note owns, beside the pictures, opens in the image's pane: a csv or a video. */
+/** Whether a followed link to a file no note owns opens in the image's pane: a csv or a video. */
 export function opensInFilePane(path: string): boolean {
+  const kind = paneKind(path);
+  return kind === "table" || kind === "clip";
+}
+
+/**
+ * Whether a file no note owns is a tree row beside the pictures: a csv, a video or a sound. A
+ * sound is a row only; a followed `[[x.mp3]]` still opens a tab of its own.
+ */
+export function isTreeFile(path: string): boolean {
   return paneKind(path) !== "image";
 }

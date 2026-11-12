@@ -3370,7 +3370,7 @@ export interface paths {
         post: operations["write_asset_api_assets__path__post"];
         /**
          * Delete Asset
-         * @description Take one image or sound out of the vault, and hold it in the trash.
+         * @description Take one file no note owns, any asset but a book, out of the vault into the trash.
          */
         delete: operations["delete_asset_api_assets__path__delete"];
         options?: never;

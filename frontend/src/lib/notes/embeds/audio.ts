@@ -5,16 +5,14 @@
 
 import { imageSource } from "@/lib/notes/embeds/image";
 import { endsIn } from "@/lib/notes/links/note-path";
-
-/** The suffixes that make an `![](path)` a sound, held here for both readers. */
-export const AUDIO_SUFFIXES = [".mp3", ".ogg", ".m4a", ".wav"];
+import { SOUND_SUFFIXES } from "@/lib/vault/file-kind";
 
 /** Every `![alt](address)` in a run of markdown, the address in the group. */
 const IMAGE = /!\[[^\]\n]*\]\(\s*<?([^\s()<>]+)>?[^)\n]*\)/g;
 
 /** Whether an `![](address)` names a sound, by the suffix of its decoded path. */
 export function isAudio(address: string): boolean {
-  return endsIn(address, AUDIO_SUFFIXES);
+  return endsIn(address, SOUND_SUFFIXES);
 }
 
 /**
