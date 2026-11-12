@@ -33,11 +33,20 @@ const READING_LINE = 24;
  * A `#` or `[[` inside a fence is code, not a heading or link, and every reader of the body skips the same lines.
  */
 export function proseLines(doc: Text, first: number): { line: number; text: string }[] {
+  const held = prose.get(doc);
+  if (held?.first === first) return held.lines;
   const body: string[] = [];
   for (let line = first; line <= doc.lines; line += 1) body.push(doc.line(line).text);
   const { coded } = fencedLines(body);
-  return body.flatMap((text, index) => (coded.has(index) ? [] : [{ line: first + index, text }]));
+  const lines = body.flatMap((text, index) =>
+    coded.has(index) ? [] : [{ line: first + index, text }],
+  );
+  prose.set(doc, { first, lines });
+  return lines;
 }
+
+/** The last read per doc: the outline and the note head both ask on every change. */
+const prose = new WeakMap<Text, { first: number; lines: { line: number; text: string }[] }>();
 
 /**
  * A comment a line cannot place: after an ordered marker, which opens a block only in a list

@@ -5,7 +5,7 @@
 
 import type { SyntaxNode, Tree } from "@lezer/common";
 import { namesAFile } from "@/lib/notes/links/wikilink";
-import { fencedLines } from "@/lib/notes/text/note-code";
+import { fencedLines, isUnclosed } from "@/lib/notes/text/note-code";
 
 /** The text a tree was parsed from: a CodeMirror `Text`, or `sourceOf` a string. */
 export interface Source {
@@ -175,7 +175,7 @@ function definitions(top: SyntaxNode, doc: Source): Map<string, string> {
 /** Whether the tree `top` heads stops inside a fence it has not seen close. */
 function inFence(top: SyntaxNode): boolean {
   for (let node = top.resolveInner(top.to, -1); !node.type.isTop; node = node.parent ?? top) {
-    if (node.name === "FencedCode") return node.getChildren("CodeMark").length < 2;
+    if (node.name === "FencedCode") return isUnclosed(node);
   }
   return false;
 }
