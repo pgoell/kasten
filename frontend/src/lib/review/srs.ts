@@ -276,14 +276,14 @@ function push(walk: Walk, card: Card, own: string[]): void {
  */
 function frontOf(walk: Walk, at: number, cloze: boolean): number {
   if (cloze) return at - 1;
-  const { bare, ends, schedules, inline } = walk;
+  const { lines, bare, code, taken, ends, schedules, inline } = walk;
+  // A card's own schedule ends its line, or is code. One with text after it is the front's own
+  // (#1939), unless a card above took that line, which no two cards share (#678).
+  const owned = (line: number) =>
+    taken[line] ||
+    (schedules(line) && (code[line] || (lines[line] ?? "").trimEnd().endsWith("-->")));
   let from = at;
-  while (
-    !ends(from - 1) &&
-    !holdsCloze(bare[from - 1]) &&
-    !schedules(from - 1) &&
-    !inline(from - 1)
-  )
+  while (!ends(from - 1) && !holdsCloze(bare[from - 1]) && !owned(from - 1) && !inline(from - 1))
     from--;
   return from;
 }
