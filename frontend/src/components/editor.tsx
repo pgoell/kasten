@@ -310,7 +310,7 @@ export function Editor({
       }
       return;
     }
-    latest.current = {};
+    latest.current = { left: true };
     detachRef.current?.();
     detachRef.current = null;
     if (view?.hasFocus) view.contentDOM.blur();

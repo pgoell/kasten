@@ -53,6 +53,15 @@ The characters a wikilink cannot carry, `[ ] | # ^`, become `-`. Several files
 go in order, one embed to a line, and a file over 10MiB goes up in pieces through
 [`POST /api/uploads`](/reference/http-api/assets-and-books.md#post-apiuploads).
 
+While a file goes up the status bar names it and how far it has got,
+`Uploading walk.mp4 42%`, with `+1` for each upload waiting behind it, a phone's
+bar too. It clears when the upload ends, and a failure puts its reason there.
+A note closed before its upload ends still gets the embed, on a line of its own
+at the end: in an editor open on that note by then, else in its file, written
+once the note's own saves have answered and only over the text the vault holds
+then, so nothing typed is lost. A note gone by then is not made again; the bar
+says the file is in the folder.
+
 An image file dropped into a note goes in the same way, as in Obsidian: under
 its own name, numbered the same way, with the same characters made `-`. What
 lands where it fell is `![](that path)`, the form a pasted image gets. An image

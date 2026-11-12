@@ -4,6 +4,7 @@ import { Clock } from "@/components/status-clock";
 import { StatusDetail } from "@/components/status-detail";
 import { BUILD, outOfStep, versionText } from "@/lib/app/build";
 import { lineDiff } from "@/lib/history/diff";
+import { type Upload, useUploads } from "@/lib/notes/embeds/uploads";
 import type { SaveStatus } from "@/lib/notes/note/use-autosave";
 
 /** How long the refusal flash lasts. The same 400ms `--animate-flash` names. */
@@ -172,14 +173,32 @@ function footerClass(noticed: boolean, foot: boolean | undefined) {
 }
 
 type ReadingsProps = Pick<StatusBarProps, "version" | "notice" | "archive" | "zoom" | "pane"> & {
+  uploads: readonly Upload[];
   onNotice: () => void;
 };
 
+/** The oldest upload in the air and how far it got, with how many more wait behind it. */
+function uploadLabel([first, ...rest]: readonly Upload[]) {
+  if (first === undefined) return undefined;
+  const percent = first.total > 0 ? Math.floor((first.sent / first.total) * 100) : 0;
+  return `Uploading ${first.name} ${percent}%${rest.length > 0 ? ` +${rest.length}` : ""}`;
+}
+
 /** The left of the bar: the version, the notice and the readings of the view. */
-function Readings({ version, notice, archive, zoom, pane, onNotice }: ReadingsProps) {
+function Readings({ version, notice, archive, zoom, pane, uploads, onNotice }: ReadingsProps) {
+  const uploading = uploadLabel(uploads);
   return (
     <div className="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap">
       {version !== undefined && <Version backend={version} />}
+      {uploading !== undefined && (
+        <span
+          data-testid="uploading"
+          title={uploading}
+          className="min-w-0 truncate text-[11px] text-k-muted tabular-nums"
+        >
+          {uploading}
+        </span>
+      )}
       {notice !== undefined && (
         <button
           type="button"
@@ -262,8 +281,12 @@ function worthShowing({
   held,
   archive,
   status,
-}: Pick<StatusBarProps, "notice" | "archive" | "status"> & { held: readonly HeldNote[] }) {
-  if (notice !== undefined || held.length > 0 || archive === true) return true;
+  uploading,
+}: Pick<StatusBarProps, "notice" | "archive" | "status"> & {
+  held: readonly HeldNote[];
+  uploading: boolean;
+}) {
+  if (notice !== undefined || held.length > 0 || archive === true || uploading) return true;
   return status !== undefined && SAVE_FIX[status] !== undefined;
 }
 
@@ -273,9 +296,11 @@ function worthShowing({
  */
 export function StatusBar(props: StatusBarProps) {
   const { quiet, notice, held = [], archive, status } = props;
-  if (quiet && !worthShowing({ notice, held, archive, status })) return null;
+  const uploads = useUploads();
+  const uploading = uploads.length > 0;
+  if (quiet && !worthShowing({ notice, held, archive, status, uploading })) return null;
   // A phone's toolbar shows the pane count instead.
-  return <Bar {...props} pane={quiet ? undefined : props.pane} />;
+  return <Bar {...props} uploads={uploads} pane={quiet ? undefined : props.pane} />;
 }
 
 /**
@@ -300,7 +325,9 @@ function Bar({
   conflict,
   onWrite,
   onTakeVault,
-}: StatusBarProps) {
+  uploads,
+}: StatusBarProps & { uploads: readonly Upload[] }) {
+  const crowded = notice !== undefined || uploads.length > 0;
   // Taken off again once it has played. The class alone would outlive its own
   // animation, and every later mount of this reading, coming back from a tab
   // holding no note, would play it again with nothing refused. `animationend`
@@ -373,7 +400,7 @@ function Bar({
     //
     // `minmax(0, 1fr)` and not `1fr`, whose floor is the content: a long notice
     // would push the bar wider than a phone instead of being cut short.
-    <footer inert={inert} className={footerClass(notice !== undefined, foot)}>
+    <footer inert={inert} className={footerClass(crowded, foot)}>
       {detail !== undefined && (
         <StatusDetail
           detail={detail}
@@ -388,11 +415,12 @@ function Bar({
         archive={archive}
         zoom={zoom}
         pane={pane}
+        uploads={uploads}
         onNotice={() => open("notice")}
       />
       {/* The held list crowds the clock out on a phone as a notice does: it
           is the one reading there that loses text if nobody acts on it. */}
-      <Clock crowded={notice !== undefined || held.length > 0} gone={quiet} />
+      <Clock crowded={crowded || held.length > 0} gone={quiet} />
       <div className="flex min-w-0 items-center justify-end gap-2 justify-self-end whitespace-nowrap">
         <HeldSigns
           failed={failed}

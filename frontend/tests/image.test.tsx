@@ -298,7 +298,11 @@ describe("pasting or dropping a video file (#1922)", () => {
       hand(how, editor, [file]);
 
       await waitFor(() =>
-        expect(uploadAsset).toHaveBeenCalledWith(`${IMAGE_FOLDER}/walk.mp4`, file),
+        expect(uploadAsset).toHaveBeenCalledWith(
+          `${IMAGE_FOLDER}/walk.mp4`,
+          file,
+          expect.any(Function),
+        ),
       );
       await waitFor(() => expect(doc()).toBe("![[walk.mp4]]"));
     } finally {
@@ -338,7 +342,11 @@ describe("pasting or dropping a video file (#1922)", () => {
     hand("paste", editor, [walk()]);
 
     await waitFor(() => expect(doc()).toBe("![[walk 2.mp4]]"));
-    expect(uploadAsset).toHaveBeenCalledWith(`${IMAGE_FOLDER}/walk 2.mp4`, expect.any(File));
+    expect(uploadAsset).toHaveBeenCalledWith(
+      `${IMAGE_FOLDER}/walk 2.mp4`,
+      expect.any(File),
+      expect.any(Function),
+    );
   });
 
   it("files each of several, one embed to a line, two of one name apart", async () => {
@@ -441,7 +449,11 @@ describe("dropping an image file (#1944)", () => {
       hand("drop", editor, [file]);
 
       await waitFor(() => expect(doc()).toBe(`a${ref("shot.png")}b`));
-      expect(uploadAsset).toHaveBeenCalledWith(`${IMAGE_FOLDER}/shot.png`, file);
+      expect(uploadAsset).toHaveBeenCalledWith(
+        `${IMAGE_FOLDER}/shot.png`,
+        file,
+        expect.any(Function),
+      );
       at.mockRestore();
     } finally {
       if (vim === "off") act(() => toggleVim());

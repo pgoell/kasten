@@ -10,12 +10,14 @@ import {
 } from "@codemirror/autocomplete";
 import { syntaxTree } from "@codemirror/language";
 import { EditorSelection, type EditorState, Facet } from "@codemirror/state";
-import { EditorView } from "@codemirror/view";
-import { uploadAsset } from "@/lib/core/api";
+import { EditorView, ViewPlugin } from "@codemirror/view";
+import { NoteMissing, updateNote, uploadAsset } from "@/lib/core/api";
 import { readClock } from "@/lib/core/clock";
 import { IMAGE_FOLDER } from "@/lib/core/layout";
+import { tracked } from "@/lib/notes/embeds/uploads";
 import { encodePath } from "@/lib/notes/links/note-path";
 import { vaultPaths } from "@/lib/notes/links/wikilink";
+import { saveQueue } from "@/lib/notes/note/save-queue";
 import { CLIP_SUFFIXES, IMAGE_SUFFIXES, isClipFile } from "@/lib/vault/file-kind";
 
 /**
@@ -26,6 +28,22 @@ export { IMAGE_FOLDER };
 
 /** What a pasted image is called, minus the suffix its type names. */
 const NAMED = /^image\//;
+
+/**
+ * The handler itself, read when a paste starts: an upload's notice comes after its editor may have
+ * left, which empties the callbacks `noticeHandler` reads (#1945).
+ */
+export const noticeSource = Facet.define<
+  () => NoticeHandler | undefined,
+  () => NoticeHandler | undefined
+>({
+  combine: (getters) => getters[0] ?? (() => undefined),
+});
+
+/** Whether an edit to the view still reaches a save; not while its editor leaves. */
+export const savesEdits = Facet.define<() => boolean, () => boolean>({
+  combine: (getters) => getters[0] ?? (() => true),
+});
 
 /** Every image in the vault. Null, not empty, when unset. */
 export const imagePaths = Facet.define<string[], string[] | null>({
@@ -134,60 +152,135 @@ export function filedName(type: string): string {
   return `${readClock(new Date()).date}-${unique}.${suffix}`;
 }
 
+/** Uploads `file` with its progress on the status bar, and reports a refusal; answers whether it went in. */
+async function upload(
+  notice: NoticeHandler | undefined,
+  path: string,
+  file: File,
+  failed: string,
+): Promise<boolean> {
+  try {
+    await tracked(path.slice(path.lastIndexOf("/") + 1), file.size, (progress) =>
+      uploadAsset(path, file, progress),
+    );
+    return true;
+  } catch (error: unknown) {
+    // Typed `unknown`, as `chooseBook` does: a dropped connection has no status to name.
+    notice?.(error instanceof Error ? error.message : failed);
+    return false;
+  }
+}
+
 /**
  * Uploads a pasted image, then writes the reference, so a refusal leaves the note alone.
  * The insert goes where the cursor is by then, not where it was.
  */
 async function fileImage(view: EditorView, file: File, name: string): Promise<void> {
   const path = `${IMAGE_FOLDER}/${name}`;
+  const notice = view.state.facet(noticeSource)();
+  if (await upload(notice, path, file, "The image did not go in")) {
+    await place(view, notice, `![](${encodePath(path)})`, false);
+  }
+}
 
-  try {
-    await uploadAsset(path, file);
-  } catch (error: unknown) {
-    // Typed `unknown`, as `chooseBook` does: a dropped connection has no status to name.
-    view.state.facet(noticeHandler)?.(
-      error instanceof Error ? error.message : "The image did not go in",
-    );
+/** The editors open now and the note each holds, and the note each closed one held. */
+const live = new Map<EditorView, string | undefined>();
+const closed = new WeakMap<EditorView, string | undefined>();
+const liveness = (path: string | undefined) =>
+  ViewPlugin.define((view) => {
+    live.set(view, path);
+    return {
+      destroy() {
+        live.delete(view);
+        closed.set(view, path);
+      },
+    };
+  });
+
+/** `text` with `line` on a line of its own after it. */
+function appended(text: string, line: string): string {
+  return `${text}${text === "" || text.endsWith("\n") ? "" : "\n"}${line}\n`;
+}
+
+/**
+ * Writes `reference` where the cursor is, or, once the note's editor closed (#1945), at the end
+ * of the note: in an editor open on it now, else in its file by a conditional write behind
+ * the note's own writes, so text written meanwhile stays.
+ */
+async function place(
+  view: EditorView,
+  notice: NoticeHandler | undefined,
+  reference: string,
+  newline: boolean,
+): Promise<void> {
+  const open = !closed.has(view);
+  if (open && view.state.facet(savesEdits)()) {
+    view.dispatch(view.state.replaceSelection(`${newline ? "\n" : ""}${reference}`));
     return;
   }
-
-  view.dispatch(view.state.replaceSelection(`![](${encodePath(path)})`));
+  const path = open ? live.get(view) : closed.get(view);
+  const kept = `The file is in ${IMAGE_FOLDER}, but`;
+  if (path === undefined) {
+    notice?.(`${kept} the note it was pasted into had closed`);
+    return;
+  }
+  const other = [...live].find(
+    ([each, held]) => each !== view && held === path && each.state.facet(savesEdits)(),
+  )?.[0];
+  if (other !== undefined) {
+    const doc = other.state.doc.toString();
+    other.dispatch({
+      changes: { from: doc.length, insert: appended(doc, reference).slice(doc.length) },
+    });
+    return;
+  }
+  try {
+    await saveQueue.settled(path);
+    await updateNote(path, (text) => appended(text, reference));
+  } catch (error: unknown) {
+    if (!(error instanceof Error)) throw error;
+    notice?.(error instanceof NoteMissing ? `${kept} ${path} is gone` : `${kept} ${error.message}`);
+  }
 }
 
 /**
  * Files a pasted image, a pasted or dropped video file or a dropped image file, and references it. Text is left to
  * CodeMirror; the handler must answer at once, so the upload runs after it.
  */
-export function imagePaste() {
-  return EditorView.domEventHandlers({
-    paste(event, view) {
-      const clips = [...(event.clipboardData?.files ?? [])].filter(isClipFile);
-      if (clips.length > 0) {
-        event.preventDefault();
-        void fileClips(view, clips);
-        return true;
-      }
-      const image = [...(event.clipboardData?.files ?? [])].find((file) => NAMED.test(file.type));
-      if (image === undefined) return false;
+export function imagePaste(path: string | undefined) {
+  return [
+    liveness(path),
+    EditorView.domEventHandlers({
+      paste(event, view) {
+        const clips = [...(event.clipboardData?.files ?? [])].filter(isClipFile);
+        if (clips.length > 0) {
+          event.preventDefault();
+          void fileClips(view, clips);
+          return true;
+        }
+        const image = [...(event.clipboardData?.files ?? [])].find((file) => NAMED.test(file.type));
+        if (image === undefined) return false;
 
-      event.preventDefault();
-      void fileImage(view, image, filedName(image.type));
-      return true;
-    },
-    // Ahead of CodeMirror's own drop, which reads a file as text and drops a binary one.
-    drop(event, view) {
-      const files = [...(event.dataTransfer?.files ?? [])].filter(
-        (file) => isClipFile(file) || NAMED.test(file.type) || keepsName(file.name, IMAGE_SUFFIXES),
-      );
-      if (files.length === 0) return false;
-      event.preventDefault();
-      const at = view.posAtCoords({ x: event.clientX, y: event.clientY });
-      if (at !== null) view.dispatch({ selection: { anchor: at } });
-      view.focus();
-      void fileClips(view, files);
-      return true;
-    },
-  });
+        event.preventDefault();
+        void fileImage(view, image, filedName(image.type));
+        return true;
+      },
+      // Ahead of CodeMirror's own drop, which reads a file as text and drops a binary one.
+      drop(event, view) {
+        const files = [...(event.dataTransfer?.files ?? [])].filter(
+          (file) =>
+            isClipFile(file) || NAMED.test(file.type) || keepsName(file.name, IMAGE_SUFFIXES),
+        );
+        if (files.length === 0) return false;
+        event.preventDefault();
+        const at = view.posAtCoords({ x: event.clientX, y: event.clientY });
+        if (at !== null) view.dispatch({ selection: { anchor: at } });
+        view.focus();
+        void fileClips(view, files);
+        return true;
+      },
+    }),
+  ];
 }
 
 /** What a wikilink cannot carry in a name, as Obsidian refuses them in one (#1922). */
@@ -224,21 +317,15 @@ function clipName(file: File, taken: string[]): string {
  */
 async function fileClips(view: EditorView, files: File[]): Promise<void> {
   const taken = [...(view.state.facet(vaultPaths) ?? []), ...(view.state.facet(imagePaths) ?? [])];
+  const notice = view.state.facet(noticeSource)();
   let written = 0;
   for (const file of files) {
     const name = clipName(file, taken);
     taken.push(name);
     const path = `${IMAGE_FOLDER}/${name}`;
-    try {
-      await uploadAsset(path, file);
-    } catch (error: unknown) {
-      view.state.facet(noticeHandler)?.(
-        error instanceof Error ? error.message : "The file did not go in",
-      );
-      continue;
-    }
+    if (!(await upload(notice, path, file, "The file did not go in"))) continue;
     const reference = isClipFile(file) ? `![[${name}]]` : `![](${encodePath(path)})`;
-    view.dispatch(view.state.replaceSelection(`${written > 0 ? "\n" : ""}${reference}`));
+    await place(view, notice, reference, written > 0);
     written++;
   }
 }

@@ -32,7 +32,14 @@ import { tableLineup } from "@/lib/notes/editor/table-lineup";
 import { tableSource } from "@/lib/notes/editor/table-source";
 import { vimInsertUndo, vimKeys } from "@/lib/notes/editor/vim-mode";
 import { type EmbedSource, embedSource } from "@/lib/notes/embeds/embed";
-import { imageCompletions, imagePaste, imagePaths, noticeHandler } from "@/lib/notes/embeds/image";
+import {
+  imageCompletions,
+  imagePaste,
+  imagePaths,
+  noticeHandler,
+  noticeSource,
+  savesEdits,
+} from "@/lib/notes/embeds/image";
 import { relationCompletions, vaultRelations } from "@/lib/notes/links/ontology";
 import { vaultPaths, wikiLinkCompletions } from "@/lib/notes/links/wikilink";
 import { livePreview } from "@/lib/notes/live/live-preview";
@@ -67,6 +74,8 @@ export interface NoteViewLatest {
   onOutline?: (outline: Outline) => void;
   onGraph?: () => void;
   onSeek?: (seconds: number, id?: string) => void;
+  /** Set as the editor leaves, its callbacks gone: an edit then reaches no save. */
+  left?: boolean;
 }
 
 /** The four listings the vault carries. Any of them absent means told nothing. */
@@ -283,8 +292,10 @@ export function createNoteView(o: {
         // path. Ahead of nothing in particular: CodeMirror's own paste is a
         // handler on the same event and runs when this one declines, which is
         // every paste that carries text.
-        imagePaste(),
+        imagePaste(o.path),
         noticeHandler.of((message) => latest.current.onNotice?.(message)),
+        noticeSource.of(() => latest.current.onNotice),
+        savesEdits.of(() => latest.current.left !== true),
         followOnClick(),
         followOnTap(),
         byName,

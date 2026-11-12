@@ -50,6 +50,11 @@ vi.mock("@/lib/core/api", () => ({
   // imports these, and a factory short of a name breaks the import itself.
   fetchImages: () => Promise.resolve([]),
   uploadAsset: () => Promise.resolve(),
+  // A closed note's paste writes through these and the save queue (#1945).
+  updateNote: () => Promise.resolve(null),
+  saveNote: () => Promise.resolve(),
+  ChangedOnDisk: class extends Error {},
+  NoteMissing: class extends Error {},
   // The live preview's video times reach `transcript.ts`, which imports this.
   fetchTranscript: () => Promise.resolve(),
 }));
