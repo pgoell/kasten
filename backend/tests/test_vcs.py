@@ -1,8 +1,9 @@
+from itertools import product
 from typing import TYPE_CHECKING
 
 import pytest
 
-from backend.tests.asset_bodies import MP4, PNG, WEBM
+from backend.tests.asset_bodies import MP4, PDF, PNG, WEBM
 from backend.tests.conftest import JJ, changed_paths, descriptions, jj, moved_paths
 from kasten_backend.change import settled
 from kasten_backend.vcs import write_ignores
@@ -383,3 +384,43 @@ async def test_keeps_no_copy_of_a_video_in_the_history(
 
     listed = jj(versioned_vault, "file", "list").splitlines()
     assert [line.rsplit("vault/", 1)[1] for line in listed] == [".gitignore", "clips/plate.png"]
+
+
+def _tracked(vault: Path) -> list[str]:
+    listed = jj(vault, "file", "list").splitlines()
+    return sorted(line.rsplit("vault/", 1)[1] for line in listed)
+
+
+async def test_keeps_no_copy_of_a_book_in_any_case(
+    client: AsyncClient, versioned_vault: Path
+) -> None:
+    # A scanner names its files `Scan.PDF`, and a gitignore line matches exactly.
+    write_ignores(versioned_vault)
+    for suffix in ("pdf", "epub"):
+        for spelling in product(*((c, c.upper()) for c in suffix)):
+            (versioned_vault / f"scan.{''.join(spelling)}").write_bytes(PDF)
+    lookalikes = ["Paper.PDF.md", "x.pdfx", "Book.EPUB.txt", "pdf.md"]
+    for name in lookalikes:
+        (versioned_vault / name).write_text("# kept")
+    (versioned_vault / "index.md").write_text("# index")
+
+    await client.put("/api/files/index.md", json={"content": "# edited"})
+    await settled()
+
+    assert _tracked(versioned_vault) == sorted([".gitignore", "index.md", *lookalikes])
+
+
+async def test_leaves_a_book_tracked_before_the_ignores_in_the_history(
+    client: AsyncClient, versioned_vault: Path
+) -> None:
+    # Ignoring is not untracking: taking a book back out is `jj file untrack`, by hand.
+    (versioned_vault / "Old.PDF").write_bytes(PDF)
+    (versioned_vault / "index.md").write_text("# index")
+    await client.put("/api/files/index.md", json={"content": "# once"})
+    await settled()
+
+    write_ignores(versioned_vault)
+    await client.put("/api/files/index.md", json={"content": "# twice"})
+    await settled()
+
+    assert _tracked(versioned_vault) == [".gitignore", "Old.PDF", "index.md"]
