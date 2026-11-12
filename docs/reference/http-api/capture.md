@@ -57,18 +57,17 @@ it gets a zero byte first. A page cut inside a tag, comment, raw text, CDATA or 
 gets its closer first (`">`, `-->`, `</script>`, `]]>`). Nothing closes
 `<plaintext>`: the scripts go before it.
 
-The page script (`page_script.js` in the backend) goes first: right after the
-doctype, or at the start of a page with none, after a byte order mark if
-there is one. It runs before any of the page's own code, so it takes
+The page script (`page_script.js`) goes first: right after the
+doctype, or at the start of a page with none, after any byte order
+mark. It runs before any of the page's own code, so it takes
 `window.parent` and its key listener before the page can change them. A UTF-16
 page is the exception: its script sits at its end, after the page's code. In a
-frame it posts `{kasten: 'hello', doc}` as it loads, and posts Space, `?` and
+frame it posts `{kasten: 'hello', doc}` as it loads and `{kasten: 'bye', doc}` at `pagehide`, and posts Space, `?` and
 Escape pressed outside a text field to kasten as `{kasten: 'key', key}`, after
 it stops their default. Space on a focused control that Space presses (a
 button, a `summary`, a button-like ARIA role, a video or audio player), Shift
 Space, and any of the three with Ctrl, Alt or Meta stay the page's. `j` and `k`
-scroll the page. Opened in a tab of its own, with no parent to post to, it does
-nothing.
+scroll the page. Opened in a tab of its own, with no parent, it does nothing.
 
 The script also reports the page's text selection. It posts
 `{kasten: 'selection', text, heading, anchor, rect}` after a mouse up, a key

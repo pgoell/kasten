@@ -10,10 +10,7 @@ export function pageData(event: MessageEvent, frame: HTMLIFrameElement | null) {
   return event.data as Record<string, unknown>;
 }
 
-/**
- * The bye a page posts as it leaves, whose `source` is no longer the frame's window by then, so
- * the id its hello gave, `doc`, says whose it is (#1729).
- */
+/** The bye of the page whose hello gave `doc` (#1729). */
 export function isBye(event: MessageEvent, doc: unknown): boolean {
   return typeof doc === "string" && event.data?.kasten === "bye" && event.data.doc === doc;
 }

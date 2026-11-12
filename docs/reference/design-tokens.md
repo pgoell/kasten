@@ -244,7 +244,7 @@ phone. The four rows are `Accent palette: Vandar Poel's blue`,
 as `poel`. A pick cross-fades like the theme switch, at once under
 `prefers-reduced-motion`, and other open tabs follow.
 
-An HTML page in the HTML pane says `{kasten: 'hello'}` by postMessage as its
+An HTML page in the HTML pane says `{kasten: 'hello', doc}` by postMessage as its
 script runs. Kasten answers with `{kasten: 'theme', theme}` and
 `{kasten: 'palette', palette}`, and posts both again when the frame loads, so a
 page whose listener came late still gets them. Every switch posts both again.

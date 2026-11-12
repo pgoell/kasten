@@ -367,9 +367,7 @@
     }
   });
 
-  // The pane can hear a hello after the frame's load, so a next page without this script
-  // is not known by its missing hello, and a bye says this one left. At pagehide the frame
-  // holds another window, so the hello's id names whose bye it is (#1729).
+  // A bye says this page left; the hello's id names it, as source is null by pagehide (#1729).
   const doc = crypto.randomUUID();
   up.postMessage({ kasten: "hello", doc }, "*");
   addEventListener("pagehide", () => up.postMessage({ kasten: "bye", doc }, "*"));
