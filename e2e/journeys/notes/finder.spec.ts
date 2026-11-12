@@ -54,10 +54,11 @@ test("the finder's keys walk the list, and Enter opens the row the highlight is 
   const rows = await readAll(
     page,
     '[role="dialog"][aria-label="Find note"] [role="option"]',
-    (all) => all.map((row) => [row.textContent ?? "", row.getAttribute("data-path") ?? ""]),
+    (all) =>
+      all.map((row) => ({ name: row.textContent ?? "", path: row.getAttribute("data-path") })),
   );
-  const names = rows.map(([name]) => name ?? "");
-  const paths = rows.map(([, path]) => path);
+  const names = rows.map(({ name }) => name);
+  const paths = rows.map(({ path }) => path);
   const walk: [string, number][] = [
     ["ArrowDown", 1],
     ["Control+n", 2],

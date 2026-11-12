@@ -73,9 +73,8 @@ export async function noteText(vault: string, path: string): Promise<string> {
   }
 }
 
-/** The panes on screen; a pane on its way out is hidden. */
-/** A pane; `readAll` and `:visible` keep the ones on screen. */
 export const PANE = "[data-pane]";
+/** The panes on screen; a pane on its way out is hidden. */
 export const panes = (page: Page): Locator => page.locator(`${PANE}:visible`);
 
 /** Opens a note from the tree and waits for its editor's focus: keys sent sooner are lost (#1738). */
