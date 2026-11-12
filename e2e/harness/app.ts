@@ -74,7 +74,9 @@ export async function noteText(vault: string, path: string): Promise<string> {
 }
 
 /** The panes on screen; a pane on its way out is hidden. */
-export const panes = (page: Page): Locator => page.locator("[data-pane]:visible");
+/** A pane; `readAll` and `:visible` keep the ones on screen. */
+export const PANE = "[data-pane]";
+export const panes = (page: Page): Locator => page.locator(`${PANE}:visible`);
 
 /** Opens a note from the tree and waits for its editor's focus: keys sent sooner are lost (#1738). */
 export async function openNote(page: Page, name: string): Promise<void> {
@@ -130,6 +132,22 @@ export function todoRows(page: Page): Promise<{ texts: string[]; cursor: number 
       cursor: rows.findIndex((row) => row.tabIndex === 0),
     };
   }, TODO_ROW);
+}
+
+/**
+ * Runs `read` over the elements `selector` matches, those `getByRole` and `:visible` would see, in
+ * one evaluate: `evaluateAll` finds them and runs its function in two round trips, and a React
+ * commit between the two mixes two renders (#1937). `read` runs in the page, so it closes over nothing.
+ */
+export function readAll<R, A = null>(
+  page: Page,
+  selector: string,
+  read: (all: HTMLElement[], arg: A) => R,
+  arg: A | null = null,
+): Promise<R> {
+  const shown = `[...document.querySelectorAll(${JSON.stringify(selector)})].filter(
+    (el) => el.checkVisibility({ visibilityProperty: true }) && !el.closest('[aria-hidden="true"]'))`;
+  return page.evaluate(`(${read})(${shown}, ${JSON.stringify(arg)})`) as Promise<R>;
 }
 
 /** Presses j or k until the todo list's cursor sits on the `nth` row whose text holds `words`. */

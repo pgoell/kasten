@@ -1,6 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { Locator, Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { openApp, openNote, unstamped } from "../../../harness/app.ts";
 import { expect } from "../../../harness/stack.ts";
 
@@ -11,15 +11,16 @@ export const welcome = (vault: string) => readFile(join(vault, "Welcome.md"), "u
 export const focused = (page: Page) => page.locator(".cm-content:focus");
 
 /** The save sign, the conflict diff and the bar's conflict list, each null when not drawn. */
-export async function conflictBar(page: Page) {
-  // One look each, no waiting: an element gone between a count and a read would hang the poll.
-  const read = async (locator: Locator) => (await locator.allTextContents())[0] ?? null;
-  const label = await sign(page).evaluateAll((signs) => signs[0]?.getAttribute("aria-label"));
-  return {
-    status: label ?? null,
-    diff: await read(page.getByTestId("conflict-diff")),
-    listed: await read(page.getByTestId("held-conflict")),
-  };
+export function conflictBar(page: Page) {
+  // One look, no waiting, so all three come from one render (#1937).
+  return page.evaluate(() => {
+    const first = (id: string) => document.querySelector(`[data-testid="${id}"]`);
+    return {
+      status: first("save-status")?.getAttribute("aria-label") ?? null,
+      diff: first("conflict-diff")?.textContent ?? null,
+      listed: first("held-conflict")?.textContent ?? null,
+    };
+  });
 }
 
 interface Conflict {

@@ -1,7 +1,7 @@
 import { copyFile, mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { Page } from "@playwright/test";
-import { leader, noteText, openApp, openFromTree, phone } from "../../harness/app.ts";
+import { leader, noteText, openApp, openFromTree, phone, readAll } from "../../harness/app.ts";
 import { root } from "../../harness/paths.ts";
 import { expect, test } from "../../harness/stack.ts";
 
@@ -231,9 +231,9 @@ test("the outgoing links panel lists the note's links, opens one, and says when 
   await expect(panel.getByLabel("links out")).toBeFocused();
   await expect
     .poll(() =>
-      panel
-        .getByRole("option")
-        .evaluateAll((rows) => rows.map((row) => row.getAttribute("data-path"))),
+      readAll(page, '[role="dialog"][aria-label="Outgoing links"] [role="option"]', (rows) =>
+        rows.map((row) => row.getAttribute("data-path")),
+      ),
     )
     .toEqual(["02 Projects/Garden.md", "Long note.md"]);
   await page.keyboard.type("gar");

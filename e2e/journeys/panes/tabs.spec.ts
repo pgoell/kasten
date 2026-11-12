@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { leader, openApp, openNote, panes } from "../../harness/app.ts";
+import { leader, openApp, openNote, panes, readAll } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 
 /** The saved layout of each tab: split direction, zoom, pane count and focused pane, and the active tab. */
@@ -20,7 +20,7 @@ const saved = (page: Page) =>
   });
 
 const selected = (page: Page) =>
-  page.getByRole("tab").evaluateAll((tabs) => tabs.map((tab) => tab.getAttribute("aria-selected")));
+  readAll(page, '[role="tab"]', (tabs) => tabs.map((tab) => tab.getAttribute("aria-selected")));
 
 /** Opens the palette and runs the row with this name, as vim off reaches every pane command. */
 async function runRow(page: Page, name: RegExp) {

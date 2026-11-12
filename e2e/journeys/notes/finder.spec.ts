@@ -7,6 +7,7 @@ import {
   opened,
   openApp,
   phone,
+  readAll,
   recordOpens,
   vaultWith,
 } from "../../harness/app.ts";
@@ -49,10 +50,14 @@ test("the finder's keys walk the list, and Enter opens the row the highlight is 
   const selected = finder.getByRole("option", { selected: true });
   await expect(options.nth(2)).toBeVisible();
   // Read, not assumed: the walk holds whatever order the vault ranks in.
-  const names = await options.allTextContents();
-  const paths = await options.evaluateAll((rows) =>
-    rows.map((row) => row.getAttribute("data-path")),
+  // Names and paths in one read, so both come from the same render.
+  const rows = await readAll(
+    page,
+    '[role="dialog"][aria-label="Find note"] [role="option"]',
+    (all) => all.map((row) => [row.textContent ?? "", row.getAttribute("data-path") ?? ""]),
   );
+  const names = rows.map(([name]) => name ?? "");
+  const paths = rows.map(([, path]) => path);
   const walk: [string, number][] = [
     ["ArrowDown", 1],
     ["Control+n", 2],
@@ -206,7 +211,7 @@ test("the book finder lists the notes with an epub beside them and walks them wi
   const options = finder.getByRole("option");
   // Each row as its name and its folder; the root's book has none.
   const rows = () =>
-    options.evaluateAll((all) =>
+    readAll(page, '[role="dialog"][aria-label="Find book"] [role="option"]', (all) =>
       all.map((row) => [...row.children].map((part) => part.textContent)),
     );
   await expect

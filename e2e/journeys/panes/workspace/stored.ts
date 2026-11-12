@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { panes } from "../../../harness/app.ts";
+import { PANE, panes, readAll } from "../../../harness/app.ts";
 import { expect } from "../../../harness/stack.ts";
 
 export const FINE = "kasten.workspace.1";
@@ -77,9 +77,7 @@ export const saved = async (page: Page, key = FINE) => normal(await stored(page,
 
 /** Which visible pane holds the focus, by position, or -1. */
 export const focusedPane = (page: Page) =>
-  page
-    .locator("[data-pane]:visible")
-    .evaluateAll((all) => all.findIndex((pane) => pane.contains(document.activeElement)));
+  readAll(page, PANE, (all) => all.findIndex((pane) => pane.contains(document.activeElement)));
 
 /** Every path a PUT went to, in order. */
 export function puts(page: Page): string[] {
