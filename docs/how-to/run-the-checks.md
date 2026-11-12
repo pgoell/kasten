@@ -169,7 +169,7 @@ copied block into one function or component both places call, rather than
 raising the threshold. To see the clones while it passes:
 
 ```sh
-frontend/node_modules/.bin/jscpd
+frontend/node_modules/.bin/jscpd --config .config/jscpd.json
 ```
 
 ## Get past the comment checks
