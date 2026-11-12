@@ -212,9 +212,10 @@ def test_sets_a_question_holding_the_divider_apart_from_its_neighbours() -> None
         ("What opens a::b?", "#pragma"),
         ("What does a::b hold?", "!suspended x"),
         ("When is a::b due?", "on <!--SR:!2026-08-20,4,270--> here"),
+        ("When is a::b due by FSRS?", "on <!--SR:!fsrs,2026-11-20T00:00:00.000Z,8--> here"),
         ("# What does std::move do?", "casts"),
     ],
-    ids=["divider", "heading", "tags", "token", "schedule", "front-heading"],
+    ids=["divider", "heading", "tags", "token", "schedule", "fsrs-schedule", "front-heading"],
 )
 def test_leaves_out_a_divider_question_whose_side_would_end_the_card(front: str, back: str) -> None:
     # `srs.ts` would drop the `?` card and read the front at its first `::`, or,

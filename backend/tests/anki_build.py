@@ -127,6 +127,9 @@ NO_ROW = object()
 type Review = tuple[int, int, int, int, int]
 """A card row's schedule as the builder takes it: card id, type, ivl, factor, due."""
 
+type Fsrs = tuple[int, int, int, str]
+"""A card row's answers and FSRS state: card id, reps, lapses, and its `data` column."""
+
 
 # A builder whose every knob has a default and is named at the call; grouping
 # them into a record would only add a type each test has to build.
@@ -140,6 +143,7 @@ def apkg(  # noqa: PLR0913
     member: str = "collection.anki2",
     media: Media = (),
     reviews: tuple[Review, ...] = (),
+    fsrs: tuple[Fsrs, ...] = (),
     crt: object = CRT,
 ) -> bytes:
     """The bytes of an export holding `notes` in `decks`, in one of the two schemas.
@@ -157,13 +161,18 @@ def apkg(  # noqa: PLR0913
             db.execute(
                 "CREATE TABLE cards (id INTEGER PRIMARY KEY, nid INTEGER, did INTEGER, ord INTEGER,"
                 " type INTEGER DEFAULT 0, ivl INTEGER DEFAULT 0, factor INTEGER DEFAULT 0,"
-                " due INTEGER DEFAULT 0)"
+                " due INTEGER DEFAULT 0, reps INTEGER DEFAULT 0, lapses INTEGER DEFAULT 0,"
+                " data TEXT DEFAULT '')"
             )
             db.executemany("INSERT INTO notes VALUES (?, ?, ?)", notes)
             db.executemany("INSERT INTO cards (id, nid, did, ord) VALUES (?, ?, ?, ?)", cards)
             db.executemany(
                 "UPDATE cards SET type = ?, ivl = ?, factor = ?, due = ? WHERE id = ?",
                 [(*review[1:], review[0]) for review in reviews],
+            )
+            db.executemany(
+                "UPDATE cards SET reps = ?, lapses = ?, data = ? WHERE id = ?",
+                [(*row[1:], row[0]) for row in fsrs],
             )
             if schema18:
                 write_schema_18(db, decks, types, crt)

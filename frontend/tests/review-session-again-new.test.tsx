@@ -150,6 +150,18 @@ describe("ReviewSession rating a new card again (#816)", () => {
     expect(vault.disk).toContain(fsrs(shiftDay(TODAY, 2), "2,1.72,8.50,2,4,1,0"));
   });
 
+  it("#1926 I8 undo of the rating that turned an SM-2 card into FSRS puts the SM-2 comment back byte for byte", async () => {
+    const DUE = "#flashcards/aws\n\nWhat is a VPC?::A private cloud <!--SR:!2020-01-01,3,250-->\n";
+    const { vault } = renderVault(DUE, { ...DECK, fresh: 0, due: 1 }, "");
+    await shownCard();
+    await rate("Good");
+    expect(await screen.findByTestId("review-done")).toBeInTheDocument();
+    expect(vault.disk).toContain("<!--SR:!fsrs,");
+
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    await waitFor(() => expect(vault.disk).toBe(DUE));
+  });
+
   it("#816 undo of the second rating then rating again rates the card the undo put back", async () => {
     const ONE = "#flashcards/aws\n\nWhat is a VPC?::A private cloud\n";
     const { vault } = renderVault(ONE, { ...DECK, fresh: 1 }, ONE_NEW);

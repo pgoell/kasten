@@ -420,6 +420,25 @@ describe("the overview, on the route", () => {
     expect(wordsOf("Flashcards")).toBe("in a row with a review, 1 today");
   });
 
+  it("#1926 I4 an FSRS comment counts on its last answer, plain or a cloze's, and one with none counts nowhere", async () => {
+    const fsrs = (name: string, last: string) =>
+      `<!--SR:${name}!fsrs,2026-11-01T00:00:00.000Z,9,9.10,5.00,2,3,0,0,${last}-->`;
+    fetchCards.mockResolvedValue([
+      card("#flashcards/aws", 0),
+      card(`Q :: A ${fsrs("", "2026-10-20T00:00:00.000Z")}`, 1),
+      card(
+        `{{c1::p}} and {{c2::q}} ${fsrs("c1", "2026-10-19T00:00:00.000Z")} <!--SR:c2!2026-10-19,2,250-->`,
+        2,
+      ),
+      card("Q3 :: A <!--SR:!2026-10-22,4,270-->", 3),
+      card(`Q4 :: A ${fsrs("", "-")}`, 4),
+    ]);
+    await openOverview();
+
+    expect(figureOf("Flashcards")).toBe("4 days");
+    expect(wordsOf("Flashcards")).toBe("in a row with a review, 1 today");
+  });
+
   it("#806 A6 Writing counts notes in 7 days and today, This year counts notes on days this year", async () => {
     fetchWritten.mockResolvedValue([
       "2026-10-20",
