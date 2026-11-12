@@ -1,8 +1,9 @@
 {
-  "suffixes": [".html", ".epub", ".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".mp3", ".m4a", ".ogg", ".wav", ".svg"],
+  "suffixes": [".html", ".epub", ".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".mp3", ".m4a", ".ogg", ".wav", ".svg", ".csv"],
   "paths": [
     "00 Inbox/plan.pdf",
     "a.b/note.md",
+    "data/f.csv",
     "docs/Book.epub",
     "img/a.jpg",
     "img/b.jpeg",
@@ -26,6 +27,7 @@
     { "target": "c.gif", "path": "img/c.gif" },
     { "target": "d.webp", "path": "img/d.webp" },
     { "target": "E.SVG", "path": "img/e.svg" },
+    { "target": "F.CSV", "path": "data/f.csv" },
     { "target": "report", "path": "report.md" },
     { "target": "report.html", "path": "report.html" },
     { "target": "Summary.HTML", "path": "pages/Summary.html" },

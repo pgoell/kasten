@@ -3,6 +3,7 @@ import { Decoration, EditorView, WidgetType } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
 import { noteLanguage } from "@/lib/markdown/note-language";
 import { kastenTheme } from "@/lib/notes/editor/editor-theme";
+import { showCsv } from "@/lib/notes/embeds/csv";
 import { EMBED_DEPTH, type EmbedSource, embedDepth, embedSource } from "@/lib/notes/embeds/embed";
 import { imagePaths } from "@/lib/notes/embeds/image";
 import { encodePath } from "@/lib/notes/links/note-path";
@@ -254,6 +255,45 @@ class PdfEmbed extends WidgetType {
   }
 }
 
+/** What stops each table's read, by its box, for the reason `held` keeps a note's. */
+const tables = new WeakMap<HTMLElement, () => void>();
+
+/** `![[data.csv]]`, the csv drawn as a table where it is named. `eq` keeps a keystroke from refetching. */
+class CsvEmbed extends WidgetType {
+  private readonly path: string | null;
+  private readonly name: string;
+
+  constructor(path: string | null, name: string) {
+    super();
+    this.path = path;
+    this.name = name;
+  }
+
+  override eq(other: CsvEmbed): boolean {
+    return other.path === this.path && other.name === this.name;
+  }
+
+  toDOM(view: EditorView): HTMLElement {
+    const box = document.createElement("div");
+    if (this.path === null) {
+      box.className = "cm-embed cm-embed-missing";
+      box.textContent = `Not found: ${this.name}`;
+      return box;
+    }
+    box.className = "cm-embed cm-embed-csv cm-table-block";
+    const url = `/api/assets/${encodePath(this.path)}`;
+    tables.set(
+      box,
+      showCsv(box, url, this.name, () => view.requestMeasure()),
+    );
+    return box;
+  }
+
+  override destroy(dom: HTMLElement): void {
+    tables.get(dom)?.();
+  }
+}
+
 /**
  * An embed past `EMBED_DEPTH`, drawn as the name it would have shown.
  * Has no `cm-embed` class, so the count of boxes shows where it stopped.
@@ -278,10 +318,29 @@ class EmbedStub extends WidgetType {
   }
 }
 
-/** The vault path of an embedded pdf, or null for one the vault does not hold. */
-function pdfPath(name: string, paths: string[]): string | null {
+/** The vault path of an embedded pdf or csv, or null for one the vault does not hold. */
+function assetPath(name: string, paths: string[]): string | null {
   const found = resolveIn(name, paths);
   return found !== null && paths.includes(found) ? found : null;
+}
+
+/**
+ * The widget a pdf or csv embed draws: undefined for any other name, null for a view with no
+ * vault reader, which shows the source. A csv is drawn as a table and never as a picture.
+ */
+function assetWidget(
+  state: EditorState,
+  name: string,
+  heading: string | null,
+  paths: string[],
+): WidgetType | null | undefined {
+  const lower = name.toLowerCase();
+  if (!lower.endsWith(".pdf") && !lower.endsWith(".csv")) return undefined;
+  const source = state.facet(embedSource);
+  if (source === null) return null;
+  const path = assetPath(name, paths);
+  if (lower.endsWith(".csv")) return new CsvEmbed(path, name);
+  return new PdfEmbed(state.facet(pdfRenderer), source, path, name, pdfPage(heading));
 }
 
 /**
@@ -310,15 +369,13 @@ export function drawEmbed(
   if (paths === null) return;
   const source = state.facet(embedSource);
 
-  // A pdf is found among the paths a link lands on, which hold the
+  // A pdf or a csv is found among the paths a link lands on, which hold the
   // vault's assets beside its notes; the image listing holds none. Ahead
-  // of the depth cap, a pdf drawing nothing that could embed it back.
-  if (name.toLowerCase().endsWith(".pdf")) {
-    if (source === null) return;
-    const path = pdfPath(name, paths);
-    const renderer = state.facet(pdfRenderer);
-    const widget = new PdfEmbed(renderer, source, path, name, pdfPage(heading));
-    decorations.push(Decoration.replace({ widget }).range(node.from, node.to));
+  // of the depth cap, neither drawing anything that could embed it back.
+  const asset = assetWidget(state, name, heading, paths);
+  if (asset !== undefined) {
+    if (asset === null) return;
+    decorations.push(Decoration.replace({ widget: asset }).range(node.from, node.to));
     hidden.push(HIDDEN.range(node.from, node.to));
     return;
   }

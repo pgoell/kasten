@@ -276,7 +276,8 @@ export function useNoteOpening({
       // made stays a dead link rather than turning into a note named `.pdf.md`.
       // One the vault holds opens in a tab of its own, the browser being what
       // reads a picture. A pdf opens in kasten's own view at the page
-      // `#page=3` names, a phone's viewer ignoring `#page` (#353).
+      // `#page=3` names, a phone's viewer ignoring `#page` (#353), and a csv
+      // as a table, which a tab would only download.
       const openFile = (path: string, heading: string | null) => {
         if (html?.includes(path)) {
           void openHtmlInPane(path, heading ?? undefined, at);
@@ -284,6 +285,7 @@ export function useNoteOpening({
         }
         if (!assets?.includes(path)) return;
         if (path.toLowerCase().endsWith(".pdf")) openPdfInPane(path, pdfPage(heading));
+        else if (path.toLowerCase().endsWith(".csv")) void openImageInPane(path);
         else window.open(`/api/assets/${encodePath(path)}`, "_blank");
       };
       // A markdown link has split its path and resolved it from its note's folder
@@ -334,6 +336,7 @@ export function useNoteOpening({
       openInPane,
       openHtmlInPane,
       openPdfInPane,
+      openImageInPane,
       layoutNow,
       focusedNote,
     ],

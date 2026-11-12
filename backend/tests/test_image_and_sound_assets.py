@@ -1,8 +1,10 @@
+import time
 from typing import TYPE_CHECKING
 
 import pytest
 
 from backend.tests.asset_bodies import BOOK, PDF, PNG
+from kasten_backend.anki.archive.apkg import MEDIA_SUFFIXES
 from kasten_backend.vault import fits
 
 if TYPE_CHECKING:
@@ -270,3 +272,89 @@ async def test_a_note_s_suffix_still_matches_exactly(client: AsyncClient, vault:
 
     assert (await client.get("/api/files")).json() == []
     assert (await client.get("/api/files/NOTES.MD")).status_code == 404
+
+
+TABLE = b'name,amount\n"Smith, J.","say ""hi"""\n'
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        TABLE,
+        b"\xef\xbb\xbf" + TABLE,
+        b"Name;Betrag\r\n\xc3\x84pfel;1,50\r\n",
+        b"a\tb\n1\t2\n",
+        b"# Shopping, today\n",
+        b"a,b\n" + b"x" * 2000 + b"\x00",
+        b"a," + "€".encode() * 400,
+    ],
+    ids=["comma", "bom", "semicolon", "tab", "comma-line", "nul-past-head", "cut-char"],
+)
+async def test_a_utf8_csv_lands_behind_a_bom_or_none(
+    client: AsyncClient, vault: Path, body: bytes
+) -> None:
+    response = await client.post("/api/assets/data/sales.csv", content=body)
+
+    assert response.status_code == 201
+    assert (vault / "data" / "sales.csv").read_bytes() == body
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        b"",
+        b"\xef\xbb\xbf",
+        b"Name;Betrag\r\n\xc4pfel;1,50\r\n",
+        "a,b\n1,2".encode("utf-16"),
+        b"a,b\x00\n",
+        b"a,b\x7f\n",
+        b"one column\nno separator\n",
+        b"---\ntitle: x\n---\n# Note, with a comma\n",
+        PNG,
+        PDF,
+    ],
+    ids=["empty", "bom-only", "latin1", "utf16", "nul", "del", "one-column", "note", "png", "pdf"],
+)
+async def test_refuses_a_csv_that_is_not_utf8_text_with_a_separator(
+    client: AsyncClient, vault: Path, body: bytes
+) -> None:
+    response = await client.post("/api/assets/sales.csv", content=body)
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "That file is not what its name says"
+    assert not (vault / "sales.csv").exists()
+
+
+def test_the_csv_check_backtracks_in_linear_time() -> None:
+    # Each byte starts one branch only, so a late fault costs one pass back, not a split.
+    for head in (b"a" * 1023 + b"\x00", b"a," * 511 + b"\x01", "ä".encode() * 511 + b"\x02"):
+        started = time.perf_counter()
+        assert not fits(".csv", head)
+        assert time.perf_counter() - started < 0.05
+
+
+async def test_a_csv_is_served_as_text_never_sniffed(client: AsyncClient, vault: Path) -> None:
+    body = b"a,b\n<script>alert(1)</script>,<img src=x onerror=alert(1)>\n"
+    (vault / "DATA.CSV").write_bytes(body)
+
+    answer = await client.get("/api/assets/DATA.CSV")
+
+    assert answer.content == body
+    assert answer.headers["content-type"] == "text/csv; charset=utf-8"
+    assert answer.headers["x-content-type-options"] == "nosniff"
+    assert "content-security-policy" not in answer.headers
+
+
+async def test_a_csv_dropped_in_is_an_asset_and_no_picture(
+    client: AsyncClient, vault: Path
+) -> None:
+    (vault / "data").mkdir()
+    (vault / "data" / "sales.csv").write_bytes(TABLE)
+    (vault / "shot.png").write_bytes(PNG)
+
+    images = await client.get("/api/images")
+    assets = await client.get("/api/vault-assets")
+
+    assert images.json() == ["shot.png"]
+    assert assets.json() == ["data/sales.csv", "shot.png"]
+    assert ".csv" not in MEDIA_SUFFIXES

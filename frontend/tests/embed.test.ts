@@ -5,6 +5,7 @@ const { fetchNote } = vi.hoisted(() => ({ fetchNote: vi.fn() }));
 
 vi.mock("@/lib/core/api", () => ({ fetchNote }));
 
+import { COLUMN_CAP, cutNote, parseCsv, ROW_CAP } from "@/lib/notes/embeds/csv";
 import { queryEmbedSource } from "@/lib/notes/embeds/embed";
 
 afterEach(() => {
@@ -163,5 +164,55 @@ describe("queryEmbedSource", () => {
     expect(open).not.toHaveBeenCalled();
     expect(openPdf).not.toHaveBeenCalled();
     tab.mockRestore();
+  });
+});
+
+describe("parseCsv", () => {
+  it("reads quotes, doubled quotes, separators and line breaks inside them, and every line end", () => {
+    const text = 'a,b,c\r\n"x, y","say ""hi""","two\nlines"\n1,2,3\r4,5,6';
+
+    expect(parseCsv(text).rows).toEqual([
+      ["a", "b", "c"],
+      ["x, y", 'say "hi"', "two\nlines"],
+      ["1", "2", "3"],
+      ["4", "5", "6"],
+    ]);
+  });
+
+  it("reads a semicolon or a tab file by its first line, and leaves a BOM out of the head", () => {
+    expect(parseCsv("﻿Name;Wert\r\nÄpfel;1,50\r\n").rows).toEqual([
+      ["Name", "Wert"],
+      ["Äpfel", "1,50"],
+    ]);
+    expect(parseCsv("a\tb\n1,5\t2").rows).toEqual([
+      ["a", "b"],
+      ["1,5", "2"],
+    ]);
+  });
+
+  it("keeps ragged rows as they are, skips blank lines, and runs an unclosed quote to the end", () => {
+    const csv = parseCsv('a,b,c\n\n1\n1,2,3,4\n"open,\nnever');
+
+    expect(csv.rows).toEqual([["a", "b", "c"], ["1"], ["1", "2", "3", "4"], ["open,\nnever"]]);
+    expect(csv.widest).toBe(4);
+  });
+
+  it("stops at the row and column caps but counts past them", () => {
+    const csv = parseCsv(`${"x,".repeat(COLUMN_CAP + 9)}x\n${"1\n".repeat(ROW_CAP + 99)}`);
+
+    expect(csv.rows).toHaveLength(ROW_CAP);
+    expect(csv.rows[0]).toHaveLength(COLUMN_CAP);
+    expect([csv.total, csv.widest]).toEqual([ROW_CAP + 100, COLUMN_CAP + 10]);
+    expect(cutNote(csv, false)).toBe(
+      `Showing ${ROW_CAP} of ${ROW_CAP + 100} rows. Showing ${COLUMN_CAP} of ${COLUMN_CAP + 10} columns.`,
+    );
+  });
+
+  it("reads a long file in one pass, quotes and commas alike", () => {
+    for (const text of ["a,".repeat(500_000), `"${'""'.repeat(300_000)}`, "x\n".repeat(500_000)]) {
+      const started = performance.now();
+      parseCsv(text);
+      expect(performance.now() - started).toBeLessThan(2000);
+    }
   });
 });

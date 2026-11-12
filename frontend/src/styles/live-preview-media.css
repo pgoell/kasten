@@ -88,3 +88,10 @@
   border-left: 3px dashed var(--k-muted);
   padding: 0.25em 0.75em;
 }
+
+/* The line under a csv table cut at its row or column cap. */
+.cm-csv-cut {
+  color: var(--k-muted);
+  font-size: 0.85em;
+  margin: 0.25em 0 0;
+}
