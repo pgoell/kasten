@@ -13,7 +13,7 @@ The routes for images, sounds and books, and the uploads that carry a file too b
 
 ## GET /api/vault-assets
 
-Lists every image, sound, book and csv in the vault as a relative POSIX path, sorted.
+Lists every image, sound, book, csv and video file in the vault as a relative POSIX path, sorted.
 
 ```json
 ["00 Inbox/plan.pdf", "99 Misc/02 Assets/01 Images/2026-08-12-a1b2c3d4.png"]
@@ -21,9 +21,10 @@ Lists every image, sound, book and csv in the vault as a relative POSIX path, so
 
 The same walk `/api/images` makes, filtered on every suffix an upload takes:
 `.epub`, `.pdf`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.svg`, `.mp3`, `.m4a`,
-`.ogg`, `.wav` and `.csv`, in any case. `/api/images` leaves the sounds and the
-csvs out, so `![](` completes pictures only. The file tree lists a csv beside the
-pictures and opens it as a table. The editor reads it to draw `[[plan.pdf]]` as live when the vault holds the file,
+`.ogg`, `.wav`, `.mp4`, `.webm` and `.csv`, in any case. `/api/images` leaves the
+sounds, the videos and the csvs out, so `![](` completes pictures only. The file
+tree lists a csv and a video beside the pictures and opens them as a table and a
+player. The editor reads it to draw `[[plan.pdf]]` as live when the vault holds the file,
 and as dead when it does not.
 
 Not `/api/assets`, whose `GET` with a path serves one file. A listing at the
@@ -50,8 +51,8 @@ which is the only thing in the app that asks.
 
 ## GET /api/assets/{path}
 
-Reads one book, image, sound or csv out of the vault and answers with the bytes.
-`path` is a vault-relative POSIX path ending in one of thirteen suffixes, in any case, so
+Reads one book, image, sound, csv or video out of the vault and answers with the bytes.
+`path` is a vault-relative POSIX path ending in one of fifteen suffixes, in any case, so
 `Plan.PDF` is served as a pdf. A slash inside it may be sent raw or
 percent-encoded.
 
@@ -68,13 +69,20 @@ percent-encoded.
 | `.m4a` | `audio/mp4` |
 | `.ogg` | `audio/ogg` |
 | `.wav` | `audio/x-wav` |
+| `.mp4` | `video/mp4` |
+| `.webm` | `video/webm` |
 | `.csv` | `text/csv; charset=utf-8`, with `X-Content-Type-Options: nosniff` |
 
 The reply is the file, and the content type comes off the suffix. Nothing here
 opens what it sends: this resolves a path, checks the suffix and streams a file,
 so a `.epub` holding anything at all is served unchanged and the reader in the
-browser is what decides whether it is a book. `Range` comes free with the file
-response and nothing uses it, the client asking for the whole file once. With
+browser is what decides whether it is a book. Every kind answers `Range`, which
+comes with the file response: `Accept-Ranges: bytes` on each reply, a `206` with
+`Content-Range` for a range inside the file, and a `416` with
+`Content-Range: bytes */<size>` for one past its end. A video player is what
+uses it, reading a video's head first and then from wherever a seek lands, so
+neither a play nor a seek loads the whole file. A request with no `Range` gets
+the whole file with a `200`, as it always did. With
 the `POST` below, a file gets into the vault and back out without a terminal.
 
 Anything that is not a readable file of one of those suffixes inside the vault
@@ -93,8 +101,8 @@ its own. Other suffixes answer with neither header.
 ## POST /api/assets/{path}
 
 Puts one book, image or sound into the vault at `path`, and never over one
-already there. `path` follows the same rules the read above follows, the twelve
-suffixes included.
+already there. `path` follows the same rules the read above follows, the
+fifteen suffixes included.
 
 The body is the file itself, raw. Not multipart: one file and no fields, so
 nothing has to parse a boundary at either end. No response body comes back,
@@ -144,6 +152,13 @@ An `.svg` has no magic bytes: within its first 1024 bytes, after an optional
 UTF-8 byte order mark, blank space, an XML prolog, comments and a doctype, the
 root tag `<svg` must open. HTML, plain text, another XML root, a UTF-16 file
 and a root pushed past those 1024 bytes are refused.
+A video has a box or element head: an `.mp4` opens with an `ftyp` box behind
+the four bytes of its size, whose major brand is one of `isom`, `iso2` to
+`iso9`, `mp41`, `mp42`, `avc1`, `av01`, `dash`, `M4V `, `mmp4` or `XAVC` (Sony), what cameras,
+phones and encoders write. A QuickTime `qt  ` file and a 3GP are refused. A
+`.webm` opens with the EBML head `\x1a\x45\xdf\xa3`, and within its first 64
+bytes a DocType element reading `webm`; a Matroska file, whose DocType reads
+`matroska`, is refused.
 A `.csv` has none either: its first 1024 bytes, after an optional UTF-8 byte
 order mark, must be UTF-8 text with no control byte but tab, CR and LF, and its
 first line must hold a comma, a semicolon or a tab. An empty file, a one-column
@@ -227,7 +242,7 @@ other, never into each other.
 
 ## DELETE /api/assets/{path}
 
-Takes one image or sound out of the vault and holds it in the trash, answering
+Takes one image, sound, csv or video out of the vault and holds it in the trash, answering
 with the entry it became.
 
 ```json
@@ -245,8 +260,9 @@ a mistyped key costs a keypress rather than a picture, in a vault with no other
 delete. The folder the image emptied goes with it, the way a note's delete
 takes the one it emptied.
 
-Images and sounds alone: a sound has no note it travels with, so it goes the
-way an image does. A book is a `404` like any other path this does not serve,
+Every kind but a book: a sound, a csv or a video has no note it travels with,
+so it goes the way an image does. A video goes to the trash as any file does,
+and the history keeps no copy of it, so the trash is the one way back. A book is a `404` like any other path this does not serve,
 whichever of the two suffixes it ends in: a book travels with the note beside it, and which of the pair a delete should take
 is a decision nothing here has made. The file tree, which is what this route
 serves, lists images and no books.

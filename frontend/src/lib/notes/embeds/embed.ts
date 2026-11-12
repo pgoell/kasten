@@ -13,6 +13,7 @@ import {
 import { fetchNote } from "@/lib/core/api";
 import { encodePath } from "@/lib/notes/links/note-path";
 import { namesAFile } from "@/lib/notes/links/wikilink";
+import { opensInFilePane } from "@/lib/vault/file-kind";
 
 /** Hands an embed the text of its note, now and on every later change. */
 export interface EmbedSource {
@@ -101,11 +102,11 @@ export function queryEmbedSource(
         stopCache();
       };
     },
-    // A pdf goes to kasten's own viewer, since phone viewers ignore `#page` (#353), and a csv to
-    // its table. Other files get a tab, since `open` would read their bytes as note text.
+    // A pdf goes to kasten's own viewer, since phone viewers ignore `#page` (#353), and a csv or a
+    // video file to the image's pane. Other files get a tab, since `open` would read their bytes as note text.
     open(path, line) {
       if (path.toLowerCase().endsWith(".pdf")) openPdf(path, line);
-      else if (openTable && path.toLowerCase().endsWith(".csv")) openTable(path);
+      else if (openTable && opensInFilePane(path)) openTable(path);
       else if (namesAFile(path)) window.open(`/api/assets/${encodePath(path)}`, "_blank");
       else open(path, line);
     },

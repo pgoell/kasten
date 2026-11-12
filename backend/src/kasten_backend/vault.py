@@ -44,6 +44,10 @@ ASSET_MAGIC: dict[str, re.Pattern[bytes]] = {
     ".m4a": re.compile(rb".{4}ftyp", re.DOTALL),
     ".ogg": re.compile(rb"OggS"),
     ".wav": re.compile(rb"RIFF"),
+    # An ftyp box with an ISO, MPEG-4, H.264, AV1, DASH or Sony XAVC brand; QuickTime, 3GP refused.
+    ".mp4": re.compile(rb".{4}ftyp(?:iso[2-9m]|mp4[12]|avc1|av01|dash|M4V |mmp4|XAVC)", re.DOTALL),
+    # The EBML head, whose DocType element names webm; a Matroska file says matroska.
+    ".webm": re.compile(rb"\x1a\x45\xdf\xa3.{1,64}?\x42\x82\x84webm", re.DOTALL),
     # No magic bytes: the root tag, behind a BOM, space, an XML prolog, comments and a
     # doctype. Each part ends at its first closer, so a failed match backtracks in linear time.
     ".svg": re.compile(
@@ -78,8 +82,11 @@ AUDIO_SUFFIXES = (".m4a", ".mp3", ".ogg", ".wav")
 TABLE_SUFFIX = ".csv"
 """What a table's name ends in: an asset the editor draws as a table, never as a picture."""
 
+CLIP_SUFFIXES = (".mp4", ".webm")
+"""What a video file's name ends in: an asset the editor draws as a player."""
+
 IMAGE_SUFFIXES = tuple(
-    sorted(set(ASSET_MAGIC) - set(BOOK_SUFFIXES) - set(AUDIO_SUFFIXES) - {TABLE_SUFFIX})
+    sorted(set(ASSET_MAGIC) - {*BOOK_SUFFIXES, *AUDIO_SUFFIXES, *CLIP_SUFFIXES, TABLE_SUFFIX})
 )
 """The suffixes `list_images` walks for: every asset but the books, sounds and tables.
 

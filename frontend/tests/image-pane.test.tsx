@@ -391,3 +391,19 @@ describe("a csv in the pane", () => {
     expect(onDelete).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("a video file in the pane", () => {
+  it("plays in the browser's own player, never unasked, outside the pinch box, and d still trashes it", () => {
+    const { pane, onDelete } = open("clips/Walk #1.MP4");
+
+    const video = pane.querySelector("video") as HTMLVideoElement;
+    expect(video.getAttribute("src")).toBe("/api/assets/clips/Walk%20%231.MP4");
+    expect([video.controls, video.autoplay, video.preload]).toEqual([true, false, "metadata"]);
+    expect(pane.getAttribute("aria-label")).toBe("clip");
+    expect(pane.querySelector("img")).toBeNull();
+    // A finger on the scrubber seeks, where the picture's box would take it for a pan.
+    expect(pane.querySelector(".touch-none")).toBeNull();
+    fireEvent.keyDown(pane, { key: "d" });
+    expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+});

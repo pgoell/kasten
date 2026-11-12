@@ -4,6 +4,7 @@
  */
 
 import { imageSource } from "@/lib/notes/embeds/image";
+import { endsIn } from "@/lib/notes/links/note-path";
 
 /** The suffixes that make an `![](path)` a sound, held here for both readers. */
 export const AUDIO_SUFFIXES = [".mp3", ".ogg", ".m4a", ".wav"];
@@ -13,16 +14,7 @@ const IMAGE = /!\[[^\]\n]*\]\(\s*<?([^\s()<>]+)>?[^)\n]*\)/g;
 
 /** Whether an `![](address)` names a sound, by the suffix of its decoded path. */
 export function isAudio(address: string): boolean {
-  const path = address.replace(/[?#].*$/, "");
-  let name = path;
-  try {
-    name = decodeURIComponent(path);
-  } catch (error: unknown) {
-    // A stray `%` is a path nobody encoded, and its suffix reads as written.
-    if (!(error instanceof URIError)) throw error;
-  }
-  const lower = name.toLowerCase();
-  return AUDIO_SUFFIXES.some((suffix) => lower.endsWith(suffix));
+  return endsIn(address, AUDIO_SUFFIXES);
 }
 
 /**

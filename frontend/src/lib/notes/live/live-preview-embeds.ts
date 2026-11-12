@@ -3,6 +3,7 @@ import { Decoration, EditorView, WidgetType } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
 import { noteLanguage } from "@/lib/markdown/note-language";
 import { kastenTheme } from "@/lib/notes/editor/editor-theme";
+import { clipPlayer } from "@/lib/notes/embeds/clip";
 import { showCsv } from "@/lib/notes/embeds/csv";
 import { EMBED_DEPTH, type EmbedSource, embedDepth, embedSource } from "@/lib/notes/embeds/embed";
 import { imagePaths } from "@/lib/notes/embeds/image";
@@ -19,6 +20,7 @@ import { embeddedPicture, Picture } from "@/lib/notes/live/live-preview-images";
 import { noteBody } from "@/lib/notes/text/note-frontmatter";
 import { noteSectionOf } from "@/lib/notes/text/note-section";
 import { type PdfRenderer, pdfRenderer, showPdf } from "@/lib/panes/book/pdf-view";
+import { isClip } from "@/lib/vault/file-kind";
 
 /** What a mounted embed has to let go of, keyed by its box. */
 interface Held {
@@ -294,6 +296,35 @@ class CsvEmbed extends WidgetType {
   }
 }
 
+/** `![[walk.mp4]]`, the video file drawn as a player. `eq` keeps a keystroke from restarting it. */
+class ClipEmbed extends WidgetType {
+  private readonly path: string | null;
+  private readonly name: string;
+
+  constructor(path: string | null, name: string) {
+    super();
+    this.path = path;
+    this.name = name;
+  }
+
+  override eq(other: ClipEmbed): boolean {
+    return other.path === this.path && other.name === this.name;
+  }
+
+  toDOM(view: EditorView): HTMLElement {
+    const box = document.createElement("div");
+    if (this.path === null) {
+      box.className = "cm-embed cm-embed-missing";
+      box.textContent = `Not found: ${this.name}`;
+      return box;
+    }
+    box.className = "cm-embed cm-embed-clip";
+    const url = `/api/assets/${encodePath(this.path)}`;
+    box.append(clipPlayer(url, () => view.requestMeasure()));
+    return box;
+  }
+}
+
 /**
  * An embed past `EMBED_DEPTH`, drawn as the name it would have shown.
  * Has no `cm-embed` class, so the count of boxes shows where it stopped.
@@ -318,15 +349,15 @@ class EmbedStub extends WidgetType {
   }
 }
 
-/** The vault path of an embedded pdf or csv, or null for one the vault does not hold. */
+/** The vault path of an embedded pdf, csv or video file, or null for one the vault does not hold. */
 function assetPath(name: string, paths: string[]): string | null {
   const found = resolveIn(name, paths);
   return found !== null && paths.includes(found) ? found : null;
 }
 
 /**
- * The widget a pdf or csv embed draws: undefined for any other name, null for a view with no
- * vault reader, which shows the source. A csv is drawn as a table and never as a picture.
+ * The widget a pdf, csv or video file embed draws: undefined for any other name, null for a view
+ * with no vault reader, which shows the source. A csv is drawn as a table and never as a picture.
  */
 function assetWidget(
   state: EditorState,
@@ -335,11 +366,13 @@ function assetWidget(
   paths: string[],
 ): WidgetType | null | undefined {
   const lower = name.toLowerCase();
-  if (!lower.endsWith(".pdf") && !lower.endsWith(".csv")) return undefined;
+  const clip = isClip(lower);
+  if (!lower.endsWith(".pdf") && !lower.endsWith(".csv") && !clip) return undefined;
   const source = state.facet(embedSource);
   if (source === null) return null;
   const path = assetPath(name, paths);
   if (lower.endsWith(".csv")) return new CsvEmbed(path, name);
+  if (clip) return new ClipEmbed(path, name);
   return new PdfEmbed(state.facet(pdfRenderer), source, path, name, pdfPage(heading));
 }
 
@@ -369,7 +402,7 @@ export function drawEmbed(
   if (paths === null) return;
   const source = state.facet(embedSource);
 
-  // A pdf or a csv is found among the paths a link lands on, which hold the
+  // A pdf, csv or video file is found among the paths a link lands on, which hold the
   // vault's assets beside its notes; the image listing holds none. Ahead
   // of the depth cap, neither drawing anything that could embed it back.
   const asset = assetWidget(state, name, heading, paths);

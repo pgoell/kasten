@@ -20,7 +20,13 @@ async def test_startup_writes_every_line(startup_vault: Path) -> None:
 
     # Both book formats, or the first save after a small pdf lands sweeps it
     # into the history, where nothing takes it back out.
-    assert _ignores(startup_vault) == ["*.epub", "*.pdf", ".*.tmp"]
+    assert _ignores(startup_vault) == [
+        "*.epub",
+        "*.pdf",
+        ".*.tmp",
+        "*.[mM][pP]4",
+        "*.[wW][eE][bB][mM]",
+    ]
 
 
 async def test_startup_keeps_the_lines_the_vault_already_had(startup_vault: Path) -> None:
@@ -31,7 +37,14 @@ async def test_startup_keeps_the_lines_the_vault_already_had(startup_vault: Path
     async with LifespanManager(app):
         pass
 
-    assert _ignores(startup_vault) == ["*.mobi", "*.epub", "*.pdf", ".*.tmp"]
+    assert _ignores(startup_vault) == [
+        "*.mobi",
+        "*.epub",
+        "*.pdf",
+        ".*.tmp",
+        "*.[mM][pP]4",
+        "*.[wW][eE][bB][mM]",
+    ]
 
 
 async def test_startup_adds_only_the_lines_that_are_missing(startup_vault: Path) -> None:
@@ -42,7 +55,13 @@ async def test_startup_adds_only_the_lines_that_are_missing(startup_vault: Path)
     async with LifespanManager(app):
         pass
 
-    assert _ignores(startup_vault) == ["*.epub", "*.pdf", ".*.tmp"]
+    assert _ignores(startup_vault) == [
+        "*.epub",
+        "*.pdf",
+        ".*.tmp",
+        "*.[mM][pP]4",
+        "*.[wW][eE][bB][mM]",
+    ]
 
 
 async def test_starting_twice_is_not_an_edit(startup_vault: Path) -> None:
@@ -77,4 +96,4 @@ async def test_the_lines_are_there_before_the_guide_is_written(
     async with LifespanManager(app):
         pass
 
-    assert seen == ["*.epub\n*.pdf\n.*.tmp\n"]
+    assert seen == ["*.epub\n*.pdf\n.*.tmp\n*.[mM][pP]4\n*.[wW][eE][bB][mM]\n"]

@@ -2,8 +2,10 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from backend.tests.asset_bodies import MP4, PNG, WEBM
 from backend.tests.conftest import JJ, changed_paths, descriptions, jj, moved_paths
 from kasten_backend.change import settled
+from kasten_backend.vcs import write_ignores
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -365,3 +367,19 @@ async def test_deletes_a_note_in_a_vault_that_is_not_a_repo(
 
     assert response.status_code == 200
     assert (vault / ".trash" / response.json()["entry"]).read_text() == "# index"
+
+
+async def test_keeps_no_copy_of_a_video_in_the_history(
+    client: AsyncClient, versioned_vault: Path
+) -> None:
+    # Any case: a phone names its clips `IMG_0001.MP4`, and a gitignore line matches exactly.
+    write_ignores(versioned_vault)
+
+    for name, body in [("walk.mp4", MP4), ("RUN.MP4", MP4), ("swim.webm", WEBM)]:
+        assert (await client.post(f"/api/assets/clips/{name}", content=body)).status_code == 201
+    await client.post("/api/assets/clips/plate.png", content=PNG)
+
+    await settled()
+
+    listed = jj(versioned_vault, "file", "list").splitlines()
+    assert [line.rsplit("vault/", 1)[1] for line in listed] == [".gitignore", "clips/plate.png"]

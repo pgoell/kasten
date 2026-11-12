@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
+import { clipPlayer } from "@/lib/notes/embeds/clip";
 import { showCsv } from "@/lib/notes/embeds/csv";
 import { encodePath } from "@/lib/notes/links/note-path";
 import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
 import { useLeader } from "@/lib/ui/keys/use-leader";
+import { paneKind } from "@/lib/vault/file-kind";
 
 interface ImagePaneProps {
   /** Vault-relative path of the image to show. */
@@ -110,6 +112,26 @@ function Table({ path }: { path: string }) {
   );
 }
 
+/** A video file played in the pane, outside the picture's pinch box so a finger on the scrubber seeks. */
+function Clip({ path }: { path: string }) {
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const element = box.current;
+    if (element === null) return;
+    const player = clipPlayer(`/api/assets/${encodePath(path)}`, () => {});
+    element.replaceChildren(player);
+    // Emptied, so a player taken off the page stops reading the file.
+    return () => {
+      player.removeAttribute("src");
+      player.load();
+      player.remove();
+    };
+  }, [path]);
+  return (
+    <div ref={box} data-clip className="flex min-h-0 flex-1 items-center justify-center p-4" />
+  );
+}
+
 /**
  * One image out of the vault, shown whole. No editing and no next image, because
  * the tree walks the folder. A pinch zooms and a drag moves it, since a phone has
@@ -137,8 +159,8 @@ export function ImagePane({ path, commands, focusSignal, onDelete }: ImagePanePr
   const zoom = zoomed.path === path ? zoomed.zoom : FITTED;
   /** Where each pointer that is down was last seen. A ref: nothing draws it. */
   const pointers = useRef(new Map<number, Point>());
-  // A csv rides in this pane, as a file of the vault's that no note owns.
-  const table = path.toLowerCase().endsWith(".csv");
+  // A csv and a video file ride in this pane, as files of the vault's that no note owns.
+  const kind = paneKind(path);
 
   // A freshly focused pane is handed a raised signal and takes the cursor, the
   // way the exam pane and the todo pane do. It has to: the pane holds no
@@ -211,11 +233,11 @@ export function ImagePane({ path, commands, focusSignal, onDelete }: ImagePanePr
       // cursor.
       tabIndex={-1}
       onKeyDown={onKeyDown}
-      aria-label={table ? "table" : "image"}
+      aria-label={kind}
       className="flex h-full flex-col bg-k-bg font-mono outline-none"
     >
       <header className="flex items-center gap-3 border-b border-k-rule px-3 py-1">
-        <span className={LABEL}>{table ? "table" : "image"}</span>
+        <span className={LABEL}>{kind}</span>
         <span className="min-w-0 flex-1 truncate text-[13px] text-k-ink" title={path}>
           {path}
         </span>
@@ -237,8 +259,10 @@ export function ImagePane({ path, commands, focusSignal, onDelete }: ImagePanePr
         </button>
       </header>
 
-      {table ? (
+      {kind === "table" ? (
         <Table path={path} />
+      ) : kind === "clip" ? (
+        <Clip path={path} />
       ) : (
         <div
           onPointerDown={onPointerDown}

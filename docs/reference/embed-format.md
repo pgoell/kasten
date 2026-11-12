@@ -82,7 +82,12 @@ The embed takes the place of its line, in a box.
   and stops at 500 rows, 50 columns and the first 1 MiB of the file, with a line
   under it saying what it cut. A followed `[[data.csv]]` and a tree row open the
   table in a pane.
-* **A missing target**, a note, a heading, a pdf or a csv the vault does not hold,
+* **A video**, an `.mp4` or a `.webm`, draws the browser's own player with its
+  controls, as `![](walk.mp4)` does. It never plays by itself and reads only the
+  file's head until played; a seek reads from where it lands. It is as wide as
+  the file, never past the column or 70% of the window's height. A followed
+  `[[walk.mp4]]` and a tree row open the player in a pane.
+* **A missing target**, a note, a heading, a pdf, a csv or a video the vault does not hold,
   draws a plain box saying `Not found`.
 * **The depth stub.** Embeds nest, and stop at a depth of three. At that cap an
   embed draws a stub box in place of its note, so a note that embeds itself, or

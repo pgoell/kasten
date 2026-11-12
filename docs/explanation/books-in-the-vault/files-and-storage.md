@@ -133,15 +133,18 @@ the vault would write that book into the history, and it would stay there. A
 paper is often well under that megabyte, so for a pdf this is not the rare case
 it is for a book: it is most of them.
 
-So the backend writes `vault/.gitignore` at startup, holding three lines:
+So the backend writes `vault/.gitignore` at startup, holding five lines:
 
 ```
 *.epub
 *.pdf
 .*.tmp
+*.[mM][pP]4
+*.[wW][eE][bB][mM]
 ```
 
-The first two keep what you read out. The last keeps out the temp file a write
+The first two keep what you read out, and the last two keep out a video, in any
+case since a phone names its clips `IMG_0001.MP4`. The third keeps out the temp file a write
 lands in before it is renamed over the note, which matters more than it looks: a
 save during a long upload would otherwise snapshot half a file.
 

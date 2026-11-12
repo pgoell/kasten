@@ -1,8 +1,9 @@
 {
-  "suffixes": [".html", ".epub", ".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".mp3", ".m4a", ".ogg", ".wav", ".svg", ".csv"],
+  "suffixes": [".html", ".epub", ".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".mp3", ".m4a", ".ogg", ".wav", ".mp4", ".webm", ".svg", ".csv"],
   "paths": [
     "00 Inbox/plan.pdf",
     "a.b/note.md",
+    "clips/walk.mp4",
     "data/f.csv",
     "docs/Book.epub",
     "img/a.jpg",

@@ -18,3 +18,23 @@ export function fileKind(path: string): FileKind | undefined {
 export function bookNoteOf(epub: string): string {
   return epub.replace(/\.epub$/i, ".md");
 }
+
+/** What a video file's name ends in, as the backend's `CLIP_SUFFIXES`. */
+export const CLIP_SUFFIXES = [".mp4", ".webm"];
+
+/** Whether a vault path names a video file, by its suffix in any case. Raw: a `#` is part of the name. */
+export function isClip(path: string): boolean {
+  const lower = path.toLowerCase();
+  return CLIP_SUFFIXES.some((suffix) => lower.endsWith(suffix));
+}
+
+/** What the image's pane draws a vault file as: a csv as a table, a video file as a player. */
+export function paneKind(path: string): "table" | "clip" | "image" {
+  if (path.toLowerCase().endsWith(".csv")) return "table";
+  return isClip(path) ? "clip" : "image";
+}
+
+/** Whether a file no note owns, beside the pictures, opens in the image's pane: a csv or a video. */
+export function opensInFilePane(path: string): boolean {
+  return paneKind(path) !== "image";
+}

@@ -283,7 +283,7 @@ curl -s -X POST -H "Authorization: Bearer $KASTEN_TOKEN" \
 ```
 
 `path` ends in `.pdf`, `.epub`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.svg`, `.mp3`,
-`.m4a`, `.ogg`, `.wav`, `.csv` or `.html` (in any case), and
+`.m4a`, `.ogg`, `.wav`, `.mp4`, `.webm`, `.csv` or `.html` (in any case), and
 the bytes must start the way that suffix says. An `.html` body starts with `<`
 once blanks and an optional UTF-8 byte order mark are skipped. A PDF or an epub filed at a
 note's path with the suffix swapped is the file the reader opens beside that
@@ -294,7 +294,7 @@ explains.
 | --- | --- |
 | `201` | The file is at `path`. A page replaces the one already at a `.html` path |
 | `400` | `The vault will not take that path`, or `That file is not what its name says` |
-| `409` | `Something is already there`: a PDF, epub, image, sound or csv at a taken path, or a folder at an `.html` path |
+| `409` | `Something is already there`: a PDF, epub, image, sound, video or csv at a taken path, or a folder at an `.html` path |
 | `413` | `That file is over the 100 MiB limit` |
 
 Only a page overwrites. The replace is atomic: the bytes go to a hidden temporary
