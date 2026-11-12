@@ -355,4 +355,18 @@ describe("an upload pasted into a note (#1945)", () => {
     await waitFor(() => expect(updateNote).toHaveBeenCalledWith("a.md", expect.any(Function)));
     expect(changed).not.toHaveBeenCalled();
   });
+
+  it("puts it at the cursor of an editor that has no note and no onChange, as the scratch editor", async () => {
+    const held = holdUploads();
+    const { container } = render(<Editor initialDoc="" />);
+    paste(clip(), container);
+    await waitFor(() => expect(held).toHaveLength(1));
+
+    act(() => held[0]?.end());
+
+    await waitFor(() =>
+      expect(container.querySelector(".cm-content")?.textContent).toContain("walk.mp4"),
+    );
+    expect(updateNote).not.toHaveBeenCalled();
+  });
 });

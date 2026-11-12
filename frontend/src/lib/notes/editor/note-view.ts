@@ -74,6 +74,8 @@ export interface NoteViewLatest {
   onOutline?: (outline: Outline) => void;
   onGraph?: () => void;
   onSeek?: (seconds: number, id?: string) => void;
+  /** Set as the editor leaves, its callbacks gone: an edit then reaches no save. */
+  left?: boolean;
 }
 
 /** The four listings the vault carries. Any of them absent means told nothing. */
@@ -293,7 +295,7 @@ export function createNoteView(o: {
         imagePaste(o.path),
         noticeHandler.of((message) => latest.current.onNotice?.(message)),
         noticeSource.of(() => latest.current.onNotice),
-        savesEdits.of(() => latest.current.onChange !== undefined),
+        savesEdits.of(() => latest.current.left !== true),
         followOnClick(),
         followOnTap(),
         byName,
