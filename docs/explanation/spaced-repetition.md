@@ -125,8 +125,8 @@ of the queue, and neither is a worse way of doing the other.
 
 ## FSRS, not SM-2
 
-kasten schedules with SM-2 today: twenty lines in `srs-schedule.ts` that hold
-exactly the three numbers the borrowed comment carries. The decision of
+kasten schedules with SM-2 today: one short function in `srs-schedule.ts` that
+holds exactly the three numbers the borrowed comment carries. The decision of
 2026-11-12 (#1776) is to swap to FSRS, and #1926 builds it. Until it
 lands, everything else on this page describes SM-2, as the code does.
 
@@ -135,10 +135,10 @@ lands, everything else on this page describes SM-2, as the code does.
 Two things changed since SM-2 was picked as a stopgap.
 
 The vault's load is ahead of it, not behind it. Counted read-only on the live
-vault that day, the review holds 8,860 cards in 28 notes and ten decks (six
-Japanese, `databases` and `spark`). Only 456 have ever been answered, 89 were
-due, and 8,404 have never been asked: 7,065 in the kanji deck and 1,501 in
-Kaishi. Three more decks (488 cards, all unanswered) sit in the archive. The
+vault that day, the review holds 8,860 cards in 28 notes and ten decks (eight
+Japanese, `databases` and `spark`). 456 hold a schedule, 89 were due, and
+8,404 have never been asked: 6,955 of the kanji deck's 7,065 and 1,440 of
+Kaishi's 1,501. Three more decks (488 cards, all unanswered) sit in the archive. The
 cost of a scheduler lies in the reviews still to come, and nearly all of them
 are.
 
@@ -150,33 +150,36 @@ FSRS on is one today's kasten cannot read.
 
 ### What staying would cost
 
-The FSRS project's benchmarks put FSRS at 20 to 30 percent fewer reviews than
-SM-2 for the same recall. That is their figure on Anki users' logs, with
-weights fitted; this vault has no answer log, so kasten would run the default
-weights, and none of it was measured here. Read against the 8,404 cards still
-unseen, it is a few reviews in every ten for as long as those decks are in use.
+FSRS asks for fewer reviews than SM-2 for the same recall; that is the
+FSRS project's claim and the reason #1776 gives. How many fewer was not
+measured here, and the figure often quoted, 20 to 30 percent, was not traced
+to a source for this page. Any saving is per review, so it counts against the
+8,404 cards still unseen for as long as those decks are in use. This vault has
+no answer log, so kasten would run the default weights, not fitted ones.
 
 The history cannot tell how often the 456 were answered. The jj repo keeps
-snapshots, not a log of answers, and its git side does not reach every note.
-Most of the 456 look imported from Anki rather than answered here: all 225
-Tofugu cards hold a schedule and none is due, and the longest interval is 51
-days. That is inferred from the numbers, not read off a log.
+snapshots, not a log of answers, and a copy of its git side did not show
+every answer. Many of the 456 look imported from Anki rather than answered
+here: all 225 Tofugu cards hold a schedule and none is due, and the longest
+interval is 51 days. That is inferred from the numbers, not read off a log.
 
 ### The card format
 
-The plugin's own, borrowed whole a second time:
+The plugin's own, borrowed whole a second time. This card was answered Easy
+once:
 
 ```markdown
-What does S3 stand for?::Simple Storage Service <!--SR:!fsrs,2026-11-20T00:00:00.000Z,8,8.29,5.12,2,1,0,0,2026-11-12T00:00:00.000Z-->
+What does S3 stand for?::Simple Storage Service <!--SR:!fsrs,2026-11-20T00:00:00.000Z,8,8.30,1.00,2,1,0,0,2026-11-12T00:00:00.000Z-->
 ```
 
 After `fsrs`, nine fields by comma:
 
-1. The due day, as an ISO timestamp at midnight UTC of that day. kasten reads
-   the date part and nothing else.
+1. The due day, as an ISO timestamp. The plugin writes any time of day;
+   kasten writes midnight UTC of the day and reads the date part alone.
 2. The interval in days, as now.
 3. Stability: the days until recall falls to 90 percent. A float, written to
    two places so it reads back as written, the reason the ease is a percent.
+   The plugin writes the whole float; both read either.
 4. Difficulty, 1 to 10, two places.
 5. The state, as ts-fsrs numbers it: 0 new, 1 learning, 2 review,
    3 relearning.
@@ -201,22 +204,23 @@ No rewrite. An SM-2 comment still reads, in kasten and in the plugin, and a
 card moves to the new comment the first time it is answered after the build,
 by the rule the plugin uses: stability is the interval, the last answer is the
 due day less the interval, the ease of 130 to 370 maps onto difficulty 10 to 1,
-the state is review, and the answers are log2 of the interval plus one, rounded. A card
-nobody answers is never written. The live vault has no card in learning to
+the state is review, lapses and learning step are 0, and the answers are
+log2 of the interval plus one, rounded. A card nobody answers is never written. The live vault has no card in learning to
 convert.
 
 ### The Anki import
 
 Today it carries the interval, ease and due day of each card in review. Anki
-keeps FSRS state in the `data` column of `cards` as `s` and `d`, by Anki's own
-source; no `.apkg` with FSRS on was opened for this. Where those are there,
-the import writes the new comment with them and with the card's `reps` and
-`lapses`; where they are not, it writes the SM-2 comment it writes now, which
+keeps FSRS state in the `data` column of `cards` as `s` and `d`, with the last
+answer as `lrt`, by Anki's own source (`rslib/src/storage/card/data.rs`); no
+`.apkg` with FSRS on was opened for this. Where those are there,
+the import writes the new comment with them, the last answer and the card's
+`reps` and `lapses`; where they are not, it writes the SM-2 comment it writes now, which
 converts at the first answer.
 
 ### The library
 
-ts-fsrs 6.0.0 (MIT), the plugin's library too, with its one dependency
+ts-fsrs 6.0.0 (MIT), the library the plugin uses at 5.4.1, with its one dependency
 `@open-spaced-repetition/srs-kit` 1.0.0 (BSD-3-Clause, whose notice has to ship
 with the bundle). Both licenses were read from the files in the packages.
 Default FSRS-6 weights, 90 percent recall asked, no fuzz, as now.
