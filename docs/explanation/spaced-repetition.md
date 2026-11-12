@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: Spaced repetition
-description: Why a card's schedule lives in the note, why the format was borrowed rather than invented, why a deck is a tag rather than a note, why a deck nests, why the review has two front ends, and why a daily limit counts off the schedule.
+description: Why a card's schedule lives in the note, why the format was borrowed rather than invented, why a deck is a tag rather than a note, why a deck nests, why the review has two front ends, why a daily limit counts off the schedule, and why the review moves from SM-2 to FSRS and in what card format.
 resource: frontend/src/lib/review/srs.ts
 tags: [design, vault, review, flashcards]
 status: stable
@@ -123,20 +123,107 @@ parked, the note is not, and the state belongs where the card is written. The
 two do not overlap. The folder files a note away, the token takes one card out
 of the queue, and neither is a worse way of doing the other.
 
-## SM-2, not FSRS
+## FSRS, not SM-2
 
-FSRS predicts recall better than SM-2. It is also a weight table and a few
-hundred lines, and it wants a review history per card, which is a fourth thing
-to write into the note and a much larger comment.
+kasten schedules with SM-2 today: one short function in `srs-schedule.ts` that
+holds exactly the three numbers the borrowed comment carries. The decision of
+2026-11-12 (#1776) is to swap to FSRS, and #1926 builds it. Until it
+lands, everything else on this page describes SM-2, as the code does.
 
-SM-2 is twenty lines and holds exactly the three numbers the borrowed comment
-already carries. It is what Anki shipped for two decades, and the failure mode
-of getting an interval slightly wrong is seeing a card a few days early.
+### Why swap
 
-The thing that would make this the wrong call is reviews starting to feel
-mistimed, cards arriving long after they were forgotten or long before they were
-at risk. That is a judgment about how it feels rather than a number to watch, so
-there is no threshold written down here to trigger the swap.
+Two things changed since SM-2 was picked as a stopgap.
+
+The vault's load is ahead of it, not behind it. Counted read-only on the live
+vault that day, the review holds 8,860 cards in 28 notes and ten decks (eight
+Japanese, `databases` and `spark`). 456 hold a schedule, 89 were due, and
+8,404 have never been asked: 6,955 of the kanji deck's 7,065 and 1,440 of
+Kaishi's 1,501. Three more decks (488 cards, all unanswered) sit in the archive. The
+cost of a scheduler lies in the reviews still to come, and nearly all of them
+are.
+
+And the second reader moved. obsidian-spaced-repetition 1.15 ships FSRS beside
+SM-2, through ts-fsrs, with a comment format of its own. The reason SM-2 fit,
+that it held the three numbers the plugin's comment held, no longer argues for
+it: the plugin now writes a longer comment too, and a card answered there with
+FSRS on is one today's kasten cannot read.
+
+### What staying would cost
+
+FSRS asks for fewer reviews than SM-2 for the same recall; that is the
+FSRS project's claim and the reason #1776 gives. How many fewer was not
+measured here, and the figure often quoted, 20 to 30 percent, was not traced
+to a source for this page. Any saving is per review, so it counts against the
+8,404 cards still unseen for as long as those decks are in use. This vault has
+no answer log, so kasten would run the default weights, not fitted ones.
+
+The history cannot tell how often the 456 were answered. The jj repo keeps
+snapshots, not a log of answers, and a copy of its git side did not show
+every answer. Many of the 456 look imported from Anki rather than answered
+here: all 225 Tofugu cards hold a schedule and none is due, and the longest
+interval is 51 days. That is inferred from the numbers, not read off a log.
+
+### The card format
+
+The plugin's own, borrowed whole a second time. This card was answered Easy
+once:
+
+```markdown
+What does S3 stand for?::Simple Storage Service <!--SR:!fsrs,2026-11-20T00:00:00.000Z,8,8.30,1.00,2,1,0,0,2026-11-12T00:00:00.000Z-->
+```
+
+After `fsrs`, nine fields by comma:
+
+1. The due day, as an ISO timestamp. The plugin writes any time of day;
+   kasten writes midnight UTC of the day and reads the date part alone.
+2. The interval in days, as now.
+3. Stability: the days until recall falls to 90 percent. A float, written to
+   two places so it reads back as written, the reason the ease is a percent.
+   The plugin writes the whole float; both read either.
+4. Difficulty, 1 to 10, two places.
+5. The state, as ts-fsrs numbers it: 0 new, 1 learning, 2 review,
+   3 relearning.
+6. Answers so far.
+7. Lapses, the answers of `again` after the card left learning.
+8. The learning step the card is on.
+9. The last answer, as a timestamp like the due day, or `-`.
+
+A cloze keeps kasten's own name before the `!`: `<!--SR:c1!fsrs,…-->`. A
+whole note marked `#review` stays on SM-2 in its frontmatter; no live note
+uses one.
+
+The extra fields pay for themselves at once. `learning()` reads the state
+rather than a gap of 0, and a daily limit reads the last answer rather than
+working it out from the due day, so the two misreads in
+[the format](/reference/flashcard-format/reviewing-cards.md#daily-limits) go
+away for any card that has the new comment.
+
+### Converting the old cards
+
+No rewrite. An SM-2 comment still reads, in kasten and in the plugin, and a
+card moves to the new comment the first time it is answered after the build,
+by the rule the plugin uses: stability is the interval, the last answer is the
+due day less the interval, the ease of 130 to 370 maps onto difficulty 10 to 1,
+the state is review, lapses and learning step are 0, and the answers are
+log2 of the interval plus one, rounded. A card nobody answers is never written. The live vault has no card in learning to
+convert.
+
+### The Anki import
+
+Today it carries the interval, ease and due day of each card in review. Anki
+keeps FSRS state in the `data` column of `cards` as `s` and `d`, with the last
+answer as `lrt`, by Anki's own source (`rslib/src/storage/card/data.rs`); no
+`.apkg` with FSRS on was opened for this. Where those are there,
+the import writes the new comment with them, the last answer and the card's
+`reps` and `lapses`; where they are not, it writes the SM-2 comment it writes now, which
+converts at the first answer.
+
+### The library
+
+ts-fsrs 6.0.0 (MIT), the library the plugin uses at 5.4.1, with its one dependency
+`@open-spaced-repetition/srs-kit` 1.0.0 (BSD-3-Clause, whose notice has to ship
+with the bundle). Both licenses were read from the files in the packages.
+Default FSRS-6 weights, 90 percent recall asked, no fuzz, as now.
 
 ## Two front ends, one session
 
