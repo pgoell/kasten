@@ -7,6 +7,7 @@ import {
   opened,
   openApp,
   openNote,
+  readAll,
   recordOpens,
   vaultWith,
 } from "../../harness/app.ts";
@@ -104,10 +105,12 @@ test.describe("following a link to a page of html or an asset", () => {
     });
     await openNote(page, "Links");
     await expect
-      .poll(async () => [
-        await page.locator(".cm-wikilink").allTextContents(),
-        await page.locator(".cm-wikilink-dead").count(),
-      ])
+      .poll(() =>
+        readAll(page, ".cm-wikilink", (all) => [
+          all.map((link) => link.textContent ?? ""),
+          all.filter((link) => link.classList.contains("cm-wikilink-dead")).length,
+        ]),
+      )
       .toEqual([["my plan.pdf", "the talk", "plan?.mp3", "Talk.MP3"], 0]);
     await page.keyboard.type("3Ggf4Ggf5Ggf");
     await expect

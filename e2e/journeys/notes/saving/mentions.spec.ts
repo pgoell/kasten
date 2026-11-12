@@ -1,7 +1,15 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { Locator, Page } from "@playwright/test";
-import { findNote, leader, noteText, openApp, phone, tapHeight } from "../../../harness/app.ts";
+import type { Page } from "@playwright/test";
+import {
+  findNote,
+  leader,
+  noteText,
+  openApp,
+  phone,
+  readAll,
+  tapHeight,
+} from "../../../harness/app.ts";
 import { type Hit, hit, lineOf, openPanel } from "../../../harness/search.ts";
 import { expect, test } from "../../../harness/stack.ts";
 
@@ -34,7 +42,17 @@ const panel = (page: Page) => page.getByRole("dialog", { name: "Backlinks" });
 const rows = (page: Page) => panel(page).getByRole("option");
 const mentions = (page: Page) =>
   panel(page).getByRole("group", { name: "unlinked mentions" }).getByRole("option");
-const texts = (list: Locator) => list.allTextContents();
+/** Every row's text and the mention group's, in one read so both come from one render (#1941). */
+const lists = (page: Page) =>
+  readAll(
+    page,
+    '[role="dialog"][aria-label="Backlinks"] [role="option"]',
+    (all): [string[], string[]] => {
+      const text = (row: HTMLElement) => row.textContent ?? "";
+      const group = '[role="group"][aria-label="unlinked mentions"]';
+      return [all.map(text), all.filter((row) => row.closest(group)).map(text)];
+    },
+  );
 
 /** The Seeds note's two mentions as their rows read, path, line and words. */
 async function mentionRows(vault: string): Promise<string[]> {
@@ -52,7 +70,7 @@ test.describe("unlinked mentions", () => {
     const asked = await gardenMentions(page);
     const both = await mentionRows(stack.vault);
     await expect
-      .poll(async () => [await texts(rows(page)), await texts(mentions(page))])
+      .poll(() => lists(page))
       .toEqual([[expect.stringContaining("[[Garden]]"), ...both], both]);
     expect(asked.map((url) => [...url.searchParams])).toEqual([
       [
@@ -72,7 +90,10 @@ test.describe("unlinked mentions", () => {
     await gardenMentions(page, links);
     const both = await mentionRows(stack.vault);
     await expect
-      .poll(async () => [await rows(page).count(), await texts(mentions(page))])
+      .poll(async () => {
+        const [all, mentioned] = await lists(page);
+        return [all.length, mentioned];
+      })
       .toEqual([22, both]);
   });
 
@@ -81,7 +102,7 @@ test.describe("unlinked mentions", () => {
     const both = await mentionRows(stack.vault);
     await expect
       .poll(async () => [
-        await texts(rows(page)),
+        (await lists(page))[0],
         await panel(page).getByRole("status").textContent(),
       ])
       .toEqual([both, "nothing links here"]);
@@ -96,7 +117,7 @@ test.describe("unlinked mentions", () => {
     await expect(mentions(page)).toHaveCount(2);
     await page.keyboard.type("fence");
     const [, fence] = await mentionRows(stack.vault);
-    await expect.poll(() => texts(rows(page))).toEqual([fence]);
+    await expect.poll(async () => (await lists(page))[0]).toEqual([fence]);
     await page.keyboard.press("Enter");
     await expect(page.getByRole("tab", { name: "Seeds", selected: true })).toBeVisible();
     await expect(page.locator(".cm-activeLine")).toHaveText(FENCE);
@@ -121,9 +142,9 @@ test.describe("unlinked mentions", () => {
     // The list reloads once a link lands, so the second mention is narrowed to rather than walked to.
     // Typing before the reload would narrow the old list, whose line numbers the write has moved.
     const [, fence] = await mentionRows(stack.vault);
-    await expect.poll(() => texts(mentions(page))).toEqual([fence]);
+    await expect.poll(async () => (await lists(page))[1]).toEqual([fence]);
     await page.keyboard.type("fence");
-    await expect.poll(() => texts(rows(page))).toEqual([expect.stringContaining(FENCE)]);
+    await expect.poll(async () => (await lists(page))[0]).toEqual([expect.stringContaining(FENCE)]);
     await page.keyboard.press("Meta+Enter");
     await expect
       .poll(() => noteText(stack.vault, SEEDS), { timeout: 15_000 })
