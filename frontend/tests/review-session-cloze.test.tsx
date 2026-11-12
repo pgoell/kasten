@@ -41,7 +41,7 @@ describe("ReviewSession on a cloze", () => {
     fireEvent.click(screen.getByRole("button", { name: "Good" }));
 
     expect(saved.mock.calls[0]?.[1]).toMatch(
-      /^#flashcards\/aws\n\nThe capital of \{\{c1::France\}\} is \{\{c2::Paris::a city\}\}\. <!--SR:c1![\d-]+,1,250-->\n$/,
+      /^#flashcards\/aws\n\nThe capital of \{\{c1::France\}\} is \{\{c2::Paris::a city\}\}\. <!--SR:c1!fsrs,[^>]+-->\n$/,
     );
 
     await waitFor(() =>
@@ -53,7 +53,7 @@ describe("ReviewSession on a cloze", () => {
     fireEvent.click(screen.getByRole("button", { name: "Easy" }));
 
     expect(saved.mock.calls[1]?.[1]).toMatch(
-      /^#flashcards\/aws\n\nThe capital of \{\{c1::France\}\} is \{\{c2::Paris::a city\}\}\. <!--SR:c1![\d-]+,1,250--> <!--SR:c2![\d-]+,4,250-->\n$/,
+      /^#flashcards\/aws\n\nThe capital of \{\{c1::France\}\} is \{\{c2::Paris::a city\}\}\. <!--SR:c1!fsrs,[^>]+--> <!--SR:c2!fsrs,[\d-]+T00:00:00\.000Z,8,8\.30,1\.00,2,1,0,0,[\d-]+T00:00:00\.000Z-->\n$/,
     );
     expect(await screen.findByTestId("review-done")).toBeInTheDocument();
   });

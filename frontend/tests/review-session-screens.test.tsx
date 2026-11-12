@@ -145,10 +145,11 @@ it("#790 I6 a card new at the start shows first-answer intervals on its buttons"
   await shownCard();
   reveal();
 
+  // FSRS keeps a new card in learning, due today, on all but Easy (#1926).
   expect(screen.getByRole("button", { name: "Again" })).toHaveAccessibleDescription("today");
-  expect(screen.getByRole("button", { name: "Hard" })).toHaveAccessibleDescription("1d");
-  expect(screen.getByRole("button", { name: "Good" })).toHaveAccessibleDescription("1d");
-  expect(screen.getByRole("button", { name: "Easy" })).toHaveAccessibleDescription("4d");
+  expect(screen.getByRole("button", { name: "Hard" })).toHaveAccessibleDescription("today");
+  expect(screen.getByRole("button", { name: "Good" })).toHaveAccessibleDescription("today");
+  expect(screen.getByRole("button", { name: "Easy" })).toHaveAccessibleDescription("8d");
 });
 
 it("#790 A3 a card with a schedule shows the interval each rating writes", async () => {
@@ -156,13 +157,13 @@ it("#790 A3 a card with a schedule shows the interval each rating writes", async
   await shownCard();
   reveal();
 
-  // Ten days at the starting ease: again halves it, hard grows it by 1.2, good by
-  // 2.5, easy by 2.65 and its 1.3 bonus on top. The strings are the ones the
-  // overview draws for those counts: days under a fortnight, weeks after.
-  expect(screen.getByRole("button", { name: "Again" })).toHaveAccessibleDescription("5d");
-  expect(screen.getByRole("button", { name: "Hard" })).toHaveAccessibleDescription("12d");
+  // Ten days at the starting ease, turned into FSRS at this answer (#1926): again
+  // relearns today, hard, good and easy come back in 22, 30 and 48 days. The strings
+  // are the ones the overview draws for those counts: days under a fortnight, weeks after.
+  expect(screen.getByRole("button", { name: "Again" })).toHaveAccessibleDescription("today");
+  expect(screen.getByRole("button", { name: "Hard" })).toHaveAccessibleDescription("3w");
   expect(screen.getByRole("button", { name: "Good" })).toHaveAccessibleDescription("4w");
-  expect(screen.getByRole("button", { name: "Easy" })).toHaveAccessibleDescription("5w");
+  expect(screen.getByRole("button", { name: "Easy" })).toHaveAccessibleDescription("7w");
 });
 
 it("#790 A3 Again is in the danger colour and Good is the outlined default", async () => {
@@ -184,7 +185,8 @@ it("#790 A4 the done screen says what was done and when the next cards are due",
 
   expect(await screen.findByRole("heading", { name: "Done for today" })).toBeInTheDocument();
   expect(screen.getByTestId("review-done")).toHaveTextContent("1 answered today in aws.");
-  expect(screen.getByTestId("review-done")).toHaveTextContent("The next cards are due tomorrow.");
+  // Good keeps a new card in FSRS's learning, so the next sitting today asks it again.
+  expect(screen.getByTestId("review-done")).toHaveTextContent("The next cards are due today.");
 });
 
 it("#790 A4 the done screen says when nothing in the deck is scheduled", async () => {

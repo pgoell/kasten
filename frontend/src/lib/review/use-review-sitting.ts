@@ -16,6 +16,7 @@ import {
 import { type Card, type Held, isFsrs, type Rating } from "@/lib/review/srs";
 import {
   answeredToday,
+  learning,
   nextFsrs,
   nextSchedule,
   writeNoteSchedule,
@@ -37,10 +38,11 @@ const NOTE_UNREAD = "The note could not be read: ";
  * A card new at the start keeps answering as a first answer until it leaves the queue, as Anki's learning steps do.
  */
 function scheduleFor(seat: Seat, held: Card, rating: Rating, today: string, whole: boolean): Held {
-  const was = seat.fresh ? null : held.held;
-  // A whole note stays on SM-2 in its frontmatter, where FSRS has no fields (#1926).
-  if (whole && (was === null || !isFsrs(was))) return nextSchedule(was, rating, today);
-  return nextFsrs(was, rating, today);
+  // FSRS keeps its own learning steps in the comment, so a card goes by what it holds (#1926).
+  if (!whole) return nextFsrs(held.held, rating, today);
+  const was = seat.fresh || held.held === null || isFsrs(held.held) ? null : held.held;
+  // A whole note stays on SM-2 in its frontmatter, where FSRS has no fields.
+  return nextSchedule(was, rating, today);
 }
 
 /** `text` with the rating written: a whole note's in its frontmatter, a card's in its comment. */
@@ -187,11 +189,14 @@ export function useReviewSitting(
   }, [card, seat, today, deck.whole]);
 
   // The done screen's "next due": the earliest day after today a card of this
-  // deck comes back. A parked card comes back on no day the screen can name.
+  // deck comes back, or today for one FSRS left in learning, which the next
+  // sitting asks. A parked card comes back on no day the screen can name.
   const nextDue = useMemo(() => {
     const dues = [...cards.values()].flatMap((each) =>
       each.flatMap(({ held, parked }) =>
-        parked === null && held !== null && held.due > today ? [held.due] : [],
+        parked === null && held !== null && (held.due > today || learning(held))
+          ? [learning(held) ? today : held.due]
+          : [],
       ),
     );
     const [first] = dues.sort();

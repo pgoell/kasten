@@ -41,7 +41,9 @@ it.each(["on", "off"])(
 
     // A fresh card's first Good is a day out, which the note writes as a gap of 1.
     await waitFor(() => expect(saved).toHaveBeenCalledOnce());
-    expect(saved.mock.calls[0]?.[1]).toMatch(/<!--SR:!\d{4}-\d{2}-\d{2},1,250-->/);
+    expect(saved.mock.calls[0]?.[1]).toMatch(
+      /<!--SR:!fsrs,[\d-]+T00:00:00\.000Z,0,2\.31,2\.12,1,1,0,1,/,
+    );
     await waitFor(() => expect(screen.getByTestId("review-card")).toHaveTextContent("e"));
   },
 );

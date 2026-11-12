@@ -253,6 +253,6 @@ it("#790 B3 a press mid-flight writes nothing, and the landing writes the swiped
   for (let i = 0; i < 400 && saved.mock.calls.length === 0; i++) frame();
   await waitFor(() => expect(saved).toHaveBeenCalledOnce());
   expect(saved.mock.calls[0]?.[1]).toMatch(
-    /What does S3 stand for\?::Simple Storage Service <!--SR:!\d{4}-\d{2}-\d{2},25,250-->/,
+    /What does S3 stand for\?::Simple Storage Service <!--SR:!fsrs,[^>]+-->/,
   );
 });
