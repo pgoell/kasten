@@ -342,4 +342,17 @@ describe("an upload pasted into a note (#1945)", () => {
     );
     expect(updateNote).not.toHaveBeenCalled();
   });
+
+  it("writes the file, not the leaving editor, when the upload ends while its note leaves", async () => {
+    const held = holdUploads();
+    const { rerender } = render(<Page path="a.md" />);
+    paste(clip());
+    await waitFor(() => expect(held).toHaveLength(1));
+    rerender(<Page path="a.md" leaving />);
+
+    act(() => held[0]?.end());
+
+    await waitFor(() => expect(updateNote).toHaveBeenCalledWith("a.md", expect.any(Function)));
+    expect(changed).not.toHaveBeenCalled();
+  });
 });

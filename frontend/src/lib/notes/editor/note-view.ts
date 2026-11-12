@@ -38,6 +38,7 @@ import {
   imagePaths,
   noticeHandler,
   noticeSource,
+  savesEdits,
 } from "@/lib/notes/embeds/image";
 import { relationCompletions, vaultRelations } from "@/lib/notes/links/ontology";
 import { vaultPaths, wikiLinkCompletions } from "@/lib/notes/links/wikilink";
@@ -292,6 +293,7 @@ export function createNoteView(o: {
         imagePaste(o.path),
         noticeHandler.of((message) => latest.current.onNotice?.(message)),
         noticeSource.of(() => latest.current.onNotice),
+        savesEdits.of(() => latest.current.onChange !== undefined),
         followOnClick(),
         followOnTap(),
         byName,

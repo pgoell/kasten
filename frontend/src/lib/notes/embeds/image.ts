@@ -40,6 +40,11 @@ export const noticeSource = Facet.define<
   combine: (getters) => getters[0] ?? (() => undefined),
 });
 
+/** Whether an edit to the view still reaches a save; not while its editor leaves. */
+export const savesEdits = Facet.define<() => boolean, () => boolean>({
+  combine: (getters) => getters[0] ?? (() => true),
+});
+
 /** Every image in the vault. Null, not empty, when unset. */
 export const imagePaths = Facet.define<string[], string[] | null>({
   combine: (values) => values[0] ?? null,
@@ -208,17 +213,20 @@ async function place(
   reference: string,
   newline: boolean,
 ): Promise<void> {
-  if (!closed.has(view)) {
+  const open = !closed.has(view);
+  if (open && view.state.facet(savesEdits)()) {
     view.dispatch(view.state.replaceSelection(`${newline ? "\n" : ""}${reference}`));
     return;
   }
-  const path = closed.get(view);
+  const path = open ? live.get(view) : closed.get(view);
   const kept = `The file is in ${IMAGE_FOLDER}, but`;
   if (path === undefined) {
     notice?.(`${kept} the note it was pasted into had closed`);
     return;
   }
-  const other = [...live].find(([, each]) => each === path)?.[0];
+  const other = [...live].find(
+    ([each, held]) => each !== view && held === path && each.state.facet(savesEdits)(),
+  )?.[0];
   if (other !== undefined) {
     const doc = other.state.doc.toString();
     other.dispatch({
