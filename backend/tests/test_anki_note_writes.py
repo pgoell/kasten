@@ -19,6 +19,8 @@ from backend.tests.anki_build import (
 )
 from kasten_backend.anki import Card, Deck, Template, as_note, card_count, plain, read_apkg
 
+_FSRS_FIELDS = "fsrs,2026-11-20T00:00:00.000Z,8,8.30,1.00,2,1,0,0,2026-11-12T00:00:00.000Z"
+
 
 def test_a_literal_anki_marker_in_a_field_is_escaped() -> None:
     # A re-import finds its cards by the marker, so one in the text would claim
@@ -213,9 +215,21 @@ def test_sets_a_question_holding_the_divider_apart_from_its_neighbours() -> None
         ("What does a::b hold?", "!suspended x"),
         ("When is a::b due?", "on <!--SR:!2026-08-20,4,270--> here"),
         ("When is a::b due by FSRS?", "on <!--SR:!fsrs,2026-11-20T00:00:00.000Z,8--> here"),
+        ("When is a::b due as a cloze?", "on <!--SR:c1!2026-08-20,4,270--> here"),
+        ("Is a::b due as an FSRS cloze?", "on <!--SR:c1!fsrs,2026-11-20T00:00:00.000Z,8--> here"),
+        ("When is a::b due?", "on <!--SR:!2026-08-20,4,270-->"),
+        ("When is a::b due by FSRS?", f"on <!--SR:!{_FSRS_FIELDS}-->"),
+        ("When is a::b due as a cloze?", "on <!--SR:c1!2026-08-20,4,270-->"),
+        ("When is a::b due as an FSRS cloze?", f"on <!--SR:c1!{_FSRS_FIELDS}-->"),
+        ("When is a::b due as a cloze?", "first\non <!--SR:c12!2026-08-20,4,270--> here"),
         ("# What does std::move do?", "casts"),
     ],
-    ids=["divider", "heading", "tags", "token", "schedule", "fsrs-schedule", "front-heading"],
+    ids=[
+        *("divider", "heading", "tags", "token", "schedule", "fsrs-schedule"),
+        *("cloze-schedule", "cloze-fsrs-schedule", "schedule-line-end", "fsrs-schedule-line-end"),
+        *("cloze-schedule-line-end", "cloze-fsrs-schedule-line-end", "cloze-schedule-second-line"),
+        "front-heading",
+    ],
 )
 def test_leaves_out_a_divider_question_whose_side_would_end_the_card(front: str, back: str) -> None:
     # `srs.ts` would drop the `?` card and read the front at its first `::`, or,
@@ -224,15 +238,22 @@ def test_leaves_out_a_divider_question_whose_side_would_end_the_card(front: str,
     deck = basic_deck((front, back), ("a", "b"))
 
     assert unhashed(as_note(deck)) == f"#flashcards/x\n\na::b{mark(2)}\n"
+    assert card_count(deck) == 1
 
 
 @pytest.mark.parametrize(
     ("front", "back"),
     [
         ("How is a::b scheduled?", "as <!--SR:!date,int,ease-->"),
+        ("How is a::b scheduled as a cloze?", "as <!--SR:c1!date,int,ease-->"),
+        ("Is a::b a cloze schedule written as text?", "as <!--SR\\:c1!2026-08-20,4,270-->"),
+        ("Is a::b a cloze number in other digits?", "as <!--SR:c\u0661!2026-08-20,4,270-->"),
         ("Is <!--SR:!2026-08-20,4,270--> a::b?", "yes"),
     ],
-    ids=["back-schedule-text", "front-schedule"],
+    ids=[
+        *("back-schedule-text", "back-cloze-schedule-text", "back-escaped-cloze-schedule"),
+        *("back-cloze-number-not-ascii", "front-schedule"),
+    ],
 )
 def test_keeps_a_divider_question_holding_what_is_no_schedule_stop(front: str, back: str) -> None:
     # `srs.ts` stops a back only at a whole schedule comment, and a front at no

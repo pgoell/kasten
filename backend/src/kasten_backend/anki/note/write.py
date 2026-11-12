@@ -15,8 +15,10 @@ from kasten_backend.anki.archive.html import ends_card, marks, reads_mark, undiv
 if TYPE_CHECKING:
     from kasten_backend.anki.archive.deck import Card, Deck, Review
 
-_SCHEDULE = re.compile(r"<!--SR:!(?:\d{4}-\d{2}-\d{2},\d+,\d+-->|fsrs,)")
-"""`SR` in `card-line.ts` whole, or the FSRS comment's head: `srs.ts` stops a back at either."""
+_SCHEDULE = re.compile(r"<!--SR:(?:c\d+)?!(?:\d{4}-\d{2}-\d{2},\d+,\d+-->|fsrs,)", re.ASCII)
+"""`SR` or `CLOZE_SR` in `card-line.ts` whole, or an FSRS head: `srs.ts` stops a back at each.
+
+ASCII digits only, as JavaScript's `\\d` reads."""
 _FENCE = re.compile(r"(?: {0,3}(?:>[ \t]?|(?:[-*+]|[0-9]{1,9}[.)])[ \t]))*+ {0,3}(?=```|~~~)")
 """Where a CommonMark fence opens a line: past quote and list markers, then backticks or tildes.
 
