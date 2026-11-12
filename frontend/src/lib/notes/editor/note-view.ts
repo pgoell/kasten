@@ -283,7 +283,7 @@ export function createNoteView(o: {
         // path. Ahead of nothing in particular: CodeMirror's own paste is a
         // handler on the same event and runs when this one declines, which is
         // every paste that carries text.
-        imagePaste(),
+        imagePaste(o.path),
         noticeHandler.of((message) => latest.current.onNotice?.(message)),
         followOnClick(),
         followOnTap(),
