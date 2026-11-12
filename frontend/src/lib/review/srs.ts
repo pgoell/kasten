@@ -12,6 +12,8 @@ import {
   clozeTarget,
   type Divided,
   divide,
+  FSRS,
+  FSRS_LINE,
   holdsCloze,
   parks,
   SR,
@@ -180,7 +182,7 @@ export function parseCards(text: string, note = ""): Card[] {
     // Not in an unclosed fence: there the card above would read a hidden schedule (#680).
     ends: (at) => commented[at] || ((!fenced[at] || unclosed[at]) && breaks(lines[at])),
     // A schedule ends a card in code too, so neither walk crosses it.
-    schedules: (at) => SR.test(lines[at] ?? "") || CLOZE_SR.test(lines[at] ?? ""),
+    schedules: (at) => [SR, CLOZE_SR, FSRS].some((schedule) => schedule.test(lines[at] ?? "")),
     inline: (at) => !code[at] && oneLine(lines[at] ?? "", bare[at] ?? "") !== null,
   };
   const { cards, owned, claimed } = walk;
@@ -236,7 +238,7 @@ function backOf(
   walk: Walk,
   at: number,
   cloze: boolean,
-): { to: number; back: string; schedule: Schedule | null; held: boolean } | null {
+): { to: number; back: string; schedule: Schedule | null; held: boolean; fsrs: boolean } | null {
   const { lines, ends, schedules } = walk;
   // The token ends the back in code too, so an unclosed fence's token still parks the card.
   let to = at;
@@ -252,8 +254,11 @@ function backOf(
   const under = lines[to + 1] ?? "";
   const schedule = readSchedule(under);
   const held = parks(under);
-  if (schedule !== null || held || (cloze && CLOZE_SR.test(under))) to++;
-  return { to, back, schedule, held };
+  const takes = schedule !== null || held || (cloze && CLOZE_SR.test(under));
+  // Under the back, or under the SM-2 line a rating before #1929 put between them.
+  const fsrs = FSRS.test(under) || (takes && FSRS_LINE.test(lines[to + 2] ?? ""));
+  if (takes || fsrs) to++;
+  return { to, back, schedule, held, fsrs };
 }
 
 /** Take the lines `from` to `to` for the card of the `?` at `at`, and hand back the tags it owns. */
@@ -276,9 +281,10 @@ function questionCard(walk: Walk, at: number): void {
 
   const found = backOf(walk, at, cloze);
   if (found === null) return;
-  const { to, back, schedule, held } = found;
+  const { to, back, schedule, held, fsrs } = found;
 
   const own = claim(walk, from, to, at);
+  if (fsrs) return;
 
   if (cloze) {
     const asked = clozeCards(lines[from] ?? "", bare[from] ?? "", back, lines[to] ?? "", {
@@ -313,9 +319,15 @@ function questionCard(walk: Walk, at: number): void {
 /** The card, or cloze cards, written on the one line at `at`, if it holds any. */
 function lineCard(walk: Walk, at: number, line: string, bare: string): void {
   // A cloze's `::` divides nothing, so this runs before the divider. A comment holds no cloze.
-  if (holdsCloze(bare)) {
-    const own = cardTags(line) ?? [];
-    if (own.length > 0) walk.claimed.add(at);
+  const cloze = holdsCloze(bare);
+  const halves = cloze ? null : oneLine(line, bare);
+  if (!cloze && halves === null) return;
+  // Its tags stay its own, so a card left alone moves no other card's decks.
+  const own = cardTags(line) ?? [];
+  if (own.length > 0) walk.claimed.add(at);
+  if (FSRS.test(line)) return;
+
+  if (cloze) {
     // The token is read where the marks are, so one inside a comment parks nothing (#1590).
     const parked = suspended(bare) ? "suspended" : null;
     const asked = clozeCards(line, bare, "", line, { from: at, to: at, inline: true, parked });
@@ -323,11 +335,7 @@ function lineCard(walk: Walk, at: number, line: string, bare: string): void {
     return;
   }
 
-  const halves = oneLine(line, bare);
   if (halves === null) return;
-
-  const own = cardTags(line) ?? [];
-  if (own.length > 0) walk.claimed.add(at);
   push(
     walk,
     {
