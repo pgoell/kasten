@@ -1,5 +1,5 @@
 import type { Page, Route } from "@playwright/test";
-import { leader, openApp } from "../../harness/app.ts";
+import { leader, openApp, readAll } from "../../harness/app.ts";
 import { answer, bars, daysAgo, type Hit, hit, openSearch } from "../../harness/search.ts";
 import { expect, test } from "../../harness/stack.ts";
 
@@ -89,7 +89,13 @@ test("every occurrence of the typed term is marked in the accent", async ({ page
   await openSearch(page);
   await page.keyboard.type("postgres");
   await expect
-    .poll(() => rows(page).first().locator(".text-k-accent").allTextContents())
+    .poll(() =>
+      readAll(page, '[role="option"]', (all) =>
+        [...(all[0]?.querySelectorAll(".text-k-accent") ?? [])].map(
+          (mark) => mark.textContent ?? "",
+        ),
+      ),
+    )
     .toEqual(["Postgres", "postgres"]);
 });
 

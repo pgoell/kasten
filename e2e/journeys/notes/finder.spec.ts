@@ -375,16 +375,17 @@ test.describe("opening a file from the finder", () => {
     stack,
   }) => {
     await loadWith(page, stack.vault, { "98 Archive/old.pdf": PRIMER });
-    const names = page.getByRole("option");
+    const names = () =>
+      readAll(page, '[role="option"]', (all) =>
+        all.map((row) => (row.textContent ?? "").replace(/\s*PDF$/, "")),
+      );
     await find(page, ".pdf");
     // One poll: the pdf outside the archive listed while the archived one is not.
-    await expect
-      .poll(async () => (await names.allTextContents()).map((name) => name.replace(/\s*PDF$/, "")))
-      .toEqual([PRIMER]);
+    await expect.poll(names).toEqual([PRIMER]);
     await page.keyboard.press("Escape");
     await leader(page, "a");
     await find(page, ".pdf");
-    await expect.poll(async () => (await names.allTextContents()).length).toBe(2);
+    await expect.poll(async () => (await names()).length).toBe(2);
     await expect(page.getByRole("option", { name: /98 Archive\/old\.pdf/ })).toBeVisible();
   });
 

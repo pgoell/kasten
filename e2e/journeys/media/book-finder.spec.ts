@@ -173,7 +173,13 @@ test("an archived book stays off the list until Space a shows the archive", asyn
   await leader(page, "fb");
 
   await expect
-    .poll(async () => (await names.allTextContents()).sort())
+    .poll(async () =>
+      (
+        await readAll(page, '[role="dialog"][aria-label="Find book"] [role="option"]', (all) =>
+          all.map((row) => row.children[0]?.textContent ?? ""),
+        )
+      ).sort(),
+    )
     .toEqual(["Contents", "Old Book"]);
 });
 
