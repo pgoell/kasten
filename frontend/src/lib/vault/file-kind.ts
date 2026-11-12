@@ -35,6 +35,9 @@ export function isClipFile(file: { name: string; type: string }): boolean {
   );
 }
 
+/** What an image the vault takes ends in, as the backend's `IMAGE_SUFFIXES`. */
+export const IMAGE_SUFFIXES = [".gif", ".jpeg", ".jpg", ".png", ".svg", ".webp"];
+
 /** What the image's pane draws a vault file as: a csv as a table, a video file as a player. */
 export function paneKind(path: string): "table" | "clip" | "image" {
   if (path.toLowerCase().endsWith(".csv")) return "table";

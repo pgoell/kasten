@@ -422,3 +422,76 @@ describe("pasting or dropping a video file (#1922)", () => {
     vi.unstubAllGlobals();
   });
 });
+
+describe("dropping an image file (#1944)", () => {
+  beforeEach(() => {
+    uploadAsset.mockReset();
+    uploadAsset.mockResolvedValue(undefined);
+  });
+  const shot = (name = "shot.png", type = "image/png") => new File(["bytes"], name, { type });
+  const ref = (name: string) => `![](${encodeURI(`${IMAGE_FOLDER}/${name}`)})`;
+
+  it.each(["on", "off"])("with vim %s files it under its own name where it fell", async (vim) => {
+    if (vim === "off") act(() => toggleVim());
+    try {
+      const { editor, view, doc } = open("ab");
+      const at = vi.spyOn(view, "posAtCoords").mockReturnValue(1);
+      const file = shot();
+
+      hand("drop", editor, [file]);
+
+      await waitFor(() => expect(doc()).toBe(`a${ref("shot.png")}b`));
+      expect(uploadAsset).toHaveBeenCalledWith(`${IMAGE_FOLDER}/shot.png`, file);
+      at.mockRestore();
+    } finally {
+      if (vim === "off") act(() => toggleVim());
+    }
+  });
+
+  it("numbers a name any folder holds in any case, and overwrites nothing", async () => {
+    const { editor, doc } = open("", ["pics/SHOT.png"], ["a.md", "x/shot 1.png"]);
+
+    hand("drop", editor, [shot()]);
+
+    await waitFor(() => expect(doc()).toBe(ref("shot 2.png")));
+  });
+
+  it("files images and video files in drop order, one to a line, and leaves text out", async () => {
+    const { editor, doc } = open("");
+    const text = new File(["t"], "notes.txt", { type: "text/plain" });
+
+    hand("drop", editor, [shot("a.JPG", "image/jpeg"), walk(), text, shot()]);
+
+    await waitFor(() => expect(doc()).toBe(`${ref("a.JPG")}\n![[walk.mp4]]\n${ref("shot.png")}`));
+    expect(uploadAsset).toHaveBeenCalledTimes(3);
+  });
+
+  it("writes nothing when the vault refuses, says why, and one undo takes it out", async () => {
+    uploadAsset.mockRejectedValueOnce(new Error("Something is already there"));
+    const { editor, view, doc, onNotice } = open("plain");
+
+    hand("drop", editor, [shot()]);
+    await waitFor(() => expect(onNotice).toHaveBeenCalledWith("Something is already there"));
+    expect(doc()).toBe("plain");
+
+    hand("drop", editor, [shot()]);
+    await waitFor(() => expect(doc()).toBe(`${ref("shot.png")}plain`));
+    act(() => {
+      undo(view);
+    });
+    expect(view.state.doc.toString()).toBe("plain");
+  });
+
+  it("turns # into -, escapes ? and spaces in the path, and files a name the vault cannot take by date", async () => {
+    const { editor, doc } = open("");
+
+    hand("drop", editor, [shot("a #1?.png"), shot("scan", "image/webp")]);
+
+    await waitFor(() => expect(uploadAsset).toHaveBeenCalledTimes(2));
+    const [dated] = uploadAsset.mock.lastCall as [string, File];
+    expect(dated).toMatch(new RegExp(`^${IMAGE_FOLDER}/\\d{4}-\\d{2}-\\d{2}-[\\da-f]{8}\\.webp$`));
+    const name = dated.slice(dated.lastIndexOf("/") + 1);
+    const escaped = `![](${encodeURI(IMAGE_FOLDER)}/a%20-1%3F.png)`;
+    await waitFor(() => expect(doc()).toBe(`${escaped}\n${ref(name)}`));
+  });
+});
