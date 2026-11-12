@@ -215,6 +215,24 @@ describe("looking at an image", () => {
     );
   });
 
+  it("lists an mp4 and a webm among the tree's files and opens each as a player", async () => {
+    const clips = ["99 Misc/walk.mp4", "99 Misc/swim.webm"];
+    fetchAssets.mockResolvedValue([...clips, "99 Misc/plan.pdf"]);
+    const app = await renderApp();
+    await settle();
+    app.expand("99 Misc");
+
+    for (const clip of clips) {
+      app.click(clip);
+      await settle();
+
+      expect(app.imagePane()?.getAttribute("aria-label")).toBe("clip");
+      expect(app.imagePane()?.querySelector("video")?.getAttribute("src")).toBe(
+        `/api/assets/${encodeURI(clip)}`,
+      );
+    }
+  });
+
   it("lists a csv among the tree's files and opens it as a table in the pane", async () => {
     const table = "99 Misc/sales.csv";
     fetchAssets.mockResolvedValue([table, "99 Misc/plan.pdf"]);

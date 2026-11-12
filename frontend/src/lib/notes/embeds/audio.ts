@@ -13,6 +13,11 @@ const IMAGE = /!\[[^\]\n]*\]\(\s*<?([^\s()<>]+)>?[^)\n]*\)/g;
 
 /** Whether an `![](address)` names a sound, by the suffix of its decoded path. */
 export function isAudio(address: string): boolean {
+  return endsIn(address, AUDIO_SUFFIXES);
+}
+
+/** Whether an address's decoded path ends in one of `suffixes`, any case, query and hash left off. */
+export function endsIn(address: string, suffixes: string[]): boolean {
   const path = address.replace(/[?#].*$/, "");
   let name = path;
   try {
@@ -22,7 +27,7 @@ export function isAudio(address: string): boolean {
     if (!(error instanceof URIError)) throw error;
   }
   const lower = name.toLowerCase();
-  return AUDIO_SUFFIXES.some((suffix) => lower.endsWith(suffix));
+  return suffixes.some((suffix) => lower.endsWith(suffix));
 }
 
 /**

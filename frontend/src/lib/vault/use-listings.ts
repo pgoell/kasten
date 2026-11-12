@@ -9,6 +9,7 @@ import {
   fetchNote,
   fetchTags,
 } from "@/lib/core/api";
+import { isClip } from "@/lib/notes/embeds/clip";
 import { ONTOLOGY_NOTE, relationNames } from "@/lib/notes/links/ontology";
 import { visible } from "@/lib/search/archive";
 import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
@@ -40,9 +41,9 @@ export function useListings() {
     () => (assets ?? []).filter((path) => path.toLowerCase().endsWith(".pdf")),
     [assets],
   );
-  // The csvs among them, tree rows that open in the image's pane.
+  // The csvs and video files among them, tree rows that open in the image's pane.
   const tables = useMemo(
-    () => (assets ?? []).filter((path) => path.toLowerCase().endsWith(".csv")),
+    () => (assets ?? []).filter((path) => path.toLowerCase().endsWith(".csv") || isClip(path)),
     [assets],
   );
   // The tag vocabulary. Not archive-filtered: an archived note's tag is still a tag.

@@ -37,6 +37,8 @@ export const FILE_SUFFIXES = [
   ".m4a",
   ".ogg",
   ".wav",
+  ".mp4",
+  ".webm",
   ".svg",
   ".csv",
 ];

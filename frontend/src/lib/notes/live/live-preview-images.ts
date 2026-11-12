@@ -4,6 +4,7 @@ import { Decoration, type EditorView, WidgetType } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
 import { linkAddress, unescaped, urlLinkAt } from "@/lib/markdown/link-reference";
 import { isAudio } from "@/lib/notes/embeds/audio";
+import { clipPlayer, isClipAddress } from "@/lib/notes/embeds/clip";
 import { imagePaths, imageSource } from "@/lib/notes/embeds/image";
 import { encodePath } from "@/lib/notes/links/note-path";
 import { resolveIn } from "@/lib/notes/links/wikilink";
@@ -115,6 +116,7 @@ export function embeddedPicture(
 export type Drawn =
   | { kind: "video"; id: string }
   | { kind: "sound"; source: string }
+  | { kind: "clip"; source: string }
   | { kind: "picture"; source: string; alt: string };
 
 /**
@@ -147,6 +149,7 @@ export function drawnImage(state: EditorState, node: SyntaxNode): Drawn | null {
   // A sound before a picture, by its suffix: the browser would draw an `.mp3`
   // handed to an `img` as a broken image.
   if (isAudio(address)) return { kind: "sound", source };
+  if (isClipAddress(address)) return { kind: "clip", source };
 
   const marks: SyntaxNode[] = [];
   for (let child = node.firstChild; child; child = child.nextSibling) {
@@ -180,6 +183,24 @@ class Sound extends WidgetType {
     audio.setAttribute("preload", "none");
     audio.src = this.source;
     return audio;
+  }
+}
+
+/** The player an `![](walk.mp4)` is drawn as, a video file as `![[walk.mp4]]` draws it. */
+class Clip extends WidgetType {
+  private readonly source: string;
+
+  constructor(source: string) {
+    super();
+    this.source = source;
+  }
+
+  override eq(other: Clip): boolean {
+    return other.source === this.source;
+  }
+
+  toDOM(view: EditorView): HTMLElement {
+    return clipPlayer(this.source, () => view.requestMeasure());
   }
 }
 
@@ -249,7 +270,9 @@ export function drawImage(walk: Walk, node: SyntaxNode, revealed: boolean): void
       ? new Player(media.id, watchedAt(state.doc.toString(), media.id), node.from)
       : media.kind === "sound"
         ? new Sound(media.source)
-        : new Picture(media);
+        : media.kind === "clip"
+          ? new Clip(media.source)
+          : new Picture(media);
   // A spaced address is text after the node, on the cursor's line with
   // it, so the line rule reveals the two together. `drawn` keeps the
   // walk from hiding a mark inside it, as a ruby's does.

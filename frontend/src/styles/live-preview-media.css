@@ -19,6 +19,15 @@
   vertical-align: middle;
 }
 
+/* The player a video file is drawn as. Its own size, never past the column or
+   most of the window, so a phone's portrait clip leaves the note in sight. */
+.cm-clip {
+  display: block;
+  max-width: 100%;
+  max-height: 70vh;
+  background: var(--k-inset);
+}
+
 /* The space a `![](youtube link)` is drawn in. 16:9 because that is the shape
    the player wants, and the note's column is the width, so the space is as wide
    as the text it sits in rather than as wide as the window. `block` and not the

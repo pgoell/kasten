@@ -140,6 +140,19 @@ describe("queryEmbedSource", () => {
     opened.mockRestore();
   });
 
+  it("opens a video file in the pane, in any case, not in a tab", () => {
+    const openTable = vi.fn();
+    const opened = vi.spyOn(window, "open").mockReturnValue(null);
+    const source = queryEmbedSource(new QueryClient(), vi.fn(), vi.fn(), openTable);
+
+    source.open("clips/walk.mp4");
+    source.open("clips/RUN.WEBM");
+
+    expect(openTable.mock.calls).toEqual([["clips/walk.mp4"], ["clips/RUN.WEBM"]]);
+    expect(opened).not.toHaveBeenCalled();
+    opened.mockRestore();
+  });
+
   it("I1 opens a pdf in kasten's pdf view, not the browser's, at no page", () => {
     const open = vi.fn();
     const openPdf = vi.fn();

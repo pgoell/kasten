@@ -10,6 +10,7 @@ import {
 } from "react";
 import { createNote, fetchNote, NoteExists, type SearchHit } from "@/lib/core/api";
 import type { FileTarget } from "@/lib/notes/editor/editor-follow";
+import { isClip } from "@/lib/notes/embeds/clip";
 import { queryEmbedSource } from "@/lib/notes/embeds/embed";
 import { encodePath } from "@/lib/notes/links/note-path";
 import { namesAFile, pdfPage, splitTarget, wikiLinkPath } from "@/lib/notes/links/wikilink";
@@ -283,7 +284,7 @@ export function useNoteOpening({
       // One the vault holds opens in a tab of its own, the browser being what
       // reads a picture. A pdf opens in kasten's own view at the page
       // `#page=3` names, a phone's viewer ignoring `#page` (#353), and a csv
-      // as a table, which a tab would only download.
+      // as a table and a video file as a player, which a tab would only download.
       const openFile = (path: string, heading: string | null) => {
         if (html?.includes(path)) {
           void openHtmlInPane(path, heading ?? undefined, at);
@@ -291,7 +292,7 @@ export function useNoteOpening({
         }
         if (!assets?.includes(path)) return;
         if (path.toLowerCase().endsWith(".pdf")) openPdfInPane(path, pdfPage(heading));
-        else if (path.toLowerCase().endsWith(".csv")) void openImageInPane(path);
+        else if (path.toLowerCase().endsWith(".csv") || isClip(path)) void openImageInPane(path);
         else window.open(`/api/assets/${encodePath(path)}`, "_blank");
       };
       // A markdown link has split its path and resolved it from its note's folder
