@@ -1,6 +1,6 @@
 ---
 name: vault
-description: Read, search and write notes in the user's kasten vault over its REST API with curl and a bearer token. Use when the user mentions kasten, their vault, notebook or notes, or asks to file, find, read or append something there, to dump a thought for later, or to put a PDF, epub or image, or an HTML page, from this machine into the vault. Skip it when the kasten MCP tools (list_notes, read_note, search_notes, search_meaning, query_graph, save_note, append_note, dump, save_file) are connected, except to upload a local file, which no MCP tool can carry.
+description: Read, search and write notes in the user's kasten vault over its REST API with curl and a bearer token. Use when the user mentions kasten, their vault, notebook or notes, or asks to file, find, read or append something there, to dump a thought for later, or to put a PDF, epub, image, svg, sound, video, csv or HTML page from this machine into the vault. Skip it when the kasten MCP tools (list_notes, read_note, search_notes, search_meaning, query_graph, save_note, append_note, dump, save_file) are connected, except to upload a local file, which no MCP tool can carry.
 ---
 
 # kasten vault
@@ -299,12 +299,13 @@ curl -sS --fail-with-body -H "Authorization: Bearer $KASTEN_TOKEN" \
 
 `date +%F` is this machine's date. When the user is somewhere else, pass theirs.
 
-### File a PDF, epub, image or HTML page
+### File a PDF, epub, image, svg, sound, video, csv or HTML page
 
 Puts a file from this machine into the vault, raw bytes as the body. The path
-ends in `.pdf`, `.epub`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp` or `.html`, and the
-file must be that format. Up to 100MiB. A PDF, epub or image never overwrites, and there is no
-delete, so choose the path before you send. A later upload to the same `.html`
+ends in `.pdf`, `.epub`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.svg`, `.mp3`,
+`.m4a`, `.ogg`, `.wav`, `.mp4`, `.webm`, `.csv` or `.html`, and the file must be that
+format. Up to 100MiB. Only an `.html` page overwrites; any other file never does, and there
+is no delete, so choose the path before you send. A later upload to the same `.html`
 path replaces the page.
 
 A paper or a book belongs beside its note: the note's path with the suffix

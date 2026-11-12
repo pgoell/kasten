@@ -23,8 +23,8 @@ Either write creates a missing note and the folders above it. File a note
 you were given no path for in "{{inbox}}/00 Agent/".
 There is no delete, no move and no rename.
 
-save_file downloads a PDF, epub or image from a URL, or writes an HTML
-page from its text. File a paper beside its note: "x/Paper.md", "x/Paper.pdf".
+save_file downloads a PDF, epub, image, svg, sound, video or csv from a URL,
+or writes an HTML page from its text. File a paper beside its note: "x/Paper.md", "x/Paper.pdf".
 
 dump adds a paragraph to "## Dump" in the user's daily note. A thought to
 jot with no note named goes there, not the inbox. Pass the local date.

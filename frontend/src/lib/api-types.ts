@@ -489,7 +489,7 @@ export interface paths {
         put?: never;
         /**
          * Upload File
-         * @description Put the raw body at `path`: a book or an image never overwrites, a page replaces.
+         * @description Put the raw body at `path`: a page replaces, any other file never overwrites.
          *
          *     Raw rather than multipart, as `POST /api/assets/{path}` takes it, so `curl
          *     --data-binary @paper.pdf` is the whole client. `openapi_extra` because the

@@ -124,7 +124,7 @@ it holds that text already and those
 instructions tell it to skip the call.
 
 `save_file` takes a public URL, because a tool call cannot carry a file, or the
-text of an HTML page as `content`. To file a PDF, an epub, an image or a page
+text of an HTML page as `content`. To file a [file of any kind the vault takes](/reference/agent-api/routes.md#post-agentfilespath)
 from your own disk, Claude Code sends the bytes with curl instead: install the plugin and set the two variables as in
 [Claude Code where MCP is off](#claude-code-where-mcp-is-off). The skill loads
 for an upload even with the MCP server connected.
@@ -307,7 +307,7 @@ itself, in a plain tab.
 Connecting a second time replaces that token rather than adding one. The old one
 stops working on the next request.
 
-Either product files a PDF, an epub or an image with `save_file`, which takes a
+Either product files a [file of any kind the vault takes](/reference/agent-api/routes.md#post-agentfilespath) with `save_file`, which takes a
 public URL and has the server download it. An HTML page it writes goes in as `content`, the
 page's text. A file attached to the chat has no
 URL, and the model sees only its text, so it cannot be filed this way. Save it

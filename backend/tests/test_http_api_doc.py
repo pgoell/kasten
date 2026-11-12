@@ -4,14 +4,19 @@ The index page's opening counts the `/api/` routes in words, and each route
 gets a `## METHOD /api/...` section on one of the topic pages under
 `docs/reference/http-api/`. Both drift silently when a route lands without a
 doc change (#608), so this reads them back and compares them with the app's schema.
+The agent texts that say what an upload takes are held to `ASSET_MAGIC` the same way (#1953).
 """
 
 import re
 from pathlib import Path
 
-from kasten_backend.main import app
+import pytest
 
-DOCS = Path(__file__).parents[2] / "docs" / "reference"
+from kasten_backend.main import app
+from kasten_backend.vault import ASSET_MAGIC, AUDIO_SUFFIXES, CLIP_SUFFIXES, TABLE_SUFFIX
+
+ROOT = Path(__file__).parents[2]
+DOCS = ROOT / "docs" / "reference"
 INDEX = DOCS / "http-api.md"
 TOPICS = sorted((DOCS / "http-api").glob("*.md"))
 
@@ -91,3 +96,64 @@ def test_the_http_api_page_counts_and_heads_every_api_route() -> None:
         "stream": len(routes & {STREAM}),
     }
     assert stated == actual
+
+
+# Typed, not derived: a suffix new to `ASSET_MAGIC` fails the first assert until it has a kind.
+KINDS = {
+    "PDF": (".pdf",),
+    "epub": (".epub",),
+    "image": (".png", ".jpg", ".jpeg", ".gif", ".webp"),
+    "svg": (".svg",),
+    "sound": AUDIO_SUFFIXES,
+    "video": CLIP_SUFFIXES,
+    "csv": (TABLE_SUFFIX,),
+}
+SUFFIX_LIST = "/reference/agent-api/routes.md#post-agentfilespath"
+
+
+def paragraph(path: str, anchor: str) -> str:
+    """The blank-line block of the file at `path`, under the repo root, that holds `anchor`."""
+    blocks = (ROOT / path).read_text(encoding="utf-8").split("\n\n")
+    (block,) = [block for block in blocks if anchor in block]
+    return block
+
+
+def test_every_upload_suffix_has_a_kind() -> None:
+    assert sorted(s for suffixes in KINDS.values() for s in suffixes) == sorted(ASSET_MAGIC)
+
+
+@pytest.mark.parametrize(
+    ("path", "anchor"),
+    [
+        ("plugins/kasten/skills/vault/SKILL.md", "description:"),
+        ("plugins/kasten/skills/vault/SKILL.md", "### File a"),
+        ("backend/src/kasten_backend/agent/mcp-instructions.md", "save_file downloads"),
+        ("docs/reference/agent-api/routes.md", "Puts one"),
+    ],
+)
+def test_an_agent_text_names_every_kind_the_upload_takes(path: str, anchor: str) -> None:
+    text = paragraph(path, anchor)
+
+    assert [kind for kind in KINDS if not re.search(rf"\b{kind}\b", text, re.I)] == []
+
+
+@pytest.mark.parametrize(
+    "path", ["plugins/kasten/skills/vault/SKILL.md", "docs/reference/agent-api/routes.md"]
+)
+def test_an_upload_suffix_list_names_every_suffix(path: str) -> None:
+    text = paragraph(path, "ends in `.pdf`")
+
+    named = re.findall(r"`(\.[a-z0-9]+)`", text)
+    assert set(named) == {*ASSET_MAGIC, ".html"}
+
+
+@pytest.mark.parametrize(
+    ("path", "anchor"),
+    [
+        ("docs/explanation/the-agent-boundary.md", "`file` puts one"),
+        ("docs/how-to/connect-an-agent.md", "from your own disk"),
+        ("docs/how-to/connect-an-agent.md", "Either product files"),
+    ],
+)
+def test_a_docs_upload_line_points_at_the_suffix_list(path: str, anchor: str) -> None:
+    assert SUFFIX_LIST in paragraph(path, anchor)

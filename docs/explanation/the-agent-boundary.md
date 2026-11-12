@@ -108,15 +108,15 @@ gets the answer the graph pane would draw.
 
 ## Why an eighth capability is acceptable
 
-`file` puts one PDF, epub, image or HTML page into the vault, from the bytes in the
-request or from a public URL the server downloads. It is the first capability
-that adds something a leaked token could not already do, so it has to argue
-its way in.
+`file` puts one [file the vault takes](/reference/agent-api/routes.md#post-agentfilespath)
+into the vault, from the request's bytes or a public URL the server downloads.
+It is the first capability to add what a leaked token could not do before,
+so it has to argue its way in.
 
-What it buys is the documents that belong beside the notes. A paper an agent
-found, a report it was handed, a scan it made: until now each had to go
-through the browser or a shell, so an agent that wrote a note about a paper
-could not file the paper beside it, and the reader had nothing to open.
+It buys the documents that belong beside the notes. A paper an agent
+found, a report it was handed, a scan it made: each had to go through the
+browser or a shell, so an agent writing a note on a paper could not file
+the paper beside it, and the reader had nothing to open.
 
 The hazard the upload carried was disk. Books are ignored by jj and no route
 deletes one, so a looping or leaked token can fill the disk with files only

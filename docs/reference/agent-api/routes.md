@@ -255,10 +255,10 @@ like every other agent write.
 
 ## POST /agent/files/{path}
 
-Puts one PDF, epub, image or HTML page into the vault at `path`. A PDF, epub or
-image is never written over a file already there, but a page is: a second write
-to the same `.html` path replaces it. For a PDF, epub or image the body is the
-file itself, raw, as
+Puts one PDF, epub, image, svg, sound, video, csv or HTML page into the vault at
+`path`; the suffix list below is the whole rule. Only a page is written over a
+file already there: a second write to the same `.html` path replaces it. For
+any other file the body is the file itself, raw, as
 [`POST /api/assets/{path}`](/reference/http-api/assets-and-books.md#post-apiassetspath) takes
 it, and the two run the same function. That route refuses `.html`.
 
@@ -303,7 +303,7 @@ the old page stays in the vault's history. There is no delete here. A file sent
 to the wrong path stays there until someone removes it from the browser (an
 image) or the shell (a book or a page).
 
-No MCP tool carries a PDF, epub or image. A tool call is JSON the model writes, so a file would
+No MCP tool carries a file's bytes. A tool call is JSON the model writes, so a file would
 have to travel as base64 the model types out, which fails long before a paper's
 size. An agent with a shell, Claude Code among them, sends the file with this
 route instead, and the bytes go from disk to the vault without passing through
