@@ -150,7 +150,7 @@ def test_an_upload_suffix_list_names_every_suffix(path: str) -> None:
 @pytest.mark.parametrize(
     ("path", "anchor"),
     [
-        ("docs/explanation/the-agent-boundary.md", "`file` puts one"),
+        ("docs/explanation/the-agent-boundary.md", "public URL the server downloads"),
         ("docs/how-to/connect-an-agent.md", "from your own disk"),
         ("docs/how-to/connect-an-agent.md", "Either product files"),
     ],

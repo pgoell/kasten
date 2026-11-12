@@ -15,7 +15,7 @@ query_graph reads the links between notes: a filter such as type:Concept, or
 a pattern such as ?p supports [[X]], which answers in rows.
 
 Writes are conditional. read_note returns a sha, and save_note and append_note
-take that same sha back; pass none only when creating a note that is not there.
+take that same sha back; pass none only to create a new note.
 A stale sha is refused, so read before you write. The note's own frontmatter is
 written for you, so never hand-write id, created or modified.
 
@@ -26,8 +26,8 @@ There is no delete, no move and no rename.
 save_file downloads a PDF, epub, image, svg, sound, video or csv from a URL,
 or writes an HTML page from its text. File a paper beside its note: "x/Paper.md", "x/Paper.pdf".
 
-dump adds a paragraph to "## Dump" in the user's daily note. A thought to
-jot with no note named goes there, not the inbox. Pass the local date.
+dump adds a paragraph to "## Dump" in the user's daily note. A thought
+with no note named goes there, not the inbox. Pass the local date.
 
 list_skills and read_skill read the Claude Code skills in "{{skills}}"
 and nothing else; nothing writes them.
