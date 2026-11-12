@@ -5,6 +5,7 @@
 
 import type { SyntaxNode, Tree } from "@lezer/common";
 import { namesAFile } from "@/lib/notes/links/wikilink";
+import { fencedLines, isUnclosed } from "@/lib/notes/text/note-code";
 
 /** The text a tree was parsed from: a CodeMirror `Text`, or `sourceOf` a string. */
 export interface Source {
@@ -174,7 +175,7 @@ function definitions(top: SyntaxNode, doc: Source): Map<string, string> {
 /** Whether the tree `top` heads stops inside a fence it has not seen close. */
 function inFence(top: SyntaxNode): boolean {
   for (let node = top.resolveInner(top.to, -1); !node.type.isTop; node = node.parent ?? top) {
-    if (node.name === "FencedCode") return node.getChildren("CodeMark").length < 2;
+    if (node.name === "FencedCode") return isUnclosed(node);
   }
   return false;
 }
@@ -184,32 +185,19 @@ function inFence(top: SyntaxNode): boolean {
  * fence, and none continuing a paragraph, which a definition cannot interrupt.
  */
 function scanLines(text: string, found: Map<string, string>): void {
-  let fence: string | null = null;
-  // Whether a block can start here: first, or after a blank line, heading or definition.
+  const lines = text.split("\n");
+  const { coded } = fencedLines(lines);
+  // Whether a block can start here: first, or after a blank line, heading, definition or fence.
   let opens = true;
-  for (const line of text.split("\n")) {
-    const mark = /^ {0,3}(`{3,}|~{3,})/.exec(line)?.[1];
-    if (fence !== null) {
-      // Closed by a run of the same character, at least as long, alone.
-      if (
-        mark !== undefined &&
-        mark[0] === fence[0] &&
-        mark.length >= fence.length &&
-        line.trim() === mark
-      ) {
-        fence = null;
-      }
-      opens = fence === null;
-      continue;
-    }
-    if (mark !== undefined) {
-      fence = mark;
-      continue;
+  lines.forEach((line, index) => {
+    if (coded.has(index)) {
+      opens = true;
+      return;
     }
     const match = opens ? DEFINITION.exec(line) : null;
     if (match?.[1] !== undefined && match[2] !== undefined) add(found, match[1], match[2]);
     opens = match !== null || line.trim() === "" || /^ {0,3}#{1,6}(\s|$)/.test(line);
-  }
+  });
 }
 
 /** The definitions under `parent`, in document order. */
