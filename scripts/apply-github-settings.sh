@@ -140,10 +140,24 @@ verify_security_updates() {
   return $rc
 }
 
+verify_json() {  # $1 file, $2 API path: compare only the keys the file sets
+  echo "→ verifying $1"
+  local norm='walk(if type=="array" then sort else . end)'
+  if diff -u <(jq -S "$norm" "$1") <(gh api "$2" | jq -S --slurpfile f "$1" "with_entries(select(.key as \$k | \$f[0] | has(\$k))) | $norm") >&2; then
+    echo "✔ $1 matches GitHub"
+  else
+    echo "✖ drift detected between $1 and GitHub" >&2
+    return 5
+  fi
+}
+
 verify() {
   local rc=0
   verify_branch_protection || rc=$?
   verify_security_updates || rc=$?
+  verify_json "$REPO_SETTINGS" "/repos/$OWNER_REPO" || rc=$?
+  verify_json "$ACTIONS_PERMISSIONS" "/repos/$OWNER_REPO/actions/permissions" || rc=$?
+  verify_json "$SELECTED_ACTIONS" "/repos/$OWNER_REPO/actions/permissions/selected-actions" || rc=$?
   return $rc
 }
 
