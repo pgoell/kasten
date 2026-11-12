@@ -320,10 +320,11 @@ describe("#1931 a card line of comment openers parses in time that grows with it
   const HEAD = "#flashcards/x\n\nq::a ";
   const filled = (unit: string, size: number, tail: string) =>
     HEAD + unit.repeat(size / unit.length).slice(0, size - HEAD.length - tail.length) + tail;
-  // Best of three, so a busy box slows neither size alone; a square would read about 4.
+  // Best of five, and 20 ms at least below, so a busy box or a pause in a 3 ms run makes no
+  // ratio; a square reads about 4.5 on main, at hundreds of ms.
   const best = (text: string) =>
     Math.min(
-      ...[1, 2, 3].map(() => {
+      ...[1, 2, 3, 4, 5].map(() => {
         const start = performance.now();
         parseCards(text, "x.md");
         return performance.now() - start;
@@ -338,7 +339,7 @@ describe("#1931 a card line of comment openers parses in time that grows with it
     ["openers each on a line of its own", "<!--SR:x\n", ""],
   ])("#1931 %s: 40,000 characters take under 3 times 20,000", (_, unit, tail) => {
     best(filled(unit, 2_000, tail));
-    const ratio = best(filled(unit, 40_000, tail)) / Math.max(best(filled(unit, 20_000, tail)), 1);
+    const ratio = best(filled(unit, 40_000, tail)) / Math.max(best(filled(unit, 20_000, tail)), 20);
     expect(ratio).toBeLessThan(3);
   });
 });
