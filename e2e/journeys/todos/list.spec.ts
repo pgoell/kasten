@@ -1,6 +1,14 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { cursorTo, leader, noteText, openApp, phone, TODO_ROW } from "../../harness/app.ts";
+import {
+  cursorTo,
+  leader,
+  noteText,
+  openApp,
+  phone,
+  TODO_ROW,
+  todoRows,
+} from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 
 const HOME_TODOS = [
@@ -46,7 +54,7 @@ test("checking off three todos in a row keeps the rows in their order, then they
     await page.keyboard.press("X");
   }
   const named = async () =>
-    (await page.locator(TODO_ROW).evaluateAll((rows) => rows.map((row) => row.textContent ?? "")))
+    (await todoRows(page)).texts
       .map((text) => HOME_TODOS.find((name) => text.includes(name)))
       .filter((name) => name !== undefined);
   expect(await named()).toEqual(HOME_TODOS);
