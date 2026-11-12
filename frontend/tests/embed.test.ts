@@ -182,11 +182,15 @@ describe("queryEmbedSource", () => {
     const openPdf = vi.fn();
     const tab = vi.spyOn(window, "open").mockReturnValue(null);
 
-    queryEmbedSource(new QueryClient(), open, openPdf).open("my docs/talk.mp3");
+    const openTable = vi.fn();
+
+    // The tree plays a sound in the pane; a followed link to one still gets its own tab.
+    queryEmbedSource(new QueryClient(), open, openPdf, openTable).open("my docs/talk.mp3");
 
     expect(tab).toHaveBeenCalledWith("/api/assets/my%20docs/talk.mp3", "_blank");
     expect(open).not.toHaveBeenCalled();
     expect(openPdf).not.toHaveBeenCalled();
+    expect(openTable).not.toHaveBeenCalled();
     tab.mockRestore();
   });
 });

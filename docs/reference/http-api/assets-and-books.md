@@ -266,12 +266,12 @@ so it goes the way an image does. A video goes to the trash as any file does,
 and the history keeps no copy of it, so the trash is the one way back. A book is a `404` like any other path this does not serve,
 whichever of the two suffixes it ends in: a book travels with the note beside it, and which of the pair a delete should take
 is a decision nothing here has made. The file tree, which is what this route
-serves, lists images and no books.
+serves, lists images, sounds, csvs and videos, and no books.
 
 | Status | Means |
 | --- | --- |
 | `200` | The image is in the trash, and the body says where it came from |
-| `404` | No image at that path, a book, a `.md` and a directory included |
+| `404` | `No such asset`: nothing this deletes at that path, a book, a `.md` and a directory included |
 
 The notes referencing the image are left alone, for the reason a delete leaves
 `[[link]]`s alone: rewriting them to say the picture is gone would be the one
