@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { soundPlayer } from "@/lib/notes/embeds/audio";
 import { clipPlayer } from "@/lib/notes/embeds/clip";
 import { showCsv } from "@/lib/notes/embeds/csv";
 import { encodePath } from "@/lib/notes/links/note-path";
@@ -132,6 +133,27 @@ function Clip({ path }: { path: string }) {
   );
 }
 
+/** A sound played in the pane by the browser's own controls, read only once it plays. */
+function Sound({ path }: { path: string }) {
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const element = box.current;
+    if (element === null) return;
+    const player = soundPlayer(`/api/assets/${encodePath(path)}`);
+    player.classList.add("w-full");
+    element.replaceChildren(player);
+    // Emptied as the clip is, so a player taken off the page stops reading the file.
+    return () => {
+      player.removeAttribute("src");
+      player.load();
+      player.remove();
+    };
+  }, [path]);
+  return (
+    <div ref={box} data-sound className="flex min-h-0 flex-1 items-center justify-center p-4" />
+  );
+}
+
 /**
  * One image out of the vault, shown whole. No editing and no next image, because
  * the tree walks the folder. A pinch zooms and a drag moves it, since a phone has
@@ -159,7 +181,7 @@ export function ImagePane({ path, commands, focusSignal, onDelete }: ImagePanePr
   const zoom = zoomed.path === path ? zoomed.zoom : FITTED;
   /** Where each pointer that is down was last seen. A ref: nothing draws it. */
   const pointers = useRef(new Map<number, Point>());
-  // A csv and a video file ride in this pane, as files of the vault's that no note owns.
+  // A csv, a video file and a sound ride in this pane, as files of the vault's that no note owns.
   const kind = paneKind(path);
 
   // A freshly focused pane is handed a raised signal and takes the cursor, the
@@ -263,6 +285,8 @@ export function ImagePane({ path, commands, focusSignal, onDelete }: ImagePanePr
         <Table path={path} />
       ) : kind === "clip" ? (
         <Clip path={path} />
+      ) : kind === "sound" ? (
+        <Sound path={path} />
       ) : (
         <div
           onPointerDown={onPointerDown}

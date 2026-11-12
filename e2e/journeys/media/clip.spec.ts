@@ -193,3 +193,77 @@ test("<leader>: and Enter on the pick row open the picker once the key is up", a
 
   await landed(stack.vault, "The walk:![[swim 1.webm]]");
 });
+
+/** One second of silence as a 16-bit mono wav, enough for the browser to read a duration. */
+function silence(): Buffer {
+  const rate = 8000;
+  const data = Buffer.alloc(rate * 2);
+  const head = Buffer.alloc(44);
+  head.write("RIFF", 0);
+  head.writeUInt32LE(36 + data.length, 4);
+  head.write("WAVEfmt ", 8);
+  head.writeUInt32LE(16, 16);
+  head.writeUInt16LE(1, 20);
+  head.writeUInt16LE(1, 22);
+  head.writeUInt32LE(rate, 24);
+  head.writeUInt32LE(rate * 2, 28);
+  head.writeUInt16LE(2, 32);
+  head.writeUInt16LE(16, 34);
+  head.write("data", 36);
+  head.writeUInt32LE(data.length, 40);
+  return Buffer.concat([head, data]);
+}
+
+/** Opens the sound's tree row, sees it play in the pane, and reads back that it has a length. */
+async function openSound(page: Page): Promise<Locator> {
+  await page.getByRole("button", { name: "sounds", exact: true }).click();
+  await page.getByRole("button", { name: "talk.wav", exact: true }).click();
+  const player = page.locator("[data-sound] audio");
+  await expect(player).toHaveAttribute("src", "/api/assets/sounds/talk.wav");
+  await expect(player).toHaveJSProperty("controls", true);
+  await player.evaluate(async (element: HTMLAudioElement) => {
+    element.muted = true;
+    await element.play();
+    element.pause();
+  });
+  await expect(player).toHaveJSProperty("duration", 1);
+  return player;
+}
+
+test("a sound opens from the file tree as a player, and d on its row deletes it", async ({
+  page,
+  stack,
+}) => {
+  await vaultWith(stack.vault, { "sounds/talk.wav": silence(), "sounds/keep.md": "# Keep\n" });
+  await openApp(page);
+  await openSound(page);
+  await page.screenshot({ path: test.info().outputPath("sound-desktop.png") });
+
+  // `<leader>E` from the pane puts the tree's cursor on the sound's row, where `d` acts.
+  await page.locator("[data-image-pane]").press(" ");
+  await page.keyboard.press("E");
+  await expect(page.getByRole("button", { name: "talk.wav", exact: true })).toBeFocused();
+  await page.keyboard.press("d");
+  await expect(page.getByRole("button", { name: "talk.wav", exact: true })).toHaveCount(0);
+  await expect(access(join(stack.vault, "sounds/talk.wav"))).rejects.toThrow();
+});
+
+test.describe("a sound on a phone", () => {
+  test.use(phone);
+
+  test("opens from the tree drawer, and two taps on delete take it out", async ({ page, stack }) => {
+    await vaultWith(stack.vault, { "sounds/talk.wav": silence(), "sounds/keep.md": "# Keep\n" });
+    await page.goto("/");
+    await page.getByRole("button", { name: "File tree", exact: true }).tap();
+    await openSound(page);
+    await page.screenshot({ path: test.info().outputPath("sound-phone.png") });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(414);
+
+    const button = page.locator("[data-image-pane] header button");
+    await button.tap();
+    await expect(button).toHaveText("delete?");
+    await button.tap();
+    await expect(page.locator("[data-sound]")).toHaveCount(0);
+    await expect(access(join(stack.vault, "sounds/talk.wav"))).rejects.toThrow();
+  });
+});

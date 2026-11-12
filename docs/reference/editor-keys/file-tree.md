@@ -73,6 +73,12 @@ and `<leader>q` closes it, as [Panes and tabs](/reference/editor-keys/panes-and-
 images is a folder in the tree all the same, which is how you reach the ones
 pasting has filed.
 
+A csv, a video file and a sound are rows too, muted as images are, and `d`
+deletes one the way it deletes an image. Enter or a click opens a csv as a
+table, a video as a player, and a sound (`.m4a`, `.mp3`, `.ogg` or `.wav`) as
+the browser's own audio player in the pane, which reads nothing until you
+press play. A followed `[[talk.mp3]]` still opens in a browser tab of its own.
+
 HTML pages are rows too, muted the way images are and keeping `.html`, which is
 what sets `report.html` apart from a `report` note beside it. Enter or a click
 draws the page in the focused pane, its styles and script included, the way a

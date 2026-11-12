@@ -3,7 +3,7 @@ import type { EditorState, Text } from "@codemirror/state";
 import { Decoration, type EditorView, WidgetType } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
 import { linkAddress, unescaped, urlLinkAt } from "@/lib/markdown/link-reference";
-import { isAudio } from "@/lib/notes/embeds/audio";
+import { isAudio, soundPlayer } from "@/lib/notes/embeds/audio";
 import { clipPlayer, isClipAddress } from "@/lib/notes/embeds/clip";
 import { imagePaths, imageSource } from "@/lib/notes/embeds/image";
 import { encodePath } from "@/lib/notes/links/note-path";
@@ -177,12 +177,7 @@ class Sound extends WidgetType {
   }
 
   toDOM(): HTMLElement {
-    const audio = document.createElement("audio");
-    audio.className = "cm-audio";
-    audio.controls = true;
-    audio.setAttribute("preload", "none");
-    audio.src = this.source;
-    return audio;
+    return soundPlayer(this.source);
   }
 }
 

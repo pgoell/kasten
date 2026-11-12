@@ -17,7 +17,7 @@ export async function deleteNote(path: string): Promise<TrashEntry> {
   return data;
 }
 
-/** Like `deleteNote`, for one image. The route refuses books. */
+/** Like `deleteNote`, for one file no note owns: an image, sound, video or csv. The route refuses books. */
 export async function deleteImage(path: string): Promise<TrashEntry> {
   const { data, response } = await client.DELETE("/api/assets/{path}", {
     params: { path: { path } },

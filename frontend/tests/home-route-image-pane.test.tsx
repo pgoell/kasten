@@ -252,6 +252,79 @@ describe("looking at an image", () => {
     expect(fetch).toHaveBeenCalledWith(`/api/assets/${encodeURI(table)}`, expect.anything());
   });
 
+  it("lists a sound among the tree's files in any case of suffix, and plays it in the pane", async () => {
+    const sounds = ["99 Misc/a.m4a", "99 Misc/b.MP3", "99 Misc/c.ogg", "99 Misc/d.wav"];
+    fetchAssets.mockResolvedValue([...sounds, "99 Misc/plan.pdf"]);
+    const app = await renderApp();
+    await settle();
+    app.expand("99 Misc");
+
+    for (const sound of sounds) {
+      app.click(sound);
+      await settle();
+
+      expect(app.imagePane()?.getAttribute("aria-label")).toBe("sound");
+      const player = app.imagePane()?.querySelector("audio");
+      expect(player?.getAttribute("src")).toBe(`/api/assets/${encodeURI(sound)}`);
+      expect(player?.controls).toBe(true);
+      expect(app.imagePane()?.querySelector("img")).toBeNull();
+    }
+  });
+
+  it("takes a sound out of the vault on d in the tree, and no book", async () => {
+    fetchImages.mockResolvedValue([]);
+    fetchAssets.mockResolvedValue(["99 Misc/DDIA.epub", "99 Misc/Plan.PDF", "99 Misc/talk.mp3"]);
+    deleteImage.mockResolvedValue({ entry: "x", path: "99 Misc/talk.mp3", deleted: "" });
+    const app = await renderApp();
+    await settle();
+    app.expand("99 Misc");
+    // An epub opens beside its note, so it is no row to delete.
+    expect(app.tree().textContent).not.toContain("DDIA.epub");
+
+    // Plan.PDF, then talk.mp3: `d` on each, the pdf row's doing nothing.
+    fireEvent.keyDown(app.tree(), { key: "j" });
+    fireEvent.keyDown(app.tree(), { key: "d" });
+    await settle();
+    expect(deleteImage).not.toHaveBeenCalled();
+    fireEvent.keyDown(app.tree(), { key: "j" });
+    fireEvent.keyDown(app.tree(), { key: "d" });
+    fetchAssets.mockResolvedValue(["99 Misc/DDIA.epub", "99 Misc/Plan.PDF"]);
+    await settle();
+
+    expect(deleteImage).toHaveBeenCalledTimes(1);
+    expect(deleteImage).toHaveBeenCalledWith("99 Misc/talk.mp3");
+    expect(app.tree().textContent).not.toContain("talk.mp3");
+  });
+
+  it("takes the sound in front of you out on d in the pane, or two taps on delete", async () => {
+    const odd = "99 Misc/talk #2?.mp3";
+    fetchAssets.mockResolvedValue([odd]);
+    deleteImage.mockResolvedValue({ entry: "x", path: odd, deleted: "" });
+    const app = await renderApp();
+    await settle();
+    app.expand("99 Misc");
+    app.click(odd);
+    await settle();
+
+    // Raw, `#` and `?` would cut the path short.
+    const player = app.imagePane()?.querySelector("audio");
+    expect(player?.getAttribute("src")).toBe("/api/assets/99%20Misc/talk%20%232%3F.mp3");
+    const button = app.imagePane()?.querySelector("header button") as HTMLElement;
+    fireEvent.click(button);
+    expect(deleteImage).not.toHaveBeenCalled();
+    fireEvent.click(button);
+    await settle();
+    expect(deleteImage).toHaveBeenCalledWith(odd);
+
+    deleteImage.mockClear();
+    app.click(odd);
+    await settle();
+    fireEvent.keyDown(app.imagePane() as HTMLElement, { key: "d" });
+    await settle();
+    expect(deleteImage).toHaveBeenCalledWith(odd);
+    expect(app.imagePane()).toBeNull();
+  });
+
   it("hands the picture to the browser under its own name", async () => {
     const caught = clicked();
     const app = await renderApp();

@@ -12,7 +12,7 @@ import {
 import { ONTOLOGY_NOTE, relationNames } from "@/lib/notes/links/ontology";
 import { visible } from "@/lib/search/archive";
 import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
-import { opensInFilePane } from "@/lib/vault/file-kind";
+import { isTreeFile } from "@/lib/vault/file-kind";
 
 /** What a list prop gets while its query loads: one array, so the memo built over it holds. */
 const LOADING: string[] = [];
@@ -41,8 +41,8 @@ export function useListings() {
     () => (assets ?? []).filter((path) => path.toLowerCase().endsWith(".pdf")),
     [assets],
   );
-  // The csvs and video files among them, tree rows that open in the image's pane.
-  const tables = useMemo(() => (assets ?? []).filter(opensInFilePane), [assets]);
+  // The csvs, video files and sounds among them, tree rows that open in the image's pane.
+  const tables = useMemo(() => (assets ?? []).filter(isTreeFile), [assets]);
   // The tag vocabulary. Not archive-filtered: an archived note's tag is still a tag.
   const { data: tags } = useQuery({ queryKey: ["tags"], queryFn: fetchTags });
   // Relation names, gated on the listing above so no request runs for a vault without the note.
