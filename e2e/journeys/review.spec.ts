@@ -39,6 +39,32 @@ test("a sitting on the desktop writes the FSRS comment after a good rating", asy
   await expect.poll(() => answered(stack.vault)).toBe(true);
 });
 
+test("? in the review pane lists each review key beside its label, under In review", async ({
+  page,
+}) => {
+  await openApp(page);
+  await leader(page, "gs");
+  await page.getByRole("heading", { name: "Review" }).click();
+  await page.keyboard.press("?");
+  const help = page.getByRole("dialog", { name: "Keyboard shortcuts" });
+  // s, h, n and u answer in other groups too, so each row is read inside this one.
+  const review = help
+    .getByRole("heading", { name: "In review", exact: true })
+    .locator("xpath=ancestor::section[1]");
+  const rows: [string, string][] = [
+    ["s", "Park the card"],
+    ["n", "Write a new question"],
+    ["Space or Enter", "Show the answer, then grade Good"],
+    ["1 … 4", "Rate the card: again, hard, good, easy"],
+    ["u", "Undo the last answer, or put a parked card back"],
+    ["h", "Back to the decks"],
+  ];
+  for (const [key, label] of rows) {
+    const term = review.locator("dt").getByText(key, { exact: true });
+    await expect(term.locator("xpath=following-sibling::dd[1]")).toHaveText(label);
+  }
+});
+
 test.describe("on a phone", () => {
   test.use(phone);
 
