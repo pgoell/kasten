@@ -67,26 +67,22 @@ async def test_a_save_after_the_database_comes_back_lands_in_the_index(
     made._wait = wait
     running = asyncio.create_task(made.run())
 
-    async def paths() -> list[str]:
-        return sorted({row[0] for row in await _rows(sessions)})
-
-    def saved(path: str):
-        async def check() -> bool:
-            # Written again on each look: the watcher may not be up for the first.
-            _write(tmp_path, path, f"words at {time.monotonic()}")
-            return path in await paths()
-
-        return check
+    async def landed(*paths: str) -> bool:
+        return set(paths) <= {row[0] for row in await _rows(sessions)}
 
     try:
-        await _until(lambda: _settled(made))
+        await _warm(made, tmp_path, sessions)
+        # Each note written once: a rewrite truncates in place, and a read caught
+        # between truncate and write indexes the note empty until the next event (#1920).
         with caplog.at_level(logging.INFO):
             flaky.failures = 3
-            await _until(saved("during.md"))
+            _write(tmp_path, "during.md", "words written while the database is gone")
+            await _until(lambda: landed("during.md"))
             assert flaky.failures == 0
-            await _until(saved("after.md"))
+            _write(tmp_path, "after.md", "words written once it is back")
+            await _until(lambda: landed("after.md"))
         assert waits == [1, 2, 4]
-        assert await paths() == ["after.md", "during.md"]
+        assert await landed("after.md", "during.md")
         assert not running.done()
     finally:
         running.cancel()

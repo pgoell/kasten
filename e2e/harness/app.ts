@@ -118,17 +118,24 @@ export const inbox = async (vault: string): Promise<string[]> =>
 /** A todo row, keyed by its line as "Home.md:12"; the file tree's rows are not. */
 export const TODO_ROW = '[data-row*=".md:"]';
 
+/**
+ * Each todo row's text and the cursor's row, read in one evaluate: `evaluateAll` finds the rows
+ * and reads them in two round trips, and a redraw between them reads rows already gone (#1921).
+ */
+export function todoRows(page: Page): Promise<{ texts: string[]; cursor: number }> {
+  return page.evaluate((selector) => {
+    const rows = [...document.querySelectorAll<HTMLElement>(selector)];
+    return {
+      texts: rows.map((row) => row.textContent ?? ""),
+      cursor: rows.findIndex((row) => row.tabIndex === 0),
+    };
+  }, TODO_ROW);
+}
+
 /** Presses j or k until the todo list's cursor sits on the `nth` row whose text holds `words`. */
 export async function cursorTo(page: Page, words: string, nth = 0): Promise<void> {
-  const { from, to } = await page.locator(TODO_ROW).evaluateAll(
-    (rows, [text, n]) => ({
-      from: rows.findIndex((row) => (row as HTMLElement).tabIndex === 0),
-      to: rows
-        .map((row, i) => ((row.textContent ?? "").includes(text as string) ? i : -1))
-        .filter((i) => i >= 0)[n as number],
-    }),
-    [words, nth] as const,
-  );
+  const { texts, cursor: from } = await todoRows(page);
+  const to = texts.map((text, i) => (text.includes(words) ? i : -1)).filter((i) => i >= 0)[nth];
   const key = (to ?? 0) > from ? "j" : "k";
   for (let i = 0; i < Math.abs((to ?? 0) - from); i++) await page.keyboard.press(key);
   await expect(page.locator(`${TODO_ROW}[tabindex="0"]`)).toContainText(words);
