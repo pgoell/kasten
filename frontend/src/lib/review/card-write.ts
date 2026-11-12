@@ -1,66 +1,102 @@
 import {
   CLOZE_SR,
+  CLOZE_SRS,
   clozeComment,
   FSRS,
-  FSRS_LINE,
+  fsrsComment,
+  fsrsOf,
+  PLAIN_SRS,
   parks,
   SR,
   SUSPEND_TOKEN,
+  unread,
   withoutHeadToken,
   withoutToken,
 } from "@/lib/review/card-line";
 import { commentsAndCode } from "@/lib/review/deck-parse";
-import type { Card, Schedule } from "@/lib/review/srs";
+import { type Card, type Held, isFsrs } from "@/lib/review/srs";
+
+/** A day as the plugin's stamp: midnight UTC, whose date part reads the same in every zone. */
+const stamp = (day: string | null) => (day === null ? "-" : `${day}T00:00:00.000Z`);
 
 /** `next` written as the comment that goes in the note, named by its number on a cloze. */
-function comment(next: Schedule, cloze: number | null = null): string {
-  return `<!--SR:${cloze === null ? "" : `c${cloze}`}!${next.due},${next.interval},${next.ease}-->`;
+function comment(next: Held, cloze: number | null = null): string {
+  const name = cloze === null ? "" : `c${cloze}`;
+  if (!isFsrs(next)) return `<!--SR:${name}!${next.due},${next.interval},${next.ease}-->`;
+  const { interval, stability, difficulty, state, reps, lapses, steps } = next;
+  // Two places, so a number reads back as written; the plugin writes the whole float and reads either.
+  const fields = [
+    interval,
+    stability.toFixed(2),
+    difficulty.toFixed(2),
+    state,
+    reps,
+    lapses,
+    steps,
+  ];
+  return `<!--SR:${name}!fsrs,${stamp(next.due)},${fields.join(",")},${stamp(next.last)}-->`;
 }
 
-/** Whether the plugin schedules this card by FSRS, which is left alone until #1926 reads it (#1929). */
-function byFsrs(lines: string[], card: Card): boolean {
-  return (
-    FSRS.test(lines[card.to] ?? "") || (!card.inline && FSRS_LINE.test(lines[card.to + 1] ?? ""))
+/** `line` with its first `found` swapped for `written` and every other taken off, or null where none is. */
+function swap(line: string, found: RegExp, written: string): string | null {
+  let count = 0;
+  // The space before a comment taken off goes with it.
+  const swapped = line.replace(new RegExp(`([ \\t]*)(?:${found.source})`, "g"), (_, space) =>
+    count++ === 0 ? `${space}${written}` : "",
   );
+  return count === 0 ? null : swapped;
+}
+
+/** The comments of the card's own kind, global: a cloze number's, or the plain card's. */
+function own(cloze: number | null): RegExp {
+  if (cloze === null) return PLAIN_SRS;
+  return new RegExp(`${clozeComment(cloze).source}|${fsrsComment(cloze).source}`, "g");
+}
+
+/**
+ * Where the card's schedule line is, once a tab from before #1929's SM-2 line over its FSRS
+ * line is folded into one; null where an FSRS comment does not read, which leaves it alone.
+ */
+function fold(lines: string[], card: Card): number | null {
+  const over = lines[card.to - 1] ?? "";
+  const last = lines[card.to] ?? "";
+  const stacked =
+    !card.inline &&
+    fsrsOf(card.cloze !== null).line.test(last) &&
+    !FSRS.test(over) &&
+    (SR.test(over) || CLOZE_SR.test(over) || parks(over));
+  if (unread(stacked ? `${over} ${last}` : last)) return null;
+  if (!stacked) return card.to;
+  lines.splice(card.to - 1, 2, `${over.trimEnd()} ${last.trim()}`);
+  return card.to - 1;
 }
 
 /**
  * `text` with this card's schedule set, every other line byte-identical.
  * A line splice, not a rebuild: the note is the user's, and a rating does not reflow it.
  */
-export function writeSchedule(text: string, card: Card, next: Schedule): string {
+export function writeSchedule(text: string, card: Card, next: Held): string {
   const lines = text.split("\n");
-  const last = lines[card.to] ?? "";
-  if (byFsrs(lines, card)) return text;
+  const to = fold(lines, card);
+  if (to === null) return text;
+  const last = lines[to] ?? "";
+  const written = comment(next, card.cloze);
+  const swapped = swap(last, own(card.cloze), written);
 
-  // A cloze rewrites its own number's comment and no other. Where it has none
-  // yet it joins the line the others sit on, which is the cloze's own line, or
-  // the line under a `?` back once any comment or the token has made one.
-  if (card.cloze !== null) {
-    const own = clozeComment(card.cloze);
-    const written = comment(next, card.cloze);
-    if (own.test(last)) lines[card.to] = last.replace(own, written);
-    else if (card.inline || CLOZE_SR.test(last) || SR.test(last) || parks(last)) {
-      lines[card.to] = `${last.trimEnd()} ${written}`;
-    } else lines.splice(card.to + 1, 0, written);
-    return lines.join("\n");
-  }
-
-  if (card.inline) {
-    lines[card.to] = SR.test(last)
-      ? last.replace(SR, comment(next))
-      : `${last.trimEnd()} ${comment(next)}`;
-  } else if (SR.test(last)) {
-    lines[card.to] = last.replace(SR, comment(next));
-  } else {
-    lines.splice(card.to + 1, 0, comment(next));
-  }
-
+  // A cloze with no comment of its own joins the line the others sit on, which is the
+  // cloze's own line, or the line under a `?` back once any comment or the token made one.
+  const joins =
+    card.inline ||
+    (card.cloze !== null &&
+      (CLOZE_SR.test(last) || SR.test(last) || FSRS.test(last) || parks(last)));
+  if (swapped !== null) lines[to] = swapped;
+  else if (joins) lines[to] = `${last.trimEnd()} ${written}`;
+  else lines.splice(to + 1, 0, written);
   return lines.join("\n");
 }
 
-/** A schedule comment of either kind, plain or a cloze number's, whichever comes first. */
-const ANY_SR = new RegExp(`${SR.source}|${CLOZE_SR.source}`);
+/** A schedule comment of any kind, plain or a cloze number's, SM-2 or FSRS, whichever comes first. */
+const ANY_SR = new RegExp(`${PLAIN_SRS.source}|${CLOZE_SRS.source}`);
 
 /**
  * `text` with this card parked or put back, every other line byte-identical.
@@ -73,7 +109,7 @@ export function setSuspended(text: string, card: Card, on: boolean): string {
   // comments, so parking any number writes the same line as parking another.
   // Either kind of comment: a `?` card written before cloze existed whose front
   // happens to hold a mark is a cloze now, its schedule line holding a plain one.
-  const schedule = card.cloze === null ? SR : ANY_SR;
+  const schedule = card.cloze === null ? new RegExp(PLAIN_SRS.source) : ANY_SR;
 
   if (card.inline) {
     // The reader's reading, so the token is never cut from or written into a comment (#1590).

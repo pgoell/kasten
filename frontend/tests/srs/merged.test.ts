@@ -214,85 +214,201 @@ describe("#1590 parking reads the token where the reader does", () => {
   });
 });
 
-describe("#1929 a card with the plugin's !fsrs comment is left alone until FSRS lands", () => {
+describe("#1926 a card with the plugin's !fsrs comment is read and rated by FSRS", () => {
   const F = "<!--SR:!fsrs,2026-11-20T00:00:00.000Z,8,8.30,1.00,2,1,0,0,2026-11-12T00:00:00.000Z-->";
+  const FH = {
+    due: "2026-11-20",
+    interval: 8,
+    stability: 8.3,
+    difficulty: 1,
+    state: 2,
+    reps: 1,
+    lapses: 0,
+    steps: 0,
+    last: "2026-11-12",
+  };
   const CF = F.replace("SR:!", "SR:c1!");
+  // Answered 2026-08-16, before the FSRS answer, so the FSRS one wins.
   const S = "<!--SR:!2026-08-20,4,270-->";
+  const SH = { due: "2026-08-20", interval: 4, ease: 270 };
+  // A first answer the same day as the FSRS one, as a tab from before #1929 writes it.
+  const T = "<!--SR:!2026-11-13,1,250-->";
+  const TH = { due: "2026-11-13", interval: 1, ease: 250 };
+  const BAD = [
+    "<!--SR:!fsrs,2026-11-20T00:00:00.000Z,8,x,1.00,2,1,0,0,-->",
+    `${F.slice(0, -3)}!fsrs,2026-11-21T00:00:00.000Z,1,1,1,2,1,0,0,--->`,
+    `${F.slice(0, -3)}!2026-11-21,1,250-->`,
+  ];
   const note = (body: string) => `#flashcards/x\n\n${body}\n\nn::m\n`;
   const read = (body: string) =>
-    parseCards(note(body)).map((card) => [card.front, card.held?.due ?? null]);
-  const N = ["n", null];
+    parseCards(note(body)).map((card) => [card.front, card.held, card.parked]);
+  const N = ["n", null, null];
 
   it.each([
-    ["an SM-2 comment", `q::a ${S}`, [["q", "2026-08-20"], N]],
-    ["no comment", "q::a", [["q", null], N]],
-    ["an !fsrs comment", `q::a ${F}`, [N]],
-    ["!fsrs then SM-2", `q::a ${F} ${S}`, [N]],
-    ["SM-2 then !fsrs", `q::a ${S} ${F}`, [N]],
-    ["an escaped !fsrs comment", `q::a ${F.replace("SR:", "SR\\:")}`, [["q", null], N]],
-    ["a ? card under SM-2", `q\n?\na\n${S}`, [["q", "2026-08-20"], N]],
-    ["a ? card under !fsrs", `q\n?\na::b\n${F}`, [N]],
-    ["a ? card under SM-2 then !fsrs", `q\n?\na::b\n${S}\n${F}`, [N]],
-    ["a ? card under !fsrs then SM-2", `q\n?\na::b\n${F}\n${S}`, [N]],
-    ["a parked ? card under !fsrs", `q\n?\na\n!suspended ${F}`, [N]],
+    ["an SM-2 comment", `q::a ${S}`, [["q", SH, null], N]],
+    ["no comment", "q::a", [["q", null, null], N]],
+    ["an !fsrs comment", `q::a ${F}`, [["q", FH, null], N]],
+    ["!fsrs then an older SM-2", `q::a ${F} ${S}`, [["q", FH, null], N]],
+    ["an older SM-2 then !fsrs", `q::a ${S} ${F}`, [["q", FH, null], N]],
+    ["!fsrs then a same-day SM-2", `q::a ${F} ${T}`, [["q", TH, null], N]],
+    ["an escaped !fsrs comment", `q::a ${F.replace("SR:", "SR\\:")}`, [["q", null, null], N]],
+    ["a ? card under SM-2", `q\n?\na\n${S}`, [["q", SH, null], N]],
+    ["a ? card under !fsrs", `q\n?\na::b\n${F}`, [["q", FH, null], N]],
+    ["a ? card under an older SM-2 then !fsrs", `q\n?\na::b\n${S}\n${F}`, [["q", FH, null], N]],
+    ["a ? card under a same-day SM-2 then !fsrs", `q\n?\na::b\n${T}\n${F}`, [["q", TH, null], N]],
+    ["a ? card under !fsrs then SM-2", `q\n?\na::b\n${F}\n${S}`, [["q", FH, null], N]],
+    ["a parked ? card under !fsrs", `q\n?\na\n!suspended ${F}`, [["q", FH, "suspended"], N]],
+    ["a parked one-line card", `q::a !suspended ${F}`, [["q", FH, "suspended"], N]],
     [
       "a ? card under SM-2 over a one-line !fsrs card",
       `q\n?\na\n${S}\nx::y ${F}`,
-      [["q", "2026-08-20"], N],
+      [["q", SH, null], ["x", FH, null], N],
     ],
     [
       "a parked ? card under SM-2 over a one-line !fsrs card",
       `q\n?\na\n!suspended ${S}\nx::y ${F}`,
-      [["q", "2026-08-20"], N],
+      [["q", SH, "suspended"], ["x", FH, null], N],
     ],
-    // The fence runs to the end, so it takes the card under it too.
-    ["a ? card under !fsrs in an unclosed fence", `q\n?\na\n\`\`\`\n${F}`, []],
-    ["a cloze with c1!fsrs", `{{c1::a}} {{c2::b}} ${CF}`, [N]],
-    ["a ? cloze under c1!fsrs", `{{c1::a}}\n?\nextra\n${CF}`, [N]],
-  ])("#1929 the reader on %s", (_, body, cards) => {
+    // The fence runs to the end, so it takes the card under it too; SM-2 reads the same.
+    ["a ? card under !fsrs in an unclosed fence", `q\n?\na\n\`\`\`\n${F}`, [["q", FH, null]]],
+    ["a ? card under SM-2 in an unclosed fence", `q\n?\na\n\`\`\`\n${S}`, [["q", SH, null]]],
+    [
+      "a cloze with c1!fsrs",
+      `{{c1::a}} {{c2::b}} ${CF}`,
+      [["\\[...\\] b", FH, null], ["a \\[...\\]", null, null], N],
+    ],
+    ["a ? cloze under c1!fsrs", `{{c1::a}}\n?\nextra\n${CF}`, [["\\[...\\]", FH, null], N]],
+    // A plain card takes no cloze number's line, FSRS's as SM-2's (review round 1).
+    ["a plain ? card over a c1!fsrs line", `q\n?\na\n${CF}`, [["q", null, null], N]],
+    [
+      "a plain ? card over a c1 SM-2 line",
+      `q\n?\na\n${S.replace("SR:!", "SR:c1!")}`,
+      [["q", null, null], N],
+    ],
+    ["a plain ? card under SM-2 over a c1!fsrs line", `q\n?\na\n${S}\n${CF}`, [["q", SH, null], N]],
+    ...BAD.map((bad, at) => [`an !fsrs comment that does not read, ${at}`, `q::a ${bad}`, [N]]),
+    ["a ? card under an !fsrs comment that does not read", `q\n?\na\n${BAD[0]}`, [N]],
+    ["a ? card under SM-2 over one that does not read", `q\n?\na\n${S}\n${BAD[0]}`, [N]],
+  ] as [string, string, unknown[]][])("#1926 the reader on %s", (_, body, cards) => {
     expect(read(body)).toEqual(cards);
   });
 
-  it("#1929 a left-alone card keeps the tags at its head off the other cards", () => {
+  it("#1926 a card's tags at its head stay its own beside an !fsrs comment", () => {
     const decks = (body: string) => parseCards(note(body)).at(-1)?.decks;
     expect(decks(`#flashcards/y q::a ${F}`)).toEqual(decks(`#flashcards/y q::a ${S}`));
+    expect(decks(`#flashcards/y q::a ${BAD[0]}`)).toEqual(decks(`#flashcards/y q::a ${S}`));
   });
 
-  const NEXT = { due: "2026-09-01", interval: 9, ease: 250 };
-  const W = "<!--SR:!2026-09-01,9,250-->";
+  const NEXT = {
+    ...FH,
+    due: "2026-12-01",
+    interval: 19,
+    stability: 19.04,
+    reps: 2,
+    last: "2026-11-12",
+  };
+  const W =
+    "<!--SR:!fsrs,2026-12-01T00:00:00.000Z,19,19.04,1.00,2,2,0,0,2026-11-12T00:00:00.000Z-->";
   const at = (to: number, inline: boolean, cloze: number | null = null) =>
     ({ from: 2, to, inline, cloze }) as Card;
 
   it.each([
     ["no comment", "q::a", at(2, true), `q::a ${W}`],
     ["an SM-2 comment", `q::a ${S}`, at(2, true), `q::a ${W}`],
-    ["an !fsrs comment", `q::a ${F}`, at(2, true), null],
-    ["!fsrs then SM-2", `q::a ${F} ${S}`, at(2, true), null],
-    ["SM-2 then !fsrs", `q::a ${S} ${F}`, at(2, true), null],
+    ["an !fsrs comment", `q::a ${F}`, at(2, true), `q::a ${W}`],
+    ["!fsrs then SM-2", `q::a ${F} ${S} tail`, at(2, true), `q::a ${W} tail`],
+    ["SM-2 then !fsrs", `q::a ${S} ${F}`, at(2, true), `q::a ${W}`],
+    ["a parked one-line card", `q::a !suspended ${F}`, at(2, true), `q::a !suspended ${W}`],
     ["a ? card with none", "q\n?\na", at(4, false), `q\n?\na\n${W}`],
     ["a ? card under SM-2", `q\n?\na\n${S}`, at(5, false), `q\n?\na\n${W}`],
-    ["a ? card under !fsrs", `q\n?\na\n${F}`, at(4, false), null],
-    ["a ? card under SM-2 then !fsrs", `q\n?\na\n${S}\n${F}`, at(5, false), null],
-    ["a ? card under !fsrs then SM-2", `q\n?\na\n${F}\n${S}`, at(4, false), null],
+    ["a ? card under !fsrs", `q\n?\na\n${F}`, at(5, false), `q\n?\na\n${W}`],
+    ["a ? card under SM-2 then !fsrs", `q\n?\na\n${S}\n${F}`, at(6, false), `q\n?\na\n${W}`],
+    [
+      "a parked ? card under SM-2 then !fsrs",
+      `q\n?\na\n!suspended ${S}\n${F}`,
+      at(6, false),
+      `q\n?\na\n!suspended ${W}`,
+    ],
+    ["a ? card under !fsrs then SM-2", `q\n?\na\n${F}\n${S}`, at(5, false), `q\n?\na\n${W}\n${S}`],
     [
       "a ? card under SM-2 over a one-line !fsrs card",
       `q\n?\na\n${S}\nx::y ${F}`,
       at(5, false),
       `q\n?\na\n${W}\nx::y ${F}`,
     ],
-    ["a cloze with c1!fsrs, rating c2", `{{c1::a}} {{c2::b}} ${CF}`, at(2, true, 2), null],
-    ["a ? cloze under c1!fsrs", `{{c1::a}}\n?\nextra\n${CF}`, at(4, false, 1), null],
-  ])("#1929 the writer on %s", (_, body, card, written) => {
-    const text = note(body);
-    expect(writeSchedule(text, card, NEXT)).toBe(written === null ? text : note(written));
-  });
+    [
+      "a cloze with c1!fsrs, rating c2",
+      `{{c1::a}} {{c2::b}} ${CF}`,
+      at(2, true, 2),
+      `{{c1::a}} {{c2::b}} ${CF} ${W.replace("SR:!", "SR:c2!")}`,
+    ],
+    [
+      "a cloze with c1!fsrs, rating c1",
+      `{{c1::a}} {{c2::b}} ${CF}`,
+      at(2, true, 1),
+      `{{c1::a}} {{c2::b}} ${W.replace("SR:!", "SR:c1!")}`,
+    ],
+    [
+      "a ? cloze under c1!fsrs",
+      `{{c1::a}}\n?\nextra\n${CF}`,
+      at(5, false, 1),
+      `{{c1::a}}\n?\nextra\n${W.replace("SR:!", "SR:c1!")}`,
+    ],
+    [
+      "a ? cloze under c2 SM-2 then c1!fsrs, rating c2",
+      `{{c1::a}} {{c2::b}}\n?\nx\n${S.replace("SR:!", "SR:c2!")}\n${CF}`,
+      at(6, false, 2),
+      `{{c1::a}} {{c2::b}}\n?\nx\n${W.replace("SR:!", "SR:c2!")} ${CF}`,
+    ],
+    ["a plain ? card over a c1!fsrs line", `q\n?\na\n${CF}`, at(4, false), `q\n?\na\n${W}\n${CF}`],
+    [
+      "a plain ? card under SM-2 over a c1!fsrs line",
+      `q\n?\na\n${S}\n${CF}`,
+      at(5, false),
+      `q\n?\na\n${W}\n${CF}`,
+    ],
+    ...BAD.map((bad, at_) => [
+      `an !fsrs comment that does not read, ${at_}`,
+      `q::a ${bad}`,
+      at(2, true),
+      null,
+    ]),
+    [
+      "a ? card under SM-2 over one that does not read",
+      `q\n?\na\n${S}\n${BAD[0]}`,
+      at(6, false),
+      null,
+    ],
+  ] as [string, string, Card, string | null][])(
+    "#1926 the writer on %s",
+    (_, body, card, written) => {
+      const text = note(body);
+      expect(writeSchedule(text, card, NEXT)).toBe(written === null ? text : note(written));
+    },
+  );
 
-  it("#1929 rating the card beside an !fsrs one leaves that line byte for byte", () => {
-    const text = note(`q::a ${F}`);
-    const [card] = parseCards(text);
-    expect(card?.front).toBe("n");
-    expect(writeSchedule(text, card as Card, NEXT)).toBe(
-      note(`q::a ${F}`).replace("n::m", `n::m ${W}`),
-    );
+  it("#1926 every card the reader reads, rated, reads back as the schedule written, and a second rating adds no comment", () => {
+    const bodies = [
+      `q::a ${F} ${S}`,
+      `q\n?\na\n${T}\n${F}`,
+      `q\n?\na\n!suspended ${F}`,
+      `{{c1::a}} {{c2::b}} ${CF}`,
+      `q\n?\na\n${CF}`,
+    ];
+    for (const body of bodies) {
+      for (const [ordinal, card] of parseCards(note(body)).entries()) {
+        const once = writeSchedule(note(body), card, NEXT);
+        const after = parseCards(once);
+        // A second rating rewrites the comment it wrote and adds none.
+        const twice = writeSchedule(once, after[ordinal] as Card, NEXT);
+        const count = (text: string) => text.match(/<!--SR:/g)?.length;
+        expect({ body, ordinal, held: after[ordinal]?.held, comments: count(twice) }).toEqual({
+          body,
+          ordinal,
+          held: NEXT,
+          comments: count(once),
+        });
+      }
+    }
   });
 });

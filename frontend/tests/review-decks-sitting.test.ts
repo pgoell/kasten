@@ -17,7 +17,7 @@ import { hits, one, TODAY } from "./review-fixture";
 function sitting(deck: Deck, notes: DeckNote[]) {
   const cards = notes
     .filter(({ path }) => deck.notes.includes(path))
-    .flatMap(({ path, text }) =>
+    .flatMap<{ held: { due: string } | null; parked: string | null }>(({ path, text }) =>
       deck.whole
         ? [
             {

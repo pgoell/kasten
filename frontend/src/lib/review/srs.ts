@@ -3,6 +3,7 @@
  * reads the same vault. A card in no deck is no card, so a stray `::` fills no queue.
  */
 
+import { shiftDay } from "@/lib/core/clock";
 import {
   CLOZE_SR,
   clozeAnswer,
@@ -13,11 +14,13 @@ import {
   type Divided,
   divide,
   FSRS,
-  FSRS_LINE,
+  fsrsComment,
+  fsrsOf,
   holdsCloze,
   parks,
   SR,
   suspended,
+  unread,
   withoutAnkiId,
 } from "@/lib/review/card-line";
 import { side, typedTarget } from "@/lib/review/card-text";
@@ -40,6 +43,31 @@ export interface Schedule {
   ease: number;
 }
 
+/** A card's schedule by FSRS, as the plugin's `!fsrs` comment holds it (#1926). */
+export interface Fsrs {
+  /** `YYYY-MM-DD`, the date part of the stamp, so every zone reads the day it was written for. */
+  due: string;
+  /** Days from the last answer to `due`; 0 while the card is in learning. */
+  interval: number;
+  stability: number;
+  difficulty: number;
+  /** As ts-fsrs numbers it: 0 new, 1 learning, 2 review, 3 relearning. */
+  state: number;
+  reps: number;
+  lapses: number;
+  steps: number;
+  /** `YYYY-MM-DD` of the last answer, or null where the comment holds `-`. */
+  last: string | null;
+}
+
+/** What a card's comment holds: SM-2's three numbers, or FSRS's fields. */
+export type Held = Schedule | Fsrs;
+
+/** Whether the schedule is FSRS's. */
+export function isFsrs(held: Held): held is Fsrs {
+  return "stability" in held;
+}
+
 /** Why a card is out of the queue, or null. Only `suspended` has a token to remove. */
 export type Parked = "suspended" | "unanswered";
 
@@ -59,7 +87,7 @@ export interface Card {
    */
   decks: string[];
   /** Null until the card has been answered once. */
-  held: Schedule | null;
+  held: Held | null;
   /**
    * Why the sitting will not ask it, or null. A parked card stays in the array,
    * as the queue counts cards by ordinal (`review-queue.ts`).
@@ -92,15 +120,42 @@ function breaks(line: string | undefined): boolean {
 }
 
 /**
- * The three numbers one `<!--SR:!…-->` holds, or null where there is none.
- * `comment` is a cloze number's own, `clozeComment`, where the card is one.
+ * The schedule `text` holds for the plain card, or for the cloze number `cloze`, or null.
+ * Where an SM-2 and an FSRS comment are both there, the later answer wins (#1926).
  */
-export function readSchedule(text: string, comment = SR): Schedule | null {
-  const found = comment.exec(text);
-  if (found === null) return null;
-  // The defaults are unreachable: a match means all three groups are there.
-  const [, due = "", interval = "1", ease = "250"] = found;
-  return { due, interval: Number(interval), ease: Number(ease) };
+export function readSchedule(text: string, cloze: number | null = null): Held | null {
+  const old = (cloze === null ? SR : clozeComment(cloze)).exec(text);
+  const found = fsrsComment(cloze).exec(text);
+  // The defaults are unreachable: a match means every group but the last answer is there.
+  const [, due = "", interval = "1", ease = "250"] = old ?? [];
+  const sm2 = old === null ? null : { due, interval: Number(interval), ease: Number(ease) };
+  if (found === null) return sm2;
+  const [
+    ,
+    day = "",
+    gap = "0",
+    s = "0",
+    d = "0",
+    state = "0",
+    reps = "0",
+    lapses = "0",
+    steps = "0",
+  ] = found;
+  const fsrs: Fsrs = {
+    due: day,
+    interval: Number(gap),
+    stability: Number(s),
+    difficulty: Number(d),
+    state: Number(state),
+    reps: Number(reps),
+    lapses: Number(lapses),
+    steps: Number(steps),
+    last: found[9] ?? null,
+  };
+  // Only a tab from before #1929 writes SM-2 beside FSRS, and it read the card as new, so a tie is its answer.
+  if (sm2 === null || (fsrs.last !== null && fsrs.last > shiftDay(sm2.due, -sm2.interval)))
+    return fsrs;
+  return sm2;
 }
 
 /**
@@ -124,7 +179,7 @@ function clozeCards(
       front: side(clozeQuestion(text, cloze)),
       back: extra === "" ? answer : `${answer}\n\n${extra}`,
       decks: [],
-      held: readSchedule(schedule, clozeComment(cloze)),
+      held: readSchedule(schedule, cloze),
       cloze,
       target: typedTarget(clozeTarget(withoutTags(bare), cloze)),
     };
@@ -238,7 +293,7 @@ function backOf(
   walk: Walk,
   at: number,
   cloze: boolean,
-): { to: number; back: string; schedule: Schedule | null; held: boolean; fsrs: boolean } | null {
+): { to: number; back: string; schedule: string; held: boolean; fsrs: boolean } | null {
   const { lines, ends, schedules } = walk;
   // The token ends the back in code too, so an unclosed fence's token still parks the card.
   let to = at;
@@ -252,13 +307,18 @@ function backOf(
   // The line under the back holds the schedule or token, so the span takes it for `setSuspended`.
   // Only a cloze's comments do the same for a cloze: a plain card would splice its own under them.
   const under = lines[to + 1] ?? "";
-  const schedule = readSchedule(under);
   const held = parks(under);
-  const takes = schedule !== null || held || (cloze && CLOZE_SR.test(under));
-  // Under the back, or under the SM-2 line a rating before #1929 put between them.
-  const fsrs = FSRS.test(under) || (takes && FSRS_LINE.test(lines[to + 2] ?? ""));
-  if (takes || fsrs) to++;
-  return { to, back, schedule, held, fsrs };
+  // A plain card takes no cloze number's comment, FSRS's as SM-2's.
+  const own = fsrsOf(cloze);
+  const takes =
+    readSchedule(under) !== null || held || own.head.test(under) || (cloze && CLOZE_SR.test(under));
+  // A tab from before #1929 put its SM-2 line between the back and an FSRS line: the card takes both.
+  const below = lines[to + 2] ?? "";
+  const stacked = takes && !FSRS.test(under) && own.line.test(below);
+  if (takes) to++;
+  if (stacked) to++;
+  const schedule = stacked ? `${under} ${below}` : under;
+  return { to, back, schedule, held, fsrs: unread(schedule) };
 }
 
 /** Take the lines `from` to `to` for the card of the `?` at `at`, and hand back the tags it owns. */
@@ -287,7 +347,7 @@ function questionCard(walk: Walk, at: number): void {
   if (fsrs) return;
 
   if (cloze) {
-    const asked = clozeCards(lines[from] ?? "", bare[from] ?? "", back, lines[to] ?? "", {
+    const asked = clozeCards(lines[from] ?? "", bare[from] ?? "", back, schedule, {
       from,
       to,
       inline: false,
@@ -307,7 +367,7 @@ function questionCard(walk: Walk, at: number): void {
       back: side(back),
       inline: false,
       decks: [],
-      held: schedule,
+      held: readSchedule(schedule),
       parked: held ? "suspended" : null,
       cloze: null,
       target: null,
@@ -325,7 +385,7 @@ function lineCard(walk: Walk, at: number, line: string, bare: string): void {
   // Its tags stay its own, so a card left alone moves no other card's decks.
   const own = cardTags(line) ?? [];
   if (own.length > 0) walk.claimed.add(at);
-  if (FSRS.test(line)) return;
+  if (unread(line)) return;
 
   if (cloze) {
     // The token is read where the marks are, so one inside a comment parks nothing (#1590).

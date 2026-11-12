@@ -88,11 +88,12 @@ For both:
 
 ### Where a review day comes from
 
-The vault keeps no history of ratings. A card holds three numbers, its due
-date, its interval and its ease ([Reviewing cards](/reference/flashcard-format/reviewing-cards.md)),
-and a rating always writes a due date of the rating's day plus the interval.
-So the day a card was last rated is its due date less its interval, and every
-schedule of a cloze line counts on its own. Only schedules in a deck, a note
+The vault keeps no history of ratings, only each card's schedule comment
+([Reviewing cards](/reference/flashcard-format/reviewing-cards.md)). An FSRS
+comment names the day of its last answer, and one with `-` there counts on no
+day. An SM-2 comment holds a due date of the rating's day plus the interval, so
+its last rating fell on the due date less the interval. Every schedule of a
+cloze line counts on its own. Only schedules in a deck, a note
 the review pane asks cards from, count.
 
 That gives the day of each card's last rating, not every rating it ever had.

@@ -7,6 +7,7 @@
 
 import type { LineHit, TodoHit } from "@/lib/core/api";
 import { readClock, shiftDay } from "@/lib/core/clock";
+import { FSRS_ALL } from "@/lib/review/card-line";
 import { isOpen, parseTodo } from "@/lib/todo/todo";
 import { sectionOf } from "@/lib/todo/todo-view";
 
@@ -63,6 +64,10 @@ export function reviewCounts(hits: LineHit[]): Map<string, number> {
   for (const hit of hits) {
     for (const [, due = "", interval = "0"] of hit.text.matchAll(SCHEDULE)) {
       tally(counts, shiftDay(due, -Number(interval)));
+    }
+    // An FSRS comment names its last answer, the date part of the stamp (#1926).
+    for (const found of hit.text.matchAll(FSRS_ALL)) {
+      if (found[9] !== undefined) tally(counts, found[9]);
     }
   }
   return counts;

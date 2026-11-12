@@ -115,7 +115,7 @@ describe("the review route on a phone", () => {
     fireEvent.click(screen.getByRole("button", { name: "Good" }));
 
     expect(saved.mock.calls[0]?.[1]).toMatch(
-      /^#flashcards\/capitals\n\n\{\{c1::Canberra was \{\{c2::founded\}\} in 1913\}\} <!--SR:c1![\d-]+,1,250-->\n$/,
+      /^#flashcards\/capitals\n\n\{\{c1::Canberra was \{\{c2::founded\}\} in 1913\}\} <!--SR:c1!fsrs,[^>]+-->\n$/,
     );
 
     await waitFor(() =>
@@ -128,7 +128,7 @@ describe("the review route on a phone", () => {
     fireEvent.click(screen.getByRole("button", { name: "Good" }));
 
     expect(saved.mock.calls[1]?.[1]).toMatch(
-      /^#flashcards\/capitals\n\n\{\{c1::Canberra was \{\{c2::founded\}\} in 1913\}\} <!--SR:c1![\d-]+,1,250--> <!--SR:c2![\d-]+,1,250-->\n$/,
+      /^#flashcards\/capitals\n\n\{\{c1::Canberra was \{\{c2::founded\}\} in 1913\}\} <!--SR:c1!fsrs,[^>]+--> <!--SR:c2!fsrs,[^>]+-->\n$/,
     );
     expect(await screen.findByTestId("review-done")).toBeInTheDocument();
   });

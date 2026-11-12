@@ -16,6 +16,9 @@ describe("ReviewSession rating a new card again (#816)", () => {
   const TODAY = readClock(NOW).date;
   const TOMORROW = shiftDay(TODAY, 1);
   const ONE_NEW = "aws: 1 new\n";
+  /** The FSRS comment a rating today writes, `fields` being interval to learning step (#1926). */
+  const fsrs = (due: string, fields: string) =>
+    `<!--SR:!fsrs,${due}T00:00:00.000Z,${fields},${TODAY}T00:00:00.000Z-->`;
   const TWO_NEW = "#flashcards/aws\n\nWhat is a VPC?::A private cloud\n\nWhat is S3?::Storage\n";
 
   /**
@@ -86,8 +89,12 @@ describe("ReviewSession rating a new card again (#816)", () => {
     await rate("Good");
     expect(await screen.findByTestId("review-done")).toBeInTheDocument();
 
-    expect(vault.disk).toContain(`What is a VPC?::A private cloud <!--SR:!${TOMORROW},1,250-->`);
-    expect(awsRow(vault.disk, ONE_NEW)?.fresh).toBe(0);
+    // A card new at the start answers as a first answer each time, so Good is its first Good.
+    expect(vault.disk).toContain(
+      `What is a VPC?::A private cloud ${fsrs(shiftDay(TODAY, 3), "3,2.31,2.12,2,1,0,0")}`,
+    );
+    // Nothing comes back today, so a second sitting cannot free the new slot (#1926).
+    expect(awsRow(vault.disk, ONE_NEW)).toMatchObject({ fresh: 0, due: 0 });
   });
 
   it("#816 a new card rated again then easy counts as one new card", async () => {
@@ -98,7 +105,7 @@ describe("ReviewSession rating a new card again (#816)", () => {
     expect(await screen.findByTestId("review-done")).toBeInTheDocument();
 
     expect(vault.disk).toContain(
-      `What is a VPC?::A private cloud <!--SR:!${shiftDay(TODAY, 4)},4,250-->`,
+      `What is a VPC?::A private cloud ${fsrs(shiftDay(TODAY, 8), "8,8.30,1.00,2,1,0,0")}`,
     );
     expect(awsRow(vault.disk, ONE_NEW)?.fresh).toBe(0);
   });
@@ -110,7 +117,7 @@ describe("ReviewSession rating a new card again (#816)", () => {
     await rate("Good");
     expect(await screen.findByTestId("review-done")).toBeInTheDocument();
 
-    expect(vault.disk).toContain(`<!--SR:!${TOMORROW},1,250-->`);
+    expect(vault.disk).toContain(fsrs(shiftDay(TODAY, 3), "3,2.31,2.12,2,1,0,0"));
     const held = parseCards(vault.disk, "aws")[0]?.held ?? null;
     expect(answeredToday(held, TODAY)).toBe("new");
   });
@@ -123,11 +130,13 @@ describe("ReviewSession rating a new card again (#816)", () => {
     await rate("Good");
     expect(await screen.findByTestId("review-done")).toBeInTheDocument();
 
-    expect(vault.disk).toContain(`What is a VPC?::A private cloud <!--SR:!${TOMORROW},1,250-->`);
+    expect(vault.disk).toContain(
+      `What is a VPC?::A private cloud ${fsrs(shiftDay(TODAY, 3), "3,2.31,2.12,2,1,0,0")}`,
+    );
     expect(awsRow(vault.disk, ONE_NEW)?.fresh).toBe(0);
   });
 
-  it("#816 a card that was a review at sitting start, rated again then good, keeps its SM-2 review schedule", async () => {
+  it("#816 a card that was a review at sitting start, rated again then good, turns into FSRS from its SM-2 schedule", async () => {
     // Guard: green on main too, since only a card new at the start is changed.
     const DUE = "#flashcards/aws\n\nWhat is a VPC?::A private cloud <!--SR:!2020-01-01,3,250-->\n";
     const { vault } = renderVault(DUE, { ...DECK, fresh: 0, due: 1 }, "");
@@ -136,8 +145,20 @@ describe("ReviewSession rating a new card again (#816)", () => {
     await rate("Good");
     expect(await screen.findByTestId("review-done")).toBeInTheDocument();
 
-    // Again: 3 halved to 2 at ease 230. Good: 2 scaled by 2.3 to 5.
-    expect(vault.disk).toContain(`<!--SR:!${shiftDay(TODAY, 5)},5,230-->`);
+    // Again converts it and lapses it; Good, on the state Again wrote, is three days out.
+    expect(vault.disk).toContain(fsrs(shiftDay(TODAY, 3), "3,1.69,8.50,2,4,1,0"));
+  });
+
+  it("#1926 I8 undo of the rating that turned an SM-2 card into FSRS puts the SM-2 comment back byte for byte", async () => {
+    const DUE = "#flashcards/aws\n\nWhat is a VPC?::A private cloud <!--SR:!2020-01-01,3,250-->\n";
+    const { vault } = renderVault(DUE, { ...DECK, fresh: 0, due: 1 }, "");
+    await shownCard();
+    await rate("Good");
+    expect(await screen.findByTestId("review-done")).toBeInTheDocument();
+    expect(vault.disk).toContain("<!--SR:!fsrs,");
+
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    await waitFor(() => expect(vault.disk).toBe(DUE));
   });
 
   it("#816 undo of the second rating then rating again still writes a first answer", async () => {
@@ -155,7 +176,9 @@ describe("ReviewSession rating a new card again (#816)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Again" }));
     await act(async () => {});
 
-    expect(vault.disk).toContain(`What is a VPC?::A private cloud <!--SR:!${TODAY},0,250-->`);
+    expect(vault.disk).toContain(
+      `What is a VPC?::A private cloud ${fsrs(TOMORROW, "1,0.21,6.41,2,1,0,0")}`,
+    );
   });
 
   it("#816 a whole note marked #review, new at start, rated again then good reads new from its frontmatter", async () => {

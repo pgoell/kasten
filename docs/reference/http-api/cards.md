@@ -149,8 +149,10 @@ ending at the marker whose hash matches:
 `?carry=true` writes Anki's schedule onto every card the import adds that
 Anki holds in review (card `type` 2): the due date is `col.crt` plus `due`
 days, the interval `ivl`, the ease `factor` divided by ten, as the
-`<!--SR:!…-->` a rating would write, one `<!--SR:cN!…-->` per number on a
-cloze. A card new or in learning in Anki gets none, and a card already in the
+`<!--SR:!…-->` SM-2 comment, one `<!--SR:cN!…-->` per number on a cloze. Where
+the card's `data` holds FSRS's `s` and `d`, it writes the
+`<!--SR:!fsrs,…-->` comment instead, with `lrt` as the last answer (the due
+date less the interval where `lrt` is missing), `reps` and `lapses`. A card new or in learning in Anki gets none, and a card already in the
 note keeps kasten's schedule. Off by default.
 
 The export is read with `zipfile`, `sqlite3` and `compression.zstd`, all of them

@@ -10,7 +10,7 @@ import tempfile
 from collections import defaultdict
 from contextlib import closing
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 from kasten_backend.anki.archive.deck import Review, Template
@@ -133,11 +133,49 @@ def _reviews(db: sqlite3.Connection) -> dict[int, list[Review]]:
         raise ValueError(f"unreadable Anki export: the collection was made at {crt!r}")
     start = datetime.fromtimestamp(crt, UTC).date()
     held: defaultdict[int, list[Review]] = defaultdict(list)
-    for nid, ord_, ivl, factor, due in db.execute(
-        "SELECT nid, ord, ivl, factor, due FROM cards WHERE type = ? ORDER BY nid, ord", (REVIEW,)
+    for nid, ord_, ivl, factor, due, reps, lapses, data in db.execute(
+        "SELECT nid, ord, ivl, factor, due, reps, lapses, data FROM cards"
+        " WHERE type = ? ORDER BY nid, ord",
+        (REVIEW,),
     ):
-        held[nid].append(Review(ord_, start + timedelta(days=due), ivl, factor // 10))
+        stability, difficulty, last = _fsrs(data)
+        held[nid].append(
+            Review(
+                ord_,
+                start + timedelta(days=due),
+                ivl,
+                factor // 10,
+                reps,
+                lapses,
+                stability,
+                difficulty,
+                last,
+            )
+        )
     return held
+
+
+def _fsrs(data: object) -> tuple[float | None, float | None, date | None]:
+    """`s`, `d` and `lrt` from a card's `data` column, each None where Anki keeps none (#1926).
+
+    Anki writes the column as JSON once FSRS is on (`rslib/src/storage/card/data.rs`),
+    and as an empty string before; sqlite keeps whatever a broken export wrote.
+    """
+    try:
+        held = json.loads(data) if isinstance(data, str) and data else {}
+    except json.JSONDecodeError:
+        return None, None, None
+    if not isinstance(held, dict):
+        return None, None, None
+    s, d, lrt = (_number(held.get(key)) for key in ("s", "d", "lrt"))
+    # Seconds since 1970; one past 2106 is no time Anki wrote, and fromtimestamp would raise.
+    last = datetime.fromtimestamp(lrt, UTC).date() if lrt is not None and 0 <= lrt < 2**32 else None
+    return s, d, last
+
+
+def _number(value: object) -> float | None:
+    """A JSON number as a float, or None for anything else, `True` included."""
+    return float(value) if isinstance(value, int | float) and not isinstance(value, bool) else None
 
 
 def _deck_names(db: sqlite3.Connection) -> dict[int, str]:

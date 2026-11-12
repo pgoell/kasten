@@ -7,15 +7,16 @@ note holds with what `card_lines` would write now.
 
 import hashlib
 import re
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from kasten_backend.anki.archive.html import ends_card, marks, reads_mark, undivided
 
 if TYPE_CHECKING:
-    from kasten_backend.anki.archive.deck import Card, Deck
+    from kasten_backend.anki.archive.deck import Card, Deck, Review
 
-_SCHEDULE = re.compile(r"<!--SR:!(\d{4}-\d{2}-\d{2}),(\d+),(\d+)-->")
-"""`SR` in `card-line.ts`, the whole comment: `srs.ts` stops a back at nothing less."""
+_SCHEDULE = re.compile(r"<!--SR:!(?:\d{4}-\d{2}-\d{2},\d+,\d+-->|fsrs,)")
+"""`SR` in `card-line.ts` whole, or the FSRS comment's head: `srs.ts` stops a back at either."""
 _FENCE = re.compile(r"(?: {0,3}(?:>[ \t]?|(?:[-*+]|[0-9]{1,9}[.)])[ \t]))*+ {0,3}(?=```|~~~)")
 """Where a CommonMark fence opens a line: past quote and list markers, then backticks or tildes.
 
@@ -188,11 +189,20 @@ def _carried(card: Card) -> list[str]:
     Any other card has one at most.
     """
     if _clozed(card):
-        return [
-            f"<!--SR:c{r.ord + 1}!{r.due.isoformat()},{r.interval},{r.ease}-->"
-            for r in card.reviews
-        ]
-    return [f"<!--SR:!{r.due.isoformat()},{r.interval},{r.ease}-->" for r in card.reviews[:1]]
+        return [_comment(f"c{r.ord + 1}", r) for r in card.reviews]
+    return [_comment("", r) for r in card.reviews[:1]]
+
+
+def _comment(name: str, r: Review) -> str:
+    """One review as `comment` in `card-write.ts` writes it: FSRS where Anki has `s` and `d`."""
+    if r.stability is None or r.difficulty is None:
+        return f"<!--SR:{name}!{r.due.isoformat()},{r.interval},{r.ease}-->"
+    # The plugin's rule where Anki kept no last answer: the due day less the interval.
+    last = r.last or r.due - timedelta(days=r.interval)
+    # State 2 is review, the one kind carried; 0.01 is the least stability ts-fsrs takes.
+    fields = f"{r.interval},{max(0.01, r.stability):.2f},{r.difficulty:.2f},2,{r.reps},{r.lapses},0"
+    due, then = (f"{day.isoformat()}T00:00:00.000Z" for day in (r.due, last))
+    return f"<!--SR:{name}!fsrs,{due},{fields},{then}-->"
 
 
 def _with_state(lines: list[str], suspended: bool, comments: list[str]) -> list[str]:

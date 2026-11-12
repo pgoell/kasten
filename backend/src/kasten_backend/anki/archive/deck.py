@@ -29,6 +29,14 @@ class Review:
     interval: int
     ease: int
     """Anki's `factor` in percent, which is what the comment holds: 2500 is 250."""
+    reps: int = 0
+    lapses: int = 0
+    stability: float | None = None
+    """FSRS's `s` from the card's `data`, None where Anki schedules it by SM-2."""
+    difficulty: float | None = None
+    """FSRS's `d`, on its 1 to 10 scale; the FSRS comment is written only with both."""
+    last: date | None = None
+    """The last answer, `lrt` in `data`, where Anki records it."""
 
 
 @dataclass(frozen=True)

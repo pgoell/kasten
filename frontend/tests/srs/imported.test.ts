@@ -2,6 +2,7 @@
 import { sameAnswer } from "@/lib/review/card-text";
 import { setSuspended, writeSchedule } from "@/lib/review/card-write";
 import { parseCards } from "@/lib/review/srs";
+import { nextFsrs } from "@/lib/review/srs-schedule";
 import { only } from "./fixture";
 
 describe("parseCards on an imported question holding `::`", () => {
@@ -256,4 +257,59 @@ describe("an imported cloze whose answer holds an entity colon", () => {
     expect(card?.front).toBe("Is : a colon?");
     expect(card?.back).toBe("a:b");
   });
+});
+
+describe("#1926 FSRS beside the tabs and the plugin still on SM-2", () => {
+  const F = "<!--SR:!fsrs,2026-11-20T00:00:00.000Z,8,8.30,1.00,2,1,0,0,2026-11-12T00:00:00.000Z-->";
+  const CF = F.replace("SR:!", "SR:c1!");
+  const note = (body: string) => `#flashcards/x\n\n${body}\n`;
+  const SAME_DAY = { due: "2026-11-13", interval: 1, ease: 250 };
+
+  // What the writers of 0.177.1 (fbc8d60b) and of the release before it (6d49930f) did to
+  // each shape, run on those commits and pasted here: 0.177.1 reads no card at all, so it
+  // writes nothing; the one before read each as new and wrote a first Good beside it.
+  it.each([
+    [`q::a ${F}`, `q::a ${F} <!--SR:!2026-11-13,1,250-->`, null],
+    [`q\n?\na\n${F}`, `q\n?\na\n<!--SR:!2026-11-13,1,250-->\n${F}`, null],
+    [`{{c1::a}} ${CF}`, `{{c1::a}} ${CF} <!--SR:c1!2026-11-13,1,250-->`, 1],
+    [`{{c1::a}}\n?\nx\n${CF}`, `{{c1::a}}\n?\nx\n<!--SR:c1!2026-11-13,1,250-->\n${CF}`, 1],
+  ])("#1926 A9 the new code reads and rates what an old tab left of %j", (body, older, cloze) => {
+    // 0.177.1 left the text as it was, which the new code reads as kasten wrote it.
+    expect(only(note(body)).held).toMatchObject({ due: "2026-11-20", stability: 8.3 });
+    // The tab before it answered on the same day, so its SM-2 answer is the one that counts.
+    const card = only(note(older));
+    expect({ held: card.held, cloze: card.cloze }).toEqual({ held: SAME_DAY, cloze });
+    const next = nextFsrs(card.held, "good", "2026-11-13");
+    const written = writeSchedule(note(older), card, next);
+    expect(written.match(/<!--SR:/g)).toHaveLength(1);
+    expect(only(written).held).toEqual(next);
+  });
+
+  it("#1926 A10 a card the plugin answered on SM-2 after kasten wrote FSRS reads as SM-2 and turns into FSRS again", () => {
+    // The plugin rewrites the card's comment whole, so its SM-2 answer is all the line holds.
+    const plugin = note("q::a <!--SR:!2026-11-25,5,230-->");
+    const card = only(plugin);
+    expect(card.held).toEqual({ due: "2026-11-25", interval: 5, ease: 230 });
+    const next = nextFsrs(card.held, "good", "2026-11-25");
+    // The plugin's rule: stability the interval, log2(5 + 1) rounded answers, then one more.
+    expect(next).toMatchObject({ state: 2, reps: 4, lapses: 0 });
+    expect(writeSchedule(plugin, card, next)).toMatch(
+      /^#flashcards\/x\n\nq::a <!--SR:!fsrs,[^>]+-->\n$/,
+    );
+  });
+
+  it.each([
+    [`q::a ${F}`, `q::a !suspended ${F}`],
+    [`q\n?\na\n${F}`, `q\n?\na\n!suspended ${F}`],
+    [`{{c1::a}} {{c2::b}} ${CF}`, `{{c1::a}} {{c2::b}} !suspended ${CF}`],
+  ])(
+    "#1926 I3 parking %j puts the token before the FSRS comment, and putting it back keeps it",
+    (body, parked) => {
+      const card = only(note(body));
+      const on = setSuspended(note(body), card, true);
+      expect(on).toBe(note(parked));
+      expect(only(on)).toMatchObject({ parked: "suspended", held: card.held });
+      expect(setSuspended(on, only(on), false)).toBe(note(body));
+    },
+  );
 });

@@ -82,13 +82,49 @@ export const SR = /<!--SR:!(\d{4}-\d{2}-\d{2}),(\d+),(\d+)-->/;
 export const CLOZE_SR = /<!--SR:c(\d+)!(\d{4}-\d{2}-\d{2}),(\d+),(\d+)-->/;
 
 /**
- * The plugin's FSRS schedule, plain or a cloze's. Nothing reads it until #1926, so a card
- * holding one is left alone: never asked, never written (#1929).
+ * The head of the plugin's FSRS schedule, plain or a cloze's, whether or not its fields read.
+ * A card holding one that does not read is left alone: never asked, never written (#1929).
  */
 export const FSRS = /<!--SR:(?:c\d+)?!fsrs,/;
 
 /** A line that is that comment alone, so a card's line under a schedule is no part of it. */
 export const FSRS_LINE = /^\s*<!--SR:(?:c\d+)?!fsrs,[^>]*-->\s*$/;
+
+/** The plain card's FSRS head alone: a plain card takes no cloze number's line, as with SM-2. */
+const PLAIN_FSRS = /<!--SR:!fsrs,/;
+const PLAIN_FSRS_LINE = /^\s*<!--SR:!fsrs,[^>]*-->\s*$/;
+
+/** The FSRS head, and its whole-line form, a card of this kind takes as its own. */
+export function fsrsOf(cloze: boolean): { head: RegExp; line: RegExp } {
+  return cloze ? { head: FSRS, line: FSRS_LINE } : { head: PLAIN_FSRS, line: PLAIN_FSRS_LINE };
+}
+
+/** A timestamp as `toISOString` writes it. The date part is the day, in any zone (#1926). */
+const STAMP = String.raw`(\d{4}-\d{2}-\d{2})T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z`;
+const FLOAT = String.raw`(\d+(?:\.\d+)?)`;
+
+/**
+ * The nine fields after `fsrs`: due, interval, stability, difficulty, state, answers, lapses,
+ * learning step and the last answer or `-`. Ends at `-->`, so the plugin's run of several is no card.
+ */
+const FSRS_FIELDS = `fsrs,${STAMP},${FLOAT},${FLOAT},${FLOAT},([0-3]),(\\d+),(\\d+),(\\d+),(?:${STAMP}|-)-->`;
+
+/** One FSRS comment that reads, the plain card's where `cloze` is null, else that number's. */
+export function fsrsComment(cloze: number | null, flags = ""): RegExp {
+  return new RegExp(`<!--SR:${cloze === null ? "" : `c${cloze}`}!${FSRS_FIELDS}`, flags);
+}
+
+/** Every FSRS comment that reads, of any number, for the overview's count. */
+export const FSRS_ALL = new RegExp(`<!--SR:(?:c\\d+)?!${FSRS_FIELDS}`, "g");
+
+/** Whether `text` holds an FSRS comment that does not read, which leaves its card alone. */
+export function unread(text: string): boolean {
+  const heads = text.match(new RegExp(FSRS.source, "g"))?.length ?? 0;
+  return heads > (text.match(FSRS_ALL)?.length ?? 0);
+}
+
+/** A plain card's schedule of either kind, every one on the line, for taking them off or swapping. */
+export const PLAIN_SRS = new RegExp(`${SR.source}|${fsrsComment(null).source}`, "g");
 
 /**
  * The Anki note and template an import wrote at a card's last line, with a hash of
@@ -104,8 +140,8 @@ export function withoutAnkiId(text: string): string {
   return text.replace(ANKI_IDS, "");
 }
 
-/** Every cloze comment on a line, for taking them all off a side before it is shown. */
-const CLOZE_SRS = new RegExp(CLOZE_SR.source, "g");
+/** Every cloze comment on a line of either kind, for taking them all off a side before it is shown. */
+export const CLOZE_SRS = new RegExp(`${CLOZE_SR.source}|<!--SR:c\\d+!${FSRS_FIELDS}`, "g");
 
 /**
  * The comment of one number. The `!` after it keeps `c1` off `c12`.
@@ -218,7 +254,7 @@ export function holdsCloze(line: string | undefined): boolean {
 
 /** `line` with every schedule comment taken off, plain and labelled, the token and the id. */
 function bare(line: string): string {
-  return withoutToken(withoutAnkiId(line.replace(CLOZE_SRS, "").replace(SR, ""))).trim();
+  return withoutToken(withoutAnkiId(line.replace(CLOZE_SRS, "").replace(PLAIN_SRS, ""))).trim();
 }
 
 /**
@@ -309,7 +345,7 @@ export function divide(line: string, bare = line): Divided | null {
   return {
     front: withoutAnkiId(line.slice(0, at)).trim(),
     back: withoutAnkiId(
-      withoutToken(line.slice(at + 2), bare.slice(at + 2)).replace(SR, ""),
+      withoutToken(line.slice(at + 2), bare.slice(at + 2)).replace(PLAIN_SRS, ""),
     ).trim(),
   };
 }

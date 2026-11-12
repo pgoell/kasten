@@ -19,8 +19,8 @@ consequences of the review being the one thing worth doing on a phone.
 
 ## The schedule is in the note
 
-A card's due date, interval and ease are three numbers that change every time
-you answer it. They are exactly the kind of thing that wants to be a row in
+A card's schedule, its due date, interval and the state behind them, changes
+every time you answer it. They are exactly the kind of thing that wants to be a row in
 Postgres, and putting them there would be the end of the vault being the source
 of truth: drop the schema and you would lose a year of scheduling with no way to
 rebuild it from the files.
@@ -28,7 +28,7 @@ rebuild it from the files.
 So they go in the file, in a comment beside the card:
 
 ```markdown
-What does S3 stand for?::Simple Storage Service <!--SR:!2026-08-20,4,270-->
+What does S3 stand for?::Simple Storage Service <!--SR:!fsrs,2026-11-20T00:00:00.000Z,8,8.30,1.00,2,1,0,0,2026-11-12T00:00:00.000Z-->
 ```
 
 The cost is a write to a note per answer, and it is not much of a cost: the todo
@@ -37,8 +37,8 @@ the phone this morning is a deck whose progress is in the git history, in the jj
 repo, in the Obsidian vault, and in the backup you already have because the
 vault is text.
 
-A whole note marked `#review` keeps the same three numbers in its frontmatter
-for the same reason. There is no card to hang a comment on, and there is always
+A whole note marked `#review` keeps its schedule in its frontmatter for the same
+reason, as SM-2's three numbers. There is no card to hang a comment on, and there is always
 a block at the top.
 
 ## The format was borrowed
@@ -125,10 +125,10 @@ of the queue, and neither is a worse way of doing the other.
 
 ## FSRS, not SM-2
 
-kasten schedules with SM-2 today: one short function in `srs-schedule.ts` that
-holds exactly the three numbers the borrowed comment carries. The decision of
-2026-11-12 (#1776) is to swap to FSRS, and #1926 builds it. Until it
-lands, everything else on this page describes SM-2, as the code does.
+kasten scheduled with SM-2 until #1926: one short function in `srs-schedule.ts`
+that held exactly the three numbers the borrowed comment carried. The decision
+of 2026-11-12 (#1776) was to swap to FSRS, and #1926 built it. A card now
+schedules by FSRS; a whole note marked `#review` stays on SM-2.
 
 ### Why swap
 
@@ -223,7 +223,11 @@ converts at the first answer.
 ts-fsrs 6.0.0 (MIT), the library the plugin uses at 5.4.1, with its one dependency
 `@open-spaced-repetition/srs-kit` 1.0.0 (BSD-3-Clause, whose notice has to ship
 with the bundle). Both licenses were read from the files in the packages.
-Default FSRS-6 weights, 90 percent recall asked, no fuzz, as now.
+Default FSRS-6 weights, 90 percent recall asked, no fuzz, as now. Learning steps
+are off, unlike the plugin's: a step comes due the same day, and a card that
+leaves learning then reads as a review, so a second sitting would free its new
+slot and the daily new limit would not hold. Both licenses ship whole in
+`THIRD-PARTY-NOTICES.txt` at the root of the built app.
 
 ## Two front ends, one session
 
@@ -247,11 +251,13 @@ history: three numbers per card, which obsidian-spaced-repetition reads too, so
 a fourth was not on offer. A store of its own in the browser or the database
 would count wrong after a reload on another device.
 
-The three numbers are enough. Every rating writes a due date of today plus the
-interval, so a card whose two agree was answered today, and a first answer
-always lands on the starting ease with a gap of 1 or 4. Two rare cases read
-wrong, both named in [the format](/reference/flashcard-format/reviewing-cards.md#daily-limits),
-and the cost of either is one card more or less in a day's sitting.
+The comment is enough. An FSRS comment names the day of its last answer, and a
+card on its first answer, or one the plugin left in learning, was new. An SM-2 comment's due
+date is the rating's day plus the interval, so a card whose two agree was
+answered today, and a first answer always lands on the starting ease with a gap
+of 1 or 4. A few rare cases read wrong, all named in
+[the format](/reference/flashcard-format/reviewing-cards.md#daily-limits),
+and the cost of each is one card more or less in a day's sitting.
 
 The limits themselves live in a note, `decks.md`, rather than in settings, for
 the reason the schedule does: the vault is the record, and its history shows
