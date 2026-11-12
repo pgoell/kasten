@@ -367,5 +367,8 @@
     }
   });
 
-  up.postMessage({ kasten: "hello" }, "*");
+  // A bye says this page left; the hello's id names it, as source is null by pagehide (#1729).
+  const doc = crypto.randomUUID();
+  up.postMessage({ kasten: "hello", doc }, "*");
+  addEventListener("pagehide", () => up.postMessage({ kasten: "bye", doc }, "*"));
 })();

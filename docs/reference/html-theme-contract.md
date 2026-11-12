@@ -36,7 +36,7 @@ Every page, opted in or not, gets a Share later button on each story: an `articl
 
 The pane loads the page at `/api/html/<path>?theme=<light|dark>&palette=<poel|russet|peach|pansy>`. It takes both values when it opens the page. A switch does not change the address, so the page does not reload, and its scroll and open details stay.
 
-- The page script posts `{kasten: 'hello'}` to its parent on start.
+- The page script posts `{kasten: 'hello', doc}` to its parent on start, where `doc` is a random id for this page, and `{kasten: 'bye', doc}` as the page goes (`pagehide`). By then the message's source is no longer the frame's window, so the pane knows its bye by `doc`, and drops the passage held for a take. The pane can hear a hello after the frame's load, so a next page without the script cannot be known by its missing hello alone (#1729).
 - The pane answers with `{kasten: 'theme', theme}` and `{kasten: 'palette', palette}`. It posts both again when the frame loads and on every switch.
 - The page script sets `data-theme` or `data-palette` on `<html>` only when the message comes from its parent, the value is one of the known ones, and the page carries the meta tag.
 

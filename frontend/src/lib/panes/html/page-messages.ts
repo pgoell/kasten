@@ -10,6 +10,11 @@ export function pageData(event: MessageEvent, frame: HTMLIFrameElement | null) {
   return event.data as Record<string, unknown>;
 }
 
+/** The bye of the page whose hello gave `doc` (#1729). */
+export function isBye(event: MessageEvent, doc: unknown): boolean {
+  return typeof doc === "string" && event.data?.kasten === "bye" && event.data.doc === doc;
+}
+
 /**
  * The page's `innerText`, asked of its script: the frame has no
  * `allow-same-origin`, so the page is the only thing that can read it. A page

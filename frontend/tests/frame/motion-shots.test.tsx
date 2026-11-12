@@ -270,7 +270,8 @@ function paints(host: Element): boolean {
 
 /** Two animation frames: the first lays out the last change, the second paints it. */
 const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+/** Every transition on `el` run to its end, which a busy box makes late (#1735). */
+const settled = (el: Element) => Promise.all(el.getAnimations().map((a) => a.finished));
 
 /** A pointer event as a mouse sends it. */
 function pointer(
@@ -414,7 +415,7 @@ it("pressed-button-touch-390-light", async () => {
     if (!button) throw new Error("no toolbar button");
     const start = centreOf(button);
     pointer(button, "pointerdown", start.x, start.y);
-    await wait(150);
+    await settled(button);
     expect(getComputedStyle(button).transform).toBe("matrix(0.97, 0, 0, 0.97, 0, 0)");
     await picture(mounted.host, "pressed-button-touch-390-light", TOUCH);
     pointer(button, "pointerup", start.x, start.y);
@@ -431,7 +432,7 @@ it("pressed-button-desktop-1440-dark", async () => {
     if (!tab) throw new Error("no second tab");
     const start = centreOf(tab);
     pointer(tab, "pointerdown", start.x, start.y);
-    await wait(150);
+    await settled(tab);
     expect(getComputedStyle(tab).transform).toBe("matrix(0.97, 0, 0, 0.97, 0, 0)");
     await picture(mounted.host, "pressed-button-desktop-1440-dark", DESKTOP);
     pointer(tab, "pointerup", start.x, start.y);
@@ -451,7 +452,7 @@ async function pressFinderRow(host: HTMLElement): Promise<HTMLElement> {
   const row = rows[1] as HTMLElement;
   const start = centreOf(row);
   pointer(row, "pointerdown", start.x, start.y);
-  await wait(150);
+  await settled(row);
   return row;
 }
 

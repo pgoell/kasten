@@ -345,6 +345,36 @@ it("a link followed inside the page drops the held passage and its take button",
   await expect.poll(() => takeButton(mounted)).toBeNull();
 });
 
+// The pane can hear the page's hello after the frame's load, as on a loaded box (#1729).
+it("a hello heard after its page's load still lets a link to a page without kasten's script drop the passage", async () => {
+  await browser.serveSlowly(SLOW, 10);
+  await browser.servePage(
+    PATH,
+    pageOf("link", `<p id="p1">Alpha bravo.</p><a href="${SLOW}">go</a>`),
+  );
+  let held: MessageEvent | null = null;
+  const holdHello = (event: MessageEvent) => {
+    if (held !== null || event.data?.kasten !== "hello") return;
+    held = event;
+    event.stopImmediatePropagation();
+  };
+  window.addEventListener("message", holdHello);
+  renderPanes(mounted, [PATH], {});
+  const frame = frameOf(mounted, 0);
+  const loaded = loadOf(frame);
+  await ready(frame);
+  await expect.poll(loaded).toBe(true);
+  window.removeEventListener("message", holdHello);
+  const hello = held as MessageEvent | null;
+  window.dispatchEvent(new MessageEvent("message", { data: hello?.data, source: hello?.source }));
+  await select(frame, ["p1", 0, "p1", 5]);
+  await expect.poll(() => takeButton(mounted)).not.toBeNull();
+
+  await userEvent.click(inFrame(frame).getByText("go"));
+
+  await expect.poll(() => takeButton(mounted), { timeout: 5000 }).toBeNull();
+});
+
 it("a link to a document kasten's script is not in drops the held passage at its load", async () => {
   await browser.serveSlowly(SLOW, 10);
   await browser.servePage(

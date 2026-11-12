@@ -5,7 +5,7 @@ import { useHtmlTake } from "@/components/takes/use-html-take";
 import { usePageReload } from "@/components/use-page-reload";
 import { encodePath } from "@/lib/notes/links/note-path";
 import { postLook } from "@/lib/panes/html/page-look";
-import { pageData, pageText } from "@/lib/panes/html/page-messages";
+import { isBye, pageData, pageText } from "@/lib/panes/html/page-messages";
 import { spendActivation } from "@/lib/panes/html/user-activation";
 import { findQuote } from "@/lib/panes/rsvp/rsvp";
 import { textWords } from "@/lib/panes/rsvp/rsvp-sources";
@@ -83,6 +83,8 @@ export function HtmlPane({
   const reload = usePageReload(path, frame, relayedTaken, forget);
   /** The page's script said hello since the frame's last load. */
   const greeted = useRef(false);
+  /** The id the page's hello gave, which its bye carries back (#1729). */
+  const doc = useRef<unknown>(null);
 
   useEffect(() => {
     if (focusSignal) panel.current?.focus();
@@ -125,6 +127,7 @@ export function HtmlPane({
         // as a link followed in the page, drops what the old one held (#1295).
         case "hello":
           greeted.current = true;
+          doc.current = data.doc;
           forget();
           postLook(frame.current);
           return;
@@ -141,6 +144,14 @@ export function HtmlPane({
         case "key":
           if (focused) onPageKey(data.key);
       }
+    }
+
+    // The page's bye, sent as it leaves, so the next page starts with nothing held.
+    function onBye(event: MessageEvent) {
+      if (!isBye(event, doc.current)) return;
+      greeted.current = false;
+      doc.current = null;
+      forget();
     }
 
     function onPageKey(key: unknown) {
@@ -160,7 +171,11 @@ export function HtmlPane({
     }
 
     window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
+    window.addEventListener("message", onBye);
+    return () => {
+      window.removeEventListener("message", onMessage);
+      window.removeEventListener("message", onBye);
+    };
   }, [startLeader, forget, onSelection, onShare, heldNow, take]);
 
   // A click into a frame moves the focus out of this document, which tells the

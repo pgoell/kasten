@@ -18,6 +18,7 @@ import {
   boxIn,
   canvasOf,
   desktop,
+  doubleTap,
   fingers,
   fitted,
   graphAt,
@@ -140,8 +141,7 @@ describe("#992 the vault graph zooms under fingers on a phone", () => {
 
     // The fit's 40 px margin is background, and half the fit leaves more of it.
     const corner = { x: 8, y: 8 };
-    await tap(host, corner);
-    await tap(host, corner);
+    await doubleTap(host, corner);
     await vi.waitFor(() => expect(view().k).toBeCloseTo(fit, 3), { timeout: 5_000 });
     await vi.waitFor(() => expect(readout(host)?.textContent).toBe(`${Math.round(fit * 100)}%`));
   });
