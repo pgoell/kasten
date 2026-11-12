@@ -47,6 +47,6 @@ test.describe("on a phone", () => {
       card,
       page.getByRole("button", { name: "more for fold the laundry" }),
     ])
-      expect(await tapHeight(target)).toBeGreaterThanOrEqual(44);
+      expect(await tapHeight(target), `${target}`).toBeGreaterThanOrEqual(44);
   });
 });
