@@ -20,7 +20,7 @@ Lists every image, sound and book in the vault as a relative POSIX path, sorted.
 ```
 
 The same walk `/api/images` makes, filtered on every suffix an upload takes:
-`.epub`, `.pdf`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.mp3`, `.m4a`,
+`.epub`, `.pdf`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.svg`, `.mp3`, `.m4a`,
 `.ogg` and `.wav`, in any case. `/api/images` leaves the sounds out, so `![](`
 completes pictures only. The editor reads it to draw `[[plan.pdf]]` as live when the vault holds the file,
 and as dead when it does not.
@@ -37,7 +37,7 @@ Lists every image in the vault as a relative POSIX path, sorted.
 ```
 
 The same walk `/api/files` makes, filtered on the image suffixes instead of
-`.md`: `.png`, `.jpg`, `.jpeg`, `.gif` and `.webp`, in any case, so
+`.md`: `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp` and `.svg`, in any case, so
 `PHOTO.PNG` is listed. A note's `.md` is matched exactly, so `NOTES.MD` is not a
 note. Hidden files and directories are skipped the same way, and a vault that
 does not exist reads as an empty one.
@@ -50,7 +50,7 @@ which is the only thing in the app that asks.
 ## GET /api/assets/{path}
 
 Reads one book, image or sound out of the vault and answers with the bytes.
-`path` is a vault-relative POSIX path ending in one of eleven suffixes, in any case, so
+`path` is a vault-relative POSIX path ending in one of twelve suffixes, in any case, so
 `Plan.PDF` is served as a pdf. A slash inside it may be sent raw or
 percent-encoded.
 
@@ -62,6 +62,7 @@ percent-encoded.
 | `.jpg`, `.jpeg` | `image/jpeg` |
 | `.gif` | `image/gif` |
 | `.webp` | `image/webp` |
+| `.svg` | `image/svg+xml`, under the policy below |
 | `.mp3` | `audio/mpeg` |
 | `.m4a` | `audio/mp4` |
 | `.ogg` | `audio/ogg` |
@@ -78,14 +79,19 @@ Anything that is not a readable file of one of those suffixes inside the vault
 is a `404`, on the same rules the note read follows: a path that climbs out with
 `..` or an absolute one, a symlink pointing outside, a hidden segment, a `.md`
 path, a directory whose name ends in `.epub`, and a file that is not there. A
-suffix the table does not hold is a `404` too, `.svg` among them: an SVG is
-markup a browser runs, and the way to keep one out of a page is to keep it out
-of the vault.
+suffix the table does not hold is a `404` too.
+
+An SVG is markup a browser runs, so kasten only ever shows one as an `<img>`,
+which runs no script. Opened as a page of its own, it comes with
+`Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; sandbox`
+and `X-Content-Type-Options: nosniff`: its styles and `data:` pictures draw,
+its `<script>` and its `onload` do not, and the sandbox gives it no origin of
+its own. Other suffixes answer with neither header.
 
 ## POST /api/assets/{path}
 
 Puts one book, image or sound into the vault at `path`, and never over one
-already there. `path` follows the same rules the read above follows, the eleven
+already there. `path` follows the same rules the read above follows, the twelve
 suffixes included.
 
 The body is the file itself, raw. Not multipart: one file and no fields, so
@@ -132,6 +138,10 @@ start: an `.mp3` opens with `ID3` or an MPEG frame header, an `.m4a` with `ftyp`
 behind the four bytes of its box size, an `.ogg` with `OggS`. `.webp` and `.wav`
 are checked on their `RIFF` alone, four bytes they share with each other and
 with avi, a short check per suffix being worth more here than the exactness.
+An `.svg` has no magic bytes: within its first 1024 bytes, after an optional
+UTF-8 byte order mark, blank space, an XML prolog, comments and a doctype, the
+root tag `<svg` must open. HTML, plain text, another XML root, a UTF-16 file
+and a root pushed past those 1024 bytes are refused.
 **This is a usability check and not a security one.** The shell pane
 drops a file straight into the vault without coming near this endpoint, so
 nothing downstream can rely on it having run. It earns its place because there

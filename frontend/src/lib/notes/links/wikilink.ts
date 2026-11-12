@@ -37,6 +37,7 @@ export const FILE_SUFFIXES = [
   ".m4a",
   ".ogg",
   ".wav",
+  ".svg",
 ];
 
 /** Whether a link's name is a file, not a note: any case, last path segment only. */

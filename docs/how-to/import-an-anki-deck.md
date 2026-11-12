@@ -161,7 +161,7 @@ The card links each file where its field had it, as a markdown image:
 
 A sound is drawn as a player. A card whose question is only a sound, common in
 Japanese decks, is a card like any other. `.png`, `.jpg`, `.jpeg`, `.gif`,
-`.webp`, `.mp3`, `.m4a`, `.ogg` and `.wav` come through. A file two decks share
+`.webp`, `.svg`, `.mp3`, `.m4a`, `.ogg` and `.wav` come through. A file two decks share
 is written into each deck's folder.
 
 On a first import, if a file in that folder already exists, the whole import is
@@ -359,7 +359,7 @@ highlight is written ``==`a`==``.
 
 Two things.
 
-**Some media.** A file in another format, such as a video or an `.svg`, is
+**Some media.** A file in another format, such as a video, is
 dropped from its card, and so is one whose bytes are not what its name says or
 whose name is not a plain file name. The card keeps its text, and the import
 still lands. A card whose question was only such a file has nothing left to ask

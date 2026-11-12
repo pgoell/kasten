@@ -24,6 +24,15 @@ from kasten_backend.vault import (
 
 router = APIRouter()
 
+SVG_HEADERS = {
+    # An svg opened as a page of its own would run its script on kasten's origin. As an
+    # `<img>` it runs none; this holds the tab too, while styles and data: pictures still draw.
+    "Content-Security-Policy": (
+        "default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; sandbox"
+    ),
+    "X-Content-Type-Options": "nosniff",
+}
+
 
 @router.get("/api/assets/{path:path}", response_class=FileResponse)
 async def read_asset(
@@ -34,6 +43,8 @@ async def read_asset(
     if asset is None:
         raise HTTPException(status_code=404, detail="No such file")
 
+    if asset.suffix.lower() == ".svg":
+        return FileResponse(asset, media_type="image/svg+xml", headers=SVG_HEADERS)
     return FileResponse(asset)
 
 

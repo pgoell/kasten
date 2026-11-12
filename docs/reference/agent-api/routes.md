@@ -282,7 +282,7 @@ curl -s -X POST -H "Authorization: Bearer $KASTEN_TOKEN" \
 { "path": "30 Resources/report.html" }
 ```
 
-`path` ends in `.pdf`, `.epub`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.mp3`,
+`path` ends in `.pdf`, `.epub`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.svg`, `.mp3`,
 `.m4a`, `.ogg`, `.wav` or `.html` (in any case), and
 the bytes must start the way that suffix says. An `.html` body starts with `<`
 once blanks and an optional UTF-8 byte order mark are skipped. A PDF or an epub filed at a

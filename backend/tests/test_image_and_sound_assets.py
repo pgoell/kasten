@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from backend.tests.asset_bodies import BOOK, PDF, PNG
+from kasten_backend.vault import fits
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -33,12 +34,115 @@ async def test_refuses_an_image_whose_bytes_are_a_book(client: AsyncClient, vaul
 
 
 async def test_refuses_a_suffix_the_table_does_not_hold(client: AsyncClient, vault: Path) -> None:
-    # An svg is markup a browser runs, and the table is what keeps it out.
-    response = await client.post("/api/assets/shot.svg", content=b"<svg/>")
+    response = await client.post("/api/assets/shot.bmp", content=b"BM bitmap")
 
     assert response.status_code == 400
     assert response.json()["detail"] == "The vault will not take that path"
-    assert not (vault / "shot.svg").exists()
+    assert not (vault / "shot.bmp").exists()
+
+
+SVG_ROOT = b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="5"/></svg>'
+
+
+@pytest.mark.parametrize(
+    "head",
+    [
+        b"",
+        b"\xef\xbb\xbf",
+        b'<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n',
+        b'\xef\xbb\xbf<?xml version="1.0"?>\r\n<!-- Made in Inkscape -->\n',
+        b'<?xml version="1.0"?><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" '
+        b'"http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">\n',
+        b'<!DOCTYPE svg [ <!ENTITY a "b"> ]>',
+        b"<!-- a - comment -- with dashes --->\n\t  ",
+        b"<!--" + b"x" * 900 + b"-->",
+    ],
+    ids=["bare", "bom", "prolog", "bom-prolog-comment", "doctype", "subset", "dashes", "long"],
+)
+async def test_an_svg_lands_behind_any_head_a_drawing_tool_writes(
+    client: AsyncClient, vault: Path, head: bytes
+) -> None:
+    response = await client.post("/api/assets/pics/logo.svg", content=head + SVG_ROOT)
+
+    assert response.status_code == 201
+    assert (vault / "pics" / "logo.svg").read_bytes() == head + SVG_ROOT
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        b"<html><body><svg></svg></body></html>",
+        b"just some text, <svg> later",
+        b'<?xml version="1.0"?><note>svg</note>',
+        b"<svgfoo/>",
+        b"<SVG/>",
+        b"<!-- unclosed <svg/>",
+        b"<!--" + b"x" * 1100 + b"--><svg/>",
+        "<svg/>".encode("utf-16"),
+        PNG,
+    ],
+    ids=["html", "text", "xml", "svgfoo", "upper", "unclosed", "past-head", "utf16", "png"],
+)
+async def test_refuses_an_svg_that_is_other_text(
+    client: AsyncClient, vault: Path, body: bytes
+) -> None:
+    response = await client.post("/api/assets/logo.svg", content=body)
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "That file is not what its name says"
+    assert not (vault / "logo.svg").exists()
+
+
+def test_the_svg_check_backtracks_in_linear_time() -> None:
+    # A comment may not swallow the next: with one that could, these 128 would split 2**127 ways.
+    head = b"<!--a-->" * 128 + b"x"
+
+    assert not fits(".svg", head)
+    assert not fits(".svg", b"<!--" * 300)
+    assert not fits(".svg", b"<?xml" * 300)
+    # A doctype's blank space before its `>` is read one way only, or these split 2**100 ways.
+    assert not fits(".svg", b"<!doctype" + b" ><!doctype" * 100)
+
+
+async def test_an_svg_is_served_so_its_script_cannot_run(client: AsyncClient, vault: Path) -> None:
+    (vault / "LOGO.SVG").write_bytes(SVG_ROOT)
+
+    whole = await client.get("/api/assets/LOGO.SVG")
+    part = await client.get("/api/assets/LOGO.SVG", headers={"Range": "bytes=0-3"})
+
+    for answer in (whole, part):
+        assert answer.headers["content-type"] == "image/svg+xml"
+        policy = answer.headers["content-security-policy"]
+        assert "default-src 'none'" in policy
+        assert "sandbox" in policy
+        assert "script-src" not in policy
+        assert answer.headers["x-content-type-options"] == "nosniff"
+    assert whole.content == SVG_ROOT
+    assert part.status_code == 206
+
+
+async def test_a_png_and_a_pdf_answer_without_the_svg_headers(
+    client: AsyncClient, vault: Path
+) -> None:
+    (vault / "shot.png").write_bytes(PNG)
+    (vault / "SICP.pdf").write_bytes(PDF)
+
+    for name, kind in (("shot.png", "image/png"), ("SICP.pdf", "application/pdf")):
+        answer = await client.get(f"/api/assets/{name}")
+        assert answer.headers["content-type"] == kind
+        assert "content-security-policy" not in answer.headers
+
+
+async def test_an_svg_dropped_in_is_listed_as_an_image(client: AsyncClient, vault: Path) -> None:
+    (vault / "pics").mkdir()
+    (vault / "pics" / "logo.svg").write_bytes(SVG_ROOT)
+    (vault / "LOGO.SVG").write_bytes(SVG_ROOT)
+
+    images = await client.get("/api/images")
+    assets = await client.get("/api/vault-assets")
+
+    assert images.json() == ["LOGO.SVG", "pics/logo.svg"]
+    assert assets.json() == ["LOGO.SVG", "pics/logo.svg"]
 
 
 async def test_takes_a_jpeg_whose_magic_is_shorter_than_the_head(

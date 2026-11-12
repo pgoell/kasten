@@ -127,7 +127,9 @@ export function imageCompletions(context: CompletionContext): CompletionResult |
  */
 export function filedName(type: string): string {
   const unique = crypto.randomUUID().slice(0, 8);
-  return `${readClock(new Date()).date}-${unique}.${type.replace(NAMED, "")}`;
+  // `image/svg+xml` names its suffix `.svg`, the one the vault takes.
+  const suffix = type.replace(NAMED, "").replace(/\+xml$/, "");
+  return `${readClock(new Date()).date}-${unique}.${suffix}`;
 }
 
 /**

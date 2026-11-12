@@ -37,6 +37,12 @@ ASSET_MAGIC: dict[str, re.Pattern[bytes]] = {
     ".m4a": re.compile(rb".{4}ftyp", re.DOTALL),
     ".ogg": re.compile(rb"OggS"),
     ".wav": re.compile(rb"RIFF"),
+    # No magic bytes: the root tag, behind a BOM, space, an XML prolog, comments and a
+    # doctype. Each part ends at its first closer, so a failed match backtracks in linear time.
+    ".svg": re.compile(
+        rb"(?:\xef\xbb\xbf)?(?:\s|<\?xml(?:[^?]|\?(?!>))*\?>|<!--(?:[^-]|-(?!->))*-->"
+        rb"|(?i:<!doctype)(?:[^>\[]|\[[^\]]*\])*>)*<svg[\s/>]"
+    ),
 }
 """What the vault takes beside its notes, and what the head of each one matches.
 
@@ -45,10 +51,11 @@ ignoring case: `PHOTO.PNG` is an asset. A note is the exception, `SUFFIX` matchi
 The patterns are a usability check, never a security one.
 """
 
-HEAD_BYTES = 8
+HEAD_BYTES = 1024
 """How much of a file's head `fits` reads, which is the furthest any pattern reaches.
 
-Typed, not derived: a row reaching further has to widen this by hand.
+The svg row reaches furthest, past its prolog and comments. An svg whose root starts later
+is refused. Typed, not derived: a row reaching further has to widen this by hand.
 """
 
 AUDIO_SUFFIXES = (".m4a", ".mp3", ".ogg", ".wav")

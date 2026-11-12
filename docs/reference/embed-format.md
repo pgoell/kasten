@@ -68,8 +68,8 @@ The embed takes the place of its line, in a box.
   stay inside: `![[Plan#Risks]]` on a `## Risks` keeps its `### Cost` and stops
   at the next `##` or `#`.
 * **An image** draws the picture, as `![](path)` does, when the target names a
-  file of one of the types the vault takes: `.png`, `.jpg`, `.jpeg`, `.gif` and
-  `.webp`.
+  file of one of the types the vault takes: `.png`, `.jpg`, `.jpeg`, `.gif`,
+  `.webp` and `.svg`. An svg is drawn as an `<img>`, so its script never runs.
 * **A pdf** draws its pages in a box of fixed height that scrolls, each page as
   wide as the box, so a phone gets pages it can read across. A page is drawn
   when it scrolls into view, not before. A pdf that will not load reads

@@ -209,6 +209,17 @@ describe("pasting an image", () => {
     await waitFor(() => expect(doc()).toBe(`![](${encodeURI(path)})`));
   });
 
+  it("files a pasted svg under .svg, the suffix the vault takes", async () => {
+    const { editor, doc } = open("");
+
+    pasteImage(editor, "image/svg+xml");
+
+    await waitFor(() => expect(uploadAsset).toHaveBeenCalledTimes(1));
+    const [path] = uploadAsset.mock.lastCall as [string, File];
+    expect(path).toMatch(new RegExp(`^${IMAGE_FOLDER}/\\d{4}-\\d{2}-\\d{2}-[\\da-f]{8}\\.svg$`));
+    await waitFor(() => expect(doc()).toBe(`![](${encodeURI(path)})`));
+  });
+
   it("escapes # and ? in the images folder the vault named", async () => {
     const images = IMAGE_FOLDER;
     applyLayout({ ...LAYOUT, images: "Files #1/what?" });

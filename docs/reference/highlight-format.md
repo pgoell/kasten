@@ -111,9 +111,9 @@ follows it. Nothing reads such a block back, the rule below wanting a quote, so
 it is a picture in a note and no more than that.
 
 The upload goes first and the block is written when it lands. A vault that
-refuses the file, an `.svg` plate being the case that happens, leaves the note
-as it was and says so in the status bar rather than writing a reference to
-nothing. The formats the vault takes are png, jpeg, gif and webp, listed in
+refuses the file leaves the note as it was and says so in the status bar
+rather than writing a reference to nothing. An `.svg` plate lands as `.svg`.
+The formats the vault takes are png, jpeg, gif, webp and svg, listed in
 `ASSET_MAGIC` in `backend/src/kasten_backend/vault.py`.
 
 ## The chapter line

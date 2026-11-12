@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 PAGE_HEAD_BYTES = 1024
 """How much of a page's head `looks_like_html` reads for its first `<`.
 
-More than `vault.HEAD_BYTES`: a page may open on blank lines or indentation.
+A page may open on blank lines or indentation.
 """
 
 
