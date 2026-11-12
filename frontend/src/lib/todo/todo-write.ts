@@ -3,7 +3,8 @@
  * `todo-api.ts` is the impure half. Ticking done moves two notes, the todo's and the daily log, and un-ticking can move any.
  */
 
-import { appendUnder, bodyFences, type Edit } from "@/lib/notes/text/note-section";
+import { bodyFences } from "@/lib/notes/text/note-code";
+import { appendUnder, type Edit } from "@/lib/notes/text/note-section";
 import {
   cycleLine,
   formatTodo,

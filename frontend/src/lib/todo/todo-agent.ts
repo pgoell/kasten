@@ -3,7 +3,7 @@
  * `todo-write.ts` is: it returns the line, or the foot's sentence when nothing is written.
  */
 
-import { bodyFences } from "@/lib/notes/text/note-section";
+import { bodyFences } from "@/lib/notes/text/note-code";
 import { parseTodo, todoTagsOn, wordsEnd } from "@/lib/todo/todo";
 import { descendants, inherited, isClient, noteTree } from "@/lib/todo/todo-view";
 import { pressedLine } from "@/lib/todo/todo-write";

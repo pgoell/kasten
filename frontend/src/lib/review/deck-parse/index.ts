@@ -5,6 +5,7 @@ import { Highlight } from "@/lib/markdown/markdown-highlight";
 import { MathSyntax } from "@/lib/markdown/math";
 import { Tag } from "@/lib/markdown/tag";
 import { WikiLink } from "@/lib/notes/links/wikilink";
+import { type CodeSpan, isUnclosed, spanLines } from "@/lib/notes/text/note-code";
 
 /**
  * No inline parse of a paragraph lacking a deck tag or a `<!--`, which is most of a deck note (#669).
@@ -67,15 +68,13 @@ export interface CommentsAndCode {
 export function commentsAndCode(text: string): CommentsAndCode {
   let uncommented = "";
   let at = 0;
-  const spans: [number, number, boolean][] = [];
+  const spans: CodeSpan[] = [];
   const comments: [number, number][] = [];
   notes.parse(text).iterate({
     enter(node) {
       if (node.name === "FencedCode" || node.name === "CodeBlock") {
-        // A closed fence has a CodeMark at each end, one nobody closed only the
-        // opening one, and an indented block none.
-        const unclosed = node.name === "FencedCode" && node.node.getChildren("CodeMark").length < 2;
-        spans.push([node.from, node.to, unclosed]);
+        const unclosed = node.name === "FencedCode" && isUnclosed(node.node);
+        spans.push({ from: node.from, to: node.to, unclosed });
         // Nothing inside code is a comment, whatever language the fence names.
         return false;
       }
@@ -90,21 +89,12 @@ export function commentsAndCode(text: string): CommentsAndCode {
   });
   uncommented += text.slice(at);
 
-  // A line is code where a span overlaps it. Overlap and not the line of
-  // `to`, as a block may end before its last newline or after it.
-  const code: boolean[] = [];
-  const unclosed: boolean[] = [];
+  const { code, unclosed } = spanLines(text, spans);
   const commented: boolean[] = [];
   let start = 0;
-  let next = 0;
   let comment = 0;
   for (const line of text.split("\n")) {
     const end = start + line.length;
-    while ((spans[next]?.[1] ?? Infinity) <= start) next++;
-    const [from, to, open] = spans[next] ?? [Infinity, Infinity, false];
-    const inside = from <= end && start < to;
-    code.push(inside);
-    unclosed.push(inside && open);
     const first = start + textStart(line);
     while ((comments[comment]?.[1] ?? Infinity) < end) comment++;
     const [opens, closes] = comments[comment] ?? [Infinity, Infinity];

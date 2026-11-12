@@ -3,8 +3,8 @@
  * `cases/training-cases.json` holds it to the backend parser in `training/lines.py`.
  */
 
+import { fencedLines } from "@/lib/notes/text/note-code";
 import { noteBody } from "@/lib/notes/text/note-frontmatter";
-import { fencedLines } from "@/lib/notes/text/note-section";
 
 export const TRAINING_HEADING = "## Training";
 

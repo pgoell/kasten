@@ -1,5 +1,6 @@
 // @vitest-environment node
-import { appendUnder, fencedLines, noteSectionOf, sectionOf } from "@/lib/notes/text/note-section";
+import { fencedLines } from "@/lib/notes/text/note-code";
+import { appendUnder, noteSectionOf, sectionOf } from "@/lib/notes/text/note-section";
 
 /** Today's daily note as the vault holds it, log line and all. */
 const DAILY = [
@@ -242,7 +243,7 @@ describe("fencedLines closers in a list item", () => {
       null,
     ],
     [
-      "1583 a heading four in ends the paragraph of an item five in",
+      "1701 a heading four in, left of an item's content, is a lazy line, as the editor reads it",
       [
         "      - a",
         "      1. a",
@@ -253,8 +254,8 @@ describe("fencedLines closers in a list item", () => {
         "      ```",
         "        > q",
       ],
-      [],
-      null,
+      [6, 7],
+      "```",
     ],
     [
       "1583 a line after indented code in an item is no lazy line",
@@ -286,11 +287,12 @@ describe("fencedLines closers in a list item", () => {
     expect(read.openRun).toBe(openRun);
   });
 
-  it("#1585 a run four in after a list item's paragraph is indented code, a top-level one stays lazy", () => {
+  it("1701 a run four in after a list item's paragraph is a lazy line in the item, as at the top level", () => {
+    // markdown-it ends the item there and reads indented code; the editor and CommonMark do not.
     expect([
       ...fencedLines(["  1. a", "    ~~~", "      1. a", "", "     # h", "      # h", "      ~~~"])
         .coded,
-    ]).toEqual([]);
+    ]).toEqual([6]);
     // Guard: a top-level paragraph still reads a run four in as a lazy line.
     expect([...fencedLines(["x", "    ```", "y"]).coded]).toEqual([]);
   });

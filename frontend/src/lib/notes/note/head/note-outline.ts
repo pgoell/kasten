@@ -1,6 +1,7 @@
 import type { Extension, Text } from "@codemirror/state";
 import { EditorView, ViewPlugin, type ViewUpdate } from "@codemirror/view";
 import { noteLanguage } from "@/lib/markdown/note-language";
+import { fencedLines } from "@/lib/notes/text/note-code";
 
 /** One heading of the note: its level, its words, where it starts and the line it is on. */
 export interface OutlineHeading {
@@ -24,9 +25,6 @@ export interface Outline {
  */
 export const ATX = /^(#{1,6})\s+((?=\s).|.+?(?<!\s))\s*(?:#+\s*)?$/;
 
-/** A fence opener, which a fence closes only with the same character and at least as long. */
-const FENCE = /^ {0,3}(`{3,}|~{3,})/;
-
 /** How far below the top of the scroller a heading still counts as the one being read. */
 const READING_LINE = 24;
 
@@ -35,19 +33,10 @@ const READING_LINE = 24;
  * A `#` or `[[` inside a fence is code, not a heading or link, and every reader of the body skips the same lines.
  */
 export function proseLines(doc: Text, first: number): { line: number; text: string }[] {
-  const lines: { line: number; text: string }[] = [];
-  let fence: string | null = null;
-  for (let line = first; line <= doc.lines; line += 1) {
-    const { text } = doc.line(line);
-    const opened = FENCE.exec(text)?.[1];
-    if (fence === null) {
-      if (opened !== undefined) fence = opened;
-      else lines.push({ line, text });
-    } else if (opened !== undefined && opened[0] === fence[0] && opened.length >= fence.length) {
-      fence = null;
-    }
-  }
-  return lines;
+  const body: string[] = [];
+  for (let line = first; line <= doc.lines; line += 1) body.push(doc.line(line).text);
+  const { coded } = fencedLines(body);
+  return body.flatMap((text, index) => (coded.has(index) ? [] : [{ line: first + index, text }]));
 }
 
 /**

@@ -5,7 +5,7 @@
 
 import { shiftDay } from "@/lib/core/clock";
 import { plainLinks } from "@/lib/notes/links/wikilink";
-import { bodyFences } from "@/lib/notes/text/note-section";
+import { bodyFences } from "@/lib/notes/text/note-code";
 import { isOpen, parseTodo, type Todo } from "@/lib/todo/todo";
 // The type alone, so this module loads nothing from todo-blocked.
 import type { Closed } from "@/lib/todo/todo-blocked";
