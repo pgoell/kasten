@@ -11,6 +11,7 @@ import { applyLayout, type Layout } from "@/lib/core/layout";
 import { logCard } from "@/lib/log/log-card";
 import { parseConfig } from "@/lib/log/log-kinds";
 import { editorCommands } from "@/lib/notes/editor/editor-commands";
+import { filePicker } from "@/lib/notes/embeds/image";
 import { periodicNote } from "@/lib/notes/text/periodic";
 import { notePath, todoCycled } from "@/lib/todo/todo-commands";
 import { INSERTS, paletteEntries, slashCompletions, writeInsert } from "@/lib/ui/palette";
@@ -88,6 +89,20 @@ describe("the slash menu", () => {
 
     expect(view.state.doc.toString()).toBe("x ");
     expect(commands.openDaily).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens the file picker on the editor it was typed in, slash taken out (#1946)", () => {
+    const pick = vi.fn();
+    const view = new EditorView({
+      state: EditorState.create({ doc: "x /pick", extensions: [filePicker.of(pick)] }),
+    });
+    const result = slashCompletions(new CompletionContext(view.state, 7, false));
+    const option = result?.options.find((entry) => entry.label.startsWith("Pick an image"));
+    if (typeof option?.apply !== "function") throw new Error("no apply");
+    option.apply(view, option, result?.from ?? 0, 7);
+
+    expect(view.state.doc.toString()).toBe("x ");
+    expect(pick).toHaveBeenCalledWith(view);
   });
 });
 

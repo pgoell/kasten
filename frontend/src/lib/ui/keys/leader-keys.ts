@@ -179,7 +179,7 @@ export const TAB_DIGITS = "tab digits";
  */
 export const LEADER_COLUMNS: readonly { title: string; keys: readonly string[] }[] = [
   { title: "Find", keys: ["ff", "fg", "fm", "fb", "ft", "a", ":", "?"] },
-  { title: "Create", keys: ["cf", "cd", "cw", "cm", "cb", "ci", "cv", "cc", "cs"] },
+  { title: "Create", keys: ["cf", "cd", "cw", "cm", "cb", "ci", "ca", "cv", "cc", "cs"] },
   {
     title: "Go to",
     keys: [

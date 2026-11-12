@@ -1,7 +1,7 @@
 ---
 type: How-to Guide
 title: Use kasten on a phone
-description: Open the file tree, find a note, run a command, turn vim on, move between panes, tick a todo, settle a note that changed on disk, type in a terminal and close a panel, all by touch.
+description: Open the file tree, find a note, run a command, put a photo or video into a note, turn vim on, move between panes, tick a todo, settle a note that changed on disk, type in a terminal and close a panel, all by touch.
 tags: [phone, touch, toolbar, vim, todo, terminal]
 status: stable
 ---
@@ -56,6 +56,16 @@ Commands worth knowing by name:
 | Split the window | `Split the pane left and right` |
 | Close what is on screen | `Close the note, then the pane, then the tab` |
 | See every key and command | `Show the keys` |
+
+## Put a photo or a video into a note
+
+1. Tap into the note where it should go.
+2. Tap `run`, type `pick` and tap `Pick an image or video file into this note`.
+3. Choose one or more files in the phone's picker.
+
+The status bar shows how far each upload has got, and the embed lands where
+the cursor is when it ends. The vault takes images and mp4 and webm videos, as
+[Editor keys, images](/reference/editor-keys/images.md#images) lists.
 
 ## Turn vim on
 

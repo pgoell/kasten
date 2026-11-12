@@ -8,7 +8,7 @@ import {
   type MarkSpec,
   STRIKE,
 } from "@/lib/notes/editor/format-commands";
-import { toggleImageAtCursor } from "@/lib/notes/embeds/image";
+import { filePicker, toggleImageAtCursor } from "@/lib/notes/embeds/image";
 import { writeTranscript } from "@/lib/panes/video/transcript";
 import { agentTodoAtCursor, cycleTodoAtCursor, stampIdAtCursor } from "@/lib/todo/todo-commands";
 import type { LeaderNeed } from "@/lib/ui/keys/leader-keys";
@@ -39,6 +39,12 @@ export const LEADER_EDITS: readonly LeaderEdit[] = [
   // Toggles: on a link it makes an image, on an image the link back, and on
   // neither it opens the list of images. Writes to the buffer, so it is not in `LEADER`.
   { key: "ci", label: "Toggle an image at the cursor", run: toggleImageAtCursor },
+  // `a` for attach. A phone's way to a file from its storage, which no paste or drop brings (#1946).
+  {
+    key: "ca",
+    label: "Pick an image or video file into this note",
+    run: (view) => view.state.facet(filePicker)?.(view),
+  },
   // `c` for the group, `v` for the video. Not `v` alone: a bare `v` plays and pauses.
   {
     key: "cv",

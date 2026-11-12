@@ -85,11 +85,12 @@ the page's script passes Space on.
 | `<leader>cm` | Import markdown files from your disk into the inbox |
 | `<leader>cb` | Add an epub or a pdf to the inbox, with a note beside it |
 | `<leader>ci` | Make an image of the link at the cursor, or write an empty one |
+| `<leader>ca` | Pick an image or video file from your disk into the note at the cursor |
 | `<leader>cv` | Write the transcript of this note's video into the note |
 | `<leader>cc` | Open the chat with Claude Code in the focused pane |
 | `<leader>cs` | Open a terminal, on a herdr session you name |
 
-The file pickers that `<leader>cm` and `<leader>cb` open wait until you let go of the last key, so the picker opens once the key is up.
+The file pickers that `<leader>cm`, `<leader>cb` and `<leader>ca` open wait until you let go of the last key, so the picker opens once the key is up.
 
 **Go to**
 

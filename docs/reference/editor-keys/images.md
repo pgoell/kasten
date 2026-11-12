@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Editor keys, images
-description: Pasting, dropping, drawing and toggling images in the editor, and the keys that take them.
+description: Pasting, dropping, picking, drawing and toggling images in the editor, and the keys that take them.
 tags: [editor, keyboard, images, frontend]
 status: stable
 ---
@@ -22,6 +22,7 @@ picture where the source at least says what was meant.
 | --- | --- |
 | Ctrl+v | Put the clipboard's image or video file in the vault and write the reference to it |
 | `<leader>ci` | Toggle the link at the cursor into an image, and back |
+| `<leader>ca` | Pick image or video files from your disk or phone into the note |
 | `<leader>w` | Download the picture in the pane, in an image pane |
 
 Pasting is the way in. A screenshot on the clipboard is uploaded to
@@ -67,8 +68,16 @@ its own name, numbered the same way, with the same characters made `-`. What
 lands where it fell is `![](that path)`, the form a pasted image gets. An image
 file whose name has no suffix the vault takes is named for today, as a pasted
 one is. Images and video files dropped together go in the order they came, one
-to a line. A phone browser takes no file drop from another app, so there paste
-is the way in.
+to a line.
+
+A phone browser takes no file drop from another app, and a keyboard paste
+seldom carries a video, so the editor has a picker. `<leader>ca`, or the
+palette's `Pick an image or video file into this note` (`run` on a phone, once
+you have tapped into the note), opens the system's file picker, and each file
+picked goes in as a dropped one does: the same upload and progress in the bar,
+the same names, the embed at the cursor, a closed note's embed at its end. The
+picker lists only what the vault takes; any other file, such as an
+iPhone's `.MOV`, is left out and the bar names it.
 
 `<leader>ci` is the other half. On a link it writes the `!` that makes an image
 of it, on an image it takes the same character away, and on neither it writes
