@@ -157,6 +157,8 @@ describe("an upload pasted into a note (#1945)", () => {
 
     paste(clip());
     await waitFor(() => expect(reading()).toBe("Uploading walk.mp4 0%"));
+    // The clock gives way below md, as it does to a notice.
+    expect(screen.getByText(/^CW \d+$/).parentElement).toHaveClass("max-md:hidden");
     act(() => held[0]?.progress(42, 100));
     expect(reading()).toBe("Uploading walk.mp4 42%");
 
@@ -181,7 +183,7 @@ describe("an upload pasted into a note (#1945)", () => {
     expect(reading()).toBeUndefined();
   });
 
-  it("is drawn on a phone's quiet bar, which has nothing else to say, and takes the clock's room", async () => {
+  it("is drawn on a phone's quiet bar, which has nothing else to say", async () => {
     const held = holdUploads();
     render(<Page quiet />);
     expect(screen.queryByRole("contentinfo")).toBeNull();
