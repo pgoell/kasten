@@ -13,7 +13,7 @@ The routes for images, sounds and books, and the uploads that carry a file too b
 
 ## GET /api/vault-assets
 
-Lists every image, sound and book in the vault as a relative POSIX path, sorted.
+Lists every image, sound, book and csv in the vault as a relative POSIX path, sorted.
 
 ```json
 ["00 Inbox/plan.pdf", "99 Misc/02 Assets/01 Images/2026-08-12-a1b2c3d4.png"]
@@ -21,8 +21,9 @@ Lists every image, sound and book in the vault as a relative POSIX path, sorted.
 
 The same walk `/api/images` makes, filtered on every suffix an upload takes:
 `.epub`, `.pdf`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.svg`, `.mp3`, `.m4a`,
-`.ogg` and `.wav`, in any case. `/api/images` leaves the sounds out, so `![](`
-completes pictures only. The editor reads it to draw `[[plan.pdf]]` as live when the vault holds the file,
+`.ogg`, `.wav` and `.csv`, in any case. `/api/images` leaves the sounds and the
+csvs out, so `![](` completes pictures only. The file tree lists a csv beside the
+pictures and opens it as a table. The editor reads it to draw `[[plan.pdf]]` as live when the vault holds the file,
 and as dead when it does not.
 
 Not `/api/assets`, whose `GET` with a path serves one file. A listing at the
@@ -49,8 +50,8 @@ which is the only thing in the app that asks.
 
 ## GET /api/assets/{path}
 
-Reads one book, image or sound out of the vault and answers with the bytes.
-`path` is a vault-relative POSIX path ending in one of twelve suffixes, in any case, so
+Reads one book, image, sound or csv out of the vault and answers with the bytes.
+`path` is a vault-relative POSIX path ending in one of thirteen suffixes, in any case, so
 `Plan.PDF` is served as a pdf. A slash inside it may be sent raw or
 percent-encoded.
 
@@ -67,6 +68,7 @@ percent-encoded.
 | `.m4a` | `audio/mp4` |
 | `.ogg` | `audio/ogg` |
 | `.wav` | `audio/x-wav` |
+| `.csv` | `text/csv; charset=utf-8`, with `X-Content-Type-Options: nosniff` |
 
 The reply is the file, and the content type comes off the suffix. Nothing here
 opens what it sends: this resolves a path, checks the suffix and streams a file,
@@ -142,6 +144,11 @@ An `.svg` has no magic bytes: within its first 1024 bytes, after an optional
 UTF-8 byte order mark, blank space, an XML prolog, comments and a doctype, the
 root tag `<svg` must open. HTML, plain text, another XML root, a UTF-16 file
 and a root pushed past those 1024 bytes are refused.
+A `.csv` has none either: its first 1024 bytes, after an optional UTF-8 byte
+order mark, must be UTF-8 text with no control byte but tab, CR and LF, and its
+first line must hold a comma, a semicolon or a tab. An empty file, a one-column
+file, a binary, UTF-16 and a Windows-1252 or Latin-1 export are refused. A note
+whose first line holds a comma passes: the name is what tells a note from a csv.
 **This is a usability check and not a security one.** The shell pane
 drops a file straight into the vault without coming near this endpoint, so
 nothing downstream can rely on it having run. It earns its place because there

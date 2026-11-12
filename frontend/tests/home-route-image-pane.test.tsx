@@ -215,6 +215,25 @@ describe("looking at an image", () => {
     );
   });
 
+  it("lists a csv among the tree's files and opens it as a table in the pane", async () => {
+    const table = "99 Misc/sales.csv";
+    fetchAssets.mockResolvedValue([table, "99 Misc/plan.pdf"]);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("a,b\n1,2\n")),
+    );
+    const app = await renderApp();
+    await settle();
+    app.expand("99 Misc");
+
+    app.click(table);
+    await settle();
+
+    expect(app.imagePane()?.getAttribute("aria-label")).toBe("table");
+    expect(app.imagePane()?.querySelector("img")).toBeNull();
+    expect(fetch).toHaveBeenCalledWith(`/api/assets/${encodeURI(table)}`, expect.anything());
+  });
+
   it("hands the picture to the browser under its own name", async () => {
     const caught = clicked();
     const app = await renderApp();

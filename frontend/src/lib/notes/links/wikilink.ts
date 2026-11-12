@@ -38,6 +38,7 @@ export const FILE_SUFFIXES = [
   ".ogg",
   ".wav",
   ".svg",
+  ".csv",
 ];
 
 /** Whether a link's name is a file, not a note: any case, last path segment only. */

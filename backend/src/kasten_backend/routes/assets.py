@@ -17,6 +17,7 @@ from kasten_backend.routes.moves import TrashEntry
 from kasten_backend.trash import move_to_trash
 from kasten_backend.vault import (
     BOOK_SUFFIXES,
+    TABLE_SUFFIX,
     relative_path,
     resolve_asset,
     resolve_book,
@@ -33,6 +34,9 @@ SVG_HEADERS = {
     "X-Content-Type-Options": "nosniff",
 }
 
+TABLE_HEADERS = {"X-Content-Type-Options": "nosniff"}
+"""So no browser reads a csv opened in a tab as html, whatever its cells hold."""
+
 
 @router.get("/api/assets/{path:path}", response_class=FileResponse)
 async def read_asset(
@@ -45,6 +49,8 @@ async def read_asset(
 
     if asset.suffix.lower() == ".svg":
         return FileResponse(asset, media_type="image/svg+xml", headers=SVG_HEADERS)
+    if asset.suffix.lower() == TABLE_SUFFIX:
+        return FileResponse(asset, media_type="text/csv; charset=utf-8", headers=TABLE_HEADERS)
     return FileResponse(asset)
 
 

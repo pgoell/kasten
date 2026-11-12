@@ -88,3 +88,15 @@
   border-left: 3px dashed var(--k-muted);
   padding: 0.25em 0.75em;
 }
+
+/* The line under a csv table cut at its row or column cap. */
+.cm-csv-cut {
+  color: var(--k-muted);
+  font-size: 0.85em;
+  margin: 0.25em 0 0;
+}
+
+/* In a pane the table scrolls within the pane's height, not the editor's 70vh. */
+[data-csv-table] .cm-table-scroll {
+  max-height: 100%;
+}

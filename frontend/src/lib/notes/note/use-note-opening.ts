@@ -166,21 +166,12 @@ export function useNoteOpening({
   );
 
   /**
-   * How an embed in any pane reads its note and opens it, through the query cache on the key the panes read by.
-   * So the vault event and the autosave keep every embed of it current too.
-   */
-  /**
    * Show a pdf at a page in a pane beside the note, the view every followed pdf lands in (#353).
    * Through `moveTo` with no save, as `openPassage` opens a book, so nothing about the note has to be written.
    */
   const openPdfInPane = useCallback(
     (path: string, page?: number) => moveTo((previous) => openPdfBeside(previous, path, page)),
     [moveTo],
-  );
-
-  const embeds = useMemo(
-    () => queryEmbedSource(queryClient, (path, line) => void openInPane(path, line), openPdfInPane),
-    [queryClient, openInPane, openPdfInPane],
   );
 
   /** Show an HTML page in the focused pane, the way `openImageInPane` shows an image. */
@@ -211,6 +202,21 @@ export function useNoteOpening({
       setFocusSignal((previous) => previous + 1);
     },
     [saveFirst, setLayout, setFocusSignal, layoutNow],
+  );
+
+  /**
+   * How an embed in any pane reads its note and opens it, through the query cache on the key the panes read by.
+   * So the vault event and the autosave keep every embed of it current too.
+   */
+  const embeds = useMemo(
+    () =>
+      queryEmbedSource(
+        queryClient,
+        (path, line) => void openInPane(path, line),
+        openPdfInPane,
+        (path) => void openImageInPane(path),
+      ),
+    [queryClient, openInPane, openPdfInPane, openImageInPane],
   );
 
   /**
@@ -276,7 +282,8 @@ export function useNoteOpening({
       // made stays a dead link rather than turning into a note named `.pdf.md`.
       // One the vault holds opens in a tab of its own, the browser being what
       // reads a picture. A pdf opens in kasten's own view at the page
-      // `#page=3` names, a phone's viewer ignoring `#page` (#353).
+      // `#page=3` names, a phone's viewer ignoring `#page` (#353), and a csv
+      // as a table, which a tab would only download.
       const openFile = (path: string, heading: string | null) => {
         if (html?.includes(path)) {
           void openHtmlInPane(path, heading ?? undefined, at);
@@ -284,6 +291,7 @@ export function useNoteOpening({
         }
         if (!assets?.includes(path)) return;
         if (path.toLowerCase().endsWith(".pdf")) openPdfInPane(path, pdfPage(heading));
+        else if (path.toLowerCase().endsWith(".csv")) void openImageInPane(path);
         else window.open(`/api/assets/${encodePath(path)}`, "_blank");
       };
       // A markdown link has split its path and resolved it from its note's folder
@@ -334,6 +342,7 @@ export function useNoteOpening({
       openInPane,
       openHtmlInPane,
       openPdfInPane,
+      openImageInPane,
       layoutNow,
       focusedNote,
     ],

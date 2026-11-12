@@ -40,6 +40,11 @@ export function useListings() {
     () => (assets ?? []).filter((path) => path.toLowerCase().endsWith(".pdf")),
     [assets],
   );
+  // The csvs among them, tree rows that open in the image's pane.
+  const tables = useMemo(
+    () => (assets ?? []).filter((path) => path.toLowerCase().endsWith(".csv")),
+    [assets],
+  );
   // The tag vocabulary. Not archive-filtered: an archived note's tag is still a tag.
   const { data: tags } = useQuery({ queryKey: ["tags"], queryFn: fetchTags });
   // Relation names, gated on the listing above so no request runs for a vault without the note.
@@ -63,7 +68,10 @@ export function useListings() {
   // One array per listing and toggle, or a finder keyed on `paths` rebuilds on every render (#586).
   const shown = useMemo(() => visible(data ?? [], archive), [data, archive]);
   // The same for the tree's rows, rebuilt whenever one of these arrives new (#589).
-  const shownImages = useMemo(() => visible(images ?? LOADING, archive), [images, archive]);
+  const shownImages = useMemo(
+    () => visible(images === undefined ? LOADING : [...images, ...tables], archive),
+    [images, tables, archive],
+  );
   const shownHtml = useMemo(() => visible(html ?? LOADING, archive), [html, archive]);
   const shownPdfs = useMemo(() => visible(pdfs, archive), [pdfs, archive]);
   // No `saveFirst`: this moves no path, it only changes what the lookups answer with.

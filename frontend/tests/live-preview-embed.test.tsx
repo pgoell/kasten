@@ -2,6 +2,7 @@ import { EditorSelection } from "@codemirror/state";
 import { vim } from "@replit/codemirror-vim";
 import { fireEvent, waitFor } from "@testing-library/react";
 import { vimKeys } from "@/lib/notes/editor/vim-mode";
+import { BYTE_CAP, ROW_CAP } from "@/lib/notes/embeds/csv";
 import { EMBED_DEPTH, embedSource } from "@/lib/notes/embeds/embed";
 import { imagePaths } from "@/lib/notes/embeds/image";
 import { vaultPaths } from "@/lib/notes/links/wikilink";
@@ -405,5 +406,81 @@ describe("an embed", () => {
     mounted.splice(mounted.indexOf(view), 1);
     view.destroy();
     expect(vault.listening("c.md")).toBe(0);
+  });
+});
+
+describe("a csv embed", () => {
+  const PATHS = ["b.md", "data/sales.csv"];
+  const ATTACK = '<img src=x onerror="window.ran = 1">';
+  const SCRIPT = "<script>window.ran = 2</script>";
+  const serve = (body: string, status = 200) => {
+    const fetched = vi.fn(async () => new Response(body, { status }));
+    vi.stubGlobal("fetch", fetched);
+    return fetched;
+  };
+  const box = (view: { dom: HTMLElement }) => view.dom.querySelector(".cm-embed") as HTMLElement;
+  const drawn = (view: { dom: HTMLElement }) =>
+    waitFor(() => expect(box(view).matches(":has(table), .cm-embed-missing")).toBe(true));
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("draws the csv as a table, every cell as text, with vim on and off", async () => {
+    for (const vimOn of [false, true]) {
+      const fetched = serve(`name,note\nx,${ATTACK}\ny,${SCRIPT}\n`);
+      const source = fakeVault({}).source;
+      const view = mount(
+        `${ABOVE}![[Sales.csv]]`,
+        vimOn
+          ? [vim(), livePreview(), vaultPaths.of(PATHS), imagePaths.of([]), embedSource.of(source)]
+          : plain(source, PATHS),
+      );
+      await drawn(view);
+
+      expect(fetched).toHaveBeenCalledWith("/api/assets/data/sales.csv", expect.anything());
+      const cells = [...box(view).querySelectorAll("th, td")].map((cell) => cell.textContent);
+      expect(cells).toEqual(["name", "note", "x", ATTACK, "y", SCRIPT]);
+      expect(box(view).querySelectorAll("img, script")).toHaveLength(0);
+      expect((window as { ran?: number }).ran).toBeUndefined();
+      expect(view.dom.querySelector("img.cm-image")).toBeNull();
+      expect(view.contentDOM.textContent).not.toContain("![[");
+    }
+  });
+
+  it("says Not found for a csv the vault does not hold, or one that will not load", async () => {
+    const fetched = serve("gone", 404);
+    const missing = mount(`${ABOVE}![[gone.csv]]`, plain(fakeVault({}).source, PATHS));
+    const failed = mount(`${ABOVE}![[sales.csv]]`, plain(fakeVault({}).source, PATHS));
+    await drawn(failed);
+
+    expect(box(missing).textContent).toBe("Not found: gone.csv");
+    expect(box(failed).textContent).toBe("Not found: sales.csv");
+    expect(fetched).toHaveBeenCalledTimes(1);
+  });
+
+  it("draws a short row with empty cells and says where it cut a long file", async () => {
+    serve(`a,b,c\n1\n${"x,y,z\n".repeat(ROW_CAP + 10)}`);
+    const view = mount(`${ABOVE}![[sales.csv]]`, plain(fakeVault({}).source, PATHS));
+    await drawn(view);
+
+    const rows = box(view).querySelectorAll("tr");
+    expect(rows).toHaveLength(ROW_CAP);
+    expect([...(rows[1]?.children ?? [])].map((cell) => cell.textContent)).toEqual(["1", "", ""]);
+    expect(box(view).querySelector(".cm-csv-cut")?.textContent).toBe(
+      `Showing ${ROW_CAP} of ${ROW_CAP + 12} rows.`,
+    );
+  });
+
+  it("reads no more than 1 MiB, and drops the row the cut lands in", async () => {
+    // Ten whole rows of 100 kB fit under the cap beside the head; the eleventh is cut inside.
+    serve(`h\n${`${"x".repeat(99_999)}\n`.repeat(12)}`);
+    const view = mount(`${ABOVE}![[sales.csv]]`, plain(fakeVault({}).source, PATHS));
+    await drawn(view);
+
+    expect(box(view).querySelectorAll("td")).toHaveLength(10);
+    expect(box(view).querySelector("td")?.textContent).toHaveLength(99_999);
+    expect(box(view).querySelector(".cm-csv-cut")?.textContent).toBe(
+      "Showing the first 11 rows: the file runs past 1 MiB.",
+    );
+    expect(BYTE_CAP).toBe(1024 * 1024);
   });
 });

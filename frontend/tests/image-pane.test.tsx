@@ -367,3 +367,27 @@ describe("the image pane", () => {
     vi.useRealTimers();
   });
 });
+
+describe("a csv in the pane", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("draws as a table that scrolls, every cell as text, and d still trashes it", async () => {
+    const fetched = vi.fn(async () => new Response('a,b\n<script>x</script>,"<img onerror=y>"\n'));
+    vi.stubGlobal("fetch", fetched);
+    const { pane, onDelete } = open("data/Sales #1.csv");
+
+    const table = await screen.findByRole("table");
+    expect(fetched).toHaveBeenCalledWith("/api/assets/data/Sales%20%231.csv", expect.anything());
+    expect([...table.querySelectorAll("th, td")].map((cell) => cell.textContent)).toEqual([
+      "a",
+      "b",
+      "<script>x</script>",
+      "<img onerror=y>",
+    ]);
+    expect(pane.querySelectorAll("img, script")).toHaveLength(0);
+    expect(pane.getAttribute("aria-label")).toBe("table");
+    expect(pane.querySelector(".touch-none")).toBeNull();
+    fireEvent.keyDown(pane, { key: "d" });
+    expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+});

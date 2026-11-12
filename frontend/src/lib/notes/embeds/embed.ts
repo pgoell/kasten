@@ -55,6 +55,7 @@ export function queryEmbedSource(
   client: QueryClient,
   open: (path: string, line?: number) => void,
   openPdf: (path: string, page?: number) => void,
+  openTable?: (path: string) => void,
 ): EmbedSource {
   return {
     watch(path, listener) {
@@ -100,10 +101,11 @@ export function queryEmbedSource(
         stopCache();
       };
     },
-    // A pdf goes to kasten's own viewer, since phone viewers ignore `#page` (#353). Other files
-    // get a tab, since `open` would read their bytes as note text.
+    // A pdf goes to kasten's own viewer, since phone viewers ignore `#page` (#353), and a csv to
+    // its table. Other files get a tab, since `open` would read their bytes as note text.
     open(path, line) {
       if (path.toLowerCase().endsWith(".pdf")) openPdf(path, line);
+      else if (openTable && path.toLowerCase().endsWith(".csv")) openTable(path);
       else if (namesAFile(path)) window.open(`/api/assets/${encodePath(path)}`, "_blank");
       else open(path, line);
     },

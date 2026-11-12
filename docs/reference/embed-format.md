@@ -76,7 +76,13 @@ The embed takes the place of its line, in a box.
   `Could not read plan.pdf` in the box. `![[plan.pdf#page=3]]` scrolls the box
   so page 3 is at its top; a page the pdf lacks, or any other heading, leaves
   page 1 there. The alias is ignored.
-* **A missing target**, a note, a heading or a pdf the vault does not hold,
+* **A csv** draws as a table, its first row the head row, each cell as text, so
+  no html in a cell is read. A comma, semicolon or tab file is read by its first
+  line, quotes holding separators and line breaks. The table scrolls in its box
+  and stops at 500 rows, 50 columns and the first 1 MiB of the file, with a line
+  under it saying what it cut. A followed `[[data.csv]]` and a tree row open the
+  table in a pane.
+* **A missing target**, a note, a heading, a pdf or a csv the vault does not hold,
   draws a plain box saying `Not found`.
 * **The depth stub.** Embeds nest, and stop at a depth of three. At that cap an
   embed draws a stub box in place of its note, so a note that embeds itself, or

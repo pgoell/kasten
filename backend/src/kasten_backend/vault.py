@@ -25,6 +25,13 @@ Spelled out, since nothing here promises anything about mobi or cbz. The order s
 note with both beside it: the epub, which reflows, wins.
 """
 
+_TEXT = (
+    rb"(?:[\t\n\r\x20-\x7e]|[\xc2-\xdf][\x80-\xbf]|\xe0[\xa0-\xbf][\x80-\xbf]"
+    rb"|[\xe1-\xec\xee\xef][\x80-\xbf]{2}|\xed[\x80-\x9f][\x80-\xbf]"
+    rb"|\xf0[\x90-\xbf][\x80-\xbf]{2}|[\xf1-\xf3][\x80-\xbf]{3}|\xf4[\x80-\x8f][\x80-\xbf]{2})"
+)
+"""One UTF-8 character that is text: printable, a tab or a line end."""
+
 ASSET_MAGIC: dict[str, re.Pattern[bytes]] = {
     ".epub": re.compile(rb"PK\x03\x04"),
     ".pdf": re.compile(rb"%PDF-"),
@@ -43,6 +50,12 @@ ASSET_MAGIC: dict[str, re.Pattern[bytes]] = {
         rb"(?:\xef\xbb\xbf)?(?:\s|<\?xml(?:[^?]|\?(?!>))*\?>|<!--(?:[^-]|-(?!->))*-->"
         rb"|(?i:<!doctype)(?:[^>\[]|\[[^\]]*\])*>)*<svg[\s/>]"
     ),
+    # No magic bytes either: UTF-8 text with no control byte but tab, CR and LF, behind an
+    # optional BOM, whose first line holds a separator. Each byte starts one branch only.
+    ".csv": re.compile(
+        rb"(?:\xef\xbb\xbf)?(?:(?![,;\t\r\n])" + _TEXT + rb")*[,;\t](?:" + _TEXT + rb")*"
+        rb"(?:[\xc2-\xf4][\x80-\xbf]{0,2})?\Z"
+    ),
 }
 """What the vault takes beside its notes, and what the head of each one matches.
 
@@ -54,15 +67,21 @@ The patterns are a usability check, never a security one.
 HEAD_BYTES = 1024
 """How much of a file's head `fits` reads, which is the furthest any pattern reaches.
 
-The svg row reaches furthest, past its prolog and comments. An svg whose root starts later
-is refused. Typed, not derived: a row reaching further has to widen this by hand.
+The svg row reaches past its prolog and comments, and an svg whose root starts later is
+refused. The csv row reads all of it, so a control byte past it goes unseen. Typed, not
+derived: a row reaching further has to widen this by hand.
 """
 
 AUDIO_SUFFIXES = (".m4a", ".mp3", ".ogg", ".wav")
 """What a sound's name ends in: an asset the editor draws as a player."""
 
-IMAGE_SUFFIXES = tuple(sorted(set(ASSET_MAGIC) - set(BOOK_SUFFIXES) - set(AUDIO_SUFFIXES)))
-"""The suffixes `list_images` walks for: every asset but the books and sounds.
+TABLE_SUFFIX = ".csv"
+"""What a table's name ends in: an asset the editor draws as a table, never as a picture."""
+
+IMAGE_SUFFIXES = tuple(
+    sorted(set(ASSET_MAGIC) - set(BOOK_SUFFIXES) - set(AUDIO_SUFFIXES) - {TABLE_SUFFIX})
+)
+"""The suffixes `list_images` walks for: every asset but the books, sounds and tables.
 
 A book left in this set would be a row in the file tree and a `![](` completion. A sound
 is left out so that `![](` completes pictures only.

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { showCsv } from "@/lib/notes/embeds/csv";
 import { encodePath } from "@/lib/notes/links/note-path";
 import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
 import { useLeader } from "@/lib/ui/keys/use-leader";
@@ -91,6 +92,24 @@ export function gesture(
   );
 }
 
+/** A csv drawn as a table that scrolls both ways, which a phone needs where the picture's box holds still. */
+function Table({ path }: { path: string }) {
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const element = box.current;
+    if (element === null) return;
+    const name = path.slice(path.lastIndexOf("/") + 1);
+    return showCsv(element, `/api/assets/${encodePath(path)}`, name, () => {});
+  }, [path]);
+  return (
+    <div
+      ref={box}
+      data-csv-table
+      className="cm-table-block flex min-h-0 flex-1 flex-col overflow-hidden p-4 text-[13px]"
+    />
+  );
+}
+
 /**
  * One image out of the vault, shown whole. No editing and no next image, because
  * the tree walks the folder. A pinch zooms and a drag moves it, since a phone has
@@ -118,6 +137,8 @@ export function ImagePane({ path, commands, focusSignal, onDelete }: ImagePanePr
   const zoom = zoomed.path === path ? zoomed.zoom : FITTED;
   /** Where each pointer that is down was last seen. A ref: nothing draws it. */
   const pointers = useRef(new Map<number, Point>());
+  // A csv rides in this pane, as a file of the vault's that no note owns.
+  const table = path.toLowerCase().endsWith(".csv");
 
   // A freshly focused pane is handed a raised signal and takes the cursor, the
   // way the exam pane and the todo pane do. It has to: the pane holds no
@@ -190,11 +211,11 @@ export function ImagePane({ path, commands, focusSignal, onDelete }: ImagePanePr
       // cursor.
       tabIndex={-1}
       onKeyDown={onKeyDown}
-      aria-label="image"
+      aria-label={table ? "table" : "image"}
       className="flex h-full flex-col bg-k-bg font-mono outline-none"
     >
       <header className="flex items-center gap-3 border-b border-k-rule px-3 py-1">
-        <span className={LABEL}>image</span>
+        <span className={LABEL}>{table ? "table" : "image"}</span>
         <span className="min-w-0 flex-1 truncate text-[13px] text-k-ink" title={path}>
           {path}
         </span>
@@ -216,38 +237,42 @@ export function ImagePane({ path, commands, focusSignal, onDelete }: ImagePanePr
         </button>
       </header>
 
-      <div
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerEnd}
-        onPointerCancel={onPointerEnd}
-        // `touch-none`, or the browser takes the fingers for a scroll and a page
-        // zoom and cancels the pointers. Hidden and not scrolling: a transform
-        // counts as overflow, and a zoomed picture would grow scrollbars.
-        className="flex min-h-0 flex-1 touch-none items-center justify-center overflow-hidden p-4"
-      >
-        {failed === path ? (
-          <p role="alert" className="text-[13px] text-k-muted">
-            No image at <span className="text-k-ink">{path}</span>
-          </p>
-        ) : (
-          <img
-            // Percent-encoded on the way out, the paths in the vault carrying
-            // spaces, `#` and `?` and the listing handing them over raw.
-            src={`/api/assets/${encodePath(path)}`}
-            // The filename, which is the most an alt can honestly say about an
-            // image nothing in the vault has described.
-            alt={path.slice(path.lastIndexOf("/") + 1)}
-            onError={() => setFailed(path)}
-            // A mouse drag would otherwise pick the picture up as a file.
-            draggable={false}
-            style={{
-              transform: `translate(${zoom.x}px, ${zoom.y}px) scale(${zoom.scale})`,
-            }}
-            className="max-h-full max-w-full object-contain"
-          />
-        )}
-      </div>
+      {table ? (
+        <Table path={path} />
+      ) : (
+        <div
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerEnd}
+          onPointerCancel={onPointerEnd}
+          // `touch-none`, or the browser takes the fingers for a scroll and a page
+          // zoom and cancels the pointers. Hidden and not scrolling: a transform
+          // counts as overflow, and a zoomed picture would grow scrollbars.
+          className="flex min-h-0 flex-1 touch-none items-center justify-center overflow-hidden p-4"
+        >
+          {failed === path ? (
+            <p role="alert" className="text-[13px] text-k-muted">
+              No image at <span className="text-k-ink">{path}</span>
+            </p>
+          ) : (
+            <img
+              // Percent-encoded on the way out, the paths in the vault carrying
+              // spaces, `#` and `?` and the listing handing them over raw.
+              src={`/api/assets/${encodePath(path)}`}
+              // The filename, which is the most an alt can honestly say about an
+              // image nothing in the vault has described.
+              alt={path.slice(path.lastIndexOf("/") + 1)}
+              onError={() => setFailed(path)}
+              // A mouse drag would otherwise pick the picture up as a file.
+              draggable={false}
+              style={{
+                transform: `translate(${zoom.x}px, ${zoom.y}px) scale(${zoom.scale})`,
+              }}
+              className="max-h-full max-w-full object-contain"
+            />
+          )}
+        </div>
+      )}
     </section>
   );
 }
