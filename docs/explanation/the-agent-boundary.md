@@ -130,8 +130,8 @@ never replace.
 
 An HTML page is the one exception (#975). An edition or a report an agent
 rebuilds the same day has to land over the first, so a second write to the same
-`.html` path replaces the page. A bad token can therefore rewrite a page, and
-never a note, a book or an image: the replace answers to the `.html` suffix
+`.html` path replaces the page. The upload can therefore rewrite a page, and
+never a note or any other file: the replace answers to the `.html` suffix
 alone. jj tracks pages, so the old page stays in the vault's history. The page
 it writes runs under the sandbox every vault page runs under, in an origin of
 its own, so its script reads nothing of kasten's.
