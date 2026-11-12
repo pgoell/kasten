@@ -235,6 +235,16 @@ describe("#1929 a card with the plugin's !fsrs comment is left alone until FSRS 
     ["a ? card under SM-2 then !fsrs", `q\n?\na::b\n${S}\n${F}`, [N]],
     ["a ? card under !fsrs then SM-2", `q\n?\na::b\n${F}\n${S}`, [N]],
     ["a parked ? card under !fsrs", `q\n?\na\n!suspended ${F}`, [N]],
+    [
+      "a ? card under SM-2 over a one-line !fsrs card",
+      `q\n?\na\n${S}\nx::y ${F}`,
+      [["q", "2026-08-20"], N],
+    ],
+    [
+      "a parked ? card under SM-2 over a one-line !fsrs card",
+      `q\n?\na\n!suspended ${S}\nx::y ${F}`,
+      [["q", "2026-08-20"], N],
+    ],
     // The fence runs to the end, so it takes the card under it too.
     ["a ? card under !fsrs in an unclosed fence", `q\n?\na\n\`\`\`\n${F}`, []],
     ["a cloze with c1!fsrs", `{{c1::a}} {{c2::b}} ${CF}`, [N]],
@@ -264,6 +274,12 @@ describe("#1929 a card with the plugin's !fsrs comment is left alone until FSRS 
     ["a ? card under !fsrs", `q\n?\na\n${F}`, at(4, false), null],
     ["a ? card under SM-2 then !fsrs", `q\n?\na\n${S}\n${F}`, at(5, false), null],
     ["a ? card under !fsrs then SM-2", `q\n?\na\n${F}\n${S}`, at(4, false), null],
+    [
+      "a ? card under SM-2 over a one-line !fsrs card",
+      `q\n?\na\n${S}\nx::y ${F}`,
+      at(5, false),
+      `q\n?\na\n${W}\nx::y ${F}`,
+    ],
     ["a cloze with c1!fsrs, rating c2", `{{c1::a}} {{c2::b}} ${CF}`, at(2, true, 2), null],
     ["a ? cloze under c1!fsrs", `{{c1::a}}\n?\nextra\n${CF}`, at(4, false, 1), null],
   ])("#1929 the writer on %s", (_, body, card, written) => {

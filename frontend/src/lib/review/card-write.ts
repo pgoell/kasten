@@ -2,6 +2,7 @@ import {
   CLOZE_SR,
   clozeComment,
   FSRS,
+  FSRS_LINE,
   parks,
   SR,
   SUSPEND_TOKEN,
@@ -18,7 +19,9 @@ function comment(next: Schedule, cloze: number | null = null): string {
 
 /** Whether the plugin schedules this card by FSRS, which is left alone until #1926 reads it (#1929). */
 function byFsrs(lines: string[], card: Card): boolean {
-  return FSRS.test(lines[card.to] ?? "") || (!card.inline && FSRS.test(lines[card.to + 1] ?? ""));
+  return (
+    FSRS.test(lines[card.to] ?? "") || (!card.inline && FSRS_LINE.test(lines[card.to + 1] ?? ""))
+  );
 }
 
 /**

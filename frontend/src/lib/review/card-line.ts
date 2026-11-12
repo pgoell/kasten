@@ -87,6 +87,9 @@ export const CLOZE_SR = /<!--SR:c(\d+)!(\d{4}-\d{2}-\d{2}),(\d+),(\d+)-->/;
  */
 export const FSRS = /<!--SR:(?:c\d+)?!fsrs,/;
 
+/** A line that is that comment alone, so a card's line under a schedule is no part of it. */
+export const FSRS_LINE = /^\s*<!--SR:(?:c\d+)?!fsrs,[^>]*-->\s*$/;
+
 /**
  * The Anki note and template an import wrote at a card's last line, with a hash of
  * the lines it wrote. Whole, so an answer that only mentions the comment keeps it.

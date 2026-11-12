@@ -13,6 +13,7 @@ import {
   type Divided,
   divide,
   FSRS,
+  FSRS_LINE,
   holdsCloze,
   parks,
   SR,
@@ -255,7 +256,7 @@ function backOf(
   const held = parks(under);
   const takes = schedule !== null || held || (cloze && CLOZE_SR.test(under));
   // Under the back, or under the SM-2 line a rating before #1929 put between them.
-  const fsrs = FSRS.test(under) || (takes && FSRS.test(lines[to + 2] ?? ""));
+  const fsrs = FSRS.test(under) || (takes && FSRS_LINE.test(lines[to + 2] ?? ""));
   if (takes || fsrs) to++;
   return { to, back, schedule, held, fsrs };
 }
