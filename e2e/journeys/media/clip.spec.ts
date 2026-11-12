@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Locator, Page } from "@playwright/test";
 import { openApp, phone, vaultWith } from "../../harness/app.ts";
@@ -128,4 +128,68 @@ test.describe("on a phone", () => {
     await page.locator(".cm-wikilink", { hasText: "walk.mp4" }).tap();
     await playAndSeek(page.locator("[data-clip] video"));
   });
+
+  test("run, then the pick row, opens the picker on that tap and lands the file at the cursor", async ({
+    page,
+    stack,
+  }) => {
+    await seeded(stack.vault);
+    await openClips(page);
+    // The emulated tap moves the page's selection and not CodeMirror's; the click puts the cursor there.
+    await page.getByText("The walk:").tap();
+    await page.getByText("The walk:").click();
+    await page.getByRole("button", { name: "Run a command by name" }).tap();
+    await page.keyboard.type("pick");
+    const row = page.getByRole("option", { name: ROW });
+    await expect(row).toBeVisible();
+    await shoot(page, "pick-phone");
+
+    // Fires only for a picker the browser would really show, so it proves the tap's activation.
+    const chooser = page.waitForEvent("filechooser");
+    await row.tap();
+    const picker = await chooser;
+    expect(picker.isMultiple()).toBe(true);
+    await picker.setFiles(join(import.meta.dirname, "clips", "swim.webm"));
+
+    await landed(stack.vault, "The walk:![[swim 1.webm]]");
+  });
+});
+
+const ROW = "Pick an image or video file into this note";
+
+/** One picture in light and one in dark. */
+async function shoot(page: Page, name: string): Promise<void> {
+  for (const colorScheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme });
+    await page.screenshot({ path: test.info().outputPath(`${name}-${colorScheme}.png`) });
+  }
+}
+
+/** The vault holds a clip named `swim.webm`, so the picked one goes in beside it, numbered. */
+async function landed(vault: string, line: string): Promise<void> {
+  await expect
+    .poll(() => readFile(join(vault, "01 Notes/Clips.md"), "utf8"), { timeout: 10_000 })
+    .toContain(line);
+  await access(join(vault, "99 Misc/02 Assets/01 Images/swim 1.webm"));
+}
+
+test("<leader>: and Enter on the pick row open the picker once the key is up", async ({
+  page,
+  stack,
+}) => {
+  await seeded(stack.vault);
+  // A mouse and keys in a window as narrow as the phone's.
+  await page.setViewportSize({ width: 414, height: 896 });
+  await openClips(page);
+  await page.getByText("The walk:").click();
+  await page.keyboard.press("Escape");
+  await page.keyboard.type(" :pick");
+  await expect(page.getByRole("option", { name: ROW })).toBeVisible();
+  await shoot(page, "pick-desktop");
+
+  const chooser = page.waitForEvent("filechooser");
+  await page.keyboard.press("Enter");
+  await (await chooser).setFiles(join(import.meta.dirname, "clips", "swim.webm"));
+
+  await landed(stack.vault, "The walk:![[swim 1.webm]]");
 });
