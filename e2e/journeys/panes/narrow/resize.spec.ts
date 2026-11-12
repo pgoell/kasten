@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { leader, openApp, openNote, panes } from "../../../harness/app.ts";
+import { leader, openApp, openNote, PANE, panes, readAll } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
 import { saved } from "../workspace/stored.ts";
 
@@ -9,7 +9,7 @@ const NARROW = { width: 700, height: 800 };
 
 /** The style of each pane on screen that places it: `top` when stacked, `left` side by side. */
 const placed = (page: Page, side: "top" | "left") =>
-  panes(page).evaluateAll((all, key) => all.map((pane) => pane.style[key]), side);
+  readAll(page, PANE, (all, key) => all.map((pane) => pane.style[key]), side);
 
 test.describe("a live window narrowed and widened again", () => {
   test("the open tree shuts under the narrow window and comes back as the wide one left it, open in the store throughout", async ({

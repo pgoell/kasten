@@ -1,7 +1,7 @@
 import { copyFile, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Page } from "@playwright/test";
-import { phone } from "../../harness/app.ts";
+import { phone, readAll } from "../../harness/app.ts";
 import { root } from "../../harness/paths.ts";
 import { answer, bar, type Hit, hit, openSearch } from "../../harness/search.ts";
 import { expect, test } from "../../harness/stack.ts";
@@ -95,8 +95,8 @@ test("the lines are ranked against the query rather than kept in the order the v
   await page.keyboard.type("runs");
   await expect
     .poll(async () =>
-      (await page.getByRole("group").evaluateAll((all) => all.map((g) => g.ariaLabel))).filter(
-        (name) => name?.endsWith(".md"),
+      (await readAll(page, '[role="group"]', (all) => all.map((g) => g.ariaLabel))).filter((name) =>
+        name?.endsWith(".md"),
       ),
     )
     .toEqual(["b.md", "a.md"]);

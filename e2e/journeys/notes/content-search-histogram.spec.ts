@@ -1,6 +1,6 @@
 import type { Locator, Page } from "@playwright/test";
-import { phone } from "../../harness/app.ts";
-import { answer, bar, bars, type Hit, hit, openSearch } from "../../harness/search.ts";
+import { phone, readAll } from "../../harness/app.ts";
+import { answer, bar, BARS, bars, type Hit, hit, openSearch } from "../../harness/search.ts";
 import { expect, test } from "../../harness/stack.ts";
 
 // The bars read dates against the browser's now, so each case fixes it: Friday
@@ -18,7 +18,7 @@ const fill = (week: Locator) => week.locator('[aria-hidden="true"]');
 const colour = (at: Locator) => at.evaluate((el) => getComputedStyle(el).backgroundColor);
 const height = (at: Locator) => at.evaluate((el) => el.style.height);
 const names = (page: Page) =>
-  bars(page).evaluateAll((all) => all.map((at) => at.getAttribute("aria-label")));
+  readAll(page, BARS, (all) => all.map((at) => at.getAttribute("aria-label")));
 const weeks = (count = (_: number) => 0) =>
   Array.from({ length: 14 }, (_, at) => {
     const lines = count(30 + at);

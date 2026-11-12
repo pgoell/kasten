@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { leader, noteText, panes, phone } from "../../../harness/app.ts";
+import { leader, noteText, PANE, panes, phone, readAll } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
 import { COARSE, stored } from "../workspace/stored.ts";
 
@@ -43,10 +43,10 @@ test.describe("the tree's drawer in a narrow window under a mouse", () => {
       .poll(async () => [
         await tree(page).isVisible(),
         await inert(page),
-        await panes(page).evaluateAll((all) =>
+        await readAll(page, PANE, (all) =>
           all.findIndex((pane) => pane.contains(document.activeElement)),
         ),
-        await panes(page).evaluateAll((all) =>
+        await readAll(page, PANE, (all) =>
           all.findIndex((pane) =>
             pane.querySelector("[data-focus-line]")?.classList.contains("bg-k-accent"),
           ),

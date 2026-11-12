@@ -49,6 +49,8 @@ export async function openSearch(page: Page) {
 
 /** The histogram's fourteen bars, oldest first: the last is this week. */
 export const bars = (page: Page) => page.getByRole("button", { name: /^Week \d+,/ });
+/** The bars as `readAll` finds them. */
+export const BARS = 'button[aria-label^="Week "]';
 
 /** The bar of ISO week `week`, by its name. */
 export const bar = (page: Page, week: number) =>

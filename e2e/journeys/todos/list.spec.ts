@@ -6,6 +6,7 @@ import {
   noteText,
   openApp,
   phone,
+  readAll,
   TODO_ROW,
   todoRows,
 } from "../../harness/app.ts";
@@ -67,6 +68,45 @@ test("checking off three todos in a row keeps the rows in their order, then they
   // the cursor lands on the first row under it that stays.
   await expect.poll(named).toEqual(HOME_TODOS.slice(3));
   await expect(page.locator(`${TODO_ROW}[tabindex="0"]`)).toContainText(HOME_TODOS[3] ?? "");
+});
+
+test("a list read in one step holds one render, where a read in two steps mixes two (#1937)", async ({
+  page,
+  stack,
+}) => {
+  const WORDS = ["alpha", "bravo", "charlie"];
+  // Every line moves down one, so row Home.md:3 goes and :4 and :5 stay, holding new text.
+  const lines = (from: number) =>
+    WORDS.map((word, at) => ({ path: HOME, line: from + at, text: `- [ ] ${word}` }));
+  let answer = lines(3);
+  let release = () => {};
+  const gate = new Promise<void>((open) => {
+    release = open;
+  });
+  await page.route("**/api/todos?**", async (route) => {
+    const held = answer;
+    if (held[0]?.line === 4) await gate;
+    await route.fulfill({ json: held });
+  });
+  await openApp(page);
+  await leader(page, "gt");
+  const rows = page.locator(TODO_ROW);
+  const named = (texts: (string | null)[]) =>
+    texts.map((text) => WORDS.find((word) => text?.includes(word)));
+  const oneStep = async () =>
+    named(await readAll(page, TODO_ROW, (all) => all.map((row) => row.textContent)));
+  await expect.poll(oneStep).toEqual(WORDS);
+
+  answer = lines(4);
+  await writeFile(join(stack.vault, "Elsewhere.md"), "a write the vault's events carry\n");
+  // The first trip of a two-step read: the nodes, found before the answer lands.
+  const handles = await rows.elementHandles();
+  release();
+  await expect(page.locator(`${TODO_ROW}[data-row$=".md:6"]`)).toHaveCount(1);
+  // Its second trip, after React committed: a detached row beside the rows it kept.
+  const twoStep = named(await Promise.all(handles.map((handle) => handle.textContent())));
+  expect(twoStep).toEqual(["alpha", "alpha", "bravo"]);
+  expect(await oneStep()).toEqual(WORDS);
 });
 
 test("marking a recurring todo done writes its next copy above it", async ({ page, stack }) => {
