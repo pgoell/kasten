@@ -310,6 +310,10 @@ describe("#1939 a schedule comment inside a front ends no question", () => {
     const text = "#flashcards/x\n\nq1\n?\na1 <!--SR:!2026-08-20,4,270-->\nq2\n?\na2\n";
     expect(parseCards(text).map((card) => [card.from, card.front])).toEqual([[5, "q2"]]);
   });
+  it("#1939 a schedule inside a fence still ends the front, text after it or not (#680)", () => {
+    const text = "#flashcards/x\n\n```\nx <!--SR:!2026-08-20,4,270--> y\nz\n```\n?\nyes\n";
+    expect(only(text)).toMatchObject({ from: 4, front: "z\n```" });
+  });
 });
 
 describe("#1931 a card line of comment openers parses in time that grows with its length", () => {
