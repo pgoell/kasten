@@ -84,6 +84,41 @@ test("Space f b and Enter write the edited note, then open the book alone in its
   await expect.poll(() => noteText(stack.vault, "Welcome.md")).toContain(", edited");
 });
 
+test("the book's header and footer read where the reader is, and The book's note opens the note beside", async ({
+  page,
+  stack,
+}) => {
+  await openOnShelf(page, stack.vault);
+  await pickBook(page);
+  const pane = page.locator("[data-book-pane]");
+  await expect(header(page)).toContainText("Two", { timeout: 15_000 });
+
+  // In one read, so a relocate cannot land between the header and the footer.
+  const read = await pane.evaluate((root) => {
+    const title = root.querySelector('header [title="04 Books/Contents.md"]') as HTMLElement;
+    const badge = root.querySelector("header span") as HTMLElement;
+    return {
+      header: root.querySelector("header")?.textContent,
+      footer: root.querySelector("footer")?.textContent,
+      mono: getComputedStyle(title).fontFamily !== getComputedStyle(badge).fontFamily,
+      monoFirst: getComputedStyle(title).fontFamily.split(",")[0],
+    };
+  });
+  const [, percent] = read.header?.match(/^BOOKContentsTwo(\d+)%The book's note$/) ?? [];
+  expect(percent, `header read ${read.header}`).toBeDefined();
+  expect(read.footer).toBe(`Two${percent}% of the book`);
+  // The title wears the theme's mono face, not the sans of the BOOK badge beside it.
+  expect(read.mono, `title font ${read.monoFirst}`).toBe(true);
+  expect(read.monoFirst).toMatch(/mono/i);
+
+  await pane.getByRole("button", { name: "The book's note" }).click();
+  const note = page.locator(".cm-editor", { hasText: "A book" });
+  await expect(note).toBeVisible();
+  await expect(pane).toBeVisible();
+  const [bookBox, noteBox] = await Promise.all([pane.boundingBox(), note.boundingBox()]);
+  expect(noteBox?.x ?? 0).toBeGreaterThanOrEqual((bookBox?.x ?? 0) + (bookBox?.width ?? 0) - 1);
+});
+
 test("a failed write keeps the edited note in its pane with the focus, and opens no book", async ({
   page,
   stack,
