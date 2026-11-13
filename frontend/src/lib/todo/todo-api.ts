@@ -64,7 +64,13 @@ async function dailyNote(
  * Send each write, one note at a time. `read` is the text each write was worked out
  * from; a note that moved since is refused with `ChangedOnDisk`, never written over.
  */
-async function send(writes: Write[], paths: string[], read: Record<string, string>): Promise<void> {
+/** Sends each write; answers how many lines each saved note gained on top, a stamped frontmatter block. */
+async function send(
+  writes: Write[],
+  paths: string[],
+  read: Record<string, string>,
+): Promise<Map<string, number>> {
+  const gained = new Map<string, number>();
   for (const write of writes) {
     // A path the vault does not hold is only ever today's daily note, which a
     // create makes along with the folders on the way to it.
@@ -76,12 +82,16 @@ async function send(writes: Write[], paths: string[], read: Record<string, strin
     if (text === undefined) throw new Error(`no read of ${write.path} to name as its base`);
     const saved = await saveNote(write.path, write.text, false, noteBase(text));
     // An answer with no content (a double in the tests) gained nothing.
-    stamped.set(write.path, lineCount(saved?.content ?? write.text) - lineCount(write.text));
+    gained.set(write.path, lineCount(saved?.content ?? write.text) - lineCount(write.text));
   }
+  return gained;
 }
 
-/** Lines the last save of each note gained on top, a frontmatter block stamped on a note that had none. */
-const stamped = new Map<string, number>();
+/**
+ * Per note, the row a press stamped a frontmatter block over and how far that moved it. Kept
+ * for that row's line alone: a row listed after the stamp reads its line as it is now.
+ */
+const stamped = new Map<string, { line: number; shift: number }>();
 
 const lineCount = (text: string) => text.split("\n").length;
 
@@ -298,8 +308,8 @@ function madePlain(text: string, hit: SearchHit): number | null {
   };
   if (plain(hit.line)) return hit.line;
   // Or as far down as the press's own save moved it, and nowhere else: prose is never taken.
-  const moved = hit.line + (stamped.get(hit.path) ?? 0);
-  return moved !== hit.line && plain(moved) ? moved : null;
+  const stamp = stamped.get(hit.path);
+  return stamp?.line === hit.line && plain(hit.line + stamp.shift) ? hit.line + stamp.shift : null;
 }
 
 /** Where a press lands, and the todo there: null for a line made plain words, nothing for any other plain line. */
@@ -420,7 +430,13 @@ async function cycleInVault(
     state,
   });
 
-  await send(writes, daily.listed, { ...logged, [hit.path]: text, [daily.path]: daily.text });
+  const gained = await send(writes, daily.listed, {
+    ...logged,
+    [hit.path]: text,
+    [daily.path]: daily.text,
+  });
+  const shift = gained.get(hit.path) ?? 0;
+  if (shift > 0) stamped.set(hit.path, { line: hit.line, shift });
 
   // After the send, so the dependents in this note are read as the write above
   // left them. No note is skipped: this half can see every blocker, where the

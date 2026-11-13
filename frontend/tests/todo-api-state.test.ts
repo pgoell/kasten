@@ -78,6 +78,50 @@ describe("cycleTodoInVault", () => {
     );
   });
 
+  it("keeps a stamp's shift for the row it moved, through another press's save in the note (#2001)", async () => {
+    const before = "# Spec\n- [x] read the spec ✅ 2026-08-10\n- [ ] buy milk\n";
+    const stampedText = "---\nid: a\n---\n# Spec\nread the spec\n- [ ] buy milk\n";
+    const milked = "---\nid: a\n---\n# Spec\nread the spec\n- [/] buy milk\n";
+    fetchNote
+      .mockResolvedValueOnce(before)
+      .mockResolvedValueOnce(stampedText)
+      .mockResolvedValue(milked);
+    saveNote.mockResolvedValueOnce({ path: "spec.md", content: stampedText });
+    saveNote.mockResolvedValueOnce({ path: "spec.md", content: milked });
+    fetchTodos.mockResolvedValue([]);
+    const held = { path: "spec.md", line: 2, text: "- [x] read the spec ✅ 2026-08-10" };
+
+    await cycleTodoInVault(held, "2026-08-10", ["spec.md"]);
+    await cycleTodoInVault({ path: "spec.md", line: 6, text: "- [ ] buy milk" }, "2026-08-10", [
+      "spec.md",
+    ]);
+    await cycleTodoInVault(held, "2026-08-10", ["spec.md"]);
+
+    expect(saveNote.mock.calls.at(-1)?.[1]).toBe(
+      "---\nid: a\n---\n# Spec\n- [ ] read the spec ➕ 2026-08-10\n- [/] buy milk\n",
+    );
+  });
+
+  it("gives a stamp's shift to no row but the one it moved (#2001)", async () => {
+    const before = "# Spec\n- [x] read the spec ✅ 2026-08-10\n";
+    const after = "---\nid: a\n---\n# Spec\nread the spec\nother\n\n\nwrite\n";
+    fetchNote.mockResolvedValueOnce(before).mockResolvedValue(after);
+    saveNote.mockResolvedValueOnce({ path: "spec.md", content: after });
+    fetchTodos.mockResolvedValue([]);
+    await cycleTodoInVault(
+      { path: "spec.md", line: 2, text: before.split("\n")[1] ?? "" },
+      "2026-08-10",
+      ["spec.md"],
+    );
+
+    // Listed after the stamp on line 6, its todo since gone; prose three lines down stays prose.
+    const later = { path: "spec.md", line: 6, text: "- [x] write ✅ 2026-08-10" };
+    await expect(cycleTodoInVault(later, "2026-08-10", ["spec.md"])).rejects.toThrow(
+      "that line has changed since it was listed",
+    );
+    expect(saveNote).toHaveBeenCalledTimes(1);
+  });
+
   it("leaves prose below a stale row alone in a note whose block was there before (#2001)", async () => {
     fetchNote.mockResolvedValue("---\nid: a\n---\n# Spec\nsomething else\n\nread the spec\n");
     fetchTodos.mockResolvedValue([]);
