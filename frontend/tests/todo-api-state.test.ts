@@ -122,6 +122,27 @@ describe("cycleTodoInVault", () => {
     expect(saveNote).toHaveBeenCalledTimes(1);
   });
 
+  it("gives a stamp's shift to no later row that lands on the stamped row's line (#2001)", async () => {
+    const before = "# Spec\n- [x] read the spec ✅ 2026-08-10\n";
+    const after = "---\nid: a\n---\n# Spec\nread the spec\n";
+    // Then that plain line was reworded outside kasten to the words of another todo.
+    fetchNote.mockResolvedValueOnce(before).mockResolvedValue("---\nid: a\n---\n# Spec\nwrite\n");
+    saveNote.mockResolvedValueOnce({ path: "spec.md", content: after });
+    fetchTodos.mockResolvedValue([]);
+    await cycleTodoInVault(
+      { path: "spec.md", line: 2, text: "- [x] read the spec ✅ 2026-08-10" },
+      "2026-08-10",
+      ["spec.md"],
+    );
+
+    // Another todo, listed on line 2 too and since gone; the prose three lines down stays prose.
+    const later = { path: "spec.md", line: 2, text: "- [x] write ✅ 2026-08-10" };
+    await expect(cycleTodoInVault(later, "2026-08-10", ["spec.md"])).rejects.toThrow(
+      "that line has changed since it was listed",
+    );
+    expect(saveNote).toHaveBeenCalledTimes(1);
+  });
+
   it("leaves prose below a stale row alone in a note whose block was there before (#2001)", async () => {
     fetchNote.mockResolvedValue("---\nid: a\n---\n# Spec\nsomething else\n\nread the spec\n");
     fetchTodos.mockResolvedValue([]);
