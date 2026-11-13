@@ -1,8 +1,8 @@
 /**
  * A failed mermaid load is tried again by the next diagram (#647).
  *
- * The package is mocked, as in `live-preview-mermaid.test.tsx`; the drawing
- * itself is in `tests/frame/mermaid.test.tsx`.
+ * The package is mocked, so this reads the loads, not the drawing; the drawing
+ * is in `tests/frame/mermaid.test.tsx`.
  */
 
 import { EditorState } from "@codemirror/state";
