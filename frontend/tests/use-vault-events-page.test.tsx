@@ -15,13 +15,18 @@ import { useVaultEvents } from "@/lib/vault/events/use-vault-events";
 import type { VaultEvent } from "@/lib/vault/events/vault-events";
 
 // Every call the hook makes lands in one log, so a case reads as the order it happened in.
-const { log, echo } = vi.hoisted(() => ({ log: [] as string[], echo: { value: false } }));
+const { log, echo, pressing } = vi.hoisted(() => ({
+  log: [] as string[],
+  echo: { value: false },
+  pressing: { value: false },
+}));
 vi.mock("@/lib/log/log-card", () => ({ reloadLogConfig: () => log.push("reloadLogConfig") }));
 vi.mock("@/lib/todo/todo-press-echo", () => ({
   pressEcho: async () => {
     log.push("pressEcho");
     return echo.value;
   },
+  pressRunning: () => pressing.value,
 }));
 
 class FakeStream {
@@ -108,7 +113,7 @@ const written = (path: string): VaultEvent => ({ path, change: "written", digest
 const removed = (path: string): VaultEvent => ({ path, change: "removed", digest: null });
 
 /** The calls one event makes, each invalidation by its key, in order. */
-async function heard(event: () => VaultEvent, focus: Focus = {}, echoed = false) {
+async function heard(event: () => VaultEvent, focus: Focus = {}, echoed = false, press = false) {
   const client = new QueryClient();
   client.setQueryData(["files"], ["a.md", DAILY]);
   render(
@@ -117,6 +122,7 @@ async function heard(event: () => VaultEvent, focus: Focus = {}, echoed = false)
     </QueryClientProvider>,
   );
   echo.value = echoed;
+  pressing.value = press;
   log.length = 0;
   vi.spyOn(client, "invalidateQueries").mockImplementation(async (filters) => {
     log.push((filters?.queryKey ?? []).join(":"));
@@ -296,5 +302,36 @@ describe("the calls each vault event makes, in order", () => {
     ],
   ] as const)("%s", async (_name, event, focus, echoed, calls) => {
     expect(await heard(event, focus, echoed)).toEqual(calls);
+  });
+});
+
+describe("while a press runs, no event asks for the todos: the press's end does (#1998)", () => {
+  it.each([
+    [
+      "a folder index the press's new daily note made",
+      () => written("01 Periodic/00 Daily/index.md"),
+      [
+        "note:01 Periodic/00 Daily/index.md",
+        "pressEcho",
+        "graph",
+        "tags",
+        "library",
+        "written-notes",
+        "files",
+      ],
+    ],
+    [
+      "another writer's note",
+      () => written("a.md"),
+      ["note:a.md", "pressEcho", "graph", "tags", "library", "written-notes"],
+    ],
+    ["a removed note", () => removed("a.md"), ["tags", "library", "written-notes", "files"]],
+    [
+      "the listing of the folders it made",
+      () => ({ path: "", change: "listing", digest: null }) as VaultEvent,
+      ["images", "html", "assets", "tags", "library", "files"],
+    ],
+  ] as const)("%s", async (_name, event, calls) => {
+    expect(await heard(event, {}, false, true)).toEqual(calls);
   });
 });

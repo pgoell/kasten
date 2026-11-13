@@ -24,6 +24,11 @@ export function beginPress(): void {
   running += 1;
 }
 
+/** Whether a press runs now: its end asks for the todo list, so nothing else need (#1998). */
+export function pressRunning(): boolean {
+  return running > 0;
+}
+
 /** A press has settled. Once none is running, what it wrote is an echo for a while. */
 export function endPress(): void {
   running -= 1;

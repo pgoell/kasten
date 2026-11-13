@@ -6,7 +6,6 @@ import {
   openApp,
   TODO_ROW,
   today,
-  vaultWith,
 } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 
@@ -90,13 +89,26 @@ async function hearEvents(page: Page): Promise<() => Promise<string[]>> {
   return () => page.evaluate(() => (window as unknown as { heard: string[] }).heard);
 }
 
-
 /**
- * Today's daily note, there already, so a press's log line only writes it: a note made brings
- * folder index writes, whose events are no press's own and read the list (#1998).
+ * From here on, whether the row of `words` was ever drawn without its `state` box: a list
+ * read that lands mid-press draws it back, however soon the next one puts it right.
  */
-const seedDaily = (vault: string) =>
-  vaultWith(vault, { [`01 Periodic/00 Daily/${today()}.md`]: "# Today\n" });
+async function watchLost(page: Page, words: string, state: string): Promise<() => Promise<boolean>> {
+  await page.evaluate(
+    ({ words, state, row }) => {
+      const flag = window as unknown as { lost: boolean };
+      flag.lost = false;
+      new MutationObserver(() => {
+        const drawn = [...document.querySelectorAll(row)].find((each) =>
+          each.textContent?.includes(words),
+        );
+        if (drawn && !drawn.querySelector(`[role="img"][aria-label="${state}"]`)) flag.lost = true;
+      }).observe(document.body, { subtree: true, childList: true, attributes: true });
+    },
+    { words, state, row: TODO_ROW },
+  );
+  return () => page.evaluate(() => (window as unknown as { lost: boolean }).lost);
+}
 
 const stateOf = (page: Page, words: string, state: string) =>
   page.locator(TODO_ROW, { hasText: words }).getByRole("img", { name: state });
@@ -130,7 +142,6 @@ test("of two presses, the list is read once the last lands, not when the first d
   page,
   stack,
 }) => {
-  await seedDaily(stack.vault);
   const garden = await holdSaves(page, GARDEN);
   const home = await holdSaves(page, HOME);
   const reads = await markListReads(page);
@@ -160,7 +171,6 @@ test("a press of t that lands while a press of x waits leaves the list unread un
   page,
   stack,
 }) => {
-  await seedDaily(stack.vault);
   const garden = await holdSaves(page, GARDEN);
   const reads = await markListReads(page);
   const read = page.locator(TODO_ROW, { hasText: READ });
@@ -183,7 +193,6 @@ test("a press's own event that beats its save's answer leaves a pending press's 
   page,
   stack,
 }) => {
-  await seedDaily(stack.vault);
   const heard = await hearEvents(page);
   const garden = await holdAnswers(page, GARDEN);
   const home = await holdSaves(page, HOME);
@@ -207,5 +216,38 @@ test("a press's own event that beats its save's answer leaves a pending press's 
   home.release();
   await expect(read).toHaveCount(1);
   await expect(stateOf(page, LAUNDRY, "waiting")).toBeVisible();
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+});
+
+test("a press that makes today's daily note leaves a pending press's row as drawn (#1998)", async ({
+  page,
+  stack,
+}) => {
+  const daily = `01 Periodic/00 Daily/${today()}.md`;
+  expect(await noteText(stack.vault, daily)).toBe("");
+  const heard = await hearEvents(page);
+  const garden = await holdSaves(page, GARDEN);
+  const home = await holdSaves(page, HOME);
+  const reads = await markListReads(page);
+  const read = page.locator(TODO_ROW, { hasText: READ });
+  await openTodos(page);
+  await cursorTo(page, TOMATOES);
+  await page.keyboard.press("X");
+  await cursorTo(page, LAUNDRY);
+  await page.keyboard.press("W");
+  await expect(stateOf(page, LAUNDRY, "waiting")).toBeVisible();
+  await garden.arrived();
+  reads.arm();
+  const lost = await watchLost(page, LAUNDRY, "waiting");
+  garden.release();
+  // The done log makes the daily note and its folders: their listing and index writes reach the page.
+  await expect.poll(heard).toContain("01 Periodic/index.md");
+  expect(await heard()).toContain("01 Periodic/00 Daily/index.md");
+  await home.arrived();
+  home.release();
+  // The read once the last press lands, which comes after any read the events made.
+  await expect(read).toHaveCount(1);
+  await expect(stateOf(page, LAUNDRY, "waiting")).toBeVisible();
+  expect(await lost()).toBe(false);
   await page.unrouteAll({ behavior: "ignoreErrors" });
 });
