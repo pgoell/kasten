@@ -61,17 +61,32 @@ describe("cycleTodoInVault", () => {
     ]);
   });
 
-  it("finds a held row's plain line where the first save's frontmatter moved it, and only there (#2001)", async () => {
-    // Listed on line 2 before the save stamped a three-line block on top; prose further down stays.
-    fetchNote.mockResolvedValue("---\nid: a\n---\n# Spec\nread the spec\n\n\n\n\nread the spec\n");
+  it("finds a held row's plain line where its first save's frontmatter moved it, and only there (#2001)", async () => {
+    const before = "# Spec\n- [x] read the spec ✅ 2026-08-10\n";
+    // The vault answers the first press's save with a three-line block stamped on top.
+    const after = "---\nid: a\n---\n# Spec\nread the spec\n";
+    fetchNote.mockResolvedValueOnce(before).mockResolvedValue(after);
+    saveNote.mockResolvedValueOnce({ path: "spec.md", content: after });
     fetchTodos.mockResolvedValue([]);
     const row = { path: "spec.md", line: 2, text: "- [x] read the spec ✅ 2026-08-10" };
 
     await cycleTodoInVault(row, "2026-08-10", ["spec.md"]);
+    await cycleTodoInVault(row, "2026-08-10", ["spec.md"]);
 
-    expect(saveNote.mock.calls[0]?.[1]).toBe(
-      "---\nid: a\n---\n# Spec\n- [ ] read the spec ➕ 2026-08-10\n\n\n\n\nread the spec\n",
+    expect(saveNote.mock.calls[1]?.[1]).toBe(
+      "---\nid: a\n---\n# Spec\n- [ ] read the spec ➕ 2026-08-10\n",
     );
+  });
+
+  it("leaves prose below a stale row alone in a note whose block was there before (#2001)", async () => {
+    fetchNote.mockResolvedValue("---\nid: a\n---\n# Spec\nsomething else\n\nread the spec\n");
+    fetchTodos.mockResolvedValue([]);
+    const row = { path: "other.md", line: 5, text: "- [x] read the spec ✅ 2026-08-10" };
+
+    await expect(cycleTodoInVault(row, "2026-08-10", ["other.md"])).rejects.toThrow(
+      "that line has changed since it was listed",
+    );
+    expect(saveNote).not.toHaveBeenCalled();
   });
 
   it("leaves prose saying a gone todo's words alone, away from the todo's line (#2001)", async () => {

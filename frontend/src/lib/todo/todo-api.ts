@@ -74,9 +74,16 @@ async function send(writes: Write[], paths: string[], read: Record<string, strin
     }
     const text = read[write.path];
     if (text === undefined) throw new Error(`no read of ${write.path} to name as its base`);
-    await saveNote(write.path, write.text, false, noteBase(text));
+    const saved = await saveNote(write.path, write.text, false, noteBase(text));
+    // An answer with no content (a double in the tests) gained nothing.
+    stamped.set(write.path, lineCount(saved?.content ?? write.text) - lineCount(write.text));
   }
 }
+
+/** Lines the last save of each note gained on top, a frontmatter block stamped on a note that had none. */
+const stamped = new Map<string, number>();
+
+const lineCount = (text: string) => text.split("\n").length;
 
 /** Put what was typed into today's note, under `## TODOs`. */
 export function addTodoInVault(input: string, today: string, paths: string[]): Promise<void> {
@@ -281,18 +288,18 @@ function madePlain(text: string, hit: SearchHit): number | null {
   const was = parseTodo(hit.text);
   if (was === null) return null;
   const lines = text.split("\n");
-  const plain = (line: string) =>
-    line.trim() !== "" && parseTodo(line) === null && parseTodo(`- [ ] ${line}`)?.text === was.text;
-  // The first save of a note stamps a frontmatter block on top, which moves the row's line down by
-  // as many lines as the block got. Only those places are read: prose elsewhere is never taken.
-  const closer = lines[0] === "---" ? lines.indexOf("---", 1) : -1;
-  const found: number[] = [];
-  for (let shift = 0; shift <= closer + 1; shift++) {
-    const at = hit.line + shift;
-    if (at > closer + 1 && plain(lines[at - 1] ?? "")) found.push(at);
-  }
-  if (found[0] === hit.line) return hit.line;
-  return found.length === 1 ? (found[0] ?? null) : null;
+  const plain = (at: number) => {
+    const line = lines[at - 1] ?? "";
+    return (
+      line.trim() !== "" &&
+      parseTodo(line) === null &&
+      parseTodo(`- [ ] ${line}`)?.text === was.text
+    );
+  };
+  if (plain(hit.line)) return hit.line;
+  // Or as far down as the press's own save moved it, and nowhere else: prose is never taken.
+  const moved = hit.line + (stamped.get(hit.path) ?? 0);
+  return moved !== hit.line && plain(moved) ? moved : null;
 }
 
 /** Where a press lands, and the todo there: null for a line made plain words, nothing for any other plain line. */
