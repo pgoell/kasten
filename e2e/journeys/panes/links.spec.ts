@@ -4,9 +4,11 @@ import type { Page } from "@playwright/test";
 import {
   findNote,
   inbox,
+  leader,
   opened,
   openApp,
   openNote,
+  phone,
   readAll,
   recordOpens,
   vaultWith,
@@ -137,6 +139,102 @@ test.describe("following a link to a page of html or an asset", () => {
       await expect(page.locator(".cm-vimMode")).toHaveCount(0);
       await page.locator(".cm-wikilink").click({ modifiers: ["Control"] });
       await expect.poll(() => opened(page)).toEqual(["/api/assets/plan%3F.mp3"]);
+    });
+  });
+});
+
+test.describe("the theme of an open page of html", () => {
+  const PAGE = "theme.html";
+  const THEMED = `<!doctype html><html><head><meta name="kasten-theme" content="tokens"><title>t</title></head><body><h1>themed</h1></body></html>`;
+  const ADDRESS = `/api/html/${PAGE}?theme=light&palette=poel`;
+  const ROW = "Toggle light and dark mode";
+  const frame = (page: Page) => page.locator("[data-html-pane] iframe");
+  const pageTheme = (page: Page) =>
+    page.frameLocator("[data-html-pane] iframe").locator("html").getAttribute("data-theme");
+
+  /** Writes the themed page and counts each fetch of it, so a reload of the frame shows. */
+  async function themedPage(page: Page, vault: string): Promise<() => number> {
+    await vaultWith(vault, { [PAGE]: THEMED });
+    let fetched = 0;
+    page.on("request", (request) => {
+      if (new URL(request.url()).pathname === `/api/html/${PAGE}`) fetched += 1;
+    });
+    return () => fetched;
+  }
+
+  /** The page in a split beside Welcome, with the focus back on the note, so the palette opens over an editor. */
+  async function pageBesideNote(page: Page, split: () => Promise<void>): Promise<void> {
+    await openApp(page);
+    await openNote(page, "Welcome");
+    await split();
+    await page.getByRole("button", { name: PAGE, exact: true }).click();
+    await expect.poll(() => pageTheme(page)).toBe("light");
+    await page.locator(".cm-content").first().click();
+    await expect(page.locator(".cm-content:focus")).toHaveCount(1);
+  }
+
+  /** The row turned the page dark through its message, and the frame was neither readdressed nor fetched again. */
+  async function turnedDark(page: Page, fetched: () => number): Promise<void> {
+    await expect.poll(() => pageTheme(page)).toBe("dark");
+    await expect(frame(page)).toHaveAttribute("src", ADDRESS);
+    expect(fetched()).toBe(1);
+  }
+
+  test("with vim on, the palette's light and dark row turns an open page dark with no reload, and its address stays", async ({
+    page,
+    stack,
+  }) => {
+    const fetched = await themedPage(page, stack.vault);
+    await pageBesideNote(page, () => leader(page, "%"));
+    await expect(frame(page)).toHaveAttribute("src", ADDRESS);
+
+    await leader(page, ":");
+    await page.getByRole("option", { name: ROW }).click();
+    await turnedDark(page, fetched);
+  });
+
+  test.describe("with vim off", () => {
+    test.beforeEach(async ({ page }) => {
+      await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
+    });
+
+    test("the same row, run from the chord, turns an open page dark with no reload, and its address stays", async ({
+      page,
+      stack,
+    }) => {
+      const fetched = await themedPage(page, stack.vault);
+      await pageBesideNote(page, async () => {
+        await page.keyboard.press("Control+Shift+P");
+        await page.getByRole("option", { name: /^Split the pane left and right/ }).click();
+      });
+      await expect(frame(page)).toHaveAttribute("src", ADDRESS);
+
+      await page.keyboard.press("Control+Shift+P");
+      await page.getByRole("option", { name: ROW }).click();
+      await turnedDark(page, fetched);
+    });
+  });
+
+  test.describe("on a phone", () => {
+    test.use(phone);
+
+    test("the toolbar's run button opens the palette, and the same row turns an open page dark with no reload", async ({
+      page,
+      stack,
+    }) => {
+      const fetched = await themedPage(page, stack.vault);
+      await page.goto("/?note=Welcome.md");
+      const commands = page.getByRole("toolbar", { name: "Commands" });
+      await expect(commands).toBeVisible({ timeout: 15_000 });
+      // The tree is a drawer that is shut, so the page is opened through its button.
+      await page.getByRole("button", { name: "File tree" }).tap();
+      await page.getByRole("button", { name: PAGE, exact: true }).tap();
+      await expect.poll(() => pageTheme(page)).toBe("light");
+      await expect(frame(page)).toHaveAttribute("src", ADDRESS);
+
+      await commands.getByRole("button", { name: "Run a command by name" }).tap();
+      await page.getByRole("option", { name: ROW }).tap();
+      await turnedDark(page, fetched);
     });
   });
 });
