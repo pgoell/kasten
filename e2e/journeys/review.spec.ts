@@ -1,13 +1,5 @@
 import type { Page } from "@playwright/test";
-import {
-  leader,
-  noteText,
-  openApp,
-  phone,
-  tapHeight,
-  today,
-  vaultWith,
-} from "../harness/app.ts";
+import { leader, noteText, openApp, phone, tapHeight, today, vaultWith } from "../harness/app.ts";
 import { expect, test } from "../harness/stack.ts";
 
 const FRANCE = "What is the capital of France?::Paris";
@@ -109,6 +101,82 @@ test("? in the review pane lists each review key beside its label, under In revi
   }
 });
 
+/**
+ * Where the card and its words sit in the scroll column that holds them (#600): the words'
+ * middle against the card's, the card's middle and top against the column's.
+ */
+function placed(page: Page) {
+  return page.getByTestId("review-card").evaluate((card) => {
+    const words = document.createRange();
+    words.selectNodeContents(card.querySelector(".cm-line") as Element);
+    const text = words.getBoundingClientRect();
+    const box = card.getBoundingClientRect();
+    const swipe = card.closest('[data-testid="review-swipe"]') as HTMLElement;
+    const column = swipe.parentElement as HTMLElement;
+    const pane = column.getBoundingClientRect();
+    return {
+      across: Math.abs((text.left + text.right) / 2 - (box.left + box.right) / 2),
+      indent: text.left - box.left,
+      down: Math.abs((box.top + box.bottom) / 2 - (pane.top + pane.bottom) / 2),
+      top: box.top - pane.top,
+      room: pane.height - box.height,
+      scroll: column.scrollTop,
+    };
+  });
+}
+
+test("Center centres the card both ways, off puts it back, a reload keeps it, and a tall card keeps its top", async ({
+  page,
+  stack,
+}) => {
+  // Japan's question wraps past the pane's height, for the tall card at the end.
+  const long = "Which city, of all the cities of the islands, is the capital of Japan? ".repeat(60);
+  await vaultWith(stack.vault, {
+    "03 Flashcards/Capitals.md": `#flashcards/capitals\n\n${FRANCE}\n\n${long}::Tokyo\n`,
+  });
+  await openApp(page);
+  await leader(page, "gs");
+  await page.getByRole("heading", { name: "Review" }).click();
+  await page.keyboard.press("j");
+  await page.keyboard.press("l");
+  const france = page.getByText("What is the capital of France?");
+  await expect(france).toBeVisible();
+  const center = page.getByRole("button", { name: "Center" });
+  await expect(center).toHaveAttribute("aria-pressed", "false");
+  const off = await placed(page);
+  expect(off.indent, "words at the card's left").toBeLessThan(20);
+  expect(off.top, "card at the column's top").toBeLessThan(40);
+
+  await center.click();
+  await expect(center).toHaveAttribute("aria-pressed", "true");
+  const on = await placed(page);
+  expect(on.room, "the column is taller than the card").toBeGreaterThan(100);
+  expect(on.across, "across").toBeLessThan(8);
+  expect(on.indent, "words off the card's left").toBeGreaterThan(20);
+  expect(on.down, "down").toBeLessThan(8);
+
+  await center.click();
+  await expect(center).toHaveAttribute("aria-pressed", "false");
+  expect((await placed(page)).indent).toBeLessThan(20);
+  await center.click();
+
+  // The reload comes back on the review overview, the pane the workspace kept.
+  await page.reload();
+  await page.getByRole("button", { name: "Start with capitals" }).click({ timeout: 15_000 });
+  await expect(france).toBeVisible();
+  await expect(center).toHaveAttribute("aria-pressed", "true");
+  const kept = await placed(page);
+  expect([kept.across < 8, kept.down < 8]).toEqual([true, true]);
+
+  // A card taller than the column, centred, keeps its first line at the top, not above it.
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("3");
+  await expect(page.getByTestId("review-card")).toContainText("capital of Japan");
+  const tall = await placed(page);
+  expect(tall.room, "the card is taller than the column").toBeLessThan(0);
+  expect([tall.scroll, tall.top >= 0]).toEqual([0, true]);
+});
+
 test.describe("on a phone", () => {
   test.use(phone);
 
@@ -207,7 +275,9 @@ test("a put-back the vault refuses says the note could not be written, and a lat
   const moved = `${await noteText(stack.vault, PARKED_A)}An outside line.\n`;
   await vaultWith(stack.vault, { [PARKED_A]: moved });
   await page.locator(`button[data-unpark="${PARKED_A}:0"]`).click();
-  await expect(page.getByRole("alert")).toHaveText("The note could not be written: Changed on disk");
+  await expect(page.getByRole("alert")).toHaveText(
+    "The note could not be written: Changed on disk",
+  );
   expect(await noteText(stack.vault, PARKED_A)).toBe(moved);
   // B's put-back lands, which reads the cards again and so the parked notes, and A's read fails.
   await failReads(page, PARKED_A, 500);
