@@ -174,3 +174,23 @@ export function cursorAfter(
   const places = new Map((from.inFold ? all : open).map((key, index) => [key, index]));
   return from.keys.map((key) => places.get(key)).find((index) => index !== undefined);
 }
+
+/** The row under the cursor, by identity and by place, so it can be found again in rows drawn later. */
+export function aimOf(row: Row | undefined, ids: Map<string, string>) {
+  return row === undefined ? undefined : { id: idOf(row.hit, ids), key: rowKey(row.hit) };
+}
+
+/**
+ * Where the row the cursor was on is drawn now: by identity, else by place, since a line
+ * made plain words has no identity left but keeps its place in the fold (#2001).
+ */
+export function aimAgain(
+  aim: { id: string; key: string },
+  rows: Row[],
+  ids: Map<string, string>,
+): number | undefined {
+  const byId = rows.findIndex((row) => idOf(row.hit, ids) === aim.id);
+  if (byId !== -1) return byId;
+  const byKey = rows.findIndex((row) => rowKey(row.hit) === aim.key);
+  return byKey === -1 ? undefined : byKey;
+}

@@ -274,6 +274,33 @@ function sameTodo(text: string, hit: SearchHit): boolean {
 }
 
 /**
+ * The row's line where a press made it plain words: the listing drops such a line, so a
+ * held row still reads as the todo it was, and the next press cycles it back (#2001).
+ */
+function madePlain(text: string, hit: SearchHit): number | null {
+  const was = parseTodo(hit.text);
+  if (was === null || was.indent !== 0) return null;
+  const plain = (line: string) =>
+    line.trim() !== "" && parseTodo(line) === null && parseTodo(`- [ ] ${line}`)?.text === was.text;
+  const lines = text.split("\n");
+  if (plain(lines[hit.line - 1] ?? "")) return hit.line;
+  // Where a write has shifted it, as `lineOf` does: the one plain line saying the words.
+  const found = lines.flatMap((line, index) => (plain(line) ? [index + 1] : []));
+  return found.length === 1 ? (found[0] ?? null) : null;
+}
+
+/** Where a press lands, and the todo there: null for a line made plain words, nothing for any other plain line. */
+function pressTarget(text: string, hit: SearchHit, twins: number[] | undefined) {
+  const plain = madePlain(text, hit);
+  const at = rowLine(text, hit, twins) ?? plain;
+  if (at === null) throw new Error("that line has changed since it was listed");
+  const line = text.split("\n")[at - 1] ?? "";
+  const todo = parseTodo(line);
+  // Only a row whose own words are no todo, which the listing never hands over.
+  return todo === null && plain === null ? undefined : { at, line, todo };
+}
+
+/**
  * The line the row's todo sits on now, or null where the note no longer says. Lines
  * shift with each write, so the words decide; twins, which share words, go by rank.
  */
@@ -328,12 +355,9 @@ async function cycleInVault(
   // The vault, not the row: the list is as old as the last fetch, and the note
   // is what the press is about to overwrite.
   const text = await fetchNote(hit.path);
-  const at = rowLine(text, hit, twins);
-  if (at === null) throw new Error("that line has changed since it was listed");
-  const line = text.split("\n")[at - 1] ?? "";
-  const todo = parseTodo(line);
-  // Only a row whose own words are no todo, which the listing never hands over.
-  if (todo === null) return;
+  const target = pressTarget(text, hit, twins);
+  if (target === undefined) return;
+  const { at, line, todo } = target;
 
   // The id goes only into the write, so stamping it before the search changes
   // nothing; it lets the press be read here, ahead of the search, as it will land.
@@ -346,7 +370,7 @@ async function cycleInVault(
   // The whole vault's todos, off the one pass the pane already asked for: they
   // answer for the blockers, and for whether the id is this todo's alone.
   const todos = await fetchTodos();
-  if (todo.id !== undefined) {
+  if (todo?.id !== undefined) {
     const other = otherTodoWithId(todo.id, hit.path, at, todos, text);
     if (other !== null) throw new Error(other);
   }
@@ -357,7 +381,7 @@ async function cycleInVault(
   // state it comes from says nothing. A todo with no id needs no search, since
   // nothing can name a todo that has never had a name.
   const named =
-    (todo.state === "done" || now?.state === "done") && todo.id !== undefined
+    (todo?.state === "done" || now?.state === "done") && todo?.id !== undefined
       ? new Set((await searchNotes(todo.id)).map((found) => found.path))
       : new Set<string>();
 
@@ -388,7 +412,7 @@ async function cycleInVault(
   // After the send, so the dependents in this note are read as the write above
   // left them. No note is skipped: this half can see every blocker, where the
   // press could see only the ones in the note it moved.
-  if (now?.id !== undefined && isOpen(todo) !== isOpen(now)) {
+  if (todo !== null && now?.id !== undefined && isOpen(todo) !== isOpen(now)) {
     await writeBackBlocked(now.id, !isOpen(now), "");
   }
 }

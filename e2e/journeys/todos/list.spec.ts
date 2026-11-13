@@ -1,3 +1,4 @@
+import type { Page } from "@playwright/test";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
@@ -8,6 +9,7 @@ import {
   phone,
   readAll,
   TODO_ROW,
+  today,
   todoRows,
   vaultWith,
 } from "../../harness/app.ts";
@@ -181,8 +183,79 @@ test("the filter narrows to a tag or away from it with parts beside their parent
   await expect.poll(lines).toEqual([9]);
 });
 
+const SPEC = "02 Projects/Spec.md";
+const MARKER = "02 Projects/Marker.md";
+
+/**
+ * Opens the todo pane with two rows done today in its open fold and pauses the clock, so the
+ * press's 1 s hold lets go only as far as `waitFor` runs it.
+ */
+async function openFold(page: Page, vault: string): Promise<() => void> {
+  const done = `✅ ${today()}`;
+  await vaultWith(vault, { [SPEC]: `# Spec\n\n- [x] read the spec ${done}\n- [x] write the spec ${done}\n` });
+  await page.clock.install();
+  await openApp(page);
+  await leader(page, "gt");
+  await page.getByRole("button", { name: /^Done this week/ }).click();
+  await expect(page.locator(TODO_ROW, { hasText: "read the spec" })).toBeVisible();
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100));
+  let ran = 0;
+  return () => {
+    // Every wait after the first press shares one budget under the hold's 1 s.
+    expect(ran, "the clock ran past the press's hold").toBeLessThan(900);
+    ran += 20;
+  };
+}
+
+/** Runs the paused clock in short steps until `drawn` holds, within the hold's budget. */
+async function waitFor(page: Page, spend: () => void, drawn: () => Promise<boolean>) {
+  await expect
+    .poll(async () => {
+      spend();
+      await page.clock.runFor(20);
+      return drawn();
+    })
+    .toBe(true);
+}
+
+const listed = async (page: Page, words: string) =>
+  (await todoRows(page)).texts.some((text) => text.includes(words));
+
+test("in the open fold, a second x after the first made a done row plain words acts on that row (#2001)", async ({
+  page,
+  stack,
+}) => {
+  const spend = await openFold(page, stack.vault);
+  await cursorTo(page, "read the spec");
+  await page.keyboard.press("x");
+  await expect.poll(() => noteText(stack.vault, SPEC)).toMatch(/^read the spec$/m);
+  // A done row in another note: its row drawn means an answer later than the write has drawn.
+  await vaultWith(stack.vault, { [MARKER]: `- [x] ship it ✅ ${today()}\n` });
+  await waitFor(page, spend, () => listed(page, "ship it"));
+  await page.keyboard.press("x");
+  await expect.poll(() => noteText(stack.vault, SPEC)).toMatch(/^- \[ \] read the spec( ➕ \S+)?$/m);
+  expect(await noteText(stack.vault, SPEC)).toMatch(/^- \[x\] write the spec/m);
+});
+
+test("in the open fold, a new open row drawn while the press holds leaves the cursor on its fold row (#2001)", async ({
+  page,
+  stack,
+}) => {
+  const spend = await openFold(page, stack.vault);
+  await cursorTo(page, "read the spec");
+  await page.keyboard.press("x");
+  await expect.poll(() => noteText(stack.vault, SPEC)).toMatch(/^read the spec$/m);
+  // The new open row joins a group above the fold, which pushes every fold row down one.
+  await vaultWith(stack.vault, { [MARKER]: "- [ ] call the plumber\n" });
+  await waitFor(page, spend, () => listed(page, "call the plumber"));
+  await page.keyboard.press("x");
+  await expect.poll(() => noteText(stack.vault, SPEC)).toMatch(/^- \[ \] read the spec( ➕ \S+)?$/m);
+  expect(await noteText(stack.vault, MARKER)).toBe("- [ ] call the plumber\n");
+});
+
 test.describe("on a phone", () => {
   test.use(phone);
+
 
   test("tapping a todo's more strip and done checks its line off", async ({ page, stack }) => {
     await page.goto("/");
