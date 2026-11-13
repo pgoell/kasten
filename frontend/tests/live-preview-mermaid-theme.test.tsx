@@ -1,7 +1,7 @@
 /**
  * A diagram on screen follows the theme when the theme switches (#835).
  *
- * The package is mocked as in `mermaid-load.test.tsx`: each svg names the theme
+ * The package is mocked: each svg names the theme
  * the last `initialize` set, so a test can tell which theme drew it. The drawing
  * itself is in `tests/frame/mermaid.test.tsx`.
  */

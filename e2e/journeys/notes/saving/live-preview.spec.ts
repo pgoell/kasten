@@ -34,6 +34,79 @@ test("a note without a diagram never loads mermaid, and one with a Mermaid fence
   expect(loads).toHaveLength(1);
 });
 
+/** Keeps every promise rejection the page leaves unhandled; call before the page loads. */
+async function unhandled(page: Page): Promise<() => Promise<string[]>> {
+  await page.addInitScript(() => {
+    const kept: string[] = [];
+    Object.assign(window, { unhandled: kept });
+    window.addEventListener("unhandledrejection", (event) => kept.push(String(event.reason)));
+  });
+  return () => page.evaluate(() => (window as unknown as { unhandled: string[] }).unhandled);
+}
+
+test("a failed mermaid load shows its error beside the source, and the next diagrams load again and draw with no reload (#647)", async ({
+  page,
+  stack,
+}) => {
+  const first = "graph LR\n  Root --> Leaf";
+  await vaultWith(stack.vault, {
+    "Offline.md": `before\n\n\`\`\`mermaid\n${first}\n\`\`\`\n`,
+    "Online.md": `before\n\n\`\`\`mermaid\n${first}\n\`\`\`\n\n\`\`\`mermaid\ngraph LR\n  Stem --> Bud\n\`\`\`\n`,
+  });
+  const loads = mermaidLoads(page);
+  const rejections = await unhandled(page);
+  // The chunk's first fetch fails, as it does while offline; every later one goes through.
+  let aborted = 0;
+  await page.route(/\/mermaid\.core-[^/]*\.js$/, (route) => {
+    if (aborted++ === 0) return route.abort("internetdisconnected");
+    return route.fallback();
+  });
+  await openApp(page);
+  await page.evaluate(() => Object.assign(window, { sameDocument: true }));
+
+  await openNote(page, "Offline");
+  const block = page.locator(".cm-mermaid-block");
+  await expect(block.locator(".cm-mermaid-error")).toHaveText(/./, { timeout: 15_000 });
+  await expect(block.locator(".cm-mermaid-source")).toHaveText(first);
+  await expect(block.locator("svg")).toHaveCount(0);
+  expect(await rejections()).toEqual([]);
+
+  await openNote(page, "Online");
+  const diagrams = page.locator(".cm-mermaid-block svg");
+  await expect(diagrams).toHaveCount(2, { timeout: 15_000 });
+  await expect(diagrams.nth(0)).toContainText("Leaf");
+  await expect(diagrams.nth(1)).toContainText("Bud");
+  await expect(page.locator(".cm-mermaid-error")).toHaveCount(0);
+  expect(loads).toHaveLength(2);
+  expect(await page.evaluate(() => "sameDocument" in window)).toBe(true);
+  expect(await rejections()).toEqual([]);
+});
+
+test("a diagram with a syntax error shows its error beside the source, and shows it again with no new load", async ({
+  page,
+  stack,
+}) => {
+  const bad = "graph LR\n  bad -->";
+  const note = `before\n\n\`\`\`mermaid\n${bad}\n\`\`\`\n`;
+  await vaultWith(stack.vault, { "Bad.md": note, "Again.md": note, "Plain.md": "plain\n" });
+  const loads = mermaidLoads(page);
+  await openApp(page);
+
+  await openNote(page, "Bad");
+  const block = page.locator(".cm-mermaid-block");
+  await expect(block.locator(".cm-mermaid-error")).toContainText("Parse error", {
+    timeout: 15_000,
+  });
+  await expect(block.locator(".cm-mermaid-source")).toHaveText(bad);
+  expect(loads).toHaveLength(1);
+
+  await openNote(page, "Again");
+  await expect(block.locator(".cm-mermaid-error")).toContainText("Parse error");
+  await expect(block.locator(".cm-mermaid-source")).toHaveText(bad);
+  await expect(block.locator("svg")).toHaveCount(0);
+  expect(loads).toHaveLength(1);
+});
+
 const NESTED = "{{c1::a {{c2::b::h2}}::h1}}";
 
 test.describe("a nested cloze", () => {
