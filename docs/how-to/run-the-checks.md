@@ -71,14 +71,14 @@ unsaved text and a conflicted note reopened in `panes/conflict/`; the stored wor
 the backlinks panel's mention links, held text), the todo list, the board,
 a person note's card of open todos and the shared lists app in `todos/`, capture and the log in `day/`, and the book, video and clip panes and csv and svg files in
 `media/`. `harness.spec.ts` checks the harness itself. Each journey is a
-thing done daily, and each one that writes checks the file on disk. Twenty-two files
+thing done daily, and each one that writes checks the file on disk. Twenty-three files
 also run journeys at phone width, 414 px with touch, where the editor starts
 without vim: `review.spec.ts`; `notes/finder.spec.ts`, the three
 `notes/content-search-*.spec.ts`, `notes/saving/edits.spec.ts` and
 `notes/saving/mentions.spec.ts`; `panes/narrow/drawer.spec.ts`,
 `panes/narrow/phone.spec.ts` and `panes/workspace/reload.spec.ts`;
-`todos/list.spec.ts`, `todos/twin-ids.spec.ts`, `todos/person-card.spec.ts` and
-`todos/lists.spec.ts`; `day/capture.spec.ts` and `day/log.spec.ts`; and
+`todos/list.spec.ts`, `todos/board.spec.ts`, `todos/twin-ids.spec.ts`,
+`todos/person-card.spec.ts` and `todos/lists.spec.ts`; `day/capture.spec.ts` and `day/log.spec.ts`; and
 `media/book.spec.ts`, `media/book-finder.spec.ts`, `media/clip.spec.ts`,
 `media/csv.spec.ts`, `media/svg.spec.ts` and `media/video.spec.ts`.
 `phone` in `e2e/harness/app.ts` sets that up, and

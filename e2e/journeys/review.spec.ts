@@ -39,6 +39,37 @@ test("a sitting on the desktop writes the FSRS comment after a good rating", asy
   await expect.poll(() => answered(stack.vault)).toBe(true);
 });
 
+test("in a split, the keys grade the card of the focused review pane and leave the pane beside it alone", async ({
+  page,
+  stack,
+}) => {
+  await openApp(page);
+  await leader(page, "gs");
+  await page.getByRole("heading", { name: "Review" }).click();
+  await leader(page, "%");
+  await leader(page, "gs");
+  const reviews = page.getByLabel("review", { exact: true });
+  await expect(reviews).toHaveCount(2);
+  const [one, two] = [reviews.nth(0), reviews.nth(1)];
+  // Each pane sits the deck in turn, so the focus ends on the first.
+  for (const pane of [two, one]) {
+    await pane.getByRole("heading", { name: "Review" }).click();
+    await page.keyboard.press("j");
+    await page.keyboard.press("l");
+    await expect(pane.getByTestId("review-card")).toContainText("France");
+  }
+  await page.keyboard.press("Enter");
+  await expect(one.getByTestId("review-back")).toHaveText("Paris");
+  await page.keyboard.press("3");
+  await expect.poll(() => answered(stack.vault)).toBe(true);
+  await expect(one.getByTestId("review-card")).toContainText("Japan");
+  await expect(two.getByTestId("review-card")).toContainText("France");
+  await expect(two.getByTestId("review-back")).toHaveCount(0);
+  // One grade on disk: the France card's, none on Japan's.
+  const text = await noteText(stack.vault, "03 Flashcards/Capitals.md");
+  expect(text.match(/<!--SR:/g)).toHaveLength(1);
+});
+
 test("? in the review pane lists each review key beside its label, under In review", async ({
   page,
 }) => {

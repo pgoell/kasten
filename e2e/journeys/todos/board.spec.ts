@@ -1,4 +1,4 @@
-import { leader, noteText, openApp } from "../../harness/app.ts";
+import { leader, noteText, openApp, phone, tapHeight } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 
 test("dragging a card to the doing column writes its doing mark", async ({ page, stack }) => {
@@ -22,4 +22,31 @@ test("dragging a card to the doing column writes its doing mark", async ({ page,
   await expect
     .poll(() => noteText(stack.vault, "02 Projects/Home.md"), { timeout: 15_000 })
     .toMatch(/^- \[\/\] fold the laundry/m);
+});
+
+test.describe("on a phone", () => {
+  test.use(phone);
+
+  test("every tap target of the board is at least 44 px high: the lane switch, a state tab, a lane's heading, a card and its ⋯", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "Open the todo pane" }).tap();
+    await page.getByRole("button", { name: "board", exact: true }).tap();
+    const card = page.locator("[data-card]", { hasText: "fold the laundry" });
+    await expect(card).toBeVisible();
+    const lane = page
+      .locator("[data-lane]", { has: card })
+      .getByRole("heading")
+      .getByRole("button");
+    for (const target of [
+      page.getByRole("button", { name: "kind", exact: true }),
+      page.getByRole("button", { name: "project", exact: true }),
+      page.getByRole("tab", { name: /^Open \d+$/ }),
+      lane,
+      card,
+      page.getByRole("button", { name: "more for fold the laundry" }),
+    ])
+      expect(await tapHeight(target), `${target}`).toBeGreaterThanOrEqual(44);
+  });
 });

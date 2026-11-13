@@ -186,6 +186,25 @@ test("a note nothing links to says so, and Tab keeps the focus in the panel", as
   await expect(page.getByRole("combobox", { name: "backlinks" })).toBeFocused();
 });
 
+test("the backlinks of a note leave out a link that names another note of a similar name", async ({
+  page,
+  stack,
+}) => {
+  // With a `borges.md` at the root a bare name names that one, so only the path links here.
+  const shelf = "see [[archive/borges]]\nsee [[borges]]\nsee [[reading/borges]]";
+  await vaultWith(stack.vault, {
+    "reading/borges.md": "# Borges\n",
+    "borges.md": "# Ficciones\n",
+    "Shelf.md": shelf,
+  });
+  await openApp(page);
+  await findNote(page, "Shelf");
+  await page.keyboard.type("G$gf");
+  await expect(page.locator(".cm-content:focus")).toHaveText("Borges");
+  await openPanel(page, "gb", "backlinks");
+  await expect(backlinks(page)).toHaveText([/see \[\[reading\/borges\]\]/]);
+});
+
 test("the backlinks group under the relation in front, typed by the target that resolves here, with the untyped lines last", async ({
   page,
 }) => {
