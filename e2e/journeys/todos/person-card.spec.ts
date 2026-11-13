@@ -1,5 +1,14 @@
 import type { Page } from "@playwright/test";
-import { phone, vaultWith } from "../../harness/app.ts";
+import {
+  cursorTo,
+  leader,
+  noteText,
+  openApp,
+  phone,
+  TODO_ROW,
+  today,
+  vaultWith,
+} from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 
 const PASCAL = "03 Areas/08 People/Pascal.md";
@@ -43,4 +52,91 @@ test.describe("on a phone", () => {
   }) => {
     await listsOnlyHisTodo(page, stack.vault);
   });
+
+  test("a tap on a board card's assignee chip opens the person note", async ({ page, stack }) => {
+    const { chip, writes } = await chippedCard(page, stack.vault);
+    await page.goto("/");
+    await page.getByRole("button", { name: "Open the todo pane" }).tap();
+    await page.getByRole("button", { name: "board", exact: true }).tap();
+    await chip.tap();
+    await opensPascal(page, stack.vault, writes, async () => {
+      await page.getByRole("button", { name: "Open the todo pane" }).tap();
+      await page.getByRole("button", { name: "more for fix the tap" }).tap();
+      await page.getByRole("button", { name: "done fix the tap" }).tap();
+    });
+  });
+});
+
+const CHIPS = "02 Projects/Chips.md";
+const INVOICE = "- [ ] send the invoice 👤 [[Pascal]] #client";
+
+/** A board card whose assignee has a note, and every write the page sends from here on, by its URL. */
+async function chippedCard(page: Page, vault: string) {
+  await vaultWith(vault, {
+    ...NOTES,
+    [CHIPS]: `# Chips\n\n${INVOICE}\n- [ ] fix the tap 👤 Alicia #client\n`,
+  });
+  const writes: string[] = [];
+  page.on("request", (request) => {
+    if (request.method() !== "GET" && request.url().includes("/api/")) writes.push(request.url());
+  });
+  const card = page.locator("[data-card]", { hasText: "send the invoice" });
+  const chip = card.locator(`[data-person-path="${PASCAL}"]`);
+  return { card, chip, writes };
+}
+
+/**
+ * The person note fills a tab of its own and the card's note stays shut. Then `tick` checks off the
+ * other card for real: todo writes go in turn, so once its two land, a write the chip sent would have too.
+ */
+async function opensPascal(page: Page, vault: string, writes: string[], tick: () => Promise<void>) {
+  await expect(page.getByRole("tab", { name: "Pascal", selected: true })).toBeVisible();
+  await expect(page.locator(".cm-content:visible", { hasText: "Pascal" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Chips" })).toHaveCount(0);
+  await tick();
+  await expect
+    .poll(() => noteText(vault, CHIPS), { timeout: 15_000 })
+    .toMatch(/^- \[x\] fix the tap/m);
+  const daily = `01 Periodic/00 Daily/${today()}.md`;
+  await expect
+    .poll(() => writes.map((url) => decodeURIComponent(url.replace(/^.*\/api\//, ""))))
+    .toEqual([`files/${CHIPS}`, `files/${daily}`]);
+  expect(await noteText(vault, CHIPS)).toContain(INVOICE);
+}
+
+test("a click on a board card's assignee chip opens the person note", async ({ page, stack }) => {
+  const { chip, writes } = await chippedCard(page, stack.vault);
+  await openApp(page);
+  await leader(page, "gt");
+  await expect(page.locator(TODO_ROW, { hasText: "send the invoice" })).toBeVisible();
+  await page.keyboard.press("c");
+  await chip.click();
+  await opensPascal(page, stack.vault, writes, async () => {
+    await leader(page, "gt");
+    await cursorTo(page, "fix the tap");
+    await page.keyboard.press("X");
+  });
+});
+
+test("a drag that starts on a board card's chip moves the card and opens no note", async ({
+  page,
+  stack,
+}) => {
+  const { card, chip } = await chippedCard(page, stack.vault);
+  await openApp(page);
+  await leader(page, "gt");
+  await expect(page.locator(TODO_ROW, { hasText: "send the invoice" })).toBeVisible();
+  await page.keyboard.press("c");
+  const lane = await card.evaluate((el) => el.closest("[data-column]")?.getAttribute("data-lane"));
+  const from = await chip.boundingBox();
+  const to = await page.locator(`[data-column="done"][data-lane="${lane}"]`).boundingBox();
+  if (!from || !to) throw new Error("the chip or the done cell is not on the screen");
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 10 });
+  await page.mouse.up();
+  await expect
+    .poll(() => noteText(stack.vault, CHIPS), { timeout: 15_000 })
+    .toMatch(/^- \[x\] send the invoice/m);
+  await expect(page.getByRole("tab", { name: "Pascal" })).toHaveCount(0);
 });
