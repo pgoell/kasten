@@ -157,3 +157,14 @@ export async function cursorTo(page: Page, words: string, nth = 0): Promise<void
   for (let i = 0; i < Math.abs((to ?? 0) - from); i++) await page.keyboard.press(key);
   await expect(page.locator(`${TODO_ROW}[tabindex="0"]`)).toContainText(words);
 }
+
+/** The page's stylesheets as served: Chromium's CSSOM drops a declaration it does not read, such as a -webkit- one. */
+export async function builtCss(page: Page): Promise<string> {
+  const hrefs = await page.evaluate(() =>
+    [...document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]')].map(
+      (link) => link.href,
+    ),
+  );
+  const texts = await Promise.all(hrefs.map(async (href) => (await page.request.get(href)).text()));
+  return texts.join("\n");
+}
