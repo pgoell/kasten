@@ -10,7 +10,7 @@ import {
   openFromTree,
   vaultWith,
 } from "../../harness/app.ts";
-import { type Hit, hit, lineOf, openPanel } from "../../harness/search.ts";
+import { gardenBacklinks, hit, lineOf, openPanel } from "../../harness/search.ts";
 import { expect, test } from "../../harness/stack.ts";
 
 test("a new note made from the note prompt is written to disk with the typed line", async ({
@@ -79,30 +79,6 @@ test("an embed draws the text of the note it names inside the note", async ({ pa
     "The best time to plant a tree was twenty years ago.",
   );
 });
-
-/** Opens the backlinks of the Garden note, the vault answering its name with `hits`; returns what was asked. */
-async function gardenBacklinks(
-  page: Page,
-  hits: Hit[] | (() => Promise<Hit[]>),
-  narrow = false,
-): Promise<string[]> {
-  const asked: string[] = [];
-  await page.route("**/api/search?**", async (route) => {
-    const q = new URL(route.request().url()).searchParams.get("q") ?? "";
-    // The recent notes ask the search too, by their `modified:` date.
-    if (q.startsWith("modified:")) return route.fallback();
-    asked.push(q);
-    const answer = typeof hits === "function" ? await hits() : hits;
-    await route.fulfill({ json: q === "Garden" ? answer : [] });
-  });
-  await page.route("**/api/mentions?**", (route) => route.fulfill({ json: [] }));
-  await openApp(page);
-  await findNote(page, "Garden");
-  // The app opens wide, since a narrow window has no tree to open the note from.
-  if (narrow) await page.setViewportSize({ width: 600, height: 900 });
-  await openPanel(page, "gb", "backlinks");
-  return asked;
-}
 
 const backlinks = (page: Page) =>
   page.getByRole("dialog", { name: "Backlinks" }).getByRole("option");
