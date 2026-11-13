@@ -1,3 +1,4 @@
+import { syntaxTreeAvailable } from "@codemirror/language";
 import { Text } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { act, render } from "@testing-library/react";
@@ -10,12 +11,16 @@ const DOC = ["---", "type: Concept", "---", "", "# Reader", "", "Some words.", "
   "\n",
 );
 
-function flat(container: HTMLElement): string[] {
-  return [...container.querySelectorAll(".cm-line.cm-flat")].map((line) => line.textContent ?? "");
-}
-
 function viewIn(container: HTMLElement): EditorView {
   return EditorView.findFromDOM(container.querySelector(".cm-editor") as HTMLElement) as EditorView;
+}
+
+/** The numbers of the lines drawn with no height. Not their text: a heading keeps its `#` until the parse reaches it (#1982). */
+function flat(container: HTMLElement): number[] {
+  const view = viewIn(container);
+  return [...container.querySelectorAll(".cm-line.cm-flat")].map(
+    (line) => view.state.doc.lineAt(view.posAtDOM(line)).number,
+  );
 }
 
 describe("the lines between the frontmatter and the text", () => {
@@ -35,8 +40,19 @@ describe("the lines between the frontmatter and the text", () => {
   it("take no height in Read, and the note opens on its text", () => {
     const { container } = render(<Editor initialDoc={DOC} path={PATH} commands={stubCommands()} />);
 
-    expect(flat(container)).toEqual(["", "Reader", ""]);
+    expect(flat(container)).toEqual([4, 5, 6]);
     expect(viewIn(container).state.selection.main.head).toBe(DOC.indexOf("Some"));
+  });
+
+  it("take no height in Read before the parse reaches the heading", () => {
+    // A loaded box spends CodeMirror's 20 ms first parse before line 5; a clock that jumps does it every time.
+    let now = Date.now();
+    const clock = vi.spyOn(Date, "now").mockImplementation(() => (now += 30));
+    const { container } = render(<Editor initialDoc={DOC} path={PATH} commands={stubCommands()} />);
+    clock.mockRestore();
+
+    expect(syntaxTreeAvailable(viewIn(container).state, DOC.indexOf("Some"))).toBe(false);
+    expect(flat(container)).toEqual([4, 5, 6]);
   });
 
   it("show the line the cursor moves onto", () => {
@@ -44,7 +60,7 @@ describe("the lines between the frontmatter and the text", () => {
 
     act(() => viewIn(container).dispatch({ selection: { anchor: DOC.indexOf("# Reader") } }));
 
-    expect(flat(container)).not.toContain("Reader");
+    expect(flat(container)).toEqual([4, 6]);
   });
 
   it("keep their height in Edit", () => {
