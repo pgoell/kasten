@@ -234,6 +234,11 @@ test("in the open fold, a second x after the first made a done row plain words a
   await waitFor(page, spend, () => listed(page, "ship it"));
   await page.keyboard.press("x");
   await expect.poll(() => noteText(stack.vault, SPEC)).toMatch(/^- \[ \] read the spec( ➕ \S+)?$/m);
+  // Open again, the row leaves the fold for its group; a third x still follows it there.
+  await vaultWith(stack.vault, { [MARKER]: `- [x] ship it ✅ ${today()}\n- [x] ship more ✅ ${today()}\n` });
+  await waitFor(page, spend, () => listed(page, "ship more"));
+  await page.keyboard.press("x");
+  await expect.poll(() => noteText(stack.vault, SPEC)).toMatch(/^- \[\/\] read the spec/m);
   expect(await noteText(stack.vault, SPEC)).toMatch(/^- \[x\] write the spec/m);
 });
 
