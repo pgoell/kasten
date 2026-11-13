@@ -190,7 +190,10 @@ test.describe("the backlinks preview", () => {
   }) => {
     const read: string[] = [];
     // Note text the pane would show, were the pdf read as a note.
-    await page.route("**/api/files/docs/Plan.pdf", (route) => {
+    // Matched decoded: the client sends the path's slash as %2F.
+    const plan = (url: URL) =>
+      decodeURIComponent(url.pathname).endsWith("/api/files/docs/Plan.pdf");
+    await page.route(plan, (route) => {
       read.push(route.request().url());
       return route.fulfill({ body: "binary\nstream\nendobj" });
     });
