@@ -194,7 +194,7 @@ async function openFold(page: Page, vault: string): Promise<() => void> {
   const done = `✅ ${today()}`;
   await vaultWith(vault, {
     // Its own frontmatter, as a note kasten has saved before: the first write then moves no line.
-    [SPEC]: `---\nid: spec\n---\n# Spec\n\n- [x] read the spec ${done}\n- [x] write the spec ${done}\n`,
+    [SPEC]: `---\ncreated: 2026-11-01T09:00:00+00:00\ntype: Note\nid: spec\nmodified: 2026-11-01T09:00:00+00:00\n---\n# Spec\n\n- [x] read the spec ${done}\n- [x] write the spec ${done}\n`,
   });
   await page.clock.install();
   await openApp(page);
