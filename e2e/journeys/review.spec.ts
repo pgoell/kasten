@@ -1,5 +1,14 @@
 import type { Page } from "@playwright/test";
-import { leader, noteText, openApp, phone, tapHeight, today, vaultWith } from "../harness/app.ts";
+import {
+  leader,
+  localDate,
+  noteText,
+  openApp,
+  phone,
+  tapHeight,
+  today,
+  vaultWith,
+} from "../harness/app.ts";
 import { expect, test } from "../harness/stack.ts";
 
 const FRANCE = "What is the capital of France?::Paris";
@@ -351,4 +360,64 @@ test("a sitting whose one deck note fails for good reads its other deck note no 
   await expect.poll(readsOfTwo).toBe(1);
   await pastBackoff(page);
   expect(readsOfTwo()).toBe(1);
+});
+
+/** The local date `days` from today, as an SM-2 comment names a due day. */
+const daysOn = (days: number): string => {
+  const at = new Date();
+  at.setDate(at.getDate() + days);
+  return localDate(at);
+};
+
+/** Opens the review pane and sits the deck named `name`. */
+async function sit(page: Page, name: string): Promise<void> {
+  await openReview(page);
+  await page.locator(`button[data-deck="${name}"]`).click();
+}
+
+test("the done screen counts the cards answered today, the ones another sitting answered too", async ({
+  page,
+  stack,
+}) => {
+  // Two cards another sitting answered today (due in four days, four days' interval), and a new one.
+  const sm2 = `<!--SR:!${daysOn(4)},4,250-->`;
+  await vaultWith(stack.vault, {
+    "03 Flashcards/aws.md": `#flashcards/aws\n\nQ1::A ${sm2}\n\nQ2::B ${sm2}\n\nWhat does S3 stand for?::Simple Storage Service\n`,
+  });
+  await sit(page, "aws");
+  await expect(page.getByText("What does S3 stand for?")).toBeVisible();
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("3");
+  await expect(page.getByTestId("review-done")).toContainText("3 answered today in aws.");
+});
+
+test("the done screen says how many new cards wait, when the deck's limit holds them back", async ({
+  page,
+  stack,
+}) => {
+  // A card due today and a new card, under a limit of no new cards a day.
+  await vaultWith(stack.vault, {
+    "03 Flashcards/aws.md": `#flashcards/aws\n\nQ1::A <!--SR:!${today()},4,250-->\n\nWhat does S3 stand for?::Simple Storage Service\n`,
+    "99 Misc/01 Config/decks.md": "aws: 0 new\n",
+  });
+  await sit(page, "aws");
+  await expect(page.getByText("Q1")).toBeVisible();
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("3");
+  const done = page.getByTestId("review-done");
+  await expect(done).toContainText("1 answered today in aws.");
+  await expect(done).toContainText("1 new card waits.");
+});
+
+test("a whole note whose schedule reads backwards says where it is from and no last seen", async ({
+  page,
+  stack,
+}) => {
+  // A negative interval puts the last answer in the future, which no answer could have written.
+  await vaultWith(stack.vault, {
+    "03 Flashcards/TLS.md": `---\nsr-due: ${today()}\nsr-interval: -3\nsr-ease: 250\n---\n#review\n\n# TLS\n\nthe handshake\n`,
+  });
+  await sit(page, "TLS");
+  await page.keyboard.press("Enter");
+  await expect(page.getByText(/^From /)).toHaveText("From TLS");
 });
