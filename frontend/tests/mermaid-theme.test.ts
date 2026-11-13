@@ -3,7 +3,7 @@
  * The theme mermaid is initialised with for each draw, read when the draw starts
  * (#835).
  *
- * The package is mocked as in `mermaid-load.test.tsx`. Each case gets a module
+ * The package is mocked. Each case gets a module
  * of its own, since the load is kept for the life of the module and would hand
  * the first case's theme to the second.
  */
