@@ -168,3 +168,44 @@ export async function builtCss(page: Page): Promise<string> {
   const texts = await Promise.all(hrefs.map(async (href) => (await page.request.get(href)).text()));
   return texts.join("\n");
 }
+
+// A copy of frontend/src/lib/core/read-retry.ts's BACKOFF, whose `@/` import Playwright cannot resolve: 8 tries.
+export const BACKOFF = [1000, 2000, 4000, 8000, 15000, 15000, 15000];
+
+/** Answers every GET `route` matches with a 502 while `down` says so; returns the count of failed ones. */
+export async function gateway(
+  page: Page,
+  route: (url: URL) => boolean,
+  down: () => boolean,
+): Promise<() => number> {
+  let failed = 0;
+  await page.route(route, async (request) => {
+    if (request.request().method() !== "GET" || !down()) return request.fallback();
+    failed += 1;
+    await request.fulfill({ status: 502, body: "{}", contentType: "application/json" });
+  });
+  return () => failed;
+}
+
+/**
+ * Runs the paused clock through each retry's wait, one counted try at a time, until all 8 tries
+ * after `from` have failed; `line`, the screen's word for the failure, must not show while a try is left.
+ */
+export async function walkBackoff(
+  page: Page,
+  failed: () => number,
+  line: Locator,
+  from = 0,
+): Promise<void> {
+  const tried = () => failed() - from;
+  await expect.poll(tried).toBeGreaterThan(0);
+  if (from === 0) await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100));
+  for (let tries = tried(); tries <= BACKOFF.length; tries = tried()) {
+    await expect(line).toHaveCount(0);
+    await page.clock.runFor(BACKOFF[tries - 1] ?? 0);
+    await expect.poll(tried).toBeGreaterThan(tries);
+  }
+  expect(tried()).toBe(BACKOFF.length + 1);
+  // TanStack Query hands its updates to the screen through a setTimeout(0), which the paused clock holds.
+  await page.clock.runFor(100);
+}
