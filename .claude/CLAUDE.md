@@ -128,7 +128,7 @@ call may run. Watch it with `gh pr checks <n> --watch` as
 - Keep about seven entries per folder, files and folders alike, and every file
   under 5,000 tokens.
 - `mise run lint`, pre-commit and an editor hook check both. The folder baseline
-  in `.fan-out-baseline` may only go down: never raise a number there to pass.
+  in `.config/fan-out-baseline` may only go down: never raise a number there to pass.
 - `lint:imports` holds the import boundaries; today's breaches are listed and
   only new ones fail: [Run the checks](../docs/how-to/run-the-checks.md#get-past-the-import-checks).
 - Why, and the excludes: [File and folder limits](../docs/explanation/file-size-limit.md).

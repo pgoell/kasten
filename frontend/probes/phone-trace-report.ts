@@ -1,7 +1,7 @@
 /**
- * The report for the traces `e2e/phone-trace.ts` writes (#934).
+ * The report for the traces `probes/phone-trace.ts` writes (#934).
  *
- * `bun e2e/phone-trace-report.ts new old` reads every `traces/new*.json` and
+ * `bun probes/phone-trace-report.ts new old` reads every `traces/new*.json` and
  * `traces/old*.json` (not the `.meta.json` beside each) and prints one table per
  * prefix: its runs, their mean, the forced layouts by source line, and the
  * first-load JS. The numbers are read on the renderer main thread, between the
@@ -420,7 +420,7 @@ function printPrefix(prefix: string, runs: Run[]): void {
 
 const prefixes = process.argv.slice(2);
 if (prefixes.length === 0) {
-  console.error("usage: bun e2e/phone-trace-report.ts <label prefix> [...]");
+  console.error("usage: bun probes/phone-trace-report.ts <label prefix> [...]");
   process.exit(1);
 }
 

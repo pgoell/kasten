@@ -3,7 +3,7 @@
  *
  * Run with `mise run fe:e2e:release`, which builds release N into
  * `dist-e2e-a` and N+1 into `dist-e2e-b` (every asset renamed by
- * `e2e/release-b.config.ts`), then runs this. The server serves A until a
+ * `probes/release-b.config.ts`), then runs this. The server serves A until a
  * scenario calls `release()`, then B, and answers 404 for an asset B has not
  * got, as nginx does. Each scenario gets a fresh context, because TanStack's
  * once-per-message reload guard lives in the tab's `sessionStorage` and a

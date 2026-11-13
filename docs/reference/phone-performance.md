@@ -2,7 +2,7 @@
 type: Reference
 title: Phone performance
 description: The script that traces a tab switch, a note open and typing on a phone, what it measures and how, and the numbers of 0.98.5 against 0.85.0, and what the flashcard review and the todo board cost on a copy of the live vault.
-resource: frontend/e2e/phone-trace.ts
+resource: frontend/probes/phone-trace.ts
 tags: [performance, mobile, frontend, testing]
 status: stable
 ---
@@ -37,7 +37,7 @@ worktree and alternate the runs, old and new, so both meet the same load.
 
 ## What the script does
 
-`frontend/e2e/phone-trace.ts` serves a built `dist` and opens it in Chromium:
+`frontend/probes/phone-trace.ts` serves a built `dist` and opens it in Chromium:
 
 - a phone: 390 by 844 px, device scale 3, `isMobile` and `hasTouch`, and the
   CPU slowed four times with `Emulation.setCPUThrottlingRate`
@@ -63,8 +63,8 @@ with exit 1 and prints the page's text and the requests it made.
 
 ## What the report counts
 
-`frontend/e2e/phone-trace-report.ts` reads the renderer's main thread between
-each step's marks. `frontend/e2e/phone-trace-work.ts` reads what runs inside the long tasks of the `tab` and `open` steps; see [After #972 and #974](#after-972-and-974).
+`frontend/probes/phone-trace-report.ts` reads the renderer's main thread between
+each step's marks. `frontend/probes/phone-trace-work.ts` reads what runs inside the long tasks of the `tab` and `open` steps; see [After #972 and #974](#after-972-and-974).
 
 | Row | How it is counted |
 | --- | --- |
@@ -143,7 +143,7 @@ The report now also prints, for the `tab` and `open` steps, what runs inside
 each long task: the style passes with their callers and element counts, the
 style invalidations by reason, the CPU self time mapped through the source map,
 and the top `FunctionCall` events. The code is in
-`frontend/e2e/phone-trace-work.ts`.
+`frontend/probes/phone-trace-work.ts`.
 
 On 0.98.5 the long tasks held four things:
 

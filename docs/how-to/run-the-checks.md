@@ -164,7 +164,7 @@ cd frontend && bunx biome lint --only=complexity/noExcessiveCognitiveComplexity 
 ## Get past the copy check
 
 `lint:dup` runs jscpd over `frontend/src`, `backend/src` and `jobs/src` with
-the settings in `.jscpd.json` at the root. A run of at least 70 tokens that appears twice counts
+the settings in `.config/jscpd.json`. A run of at least 70 tokens that appears twice counts
 as a clone, and the check fails when clones make up more than 1% of the lines.
 Generated code (`api-types.ts`, `routeTree.gen.ts`) and the fonts are left out.
 On `main` the figure is 0.73%, 17 clones.
@@ -174,7 +174,7 @@ copied block into one function or component both places call, rather than
 raising the threshold. To see the clones while it passes:
 
 ```sh
-frontend/node_modules/.bin/jscpd
+frontend/node_modules/.bin/jscpd --config .config/jscpd.json
 ```
 
 ## Get past the comment checks
@@ -184,11 +184,11 @@ frontend/node_modules/.bin/jscpd
 left out. It fails in two ways:
 
 * `<file> is N% comment lines`: a file of 20 lines or more is over 20% lines
-  that hold only a comment, and over its line in `.comment-ratio-baseline`.
+  that hold only a comment, and over its line in `.config/comment-ratio-baseline`.
   Docstrings and JSDoc blocks are left out of both sides of the share, and a
   comment after code on the same line counts as code.
 * `<file> has N docstrings or JSDoc blocks over 6 lines`: the file holds more
-  of them than its line in `.long-docstring-baseline`, or any with no line.
+  of them than its line in `.config/long-docstring-baseline`, or any with no line.
   The count includes the `/**` and `*/` lines, so a body of five lines between
   them is already too long.
 
@@ -262,9 +262,9 @@ To list every folder over the second limit:
 scripts/structure/check-fan-out --all
 ```
 
-Globs for files that no one writes by hand are in `.file-size-excludes`.
-Folders that are lists by design are in `.fan-out-excludes`. Folders over the
-limit today are in `.fan-out-baseline`, and a folder may only shrink there.
+Globs for files that no one writes by hand are in `.config/file-size-excludes`.
+Folders that are lists by design are in `.config/fan-out-excludes`. Folders over the
+limit today are in `.config/fan-out-baseline`, and a folder may only shrink there.
 Run `scripts/structure/check-fan-out --update-baseline` after a folder shrinks to
 lower its line. Do not raise a line to pass.
 

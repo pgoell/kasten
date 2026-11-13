@@ -19,7 +19,7 @@ EXCLUDES=(
   '**/LICENSE*' '**/NOTICE'
 )
 
-# A repo adds its own globs in .file-size-excludes at its root: one per line,
+# A repo adds its own globs in .config/file-size-excludes: one per line,
 # "#" starts a comment line, blank lines are skipped. A missing file adds none.
 # "\n", "\t", "\r" and "\s" stand for a newline, tab, CR and space, so that the
 # name a report shows works here; git reads every other "\" (see escape, below).
@@ -32,7 +32,7 @@ EXCLUDES=(
 # $(...) strips every newline that ends the name, so the output ends in a mark.
 top=$(git rev-parse --show-toplevel && echo x)
 top=${top%$'\n'x}
-if [ -f "$top/.file-size-excludes" ]; then
+if [ -f "$top/.config/file-size-excludes" ]; then
   escapes=0
   while IFS= read -r glob || [ -n "$glob" ]; do
     glob=${glob%$'\r'}
@@ -60,7 +60,7 @@ if [ -f "$top/.file-size-excludes" ]; then
       glob+=$rest
     fi
     EXCLUDES+=("$glob")
-  done < <(head -c 1048576 "$top/.file-size-excludes" 2>/dev/null | LC_ALL=C tr '\0' '\1' 2>/dev/null | LC_ALL=C awk 'length($0) <= 512 && !/^[ \t\r]*(#|$)/ && gsub(/\*\*+/, "&") <= 4 { if (++n > 1024) exit; print }')
+  done < <(head -c 1048576 "$top/.config/file-size-excludes" 2>/dev/null | LC_ALL=C tr '\0' '\1' 2>/dev/null | LC_ALL=C awk 'length($0) <= 512 && !/^[ \t\r]*(#|$)/ && gsub(/\*\*+/, "&") <= 4 { if (++n > 1024) exit; print }')
 fi
 
 # The "top" magic anchors excludes at the repo root while arguments resolve

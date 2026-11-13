@@ -1,4 +1,4 @@
-"""scripts/structure/check-file-size with kasten's .file-size-excludes."""
+"""scripts/structure/check-file-size with kasten's .config/file-size-excludes."""
 
 from typing import TYPE_CHECKING
 
@@ -48,7 +48,7 @@ def test_kastens_generated_and_binary_files_are_excluded(make_repo: Callable[...
         "uv.lock",
         "LICENSE",
     ]
-    root = make_repo(dict.fromkeys(names, 30000), copy=(".file-size-excludes",))
+    root = make_repo(dict.fromkeys(names, 30000), copy=(".config/file-size-excludes",))
 
     result = run(root, CHECK)
 
