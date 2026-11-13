@@ -304,14 +304,25 @@ async function openPlan(page: Page, vault: string, open: () => Promise<void>) {
   await open();
   await expect(page.locator(TODO_ROW, { hasText: "read the plan" })).toBeVisible();
   await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100));
+  return doneCount(page);
 }
 
-/** Adds the nth open row to another note and runs the clock, inside the hold, until an answer later than the write draws it. */
-async function drawnAfter(page: Page, vault: string, n: number, spend: () => void) {
+/** The count on the Done this week heading, which is not drawn while the week has none. */
+async function doneCount(page: Page): Promise<number> {
+  const fold = page.getByRole("button", { name: /^Done this week/ });
+  if ((await fold.count()) === 0) return 0;
+  return Number((await fold.textContent())?.match(/\d+$/)?.[0]);
+}
+
+/**
+ * Adds the nth done row to another note and runs the clock, inside the hold, until an answer later
+ * than the write counts it. A done row joins the folded fold, so the held open order stays as it was.
+ */
+async function drawnAfter(page: Page, vault: string, n: number, base: number, spend: () => void) {
   await vaultWith(vault, {
-    [MARKER]: Array.from({ length: n }, (_, i) => `- [ ] mark ${i + 1}\n`).join(""),
+    [MARKER]: Array.from({ length: n }, (_, i) => `- [x] mark ${i + 1} ✅ ${today()}\n`).join(""),
   });
-  await waitFor(page, spend, () => listed(page, `mark ${n}`));
+  await waitFor(page, spend, async () => (await doneCount(page)) === base + n);
 }
 
 /** One press's share of the clock: each press starts the 1 s hold again. */
@@ -327,7 +338,7 @@ test("in an open group, an x after the one that made a row plain words cycles th
   page,
   stack,
 }) => {
-  await openPlan(page, stack.vault, async () => {
+  const base = await openPlan(page, stack.vault, async () => {
     await openApp(page);
     await leader(page, "gt");
   });
@@ -335,7 +346,7 @@ test("in an open group, an x after the one that made a row plain words cycles th
   for (const [step, line] of ROUND.entries()) {
     await page.keyboard.press("x");
     await expect.poll(() => noteText(stack.vault, PLAN)).toMatch(line);
-    await drawnAfter(page, stack.vault, step + 1, holdBudget());
+    await drawnAfter(page, stack.vault, step + 1, base, holdBudget());
   }
   // Plain words on disk, the row stays in its place, struck, under the cursor.
   const cursor = page.locator(`${TODO_ROW}[tabindex="0"]`);
@@ -350,7 +361,7 @@ test("once the hold lets go, a row made plain words leaves its open group (#2003
   page,
   stack,
 }) => {
-  await openPlan(page, stack.vault, async () => {
+  const base = await openPlan(page, stack.vault, async () => {
     await openApp(page);
     await leader(page, "gt");
   });
@@ -358,7 +369,7 @@ test("once the hold lets go, a row made plain words leaves its open group (#2003
   for (const [step, line] of ROUND.entries()) {
     await page.keyboard.press("x");
     await expect.poll(() => noteText(stack.vault, PLAN)).toMatch(line);
-    await drawnAfter(page, stack.vault, step + 1, holdBudget());
+    await drawnAfter(page, stack.vault, step + 1, base, holdBudget());
   }
   await expect(page.locator(TODO_ROW, { hasText: "read the plan" })).toBeVisible();
   await page.clock.runFor(1500);
@@ -373,7 +384,7 @@ test.describe("on a phone", () => {
     page,
     stack,
   }) => {
-    await openPlan(page, stack.vault, async () => {
+    const base = await openPlan(page, stack.vault, async () => {
       // A write goes by the file list, and a note it lacks is created, which a held note refuses.
       const files = page.waitForResponse((answer) => answer.url().endsWith("/api/files"));
       await page.goto("/");
@@ -388,7 +399,7 @@ test.describe("on a phone", () => {
       // A tap's write waits on the clock, so the clock runs while the note is read.
       const spend = holdBudget();
       await waitFor(page, spend, async () => line.test(await noteText(stack.vault, PLAN)));
-      await drawnAfter(page, stack.vault, step + 1, spend);
+      await drawnAfter(page, stack.vault, step + 1, base, spend);
     }
     await expect(
       page.locator(TODO_ROW, { hasText: "read the plan" }).locator(".line-through"),
