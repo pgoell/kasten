@@ -1,6 +1,6 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { Page } from "@playwright/test";
+import type { Page, Route } from "@playwright/test";
 import { leader, noteText, openApp, openFromTree } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
 
@@ -269,4 +269,146 @@ test("held text the vault already holds, but for its stamp, is dropped when the 
     ])
     .toEqual([{ status: "Saved", held: null, title: null }, null, 0]);
   expect(await noteText(stack.vault, WELCOME)).toBe(on);
+});
+
+const CAPITALS = "03 Flashcards/Capitals.md";
+const OUTSIDE = "Somebody else wrote this.\n";
+
+/**
+ * Opens Capitals from its card on the review page, the way a phone leaves the review for a note,
+ * and waits for its editor's focus. The browser's Back then leaves the editor route in the page.
+ */
+async function fromReview(page: Page) {
+  await page.goto("/review");
+  await page.locator('button[data-deck="capitals"]').click({ timeout: 15_000 });
+  await page.getByRole("button", { name: /Show the answer/ }).click();
+  await page.getByRole("button", { name: /^Capitals, line \d+$/ }).click();
+  await page.locator(".cm-content").first().click();
+  await expect(focused(page)).toHaveCount(1);
+  // Read again after Forward: the route came back in the same page, not by a load.
+  await page.evaluate(() => Object.assign(window, { stayed: true }));
+}
+
+/** Leaves the editor route by the browser's Back, then comes back to the note by Forward. */
+async function backAndForth(page: Page, between: () => Promise<void> = async () => {}) {
+  await page.goBack();
+  await expect(page.locator('button[data-deck="capitals"]')).toBeVisible();
+  await between();
+  await page.goForward();
+  await expect(page.locator(".cm-content").first()).toBeVisible();
+  expect(await page.evaluate(() => "stayed" in window)).toBe(true);
+}
+
+/** Counts each PUT of Capitals and answers it by `answer`, or lets it through. */
+async function capitalsPuts(page: Page, answer: (route: Route, nth: number) => Promise<void>) {
+  const puts = { count: 0 };
+  await page.route(
+    (url) => decodeURIComponent(url.pathname) === `/api/files/${CAPITALS}`,
+    async (route) => {
+      if (route.request().method() !== "PUT") return route.fallback();
+      puts.count += 1;
+      await answer(route, puts.count);
+    },
+  );
+  return puts;
+}
+
+const refuse = (route: Route) =>
+  route.fulfill({ status: 500, json: { detail: "refused by the test" } });
+
+test.describe("leaving the editor route by the browser's Back", () => {
+  test("keeps the text when the leave fails to save it, and says so on return", async ({
+    page,
+    stack,
+  }) => {
+    const before = await noteText(stack.vault, CAPITALS);
+    const puts = await capitalsPuts(page, refuse);
+    await page.clock.install();
+    await fromReview(page);
+    // A paused clock holds the quiet write back, so only the leave can send the text.
+    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1_000));
+    await page.keyboard.type(`Go${TYPED}`);
+    await page.keyboard.press("Escape");
+    await expect(focused(page)).toContainText(TYPED);
+    expect(puts.count).toBe(0);
+
+    await backAndForth(page, () => expect.poll(() => puts.count).toBeGreaterThan(0));
+
+    await expect
+      .poll(async () => [(await page.locator(".cm-content").first().textContent())?.includes(TYPED), await bar(page)])
+      .toEqual([true, { status: "Could not save", held: null, title: null }]);
+    expect(await noteText(stack.vault, CAPITALS)).toBe(before);
+  });
+
+  test("writes nothing when the note stands conflicted, and on return still stands so", async ({
+    page,
+    stack,
+  }) => {
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const puts = await capitalsPuts(page, async (route) => {
+      await held;
+      await route.fallback();
+    });
+    await fromReview(page);
+    await page.keyboard.type(`Go${TYPED}`);
+    await page.keyboard.press("Escape");
+    await expect.poll(() => puts.count).toBeGreaterThan(0);
+    await writeFile(join(stack.vault, CAPITALS), OUTSIDE);
+    release();
+    await expect.poll(async () => (await bar(page)).status, { timeout: 15_000 }).toBe("Changed on disk");
+    const sent = puts.count;
+
+    await backAndForth(page);
+
+    await expect
+      .poll(async () => [(await page.locator(".cm-content").first().textContent())?.includes(TYPED), (await bar(page)).status])
+      .toEqual([true, "Changed on disk"]);
+    expect([puts.count, await noteText(stack.vault, CAPITALS)]).toEqual([sent, OUTSIDE]);
+  });
+
+  test("keeps a leave that fails after the note came back on screen, and the next keys save it", async ({
+    page,
+    stack,
+  }) => {
+    let fail = () => {};
+    const failed = new Promise<void>((resolve) => {
+      fail = resolve;
+    });
+    let failing = true;
+    const puts = await capitalsPuts(page, async (route, nth) => {
+      if (nth === 1) await failed;
+      if (failing) return refuse(route);
+      await route.fallback();
+    });
+    await page.clock.install();
+    await fromReview(page);
+    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1_000));
+    await page.keyboard.type(`Go${TYPED}`);
+    await page.keyboard.press("Escape");
+
+    // The leave's write is still in the air when the note comes back.
+    await backAndForth(page, () => expect.poll(() => puts.count).toBe(1));
+    await expect(page.locator(".cm-content").first()).toContainText(TYPED);
+    fail();
+    await expect
+      .poll(async () => [(await page.locator(".cm-content").first().textContent())?.includes(TYPED), await bar(page)])
+      .toEqual([true, { status: "Could not save", held: null, title: null }]);
+
+    failing = false;
+    await page.clock.resume();
+    await page.locator(".cm-content").first().click();
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("x");
+    await page.keyboard.press("x");
+    await expect
+      .poll(async () => [(await noteText(stack.vault, CAPITALS)).includes(TYPED), await bar(page)], {
+        timeout: 15_000,
+      })
+      .toEqual([true, { status: "Saved", held: null, title: null }]);
+    const shown = await page.locator(".cm-content").first().textContent();
+    expect(shown?.includes(TYPED)).toBe(true);
+  });
 });
