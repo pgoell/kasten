@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { phone, vaultWith } from "../../harness/app.ts";
+import { builtCss, phone, vaultWith } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 
 // nginx serves the lists app on the share host's name alone (#736), the name frontend/nginx.conf writes out.
@@ -42,4 +42,18 @@ test.describe("on a phone", () => {
     await expect.poll(async () => (await painted(page))[0]).toBe("light");
     expect((await painted(page))[1]).not.toBe(dark);
   });
+});
+
+test("the lists app's top bar blurs the list behind it, with Safari's prefix ahead in the css", async ({
+  page,
+  stack,
+}) => {
+  await openLists(page, stack.vault);
+  // Vite's Lightning CSS minifier dropped this line when the source wrote the -webkit- twin after it (#1986).
+  expect(
+    await page.locator("header.top").evaluate((bar) => getComputedStyle(bar).backdropFilter),
+  ).toBe("blur(18px) saturate(1.4)");
+  expect(await builtCss(page)).toMatch(
+    /\.top\{[^}]*-webkit-backdrop-filter:blur\(18px\) ?saturate\(1\.4\);backdrop-filter:blur\(18px\) ?saturate\(1\.4\)[;}]/,
+  );
 });

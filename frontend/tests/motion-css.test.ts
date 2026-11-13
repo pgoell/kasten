@@ -92,6 +92,24 @@ describe("the glass material", () => {
     expect(glass).toContain("backdrop-filter: blur(18px) saturate(1.4)");
   });
 
+  it("no rule writes a -webkit- line after its standard twin, which Lightning CSS keeps alone (#1986)", () => {
+    const late = filesUnder("src/styles")
+      .filter((file) => file.endsWith(".css"))
+      .flatMap((file) => {
+        const css = readFileSync(file, "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+        return [...css.matchAll(/\{([^{}]*)\}/g)].flatMap(([, body = ""]) => {
+          const names = body.split(";").map((line) => line.split(":")[0]?.trim() ?? "");
+          return names
+            .filter(
+              (name, i) => name.startsWith("-webkit-") && names.slice(0, i).includes(name.slice(8)),
+            )
+            .map((name) => `${file}: ${name}`);
+        });
+      });
+
+    expect(late).toEqual([]);
+  });
+
   it("the hairline is drawn in the rule colour", () => {
     expect(block("@utility k-hairline {")).toContain("border-bottom: 1px solid var(--k-rule)");
   });

@@ -66,7 +66,6 @@ button:not(.words, .menu button):active:not(:disabled) {
   /* Glass, as the main app's tab strip is: the list shows through, blurred. */
   background-color: color-mix(in srgb, var(--k-bg) 84%, transparent);
   backdrop-filter: blur(18px) saturate(1.4);
-  -webkit-backdrop-filter: blur(18px) saturate(1.4);
   border-bottom: 1px solid var(--k-rule);
 }
 
@@ -76,7 +75,6 @@ button:not(.words, .menu button):active:not(:disabled) {
   .top {
     background-color: var(--k-bg);
     backdrop-filter: none;
-    -webkit-backdrop-filter: none;
   }
 }
 
@@ -84,7 +82,6 @@ button:not(.words, .menu button):active:not(:disabled) {
   .top {
     background-color: var(--k-bg);
     backdrop-filter: none;
-    -webkit-backdrop-filter: none;
     border-bottom-color: var(--k-ink);
   }
 }
