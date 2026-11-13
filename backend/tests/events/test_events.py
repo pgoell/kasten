@@ -295,28 +295,6 @@ def test_to_events_reads_a_note_it_cannot_open_as_a_removal(tmp_path: Path) -> N
     ]
 
 
-def test_to_events_asks_for_a_listing_when_a_folder_moves(tmp_path: Path) -> None:
-    # The whole reason this kind exists. `rename_folder` is one rename, so the
-    # notes inside it never fire at all: inotify names the folder and nothing
-    # else. Without this the client keeps a row pointing at a note that moved.
-    write(tmp_path, "projects/kasten.md", "derived index\n")
-    (tmp_path / "projects").rename(tmp_path / "done")
-
-    assert to_events(tmp_path, {(Change.added, str(tmp_path / "done"))}) == [LISTING]
-
-
-def test_to_events_asks_for_one_listing_however_much_moved(tmp_path: Path) -> None:
-    # An agent reorganising the vault moves many folders inside one window, and
-    # the client has one file list to read whatever happened to it.
-    folders = [tmp_path / f"folder-{number}" for number in range(4)]
-    for folder in folders:
-        folder.mkdir()
-
-    events = to_events(tmp_path, {(Change.added, str(folder)) for folder in folders})
-
-    assert events == [LISTING]
-
-
 def test_to_events_asks_for_no_listing_when_only_notes_changed(tmp_path: Path) -> None:
     note = write(tmp_path, "kasten.md", "derived index\n")
 

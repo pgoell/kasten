@@ -89,6 +89,13 @@ rename, so the kernel names the directory and stops: no note under it fires at
 all, and without this the client would keep drawing rows for notes that had
 moved. One per batch whatever moved, because there is one file list to reread.
 
+A folder that is new, made or moved in, is walked, and every note and page in
+it comes after the `listing` as `written` or `page`. The kernel watches a new
+folder only once the watcher has seen it made, so a note written into it before
+then, as a first save into `01 Periodic/00 Daily/` writes the daily note and
+both folders' `index.md`, would otherwise never be reported. Dot-directories are
+not walked.
+
 There is no kind for a note that is new. A write renames a temp file over the
 note, Linux reports that as a move into place, and a note kasten has held for
 weeks would announce itself as new on every save. Whether a note is new is a

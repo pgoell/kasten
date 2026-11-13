@@ -242,7 +242,7 @@ test("a press that makes today's daily note leaves a pending press's row as draw
   garden.release();
   // The done log makes the daily note and its folders: their listing and index writes reach the page.
   await expect.poll(heard).toContain("01 Periodic/index.md");
-  expect(await heard()).toContain("01 Periodic/00 Daily/index.md");
+  await expect.poll(heard).toContain("01 Periodic/00 Daily/index.md");
   await home.arrived();
   home.release();
   // The read once the last press lands, which comes after any read the events made.
