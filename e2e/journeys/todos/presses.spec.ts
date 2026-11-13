@@ -1,5 +1,13 @@
 import type { Page } from "@playwright/test";
-import { cursorTo, leader, noteText, openApp, TODO_ROW } from "../../harness/app.ts";
+import {
+  cursorTo,
+  leader,
+  noteText,
+  openApp,
+  TODO_ROW,
+  today,
+  vaultWith,
+} from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 
 const GARDEN = "02 Projects/Garden.md";
@@ -34,9 +42,6 @@ const READ = "the list was read";
  */
 async function markListReads(page: Page): Promise<{ arm: () => void }> {
   let armed = false;
-  // Shut, so only the press's own read follows a landing: an event that beats the save's answer
-  // is no echo yet and asks for the list too (#1994).
-  await page.route("**/api/events", (route) => route.abort());
   await page.route(
     (url) => url.pathname === "/api/todos",
     async (route) => {
@@ -49,6 +54,49 @@ async function markListReads(page: Page): Promise<{ arm: () => void }> {
   );
   return { arm: () => (armed = true) };
 }
+
+/** Holds the answer of every save of `path` until `release`, once the vault has the write. */
+async function holdAnswers(page: Page, path: string) {
+  let release = () => {};
+  let saves = 0;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(
+    (url) => decodeURIComponent(url.pathname) === `/api/files/${path}`,
+    async (route) => {
+      if (route.request().method() !== "PUT") return route.fallback();
+      saves += 1;
+      const response = await route.fetch();
+      await gate;
+      await route.fulfill({ response });
+    },
+  );
+  return { release, arrived: () => expect.poll(() => saves).toBe(1) };
+}
+
+/** Records the path of every vault event the page's stream delivers, as the app hears them. */
+async function hearEvents(page: Page): Promise<() => Promise<string[]>> {
+  await page.addInitScript(() => {
+    const heard: string[] = [];
+    Object.assign(window, { heard });
+    window.EventSource = class extends EventSource {
+      constructor(url: string | URL, init?: EventSourceInit) {
+        super(url, init);
+        this.addEventListener("message", (event) => heard.push(JSON.parse(event.data).path));
+      }
+    };
+  });
+  return () => page.evaluate(() => (window as unknown as { heard: string[] }).heard);
+}
+
+
+/**
+ * Today's daily note, there already, so a press's log line only writes it: a note made brings
+ * folder index writes, whose events are no press's own and read the list (#1998).
+ */
+const seedDaily = (vault: string) =>
+  vaultWith(vault, { [`01 Periodic/00 Daily/${today()}.md`]: "# Today\n" });
 
 const stateOf = (page: Page, words: string, state: string) =>
   page.locator(TODO_ROW, { hasText: words }).getByRole("img", { name: state });
@@ -80,7 +128,9 @@ test("a press draws the row's new state before the vault has the write", async (
 
 test("of two presses, the list is read once the last lands, not when the first does", async ({
   page,
+  stack,
 }) => {
+  await seedDaily(stack.vault);
   const garden = await holdSaves(page, GARDEN);
   const home = await holdSaves(page, HOME);
   const reads = await markListReads(page);
@@ -108,7 +158,9 @@ test("of two presses, the list is read once the last lands, not when the first d
 
 test("a press of t that lands while a press of x waits leaves the list unread until the x lands", async ({
   page,
+  stack,
 }) => {
+  await seedDaily(stack.vault);
   const garden = await holdSaves(page, GARDEN);
   const reads = await markListReads(page);
   const read = page.locator(TODO_ROW, { hasText: READ });
@@ -124,5 +176,36 @@ test("a press of t that lands while a press of x waits leaves the list unread un
   await expect(read).toHaveCount(0);
   garden.release();
   await expect(read).toHaveCount(1);
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+});
+
+test("a press's own event that beats its save's answer leaves a pending press's row as drawn", async ({
+  page,
+  stack,
+}) => {
+  await seedDaily(stack.vault);
+  const heard = await hearEvents(page);
+  const garden = await holdAnswers(page, GARDEN);
+  const home = await holdSaves(page, HOME);
+  const reads = await markListReads(page);
+  const read = page.locator(TODO_ROW, { hasText: READ });
+  await openTodos(page);
+  await cursorTo(page, TOMATOES);
+  await page.keyboard.press("X");
+  await cursorTo(page, LAUNDRY);
+  await page.keyboard.press("W");
+  await expect(stateOf(page, LAUNDRY, "waiting")).toBeVisible();
+  await garden.arrived();
+  reads.arm();
+  // The vault has the Garden write and the page its event, while the save still waits on its answer.
+  await expect.poll(heard).toContain(GARDEN);
+  garden.release();
+  // The done log and the Home save go out only once Garden lands: an early list read is drawn by now.
+  await home.arrived();
+  await expect(stateOf(page, LAUNDRY, "waiting")).toBeVisible();
+  await expect(read).toHaveCount(0);
+  home.release();
+  await expect(read).toHaveCount(1);
+  await expect(stateOf(page, LAUNDRY, "waiting")).toBeVisible();
   await page.unrouteAll({ behavior: "ignoreErrors" });
 });
