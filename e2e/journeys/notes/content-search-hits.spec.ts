@@ -185,6 +185,46 @@ test.describe("the backlinks preview", () => {
       .toBe((await noteText(stack.vault, note)).split("\n")[far + 30 - 1]);
   });
 
+  test("shows a file hit's place and line, and never reads the file as a note", async ({
+    page,
+  }) => {
+    const read: string[] = [];
+    // Note text the pane would show, were the pdf read as a note.
+    // Matched decoded: the client sends the path's slash as %2F.
+    const plan = (url: URL) =>
+      decodeURIComponent(url.pathname).endsWith("/api/files/docs/Plan.pdf");
+    await page.route(plan, (route) => {
+      read.push(route.request().url());
+      return route.fulfill({ body: "binary\nstream\nendobj" });
+    });
+    await gardenBacklinks(page, [{ ...PDF, text: "the budget for [[Garden]] is due in March" }]);
+    await expect(preview(page)).toHaveText(
+      /page 3\s*the budget for \[\[Garden\]\] is due in March/,
+    );
+    // A request the page sends after the preview drew lands after any the preview sent.
+    await page.evaluate(() => fetch("/api/version"));
+    expect(read).toEqual([]);
+  });
+
+  test("a hit past the note's end shows the note's last lines, numbered as the note is, none marked", async ({
+    page,
+    stack,
+  }) => {
+    const note = "Long note.md";
+    const last = (await noteText(stack.vault, note)).split("\n").length;
+    // A stale index: the note lost lines since the hit was found.
+    await gardenBacklinks(page, [hit(note, last + 25, "gone [[Garden]]")]);
+    await expect(preview(page).locator(".cm-line").first()).toBeVisible();
+    // The gutter's spacer, hidden, carries a number of its own.
+    const numbers = await preview(page).evaluate((pane) =>
+      [...pane.querySelectorAll<HTMLElement>(".cm-lineNumbers .cm-gutterElement")]
+        .filter((n) => n.style.visibility !== "hidden")
+        .map((n) => Number(n.textContent)),
+    );
+    expect(numbers).toEqual([0, 1, 2, 3, 4, 5].map((n) => last - 5 + n));
+    await expect(preview(page).locator(".cm-searchHit")).toHaveCount(0);
+  });
+
   test("draws the markdown once a starved first parse catches up", async ({ page, stack }) => {
     await vaultWith(stack.vault, {
       "Starved.md": "line 1\n## a heading\nwith **bold** in it\nline 4\n",
