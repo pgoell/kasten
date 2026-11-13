@@ -1,5 +1,5 @@
 import { expect, type Page, type Route } from "@playwright/test";
-import { leader, localDate, noteText, openApp } from "./app.ts";
+import { findNote, leader, localDate, noteText, openApp } from "./app.ts";
 
 /** A matched line; a note with no date in its name or frontmatter answers `date: null`. A file's line carries its `place`. */
 export type Hit = {
@@ -65,4 +65,30 @@ export async function openPanel(page: Page, keys: string, name: "backlinks" | "t
 /** The 1-based line of `path` in the test's vault that holds `words`: the vault adds frontmatter on load. */
 export async function lineOf(vault: string, path: string, words: string): Promise<number> {
   return (await noteText(vault, path)).split("\n").findIndex((line) => line.includes(words)) + 1;
+}
+
+/** Opens the backlinks of the Garden note, the vault answering its name with `hits`, `ready` run just before the panel opens; returns what was asked. */
+export async function gardenBacklinks(
+  page: Page,
+  hits: Hit[] | (() => Promise<Hit[]>),
+  narrow = false,
+  ready = async () => {},
+): Promise<string[]> {
+  const asked: string[] = [];
+  await page.route("**/api/search?**", async (route) => {
+    const q = new URL(route.request().url()).searchParams.get("q") ?? "";
+    // The recent notes ask the search too, by their `modified:` date.
+    if (q.startsWith("modified:")) return route.fallback();
+    asked.push(q);
+    const answer = typeof hits === "function" ? await hits() : hits;
+    await route.fulfill({ json: q === "Garden" ? answer : [] });
+  });
+  await page.route("**/api/mentions?**", (route) => route.fulfill({ json: [] }));
+  await openApp(page);
+  await findNote(page, "Garden");
+  // The app opens wide, since a narrow window has no tree to open the note from.
+  if (narrow) await page.setViewportSize({ width: 600, height: 900 });
+  await ready();
+  await openPanel(page, "gb", "backlinks");
+  return asked;
 }

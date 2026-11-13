@@ -1282,7 +1282,7 @@
           "agent"
         ],
         "summary": "Upload File",
-        "description": "Put the raw body at `path`: a book or an image never overwrites, a page replaces.\n\nRaw rather than multipart, as `POST /api/assets/{path}` takes it, so `curl\n--data-binary @paper.pdf` is the whole client. `openapi_extra` because the\nbody is read off the request, which FastAPI cannot see to describe.",
+        "description": "Put the raw body at `path`: a page replaces, any other file never overwrites.\n\nRaw rather than multipart, as `POST /api/assets/{path}` takes it, so `curl\n--data-binary @paper.pdf` is the whole client. `openapi_extra` because the\nbody is read off the request, which FastAPI cannot see to describe.",
         "operationId": "upload_file_agent_files__path__post",
         "parameters": [
           {

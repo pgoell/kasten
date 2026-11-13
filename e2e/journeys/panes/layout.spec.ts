@@ -255,6 +255,50 @@ test.describe("the top bar", () => {
     await expect(page.locator("[data-graph-pane] canvas")).toBeVisible();
   });
 
+  test("a stray stored graph mode opens the graph grouped by Folders", async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem("kasten.graph.mode", "bogus"));
+    await openApp(page);
+    await bar(page).getByRole("button", { name: "Graph", exact: true }).click();
+    const mode = page.getByRole("group", { name: "mode" });
+    await expect(mode.getByRole("button", { name: "Folders" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(mode.getByRole("button", { name: "Tags" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    await expect(page.getByText("Places are folders.")).toBeVisible();
+  });
+
+  test("a graph mode pick holds for the page when the browser refuses to store it", async ({
+    page,
+  }) => {
+    // Full storage, for this key alone: the rest of the app keeps its own.
+    await page.addInitScript(() => {
+      const setItem = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (key, value) {
+        if (key === "kasten.graph.mode") throw new DOMException("full", "QuotaExceededError");
+        setItem.call(this, key, value);
+      };
+    });
+    await openApp(page);
+    const graph = bar(page).getByRole("button", { name: "Graph", exact: true });
+    await graph.click();
+    const tags = page.getByRole("group", { name: "mode" }).getByRole("button", { name: "Tags" });
+    await tags.click();
+    await expect(tags).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByText("Places are tags.")).toBeVisible();
+    expect(await page.evaluate(() => localStorage.getItem("kasten.graph.mode"))).toBeNull();
+
+    // A graph opened again reads the mode afresh, and finds the pick it could not store.
+    await page.locator("[data-graph-pane] canvas").click();
+    await page.keyboard.press("q");
+    await expect(page.locator("[data-graph-pane]")).toHaveCount(0);
+    await graph.click();
+    await expect(tags).toHaveAttribute("aria-pressed", "true");
+  });
+
   test("the terminal leader key opens a terminal pane, once its xterm chunk has loaded", async ({
     page,
   }) => {
@@ -288,5 +332,49 @@ test.describe("the top bar", () => {
     await expect
       .poll(() => noteText(stack.vault, "From the bar.md"), { timeout: 15_000 })
       .toContain("Written from the bar.");
+  });
+});
+
+test.describe("the clock in the status bar", () => {
+  // A fixed zone, so the wall clock reads the same on every runner.
+  test.use({ timezoneId: "Europe/Berlin" });
+  const start = new Date("2026-08-05T15:52:00+02:00");
+
+  /** The bar's four readings as one string, in the order they sit. */
+  const clock = (page: Page) => page.locator("footer time").first().locator("..");
+
+  test("reads the weekday, the date, the week and the time, with a note focused and with none", async ({
+    page,
+  }) => {
+    await page.clock.install({ time: start });
+    await openApp(page);
+    await openNote(page, "Welcome");
+    await leader(page, "%");
+    const today = page.getByRole("region", { name: "Today" });
+    await expect(today).toBeVisible();
+    await expect(page.locator(".cm-editor")).toHaveCount(2);
+    // Paused half a minute in, so the minute cannot turn over while the bar is read.
+    await page.clock.pauseAt(start.getTime() + 30_000);
+
+    // The day page's pane holds no note, so the bar has no save sign beside the clock.
+    const sign = page.locator("footer [data-testid=save-status]");
+    await expect(sign).toHaveCount(0);
+    await expect(clock(page)).toHaveText("Wednesday2026-08-05CW 3215:52");
+
+    await page.locator(".cm-editor", { hasText: "front door" }).locator(".cm-line").first().click();
+    await expect(sign).toHaveAttribute("aria-label", "Saved");
+    await expect(clock(page)).toHaveText("Wednesday2026-08-05CW 3215:52");
+  });
+
+  test("turns the minute over when the wall clock does", async ({ page }) => {
+    await page.clock.install({ time: start });
+    await openApp(page);
+    await page.clock.pauseAt(start.getTime() + 30_000);
+    await expect(clock(page)).toHaveText(/15:52$/);
+
+    // The tick is lined up with the wall clock: the bar mounted a few seconds past 15:52,
+    // and the minute turns at 15:53:00, not a whole minute after the mount.
+    await page.clock.runFor(30_000);
+    await expect(clock(page)).toHaveText(/15:53$/);
   });
 });

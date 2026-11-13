@@ -330,7 +330,7 @@ async def fetch_file(
 async def upload_file(
     path: str, request: Request, settings: Annotated[Settings, Depends(get_settings)]
 ) -> Filed | JSONResponse:
-    """Put the raw body at `path`: a book or an image never overwrites, a page replaces.
+    """Put the raw body at `path`: a page replaces, any other file never overwrites.
 
     Raw rather than multipart, as `POST /api/assets/{path}` takes it, so `curl
     --data-binary @paper.pdf` is the whole client. `openapi_extra` because the

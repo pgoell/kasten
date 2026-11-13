@@ -1,9 +1,17 @@
 import { copyFile, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Page } from "@playwright/test";
-import { phone, readAll } from "../../harness/app.ts";
+import { noteText, phone, readAll, vaultWith } from "../../harness/app.ts";
 import { root } from "../../harness/paths.ts";
-import { answer, bar, type Hit, hit, openSearch } from "../../harness/search.ts";
+import {
+  answer,
+  bar,
+  gardenBacklinks,
+  type Hit,
+  hit,
+  lineOf,
+  openSearch,
+} from "../../harness/search.ts";
 import { expect, test } from "../../harness/stack.ts";
 
 const HITS: Hit[] = [
@@ -142,6 +150,109 @@ test("a folder and a tag narrow the file lines, and a file line counts in the we
   await filter(page, /^#reading/).click();
   await expect(rows(page)).toHaveCount(1);
   await expect(rows(page)).toContainText("postgres in the second chapter");
+});
+
+// The backlinks panel is the search's own panel, and the one that draws a preview beside its lines.
+test.describe("the backlinks preview", () => {
+  const preview = (page: Page) => page.getByTestId("preview");
+
+  test("shows thirty lines either side of the hit and leaves the rest of the note out", async ({
+    page,
+    stack,
+  }) => {
+    const note = "Long note.md";
+    const far = await lineOf(stack.vault, note, "Line 120 of filler");
+    await gardenBacklinks(page, [hit(note, far, "far [[Garden]]")]);
+    await expect(preview(page).locator(".cm-searchHit")).toContainText("Line 120 of filler");
+    // The gutter's hidden spacer carries a number too, so the first line is the smallest.
+    const first = await preview(page).evaluate((pane) =>
+      Math.min(
+        ...[...pane.querySelectorAll(".cm-gutterElement")]
+          .map((n) => Number(n.textContent))
+          .filter((n) => n > 0),
+      ),
+    );
+    expect(first).toBe(far - 30);
+    // CodeMirror draws only the lines in view, so the far edge shows once scrolled to.
+    await expect
+      .poll(() =>
+        preview(page).evaluate((pane) => {
+          const scroller = pane.querySelector(".cm-scroller") as HTMLElement;
+          scroller.scrollTop = scroller.scrollHeight;
+          return [...pane.querySelectorAll(".cm-line")].at(-1)?.textContent;
+        }),
+      )
+      .toBe((await noteText(stack.vault, note)).split("\n")[far + 30 - 1]);
+  });
+
+  test("draws the markdown once a starved first parse catches up", async ({ page, stack }) => {
+    await vaultWith(stack.vault, {
+      "Starved.md": "line 1\n## a heading\nwith **bold** in it\nline 4\n",
+    });
+    // A clock that leaps a second each read spends CodeMirror's first parse budget at once, as a
+    // loaded machine can (#437). It runs true again the moment the preview draws, so the idle parse
+    // that follows has its time.
+    const starve = () =>
+      page.evaluate(() => {
+        const real = Date.now;
+        let now = real();
+        Date.now = () => (now += 1000);
+        new MutationObserver((_, observer) => {
+          if (!document.querySelector("[data-testid=preview] .cm-content")) return;
+          Date.now = real;
+          observer.disconnect();
+        }).observe(document.body, { childList: true, subtree: true });
+      });
+    await gardenBacklinks(
+      page,
+      async () => [
+        hit("Starved.md", await lineOf(stack.vault, "Starved.md", "bold"), "**bold** [[Garden]]"),
+      ],
+      false,
+      starve,
+    );
+    await expect
+      .poll(() =>
+        preview(page).evaluate((pane) => [
+          pane.querySelector(".cm-content")?.textContent,
+          pane.querySelector(".cm-strong")?.textContent,
+        ]),
+      )
+      .toEqual([expect.stringContaining("a heading"), "bold"]);
+    await expect(preview(page).locator(".cm-content")).not.toContainText(/##|\*\*/);
+  });
+});
+
+test("a relation named untyped draws its own group beside the untyped links, through a narrow and back", async ({
+  page,
+}) => {
+  await gardenBacklinks(page, [
+    hit("Welcome.md", 3, "untyped:: [[Garden]]"),
+    hit("Welcome.md", 4, "see [[Garden]]"),
+  ]);
+  const dialog = page.getByRole("dialog", { name: "Backlinks" });
+  const named = dialog.getByRole("group", { name: "untyped" }).getByRole("option");
+  const loose = dialog.locator('[role="listbox"] > [role="option"]');
+  await expect(named).toHaveText([/untyped:: \[\[Garden\]\]/]);
+  await expect(loose).toHaveText([/see \[\[Garden\]\]/]);
+  await expect(dialog.getByRole("group")).toHaveCount(1);
+
+  // The untyped links keep their rows while the named group goes and comes back: a group key
+  // shared with it would make React remount one, which a production build does without a warning.
+  await loose.evaluate((row) => {
+    (window as unknown as { kept: Element }).kept = row;
+  });
+  await page.keyboard.type("see");
+  await expect(dialog.getByRole("option")).toHaveCount(1);
+  await expect(dialog.getByRole("group")).toHaveCount(0);
+  await page.keyboard.press("Control+a");
+  await page.keyboard.press("Backspace");
+  await expect(named).toHaveText([/untyped:: \[\[Garden\]\]/]);
+  await expect(loose).toHaveText([/see \[\[Garden\]\]/]);
+  await expect(dialog.getByRole("group")).toHaveCount(1);
+  expect(await loose.evaluate((row) => row === (window as unknown as { kept: Element }).kept)).toBe(
+    true,
+  );
 });
 
 test.describe("Enter on a file's hit", () => {

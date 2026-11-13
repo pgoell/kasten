@@ -1,6 +1,6 @@
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import {
   findNote,
   inbox,
@@ -10,7 +10,7 @@ import {
   openFromTree,
   vaultWith,
 } from "../../harness/app.ts";
-import { type Hit, hit, lineOf, openPanel } from "../../harness/search.ts";
+import { gardenBacklinks, hit, lineOf, openPanel } from "../../harness/search.ts";
 import { expect, test } from "../../harness/stack.ts";
 
 test("a new note made from the note prompt is written to disk with the typed line", async ({
@@ -79,30 +79,6 @@ test("an embed draws the text of the note it names inside the note", async ({ pa
     "The best time to plant a tree was twenty years ago.",
   );
 });
-
-/** Opens the backlinks of the Garden note, the vault answering its name with `hits`; returns what was asked. */
-async function gardenBacklinks(
-  page: Page,
-  hits: Hit[] | (() => Promise<Hit[]>),
-  narrow = false,
-): Promise<string[]> {
-  const asked: string[] = [];
-  await page.route("**/api/search?**", async (route) => {
-    const q = new URL(route.request().url()).searchParams.get("q") ?? "";
-    // The recent notes ask the search too, by their `modified:` date.
-    if (q.startsWith("modified:")) return route.fallback();
-    asked.push(q);
-    const answer = typeof hits === "function" ? await hits() : hits;
-    await route.fulfill({ json: q === "Garden" ? answer : [] });
-  });
-  await page.route("**/api/mentions?**", (route) => route.fulfill({ json: [] }));
-  await openApp(page);
-  await findNote(page, "Garden");
-  // The app opens wide, since a narrow window has no tree to open the note from.
-  if (narrow) await page.setViewportSize({ width: 600, height: 900 });
-  await openPanel(page, "gb", "backlinks");
-  return asked;
-}
 
 const backlinks = (page: Page) =>
   page.getByRole("dialog", { name: "Backlinks" }).getByRole("option");
@@ -184,6 +160,25 @@ test("a note nothing links to says so, and Tab keeps the focus in the panel", as
     .toEqual([0, "nothing links here"]);
   await page.keyboard.press("Tab");
   await expect(page.getByRole("combobox", { name: "backlinks" })).toBeFocused();
+});
+
+test("the backlinks of a note leave out a link that names another note of a similar name", async ({
+  page,
+  stack,
+}) => {
+  // With a `borges.md` at the root a bare name names that one, so only the path links here.
+  const shelf = "see [[archive/borges]]\nsee [[borges]]\nsee [[reading/borges]]";
+  await vaultWith(stack.vault, {
+    "reading/borges.md": "# Borges\n",
+    "borges.md": "# Ficciones\n",
+    "Shelf.md": shelf,
+  });
+  await openApp(page);
+  await findNote(page, "Shelf");
+  await page.keyboard.type("G$gf");
+  await expect(page.locator(".cm-content:focus")).toHaveText("Borges");
+  await openPanel(page, "gb", "backlinks");
+  await expect(backlinks(page)).toHaveText([/see \[\[reading\/borges\]\]/]);
 });
 
 test("the backlinks group under the relation in front, typed by the target that resolves here, with the untyped lines last", async ({
@@ -443,4 +438,36 @@ test.describe("following a link with an alias or a heading", () => {
     await expect(page.getByRole("tab", { name: "kafka", selected: true })).toBeVisible();
     await expect(page.locator(".cm-content:focus")).toHaveText("the trial");
   });
+});
+
+/** What a user sees of an overlay: the backdrop's look and box, and the panel's width and left edge. */
+const drawn = (dialog: Locator) =>
+  dialog.evaluate(async (backdrop) => {
+    // Measured once the opening motion ends, as a scaled panel reads a box it does not keep.
+    await Promise.all(backdrop.getAnimations({ subtree: true }).map((motion) => motion.finished));
+    const style = getComputedStyle(backdrop);
+    const box = backdrop.getBoundingClientRect();
+    const panel = (backdrop.firstElementChild as HTMLElement).getBoundingClientRect();
+    return {
+      backdrop: [style.backgroundColor, style.backdropFilter, box.x, box.y, box.width, box.height],
+      panel: [panel.width, panel.x],
+    };
+  });
+
+test("the finder and the backlinks panel draw at one width on the same backdrop", async ({
+  page,
+}) => {
+  await openApp(page);
+  await findNote(page, "Quote");
+  await leader(page, "ff");
+  const finder = page.getByRole("dialog", { name: "Find note" });
+  await expect(finder).toBeVisible();
+  const found = await drawn(finder);
+  await page.keyboard.press("Escape");
+  await expect(finder).toBeHidden();
+  await expect(page.locator(".cm-content:focus")).toHaveCount(1);
+  await leader(page, "gb");
+  const panel = page.getByRole("dialog", { name: "Backlinks" });
+  await expect(panel).toContainText("Reading", { timeout: 15_000 });
+  expect(await drawn(panel)).toEqual(found);
 });

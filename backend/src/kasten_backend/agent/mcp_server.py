@@ -27,6 +27,7 @@ from kasten_backend.config import DEFAULTS, get_settings
 from kasten_backend.graph import MOST_DEPTH, GraphError
 from kasten_backend.tokens import activity as token_activity
 from kasten_backend.tokens import identify
+from kasten_backend.vault import ASSET_MAGIC
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, AsyncIterator
@@ -169,9 +170,9 @@ async def save_file(
 ) -> dict[str, Any]:
     """Save a file into the vault at `path`. Pass `url` or `content`, never both.
 
-    `url` downloads a PDF, epub, image or sound from a public address. `path`
-    ends in .pdf, .epub, .png, .jpg, .jpeg, .gif, .webp, .mp3, .m4a, .ogg or
-    .wav, and the bytes must be that format. A file filed beside a note is the
+    `url` downloads a file from a public address: a PDF, an epub, an image, a
+    sound, a video or a csv table. `path` ends in {kinds}, and the bytes must be
+    that format. A file filed beside a note is the
     note's path with the suffix swapped, `20 Literature/DDIA.md` beside
     `20 Literature/DDIA.pdf`, and the app opens it in the reader next to the
     note. A file you hold only as an attachment has no URL and cannot come in
@@ -188,13 +189,18 @@ async def save_file(
         elif content is not None and url is None:
             landed = await page_store.store_page(root, path, _page(content))
         else:
-            raise ToolError(
-                "Pass url for a PDF, epub, image or sound, or content for an .html page"
-            )
+            raise ToolError("Pass url for a file to download, or content for an .html page")
     except files.RefusedError as refused:
         raise ToolError(str(refused)) from refused
 
     return {"path": landed}
+
+
+# Read from the table the download checks, so a new kind reaches agents with no second edit (#1925).
+_KINDS = list(ASSET_MAGIC)
+save_file.__doc__ = (save_file.__doc__ or "").replace(
+    "{kinds}", f"{', '.join(_KINDS[:-1])} or {_KINDS[-1]}"
+)
 
 
 async def _page(text: str) -> AsyncIterator[bytes]:

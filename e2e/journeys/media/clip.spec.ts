@@ -135,8 +135,8 @@ test.describe("on a phone", () => {
   }) => {
     await seeded(stack.vault);
     await openClips(page);
-    // The emulated tap moves the page's selection and not CodeMirror's; the click puts the cursor there.
-    await page.getByText("The walk:").tap();
+    // A click, not a tap: within 300 ms of a touch on the editor, CodeMirror takes the caret the
+    // palette's refocus leaves at the note's top for the user's (#1975). No finger is that quick.
     await page.getByText("The walk:").click();
     await page.getByRole("button", { name: "Run a command by name" }).tap();
     await page.keyboard.type("pick");

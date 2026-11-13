@@ -4,7 +4,8 @@ export default defineConfig({
   testDir: "journeys",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  workers: process.env.CI ? 2 : 4,
+  // A runner has 4 cores: 3 workers ran fastest on a 4-core slice, 4 starved a first load past 15 s (#1979).
+  workers: process.env.CI ? 3 : 4,
   globalSetup: "./harness/global-setup.ts",
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
   // A context closed while the app's service worker installs crashes Chromium's browser process (#1606).

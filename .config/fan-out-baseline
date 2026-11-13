@@ -30,7 +30,7 @@ frontend/src/lib/review 25
 frontend/src/lib/todo 34
 frontend/src/lists 8
 frontend/src/styles 24
-frontend/tests 581
+frontend/tests 543
 frontend/tests/fixtures 10
 frontend/tests/fixtures/barcodes 10
 frontend/tests/frame 180

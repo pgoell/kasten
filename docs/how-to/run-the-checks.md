@@ -68,14 +68,19 @@ teardown removes the containers. Unlike `fe:e2e`, it stubs no API.
 The journeys sit in `e2e/journeys/`: `review.spec.ts` at the top, panes in
 `panes/` (layout and the top bar, the pane and tab keys, pane acts whose write is held while the focus moves, links to pages and assets; a note changed on disk under
 unsaved text and a conflicted note reopened in `panes/conflict/`; the stored workspace across a reload, held text in a restored pane and a URL over a stored workspace in `panes/workspace/`), notes and the finder in `notes/`, with saving in `notes/saving/` (edits,
-the backlinks panel's mention links, held text), the todo list and the board
-in `todos/`, capture and the log in `day/`, and the book and video panes in
+the backlinks panel's mention links, held text), the todo list, the board,
+a person note's card of open todos and the shared lists app in `todos/`, capture and the log in `day/`, and the book, video and clip panes and csv and svg files in
 `media/`. `harness.spec.ts` checks the harness itself. Each journey is a
-thing done daily, and each one that writes checks the file on disk. Fourteen files
+thing done daily, and each one that writes checks the file on disk. Twenty-three files
 also run journeys at phone width, 414 px with touch, where the editor starts
-without vim: `review.spec.ts`; `notes/saving/edits.spec.ts`, `notes/saving/mentions.spec.ts`, `notes/finder.spec.ts`
-and the three `notes/content-search-*.spec.ts`; `todos/list.spec.ts` and `todos/twin-ids.spec.ts`; `day/capture.spec.ts` and `day/log.spec.ts`; and
-`media/book.spec.ts`, `media/book-finder.spec.ts` and `media/video.spec.ts`.
+without vim: `review.spec.ts`; `notes/finder.spec.ts`, the three
+`notes/content-search-*.spec.ts`, `notes/saving/edits.spec.ts` and
+`notes/saving/mentions.spec.ts`; `panes/narrow/drawer.spec.ts`,
+`panes/narrow/phone.spec.ts` and `panes/workspace/reload.spec.ts`;
+`todos/list.spec.ts`, `todos/board.spec.ts`, `todos/twin-ids.spec.ts`,
+`todos/person-card.spec.ts` and `todos/lists.spec.ts`; `day/capture.spec.ts` and `day/log.spec.ts`; and
+`media/book.spec.ts`, `media/book-finder.spec.ts`, `media/clip.spec.ts`,
+`media/csv.spec.ts`, `media/svg.spec.ts` and `media/video.spec.ts`.
 `phone` in `e2e/harness/app.ts` sets that up, and
 `git grep -l 'test.use(phone)' e2e/journeys` lists them.
 A runner has no YouTube, so the video journey serves a fake player for each
@@ -99,8 +104,8 @@ cd e2e && mise exec -- bunx playwright test journeys/<file>
 On failure, the run writes a trace and a screenshot to `e2e/test-results/`. Open
 a trace from `e2e/` with `bunx playwright show-trace <zip>`.
 
-CI's E2E job runs the same journeys on every pull request. It is not a required
-check yet. Its `e2e-results` artifact holds the traces and screenshots.
+CI's E2E job runs the same journeys on every pull request, on 3 workers where a
+local run takes 4. It is not a required check yet. Its `e2e-results` artifact holds the traces and screenshots.
 
 ## The hooks
 

@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { leader, openApp, openNote, panes, readAll } from "../../harness/app.ts";
+import { builtCss, leader, openApp, openNote, panes, readAll } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 import { focusedPane } from "./workspace/stored.ts";
 
@@ -137,4 +137,63 @@ test.describe("the pane and tab keys", () => {
         .toEqual([["false", "true"], 1]);
     });
   });
+});
+
+const GLASS = "blur(18px) saturate(1.4)";
+
+/** The backdrop filter Chromium draws for the strip's row, which holds Today beside the tablist. */
+const stripBlur = (page: Page) =>
+  page
+    .getByRole("tablist")
+    .first()
+    .evaluate((list) => getComputedStyle(list.parentElement as HTMLElement).backdropFilter);
+
+test("the tab strip is glass that stays at the top, with one hairline", async ({ page }) => {
+  await openApp(page);
+  const strip = await page
+    .getByRole("tablist")
+    .first()
+    .evaluate((list) => {
+      const style = getComputedStyle(list.parentElement as HTMLElement);
+      return [style.position, style.backgroundColor, style.borderBottom, style.borderTopWidth];
+    });
+  expect(strip[0]).toBe("sticky");
+  expect(strip[1]).toMatch(/ \/ 0\.84\)$/);
+  expect(strip[2]).toMatch(/^1px solid /);
+  expect(strip[3]).toBe("0px");
+  // Lightning CSS dropped this line when the source wrote the -webkit- twin after it (#1986).
+  expect(await stripBlur(page)).toBe(GLASS);
+});
+
+test("the built css gives Safari the tab strip's prefixed blur ahead of the one Chromium reads", async ({
+  page,
+}) => {
+  await openApp(page);
+  const css = await builtCss(page);
+  const glass =
+    /\.k-glass\{-webkit-backdrop-filter:blur\(18px\) ?saturate\(1\.4\);backdrop-filter:blur\(18px\) ?saturate\(1\.4\)\}/;
+  expect(css).toMatch(glass);
+  // The reduced transparency and more contrast rules each turn both off.
+  expect(
+    css.match(/\.k-glass\{[^}]*-webkit-backdrop-filter:none;backdrop-filter:none\}/g),
+  ).toHaveLength(2);
+});
+
+test("more contrast takes the tab strip's blur away, and back when it ends", async ({ page }) => {
+  await openApp(page);
+  await page.emulateMedia({ contrast: "more" });
+  await expect.poll(() => stripBlur(page)).toBe("none");
+  await page.emulateMedia({ contrast: "no-preference" });
+  await expect.poll(() => stripBlur(page)).toBe(GLASS);
+});
+
+test("reduced transparency takes the tab strip's blur away", async ({ page }) => {
+  await openApp(page);
+  await expect.poll(() => stripBlur(page)).toBe(GLASS);
+  // Playwright's emulateMedia has no reduced transparency; Chromium's own emulation does.
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Emulation.setEmulatedMedia", {
+    features: [{ name: "prefers-reduced-transparency", value: "reduce" }],
+  });
+  await expect.poll(() => stripBlur(page)).toBe("none");
 });
