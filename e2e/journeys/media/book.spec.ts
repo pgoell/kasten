@@ -56,6 +56,52 @@ test("Escape in the tree hands the keys back to the book pane", async ({ page })
   await expect(pane.getByText("25%", { exact: true })).toBeVisible();
 });
 
+test("j pressed before a flowing book is ready scrolls it one step once it is", async ({
+  page,
+  stack,
+}) => {
+  const plain = "04 Books/Plain.md";
+  await vaultWith(stack.vault, { [plain]: "# Plain\n" });
+  await copyFile(
+    join(root, "frontend/tests/fixtures/plain.epub"),
+    join(stack.vault, "04 Books/Plain.epub"),
+  );
+  // The book's bytes wait until j is pressed, so the key always lands before the book is ready.
+  let letGo = () => {};
+  const held = new Promise<void>((resolve) => {
+    letGo = resolve;
+  });
+  await page.route("**/api/books/**", async (route) => {
+    await held;
+    await route.continue();
+  });
+  await page.goto(`/?note=${encodeURIComponent(plain)}`);
+  await page.locator(".cm-line", { hasText: "Plain" }).click({ timeout: 15_000 });
+  await page.keyboard.press("Escape");
+  await leader(page, "gr");
+  const pane = page.locator("[data-book-pane]");
+  await expect(pane).toBeFocused();
+  await expect(pane.locator("[data-ready]")).toHaveCount(0);
+  await page.keyboard.press("j");
+  letGo();
+  await expect(pane.locator("[data-ready]")).toHaveCount(1, { timeout: 15_000 });
+
+  // A flowing book scrolls in the paginator's container; one step is 91 px, a page far more.
+  const frame = page.frames().find((f) => f.url().startsWith("blob:"));
+  const scrolled = async () => {
+    const element = await frame?.frameElement();
+    return element?.evaluate((el) => {
+      let at: Node | null = el;
+      while (at && !(at instanceof HTMLElement && at.id === "container")) {
+        at = at.parentNode ?? (at as ShadowRoot).host ?? null;
+      }
+      return (at as HTMLElement | null)?.scrollTop;
+    });
+  };
+  await expect.poll(scrolled).toBeGreaterThan(0);
+  expect(await scrolled()).toBeCloseTo(91, 0);
+});
+
 test.describe("on a phone", () => {
   test.use(phone);
 
