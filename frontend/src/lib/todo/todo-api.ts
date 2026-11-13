@@ -279,10 +279,20 @@ function sameTodo(text: string, hit: SearchHit): boolean {
  */
 function madePlain(text: string, hit: SearchHit): number | null {
   const was = parseTodo(hit.text);
-  const line = text.split("\n")[hit.line - 1] ?? "";
-  if (was === null || line.trim() === "" || parseTodo(line) !== null) return null;
-  // At its own place only: a search of the note could turn prose saying the same words into a todo.
-  return parseTodo(`- [ ] ${line}`)?.text === was.text ? hit.line : null;
+  if (was === null) return null;
+  const lines = text.split("\n");
+  const plain = (line: string) =>
+    line.trim() !== "" && parseTodo(line) === null && parseTodo(`- [ ] ${line}`)?.text === was.text;
+  // The first save of a note stamps a frontmatter block on top, which moves the row's line down by
+  // as many lines as the block got. Only those places are read: prose elsewhere is never taken.
+  const closer = lines[0] === "---" ? lines.indexOf("---", 1) : -1;
+  const found: number[] = [];
+  for (let shift = 0; shift <= closer + 1; shift++) {
+    const at = hit.line + shift;
+    if (at > closer + 1 && plain(lines[at - 1] ?? "")) found.push(at);
+  }
+  if (found[0] === hit.line) return hit.line;
+  return found.length === 1 ? (found[0] ?? null) : null;
 }
 
 /** Where a press lands, and the todo there: null for a line made plain words, nothing for any other plain line. */

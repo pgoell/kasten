@@ -192,10 +192,8 @@ const MARKER = "02 Projects/Marker.md";
  */
 async function openFold(page: Page, vault: string): Promise<() => void> {
   const done = `✅ ${today()}`;
-  await vaultWith(vault, {
-    // Its own frontmatter, as a note kasten has saved before: the first write then moves no line.
-    [SPEC]: `---\ncreated: 2026-11-01T09:00:00+00:00\ntype: Note\nid: spec\nmodified: 2026-11-01T09:00:00+00:00\n---\n# Spec\n\n- [x] read the spec ${done}\n- [x] write the spec ${done}\n`,
-  });
+  // No frontmatter, as the issue's note: the first save stamps a block and moves every line down.
+  await vaultWith(vault, { [SPEC]: `# Spec\n\n- [x] read the spec ${done}\n- [x] write the spec ${done}\n` });
   await page.clock.install();
   await openApp(page);
   await leader(page, "gt");

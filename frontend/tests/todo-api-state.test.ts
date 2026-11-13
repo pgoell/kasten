@@ -61,6 +61,19 @@ describe("cycleTodoInVault", () => {
     ]);
   });
 
+  it("finds a held row's plain line where the first save's frontmatter moved it, and only there (#2001)", async () => {
+    // Listed on line 2 before the save stamped a three-line block on top; prose further down stays.
+    fetchNote.mockResolvedValue("---\nid: a\n---\n# Spec\nread the spec\n\n\n\n\nread the spec\n");
+    fetchTodos.mockResolvedValue([]);
+    const row = { path: "spec.md", line: 2, text: "- [x] read the spec ✅ 2026-08-10" };
+
+    await cycleTodoInVault(row, "2026-08-10", ["spec.md"]);
+
+    expect(saveNote.mock.calls[0]?.[1]).toBe(
+      "---\nid: a\n---\n# Spec\n- [ ] read the spec ➕ 2026-08-10\n\n\n\n\nread the spec\n",
+    );
+  });
+
   it("leaves prose saying a gone todo's words alone, away from the todo's line (#2001)", async () => {
     // The todo on line 2 was deleted outside kasten; the stale row's press must not take line 3.
     fetchNote.mockResolvedValue("# Spec\nsomething else\nread the spec\n");
