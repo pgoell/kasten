@@ -157,3 +157,12 @@ def test_an_upload_suffix_list_names_every_suffix(path: str) -> None:
 )
 def test_a_docs_upload_line_points_at_the_suffix_list(path: str, anchor: str) -> None:
     assert SUFFIX_LIST in paragraph(path, anchor)
+
+
+def test_the_upload_route_names_every_kind_the_file_tree_deletes() -> None:
+    text = " ".join(
+        paragraph("docs/reference/agent-api/routes.md", "There is no delete here").split()
+    )
+    clause = text.split("the browser's file tree deletes ", 1)[1].split(";", 1)[0]
+
+    assert [kind for kind in ("image", "sound", "video", "csv") if kind not in clause] == []
