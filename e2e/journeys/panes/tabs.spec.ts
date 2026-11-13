@@ -138,3 +138,19 @@ test.describe("the pane and tab keys", () => {
     });
   });
 });
+
+test("the tab strip is glass that stays at the top, with one hairline", async ({ page }) => {
+  await openApp(page);
+  // The glass is the strip's row, which holds Today beside the tablist. Its blur is #1986.
+  const strip = await page
+    .getByRole("tablist")
+    .first()
+    .evaluate((list) => {
+      const style = getComputedStyle(list.parentElement as HTMLElement);
+      return [style.position, style.backgroundColor, style.borderBottom, style.borderTopWidth];
+    });
+  expect(strip[0]).toBe("sticky");
+  expect(strip[1]).toMatch(/ \/ 0\.84\)$/);
+  expect(strip[2]).toMatch(/^1px solid /);
+  expect(strip[3]).toBe("0px");
+});

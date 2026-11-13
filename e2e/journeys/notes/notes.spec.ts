@@ -1,6 +1,6 @@
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import {
   findNote,
   inbox,
@@ -438,4 +438,36 @@ test.describe("following a link with an alias or a heading", () => {
     await expect(page.getByRole("tab", { name: "kafka", selected: true })).toBeVisible();
     await expect(page.locator(".cm-content:focus")).toHaveText("the trial");
   });
+});
+
+/** What a user sees of an overlay: the backdrop's look and box, and the panel's width and left edge. */
+const drawn = (dialog: Locator) =>
+  dialog.evaluate(async (backdrop) => {
+    // Measured once the opening motion ends, as a scaled panel reads a box it does not keep.
+    await Promise.all(backdrop.getAnimations({ subtree: true }).map((motion) => motion.finished));
+    const style = getComputedStyle(backdrop);
+    const box = backdrop.getBoundingClientRect();
+    const panel = (backdrop.firstElementChild as HTMLElement).getBoundingClientRect();
+    return {
+      backdrop: [style.backgroundColor, style.backdropFilter, box.x, box.y, box.width, box.height],
+      panel: [panel.width, panel.x],
+    };
+  });
+
+test("the finder and the backlinks panel draw at one width on the same backdrop", async ({
+  page,
+}) => {
+  await openApp(page);
+  await findNote(page, "Quote");
+  await leader(page, "ff");
+  const finder = page.getByRole("dialog", { name: "Find note" });
+  await expect(finder).toBeVisible();
+  const found = await drawn(finder);
+  await page.keyboard.press("Escape");
+  await expect(finder).toBeHidden();
+  await expect(page.locator(".cm-content:focus")).toHaveCount(1);
+  await leader(page, "gb");
+  const panel = page.getByRole("dialog", { name: "Backlinks" });
+  await expect(panel).toContainText("Reading", { timeout: 15_000 });
+  expect(await drawn(panel)).toEqual(found);
 });
