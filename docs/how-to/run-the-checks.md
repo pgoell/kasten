@@ -65,7 +65,7 @@ against it. You need Docker, for Postgres and nginx, and Chromium. Each test get
 its own copy of the fixture vault, its own database and its own backend, and
 teardown removes the containers. Unlike `fe:e2e`, it stubs no API.
 
-The journeys sit in `e2e/journeys/`: `review.spec.ts` at the top, panes in
+The journeys sit in `e2e/journeys/`: review in `review/` (a sitting, and the daily limits), panes in
 `panes/` (layout and the top bar, the pane and tab keys, pane acts whose write is held while the focus moves, links to pages and assets; a note changed on disk under
 unsaved text and a conflicted note reopened in `panes/conflict/`; the stored workspace across a reload, held text in a restored pane and a URL over a stored workspace in `panes/workspace/`), notes and the finder in `notes/`, with saving in `notes/saving/` (edits,
 the backlinks panel's mention links, held text), the todo list, the board,
@@ -73,7 +73,7 @@ a person note's card of open todos and the shared lists app in `todos/`, capture
 `media/`. `harness.spec.ts` checks the harness itself. Each journey is a
 thing done daily, and each one that writes checks the file on disk. Twenty-three files
 also run journeys at phone width, 414 px with touch, where the editor starts
-without vim: `review.spec.ts`; `notes/finder.spec.ts`, the three
+without vim: `review/sitting.spec.ts`; `notes/finder.spec.ts`, the three
 `notes/content-search-*.spec.ts`, `notes/saving/edits.spec.ts` and
 `notes/saving/mentions.spec.ts`; `panes/narrow/drawer.spec.ts`,
 `panes/narrow/phone.spec.ts` and `panes/workspace/reload.spec.ts`;

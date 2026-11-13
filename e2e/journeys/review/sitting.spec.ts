@@ -8,8 +8,8 @@ import {
   tapHeight,
   today,
   vaultWith,
-} from "../harness/app.ts";
-import { expect, test } from "../harness/stack.ts";
+} from "../../harness/app.ts";
+import { expect, test } from "../../harness/stack.ts";
 
 const FRANCE = "What is the capital of France?::Paris";
 

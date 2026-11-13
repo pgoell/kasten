@@ -123,3 +123,31 @@ test("review draws the escapes in a card's side and a cloze's answer as the impo
   await page.keyboard.press("Enter");
   await expect(back).toHaveText("a\\::b");
 });
+
+test("the finder's preview of a note holding \\[...\\] draws no gap and no gutter, and a cloze's question draws its gap", async ({
+  page,
+  stack,
+}) => {
+  await vaultWith(stack.vault, {
+    "Gaps.md": "the \\[answer\\] here\n",
+    "03 Flashcards/Capitals.md":
+      "#flashcards/capitals\n\nThe capital of France is {{c1::Paris}}.\n",
+  });
+  await openApp(page);
+  await leader(page, "ff");
+  const finder = page.getByRole("dialog", { name: "Find note" });
+  await page.keyboard.type("Gaps");
+  const preview = finder.getByTestId("preview");
+  await expect(preview).toContainText("answer");
+  await expect(preview.locator("[data-gap]")).toHaveCount(0);
+  await expect(preview.locator(".cm-lineNumbers")).toHaveCount(0);
+  await page.keyboard.press("Escape");
+
+  await leader(page, "gs");
+  await page.getByRole("heading", { name: "Review" }).click();
+  await page.keyboard.press("j");
+  await page.keyboard.press("l");
+  const question = page.getByTestId("review-question");
+  await expect(question.locator("[data-gap]")).toHaveText("[...]");
+  await expect(question.locator(".cm-lineNumbers")).toHaveCount(0);
+});

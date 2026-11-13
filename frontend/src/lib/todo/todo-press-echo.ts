@@ -16,10 +16,17 @@ const written = new Map<string, Promise<string | null>[]>();
 const fresh = new Set<string>();
 /** When the echo of a path's writes stops being one, once no press runs. */
 const expiry = new Map<string, number>();
+/** Each path's press saves still out, whose event can beat the answer `pressWrote` reads (#1994). */
+const sending = new Map<string, Set<Promise<void>>>();
 
 /** A press has begun. Every write until its `endPress` is the press's own. */
 export function beginPress(): void {
   running += 1;
+}
+
+/** Whether a press runs now: its end asks for the todo list, so nothing else need (#1998). */
+export function pressRunning(): boolean {
+  return running > 0;
 }
 
 /** A press has settled. Once none is running, what it wrote is an echo for a while. */
@@ -66,12 +73,35 @@ export function pressWrote(path: string, content: string): void {
 }
 
 /**
+ * A press's save of `path` goes out now. The digest is known only from the answer, since the
+ * backend restamps `modified`, so `pressEcho` waits on it: call the settle once it answers or fails.
+ */
+export function pressSending(path: string): () => void {
+  if (running === 0) return () => {};
+  let settle = () => {};
+  const answered = new Promise<void>((resolve) => {
+    settle = resolve;
+  });
+  const out = sending.get(path) ?? new Set();
+  out.add(answered);
+  sending.set(path, out);
+  return () => {
+    out.delete(answered);
+    if (out.size === 0) sending.delete(path);
+    settle();
+  };
+}
+
+/**
  * Whether a write event for `path` with `digest` echoes a press: the digest is one of the
  * texts a press wrote there, and the echo window is open (a press runs, or `ECHO_MS` after).
+ * Asked only once the path's press saves still out have answered.
  */
 export async function pressEcho(path: string, digest: string | null): Promise<boolean> {
+  if (digest === null) return false;
+  await Promise.all(sending.get(path) ?? []);
   prune();
   const digests = written.get(path);
-  if (digests === undefined || digest === null) return false;
+  if (digests === undefined) return false;
   return (await Promise.all(digests)).includes(digest);
 }

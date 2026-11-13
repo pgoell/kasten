@@ -46,7 +46,10 @@ the focus leaves the pane, the pane closes or the page reloads, and `d`, `n`, `v
 list once, after its last write, whether every write landed or not, and
 presses of `x`, the state keys, `t`, `@`, `e`, `b` and `m` that overlap redraw it once, after the last lands; the vault's
 word on a note the press wrote asks again only where the note now holds other
-text than the press wrote (#947).
+text than the press wrote (#947). While a press runs, no word from the vault
+asks at all: the redraw after the last press reads the list, other writers'
+lines included, so a write the press set off, such as the folder listings of a
+daily note it made, draws no pending row back (#1998).
 
 `t` starts a session on the row's todo, or closes the ones it has running, and
 writes both to the [time log](/reference/todo-format/time-and-repeats.md#the-time-log). A row
@@ -222,6 +225,7 @@ The pane is not in the URL. Terminal panes are not either, and the arrangement
 of panes is already lost on a reload, so a reload comes back to an empty pane
 and `<leader>gt` is one press.
 
-The list is read again on every write the vault reports over `/api/events`, so a
+The list is read again on every write the vault reports over `/api/events`
+outside a press (inside one, once the last press lands), so a
 todo written by an agent or over ssh appears without a reload. A folder move or
 a deleted note reads it again too, as either can change a todo's project.
