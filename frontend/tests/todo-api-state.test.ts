@@ -103,7 +103,7 @@ describe("cycleTodoInVault", () => {
   });
 
   it("gives a stamp's shift to no row but the one it moved (#2001)", async () => {
-    const before = "# Spec\n- [x] read the spec ✅ 2026-08-10\n";
+    const before = "# Spec\n- [x] read the spec ✅ 2026-08-10\nother\n\n\nwrite\n";
     const after = "---\nid: a\n---\n# Spec\nread the spec\nother\n\n\nwrite\n";
     fetchNote.mockResolvedValueOnce(before).mockResolvedValue(after);
     saveNote.mockResolvedValueOnce({ path: "spec.md", content: after });
