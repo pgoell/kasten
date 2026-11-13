@@ -1,6 +1,15 @@
 import { copyFile } from "node:fs/promises";
 import { join } from "node:path";
-import { findNote, leader, noteText, openApp, phone, vaultWith } from "../../harness/app.ts";
+import type { Locator, Page } from "@playwright/test";
+import {
+  findNote,
+  leader,
+  noteText,
+  openApp,
+  phone,
+  tapHeight,
+  vaultWith,
+} from "../../harness/app.ts";
 import { root } from "../../harness/paths.ts";
 import { expect, test } from "../../harness/stack.ts";
 
@@ -71,50 +80,12 @@ test.describe("on a phone", () => {
   });
 
   test("a take's toast sits over the text column, above the footer", async ({ page, stack }) => {
-    const book = "04 Books/Contents.md";
-    await vaultWith(stack.vault, { [book]: "# A book\n" });
-    await copyFile(
-      join(root, "frontend/tests/fixtures/contents.epub"),
-      join(stack.vault, "04 Books/Contents.epub"),
-    );
-    await page.goto(`/?note=${encodeURIComponent(book)}`);
-    const commands = page.getByRole("toolbar", { name: "Commands" });
-    await expect(commands).toBeVisible({ timeout: 15_000 });
-    await commands.getByRole("button", { name: "Run a command by name" }).tap();
-    await page
-      .getByRole("option", { name: /Read this note's book beside it/ })
-      .first()
-      .tap();
-    const pane = page.locator("[data-book-pane]");
-    await expect(pane.locator("header")).toContainText("%", { timeout: 15_000 });
-
-    // foliate's shadow roots are closed, but its section is a frame of the page all the same.
+    const pane = await openContents(page, stack.vault);
     const words = "Chapter One";
-    let selected = false;
-    await expect
-      .poll(async () => {
-        for (const frame of page.frames()) {
-          selected ||= await frame
-            .evaluate((wanted) => {
-              const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-              for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-                const at = node.textContent?.indexOf(wanted) ?? -1;
-                if (at < 0) continue;
-                const range = document.createRange();
-                range.setStart(node, at);
-                range.setEnd(node, at + wanted.length);
-                getSelection()?.removeAllRanges();
-                getSelection()?.addRange(range);
-                return true;
-              }
-              return false;
-            }, words)
-            .catch(() => false);
-        }
-        return selected;
-      })
-      .toBe(true);
-    await pane.locator("footer").getByRole("button", { name: "Take" }).tap();
+    await select(page, words);
+    const take = pane.locator("footer").getByRole("button", { name: "Take" });
+    expect(await tapHeight(take)).toBeGreaterThanOrEqual(44);
+    await take.tap();
 
     // Read in one go, since the toast fades after a few seconds and a phone has no hover to hold it.
     const placed = await pane.evaluate(async (root) => {
@@ -124,13 +95,104 @@ test.describe("on a phone", () => {
       const column = toast.parentElement as HTMLElement;
       const [t, f, c] = [toast, footer, column].map((el) => el.getBoundingClientRect());
       return {
+        said: toast.textContent,
         overText: column.querySelector("foliate-view") !== null,
         inFooter: footer.contains(toast),
         aboveFooter: t.bottom <= f.top,
         inColumn: t.left >= c.left && t.right <= c.right && t.top >= c.top,
       };
     });
-    expect(placed).toEqual({ overText: true, inFooter: false, aboveFooter: true, inColumn: true });
+    expect(placed).toEqual({
+      said: expect.stringContaining("Taken into the book's note"),
+      overText: true,
+      inFooter: false,
+      aboveFooter: true,
+      inColumn: true,
+    });
     await expect.poll(() => noteText(stack.vault, book), { timeout: 15_000 }).toContain(words);
   });
 });
+
+test.describe("on a wide touch screen", () => {
+  // Wide enough that the book's half of the split draws both side columns.
+  test.use({ viewport: { width: 3000, height: 900 }, hasTouch: true, isMobile: true });
+
+  test("the contents and Taken rows are 44 px and Tab stops", async ({ page, stack }) => {
+    const pane = await openContents(page, stack.vault, true);
+    // A short passage, so a Taken row with no 44 px floor is one line and shorter than that.
+    await select(page, "Chapter One");
+    await pane.locator("footer").getByRole("button", { name: "Take" }).tap();
+    const contents = pane.getByRole("navigation", { name: "Book contents" }).getByRole("button");
+    const taken = pane.getByRole("region", { name: "Taken" }).getByRole("button");
+    // The epub's three chapters (One, Two and Deeper under Two) and the one passage.
+    await expect(contents).toHaveText(["One", "Two", "Deeper"]);
+    await expect(taken).toHaveText(["Chapter One"], { timeout: 15_000 });
+
+    for (const row of [...(await contents.all()), ...(await taken.all())]) {
+      expect(await tapHeight(row)).toBeGreaterThanOrEqual(44);
+      expect(await row.evaluate((el) => (el as HTMLElement).tabIndex)).toBeGreaterThanOrEqual(0);
+    }
+    // A real Tab walks the contents row by row.
+    await contents.first().focus();
+    for (const at of [1, 2]) {
+      await page.keyboard.press("Tab");
+      await expect(contents.nth(at)).toBeFocused();
+    }
+  });
+});
+
+const book = "04 Books/Contents.md";
+
+/** The contents epub beside its note, opened from the command palette by taps; returns the pane. */
+async function openContents(page: Page, vault: string, wide = false): Promise<Locator> {
+  await vaultWith(vault, { [book]: "# A book\n" });
+  await copyFile(
+    join(root, "frontend/tests/fixtures/contents.epub"),
+    join(vault, "04 Books/Contents.epub"),
+  );
+  await page.goto(`/?note=${encodeURIComponent(book)}`);
+  if (wide) {
+    // A wide screen draws no toolbar; the palette's chord works with vim off.
+    await page.locator(".cm-line", { hasText: "A book" }).tap({ timeout: 15_000 });
+    await page.keyboard.press("Control+Shift+P");
+  } else {
+    const commands = page.getByRole("toolbar", { name: "Commands" });
+    await expect(commands).toBeVisible({ timeout: 15_000 });
+    await commands.getByRole("button", { name: "Run a command by name" }).tap();
+  }
+  await page
+    .getByRole("option", { name: /Read this note's book beside it/ })
+    .first()
+    .tap();
+  const pane = page.locator("[data-book-pane]");
+  await expect(pane.locator("header")).toContainText("%", { timeout: 15_000 });
+  return pane;
+}
+
+/** Selects `words` in the book's section: foliate's shadow roots are closed, but the section is a frame of the page. */
+async function select(page: Page, words: string) {
+  let selected = false;
+  await expect
+    .poll(async () => {
+      for (const frame of page.frames()) {
+        selected ||= await frame
+          .evaluate((wanted) => {
+            const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+            for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+              const at = node.textContent?.indexOf(wanted) ?? -1;
+              if (at < 0) continue;
+              const range = document.createRange();
+              range.setStart(node, at);
+              range.setEnd(node, at + wanted.length);
+              getSelection()?.removeAllRanges();
+              getSelection()?.addRange(range);
+              return true;
+            }
+            return false;
+          }, words)
+          .catch(() => false);
+      }
+      return selected;
+    })
+    .toBe(true);
+}
