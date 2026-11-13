@@ -253,6 +253,35 @@ test("in the open fold, a new open row drawn while the press holds leaves the cu
   expect(await noteText(stack.vault, MARKER)).toBe("- [ ] call the plumber\n");
 });
 
+test("an open row checked off while the fold is open and the press holds is drawn once", async ({
+  page,
+  stack,
+}) => {
+  const spend = await openFold(page, stack.vault);
+  await cursorTo(page, "water the tomatoes");
+  await page.keyboard.press("X");
+  await expect
+    .poll(() => noteText(stack.vault, "02 Projects/Garden.md"))
+    .toMatch(/^- \[x\] water the tomatoes/m);
+  await vaultWith(stack.vault, { [MARKER]: "- [ ] call the plumber\n" });
+  await waitFor(page, spend, () => listed(page, "call the plumber"));
+  const rows = (await todoRows(page)).texts.filter((text) => text.includes("water the tomatoes"));
+  expect(rows).toHaveLength(1);
+});
+
+test("the legend is drawn on the open list, and not on d's or n's", async ({ page }) => {
+  await openApp(page);
+  await leader(page, "gt");
+  const legend = page.getByRole("list", { name: "legend" });
+  await expect(legend).toBeVisible();
+  await page.keyboard.press("d");
+  await expect(page.getByRole("button", { name: "done", pressed: true })).toBeVisible();
+  await expect(legend).toHaveCount(0);
+  await page.keyboard.press("n");
+  await expect(page.getByRole("button", { name: "next", pressed: true })).toBeVisible();
+  await expect(legend).toHaveCount(0);
+});
+
 test.describe("on a phone", () => {
   test.use(phone);
 
