@@ -255,6 +255,50 @@ test.describe("the top bar", () => {
     await expect(page.locator("[data-graph-pane] canvas")).toBeVisible();
   });
 
+  test("a stray stored graph mode opens the graph grouped by Folders", async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem("kasten.graph.mode", "bogus"));
+    await openApp(page);
+    await bar(page).getByRole("button", { name: "Graph", exact: true }).click();
+    const mode = page.getByRole("group", { name: "mode" });
+    await expect(mode.getByRole("button", { name: "Folders" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(mode.getByRole("button", { name: "Tags" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    await expect(page.getByText("Places are folders.")).toBeVisible();
+  });
+
+  test("a graph mode pick holds for the page when the browser refuses to store it", async ({
+    page,
+  }) => {
+    // Full storage, for this key alone: the rest of the app keeps its own.
+    await page.addInitScript(() => {
+      const setItem = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (key, value) {
+        if (key === "kasten.graph.mode") throw new DOMException("full", "QuotaExceededError");
+        setItem.call(this, key, value);
+      };
+    });
+    await openApp(page);
+    const graph = bar(page).getByRole("button", { name: "Graph", exact: true });
+    await graph.click();
+    const tags = page.getByRole("group", { name: "mode" }).getByRole("button", { name: "Tags" });
+    await tags.click();
+    await expect(tags).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByText("Places are tags.")).toBeVisible();
+    expect(await page.evaluate(() => localStorage.getItem("kasten.graph.mode"))).toBeNull();
+
+    // A graph opened again reads the mode afresh, and finds the pick it could not store.
+    await page.locator("[data-graph-pane] canvas").click();
+    await page.keyboard.press("q");
+    await expect(page.locator("[data-graph-pane]")).toHaveCount(0);
+    await graph.click();
+    await expect(tags).toHaveAttribute("aria-pressed", "true");
+  });
+
   test("the terminal leader key opens a terminal pane, once its xterm chunk has loaded", async ({
     page,
   }) => {
