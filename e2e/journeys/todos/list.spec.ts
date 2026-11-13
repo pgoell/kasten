@@ -9,6 +9,7 @@ import {
   readAll,
   TODO_ROW,
   todoRows,
+  vaultWith,
 } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 
@@ -135,6 +136,49 @@ test("setting a todo to waiting marks its line and its row", async ({ page, stac
     .toMatch(/^- \[w\] ask the landlord about the boiler/m);
   const row = page.locator(TODO_ROW, { hasText: "ask the landlord about the boiler" });
   await expect(row.getByRole("img", { name: "waiting" })).toBeVisible();
+});
+
+test("the filter narrows to a tag or away from it with parts beside their parent, ands its terms, and reads a tag in brackets", async ({
+  page,
+  stack,
+}) => {
+  const note = "02 Projects/Filter.md";
+  await vaultWith(stack.vault, {
+    [note]: [
+      "# Filter",
+      "",
+      "- [ ] send the offer #client",
+      "  - [ ] check the numbers",
+      "- [ ] file the tax",
+      "- [ ] wire up the pane ⏫ #kasten",
+      "- [ ] ship it #kasten",
+      "- [ ] call the dentist ⏫",
+      "- [ ] see (#next)",
+      "",
+    ].join("\n"),
+  });
+  // This note's rows by line, read in one evaluate (#1937) and sorted, since a priority leads the list.
+  // The vault's other todos do not count.
+  const lines = () =>
+    page.evaluate((prefix) => {
+      const rows = document.querySelectorAll<HTMLElement>(`[data-row^="${prefix}"]`);
+      return [...rows]
+        .map((row) => Number(row.dataset.row?.slice(prefix.length)))
+        .sort((a, b) => a - b);
+    }, `${note}:`);
+  await openApp(page);
+  await leader(page, "gt");
+  await expect.poll(lines).toEqual([3, 4, 5, 6, 7, 8, 9]);
+  const filter = page.getByLabel("filter todos");
+  await filter.fill("#client");
+  await expect.poll(lines).toEqual([3, 4]);
+  await filter.fill("-#client");
+  await expect.poll(lines).toEqual([5, 6, 7, 8, 9]);
+  // `#kasten` alone keeps ship it, `!high` alone the dentist: across groups the terms are an and.
+  await filter.fill("#kasten !high");
+  await expect.poll(lines).toEqual([6]);
+  await filter.fill("#next");
+  await expect.poll(lines).toEqual([9]);
 });
 
 test.describe("on a phone", () => {
