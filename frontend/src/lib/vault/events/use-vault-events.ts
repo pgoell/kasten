@@ -5,7 +5,7 @@ import { reloadLogConfig } from "@/lib/log/log-card";
 import type { useAutosave } from "@/lib/notes/note/use-autosave";
 import { dailyDate, weeklyWeek, yearlyYear } from "@/lib/notes/text/periodic";
 import { pageWritten } from "@/lib/panes/html/page-written";
-import { pressEcho } from "@/lib/todo/todo-press-echo";
+import { pressEcho, pressRunning } from "@/lib/todo/todo-press-echo";
 import { parseVaultEvent, type VaultEvent } from "@/lib/vault/events/vault-events";
 
 type Autosave = ReturnType<typeof useAutosave>;
@@ -27,6 +27,15 @@ function dailySet(paths: string[] | undefined): string | undefined {
     .join("\n");
 }
 
+/**
+ * Ask for the todos, unless a press runs. Its end asks once its last write lands, and an answer
+ * before that draws a still pending press back: a note it made brings index writes no press wrote (#1998).
+ */
+function refreshTodos(queryClient: QueryClient): void {
+  if (pressRunning()) return;
+  queryClient.invalidateQueries({ queryKey: ["todos"] }, { cancelRefetch: false });
+}
+
 /** A note written: its query, the todos and the graph. */
 function refreshWritten(
   queryClient: QueryClient,
@@ -46,8 +55,7 @@ function refreshWritten(
   // Todos reach the pane without a reload, but not the echo of its own press (the digest
   // tells it apart). The answer comes a turn later, hence the promise.
   void pressEcho(event.path, event.digest).then((echo) => {
-    if (echo) return;
-    queryClient.invalidateQueries({ queryKey: ["todos"] }, { cancelRefetch: false });
+    if (!echo) refreshTodos(queryClient);
   });
   // Any write can move a link, so the graph asks again; background graphs just go stale.
   queryClient.invalidateQueries({ queryKey: ["graph"] }, { cancelRefetch: false });
@@ -98,7 +106,7 @@ function onVaultEvent(
     refreshWritten(queryClient, event, focused, onDeclined);
   } else {
     // A moved folder or deleted note changes no todo line, but can change its project.
-    queryClient.invalidateQueries({ queryKey: ["todos"] }, { cancelRefetch: false });
+    refreshTodos(queryClient);
   }
 
   // The early return skips writes to notes the tree already draws, standing in for the
