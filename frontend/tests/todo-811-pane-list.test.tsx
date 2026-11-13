@@ -1,5 +1,14 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { cursorAfter } from "@/lib/todo/todo-hold";
+import type { TodoHit } from "@/lib/core/api";
+import { parseTodo } from "@/lib/todo/todo";
+import {
+  cursorAfter,
+  type HeldGroup,
+  holdOrder,
+  identities,
+  sameOrder,
+} from "@/lib/todo/todo-hold";
+import type { Row } from "@/lib/todo/use-todo-rows";
 import { paneHooks, renderPane } from "./todo-pane-fixture";
 
 // The doubles, the same in every todo-pane file: see todo-pane-fixture.tsx.
@@ -107,5 +116,69 @@ describe("where the cursor lands as a held order lets go", () => {
 
   it("a cursor in the fold keeps its row there", () => {
     expect(cursorAfter({ keys: ["k", "l"], inFold: true }, open, all)).toBe(3);
+  });
+});
+
+describe("a held row the list drops while a press holds the order (#2003)", () => {
+  const hit = (line: number, text: string): TodoHit => ({
+    path: "Plan.md",
+    line,
+    text,
+    project: null,
+    shared: false,
+  });
+  const row = (each: TodoHit, struck?: boolean): Row =>
+    ({
+      hit: each,
+      todo: parseTodo(each.text) ?? { state: "open", text: "", indent: "" },
+      struck,
+    }) as Row;
+  const read = hit(3, "- [ ] read the plan");
+  const write = hit(4, "- [ ] write the plan");
+  // Each row's identity as the open list names it, which a held row is found again by.
+  const ids = identities([read, write]);
+  const id = (each: TodoHit) => ids.get(`${each.path}:${each.line}`) ?? "";
+  const held = (first: Row): HeldGroup[] => [
+    {
+      heading: "No date",
+      rows: [
+        { id: id(read), row: first },
+        { id: id(write), row: row(write) },
+      ],
+    },
+  ];
+  const drawn = (order: HeldGroup[]) =>
+    order.flatMap((group) => group.rows.map((each) => each.row));
+  // The list after the press: the read row's line is gone from it, plain words now.
+  const after = (first: TodoHit) =>
+    drawn(holdOrder(held(row(first)), [{ heading: "No date", rows: [row(write)] }], [write], ids));
+
+  it("keeps a struck row in its place, struck, when its line leaves the list", () => {
+    const done = row(hit(3, "- [x] read the plan ✅ 2026-11-13"), true);
+    const rows = drawn(
+      holdOrder(held(done), [{ heading: "No date", rows: [row(write)] }], [write], ids),
+    );
+    expect(rows.map((each) => [each.hit.text, each.struck])).toEqual([
+      ["- [x] read the plan ✅ 2026-11-13", true],
+      ["- [ ] write the plan", undefined],
+    ]);
+  });
+
+  it("lets an open row go when its line leaves the list, as a refile or a delete elsewhere does", () => {
+    expect(after(read).map((each) => each.hit.text)).toEqual(["- [ ] write the plan"]);
+  });
+
+  it("draws a struck row open again, unstruck, once its line is open", () => {
+    const done = row(hit(3, "- [x] read the plan ✅ 2026-11-13"), true);
+    const rows = drawn(
+      holdOrder(held(done), [{ heading: "No date", rows: [row(read)] }], [read], ids),
+    );
+    expect(rows[0]?.struck).toBeUndefined();
+  });
+
+  it("reads a row struck since as another order, so the hold learns it", () => {
+    const done = row(hit(3, "- [x] read the plan ✅ 2026-11-13"), true);
+    expect(sameOrder(held(row(read)), held(done))).toBe(false);
+    expect(sameOrder(held(done), held(done))).toBe(true);
   });
 });

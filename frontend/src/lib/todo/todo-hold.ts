@@ -78,7 +78,7 @@ function idOf(hit: TodoHit, ids: Map<string, string>): string {
 
 /**
  * The groups to draw while an order is held. A held row stays under the row now carrying
- * its identity; rows the vault no longer holds go, and unseen rows go last.
+ * its identity; rows the vault no longer holds go, bar a struck one, and unseen rows go last.
  */
 export function holdOrder(
   held: HeldGroup[],
@@ -139,16 +139,22 @@ function placeUnseen(
   target.rows.push({ id, row });
 }
 
-/** A held row that is no longer open, drawn as the line the vault now holds, struck. */
+/**
+ * A held row that is no longer open, drawn as the line the vault now holds, struck. A struck row
+ * the list then drops was made plain words, so it stays for the press that cycles it back (#2003).
+ */
 function struck(each: HeldRow, hit: TodoHit | undefined): HeldRow | null {
-  if (hit === undefined) return null;
+  if (hit === undefined) return each.row.struck ? each : null;
   const todo = parseTodo(hit.text);
   if (todo === null) return null;
   const { depth, under } = each.row;
   return { id: each.id, row: { hit, todo, depth, under, struck: true } };
 }
 
-/** Whether two holds draw the same rows in the same order, so the later one can be dropped. */
+/**
+ * Whether two holds draw the same rows in the same order, so the later one can be dropped.
+ * A row struck since counts as changed, so the hold learns it was struck.
+ */
 export function sameOrder(one: HeldGroup[], other: HeldGroup[]): boolean {
   return (
     one.length === other.length &&
@@ -156,7 +162,10 @@ export function sameOrder(one: HeldGroup[], other: HeldGroup[]): boolean {
       (group, g) =>
         group.heading === other[g]?.heading &&
         group.rows.length === other[g]?.rows.length &&
-        group.rows.every((each, r) => each.id === other[g]?.rows[r]?.id),
+        group.rows.every(
+          (each, r) =>
+            each.id === other[g]?.rows[r]?.id && each.row.struck === other[g]?.rows[r]?.row.struck,
+        ),
     )
   );
 }

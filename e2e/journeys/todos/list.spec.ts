@@ -215,7 +215,7 @@ async function waitFor(page: Page, spend: () => void, drawn: () => Promise<boole
       spend();
       await page.clock.runFor(20);
       return drawn();
-    })
+    }, { intervals: [20] })
     .toBe(true);
 }
 
@@ -288,9 +288,130 @@ test("the legend is drawn on the open list, and not on d's or n's", async ({ pag
   await expect(legend).toHaveCount(0);
 });
 
+const PLAN = "02 Projects/Plan.md";
+/** Each press's line on disk, from an open todo round the cycle to plain words. */
+const ROUND = [/^- \[\/\] read the plan/m, /^- \[x\] read the plan/m, /^read the plan( 🆔 \S+)?$/m];
+
+/**
+ * Opens the todo pane on two open rows of a note with no frontmatter, so the first save stamps a
+ * block over them, and pauses the clock so the press's 1 s hold lets go only as far as it runs.
+ */
+async function openPlan(page: Page, vault: string, open: () => Promise<void>) {
+  await vaultWith(vault, {
+    [PLAN]: "# Plan\n\n- [ ] read the plan\n- [ ] write the plan\n",
+  });
+  await page.clock.install();
+  await open();
+  await expect(page.locator(TODO_ROW, { hasText: "read the plan" })).toBeVisible();
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100));
+  return doneCount(page);
+}
+
+/** The count on the Done this week heading, which is not drawn while the week has none. */
+async function doneCount(page: Page): Promise<number> {
+  const fold = page.getByRole("button", { name: /^Done this week/ });
+  if ((await fold.count()) === 0) return 0;
+  return Number((await fold.textContent())?.match(/\d+$/)?.[0]);
+}
+
+/**
+ * Adds the nth done row to another note and runs the clock, inside the hold, until an answer later
+ * than the write counts it. A done row joins the folded fold, so the held open order stays as it was.
+ */
+async function drawnAfter(page: Page, vault: string, n: number, base: number, spend: () => void) {
+  await vaultWith(vault, {
+    [MARKER]: Array.from({ length: n }, (_, i) => `- [x] mark ${i + 1} ✅ ${today()}\n`).join(""),
+  });
+  await waitFor(page, spend, async () => (await doneCount(page)) === base + n);
+}
+
+/** One press's share of the clock: each press starts the 1 s hold again. */
+function holdBudget(): () => void {
+  let ran = 0;
+  return () => {
+    expect(ran, "the clock ran past the press's hold").toBeLessThan(900);
+    ran += 20;
+  };
+}
+
+test("in an open group, an x after the one that made a row plain words cycles that row back to open (#2003)", async ({
+  page,
+  stack,
+}) => {
+  const base = await openPlan(page, stack.vault, async () => {
+    await openApp(page);
+    await leader(page, "gt");
+  });
+  await cursorTo(page, "read the plan");
+  for (const [step, line] of ROUND.entries()) {
+    await page.keyboard.press("x");
+    await expect.poll(() => noteText(stack.vault, PLAN)).toMatch(line);
+    await drawnAfter(page, stack.vault, step + 1, base, holdBudget());
+  }
+  // Plain words on disk, the row stays in its place, struck, under the cursor.
+  const cursor = page.locator(`${TODO_ROW}[tabindex="0"]`);
+  await expect(cursor).toContainText("read the plan");
+  await expect(cursor.locator(".line-through")).toBeVisible();
+  await page.keyboard.press("x");
+  await expect.poll(() => noteText(stack.vault, PLAN)).toMatch(/^- \[ \] read the plan\b/m);
+  expect(await noteText(stack.vault, PLAN)).toMatch(/^- \[ \] write the plan$/m);
+});
+
+test("once the hold lets go, a row made plain words leaves its open group (#2003)", async ({
+  page,
+  stack,
+}) => {
+  const base = await openPlan(page, stack.vault, async () => {
+    await openApp(page);
+    await leader(page, "gt");
+  });
+  await cursorTo(page, "read the plan");
+  for (const [step, line] of ROUND.entries()) {
+    await page.keyboard.press("x");
+    await expect.poll(() => noteText(stack.vault, PLAN)).toMatch(line);
+    await drawnAfter(page, stack.vault, step + 1, base, holdBudget());
+  }
+  await expect(page.locator(TODO_ROW, { hasText: "read the plan" })).toBeVisible();
+  await page.clock.runFor(1500);
+  await expect(page.locator(TODO_ROW, { hasText: "read the plan" })).toHaveCount(0);
+  await expect(page.locator(TODO_ROW, { hasText: "write the plan" })).toBeVisible();
+});
+
 test.describe("on a phone", () => {
   test.use(phone);
 
+  test("two taps on the box of a row made plain words cycle that row back to open (#2003)", async ({
+    page,
+    stack,
+  }) => {
+    const base = await openPlan(page, stack.vault, async () => {
+      // A write goes by the file list, and a note it lacks is created, which a held note refuses.
+      const files = page.waitForResponse((answer) => answer.url().endsWith("/api/files"));
+      await page.goto("/");
+      await files;
+      await page.getByRole("button", { name: "Open the todo pane" }).tap();
+    });
+    // The first tap asks, the second cycles.
+    const box = page.getByRole("button", { name: "cycle read the plan" });
+    for (const [step, line] of ROUND.entries()) {
+      await box.tap();
+      await box.tap();
+      // A tap's write waits on the clock, so the clock runs while the note is read.
+      const spend = holdBudget();
+      await waitFor(page, spend, async () => line.test(await noteText(stack.vault, PLAN)));
+      await drawnAfter(page, stack.vault, step + 1, base, spend);
+    }
+    await expect(
+      page.locator(TODO_ROW, { hasText: "read the plan" }).locator(".line-through"),
+    ).toBeVisible();
+    await box.tap();
+    await box.tap();
+    const spend = holdBudget();
+    await waitFor(page, spend, async () =>
+      /^- \[ \] read the plan\b/m.test(await noteText(stack.vault, PLAN)),
+    );
+    expect(await noteText(stack.vault, PLAN)).toMatch(/^- \[ \] write the plan$/m);
+  });
 
   test("tapping a todo's more strip and done checks its line off", async ({ page, stack }) => {
     await page.goto("/");
