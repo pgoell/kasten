@@ -93,6 +93,23 @@ def _digest(note: Path) -> str | None:
         return None
 
 
+def _walked(root: Path, changes: set[tuple[Change, str]]) -> set[str]:
+    """Every file under a folder the batch names as added, hidden folders pruned.
+
+    inotify names a new or moved-in folder and none of its contents, and watches it only once the
+    watcher has seen it, so a note written there first fires nothing on its own (#2005).
+    """
+    found = set()
+    for change, changed in changes:
+        folder = Path(changed)
+        if change != Change.added or not is_inside(root, changed) or not folder.is_dir():
+            continue
+        for here, folders, files in folder.walk():
+            folders[:] = [name for name in folders if not name.startswith(".")]
+            found.update(str(here / name) for name in files)
+    return found
+
+
 def to_events(root: Path, changes: set[tuple[Change, str]]) -> list[VaultEvent]:
     """Turn one batch of watchfiles changes into what the client is told.
 
@@ -100,7 +117,8 @@ def to_events(root: Path, changes: set[tuple[Change, str]]) -> list[VaultEvent]:
     delete and an add, and those must collapse. A note that will not open is a removal, whatever
     fired. Anything else changed adds one `listing`, first, since a folder move names no notes.
     """
-    inside = {changed for _change, changed in changes if is_inside(root, changed)}
+    named = {changed for _change, changed in changes} | _walked(root, changes)
+    inside = {changed for changed in named if is_inside(root, changed)}
     notes = {changed for changed in inside if is_watchable(root, changed)}
     pages = {
         changed
