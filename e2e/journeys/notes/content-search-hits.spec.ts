@@ -223,6 +223,38 @@ test.describe("the backlinks preview", () => {
   });
 });
 
+test("a relation named untyped draws its own group beside the untyped links, through a narrow and back", async ({
+  page,
+}) => {
+  await gardenBacklinks(page, [
+    hit("Welcome.md", 3, "untyped:: [[Garden]]"),
+    hit("Welcome.md", 4, "see [[Garden]]"),
+  ]);
+  const dialog = page.getByRole("dialog", { name: "Backlinks" });
+  const named = dialog.getByRole("group", { name: "untyped" }).getByRole("option");
+  const loose = dialog.locator('[role="listbox"] > [role="option"]');
+  await expect(named).toHaveText([/untyped:: \[\[Garden\]\]/]);
+  await expect(loose).toHaveText([/see \[\[Garden\]\]/]);
+  await expect(dialog.getByRole("group")).toHaveCount(1);
+
+  // The untyped links keep their rows while the named group goes and comes back: a group key
+  // shared with it would make React remount one, which a production build does without a warning.
+  await loose.evaluate((row) => {
+    (window as unknown as { kept: Element }).kept = row;
+  });
+  await page.keyboard.type("see");
+  await expect(dialog.getByRole("option")).toHaveCount(1);
+  await expect(dialog.getByRole("group")).toHaveCount(0);
+  await page.keyboard.press("Control+a");
+  await page.keyboard.press("Backspace");
+  await expect(named).toHaveText([/untyped:: \[\[Garden\]\]/]);
+  await expect(loose).toHaveText([/see \[\[Garden\]\]/]);
+  await expect(dialog.getByRole("group")).toHaveCount(1);
+  expect(await loose.evaluate((row) => row === (window as unknown as { kept: Element }).kept)).toBe(
+    true,
+  );
+});
+
 test.describe("Enter on a file's hit", () => {
   /** Puts an html page and an epub beside its note in the vault, answers each query with its hit, and takes it with Enter. */
   async function takeHit(page: Page, vault: string, query: "budget" | "role" | "fixture") {
