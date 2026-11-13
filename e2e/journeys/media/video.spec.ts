@@ -285,6 +285,36 @@ test("Put it in a note says nothing was written lately when only the archive was
   await fresh.close();
 });
 
+test("? over the video pane lists each video key beside its label, under Over a video", async ({
+  page,
+}) => {
+  await fakeYouTube(page);
+  await openApp(page);
+  await findNote(page, "Lecture");
+  await leader(page, "gv");
+  await expect(page.locator(frame)).toBeVisible();
+  await page.keyboard.press("?");
+  const help = page.getByRole("dialog", { name: "Keyboard shortcuts" });
+  // k, j, l, f and m answer in other groups too, so each row is read inside this one.
+  const video = help
+    .getByRole("heading", { name: "Over a video", exact: true })
+    .locator("xpath=ancestor::section[1]");
+  const rows: [string, string][] = [
+    ["k", "Play or pause"],
+    ["j", "Ten seconds back"],
+    ["l", "Ten seconds on"],
+    ["y", "Take the selected transcript into the note"],
+    ["f", "Full screen, and out again"],
+    ["ArrowUp", "Volume up"],
+    ["ArrowDown", "Volume down"],
+    ["m", "Mute, and back at the same volume"],
+  ];
+  for (const [key, label] of rows) {
+    const term = video.locator("dt").getByText(key, { exact: true });
+    await expect(term.locator("xpath=following-sibling::dd[1]")).toHaveText(label);
+  }
+});
+
 test.describe("on a phone", () => {
   test.use(phone);
 
