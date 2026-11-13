@@ -61,7 +61,7 @@ test.describe("the palette's Log weight", () => {
   test("over a daily note's card asks on that card and writes no line", async ({ page, stack }) => {
     await openApp(page);
     await findNote(page, "2026-10-20");
-    const card = page.locator(".cm-log");
+    const card = page.locator(".cm-log:visible");
     await expect(card.getByRole("button", { name: "Log weight" })).toBeVisible();
     await logWeight(page);
     await expect(card.locator(".cm-log-why")).toHaveText("Type the weight in kg");
@@ -80,7 +80,7 @@ test.describe("the palette's Log weight", () => {
     await expect(page.getByRole("tab", { name: today(), selected: true })).toBeVisible({
       timeout: 15_000,
     });
-    await expect(page.locator(".cm-log .cm-log-why")).toHaveText("Type the weight in kg");
+    await expect(page.locator(".cm-log:visible .cm-log-why")).toHaveText("Type the weight in kg");
     await expect.poll(() => dailyText(stack.vault), { timeout: 15_000 }).not.toBe("");
     expect(await dailyText(stack.vault)).not.toContain("⚖");
   });
