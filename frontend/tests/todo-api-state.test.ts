@@ -47,6 +47,32 @@ afterEach(() => {
 });
 
 describe("cycleTodoInVault", () => {
+  it("cycles a held row's line that a press made plain words back to an open todo (#2001)", async () => {
+    fetchNote.mockResolvedValue("# Spec\nread the spec\n");
+    fetchTodos.mockResolvedValue([]);
+    const row = { path: "spec.md", line: 2, text: "- [x] read the spec ✅ 2026-08-10" };
+
+    await cycleTodoInVault(row, "2026-08-10", ["spec.md"]);
+
+    expect(saveNote).toHaveBeenCalledTimes(1);
+    expect(saveNote.mock.calls[0]?.slice(0, 2)).toEqual([
+      "spec.md",
+      "# Spec\n- [ ] read the spec ➕ 2026-08-10\n",
+    ]);
+  });
+
+  it("leaves prose saying a gone todo's words alone, away from the todo's line (#2001)", async () => {
+    // The todo on line 2 was deleted outside kasten; the stale row's press must not take line 3.
+    fetchNote.mockResolvedValue("# Spec\nsomething else\nread the spec\n");
+    fetchTodos.mockResolvedValue([]);
+    const row = { path: "spec.md", line: 2, text: "- [x] read the spec ✅ 2026-08-10" };
+
+    await expect(cycleTodoInVault(row, "2026-08-10", ["spec.md"])).rejects.toThrow(
+      "that line has changed since it was listed",
+    );
+    expect(saveNote).not.toHaveBeenCalled();
+  });
+
   it("writes no second log line ticking a review todo whose day already logged it", async () => {
     // An agent moved the todo back from done to review, and the line its first
     // tick wrote is still under today's `## Done`.

@@ -279,14 +279,10 @@ function sameTodo(text: string, hit: SearchHit): boolean {
  */
 function madePlain(text: string, hit: SearchHit): number | null {
   const was = parseTodo(hit.text);
-  if (was === null || was.indent !== 0) return null;
-  const plain = (line: string) =>
-    line.trim() !== "" && parseTodo(line) === null && parseTodo(`- [ ] ${line}`)?.text === was.text;
-  const lines = text.split("\n");
-  if (plain(lines[hit.line - 1] ?? "")) return hit.line;
-  // Where a write has shifted it, as `lineOf` does: the one plain line saying the words.
-  const found = lines.flatMap((line, index) => (plain(line) ? [index + 1] : []));
-  return found.length === 1 ? (found[0] ?? null) : null;
+  const line = text.split("\n")[hit.line - 1] ?? "";
+  if (was === null || line.trim() === "" || parseTodo(line) !== null) return null;
+  // At its own place only: a search of the note could turn prose saying the same words into a todo.
+  return parseTodo(`- [ ] ${line}`)?.text === was.text ? hit.line : null;
 }
 
 /** Where a press lands, and the todo there: null for a line made plain words, nothing for any other plain line. */
