@@ -6,7 +6,7 @@ import { TodoHeader } from "@/components/todo/todo-header";
 import { TodoList } from "@/components/todo/todo-list";
 import { fetchTodos, type SearchHit, type TodoHit } from "@/lib/core/api";
 import type { TodoState } from "@/lib/todo/todo";
-import { cursorAfter } from "@/lib/todo/todo-hold";
+import { aimAgain, aimOf, cursorAfter } from "@/lib/todo/todo-hold";
 import { useArmed } from "@/lib/todo/use-armed";
 import { useBlockerPick } from "@/lib/todo/use-blocker-pick";
 import { useTodoFilter } from "@/lib/todo/use-todo-filter";
@@ -161,7 +161,7 @@ export function TodoPane({
   const follow = useRef<{ keys: string[]; inFold: boolean } | null>(null);
 
   // The order the rows are drawn in, held while a press is being read.
-  const { groups, groupRows, foldRows, pressing, release } = useTodoHold({
+  const { groups, groupRows, foldRows, pressing, release, holding, ids } = useTodoHold({
     data,
     current: facts.groups,
     doneWeek: facts.doneWeek,
@@ -199,6 +199,19 @@ export function TodoPane({
     const found = cursorAfter(from, keysOf(groupRows), keysOf(rows));
     if (found !== undefined) setActive(found);
   }, [groupRows, rows]);
+  // While a press holds the order, a row that arrives above the cursor's row pushes it down,
+  // so the cursor follows its row, not its index (#2001). A key moves `active` and is left be.
+  const aimed = useRef<{ rows: Row[]; active: number; aim?: { id: string; key: string } }>({
+    rows,
+    active,
+  });
+  useLayoutEffect(() => {
+    const was = aimed.current;
+    aimed.current = { rows, active, aim: aimOf(at, ids) };
+    if (!holding || was.rows === rows || was.active !== active || was.aim === undefined) return;
+    const found = aimAgain(was.aim, rows, ids);
+    if (found !== undefined && found !== cursor) setActive(found);
+  }, [rows, active, at, ids, holding, cursor]);
   const refile = pressing(onRefile);
   const { onCycle, onTimer, onAgent } = useTodoTwins({
     data,

@@ -32,11 +32,12 @@ export function heldFold(
       drawn.push(now);
       continue;
     }
+    // The list carries no line that is no longer a todo, so a row missing from it stays,
+    // struck, for the press that cycles it back (#2001).
     const hit = byPlace.get(rowKey(each.row.hit));
-    if (hit === undefined) continue;
-    const todo = parseTodo(hit.text);
+    const todo = hit === undefined ? null : parseTodo(hit.text);
     drawn.push(
-      todo === null
+      hit === undefined || todo === null
         ? { ...each.row, struck: true }
         : { hit, todo, depth: each.row.depth, under: each.row.under, struck: true },
     );

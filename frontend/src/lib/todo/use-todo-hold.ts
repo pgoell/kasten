@@ -118,6 +118,9 @@ export function useTodoHold(o: {
     groupRows,
     foldRows,
     pressing,
+    /** Whether a press holds the order now, and the identities its rows are held by. */
+    holding: hold !== null,
+    ids,
     /** Lets the hold go, so the list is drawn fresh. */
     release: () => {
       clearTimeout(timer.current);

@@ -63,8 +63,14 @@ async function dailyNote(
 /**
  * Send each write, one note at a time. `read` is the text each write was worked out
  * from; a note that moved since is refused with `ChangedOnDisk`, never written over.
+ * Answers the lines each saved note gained on top, a stamped frontmatter block.
  */
-async function send(writes: Write[], paths: string[], read: Record<string, string>): Promise<void> {
+async function send(
+  writes: Write[],
+  paths: string[],
+  read: Record<string, string>,
+): Promise<Map<string, number>> {
+  const gained = new Map<string, number>();
   for (const write of writes) {
     // A path the vault does not hold is only ever today's daily note, which a
     // create makes along with the folders on the way to it.
@@ -74,9 +80,20 @@ async function send(writes: Write[], paths: string[], read: Record<string, strin
     }
     const text = read[write.path];
     if (text === undefined) throw new Error(`no read of ${write.path} to name as its base`);
-    await saveNote(write.path, write.text, false, noteBase(text));
+    const saved = await saveNote(write.path, write.text, false, noteBase(text));
+    // An answer with no content (a double in the tests) gained nothing.
+    gained.set(write.path, lineCount(saved?.content ?? write.text) - lineCount(write.text));
   }
+  return gained;
 }
+
+/**
+ * Per note, the row a press stamped a frontmatter block over and how far that moved it. Kept
+ * for that row alone, by its line and its words: a row listed after the stamp reads its line as it is now.
+ */
+const stamped = new Map<string, { line: number; text: string; shift: number }>();
+
+const lineCount = (text: string) => text.split("\n").length;
 
 /** Put what was typed into today's note, under `## TODOs`. */
 export function addTodoInVault(input: string, today: string, paths: string[]): Promise<void> {
@@ -274,6 +291,40 @@ function sameTodo(text: string, hit: SearchHit): boolean {
 }
 
 /**
+ * The row's line where a press made it plain words: the listing drops such a line, so a
+ * held row still reads as the todo it was, and the next press cycles it back (#2001).
+ */
+function madePlain(text: string, hit: SearchHit): number | null {
+  const was = parseTodo(hit.text);
+  if (was === null) return null;
+  const lines = text.split("\n");
+  const plain = (at: number) => {
+    const line = lines[at - 1] ?? "";
+    return (
+      line.trim() !== "" &&
+      parseTodo(line) === null &&
+      parseTodo(`- [ ] ${line}`)?.text === was.text
+    );
+  };
+  if (plain(hit.line)) return hit.line;
+  // Or as far down as the press's own save moved it, and nowhere else: prose is never taken.
+  const stamp = stamped.get(hit.path);
+  const own = stamp?.line === hit.line && stamp.text === hit.text;
+  return own && plain(hit.line + stamp.shift) ? hit.line + stamp.shift : null;
+}
+
+/** Where a press lands, and the todo there: null for a line made plain words, nothing for any other plain line. */
+function pressTarget(text: string, hit: SearchHit, twins: number[] | undefined) {
+  const plain = madePlain(text, hit);
+  const at = rowLine(text, hit, twins) ?? plain;
+  if (at === null) throw new Error("that line has changed since it was listed");
+  const line = text.split("\n")[at - 1] ?? "";
+  const todo = parseTodo(line);
+  // Only a row whose own words are no todo, which the listing never hands over.
+  return todo === null && plain === null ? undefined : { at, line, todo };
+}
+
+/**
  * The line the row's todo sits on now, or null where the note no longer says. Lines
  * shift with each write, so the words decide; twins, which share words, go by rank.
  */
@@ -328,12 +379,9 @@ async function cycleInVault(
   // The vault, not the row: the list is as old as the last fetch, and the note
   // is what the press is about to overwrite.
   const text = await fetchNote(hit.path);
-  const at = rowLine(text, hit, twins);
-  if (at === null) throw new Error("that line has changed since it was listed");
-  const line = text.split("\n")[at - 1] ?? "";
-  const todo = parseTodo(line);
-  // Only a row whose own words are no todo, which the listing never hands over.
-  if (todo === null) return;
+  const target = pressTarget(text, hit, twins);
+  if (target === undefined) return;
+  const { at, line, todo } = target;
 
   // The id goes only into the write, so stamping it before the search changes
   // nothing; it lets the press be read here, ahead of the search, as it will land.
@@ -346,7 +394,7 @@ async function cycleInVault(
   // The whole vault's todos, off the one pass the pane already asked for: they
   // answer for the blockers, and for whether the id is this todo's alone.
   const todos = await fetchTodos();
-  if (todo.id !== undefined) {
+  if (todo?.id !== undefined) {
     const other = otherTodoWithId(todo.id, hit.path, at, todos, text);
     if (other !== null) throw new Error(other);
   }
@@ -357,7 +405,7 @@ async function cycleInVault(
   // state it comes from says nothing. A todo with no id needs no search, since
   // nothing can name a todo that has never had a name.
   const named =
-    (todo.state === "done" || now?.state === "done") && todo.id !== undefined
+    (todo?.state === "done" || now?.state === "done") && todo?.id !== undefined
       ? new Set((await searchNotes(todo.id)).map((found) => found.path))
       : new Set<string>();
 
@@ -383,12 +431,18 @@ async function cycleInVault(
     state,
   });
 
-  await send(writes, daily.listed, { ...logged, [hit.path]: text, [daily.path]: daily.text });
+  const gained = await send(writes, daily.listed, {
+    ...logged,
+    [hit.path]: text,
+    [daily.path]: daily.text,
+  });
+  const shift = gained.get(hit.path) ?? 0;
+  if (shift > 0) stamped.set(hit.path, { line: hit.line, text: hit.text, shift });
 
   // After the send, so the dependents in this note are read as the write above
   // left them. No note is skipped: this half can see every blocker, where the
   // press could see only the ones in the note it moved.
-  if (now?.id !== undefined && isOpen(todo) !== isOpen(now)) {
+  if (todo !== null && now?.id !== undefined && isOpen(todo) !== isOpen(now)) {
     await writeBackBlocked(now.id, !isOpen(now), "");
   }
 }

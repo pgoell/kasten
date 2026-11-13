@@ -95,7 +95,10 @@ narrow; `?` lists them all.
 The todos done in the last seven days, the window `d` reads, sit last under a
 heading, Done this week, folded. A tap or a click on the heading unfolds it, and
 a second one folds it again. While it is folded, `j` and `k` skip its rows. Once
-it is unfolded they walk into it.
+it is unfolded they walk into it. A press on one of its rows keeps every row in
+place until a second has passed with no press, so `x` then `x` cycles the same
+row: done becomes plain words, then an open todo again. A phone draws no box
+on these rows.
 
 ### The legend
 
