@@ -137,7 +137,7 @@ async def test_the_mcp_tool_refuses_url_and_content_together(
     )
 
     assert payload(response.text)["result"]["isError"] is True
-    assert "Pass url for a PDF, epub, image or sound, or content for an .html page" in response.text
+    assert "Pass url for a file to download, or content for an .html page" in response.text
     assert opened == []
     assert not (agent_vault / "list.html").exists()
 
@@ -152,7 +152,7 @@ async def test_the_mcp_tool_refuses_neither_url_nor_content(
     )
 
     assert payload(response.text)["result"]["isError"] is True
-    assert "Pass url for a PDF, epub, image or sound, or content for an .html page" in response.text
+    assert "Pass url for a file to download, or content for an .html page" in response.text
     assert not (agent_vault / "list.html").exists()
 
 

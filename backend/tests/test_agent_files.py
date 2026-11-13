@@ -13,7 +13,7 @@ import httpx
 import pytest
 
 from backend.tests.test_mcp import ENDPOINT, RPC, call, payload
-from kasten_backend import files
+from kasten_backend import files, vault
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable
@@ -276,6 +276,26 @@ async def test_an_mcp_refusal_is_a_tool_error(
     assert payload(response.text)["result"]["isError"] is True
     assert "That file is not what its name says" in response.text
     assert empty(agent_vault)
+
+
+async def test_the_mcp_tool_names_every_kind_the_download_takes(
+    client: AsyncClient, bearer: dict[str, str]
+) -> None:
+    # svg, csv, mp4 and webm reached ASSET_MAGIC and the download without this text (#1925).
+    response = await client.post(
+        ENDPOINT,
+        json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
+        headers={**bearer, **RPC},
+    )
+    tools = payload(response.text)["result"]["tools"]
+    description = next(tool["description"] for tool in tools if tool["name"] == "save_file")
+
+    sentence = re.search(r"`path`\s+ends\s+in\s+(.*?),\s+and\s+the\s+bytes", description, re.DOTALL)
+
+    assert sentence is not None
+    assert set(re.findall(r"\.\w+", sentence[1])) == set(vault.ASSET_MAGIC)
+    assert "`path` ends in .html" in description
+    assert "{" not in description
 
 
 # At the filesystem's 255-byte limit: the temp `store` streams into ran 14 bytes over (#1278).
