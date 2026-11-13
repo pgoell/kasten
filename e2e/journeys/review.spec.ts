@@ -193,6 +193,27 @@ test.describe("on a phone", () => {
     await expect.poll(() => answered(stack.vault)).toBe(true);
   });
 
+  test("a phone sets the question at 28 px and the scroller around it at the body size", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "2 cards waiting" }).tap();
+    await page.getByRole("button", { name: "Start with capitals" }).tap();
+    const question = page.getByTestId("review-question");
+    await expect(question).toBeVisible();
+    // The size sits on the question's own wrapper, not on what holds the answer and the lines around it.
+    const sizes = await question.evaluate((front) => {
+      const own = getComputedStyle(front);
+      return [
+        own.fontSize,
+        own.lineHeight,
+        getComputedStyle(front.parentElement as HTMLElement).fontSize,
+      ];
+    });
+    expect(sizes.slice(0, 2)).toEqual(["28px", "32.2px"]);
+    expect(sizes[2]).not.toBe("28px");
+  });
+
   test("a phone's four grades stand 64 px in one row with their labels alone, and Show the answer has no Space hint", async ({
     page,
   }) => {
