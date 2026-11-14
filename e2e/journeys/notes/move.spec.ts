@@ -1,4 +1,4 @@
-import { readdir, rm } from "node:fs/promises";
+import { readdir, rm, symlink } from "node:fs/promises";
 import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { leader, noteText, openApp, vaultWith } from "../../harness/app.ts";
@@ -236,5 +236,169 @@ test.describe("the new note prompt's folder highlight", () => {
     await expect(rows).toHaveText([...SEEDED, "zz-new/"], { timeout: 15_000 });
     // The new row is one the highlight never walked to.
     await expect(highlighted).toHaveText(LAST);
+  });
+});
+
+test.describe("the new note prompt", () => {
+  const dialog = (page: Page) => page.getByRole("dialog", { name: "New note" });
+  const field = (page: Page) => dialog(page).getByRole("combobox");
+  const hint = (page: Page) => dialog(page).getByRole("status");
+  const tab = (page: Page, name: string) => page.getByRole("tab", { name, selected: true });
+  const focused = (page: Page, selector: string) =>
+    page.evaluate((within) => document.activeElement?.closest(within) !== null, selector);
+
+  /** Counts each create of `name`, refuses the first `refuse` with a 500, and holds the rest until `release`. */
+  async function creates(page: Page, name: string, { refuse = 0, held = false } = {}) {
+    let count = 0;
+    let release = () => {};
+    const gate = held ? new Promise<void>((done) => (release = done)) : Promise.resolve();
+    await page.route(
+      (url) => decodeURIComponent(url.pathname).endsWith(`/${name}.md`),
+      async (route) => {
+        if (route.request().method() !== "POST") return route.fallback();
+        count += 1;
+        if (count <= refuse) return route.fulfill({ status: 500, body: "{}" });
+        await gate;
+        await route.fallback();
+      },
+    );
+    return { count: () => count, release };
+  }
+
+  /** Opens the prompt from the top bar, whose button stays on screen when a note opens. */
+  async function fromBar(page: Page) {
+    await page.getByRole("button", { name: "New note", exact: true }).first().click();
+    await expect(field(page)).toBeFocused({ timeout: 15_000 });
+  }
+
+  test("opens on the tree's folder with the caret in its input, and Escape hands the focus back", async ({
+    page,
+  }) => {
+    await openApp(page);
+    await leader(page, "cf");
+    await expect(field(page)).toBeFocused({ timeout: 15_000 });
+    await page.keyboard.press("Escape");
+    await expect(dialog(page)).toHaveCount(0);
+    await expect(page.locator(".cm-content:focus")).toHaveCount(1);
+
+    await row(page, "01 Notes").click();
+    await leader(page, "cf");
+    await expect(field(page)).toHaveValue("01 Notes/");
+    await expect(field(page)).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(dialog(page)).toHaveCount(0);
+    expect(await focused(page, 'nav[aria-label="Vault"]')).toBe(true);
+  });
+
+  test("closes on Escape while the mouse holds the focus on a row", async ({ page }) => {
+    await openApp(page);
+    await fromBar(page);
+    const folder = dialog(page).getByRole("option").first();
+    await folder.hover();
+    await page.mouse.down();
+    expect(await focused(page, '[role="option"]')).toBe(true);
+    await page.keyboard.press("Escape");
+    await expect(dialog(page)).toHaveCount(0);
+    await page.mouse.up();
+  });
+
+  for (const vim of ["on", "off"]) {
+    test(`a made note and one already there each open with the keys in their editor, vim ${vim}`, async ({
+      page,
+      stack,
+    }) => {
+      await page.addInitScript((mode) => localStorage.setItem("kasten.vim", mode), vim);
+      const welcome = await creates(page, "Welcome");
+      await openApp(page);
+      for (const [name, typed] of [
+        ["Fresh", "fresh line"],
+        ["Welcome", "kept line"],
+      ]) {
+        await fromBar(page);
+        await page.keyboard.type(name);
+        if (name === "Welcome")
+          await expect(hint(page)).toHaveText("already exists, Enter opens it");
+        await page.keyboard.press("Enter");
+        await expect(tab(page, name)).toBeVisible({ timeout: 15_000 });
+        await expect(page.locator(".cm-content:focus")).toHaveCount(1);
+        await page.keyboard.type(vim === "on" ? `i${typed}` : typed);
+        await page.keyboard.press("Escape");
+        await expect
+          .poll(() => noteText(stack.vault, `${name}.md`), { timeout: 15_000 })
+          .toContain(typed);
+      }
+      expect(welcome.count()).toBe(0);
+    });
+  }
+
+  test("a refused create keeps the path and says so, the hints follow the input, and Enter tries again", async ({
+    page,
+    stack,
+  }) => {
+    await vaultWith(stack.vault, { "zz-proj/kasten/a.md": "a\n" });
+    const made = await creates(page, "zz-proj/k", { refuse: 1 });
+    await openApp(page);
+    await fromBar(page);
+    await page.keyboard.type("zz-proj/k");
+    await page.keyboard.press("Enter");
+    await expect(hint(page)).toHaveText("could not create the note");
+    await expect(field(page)).toHaveValue("zz-proj/k");
+    await expect(page.getByRole("tab", { name: "k" })).toHaveCount(0);
+
+    await page.keyboard.press("ArrowDown");
+    await expect(hint(page)).toHaveText("");
+    await page.keyboard.press("Tab");
+    await expect(field(page)).toHaveValue("zz-proj/kasten/");
+    await expect(hint(page)).toHaveText("name the note");
+    await page.keyboard.press("Enter");
+    await field(page).fill("reading/borges");
+    await expect(hint(page)).toHaveText("creates folder reading/");
+    expect(made.count()).toBe(1);
+
+    await field(page).fill("zz-proj/k");
+    await page.keyboard.press("Enter");
+    await expect(tab(page, "k")).toBeVisible({ timeout: 15_000 });
+    expect(made.count()).toBe(2);
+    await expect.poll(() => noteText(stack.vault, "zz-proj/k.md")).not.toBe("");
+  });
+
+  test("Enter pressed three times while the create is in flight makes one note", async ({
+    page,
+    stack,
+  }) => {
+    const made = await creates(page, "Once", { held: true });
+    await openApp(page);
+    await fromBar(page);
+    await page.keyboard.type("Once");
+    for (let i = 0; i < 3; i++) await page.keyboard.press("Enter");
+    await expect.poll(made.count).toBe(1);
+    made.release();
+    await expect(tab(page, "Once")).toBeVisible({ timeout: 15_000 });
+    await expect.poll(() => noteText(stack.vault, "Once.md")).not.toBe("");
+    expect(made.count()).toBe(1);
+  });
+
+  test("opens the vault's spelling of the path, listed in the tree at once and shown before any read", async ({
+    page,
+    stack,
+  }) => {
+    // A folder linked to another: the vault answers the path through the link's target.
+    await symlink("01 Notes", join(stack.vault, "Alias"));
+    // No events, so only the prompt itself can bring the tree a fresh listing.
+    await page.route("**/api/events", (route) => route.abort());
+    await page.route(
+      (url) => decodeURIComponent(url.pathname) === "/api/files/01 Notes/Canon.md",
+      (route) => (route.request().method() === "GET" ? new Promise(() => {}) : route.fallback()),
+    );
+    await openApp(page);
+    await fromBar(page);
+    await page.keyboard.type("Alias/Canon");
+    await page.keyboard.press("Enter");
+    await expect(tab(page, "Canon")).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator(".cm-content:focus")).toHaveCount(1);
+    await expect(page.locator("[data-pane]").getByText("01 Notes", { exact: true })).toBeVisible();
+    await row(page, "01 Notes").click();
+    await expect(row(page, "Canon")).toBeVisible();
+    await expect.poll(() => noteText(stack.vault, "01 Notes/Canon.md")).not.toBe("");
   });
 });
