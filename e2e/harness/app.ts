@@ -106,6 +106,27 @@ export async function recordOpens(page: Page): Promise<void> {
   });
 }
 
+/** Holds a listing until the test lets it go: `abort` stands in for a listing that fails. */
+export async function hold(
+  page: Page,
+  listing: RegExp,
+): Promise<(abort?: boolean) => Promise<void>> {
+  let release: (abort: boolean) => void = () => {};
+  const gate = new Promise<boolean>((done) => {
+    release = done;
+  });
+  let answered = Promise.resolve();
+  await page.route(listing, (route) => {
+    answered = gate.then((abort) => (abort ? route.abort() : route.continue()));
+    return answered;
+  });
+  // Resolves once the held request is answered, so an unroute after it cannot let it through.
+  return async (abort = false) => {
+    release(abort);
+    await answered;
+  };
+}
+
 /** The addresses the page asked window.open for since `recordOpens`. */
 export const opened = (page: Page): Promise<string[]> =>
   page.evaluate(() => (window as unknown as { opened: string[] }).opened);
