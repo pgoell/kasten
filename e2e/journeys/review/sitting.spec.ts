@@ -243,6 +243,17 @@ test.describe("on a phone", () => {
     }
     expect([...tops]).toHaveLength(1);
   });
+
+  test("the header's Type button stands a thumb wide and tall", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "2 cards waiting" }).tap();
+    await page.getByRole("button", { name: "Start with capitals" }).tap();
+    const type = page.getByRole("button", { name: "Type", exact: true });
+    // To the layout unit, as tapHeight reads a height (#1852).
+    const width = Math.round(((await type.boundingBox())?.width ?? 0) * 64) / 64;
+    expect(width).toBeGreaterThanOrEqual(44);
+    expect(await tapHeight(type)).toBeGreaterThanOrEqual(44);
+  });
 });
 
 const SR = "<!--SR:!2026-08-20,4,270-->";
