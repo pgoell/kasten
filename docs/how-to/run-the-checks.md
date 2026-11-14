@@ -65,7 +65,7 @@ against it. You need Docker, for Postgres and nginx, and Chromium. Each test get
 its own copy of the fixture vault, its own database and its own backend, and
 teardown removes the containers. Unlike `fe:e2e`, it stubs no API.
 
-The journeys sit in `e2e/journeys/`: review in `review/` (a sitting, a cloze card, Enter on the overview's rows, the daily limits, and the deck notes that could not be read), panes in
+The journeys sit in `e2e/journeys/`: review in `review/` (a sitting, a question jotted in one, a cloze card, Enter on the overview's rows, the daily limits, and the deck notes that could not be read), panes in
 `panes/` (layout and the top bar, the pane and tab keys, pane acts whose write is held while the focus moves, links to pages and assets; a note changed on disk under
 unsaved text and a conflicted note reopened in `panes/conflict/`; the stored workspace across a reload, held text in a restored pane and a URL over a stored workspace in `panes/workspace/`), notes, the finder, a tree row moved by a drag, the new note prompt's folder rows and the save sign in the status bar in `notes/`, with saving in `notes/saving/` (edits,
 the backlinks panel's mention links, held text) and the content search in `notes/search/`, the todo list, the board,
