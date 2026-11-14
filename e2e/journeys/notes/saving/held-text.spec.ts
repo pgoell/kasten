@@ -299,15 +299,16 @@ async function backAndForth(page: Page, between: () => Promise<void> = async () 
   expect(await page.evaluate(() => "stayed" in window)).toBe(true);
 }
 
-/** Counts each PUT of Capitals and answers it by `answer`, or lets it through. */
+/** Counts each PUT of Capitals, and each answered, and answers it by `answer` or lets it through. */
 async function capitalsPuts(page: Page, answer: (route: Route, nth: number) => Promise<void>) {
-  const puts = { count: 0 };
+  const puts = { count: 0, answered: 0 };
   await page.route(
     (url) => decodeURIComponent(url.pathname) === `/api/files/${CAPITALS}`,
     async (route) => {
       if (route.request().method() !== "PUT") return route.fallback();
       puts.count += 1;
       await answer(route, puts.count);
+      puts.answered += 1;
     },
   );
   return puts;
@@ -332,7 +333,8 @@ test.describe("leaving the editor route by the browser's Back", () => {
     await expect(focused(page)).toContainText(TYPED);
     expect(puts.count).toBe(0);
 
-    await backAndForth(page, () => expect.poll(() => puts.count).toBeGreaterThan(0));
+    // The leave's write has failed before the note comes back.
+    await backAndForth(page, () => expect.poll(() => puts.answered).toBeGreaterThan(0));
 
     await expect
       .poll(async () => [(await page.locator(".cm-content").first().textContent())?.includes(TYPED), await bar(page)])
