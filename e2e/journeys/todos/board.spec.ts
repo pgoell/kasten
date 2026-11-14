@@ -1,5 +1,6 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
+import type { Page } from "@playwright/test";
 import {
   cursorTo,
   leader,
@@ -135,5 +136,151 @@ test.describe("on a phone", () => {
       page.getByRole("button", { name: "more for fold the laundry" }),
     ])
       expect(await tapHeight(target), `${target}`).toBeGreaterThanOrEqual(44);
+  });
+});
+
+const PLAN = "02 Projects/FDE/plan.md";
+
+/** A plan whose todos fill the kind lanes, the board open on it with the cards drawn. */
+async function board(page: Page, vault: string): Promise<void> {
+  await vaultWith(vault, {
+    [PLAN]: `# Plan\n\n- [ ] write the deck #internal\n- [/] draw the chart #internal\n- [ ] send the invoice #client\n- [-] drop the logo ❌ ${today()}\n`,
+  });
+  await openApp(page);
+  await leader(page, "gt");
+  await expect(page.locator(TODO_ROW, { hasText: "write the deck" })).toBeVisible();
+  await page.keyboard.press("c");
+  await expect(page.locator("[data-card]", { hasText: "write the deck" })).toBeVisible();
+}
+
+/** The button that folds the lane a heading names; the kind filter's pill shares the name. */
+const laneButton = (page: Page, name: string) =>
+  page.locator("h3", { hasText: new RegExp(`^${name}$`) }).getByRole("button");
+
+/** The lane headings' names; the count is drawn from an attribute, so it is no part of the text. */
+const lanes = (page: Page) => page.locator("h3:has(button[data-count])");
+
+const card = (page: Page, words: string) => page.locator("[data-card]", { hasText: words });
+
+test.describe("the board's lanes and folds (#811)", () => {
+  test("the project switch draws the lanes by project in place of kind", async ({
+    page,
+    stack,
+  }) => {
+    await board(page, stack.vault);
+    const project = page.getByRole("button", { name: "project", exact: true });
+    const kind = page.getByRole("button", { name: "kind", exact: true });
+    await expect(project).toHaveAttribute("aria-pressed", "false");
+    await expect(lanes(page)).toHaveText(["#client", "#internal", "No kind"]);
+
+    await project.click();
+
+    await expect(project).toHaveAttribute("aria-pressed", "true");
+    await expect(kind).toHaveAttribute("aria-pressed", "false");
+    await expect(lanes(page)).toHaveText(["No project", "FDE"]);
+  });
+
+  test("a click on a lane heading folds the lane, keeping its count, and a second unfolds it", async ({
+    page,
+    stack,
+  }) => {
+    await board(page, stack.vault);
+    const internal = laneButton(page, "#internal");
+    await expect(internal).toHaveAttribute("aria-expanded", "true");
+
+    await internal.click();
+
+    await expect(internal).toHaveAttribute("aria-expanded", "false");
+    await expect(internal).toHaveAttribute("data-count", "2");
+    await expect(card(page, "write the deck")).toHaveCount(0);
+    await expect(card(page, "send the invoice")).toBeVisible();
+
+    await internal.click();
+
+    await expect(internal).toHaveAttribute("aria-expanded", "true");
+    await expect(card(page, "write the deck")).toBeVisible();
+  });
+
+  test("a card let go over a folded lane drops back and writes nothing", async ({
+    page,
+    stack,
+  }) => {
+    await board(page, stack.vault);
+    const client = laneButton(page, "#client");
+    await client.click();
+    await expect(client).toHaveAttribute("aria-expanded", "false");
+    const before = await noteText(stack.vault, PLAN);
+    const writes: string[] = [];
+    page.on("request", (request) => {
+      if (request.method() !== "GET" && request.url().includes("/api/")) writes.push(request.url());
+    });
+
+    const from = await card(page, "write the deck").boundingBox();
+    const to = await client.boundingBox();
+    if (!from || !to) throw new Error("the card or the folded heading is not on the screen");
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(from.x + from.width / 2 + 20, from.y + from.height / 2, { steps: 4 });
+    await expect(page.locator("[data-lifted]")).toHaveCount(1);
+    await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 10 });
+    await page.mouse.up();
+
+    await expect(page.locator("[data-lifted]")).toHaveCount(0);
+    // A real drop the next moment, so a write the folded lane sent would have landed first.
+    await laneButton(page, "#internal").click();
+    await expect(laneButton(page, "#internal")).toHaveAttribute("aria-expanded", "false");
+    expect(writes).toEqual([]);
+    await expect(page.getByTestId("notice")).toHaveCount(0);
+    expect(await noteText(stack.vault, PLAN)).toBe(before);
+  });
+
+  test("Rejected starts folded on a desktop; a click and l onto it unfold it, and a click and h fold it", async ({
+    page,
+    stack,
+  }) => {
+    await board(page, stack.vault);
+    const rejected = page.getByRole("button", { name: "Rejected 1" });
+    await expect(rejected).toHaveAttribute("aria-expanded", "false");
+    await expect(card(page, "drop the logo")).toHaveCount(0);
+
+    await rejected.click();
+    await expect(rejected).toHaveAttribute("aria-expanded", "true");
+    await expect(card(page, "drop the logo")).toBeVisible();
+    await rejected.click();
+    await expect(rejected).toHaveAttribute("aria-expanded", "false");
+    await expect(card(page, "drop the logo")).toHaveCount(0);
+
+    // From Open, where the cursor starts, to Rejected is six columns.
+    for (let step = 0; step < 6; step += 1) await page.keyboard.press("l");
+    await expect(rejected).toHaveAttribute("aria-expanded", "true");
+    await expect(card(page, "drop the logo")).toBeVisible();
+    await page.keyboard.press("h");
+    await expect(rejected).toHaveAttribute("aria-expanded", "false");
+    await expect(card(page, "drop the logo")).toHaveCount(0);
+  });
+
+  test.describe("on a phone", () => {
+    test.use(phone);
+
+    test("a lane with nothing in the shown state is folded and cannot be opened", async ({
+      page,
+      stack,
+    }) => {
+      await vaultWith(stack.vault, {
+        [PLAN]:
+          "# Plan\n\n- [ ] write the deck #internal\n- [/] draw the chart #internal\n- [ ] send the invoice #client\n",
+      });
+      await page.goto("/");
+      await page.getByRole("button", { name: "Open the todo pane" }).tap();
+      await page.getByRole("button", { name: "board", exact: true }).tap();
+      await expect(card(page, "send the invoice")).toBeVisible();
+
+      await page.getByRole("tab", { name: "Doing 1" }).tap();
+
+      await expect(laneButton(page, "#client")).toBeDisabled();
+      await expect(laneButton(page, "#client")).toHaveAttribute("aria-expanded", "false");
+      await expect(laneButton(page, "#internal")).toHaveAttribute("aria-expanded", "true");
+      await expect(page.locator("[data-card]:visible")).toHaveText(["draw the chart"]);
+    });
   });
 });

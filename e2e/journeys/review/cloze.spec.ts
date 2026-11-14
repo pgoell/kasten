@@ -84,3 +84,83 @@ test.describe("a cloze card in a sitting", () => {
     await expect.poll(() => line(stack.vault)).toBe(`${LINE} !suspended`);
   });
 });
+
+/** A one-card deck of `back`, the review pane open on it and its question shown. */
+async function sitTyped(page: Page, vault: string, back: string): Promise<void> {
+  await vaultWith(vault, {
+    "03 Flashcards/typed.md": `#flashcards/typed\n\nWhat is it?::${back}\n`,
+  });
+  await openApp(page);
+  await leader(page, "gs");
+  await page.getByRole("heading", { name: "Review" }).click();
+  await page.locator('button[data-deck="typed"]').click();
+  await expect(page.getByTestId("review-card")).toHaveText("What is it?");
+}
+
+/** Types `words` into the answer box, Type pressed first, and sends them. */
+async function answer(page: Page, words: string): Promise<void> {
+  await page.getByRole("button", { name: "Type", exact: true }).click();
+  await page.getByLabel("your answer").fill(words);
+  await page.keyboard.press("Enter");
+}
+
+test.describe("a typed answer", () => {
+  test("Type swaps Show the answer for the answer box, and the grades wait for the answer", async ({
+    page,
+    stack,
+  }) => {
+    await sitTyped(page, stack.vault, "Simple Storage Service");
+    const reveal = page.getByRole("button", { name: "Show the answer" });
+    const box = page.getByLabel("your answer");
+    const good = page.getByRole("button", { name: "Good", exact: true });
+    await expect(reveal).toBeVisible();
+    await expect(box).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Type", exact: true }).click();
+    await expect(box).toBeVisible();
+    await expect(reveal).toHaveCount(0);
+    await expect(good).toHaveCount(0);
+    await expect(page.getByTestId("review-back")).toHaveCount(0);
+
+    await box.fill("simple storage service");
+    await page.keyboard.press("Enter");
+    await expect(page.getByTestId("review-back")).toHaveText("Simple Storage Service");
+    await expect(page.getByTestId("review-verdict")).toHaveText("Matched");
+    await expect(good).toBeVisible();
+  });
+
+  test("an answer that differs says what was typed, and the grades still stand", async ({
+    page,
+    stack,
+  }) => {
+    await sitTyped(page, stack.vault, "Simple Storage Service");
+    await answer(page, "Simple Store Service");
+    await expect(page.getByTestId("review-verdict")).toHaveText("You typed Simple Store Service");
+    await expect(page.getByRole("button", { name: "Easy", exact: true })).toBeVisible();
+  });
+
+  for (const [back, typed] of [
+    ["a\\\\-b \\*c\\* <!--anki:1:0:abcdef12-->", "a\\-b *c*"],
+    ["a\\\\\\&#58; \\&#58; <!--anki:1:0:abcdef12-->", "a\\&#58; &#58;"],
+  ])
+    test(`an imported back's escapes are no part of the answer: ${typed} matches`, async ({
+      page,
+      stack,
+    }) => {
+      await sitTyped(page, stack.vault, back);
+      await answer(page, typed);
+      await expect(page.getByTestId("review-verdict")).toHaveText("Matched");
+    });
+
+  test("the choice to type holds across a reload", async ({ page, stack }) => {
+    await sitTyped(page, stack.vault, "Simple Storage Service");
+    await page.getByRole("button", { name: "Type", exact: true }).click();
+    await expect(page.getByLabel("your answer")).toBeVisible();
+    await page.reload();
+    await leader(page, "gs");
+    await page.getByRole("heading", { name: "Review" }).click();
+    await page.locator('button[data-deck="typed"]').click();
+    await expect(page.getByLabel("your answer")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Show the answer" })).toHaveCount(0);
+  });
+});
