@@ -22,6 +22,19 @@ async function openDrawer(page: Page) {
 test.describe("the tree's drawer in a narrow window under a mouse", () => {
   test.use({ viewport: { width: 700, height: 800 } });
 
+  test("the status bar is out of reach while the drawer is open", async ({ page }) => {
+    await load(page);
+    // Inside `main` the bar's footer is no landmark, so no role finds it.
+    const status = page.locator("main > footer");
+    await expect(status).toBeVisible();
+    await expect(status).not.toHaveAttribute("inert");
+
+    await page.getByRole("button", { name: "Show file tree" }).click();
+
+    await expect(tree(page)).toBeVisible();
+    await expect(status).toHaveAttribute("inert");
+  });
+
   test("Escape shuts the drawer and puts the focus in the focused pane on screen", async ({
     page,
   }) => {

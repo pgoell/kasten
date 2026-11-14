@@ -251,3 +251,63 @@ test("a press that makes today's daily note leaves a pending press's row as draw
   expect(await lost()).toBe(false);
   await page.unrouteAll({ behavior: "ignoreErrors" });
 });
+
+/** The note's line that holds `words`, read off disk: a save may add frontmatter above it. */
+async function lineWith(vault: string, path: string, words: string): Promise<string> {
+  return (await noteText(vault, path)).split("\n").find((line) => line.endsWith(` ${words}`)) ?? "";
+}
+
+/** The path and words of the row under the cursor, read off disk; `data-row` counts from 1. */
+async function underCursor(page: Page, vault: string): Promise<{ path: string; words: string }> {
+  const key = (await page.locator(`${TODO_ROW}[tabindex="0"]`).getAttribute("data-row")) ?? "";
+  const path = key.slice(0, key.lastIndexOf(":"));
+  const line = (await noteText(vault, path)).split("\n")[
+    Number(key.slice(key.lastIndexOf(":") + 1)) - 1
+  ];
+  return { path, words: line?.replace(/^- \[ \] /, "") ?? "" };
+}
+
+test("x walks the row under the cursor on to doing, and leaves the row above it open", async ({
+  page,
+  stack,
+}) => {
+  await openTodos(page);
+  const first = await underCursor(page, stack.vault);
+  await page.keyboard.press("j");
+  await expect(page.locator(`${TODO_ROW}[tabindex="0"]`)).not.toContainText(first.words);
+  const second = await underCursor(page, stack.vault);
+  await page.keyboard.press("x");
+  await expect
+    .poll(() => lineWith(stack.vault, second.path, second.words))
+    .toBe(`- [/] ${second.words}`);
+  await expect(stateOf(page, second.words, "doing")).toBeVisible();
+  expect(await lineWith(stack.vault, first.path, first.words)).toBe(`- [ ] ${first.words}`);
+});
+
+test("a bare x walks the first row from open to doing, not to done", async ({ page, stack }) => {
+  await openTodos(page);
+  const first = await underCursor(page, stack.vault);
+  await page.keyboard.press("x");
+  await expect
+    .poll(() => lineWith(stack.vault, first.path, first.words))
+    .toBe(`- [/] ${first.words}`);
+  await expect(stateOf(page, first.words, "doing")).toBeVisible();
+});
+
+for (const [key, state, mark] of [
+  ["B", "blocked", "b"],
+  ["V", "review", "r"],
+] as const) {
+  test(`${key} sets the row under the cursor to ${state}, which the walk never reaches`, async ({
+    page,
+    stack,
+  }) => {
+    await openTodos(page);
+    const first = await underCursor(page, stack.vault);
+    await page.keyboard.press(key);
+    await expect
+      .poll(() => lineWith(stack.vault, first.path, first.words))
+      .toBe(`- [${mark}] ${first.words}`);
+    await expect(stateOf(page, first.words, state)).toBeVisible();
+  });
+}
