@@ -3,6 +3,7 @@ import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import {
   findNote,
+  hold,
   inbox,
   leader,
   openApp,
@@ -375,24 +376,6 @@ test.describe("a link followed while the vault's listings load", () => {
   const LINKS = "Links.md";
   const NOTES = /\/api\/files$/;
   const welcome = (page: Page) => page.getByRole("heading", { name: "Welcome", level: 1 });
-
-  /** Holds a listing until the test lets it go: `abort` stands in for a listing that fails. */
-  async function hold(page: Page, listing: RegExp): Promise<(abort?: boolean) => Promise<void>> {
-    let release: (abort: boolean) => void = () => {};
-    const gate = new Promise<boolean>((done) => {
-      release = done;
-    });
-    let answered = Promise.resolve();
-    await page.route(listing, (route) => {
-      answered = gate.then((abort) => (abort ? route.abort() : route.continue()));
-      return answered;
-    });
-    // Resolves once the held request is answered, so an unroute after it cannot let it through.
-    return async (abort = false) => {
-      release(abort);
-      await answered;
-    };
-  }
 
   /** Loads `Links.md` by its address, since the tree waits on the held listing. */
   async function openLinks(page: Page, vault: string, listing = NOTES) {

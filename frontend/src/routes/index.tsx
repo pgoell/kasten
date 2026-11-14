@@ -220,7 +220,6 @@ function Home() {
   const guarded = useGuardedWrites({ focusedNote, panePath: pane.path, setNotice });
 
   const opening = useNoteOpening({
-    listings: { data },
     layoutNow,
     focusedNote,
     setLayout,

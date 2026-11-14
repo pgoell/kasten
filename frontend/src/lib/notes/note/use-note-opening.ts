@@ -24,7 +24,7 @@ import {
 } from "@/lib/panes/layout/pane-contents";
 import { activeTab, atPane, fillFocused, type Layout, tabPanes } from "@/lib/panes/layout/panes";
 import { bookNoteOf, fileKind, opensInFilePane } from "@/lib/vault/file-kind";
-import { type LinkPaths, type Listings, linkPaths, linkTargets } from "@/lib/vault/use-listings";
+import { type LinkPaths, linkPaths, linkTargets } from "@/lib/vault/use-listings";
 
 export type NoteOpening = ReturnType<typeof useNoteOpening>;
 
@@ -94,6 +94,23 @@ function openAtHeading(
   );
 }
 
+/**
+ * The notes listing once it loads, or undefined when it fails or pane `at` was filled meanwhile, whatever
+ * the kind: every fill makes a new leaf. Held by id, as a pick fills the pane it came from (#1626).
+ */
+function waitedFiles(
+  listed: Promise<LinkPaths>,
+  layoutNow: RefObject<Layout>,
+  at: string,
+): Promise<string[] | undefined> {
+  const held = () => tabPanes(layoutNow.current).find((each) => each.id === at);
+  const from = held();
+  return listed.then(
+    ({ files }) => (held() === from ? files : undefined),
+    () => undefined,
+  );
+}
+
 /** Where a search hit found its line in a file, which is what the opener goes to. */
 type FilePlace = NonNullable<SearchHit["place"]>;
 
@@ -128,7 +145,6 @@ export function makeNote(
  * a `[[link]]`, an embed, a highlight or a periodic key.
  */
 export function useNoteOpening({
-  listings,
   layoutNow,
   focusedNote,
   setLayout,
@@ -137,7 +153,6 @@ export function useNoteOpening({
   moveTo,
   setNotice,
 }: {
-  listings: Pick<Listings, "data">;
   layoutNow: RefObject<Layout>;
   focusedNote: RefObject<{ path: string | undefined }>;
   setLayout: Dispatch<SetStateAction<Layout>>;
@@ -146,7 +161,6 @@ export function useNoteOpening({
   moveTo: (update: (previous: Layout) => Layout) => boolean;
   setNotice: Dispatch<SetStateAction<string | undefined>>;
 }) {
-  const { data } = listings;
   const queryClient = useQueryClient();
   const [seek, setSeek] = useState<Seek>();
 
@@ -235,8 +249,30 @@ export function useNoteOpening({
   );
 
   /**
+   * Open an epub in its reader, or in a tab of its own when it has no note, since there is no reader to go through.
+   * The listings are read from the cache now, not as the last render saw them (#2034).
+   */
+  const openEpub = useCallback(
+    async (path: string, text: string | undefined, at: string): Promise<void> => {
+      const note = bookNoteOf(path);
+      const listed = linkPaths(queryClient);
+      const files =
+        listed instanceof Promise ? await waitedFiles(listed, layoutNow, at) : listed.files;
+      if (files === undefined) return;
+      if (!files.includes(note)) {
+        window.open(`/api/assets/${encodePath(path)}`, "_blank");
+        return;
+      }
+      if (!(await saveFirst())) return;
+
+      openBookAt(moveTo, setSeek, note, text, at);
+    },
+    [queryClient, saveFirst, moveTo, layoutNow],
+  );
+
+  /**
    * Open a pdf, epub or html file from the finder or a search hit, the way the app already opens each kind.
-   * An epub with no note opens in a tab of its own, since there is no reader to go through. `text` is the line a search hit found.
+   * `text` is the line a search hit found.
    */
   const openFile = useCallback(
     async (path: string, place?: FilePlace | null, text?: string): Promise<void> => {
@@ -256,18 +292,9 @@ export function useNoteOpening({
         setFocusSignal((previous) => previous + 1);
         return;
       }
-      if (kind !== "epub") return;
-
-      const note = bookNoteOf(path);
-      if (!data?.includes(note)) {
-        window.open(`/api/assets/${encodePath(path)}`, "_blank");
-        return;
-      }
-      if (!(await saveFirst())) return;
-
-      openBookAt(moveTo, setSeek, note, text, at);
+      if (kind === "epub") await openEpub(path, text, at);
     },
-    [data, saveFirst, setLayout, setFocusSignal, moveTo, openHtmlInPane, layoutNow],
+    [saveFirst, setLayout, setFocusSignal, openHtmlInPane, openEpub, layoutNow],
   );
 
   /** `follow` once the listings are in hand. */
