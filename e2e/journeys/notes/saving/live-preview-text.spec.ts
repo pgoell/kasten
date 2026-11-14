@@ -16,7 +16,59 @@ for (const vim of ["on", "off"]) {
     await expect(page.locator(".cm-tag", { hasText: "#real" })).toBeVisible();
     await expect(page.locator(".cm-tag", { hasText: "#abc" })).toBeVisible();
   });
+
+  test(`a block closed only by an indented --- is text, its hashes tags, vim ${vim}`, async ({
+    page,
+    stack,
+  }) => {
+    // Obsidian closes a block only on `---` at column 0, as frontmatter.py does (#654).
+    await opened(page, stack.vault, "---\nref: x #a\n ---\n#real", vim);
+    await expect.poll(() => tags(page)).toEqual(["#a", "#real"]);
+  });
 }
+
+/** The tags live preview colours, top to bottom, read in one step (#1941). */
+const tags = (page: Page): Promise<string[]> =>
+  page.locator(".cm-content .cm-tag").evaluateAll((all) => all.map((n) => n.textContent ?? ""));
+
+test.describe("a tag", () => {
+  for (const vim of ["on", "off"]) {
+    test(`draws in its own colour with its hash on screen, and keeps it while its line shows the source, vim ${vim}`, async ({
+      page,
+      stack,
+    }) => {
+      await opened(page, stack.vault, "read this #reading/borges today\n\n**bold** #tag here", vim);
+      const content = page.locator(".cm-content");
+      await expect(content).toHaveText("read this #reading/borges todaybold #tag here");
+      await expect.poll(() => tags(page)).toEqual(["#reading/borges", "#tag"]);
+      const tag = page.locator(".cm-tag", { hasText: "#tag" });
+      const colour = (at: typeof tag) => at.evaluate((el) => getComputedStyle(el).color);
+      const body = await colour(page.locator(".cm-line", { hasText: "read this" }));
+      expect(await colour(tag)).not.toBe(body);
+
+      await down(page, vim, 2);
+      await expect(content).toHaveText("read this #reading/borges today**bold** #tag here");
+      await expect(tag).toHaveCount(1);
+      expect(await colour(tag)).not.toBe(body);
+    });
+
+    test(`reads no tag out of a heading, a hash in a word, a number, a fence or a URL's fragment, vim ${vim}`, async ({
+      page,
+      stack,
+    }) => {
+      const body = [
+        "# Notes",
+        "issue#12 and #1",
+        "```sh\n#!/bin/sh\n```",
+        "see https://example.com/#anchor and [docs](https://example.com/#top)",
+        "#real",
+      ].join("\n\n");
+      await opened(page, stack.vault, body, vim);
+      // `#real` shows the walk has run, so the empty rest is not a page that drew nothing.
+      await expect.poll(() => tags(page)).toEqual(["#real"]);
+    });
+  }
+});
 
 test("typing the closing --- makes a frontmatter, and deleting it unmakes one", async ({
   page,

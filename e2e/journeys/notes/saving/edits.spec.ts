@@ -128,4 +128,33 @@ test.describe("on a phone", () => {
       .poll(() => noteText(stack.vault, "Welcome.md"), { timeout: 15_000 })
       .toContain(TYPED);
   });
+
+  for (const vim of ["off", "on"]) {
+    test(`with vim ${vim} the gutter is ${vim === "off" ? "gone, its numbers meaning nothing under a finger" : "there, counting from the cursor"}`, async ({
+      page,
+      stack,
+    }) => {
+      if (vim === "on") await page.addInitScript(() => localStorage.setItem("kasten.vim", "on"));
+      await vaultWith(stack.vault, { "Lines.md": "one\ntwo\nthree\nfour" });
+      await page.goto(`/?note=${encodeURIComponent("Lines.md")}`);
+      const editor = page.locator(".cm-editor", { hasText: "three" });
+      await expect(editor.locator(".cm-line", { hasText: "four" })).toBeVisible({
+        timeout: 15_000,
+      });
+      if (vim === "off") {
+        await expect(editor.locator(".cm-gutters")).toBeHidden();
+        return;
+      }
+      await expect(editor.locator(".cm-gutters")).toBeVisible();
+      const numbers = () =>
+        editor
+          .locator(".cm-lineNumbers .cm-gutterElement")
+          .evaluateAll((all) =>
+            all
+              .filter((n) => (n as HTMLElement).style.visibility !== "hidden")
+              .map((n) => n.textContent ?? ""),
+          );
+      await expect.poll(numbers).toEqual(["1", "1", "2", "3"]);
+    });
+  }
 });
