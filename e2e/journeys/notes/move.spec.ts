@@ -310,12 +310,14 @@ test.describe("the new note prompt", () => {
       await page.addInitScript((mode) => localStorage.setItem("kasten.vim", mode), vim);
       const welcome = await creates(page, "Welcome");
       await openApp(page);
-      for (const [name, typed] of [
-        ["Fresh", "fresh line"],
-        ["Welcome", "kept line"],
+      // From the tree, which holds the focus: a button gives it up to the editor anyway.
+      for (const [name, path, typed] of [
+        ["Fresh", "01 Notes/Fresh", "fresh line"],
+        ["Welcome", "Welcome", "kept line"],
       ]) {
-        await fromBar(page);
-        await page.keyboard.type(name);
+        await row(page, "01 Notes").click();
+        await leader(page, "cf");
+        await field(page).fill(path);
         if (name === "Welcome")
           await expect(hint(page)).toHaveText("already exists, Enter opens it");
         await page.keyboard.press("Enter");
@@ -324,7 +326,7 @@ test.describe("the new note prompt", () => {
         await page.keyboard.type(vim === "on" ? `i${typed}` : typed);
         await page.keyboard.press("Escape");
         await expect
-          .poll(() => noteText(stack.vault, `${name}.md`), { timeout: 15_000 })
+          .poll(() => noteText(stack.vault, `${path}.md`), { timeout: 15_000 })
           .toContain(typed);
       }
       expect(welcome.count()).toBe(0);
@@ -337,6 +339,10 @@ test.describe("the new note prompt", () => {
   }) => {
     await vaultWith(stack.vault, { "zz-proj/kasten/a.md": "a\n" });
     const made = await creates(page, "zz-proj/k", { refuse: 1 });
+    let posts = 0;
+    page.on("request", (request) => {
+      if (request.method() === "POST" && request.url().includes("/api/files/")) posts += 1;
+    });
     await openApp(page);
     await fromBar(page);
     await page.keyboard.type("zz-proj/k");
@@ -358,8 +364,9 @@ test.describe("the new note prompt", () => {
     await field(page).fill("zz-proj/k");
     await page.keyboard.press("Enter");
     await expect(tab(page, "k")).toBeVisible({ timeout: 15_000 });
-    expect(made.count()).toBe(2);
     await expect.poll(() => noteText(stack.vault, "zz-proj/k.md")).not.toBe("");
+    // Both tries, and nothing for the Enter on a folder.
+    expect([made.count(), posts]).toEqual([2, 2]);
   });
 
   test("Enter pressed three times while the create is in flight makes one note", async ({
