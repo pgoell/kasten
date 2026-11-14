@@ -178,3 +178,93 @@ for (const preview of ["on", "off"]) {
     expect(await noteText(stack.vault, "Links.md")).not.toContain("]]]]");
   });
 }
+
+test.describe("a space in an image address (#553)", () => {
+  const SHOT = "![shot](99 Misc/shot.png)";
+  const DRAWN = "/api/assets/99%20Misc/shot.png";
+  /** A 1 px png, so a drawn picture loads with a size above zero. */
+  const DOT = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+    "base64",
+  );
+
+  /** Each picture live preview draws in the note, as its address and alt text, once it has loaded. */
+  async function pictures(page: Page): Promise<[string | null, string | null][]> {
+    const drawn = page.locator(".cm-content img.cm-image");
+    for (const img of await drawn.all())
+      await expect
+        .poll(() => img.evaluate((node: HTMLImageElement) => node.complete && node.naturalWidth))
+        .toBeGreaterThan(0);
+    return drawn.evaluateAll((nodes) =>
+      nodes.map((node) => [node.getAttribute("src"), node.getAttribute("alt")]),
+    );
+  }
+
+  async function opened(page: Page, vault: string, body: string, vim: boolean): Promise<void> {
+    await vaultWith(vault, {
+      "99 Misc/shot.png": DOT,
+      "x y.png": DOT,
+      "other.png": DOT,
+      "Shot.md": `intro\n\n${body}`,
+    });
+    if (!vim) await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
+    // The https picture's host answers here, so no request leaves the box.
+    await page.route("https://example.com/**", (route) =>
+      route.fulfill({ contentType: "image/png", body: DOT }),
+    );
+    await openApp(page);
+    await openNote(page, "Shot");
+  }
+
+  for (const vim of [true, false]) {
+    const mode = vim ? "vim on" : "vim off";
+
+    test(`draws the vault picture off its line and shows the address as typed on it, ${mode}`, async ({
+      page,
+      stack,
+    }) => {
+      await opened(page, stack.vault, SHOT, vim);
+      const line = page.locator(".cm-content .cm-line").nth(2);
+      await expect.poll(() => pictures(page)).toEqual([[DRAWN, "shot"]]);
+      await expect(line).toHaveText("");
+      await page.keyboard.press(vim ? "G" : "Control+End");
+      if (vim) await page.keyboard.press("i");
+      await expect(line).toHaveText(SHOT);
+      if (vim) await page.keyboard.press("Escape");
+      await page.keyboard.press(vim ? "g" : "Control+Home");
+      if (vim) await page.keyboard.press("g");
+      await expect.poll(() => pictures(page)).toEqual([[DRAWN, "shot"]]);
+      await expect(line).toHaveText("");
+    });
+  }
+
+  test("draws a spaced image address in a table cell as the picture", async ({ page, stack }) => {
+    await opened(page, stack.vault, `| a |\n| - |\n| ${SHOT} |`, false);
+    const cell = page.locator(".cm-table-grid tbody td");
+    await expect(cell.locator("img.cm-image")).toHaveAttribute("src", DRAWN);
+    await expect(cell).toHaveText("");
+    await expect.poll(() => pictures(page)).toEqual([[DRAWN, "shot"]]);
+  });
+
+  test("keeps a spaced script address as typed and draws a spaced https one", async ({
+    page,
+    stack,
+  }) => {
+    await opened(
+      page,
+      stack.vault,
+      "![a](javascript:x y)\n\n![b](https://example.com/a b.png)",
+      false,
+    );
+    await expect(page.locator(".cm-content .cm-line").nth(2)).toHaveText("![a](javascript:x y)");
+    await expect.poll(() => pictures(page)).toEqual([["https://example.com/a%20b.png", "b"]]);
+  });
+
+  test("draws the spaced address in the parens over a definition of the alt text", async ({
+    page,
+    stack,
+  }) => {
+    await opened(page, stack.vault, "![a](x y.png)\n\n[a]: other.png", false);
+    await expect.poll(() => pictures(page)).toEqual([["/api/assets/x%20y.png", "a"]]);
+  });
+});
