@@ -170,7 +170,7 @@ export async function builtCss(page: Page): Promise<string> {
 }
 
 // A copy of frontend/src/lib/core/read-retry.ts's BACKOFF, whose `@/` import Playwright cannot resolve: 8 tries.
-export const BACKOFF = [1000, 2000, 4000, 8000, 15000, 15000, 15000];
+const BACKOFF = [1000, 2000, 4000, 8000, 15000, 15000, 15000];
 
 /** Answers every GET `route` matches with a 502 while `down` says so; returns the count of failed ones. */
 export async function gateway(

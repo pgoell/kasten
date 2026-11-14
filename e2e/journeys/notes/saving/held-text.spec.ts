@@ -7,20 +7,31 @@ import { expect, test } from "../../../harness/stack.ts";
 const WELCOME = "Welcome.md";
 const TYPED = "Words a failed save left.";
 
-/** Fails each PUT of Welcome while `failing()` holds; returns the count of PUTs that went out. */
-async function failWelcome(page: Page, failing: () => boolean = () => true) {
-  const puts = { count: 0 };
+/** Counts each PUT of `path`, and each answered, and answers it by `answer` or lets it through. */
+async function notePuts(
+  page: Page,
+  path: string,
+  answer: (route: Route, nth: number) => Promise<void>,
+) {
+  const puts = { count: 0, answered: 0 };
   await page.route(
-    (url) => decodeURIComponent(url.pathname) === `/api/files/${WELCOME}`,
+    (url) => decodeURIComponent(url.pathname) === `/api/files/${path}`,
     async (route) => {
       if (route.request().method() !== "PUT") return route.fallback();
       puts.count += 1;
-      if (!failing()) return route.fallback();
-      await route.fulfill({ status: 500, json: { detail: "refused by the test" } });
+      await answer(route, puts.count);
+      puts.answered += 1;
     },
   );
   return puts;
 }
+
+const refuse = (route: Route) =>
+  route.fulfill({ status: 500, json: { detail: "refused by the test" } });
+
+/** Fails each PUT of Welcome while `failing()` holds; returns the count of PUTs that went out. */
+const failWelcome = (page: Page, failing: () => boolean = () => true) =>
+  notePuts(page, WELCOME, (route) => (failing() ? refuse(route) : route.fallback()));
 
 /** The save sign's word, the bar's held list as label and title, or nulls; an empty tab draws no sign. */
 async function bar(page: Page) {
@@ -299,31 +310,13 @@ async function backAndForth(page: Page, between: () => Promise<void> = async () 
   expect(await page.evaluate(() => "stayed" in window)).toBe(true);
 }
 
-/** Counts each PUT of Capitals, and each answered, and answers it by `answer` or lets it through. */
-async function capitalsPuts(page: Page, answer: (route: Route, nth: number) => Promise<void>) {
-  const puts = { count: 0, answered: 0 };
-  await page.route(
-    (url) => decodeURIComponent(url.pathname) === `/api/files/${CAPITALS}`,
-    async (route) => {
-      if (route.request().method() !== "PUT") return route.fallback();
-      puts.count += 1;
-      await answer(route, puts.count);
-      puts.answered += 1;
-    },
-  );
-  return puts;
-}
-
-const refuse = (route: Route) =>
-  route.fulfill({ status: 500, json: { detail: "refused by the test" } });
-
 test.describe("leaving the editor route by the browser's Back", () => {
   test("keeps the text when the leave fails to save it, and says so on return", async ({
     page,
     stack,
   }) => {
     const before = await noteText(stack.vault, CAPITALS);
-    const puts = await capitalsPuts(page, refuse);
+    const puts = await notePuts(page, CAPITALS, refuse);
     await page.clock.install();
     await fromReview(page);
     // A paused clock holds the quiet write back, so only the leave can send the text.
@@ -350,7 +343,7 @@ test.describe("leaving the editor route by the browser's Back", () => {
     const held = new Promise<void>((resolve) => {
       release = resolve;
     });
-    const puts = await capitalsPuts(page, async (route) => {
+    const puts = await notePuts(page, CAPITALS, async (route) => {
       await held;
       await route.fallback();
     });
@@ -380,7 +373,7 @@ test.describe("leaving the editor route by the browser's Back", () => {
       fail = resolve;
     });
     let failing = true;
-    const puts = await capitalsPuts(page, async (route, nth) => {
+    const puts = await notePuts(page, CAPITALS, async (route, nth) => {
       if (nth === 1) await failed;
       if (failing) return refuse(route);
       await route.fallback();
