@@ -1,9 +1,14 @@
 import { defineConfig, devices } from "@playwright/test";
 
+// CI splits the journeys across jobs with E2E_SHARD=<current>/<total>.
+const [current, total] = (process.env.E2E_SHARD ?? "").split("/").map(Number);
+const shard = current && total ? { current, total } : null;
+
 export default defineConfig({
   testDir: "journeys",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
+  shard,
   // A runner has 4 cores: 3 workers ran fastest on a 4-core slice, 4 starved a first load past 15 s (#1979).
   workers: process.env.CI ? 3 : 4,
   globalSetup: "./harness/global-setup.ts",

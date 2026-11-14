@@ -190,13 +190,17 @@ jobs:
 
   # The whole platform at once: the built frontend under nginx, a backend per
   # test and Postgres from compose.yaml, all started by e2e/harness. Not a
-  # required check yet.
+  # required check yet. Two slices: in one job the journeys outgrew 15 minutes.
   e2e:
-    name: E2E
+    name: E2E (${{ matrix.shard }}/2)
     needs: [changes, gate]
     if: ${{ !cancelled() && needs.changes.outputs.changed != 'false' && needs.gate.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup-mise
@@ -205,12 +209,14 @@ jobs:
         run: frontend/node_modules/.bin/playwright install chromium --with-deps
       - name: Journeys
         run: mise run e2e
+        env:
+          E2E_SHARD: ${{ matrix.shard }}/2
       # On a pass too, so the step is seen to work; a failure adds traces and screenshots.
       - name: Keep traces and screenshots
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: e2e-results
+          name: e2e-results-${{ matrix.shard }}
           path: |
             e2e/test-results/
             e2e/playwright-report/
