@@ -191,6 +191,32 @@ test.describe("unlinked mentions", () => {
       .toEqual(["nothing links here", 1]);
   });
 
+  test("a mention in the note the panel was opened from writes nothing, keeps its row and says why", async ({
+    page,
+    stack,
+  }) => {
+    // The backend leaves the open note out of its own mentions, so only a forged list reaches this guard.
+    const GARDEN = "02 Projects/Garden.md";
+    const before = await noteText(stack.vault, GARDEN);
+    // The note's real line, so only this guard stands between the press and a write.
+    const line = await lineOf(stack.vault, GARDEN, "# Garden");
+    const self = { path: GARDEN, line, text: "# Garden", start: 2, end: 8, name: "Garden" };
+    await page.route("**/api/mentions?**", (route) => route.fulfill({ json: [self] }));
+    const writes: string[] = [];
+    page.on("request", (request) => {
+      if (request.method() === "PUT" && request.url().includes("Garden.md"))
+        writes.push(request.url());
+    });
+    await gardenMentions(page, []);
+    await expect(mentions(page)).toHaveCount(1);
+
+    await page.keyboard.press("Control+Enter");
+    await expect(panel(page).getByRole("status")).toHaveText("That note is open to type in");
+    await expect(mentions(page)).toHaveCount(1);
+    expect(writes).toEqual([]);
+    expect(await noteText(stack.vault, GARDEN)).toBe(before);
+  });
+
   const LINKED = "Order seeds for the [[Garden]] beds in March.";
 
   /** Highlights the Seeds note's first mention and links it with Ctrl+Enter. */
