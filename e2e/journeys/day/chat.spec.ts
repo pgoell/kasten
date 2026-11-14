@@ -3,11 +3,8 @@ import { openApp } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 
 /**
- * Opens the chat pane on a runner that replays one reply per text, and returns its transcript.
- * The runner lives in the shell container, which the e2e stack does not start, so the route
- * answers its stream: one `reset` event, as the runner sends on every connect. The body ends
- * there, so the pane reads that as a dropped runner and says so; `retry` keeps it from asking
- * again within the test.
+ * The e2e stack starts no shell container, so the route answers the runner's stream with one
+ * `reset`; `retry` holds off a reconnect.
  */
 async function chatWith(page: Page, texts: string[]): Promise<Locator> {
   const log = texts.map((text) => ({ type: "text", text }));
