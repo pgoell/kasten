@@ -60,7 +60,8 @@ test.describe("a tag", () => {
     }) => {
       const body = [
         "# Notes",
-        "issue#12 and #1",
+        // `issue#12` meets the digits rule too; only the glued-hash rule refuses `issue#tag`.
+        "issue#12, issue#tag and #1",
         "```sh\n#!/bin/sh\n```",
         "see https://example.com/#anchor and [docs](https://example.com/#top)",
         "#real",
