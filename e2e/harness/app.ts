@@ -202,10 +202,21 @@ export async function walkBackoff(
   if (from === 0) await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100));
   for (let tries = tried(); tries <= BACKOFF.length; tries = tried()) {
     await expect(line).toHaveCount(0);
-    await page.clock.runFor(BACKOFF[tries - 1] ?? 0);
-    await expect.poll(tried).toBeGreaterThan(tries);
+    const wait = BACKOFF[tries - 1] ?? 0;
+    // A try counts in Node before its 502 reaches the page, so the page may set its wait after the clock ran (#2013).
+    await expect
+      .poll(async () => {
+        if (tried() === tries) await page.clock.runFor(wait);
+        return tried();
+      })
+      .toBeGreaterThan(tries);
   }
   expect(tried()).toBe(BACKOFF.length + 1);
-  // TanStack Query hands its updates to the screen through a setTimeout(0), which the paused clock holds.
-  await page.clock.runFor(100);
+  // TanStack Query hands its updates to the screen through a setTimeout(0), set only once the last 502 lands.
+  await expect
+    .poll(async () => {
+      await page.clock.runFor(100);
+      return line.count();
+    })
+    .toBeGreaterThan(0);
 }
