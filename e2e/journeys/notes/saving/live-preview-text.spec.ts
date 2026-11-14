@@ -37,19 +37,21 @@ test.describe("a tag", () => {
       page,
       stack,
     }) => {
-      await opened(page, stack.vault, "read this #reading/borges today\n\n**bold** #tag here", vim);
+      // The cursor starts on `intro`, so both tags are first read off a drawn line.
+      const body = "intro\n\nread this #reading/borges today\n\n**bold** #tag here";
+      await opened(page, stack.vault, body, vim);
       const content = page.locator(".cm-content");
-      await expect(content).toHaveText("read this #reading/borges todaybold #tag here");
+      await expect(content).toHaveText("introread this #reading/borges todaybold #tag here");
       await expect.poll(() => tags(page)).toEqual(["#reading/borges", "#tag"]);
       const tag = page.locator(".cm-tag", { hasText: "#tag" });
       const colour = (at: typeof tag) => at.evaluate((el) => getComputedStyle(el).color);
-      const body = await colour(page.locator(".cm-line", { hasText: "read this" }));
-      expect(await colour(tag)).not.toBe(body);
+      const plain = await colour(page.locator(".cm-line", { hasText: "intro" }));
+      expect(await colour(tag)).not.toBe(plain);
 
-      await down(page, vim, 2);
-      await expect(content).toHaveText("read this #reading/borges today**bold** #tag here");
+      await down(page, vim, 4);
+      await expect(content).toHaveText("introread this #reading/borges today**bold** #tag here");
       await expect(tag).toHaveCount(1);
-      expect(await colour(tag)).not.toBe(body);
+      expect(await colour(tag)).not.toBe(plain);
     });
 
     test(`reads no tag out of a heading, a hash in a word, a number, a fence or a URL's fragment, vim ${vim}`, async ({
