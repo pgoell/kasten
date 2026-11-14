@@ -198,7 +198,9 @@ test.describe("unlinked mentions", () => {
     // The backend leaves the open note out of its own mentions, so only a forged list reaches this guard.
     const GARDEN = "02 Projects/Garden.md";
     const before = await noteText(stack.vault, GARDEN);
-    const self = { path: GARDEN, line: 1, text: "# Garden", start: 2, end: 8, name: "Garden" };
+    // The note's real line, so only this guard stands between the press and a write.
+    const line = await lineOf(stack.vault, GARDEN, "# Garden");
+    const self = { path: GARDEN, line, text: "# Garden", start: 2, end: 8, name: "Garden" };
     await page.route("**/api/mentions?**", (route) => route.fulfill({ json: [self] }));
     const writes: string[] = [];
     page.on("request", (request) => {

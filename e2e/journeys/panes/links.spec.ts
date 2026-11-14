@@ -240,23 +240,25 @@ test.describe("the theme of an open page of html", () => {
 });
 
 test.describe("RSVP over a page of html", () => {
-  // The page's own listener runs before kasten's, being a capture one, and holds every ask for its
-  // text, so the test answers when it chooses, as a slow page would.
-  const HELD = `<p>Hello world</p><script>
-window.asks = 0;
-addEventListener("message", (event) => {
-  if (event.source !== parent || event.data?.kasten !== "text") return;
-  window.asks += 1;
-  event.stopImmediatePropagation();
-}, true);
-</script>`;
   type Held = { asks: number };
 
   test("a read asked again after the first was closed unanswered still takes the page's late answer, past the first read's five seconds", async ({
     page,
     stack,
   }) => {
-    await vaultWith(stack.vault, { "page.html": HELD });
+    await vaultWith(stack.vault, { "page.html": "<p>Hello world</p>" });
+    // In the frame, a listener set before kasten's page script holds every ask for the page's text,
+    // so the test answers when it chooses, as a slow page would.
+    await page.addInitScript(() => {
+      if (window === window.top) return;
+      const held = window as unknown as Held;
+      held.asks = 0;
+      addEventListener("message", (event) => {
+        if (event.data?.kasten !== "text") return;
+        held.asks += 1;
+        event.stopImmediatePropagation();
+      });
+    });
     await page.clock.install();
     await openApp(page);
     await page.getByRole("button", { name: "page.html", exact: true }).click();
