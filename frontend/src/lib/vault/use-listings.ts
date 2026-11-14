@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { type QueryClient, useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useVersion } from "@/lib/app/build";
 import {
@@ -19,17 +19,40 @@ const LOADING: string[] = [];
 
 export type Listings = ReturnType<typeof useListings>;
 
+const FILES = { queryKey: ["files"], queryFn: fetchFiles };
+const HTML = { queryKey: ["html"], queryFn: fetchHtml };
+const ASSETS = { queryKey: ["assets"], queryFn: fetchAssets };
+
+/** Every path a `[[link]]` can land on, by kind. */
+export type LinkPaths = { files: string[]; html: string[]; assets: string[] };
+
+/**
+ * The listings as the cache holds them at a key press, not as the last render saw them, waiting for any
+ * still on its way. A key queued behind a render reaches a handler built before it (#2032).
+ */
+export function linkPaths(queryClient: QueryClient): LinkPaths | Promise<LinkPaths> {
+  const files = queryClient.getQueryData<string[]>(FILES.queryKey);
+  const html = queryClient.getQueryData<string[]>(HTML.queryKey);
+  const assets = queryClient.getQueryData<string[]>(ASSETS.queryKey);
+  if (files && html && assets) return { files, html, assets };
+  return Promise.all([
+    queryClient.ensureQueryData(FILES),
+    queryClient.ensureQueryData(HTML),
+    queryClient.ensureQueryData(ASSETS),
+  ]).then(([files, html, assets]) => ({ files, html, assets }));
+}
+
 /** Every listing the route draws from, with the archive filter applied, and the toggle for it. */
 export function useListings() {
-  const { data } = useQuery({ queryKey: ["files"], queryFn: fetchFiles });
+  const { data } = useQuery(FILES);
   const version = useVersion();
   // Beside the notes, not in them: images are tree rows, and `![](` completes to their paths.
   // A `listing` event refetches them, since it fires for any change that is not a note.
   const { data: images } = useQuery({ queryKey: ["images"], queryFn: fetchImages });
   // HTML pages a research run leaves: tree rows only. Refetched on a `listing` like the images.
-  const { data: html } = useQuery({ queryKey: ["html"], queryFn: fetchHtml });
+  const { data: html } = useQuery(HTML);
   // Books, pdfs and pictures, which `[[plan.pdf]]` links name. Refetched on a `listing` too.
-  const { data: assets } = useQuery({ queryKey: ["assets"], queryFn: fetchAssets });
+  const { data: assets } = useQuery(ASSETS);
   // What a `[[link]]` can land on. Absent while the notes load, so no link reads as dead early.
   const linkable = useMemo(
     () => data && [...data, ...(html ?? []), ...(assets ?? [])],

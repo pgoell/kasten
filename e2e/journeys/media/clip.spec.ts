@@ -77,6 +77,27 @@ test("gf on a video link opens the player in the pane", async ({ page, stack }) 
   await playAndSeek(page.locator("[data-clip] video"));
 });
 
+test("gf on a video link pressed while the asset listing loads opens the player once it arrives", async ({
+  page,
+  stack,
+}) => {
+  await seeded(stack.vault);
+  let release = () => {};
+  const gate = new Promise<void>((done) => {
+    release = done;
+  });
+  await page.route(/\/api\/vault-assets$/, async (route) => {
+    await gate;
+    await route.continue();
+  });
+  await openClips(page);
+
+  await page.keyboard.type("9Ggf");
+  release();
+
+  await expect(page.locator("[data-image-pane]")).toHaveAttribute("aria-label", "clip");
+});
+
 test("an mp4 and a webm open from the file tree as players that seek", async ({ page, stack }) => {
   await seeded(stack.vault);
   await openApp(page);

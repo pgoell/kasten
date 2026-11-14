@@ -5,8 +5,9 @@ import {
   findNote,
   inbox,
   leader,
-  opened,
   openApp,
+  opened,
+  openFromTree,
   openNote,
   phone,
   readAll,
@@ -367,5 +368,93 @@ test.describe("RSVP over a page of html", () => {
       parent.postMessage({ kasten: "text", text: document.body.innerText }, "*"),
     );
     await expect(reader.locator('output[aria-live="off"]')).toHaveText("Hello");
+  });
+});
+
+test.describe("a link followed while the vault's listings load", () => {
+  const LINKS = "Links.md";
+  const NOTES = /\/api\/files$/;
+  const welcome = (page: Page) => page.getByRole("heading", { name: "Welcome", level: 1 });
+
+  /** Holds a listing until the test lets it go: `abort` stands in for a listing that fails. */
+  async function hold(page: Page, listing: RegExp): Promise<(abort?: boolean) => void> {
+    let release: (abort: boolean) => void = () => {};
+    const gate = new Promise<boolean>((done) => {
+      release = done;
+    });
+    await page.route(listing, async (route) => ((await gate) ? route.abort() : route.continue()));
+    return (abort = false) => release(abort);
+  }
+
+  /** Loads `Links.md` by its address, since the tree waits on the held listing. */
+  async function openLinks(page: Page, vault: string, listing = NOTES) {
+    await vaultWith(vault, { [LINKS]: "Some text.\n\n[[Welcome]] is the door.\n" });
+    const release = await hold(page, listing);
+    await page.goto(`/?note=${LINKS}`);
+    await expect(page.getByText("Some text.")).toBeVisible({ timeout: 15_000 });
+    return release;
+  }
+
+  test("gf opens the note once the listing arrives, and writes none into the inbox", async ({
+    page,
+    stack,
+  }) => {
+    const release = await openLinks(page, stack.vault);
+    await page.keyboard.type("3Ggf");
+    release();
+    await expect(welcome(page)).toBeVisible();
+    expect(await inbox(stack.vault)).toEqual([]);
+  });
+
+  test("a listing that fails opens nothing and writes no note", async ({ page, stack }) => {
+    const release = await openLinks(page, stack.vault);
+    await page.keyboard.type("3Ggf");
+    release(true);
+    await page.unroute(NOTES);
+    await expect(welcome(page)).toHaveCount(0);
+    // A second gf reads the listing afresh, so it says the first was settled without a write.
+    await page.keyboard.type("gf");
+    await expect(welcome(page)).toBeVisible();
+    expect(await inbox(stack.vault)).toEqual([]);
+  });
+
+  test("a follow that waited does not pull back a reader who opened another note", async ({
+    page,
+    stack,
+  }) => {
+    // The assets held, not the notes, so the tree can open the other note while gf waits.
+    const release = await openLinks(page, stack.vault, /\/api\/vault-assets$/);
+    await page.keyboard.type("3Ggf");
+    await openFromTree(page, "Long note");
+    await expect(page.getByRole("heading", { name: "Long note", level: 1 })).toBeVisible();
+    release();
+    await expect(page.getByRole("tab", { name: "Welcome" })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Long note", level: 1 })).toBeVisible();
+  });
+
+  test.describe("with vim off", () => {
+    test.beforeEach(async ({ page }) => {
+      await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
+    });
+
+    test("ctrl and a click open the note once the listing arrives", async ({ page, stack }) => {
+      const release = await openLinks(page, stack.vault);
+      await page.locator(".cm-wikilink", { hasText: "Welcome" }).click({ modifiers: ["Control"] });
+      release();
+      await expect(welcome(page)).toBeVisible();
+      expect(await inbox(stack.vault)).toEqual([]);
+    });
+  });
+
+  test.describe("on a phone", () => {
+    test.use(phone);
+
+    test("a tap opens the note once the listing arrives", async ({ page, stack }) => {
+      const release = await openLinks(page, stack.vault);
+      await page.locator(".cm-wikilink", { hasText: "Welcome" }).tap();
+      release();
+      await expect(welcome(page)).toBeVisible();
+      expect(await inbox(stack.vault)).toEqual([]);
+    });
   });
 });
