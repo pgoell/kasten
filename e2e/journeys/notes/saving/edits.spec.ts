@@ -1,6 +1,14 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { noteText, openApp, openFromTree, phone } from "../../../harness/app.ts";
+import type { Page } from "@playwright/test";
+import {
+  noteText,
+  openApp,
+  openFromTree,
+  openNote,
+  phone,
+  vaultWith,
+} from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
 
 const TYPED = "A line typed by the e2e test.";
@@ -56,6 +64,48 @@ test("u after an edit puts the old text back on disk", async ({ page, stack }) =
   // Byte for byte, so the blank line `o` opened goes too (#1662).
   expect(body(await noteText(stack.vault, "Welcome.md"))).toBe(body(before));
 });
+
+// An emoji outside the BMP in the second row puts every cell after it one UTF-16 unit off in code points.
+const EMOJI_ROW = "| a | b |\n|---|---|\n| 😀 | x |\n| c | d |\n";
+// A right-aligned cell's text sits after its padding, so a walk must land past the spaces.
+const RIGHT_ALIGNED = "| a | b |\n|--:|--:|\n| xyz | q |\n";
+
+/** Opens `Table.md` holding `table`, the cursor on the header's `a` with vim in insert mode when on. */
+async function intoTable(page: Page, vault: string, table: string, vim: "on" | "off") {
+  await page.addInitScript((mode) => localStorage.setItem("kasten.vim", mode), vim);
+  await vaultWith(vault, { "Table.md": table });
+  await openApp(page);
+  await openNote(page, "Table");
+  await page.locator(".cm-content").getByText("a", { exact: true }).click();
+  await page.keyboard.press("Home");
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowRight");
+  if (vim === "on") await page.keyboard.press("i");
+}
+
+for (const vim of ["off", "on"] as const) {
+  test.describe(`a table with vim ${vim}`, () => {
+    test("Tab and Shift-Tab land on the cell below an emoji row", async ({ page, stack }) => {
+      await intoTable(page, stack.vault, EMOJI_ROW, vim);
+      for (let step = 0; step < 4; step++) await page.keyboard.press("Tab");
+      await page.keyboard.type("Z");
+      await page.keyboard.press("Shift+Tab");
+      await page.keyboard.type("Y");
+      await expect
+        .poll(() => noteText(stack.vault, "Table.md"), { timeout: 15_000 })
+        .toMatch(/^\| 😀 +\| Yx +\|\n\| Zc +\| d +\|$/m);
+    });
+
+    test("Tab into a right-aligned column lands on the text", async ({ page, stack }) => {
+      await intoTable(page, stack.vault, RIGHT_ALIGNED, vim);
+      await page.keyboard.press("Tab");
+      await page.keyboard.type("Z");
+      await expect
+        .poll(() => noteText(stack.vault, "Table.md"), { timeout: 15_000 })
+        .toMatch(/^\| +a \| +Zb \|$/m);
+    });
+  });
+}
 
 test.describe("on a phone", () => {
   test.use(phone);
