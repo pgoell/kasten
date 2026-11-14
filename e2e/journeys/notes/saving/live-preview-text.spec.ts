@@ -298,3 +298,81 @@ test.describe("live preview's blocks", () => {
     await expect(page.locator(".cm-content .cm-rule")).toHaveCount(0);
   });
 });
+
+test.describe("a [text] with no (url) (#441)", () => {
+  const BRACKETS = [
+    "intro",
+    "see [text] here",
+    "**x [b] y**",
+    "# a [h] z",
+    "see [text][ref] here",
+    "> [x] done",
+    "see [**b** `c` ~~s~~ [[n]] #t] here",
+    "see [a](https://example.com) here",
+    "`c` [[n]] #t",
+  ].join("\n\n");
+
+  /** The look of the character `skip` past `needle` in drawn line `line` of the open note. */
+  const look = (page: Page, line: number, needle: string, skip = 0) =>
+    drawn(page, line).evaluate(
+      (el, [needle, skip]) => {
+        const at = (el.textContent ?? "").indexOf(needle as string) + (skip as number);
+        const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+        let seen = 0;
+        for (let node = walk.nextNode(); node; node = walk.nextNode()) {
+          const length = node.textContent?.length ?? 0;
+          if (at < seen + length) {
+            const style = getComputedStyle(node.parentElement as Element);
+            const { color, textDecorationLine, fontWeight, fontSize } = style;
+            return { color, textDecorationLine, fontWeight, fontSize };
+          }
+          seen += length;
+        }
+        throw new Error(`no ${needle} in ${el.textContent}`);
+      },
+      [needle, skip] as const,
+    );
+  const drawn = (page: Page, line: number) =>
+    page.locator(".cm-content:visible .cm-line").nth(line);
+
+  /** Every bracket shape draws in its line's own look, with kasten's marks inside kept. */
+  async function plainEverywhere(page: Page) {
+    const prose = await look(page, 2, "see");
+    for (const part of ["[", "text", "]"]) expect(await look(page, 2, part)).toEqual(prose);
+    expect(await look(page, 4, "[b]")).toEqual(await look(page, 4, "x "));
+    expect(await look(page, 6, "[h]")).toEqual(await look(page, 6, "a "));
+    for (const part of ["[text]", "[ref]"]) expect(await look(page, 8, part)).toEqual(prose);
+    // Off the link look only: the quote's muted colour does not reach inside the brackets (#2049).
+    const quoted = await look(page, 10, "[x]");
+    expect(quoted.color).not.toBe((await look(page, 14, "a")).color);
+    expect(quoted.textDecorationLine).toBe("none");
+    expect(await look(page, 12, "[")).toEqual(prose);
+    expect(await look(page, 12, "[b", 1)).toEqual(await look(page, 4, "x "));
+    expect(await look(page, 12, "b c", 2)).toEqual(await look(page, 16, "c"));
+    // Colour only: the reset also takes the wikilink's underline inside the brackets (#2049).
+    expect((await look(page, 12, "s n", 2)).color).toBe((await look(page, 16, " n", 1)).color);
+    expect(await look(page, 12, "#t")).toEqual(await look(page, 16, "#t"));
+    // A real link keeps the link's look, which the reads above would have shown.
+    expect((await look(page, 14, "a")).color).not.toBe(prose.color);
+  }
+
+  for (const vim of ["on", "off"]) {
+    test(`draws as plain text with the cursor away and on it, bold, a heading and kasten's marks kept, vim ${vim}`, async ({
+      page,
+      stack,
+    }) => {
+      await opened(page, stack.vault, BRACKETS, vim);
+      await expect(drawn(page, 2)).toHaveText("see [text] here");
+      await plainEverywhere(page);
+
+      // Into the brackets, after the t of text: a link shows its source only with the cursor inside.
+      await down(page, vim, 2);
+      for (let i = 0; i < 6; i++) await page.keyboard.press("ArrowRight");
+      const caret = () => page.evaluate(() => getSelection()?.anchorNode?.textContent);
+      await expect.poll(caret).toBe("text");
+      await expect(page.locator(".cm-content:focus .cm-activeLine")).toHaveText("see [text] here");
+      const prose = await look(page, 2, "see");
+      for (const part of ["[", "text", "]"]) expect(await look(page, 2, part)).toEqual(prose);
+    });
+  }
+});
