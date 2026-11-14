@@ -1,5 +1,5 @@
 import type { Locator } from "@playwright/test";
-import { openApp, phone } from "../../../harness/app.ts";
+import { leader, openApp, phone } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
 
 /** The left edge and top of each box, rounded to the pixel. */
@@ -26,6 +26,38 @@ test("the which-key panel sets its groups side by side, and an open group flows 
   await expect(panel.getByRole("heading", { name: "Go to" })).toBeVisible();
   const rows = await corners(panel.locator("section:has(> h3) button"));
   expect(new Set(rows.map(([x]) => x)).size).toBeGreaterThan(1);
+});
+
+test("opened from the palette with vim on, Esc gives the focus back to the note's editor", async ({
+  page,
+}) => {
+  await openApp(page);
+  const editor = page.locator(".cm-content").first();
+  await expect(editor).toBeFocused();
+  await leader(page, ":");
+  await page.getByRole("combobox").fill("Show the keys");
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("searchbox", { name: "Filter keys" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(editor).toBeFocused();
+});
+
+test("opened from the palette with vim off, Esc gives the focus back to the note's editor", async ({
+  page,
+}) => {
+  await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
+  await openApp(page);
+  const editor = page.locator(".cm-content").first();
+  await editor.locator(".cm-line:visible").last().click();
+  await expect(editor).toBeFocused();
+  await page.keyboard.press("Control+Shift+P");
+  await page.getByRole("combobox").fill("Show the keys");
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("searchbox", { name: "Filter keys" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(editor).toBeFocused();
 });
 
 test.describe("the key help on a phone", () => {
@@ -57,10 +89,23 @@ test.describe("the key help on a phone", () => {
     await expect(help.getByText("Drag down or tap outside to close")).toBeInViewport();
   });
 
-  // `?` on a phone with a keyboard, from a tapped tab: the palette's own field opens it from the palette.
-  test("Esc takes the sheet down and gives the focus back to the tab that held it", async ({
+  test("opened from the palette, Esc takes the sheet down and gives the focus back to the tab that held it", async ({
     page,
   }) => {
+    await page.goto("/");
+    const tab = page.getByRole("tab", { selected: true });
+    await tab.tap();
+    await expect(tab).toBeFocused();
+    await page.getByRole("button", { name: "Run a command by name" }).tap();
+    await page.getByRole("option", { name: "Show the keys" }).tap();
+    await expect(page.getByRole("searchbox", { name: "Filter keys" })).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(tab).toBeFocused();
+  });
+
+  // A phone with a keyboard: the sheet takes the focus for its panel before the help's effect runs.
+  test("opened by ?, Esc gives the focus back to the tab that held it", async ({ page }) => {
     await page.goto("/");
     const tab = page.getByRole("tab", { selected: true });
     await tab.tap();
