@@ -67,7 +67,7 @@ teardown removes the containers. Unlike `fe:e2e`, it stubs no API.
 
 The journeys sit in `e2e/journeys/`: review in `review/` (a sitting, Enter on the overview's rows, and the daily limits), panes in
 `panes/` (layout and the top bar, the pane and tab keys, pane acts whose write is held while the focus moves, links to pages and assets; a note changed on disk under
-unsaved text and a conflicted note reopened in `panes/conflict/`; the stored workspace across a reload, held text in a restored pane and a URL over a stored workspace in `panes/workspace/`), notes, the finder, a tree row moved by a drag and the save sign in the status bar in `notes/`, with saving in `notes/saving/` (edits,
+unsaved text and a conflicted note reopened in `panes/conflict/`; the stored workspace across a reload, held text in a restored pane and a URL over a stored workspace in `panes/workspace/`), notes, the finder, a tree row moved by a drag, the new note prompt's folder rows and the save sign in the status bar in `notes/`, with saving in `notes/saving/` (edits,
 the backlinks panel's mention links, held text) and the content search in `notes/search/`, the todo list, the board,
 a person note's card of open todos and the shared lists app in `todos/`, capture, the web page import prompt and the log in `day/`, and the book, video and clip panes and csv and svg files in
 `media/`. `harness.spec.ts` checks the harness itself. Each journey is a
