@@ -47,6 +47,13 @@ test.describe("a cloze card in a sitting", () => {
   });
 
   test("a number asked again rewrites its own comment in place", async ({ page, stack }) => {
+    // Counted only once the third grade's write is answered: the second's line already passes,
+    // and a second Again on a learning card may write the same comment again.
+    let answered = 0;
+    page.on("response", (response) => {
+      const path = decodeURIComponent(new URL(response.url()).pathname);
+      if (response.request().method() === "PUT" && path === `/api/files/${NOTE}`) answered += 1;
+    });
     await sitCloze(page, stack.vault);
     await grade(page, "Again");
     // c2, then c1 once more at the back of the queue.
@@ -54,12 +61,9 @@ test.describe("a cloze card in a sitting", () => {
     await grade(page, "Good");
     await expect(page.getByTestId("review-card")).toHaveText("The capital of [...] is Paris.");
     await grade(page, "Again");
-    await expect
-      .poll(async () => {
-        const text = await line(stack.vault);
-        return [text.match(/<!--SR:c1!/g)?.length, text.match(/<!--SR:c2!/g)?.length];
-      })
-      .toEqual([1, 1]);
+    await expect.poll(() => answered).toBe(3);
+    const text = await line(stack.vault);
+    expect([text.match(/<!--SR:c1!/g)?.length, text.match(/<!--SR:c2!/g)?.length]).toEqual([1, 1]);
   });
 
   test("a typed answer is matched against the hidden text, not the sentence", async ({
