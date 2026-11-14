@@ -268,3 +268,84 @@ test.describe("a space in an image address (#553)", () => {
     await expect.poll(() => pictures(page)).toEqual([["/api/assets/x%20y.png", "a"]]);
   });
 });
+
+test.describe("a todo's due date", () => {
+  /** The variation selector some keyboards add after the emoji, written out so no editor drops it. */
+  const VS = "️";
+
+  // Dates nothing can reach, so the journey holds on any day it runs.
+  const EVERY_SHAPE = [
+    "intro",
+    "",
+    "- [ ] late 📅 1970-01-01",
+    "- [ ] soon 📅 2999-01-01",
+    "- [ ] zork",
+    `\t- [ ] call zork-qux 📅${VS} 1970-01-01 ^blk9`,
+    "- [ ] cal 📆 1970-01-01",
+    "- [ ] pad 🗓 1970-01-01",
+    `- [ ] cal sel 📆${VS} 1970-01-01`,
+    `- [ ] pad sel 🗓${VS} 1970-01-01`,
+    "- [ ] span `📅 1970-01-01`",
+    "- [ ] after `📅 1970-01-01` 📅 1970-01-02",
+    "- [ ] wiki [[note 📅 1970-01-01]]",
+    "- [ ] link [a 📅 1970-01-01](x)",
+    "- [ ] later 📆 2999-01-01",
+    "- [ ] later 🗓 2999-01-01",
+    "",
+    "```",
+    "- [ ] fenced 📅 1970-01-01",
+    "```",
+    "",
+  ].join("\n");
+
+  const RED = [
+    "📅 1970-01-01",
+    `📅${VS} 1970-01-01`,
+    "📆 1970-01-01",
+    "🗓 1970-01-01",
+    `📆${VS} 1970-01-01`,
+    `🗓${VS} 1970-01-01`,
+    "📅 1970-01-02",
+  ];
+
+  const overdue = (page: Page) =>
+    page
+      .locator(".cm-content .cm-todo-overdue")
+      .evaluateAll((marks) => marks.map((mark) => mark.textContent ?? ""));
+
+  async function opened(page: Page, vault: string, vim: boolean): Promise<void> {
+    await vaultWith(vault, { "Due.md": EVERY_SHAPE });
+    if (!vim) await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
+    await openApp(page);
+    await openNote(page, "Due");
+  }
+
+  for (const vim of [true, false]) {
+    const mode = vim ? "vim on" : "vim off";
+
+    test(`a passed due date shows red in every way it is typed, and none in code, links, fences or the future, ${mode}`, async ({
+      page,
+      stack,
+    }) => {
+      await opened(page, stack.vault, vim);
+      await expect(page.locator(".cm-vimMode")).toHaveCount(vim ? 1 : 0);
+
+      await expect.poll(() => overdue(page)).toEqual(RED);
+    });
+
+    test(`the red stays on the todo the cursor is on, while its line shows the source, ${mode}`, async ({
+      page,
+      stack,
+    }) => {
+      await opened(page, stack.vault, vim);
+      const late = page.locator(".cm-content .cm-line", { hasText: /\blate\b/ });
+      await expect(late).not.toContainText("- [ ] ");
+
+      for (const _ of [1, 2]) await page.keyboard.press(vim ? "j" : "ArrowDown");
+      if (vim) await page.keyboard.press("i");
+
+      await expect(late).toContainText("- [ ] late");
+      await expect(late.locator(".cm-todo-overdue")).toHaveText("📅 1970-01-01");
+    });
+  }
+});
