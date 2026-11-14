@@ -136,6 +136,32 @@ test.describe("the save sign", () => {
   });
 });
 
+/** The conflict diff's rows as drawn, one string each; empty while no diff is drawn. */
+const diffRows = (page: Page) =>
+  page.evaluate(() =>
+    [...(document.querySelector('[data-testid="conflict-diff"]')?.children ?? [])].map(
+      (row) => row.textContent,
+    ),
+  );
+
+test("the conflict diff folds each run of unchanged lines into a count, one line either side of the change", async ({
+  page,
+  stack,
+}) => {
+  const same = Array.from({ length: 12 }, (_, n) => `line ${n + 1}`);
+  await writeFile(
+    join(stack.vault, "Welcome.md"),
+    `${["# T", ...same, "mine", ...same].join("\n")}\n`,
+  );
+  const { mine } = await conflicted(page, stack.vault);
+  // A third write that differs from the kept text on one middle line alone.
+  await writeFile(join(stack.vault, "Welcome.md"), mine.replace("\nmine\n", "\ntheirs\n"));
+  // Below the change, lines 2 to 12 and the two the typing added (a blank line and its own).
+  await expect
+    .poll(() => diffRows(page), { timeout: 15_000 })
+    .toEqual(["⋯ 12 lines", "  line 12", "- theirs", "+ mine", "  line 1", "⋯ 13 lines"]);
+});
+
 test.describe("on a phone", () => {
   test.use(phone);
 
@@ -211,6 +237,32 @@ test.describe("on a phone", () => {
         { timeout: 15_000 },
       )
       .toEqual([null, true, 0]);
+  });
+
+  test("a long diff scrolls inside a panel of at most half the screen, both buttons under it and on screen", async ({
+    page,
+    stack,
+  }) => {
+    await conflictByTap(page, stack.vault);
+    const long = Array.from({ length: 200 }, (_, n) => `vault ${n}`).join("\n");
+    await writeFile(join(stack.vault, "Welcome.md"), `${long}\n`);
+    const diff = page.getByTestId("conflict-diff");
+    await expect(diff).toContainText("- vault 199", { timeout: 15_000 });
+    const panel = await diff.evaluate((element) => {
+      const scroller = element.closest(".overflow-y-auto") as HTMLElement;
+      const box = scroller.getBoundingClientRect();
+      return {
+        half: box.height <= window.innerHeight / 2 + 1,
+        scrolls: scroller.scrollHeight > scroller.clientHeight,
+        bottom: box.bottom,
+      };
+    });
+    expect(panel).toMatchObject({ half: true, scrolls: true });
+    for (const name of ["Write my text", "Take the vault's"]) {
+      const button = page.getByRole("button", { name });
+      await expect(button).toBeInViewport({ ratio: 1 });
+      expect((await button.boundingBox())?.y).toBeGreaterThanOrEqual(panel.bottom - 1);
+    }
   });
 
   test("a failed write opens by a tap to its way out, without the clock, and Write my text and Drop my text each work by tap", async ({
