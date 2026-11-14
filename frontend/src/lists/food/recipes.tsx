@@ -161,7 +161,7 @@ function Recipe({ name, onBack }: { name: string; onBack: () => void }) {
   return (
     <main className="lists recipe">
       <button type="button" className="recipe-back" onClick={onBack}>
-        Alle Rezepte
+        Zurück
       </button>
       {failed !== null && <p className="empty">{failed}</p>}
       {data === null && <p className="empty">Dieses Rezept gibt es nicht mehr</p>}

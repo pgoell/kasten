@@ -105,6 +105,9 @@ function Lists({ store }: { store: ListsStore }) {
   const reading = READ_ONLY.includes(current);
 
   function choose(name: string): void {
+    // A recipe's entry gives way to the tab, so forward cannot reopen the recipe left behind.
+    if (pageOf(window.history.state).recipe !== null)
+      window.history.replaceState({ tab: name }, "");
     setCurrent(name);
     setMenu(null);
     setUnder(null);

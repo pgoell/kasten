@@ -16,9 +16,7 @@ from kasten_backend.food.plan.note import (
     Slot,
     parse_plan,
 )
-from kasten_backend.food.recipes.amounts import parse_amount
-from kasten_backend.food.recipes.note import parse_recipe, recipe_title
-from kasten_backend.food.recipes.nutrition import PIN
+from kasten_backend.food.recipes import PIN, parse_amount, parse_recipe, recipe_title
 from kasten_backend.graph import typed_notes
 from kasten_backend.links import link_path
 

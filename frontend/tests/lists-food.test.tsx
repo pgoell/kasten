@@ -202,7 +202,7 @@ describe("the Rezepte tab", () => {
     expect(await screen.findByRole("article", { name: "Chili sin carne" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Rezepte" })).toHaveAttribute("aria-pressed", "true");
 
-    fireEvent.click(screen.getByRole("button", { name: "Alle Rezepte" }));
+    fireEvent.click(screen.getByRole("button", { name: "Zurück" }));
     expect(await screen.findByText("Linsen-Dal ×4")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Essen" })).toHaveAttribute("aria-pressed", "true");
   });

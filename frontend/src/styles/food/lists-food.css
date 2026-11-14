@@ -101,7 +101,7 @@
   font-size: var(--k-text-15);
 }
 
-/* The chevron before "Alle Rezepte", drawn as the fold's is, pointing back. */
+/* The chevron before "Zurück", drawn as the fold's is, pointing back. */
 .recipe-back::before {
   content: "";
   display: inline-block;
