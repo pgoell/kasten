@@ -95,15 +95,15 @@ function openAtHeading(
 }
 
 /**
- * The notes listing once it loads, or undefined when it fails or pane `at` took another note meanwhile:
- * the pane is held by id, as a pick fills the pane it came from even when the focus moves on (#1626).
+ * The notes listing once it loads, or undefined when it fails or pane `at` was filled meanwhile, whatever
+ * the kind: every fill makes a new leaf. Held by id, as a pick fills the pane it came from (#1626).
  */
 function waitedFiles(
   listed: Promise<LinkPaths>,
   layoutNow: RefObject<Layout>,
   at: string,
 ): Promise<string[] | undefined> {
-  const held = () => tabPanes(layoutNow.current).find((each) => each.id === at)?.path;
+  const held = () => tabPanes(layoutNow.current).find((each) => each.id === at);
   const from = held();
   return listed.then(
     ({ files }) => (held() === from ? files : undefined),

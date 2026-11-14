@@ -98,6 +98,31 @@ test("an open that waited does not pull back a reader who opened another note in
   await expect(long).toBeVisible();
 });
 
+test("an open that waited does not draw the book over a pdf opened in the pdf pane it came from", async ({
+  page,
+  stack,
+}) => {
+  // A pdf pane holds no note path, so only the pane's own fill can tell the change.
+  const pdf = await readFile(join(stack.vault, "04 Books/Primer.pdf"));
+  await vaultWith(stack.vault, { "lit/First.pdf": pdf, "lit/Other.pdf": pdf });
+  const release = await loadHeld(page, stack.vault, /\/api\/html$/, openApp);
+  await pick(page, "First.pdf");
+  await expect(page.locator('[data-pdf-pane="lit/First.pdf"]')).toBeVisible();
+  // The finder hands no focus back once a row is taken, so a click on the pane moves it.
+  const title = page.getByTitle("lit/First.pdf");
+  await title.click();
+  await pick(page, "DDIA.epub");
+  await title.click();
+  await pick(page, "Other.pdf");
+  const other = page.locator('[data-pdf-pane="lit/Other.pdf"]');
+  await expect(other).toBeVisible();
+  await release();
+  // One task on, the waited open has settled.
+  await page.evaluate(() => new Promise((done) => setTimeout(done)));
+  await expect(book(page)).toHaveCount(0);
+  await expect(other).toBeVisible();
+});
+
 test.describe("with vim off", () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
