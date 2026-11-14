@@ -162,7 +162,8 @@ test.describe("following a link's alias by a click or a tap", () => {
     await expect
       .poll(async () => [
         await page.getByRole("tab", { selected: true }).textContent(),
-        await page.locator(".cm-content .cm-activeLine").textContent(),
+        // The focused editor: the note left behind keeps its own cursor line for a moment.
+        await page.locator(".cm-content:focus .cm-activeLine").textContent(),
       ])
       .toEqual([expect.stringContaining(tab), expect.stringMatching(heading(at))]);
   }
