@@ -143,6 +143,87 @@ test.describe("following a link to a page of html or an asset", () => {
   });
 });
 
+test.describe("following a link's alias by a click or a tap", () => {
+  const BORGES = "# Borges\n\n## Life\n\nborn 1899\n";
+  /** The link under a line of its own, so the cursor leaves it drawn as its alias. */
+  const LINKS = "intro\n\nsee [[borges#Life|Jorge]] now\n";
+  const alias = (page: Page) => page.locator(".cm-wikilink", { hasText: "Jorge" });
+
+  async function loadWith(page: Page, vault: string, notes: Record<string, string>) {
+    await vaultWith(vault, { "reading/borges.md": BORGES, ...notes });
+    await openApp(page);
+  }
+
+  /** A heading's line as the cursor leaves it: vim hides its marks, and the editor without vim shows them. */
+  const heading = (name: string) => new RegExp(`^(## )?${name}$`);
+
+  /** The open tab and the heading the cursor sits on, in one poll. */
+  async function landed(page: Page, tab: string, at: string) {
+    await expect
+      .poll(async () => [
+        await page.getByRole("tab", { selected: true }).textContent(),
+        await page.locator(".cm-content .cm-activeLine").textContent(),
+      ])
+      .toEqual([expect.stringContaining(tab), expect.stringMatching(heading(at))]);
+  }
+
+  async function ctrlClickAlias(page: Page, vault: string) {
+    await loadWith(page, vault, { "Links.md": LINKS });
+    await openNote(page, "Links");
+    await expect(alias(page)).toHaveText("Jorge");
+    await alias(page).click({ modifiers: ["Control"] });
+    await landed(page, "borges", "Life");
+    expect(await inbox(vault)).toEqual([]);
+  }
+
+  test("Ctrl+click on the alias opens the note at its heading with vim on, and makes no note", async ({
+    page,
+    stack,
+  }) => {
+    await ctrlClickAlias(page, stack.vault);
+  });
+
+  test("Ctrl+click on a link to a heading of its own note jumps there, and opens no other note", async ({
+    page,
+    stack,
+  }) => {
+    await loadWith(page, stack.vault, { "Self.md": "[[#Below]]\n\ntext\n\n## Below\n\nend\n" });
+    await openNote(page, "Self");
+    // The click puts the cursor on the link's line, so only the jump moves it to Below.
+    await page.locator(".cm-wikilink").click({ modifiers: ["Control"] });
+    await landed(page, "Self", "Below");
+    await expect(page.getByRole("tab")).toHaveCount(1);
+    expect(await inbox(stack.vault)).toEqual([]);
+  });
+
+  test.describe("with vim off", () => {
+    test.beforeEach(async ({ page }) => {
+      await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
+    });
+
+    test("Ctrl+click on the alias opens the note at its heading, and makes no note", async ({
+      page,
+      stack,
+    }) => {
+      await ctrlClickAlias(page, stack.vault);
+    });
+  });
+
+  test.describe("on a phone", () => {
+    test.use(phone);
+
+    test("a tap on the alias opens the note at its heading", async ({ page, stack }) => {
+      await vaultWith(stack.vault, { "reading/borges.md": BORGES, "Links.md": LINKS });
+      await page.goto("/?note=Links.md");
+      await expect(alias(page)).toHaveText("Jorge", { timeout: 15_000 });
+      await alias(page).tap();
+      // The phone keeps the note it left in the page, hidden, so the read is of the one it opened.
+      const opened = page.locator(".cm-content", { hasText: "born 1899" });
+      await expect(opened.locator(".cm-activeLine")).toHaveText(heading("Life"));
+    });
+  });
+});
+
 test.describe("the theme of an open page of html", () => {
   const PAGE = "theme.html";
   const THEMED = `<!doctype html><html><head><meta name="kasten-theme" content="tokens"><title>t</title></head><body><h1>themed</h1></body></html>`;

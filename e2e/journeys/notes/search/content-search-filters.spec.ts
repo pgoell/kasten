@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
-import { openApp, phone, tapHeight } from "../../harness/app.ts";
-import { answer, bars, daysAgo, type Hit, hit, openSearch } from "../../harness/search.ts";
-import { expect, test } from "../../harness/stack.ts";
+import { openApp, phone, tapHeight } from "../../../harness/app.ts";
+import { answer, bars, daysAgo, type Hit, hit, openSearch } from "../../../harness/search.ts";
+import { expect, test } from "../../../harness/stack.ts";
 
 const HITS: Hit[] = [
   hit("projects/kasten.md", 12, "Postgres holds a derived index.", daysAgo(0), ["#db"]),

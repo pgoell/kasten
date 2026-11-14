@@ -1,7 +1,7 @@
 import type { Page, Route } from "@playwright/test";
-import { leader, openApp, readAll } from "../../harness/app.ts";
-import { answer, bars, daysAgo, type Hit, hit, openSearch } from "../../harness/search.ts";
-import { expect, test } from "../../harness/stack.ts";
+import { leader, openApp, readAll } from "../../../harness/app.ts";
+import { answer, bars, daysAgo, type Hit, hit, openSearch } from "../../../harness/search.ts";
+import { expect, test } from "../../../harness/stack.ts";
 
 /** The vault's own hits for each query in turn, so a row opens a real note on a real line. */
 async function vaultHits(route: Route, queries: string[]): Promise<Hit[]> {
