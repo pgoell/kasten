@@ -238,3 +238,50 @@ test.describe("the theme of an open page of html", () => {
     });
   });
 });
+
+test.describe("RSVP over a page of html", () => {
+  // The page's own listener runs before kasten's, being a capture one, and holds every ask for its
+  // text, so the test answers when it chooses, as a slow page would.
+  const HELD = `<p>Hello world</p><script>
+window.asks = 0;
+addEventListener("message", (event) => {
+  if (event.source !== parent || event.data?.kasten !== "text") return;
+  window.asks += 1;
+  event.stopImmediatePropagation();
+}, true);
+</script>`;
+  type Held = { asks: number };
+
+  test("a read asked again after the first was closed unanswered still takes the page's late answer, past the first read's five seconds", async ({
+    page,
+    stack,
+  }) => {
+    await vaultWith(stack.vault, { "page.html": HELD });
+    await page.clock.install();
+    await openApp(page);
+    await page.getByRole("button", { name: "page.html", exact: true }).click();
+    const held = page.frameLocator("[data-html-pane] iframe");
+    await expect(held.getByText("Hello world")).toBeVisible();
+    const frame = page.frame({ url: /\/api\/html\/page\.html/ });
+    if (frame === null) throw new Error("the page's frame is not there");
+    const asks = () => frame.evaluate(() => (window as unknown as Held).asks);
+    await page.locator("[data-html-pane] header").getByText("page.html").click();
+    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100));
+
+    const reader = page.getByRole("dialog", { name: "RSVP" });
+    await leader(page, "rr");
+    await expect.poll(asks).toBe(1);
+    await page.clock.runFor(3000);
+    await page.keyboard.press("Escape");
+    await expect(reader).toHaveCount(0);
+
+    await leader(page, "rr");
+    await expect.poll(asks).toBe(2);
+    // Past the first read's five seconds, which must not take the second read's wait with them.
+    await page.clock.runFor(2500);
+    await frame.evaluate(() =>
+      parent.postMessage({ kasten: "text", text: document.body.innerText }, "*"),
+    );
+    await expect(reader.locator('output[aria-live="off"]')).toHaveText("Hello");
+  });
+});
