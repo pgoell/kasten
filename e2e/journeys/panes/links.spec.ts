@@ -377,13 +377,21 @@ test.describe("a link followed while the vault's listings load", () => {
   const welcome = (page: Page) => page.getByRole("heading", { name: "Welcome", level: 1 });
 
   /** Holds a listing until the test lets it go: `abort` stands in for a listing that fails. */
-  async function hold(page: Page, listing: RegExp): Promise<(abort?: boolean) => void> {
+  async function hold(page: Page, listing: RegExp): Promise<(abort?: boolean) => Promise<void>> {
     let release: (abort: boolean) => void = () => {};
     const gate = new Promise<boolean>((done) => {
       release = done;
     });
-    await page.route(listing, async (route) => ((await gate) ? route.abort() : route.continue()));
-    return (abort = false) => release(abort);
+    let answered = Promise.resolve();
+    await page.route(listing, (route) => {
+      answered = gate.then((abort) => (abort ? route.abort() : route.continue()));
+      return answered;
+    });
+    // Resolves once the held request is answered, so an unroute after it cannot let it through.
+    return async (abort = false) => {
+      release(abort);
+      await answered;
+    };
   }
 
   /** Loads `Links.md` by its address, since the tree waits on the held listing. */
@@ -401,18 +409,27 @@ test.describe("a link followed while the vault's listings load", () => {
   }) => {
     const release = await openLinks(page, stack.vault);
     await page.keyboard.type("3Ggf");
-    release();
+    await release();
     await expect(welcome(page)).toBeVisible();
     expect(await inbox(stack.vault)).toEqual([]);
   });
 
   test("a listing that fails opens nothing and writes no note", async ({ page, stack }) => {
     const release = await openLinks(page, stack.vault);
+    const writes: string[] = [];
+    page.on("request", (request) => {
+      if (request.method() !== "GET") writes.push(request.url());
+    });
     await page.keyboard.type("3Ggf");
-    release(true);
+    const failed = page.waitForEvent("requestfailed", (request) => NOTES.test(request.url()));
+    await release(true);
+    await failed;
     await page.unroute(NOTES);
+    // One task on, the follow's promises have settled, and any write it made has gone out.
+    await page.evaluate(() => new Promise((done) => setTimeout(done)));
+    expect(writes).toEqual([]);
     await expect(welcome(page)).toHaveCount(0);
-    // A second gf reads the listing afresh, so it says the first was settled without a write.
+    // A second gf reads the listing afresh, the first having settled.
     await page.keyboard.type("gf");
     await expect(welcome(page)).toBeVisible();
     expect(await inbox(stack.vault)).toEqual([]);
@@ -427,7 +444,7 @@ test.describe("a link followed while the vault's listings load", () => {
     await page.keyboard.type("3Ggf");
     await openFromTree(page, "Long note");
     await expect(page.getByRole("heading", { name: "Long note", level: 1 })).toBeVisible();
-    release();
+    await release();
     await expect(page.getByRole("tab", { name: "Welcome" })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Long note", level: 1 })).toBeVisible();
   });
@@ -440,7 +457,7 @@ test.describe("a link followed while the vault's listings load", () => {
     test("ctrl and a click open the note once the listing arrives", async ({ page, stack }) => {
       const release = await openLinks(page, stack.vault);
       await page.locator(".cm-wikilink", { hasText: "Welcome" }).click({ modifiers: ["Control"] });
-      release();
+      await release();
       await expect(welcome(page)).toBeVisible();
       expect(await inbox(stack.vault)).toEqual([]);
     });
@@ -452,7 +469,7 @@ test.describe("a link followed while the vault's listings load", () => {
     test("a tap opens the note once the listing arrives", async ({ page, stack }) => {
       const release = await openLinks(page, stack.vault);
       await page.locator(".cm-wikilink", { hasText: "Welcome" }).tap();
-      release();
+      await release();
       await expect(welcome(page)).toBeVisible();
       expect(await inbox(stack.vault)).toEqual([]);
     });
