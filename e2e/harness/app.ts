@@ -190,12 +190,13 @@ export async function gateway(
 /**
  * Runs the paused clock through each retry's wait, one counted try at a time, until all 8 tries
  * after `from` have failed; `line`, the screen's word for the failure, must not show while a try is left.
+ * Then runs the clock until `line` shows, unless `shows` is false.
  */
 export async function walkBackoff(
   page: Page,
   failed: () => number,
   line: Locator,
-  from = 0,
+  { from = 0, shows = true } = {},
 ): Promise<void> {
   const tried = () => failed() - from;
   await expect.poll(tried).toBeGreaterThan(0);
@@ -213,6 +214,7 @@ export async function walkBackoff(
   }
   expect(tried()).toBe(BACKOFF.length + 1);
   // TanStack Query hands its updates to the screen through a setTimeout(0), set only once the last 502 lands.
+  if (!shows) return page.clock.runFor(100);
   await expect
     .poll(async () => {
       await page.clock.runFor(100);
