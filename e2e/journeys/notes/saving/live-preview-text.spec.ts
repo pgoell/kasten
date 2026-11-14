@@ -365,7 +365,11 @@ test.describe("a [text] with no (url) (#441)", () => {
       await expect(drawn(page, 2)).toHaveText("see [text] here");
       await plainEverywhere(page);
 
+      // Into the brackets, after the t of text: a link shows its source only with the cursor inside.
       await down(page, vim, 2);
+      for (let i = 0; i < 6; i++) await page.keyboard.press("ArrowRight");
+      const caret = () => page.evaluate(() => getSelection()?.anchorNode?.textContent);
+      await expect.poll(caret).toBe("text");
       await expect(page.locator(".cm-content:focus .cm-activeLine")).toHaveText("see [text] here");
       const prose = await look(page, 2, "see");
       for (const part of ["[", "text", "]"]) expect(await look(page, 2, part)).toEqual(prose);
