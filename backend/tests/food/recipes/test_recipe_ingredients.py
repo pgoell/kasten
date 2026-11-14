@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from kasten_backend.food.plan import shopping
-from kasten_backend.food.recipes import note, parse_amount, route
+from kasten_backend.food.recipes import note, parse_amount
 from kasten_backend.food.recipes.foods import parse_my_food
 from kasten_backend.food.recipes.note import parse_recipe
 
@@ -98,7 +98,7 @@ _LONG = "a' + ' ' * 40_000 + '"
         f"note.SECTION.fullmatch('## {_LONG}\\r')",
         f"note.GROUP.fullmatch('### {_LONG}x')",
         f"note.COOKED_LINE.fullmatch('- 2026-01-01 {_LONG}x')",
-        f"route.TITLE.search('# {_LONG}x')",
+        f"note.TITLE.search('# {_LONG}x')",
         f"shopping.HEADING.fullmatch('# {_LONG}x')",
     ],
     ids=["section", "section-cr", "group", "cooked", "title", "shopping-heading"],
@@ -165,7 +165,7 @@ def test_1905_a_heading_reads_as_on_main(
     ],
 )
 def test_1905_a_recipe_title_reads_as_on_main(text: str, title: str) -> None:
-    found = route.TITLE.search(text)
+    found = note.TITLE.search(text)
 
     assert found is not None
     assert found[1] == title

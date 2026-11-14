@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: "HTTP API: shared lists"
-description: The eleven routes the shared lists app reaches under /share/, with what each takes and answers.
+description: The thirteen routes the shared lists app reaches under /share/, with what each takes and answers.
 resource: backend/src/kasten_backend/share/route.py
 tags: [api, backend, share, lists]
 status: stable
@@ -9,13 +9,13 @@ status: stable
 
 # HTTP API: shared lists
 
-The eleven routes under `/share/`. They sit outside `/api/`, so the count on
+The thirteen routes under `/share/`. They sit outside `/api/`, so the count on
 [the HTTP API page](/reference/http-api.md) leaves them out. On the share host,
 set by [`KASTEN_SHARE_HOST`](/reference/configuration/shared-lists.md#kasten_share_host), they
 are the only paths the backend answers. The reasoning is in
 [Shared lists](/explanation/shared-lists.md).
 
-Every route names a list by its file name without `.md`. `{name}` maps to the
+Every list route names a list by its file name without `.md`. `{name}` maps to the
 note `05 Shared/<name>.md`, and the folder is set by
 [`KASTEN_SHARE_FOLDER`](/reference/configuration.md#the-vaults-folders). A name
 that resolves outside the folder, through `../`, an absolute path, an encoded
@@ -236,8 +236,8 @@ protein stay in kasten.
   {
     "date": "2026-11-09",
     "meals": [
-      { "slot": "lunch", "kind": "from", "dish": "Chili sin carne", "servings": null, "cook": null },
-      { "slot": "dinner", "kind": "cook", "dish": "Linsen-Dal", "servings": 4, "cook": "Alicia" }
+      { "slot": "lunch", "kind": "from", "dish": "Chili sin carne", "servings": null, "cook": null, "recipe": "Chili sin carne" },
+      { "slot": "dinner", "kind": "cook", "dish": "Linsen-Dal", "servings": 4, "cook": "Alicia", "recipe": null }
     ]
   }
 ]
@@ -245,7 +245,59 @@ protein stay in kasten.
 
 Only days with a meal come back, in date order, lunch before dinner. `dish` is
 the recipe's name for a `cook` or `from` meal, else the line's words with link
-brackets and the cook taken off. Nothing is written.
+brackets and the cook taken off. `recipe` is the name that
+[`GET /share/recipes/{name}`](#get-sharerecipesname) opens the dish's recipe
+note by, or `null` when the meal links no recipe note. Nothing is written.
+
+## GET /share/recipes
+
+Answers every [recipe note](/reference/food/recipe-note.md) outside the archive
+folder, sorted by title, for the lists app's Rezepte tab.
+
+```json
+[
+  { "name": "Chili", "title": "Chili sin carne", "servings": 4, "time": "45 min", "tags": ["prep", "vegetarisch"] }
+]
+```
+
+* `name` is the note's file name without `.md`, the name a bare `[[name]]`
+  reaches. A recipe that its bare name does not reach, because another note of
+  that name wins, is left out. No path comes back, so the share host learns no
+  folder outside the shared one.
+* `title` is the note's first `# ` heading, or its name.
+* `servings`, `time` and `tags` are the frontmatter's, `null` or `[]` when the
+  note leaves them out.
+
+Nothing is written, and nothing is worked out: no nutrition, no Open Food Facts
+lookup.
+
+## GET /share/recipes/{name}
+
+Answers one recipe to cook from: the fields of the list, plus `source`, the
+ingredient lines and the steps.
+
+```json
+{
+  "name": "Chili", "title": "Chili sin carne", "servings": 4, "time": "45 min", "tags": ["prep"],
+  "source": "https://www.chefkoch.de/rezepte/…",
+  "ingredients": [
+    { "text": "2-3 Zwiebeln", "group": null, "quantity": 2, "quantity_to": 3, "rest": "Zwiebeln" },
+    { "text": "150 g Schmand", "group": "Zum Servieren", "quantity": 150, "quantity_to": null, "rest": "g Schmand" }
+  ],
+  "steps": ["Zwiebeln würfeln und im Öl glasig braten."]
+}
+```
+
+* `text` is the line after its bullet, with a pinned `🏷` barcode taken off.
+* `group` is the `### ` heading the line sits under, or `null`.
+* `quantity`, `quantity_to` and `rest` are the amount as
+  [the recipe note page](/reference/food/recipe-note.md) reads it, so the app
+  can scale the number and keep the rest of the line.
+* The `## Gekocht` lines stay out.
+
+`name` resolves as a bare `[[name]]` does, in any case. It answers `404` with
+`{"detail": "No such recipe"}` when that note is no recipe, is in the archive,
+is missing, or when the name holds a slash.
 
 ## GET /share/events
 

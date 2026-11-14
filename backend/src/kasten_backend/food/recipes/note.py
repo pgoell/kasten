@@ -6,6 +6,7 @@ The format is in `docs/reference/food/recipe-note.md`.
 import re
 from dataclasses import dataclass, field
 from datetime import date
+from posixpath import basename
 from typing import Literal, cast, get_args
 
 from pydantic import BaseModel
@@ -19,6 +20,7 @@ Verdict = Literal["lieber nicht", "geht so", "gern wieder"]
 VERDICTS: tuple[Verdict, ...] = get_args(Verdict)
 # A text ends only after a non-blank, or is one blank, so a long blank run is read once (#1905).
 _TEXT = r"([ \t]|.+?(?<![ \t]))[ \t]*"
+TITLE = re.compile("^# " + _TEXT + "$", re.MULTILINE)
 SECTION = re.compile("## " + _TEXT)
 GROUP = re.compile("### " + _TEXT)
 INGREDIENT = re.compile(r"[-*+] (?:\[[ xX]\] )?(.*\S)[ \t]*")
@@ -71,6 +73,12 @@ def _servings(value: str | None) -> float | None:
     except ValueError:
         return None
     return number if 0 < number < MOST_SERVINGS else None
+
+
+def recipe_title(content: str, path: str) -> str:
+    """The note's first `# ` heading, or its file name without `.md`."""
+    found = TITLE.search(content, frontmatter.body_start(content))
+    return found[1] if found else basename(path).removesuffix(".md")
 
 
 def parse_recipe(content: str) -> RecipeNote:

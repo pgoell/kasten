@@ -1,0 +1,177 @@
+/*
+ * The Essen and Rezepte tabs of the lists app: meals by day, the recipe list, and one recipe to
+ * cook from. Read-only, so no swipe and no entry. Tokens as in lists.css, which loads first.
+ */
+
+/* A meal of the Essen tab: its slot, the dish, and the cook's chip at the end. Read-only, so no swipe. */
+.meal-group {
+  border: 1px solid var(--k-rule);
+  border-radius: var(--k-radius-8);
+  background: var(--k-surface);
+}
+
+.meal {
+  display: flex;
+  align-items: baseline;
+  gap: var(--k-space-12);
+  min-height: 44px;
+  padding: var(--k-space-12) var(--k-space-16);
+}
+
+.meal + .meal {
+  border-top: 1px solid var(--k-rule);
+}
+
+.meal-slot {
+  flex: none;
+  width: 4.5em;
+  color: var(--k-muted);
+  font-size: var(--k-text-13);
+}
+
+.meal-dish {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.meal-rest {
+  color: var(--k-muted);
+}
+
+.meal-cook {
+  flex: none;
+  padding: 1px var(--k-space-8);
+  border-radius: 999px;
+  background: var(--k-bg);
+  color: var(--k-link);
+  font-size: var(--k-text-12);
+}
+
+.meal-cook.mine {
+  background: var(--k-accent);
+  color: var(--k-paper);
+}
+
+.meals-foot {
+  margin: var(--k-space-24) 0 0;
+  text-align: center;
+  color: var(--k-muted);
+  font-size: var(--k-text-13);
+}
+
+/* A dish with a recipe note reads as a link and opens it; the row stays a row. */
+.meal-recipe {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--k-link);
+  text-align: start;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--k-link) 40%, transparent);
+  text-underline-offset: 3px;
+}
+
+.recipe-search {
+  display: block;
+  width: 100%;
+  margin-block-end: var(--k-space-8);
+  padding-inline: var(--k-space-8);
+}
+
+/* A recipe in the list is a whole row to tap: the title, and its facts muted at the end. */
+.recipe-entry {
+  width: 100%;
+  border: 0;
+  background: none;
+  text-align: start;
+}
+
+.recipe-entry .recipe-facts {
+  width: auto;
+  text-align: end;
+}
+
+.recipe-back {
+  min-height: 44px;
+  padding: 0 var(--k-space-8);
+  border: 0;
+  background: none;
+  color: var(--k-link);
+  font-size: var(--k-text-15);
+}
+
+/* The chevron before "Alle Rezepte", drawn as the fold's is, pointing back. */
+.recipe-back::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-inline-end: var(--k-space-8);
+  margin-bottom: 1px;
+  border-left: 2px solid currentcolor;
+  border-bottom: 2px solid currentcolor;
+  transform: rotate(45deg);
+}
+
+.recipe-title {
+  margin: var(--k-space-8) var(--k-space-8) 0;
+  font-size: var(--k-text-19);
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.recipe-meta {
+  margin: var(--k-space-4) var(--k-space-8) 0;
+  color: var(--k-muted);
+  font-size: var(--k-text-13);
+}
+
+/* The servings stepper: − and + as round pills around the count, a finger's 44 px each. */
+.recipe-servings {
+  display: flex;
+  align-items: center;
+  gap: var(--k-space-12);
+  margin: var(--k-space-12) var(--k-space-8) 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.recipe-servings button {
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--k-rule);
+  border-radius: 999px;
+  background: var(--k-surface);
+  color: var(--k-ink);
+  font-size: var(--k-text-15);
+}
+
+.recipe-servings button:disabled {
+  color: var(--k-muted);
+  cursor: default;
+}
+
+.recipe-lines,
+.recipe-steps {
+  margin: var(--k-space-4) 0 0;
+  padding: var(--k-space-8) var(--k-space-16) var(--k-space-8) var(--k-space-32);
+  border: 1px solid var(--k-rule);
+  border-radius: var(--k-radius-8);
+  background: var(--k-surface);
+}
+
+.recipe-lines li,
+.recipe-steps li {
+  padding-block: var(--k-space-4);
+  overflow-wrap: anywhere;
+}
+
+.recipe-steps li + li {
+  margin-top: var(--k-space-8);
+}
+
+.recipe-source {
+  display: inline-block;
+  margin: var(--k-space-16) var(--k-space-8) 0;
+  color: var(--k-link);
+}

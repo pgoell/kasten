@@ -3265,6 +3265,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/share/recipes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Recipes
+         * @description Every recipe note outside the archive that its bare name reaches, by title.
+         */
+        get: operations["list_recipes_share_recipes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/share/recipes/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Recipe
+         * @description One recipe to cook from: its lines and steps, without numbers or the meals cooked.
+         */
+        get: operations["read_recipe_share_recipes__name__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/share/events": {
         parameters: {
             query?: never;
@@ -6619,6 +6659,22 @@ export interface components {
             meals: components["schemas"]["SharedMeal"][];
         };
         /**
+         * SharedIngredient
+         * @description An ingredient line, its barcode taken off, with the number a view scales.
+         */
+        SharedIngredient: {
+            /** Text */
+            text: string;
+            /** Group */
+            group: string | null;
+            /** Quantity */
+            quantity: number | null;
+            /** Quantity To */
+            quantity_to: number | null;
+            /** Rest */
+            rest: string;
+        };
+        /**
          * SharedMeal
          * @description One meal: the dish, whether it comes from a batch, how many it cooks, and who cooks.
          */
@@ -6639,6 +6695,46 @@ export interface components {
             servings: number | null;
             /** Cook */
             cook: string | null;
+            /** Recipe */
+            recipe: string | null;
+        };
+        /**
+         * SharedRecipe
+         * @description A recipe as the lists app shows it to cook from. The meals cooked stay in kasten.
+         */
+        SharedRecipe: {
+            /** Name */
+            name: string;
+            /** Title */
+            title: string;
+            /** Servings */
+            servings: number | null;
+            /** Time */
+            time: string | null;
+            /** Tags */
+            tags: string[];
+            /** Source */
+            source: string | null;
+            /** Ingredients */
+            ingredients: components["schemas"]["SharedIngredient"][];
+            /** Steps */
+            steps: string[];
+        };
+        /**
+         * SharedRecipeEntry
+         * @description A recipe as the Rezepte tab lists it.
+         */
+        SharedRecipeEntry: {
+            /** Name */
+            name: string;
+            /** Title */
+            title: string;
+            /** Servings */
+            servings: number | null;
+            /** Time */
+            time: string | null;
+            /** Tags */
+            tags: string[];
         };
         /**
          * ShoppingWritten
@@ -12522,6 +12618,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SharedDay"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_recipes_share_recipes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SharedRecipeEntry"][];
+                };
+            };
+        };
+    };
+    read_recipe_share_recipes__name__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SharedRecipe"];
                 };
             };
             /** @description Validation Error */

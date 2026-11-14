@@ -130,7 +130,8 @@ through the next six days, one group per day with a meal, through
 [`GET /share/meals`](/reference/http-api/shared-lists.md#get-sharemeals). Each
 row gives the slot and the dish: `Linsen-Dal ×4` for a batch cooked, with the
 cook as a chip, `Ich` for the person viewing; `Chili sin carne · Rest` for a
-meal from a batch. Days that run into next week come from next week's note. The tab
+meal from a batch. A dish whose line links a recipe note opens that recipe in
+the Rezepte tab. Days that run into next week come from next week's note. The tab
 is read-only and says so at its foot; it reads again on every change in the
 shared folder and when the page comes back, so an edit to the plan shows
 without a reload. Training days and protein do not show there.

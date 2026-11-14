@@ -127,8 +127,10 @@ it comes back.
 ## See the week in the lists app
 
 The lists app's `Essen` tab shows the meals from today through the next six
-days, with who cooks. Anyone you share the lists with sees it there. It only
-shows the plan; plan in kasten.
+days, with who cooks. Anyone you share the lists with sees it there. Tap a
+dish to open its recipe, or find any recipe in the `Rezepte` tab, with a
+servings stepper that scales the amounts. It only shows the plan and the
+recipes; plan and write them in kasten.
 
 ## Related
 

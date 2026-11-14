@@ -52,8 +52,16 @@ async def test_meals_from_today_for_a_week_across_plans(client: AsyncClient) -> 
             "dish": "Chili sin carne",
             "servings": None,
             "cook": None,
+            "recipe": None,
         },
-        {"slot": "dinner", "kind": "from", "dish": "Linsen-Dal", "servings": None, "cook": None},
+        {
+            "slot": "dinner",
+            "kind": "from",
+            "dish": "Linsen-Dal",
+            "servings": None,
+            "cook": None,
+            "recipe": None,
+        },
     ]
     assert thursday["meals"][0]["dish"] == "Essen bei Mama"
     assert thursday["meals"][0]["cook"] == "Pascal"
@@ -64,7 +72,14 @@ async def test_a_cooked_meal_carries_its_servings_and_cook(client: AsyncClient) 
     days = (await client.get("/share/meals", params={"today": "2026-11-09"})).json()
     assert days[0]["date"] == "2026-11-09"
     assert days[0]["meals"] == [
-        {"slot": "dinner", "kind": "cook", "dish": "Linsen-Dal", "servings": 4, "cook": "Alicia"}
+        {
+            "slot": "dinner",
+            "kind": "cook",
+            "dish": "Linsen-Dal",
+            "servings": 4,
+            "cook": "Alicia",
+            "recipe": None,
+        }
     ]
     assert all(day["date"] <= "2026-11-15" for day in days)
 

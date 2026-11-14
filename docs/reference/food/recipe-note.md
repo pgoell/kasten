@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Recipe note
-description: The note a dish is written in, its frontmatter, the ingredient, step and cooked sections, how a German ingredient line is read for its amount and unit, how a line finds its food, the kcal and macros per serving, the card that shows them, cook mode, the rating sheet, and why a line is not counted.
+description: The note a dish is written in, its frontmatter, the ingredient, step and cooked sections, how a German ingredient line is read for its amount and unit, how a line finds its food, the kcal and macros per serving, the card that shows them, cook mode, the rating sheet, the lists app's Rezepte tab, and why a line is not counted.
 resource: backend/tests/food/recipes/ingredient_cases.json
 tags: [vault, recipes, food, format, backend]
 status: stable
@@ -294,3 +294,15 @@ opened that evening. The second showing says so, and skipping it drops the
 rating. A rating not given by the end of the day is dropped. The waiting rating
 lives in the browser, so another device does not see it.
 `frontend/src/lib/log/recipe/rate-sheet.ts` draws it.
+
+## In the lists app
+
+The lists app on the share host shows every recipe note outside the archive in
+its Rezepte tab, by title with its servings and time, and a search over titles
+and tags. A recipe opens with its time, a servings stepper that scales each
+line's amount, its ingredient groups and its steps, and a link to `source`.
+The tab only reads: no numbers, no `## Gekocht` lines, no cook mode. A dish in
+the Essen tab whose plan line links a recipe opens it there.
+[`GET /share/recipes`](/reference/http-api/shared-lists.md#get-sharerecipes)
+serves it; [Shared lists](/explanation/shared-lists.md#recipes-by-name) says
+why the recipes go by name.
