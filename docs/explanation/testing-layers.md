@@ -66,7 +66,8 @@ into a test file that exists.
 CI runs pytest in its Backend job and the unit project in four `Unit` jobs
 side by side (`--shard=1/4` to `4/4`). The Test job merges their reports with
 `vitest --merge-reports`, then runs the perf project. The frame project runs in
-its Perf job and the journeys in `e2e/` in its E2E job.
+its Perf job and the journeys in `e2e/` in two `E2E` jobs (`E2E_SHARD=1/2`
+and `2/2`), since in one job they outgrew its timeout.
 E2E is not a required check yet (#1606: Chromium can die between tests, and
 nothing retries), so a red E2E does not block a merge; read it anyway.
 

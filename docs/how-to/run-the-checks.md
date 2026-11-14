@@ -104,8 +104,10 @@ cd e2e && mise exec -- bunx playwright test journeys/<file>
 On failure, the run writes a trace and a screenshot to `e2e/test-results/`. Open
 a trace from `e2e/` with `bunx playwright show-trace <zip>`.
 
-CI's E2E job runs the same journeys on every pull request, on 3 workers where a
-local run takes 4. It is not a required check yet. Its `e2e-results` artifact holds the traces and screenshots.
+CI's E2E jobs run the same journeys on every pull request, split in two by
+`E2E_SHARD=1/2` and `2/2`, each on 3 workers where a local run takes 4. Set
+`E2E_SHARD` yourself to run one slice locally. They are not required checks
+yet. Each slice's `e2e-results-<n>` artifact holds its traces and screenshots.
 
 ## The hooks
 
