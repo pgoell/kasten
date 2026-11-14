@@ -1,7 +1,7 @@
 import type { Locator, Page } from "@playwright/test";
-import { phone, readAll } from "../../harness/app.ts";
-import { answer, bar, BARS, bars, type Hit, hit, openSearch } from "../../harness/search.ts";
-import { expect, test } from "../../harness/stack.ts";
+import { phone, readAll } from "../../../harness/app.ts";
+import { answer, bar, BARS, bars, type Hit, hit, openSearch } from "../../../harness/search.ts";
+import { expect, test } from "../../../harness/stack.ts";
 
 // The bars read dates against the browser's now, so each case fixes it: Friday
 // 23 October 2026, in week 43, so the bars run from week 30 to week 43. Fixed and not

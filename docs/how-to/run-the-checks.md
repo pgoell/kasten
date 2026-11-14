@@ -67,14 +67,14 @@ teardown removes the containers. Unlike `fe:e2e`, it stubs no API.
 
 The journeys sit in `e2e/journeys/`: review in `review/` (a sitting, and the daily limits), panes in
 `panes/` (layout and the top bar, the pane and tab keys, pane acts whose write is held while the focus moves, links to pages and assets; a note changed on disk under
-unsaved text and a conflicted note reopened in `panes/conflict/`; the stored workspace across a reload, held text in a restored pane and a URL over a stored workspace in `panes/workspace/`), notes and the finder in `notes/`, with saving in `notes/saving/` (edits,
-the backlinks panel's mention links, held text), the todo list, the board,
+unsaved text and a conflicted note reopened in `panes/conflict/`; the stored workspace across a reload, held text in a restored pane and a URL over a stored workspace in `panes/workspace/`), notes, the finder and a tree row moved by a drag in `notes/`, with saving in `notes/saving/` (edits,
+the backlinks panel's mention links, held text) and the content search in `notes/search/`, the todo list, the board,
 a person note's card of open todos and the shared lists app in `todos/`, capture and the log in `day/`, and the book, video and clip panes and csv and svg files in
 `media/`. `harness.spec.ts` checks the harness itself. Each journey is a
 thing done daily, and each one that writes checks the file on disk. Twenty-three files
 also run journeys at phone width, 414 px with touch, where the editor starts
 without vim: `review/sitting.spec.ts`; `notes/finder.spec.ts`, the three
-`notes/content-search-*.spec.ts`, `notes/saving/edits.spec.ts` and
+`notes/search/content-search-*.spec.ts`, `notes/saving/edits.spec.ts` and
 `notes/saving/mentions.spec.ts`; `panes/narrow/drawer.spec.ts`,
 `panes/narrow/phone.spec.ts` and `panes/workspace/reload.spec.ts`;
 `todos/list.spec.ts`, `todos/board.spec.ts`, `todos/twin-ids.spec.ts`,

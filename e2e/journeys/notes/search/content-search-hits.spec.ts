@@ -1,8 +1,8 @@
 import { copyFile, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Page } from "@playwright/test";
-import { noteText, phone, readAll, vaultWith } from "../../harness/app.ts";
-import { root } from "../../harness/paths.ts";
+import { noteText, phone, readAll, vaultWith } from "../../../harness/app.ts";
+import { root } from "../../../harness/paths.ts";
 import {
   answer,
   bar,
@@ -11,8 +11,8 @@ import {
   hit,
   lineOf,
   openSearch,
-} from "../../harness/search.ts";
-import { expect, test } from "../../harness/stack.ts";
+} from "../../../harness/search.ts";
+import { expect, test } from "../../../harness/stack.ts";
 
 const HITS: Hit[] = [
   hit("projects/kasten.md", 12, "Postgres holds a derived index."),
