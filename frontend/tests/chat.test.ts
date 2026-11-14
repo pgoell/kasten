@@ -1,7 +1,9 @@
 // @vitest-environment node
+import { rows } from "@/components/chat/transcript";
 import {
   answersFor,
   type ChatEvent,
+  type ChatItem,
   type ChatQuestion,
   EMPTY,
   postChat,
@@ -216,5 +218,17 @@ describe("postChat", () => {
     );
 
     expect(await postChat("answer", { id: "ask1", answers: {} })).toBe(false);
+  });
+});
+
+describe("rows", () => {
+  it("puts tool calls in a row together, and starts a new row after text", () => {
+    const tool = (id: string): ChatItem => ({ kind: "tool", id, name: "Bash", input: {} });
+    const grouped = rows([tool("a"), tool("b"), { kind: "text", text: "so" }, tool("c")]);
+
+    expect(
+      grouped.map((row) => ("tools" in row ? row.tools.map((t) => t.id) : row.item.kind)),
+    ).toEqual([["a", "b"], "text", ["c"]]);
+    expect(grouped.map((row) => row.at)).toEqual([0, 2, 3]);
   });
 });
