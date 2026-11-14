@@ -48,7 +48,9 @@ test.describe("the pane and tab keys", () => {
       .toEqual([2, true, { active: 0, tabs: [{ dir: "col", zoom: false, leaves: 2, focus: 1 }] }]);
   });
 
-  test("Space z draws the pane alone, and a second press puts the tab back", async ({ page }) => {
+  test("Space z draws the pane alone and says zoom in the bar, and a second press puts the tab back", async ({
+    page,
+  }) => {
     await openApp(page);
     await openNote(page, "Welcome");
     await leader(page, "%");
@@ -59,11 +61,14 @@ test.describe("the pane and tab keys", () => {
       await panes(page).count(),
       (await saved(page)).tabs[0].zoom,
       await focusedPane(page),
+      await page.getByTestId("zoom-shown").isVisible(),
     ];
+    expect(await page.getByTestId("zoom-shown").isVisible()).toBe(false);
     await leader(page, "z");
-    await expect.poll(state).toEqual([1, true, 0]);
+    await expect.poll(state).toEqual([1, true, 0, true]);
+    await expect(page.getByTestId("zoom-shown")).toHaveText("zoom");
     await leader(page, "z");
-    await expect.poll(state).toEqual([2, false, 1]);
+    await expect.poll(state).toEqual([2, false, 1, false]);
   });
 
   test("Space q on a split closes the note, then the pane, and keeps the tab", async ({ page }) => {

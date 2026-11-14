@@ -378,3 +378,23 @@ test.describe("the clock in the status bar", () => {
     await expect(clock(page)).toHaveText(/15:53$/);
   });
 });
+
+test.describe("the status bar's height", () => {
+  // Inside `main` the bar's footer is no landmark, so no role finds it.
+  const height = async (page: Page) => (await page.locator("main > footer").boundingBox())?.height;
+
+  test("is 24px under a mouse", async ({ page }) => {
+    await openApp(page);
+    await expect.poll(() => height(page)).toBe(24);
+  });
+
+  test.describe("under a finger", () => {
+    // Wide, so the window is no phone and the bar is drawn with nothing to say.
+    test.use({ viewport: { width: 1024, height: 768 }, hasTouch: true, isMobile: true });
+
+    test("is 44px", async ({ page }) => {
+      await page.goto("/");
+      await expect.poll(() => height(page), { timeout: 15_000 }).toBe(44);
+    });
+  });
+});
