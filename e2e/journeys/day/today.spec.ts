@@ -65,7 +65,7 @@ test("Try again while the limits read still fails takes the row away while it re
   await page.clock.runFor(100);
   await expect(unreadRow(page)).toHaveCount(0);
 
-  await walkBackoff(page, failed, unreadRow(page), before);
+  await walkBackoff(page, failed, unreadRow(page), { from: before });
   await expect(unreadRow(page)).toBeVisible();
   await expect(tryAgain(page)).toBeVisible();
 });
