@@ -24,7 +24,7 @@ import {
 } from "@/lib/panes/layout/pane-contents";
 import { activeTab, atPane, fillFocused, type Layout, tabPanes } from "@/lib/panes/layout/panes";
 import { bookNoteOf, fileKind, opensInFilePane } from "@/lib/vault/file-kind";
-import type { Listings } from "@/lib/vault/use-listings";
+import { type LinkPaths, type Listings, linkPaths, linkTargets } from "@/lib/vault/use-listings";
 
 export type NoteOpening = ReturnType<typeof useNoteOpening>;
 
@@ -137,7 +137,7 @@ export function useNoteOpening({
   moveTo,
   setNotice,
 }: {
-  listings: Pick<Listings, "data" | "html" | "assets" | "linkable">;
+  listings: Pick<Listings, "data">;
   layoutNow: RefObject<Layout>;
   focusedNote: RefObject<{ path: string | undefined }>;
   setLayout: Dispatch<SetStateAction<Layout>>;
@@ -146,7 +146,7 @@ export function useNoteOpening({
   moveTo: (update: (previous: Layout) => Layout) => boolean;
   setNotice: Dispatch<SetStateAction<string | undefined>>;
 }) {
-  const { data, html, assets, linkable } = listings;
+  const { data } = listings;
   const queryClient = useQueryClient();
   const [seek, setSeek] = useState<Seek>();
 
@@ -270,13 +270,10 @@ export function useNoteOpening({
     [data, saveFirst, setLayout, setFocusSignal, moveTo, openHtmlInPane, layoutNow],
   );
 
-  /**
-   * Open the note a `[[link]]` names, making it if the vault has none. Writing a link before its note is how a vault grows.
-   * `body` is empty for links followed by hand. `[[note#heading]]` opens at the heading, and `[[#heading]]` stays in the editor.
-   */
-  const follow = useCallback(
-    (target: string, file?: FileTarget, body = "", at = startPane(layoutNow.current)) => {
-      const paths = data ?? [];
+  /** `follow` once the listings are in hand. */
+  const followIn = useCallback(
+    (listed: LinkPaths, target: string, file: FileTarget | undefined, body: string, at: string) => {
+      const { files: paths, html, assets } = listed;
       // The one tail a page or an asset takes, from a wikilink or a markdown
       // link alike. The vault has no write for either, so a link to one nobody
       // made stays a dead link rather than turning into a note named `.pdf.md`.
@@ -285,11 +282,11 @@ export function useNoteOpening({
       // `#page=3` names, a phone's viewer ignoring `#page` (#353), and a csv
       // as a table and a video file as a player, which a tab would only download.
       const openFile = (path: string, heading: string | null) => {
-        if (html?.includes(path)) {
+        if (html.includes(path)) {
           void openHtmlInPane(path, heading ?? undefined, at);
           return;
         }
-        if (!assets?.includes(path)) return;
+        if (!assets.includes(path)) return;
         if (path.toLowerCase().endsWith(".pdf")) openPdfInPane(path, pdfPage(heading));
         else if (opensInFilePane(path)) void openImageInPane(path);
         else window.open(`/api/assets/${encodePath(path)}`, "_blank");
@@ -303,8 +300,8 @@ export function useNoteOpening({
       }
       const { name, heading } = splitTarget(target);
       if (name === "") return;
-      const path = wikiLinkPath(target, linkable ?? []);
-      if (html?.includes(path)) {
+      const path = wikiLinkPath(target, linkTargets(listed));
+      if (html.includes(path)) {
         openFile(path, heading);
         return;
       }
@@ -334,10 +331,6 @@ export function useNoteOpening({
       );
     },
     [
-      data,
-      html,
-      assets,
-      linkable,
       queryClient,
       openInPane,
       openHtmlInPane,
@@ -346,6 +339,28 @@ export function useNoteOpening({
       layoutNow,
       focusedNote,
     ],
+  );
+
+  /**
+   * Open the note a `[[link]]` names, making it if the vault has none. Writing a link before its note is how a vault grows.
+   * `body` is empty for links followed by hand. `[[note#heading]]` opens at the heading, and `[[#heading]]` stays in the editor.
+   */
+  const follow = useCallback(
+    (target: string, file?: FileTarget, body = "", at = startPane(layoutNow.current)) => {
+      const listed = linkPaths(queryClient);
+      if (!(listed instanceof Promise)) return followIn(listed, target, file, body, at);
+      // Read off the pane the press came from, as `openAtHeading` does, so a late open never pulls the reader back.
+      const from = tabPanes(layoutNow.current).find((each) => each.id === at)?.path;
+      return listed.then(
+        (loaded) =>
+          focusedNote.current.path === from
+            ? (followIn(loaded, target, file, body, at) ?? false)
+            : false,
+        // A listing that will not load opens nothing and makes no note.
+        () => false,
+      );
+    },
+    [queryClient, layoutNow, focusedNote, followIn],
   );
 
   /**
