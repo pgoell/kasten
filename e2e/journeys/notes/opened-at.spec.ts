@@ -5,6 +5,16 @@ import { expect, test } from "../../harness/stack.ts";
 
 const LINES = "one\ntwo\nthree\nfour";
 
+/** The focused editor's line numbers, top to bottom, less the gutter's hidden spacer. */
+const gutter = (page: Page): Promise<string[]> =>
+  page
+    .locator(".cm-editor:has(.cm-content:focus) .cm-lineNumbers .cm-gutterElement")
+    .evaluateAll((all) =>
+      all
+        .filter((n) => (n as HTMLElement).style.visibility !== "hidden")
+        .map((n) => n.textContent ?? ""),
+    );
+
 /** Searches for `term` with `Space f g` and opens the first line the search lists. */
 async function openHit(page: Page, term: string): Promise<void> {
   await leader(page, "fg");
@@ -38,6 +48,17 @@ test.describe("a search hit", () => {
     await expect(page.locator(".cm-activeLine")).toHaveText("two");
   });
 
+  test("the gutter counts each line's distance from the line the hit opens at, and recounts as j moves the cursor", async ({
+    page,
+  }) => {
+    await openHit(page, "three");
+    await expect(page.locator(".cm-activeLine")).toHaveText("three");
+    await expect.poll(() => gutter(page)).toEqual(["2", "1", "3", "1"]);
+    await page.keyboard.press("j");
+    await expect(page.locator(".cm-activeLine")).toHaveText("four");
+    await expect.poll(() => gutter(page)).toEqual(["3", "2", "1", "4"]);
+  });
+
   test("past the note's end opens it with the cursor on its last line", async ({ page }) => {
     await openHit(page, "gone");
     await expect(page.locator(".cm-activeLine")).toHaveText("four");
@@ -63,6 +84,23 @@ async function startLine(page: Page, vault: string, body: string, vim = true) {
 test.describe("a note opened with no line", () => {
   test("starts at the top", async ({ page, stack }) => {
     expect(await startLine(page, stack.vault, LINES)).toEqual({ at: 0, text: "one" });
+  });
+
+  test("with vim on the gutter names line 1 and counts each line below by its distance", async ({
+    page,
+    stack,
+  }) => {
+    await startLine(page, stack.vault, LINES);
+    await expect.poll(() => gutter(page)).toEqual(["1", "1", "2", "3"]);
+  });
+
+  test("with vim off on a desktop the gutter shows and numbers each line", async ({
+    page,
+    stack,
+  }) => {
+    await startLine(page, stack.vault, LINES, false);
+    await expect(page.locator(".cm-editor:has(.cm-content:focus) .cm-gutters")).toBeVisible();
+    await expect.poll(() => gutter(page)).toEqual(["1", "2", "3", "4"]);
   });
 
   const BELOW = [
