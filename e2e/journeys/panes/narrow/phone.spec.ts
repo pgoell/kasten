@@ -113,7 +113,7 @@ test.describe("on a phone", () => {
     await expect
       .poll(async () => [
         ...(await alone()),
-        (await panes(page).first().textContent())?.includes(today()),
+        await panes(page).getByRole("heading", { name: today(), exact: true }).isVisible(),
       ])
       .toEqual([0, false, true]);
     await page.getByRole("button", { name: "Open the todo pane" }).tap();
@@ -121,7 +121,9 @@ test.describe("on a phone", () => {
     await expect(page.getByRole("region", { name: "Todos" })).toBeVisible();
     expect(await alone()).toEqual([0, false]);
     await page.getByRole("button", { name: "Open the chat with Claude Code" }).tap();
-    await expect(page.getByRole("textbox").last()).toBeVisible();
+    // The composer by name: the todo pane's filter is a textbox too.
+    await expect(page.getByRole("textbox", { name: "Message" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Todos" })).toHaveCount(0);
     expect(await alone()).toEqual([0, false]);
   });
 
