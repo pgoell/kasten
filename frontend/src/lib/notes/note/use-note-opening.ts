@@ -24,7 +24,7 @@ import {
 } from "@/lib/panes/layout/pane-contents";
 import { activeTab, atPane, fillFocused, type Layout, tabPanes } from "@/lib/panes/layout/panes";
 import { bookNoteOf, fileKind, opensInFilePane } from "@/lib/vault/file-kind";
-import { type LinkPaths, type Listings, linkPaths } from "@/lib/vault/use-listings";
+import { type LinkPaths, type Listings, linkPaths, linkTargets } from "@/lib/vault/use-listings";
 
 export type NoteOpening = ReturnType<typeof useNoteOpening>;
 
@@ -272,13 +272,8 @@ export function useNoteOpening({
 
   /** `follow` once the listings are in hand. */
   const followIn = useCallback(
-    (
-      { files: paths, html, assets }: LinkPaths,
-      target: string,
-      file: FileTarget | undefined,
-      body: string,
-      at: string,
-    ) => {
+    (listed: LinkPaths, target: string, file: FileTarget | undefined, body: string, at: string) => {
+      const { files: paths, html, assets } = listed;
       // The one tail a page or an asset takes, from a wikilink or a markdown
       // link alike. The vault has no write for either, so a link to one nobody
       // made stays a dead link rather than turning into a note named `.pdf.md`.
@@ -305,7 +300,7 @@ export function useNoteOpening({
       }
       const { name, heading } = splitTarget(target);
       if (name === "") return;
-      const path = wikiLinkPath(target, [...paths, ...html, ...assets]);
+      const path = wikiLinkPath(target, linkTargets(listed));
       if (html.includes(path)) {
         openFile(path, heading);
         return;

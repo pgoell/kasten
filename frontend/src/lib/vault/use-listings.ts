@@ -26,6 +26,13 @@ const ASSETS = { queryKey: ["assets"], queryFn: fetchAssets };
 /** Every path a `[[link]]` can land on, by kind. */
 export type LinkPaths = { files: string[]; html: string[]; assets: string[] };
 
+/** The one list a `[[link]]` resolves in, so the editor's dead links and `gf` agree. */
+export const linkTargets = ({ files, html, assets }: LinkPaths): string[] => [
+  ...files,
+  ...html,
+  ...assets,
+];
+
 /**
  * The listings as the cache holds them at a key press, not as the last render saw them, waiting for any
  * still on its way. A key queued behind a render reaches a handler built before it (#2032).
@@ -55,7 +62,7 @@ export function useListings() {
   const { data: assets } = useQuery(ASSETS);
   // What a `[[link]]` can land on. Absent while the notes load, so no link reads as dead early.
   const linkable = useMemo(
-    () => data && [...data, ...(html ?? []), ...(assets ?? [])],
+    () => data && linkTargets({ files: data, html: html ?? [], assets: assets ?? [] }),
     [data, html, assets],
   );
   // The pdfs among the assets, tree rows as images are (#361). Books stay out: they open beside
