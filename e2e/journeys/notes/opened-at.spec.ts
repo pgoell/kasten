@@ -99,6 +99,7 @@ test.describe("a note opened with no line", () => {
     stack,
   }) => {
     await startLine(page, stack.vault, LINES, false);
+    await expect(page.locator(".cm-editor:has(.cm-content:focus) .cm-gutters")).toBeVisible();
     await expect.poll(() => gutter(page)).toEqual(["1", "2", "3", "4"]);
   });
 
