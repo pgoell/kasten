@@ -194,7 +194,8 @@ test.describe("on a phone", () => {
       .toEqual([null, OUTSIDE, 1, 0]);
   });
 
-  test("Write my text by tap writes the kept text over a conflict and shuts the panel", async ({
+  // The panel goes with the quiet bar once the write lands; no screen tells the button's own close apart.
+  test("Write my text by tap writes the kept text over a conflict, and the panel goes with the bar", async ({
     page,
     stack,
   }) => {
