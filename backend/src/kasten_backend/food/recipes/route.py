@@ -5,8 +5,6 @@ without waiting for a save. `docs/reference/http-api/food.md` holds all three.
 """
 
 import asyncio
-import re
-from posixpath import basename
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -19,16 +17,14 @@ from kasten_backend.files import RefusedError
 from kasten_backend.folders import create_note
 from kasten_backend.food.recipes import importer
 from kasten_backend.food.recipes.foods import FOODS_NOTE, MyFood, parse_my_foods
-from kasten_backend.food.recipes.note import parse_recipe
+from kasten_backend.food.recipes.note import parse_recipe, recipe_title
 from kasten_backend.food.recipes.nutrition import Recipe, recipe_nutrition
-from kasten_backend.frontmatter import body_start, stamp
+from kasten_backend.frontmatter import stamp
 from kasten_backend.graph import typed_notes
 
 router = APIRouter()
 
 MAX_TEXT = 200_000
-# A text ends only after a non-blank, or is one blank, so a long blank run is read once (#1905).
-TITLE = re.compile(r"^# ([ \t]|.+?(?<![ \t]))[ \t]*$", re.MULTILINE)
 
 
 class RecipeEntry(BaseModel):
@@ -86,11 +82,10 @@ async def list_recipes(settings: Annotated[Settings, Depends(get_settings)]) -> 
         if text is None:
             continue
         recipe = await recipe_nutrition(parse_recipe(text), foods, settings.food_contact)
-        title = TITLE.search(text, body_start(text))
         entries.append(
             RecipeEntry(
                 path=path,
-                title=title[1] if title else basename(path).removesuffix(".md"),
+                title=recipe_title(text, path),
                 servings=recipe.servings,
                 per_serving=recipe.per_serving,
                 total=recipe.total,

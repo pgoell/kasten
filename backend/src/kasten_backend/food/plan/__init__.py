@@ -1,6 +1,21 @@
-"""Week plan notes: meals and batches laid out by day, and the cooked batches' shopping lines."""
+"""Week plan notes: meals and batches by day, shopping lines, and what the lists app reads."""
 
 from kasten_backend.food.plan.route import router
-from kasten_backend.food.plan.shared import SharedDay, SharedMeal, upcoming
+from kasten_backend.food.plan.shared import (
+    Cookbook,
+    SharedDay,
+    SharedMeal,
+    SharedRecipe,
+    SharedRecipeEntry,
+    upcoming,
+)
 
-__all__ = ["SharedDay", "SharedMeal", "router", "upcoming"]
+__all__ = [
+    "Cookbook",
+    "SharedDay",
+    "SharedMeal",
+    "SharedRecipe",
+    "SharedRecipeEntry",
+    "router",
+    "upcoming",
+]

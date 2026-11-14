@@ -749,64 +749,7 @@ button:not(.words, .menu button):active:not(:disabled) {
   }
 }
 
-/* The Essen tab hides the lists' filters, rows and entry; their own display rules would undo `hidden`. */
+/* The Essen and Rezepte tabs hide the lists' filters, rows and entry; their own display rules would undo `hidden`. */
 .app [hidden] {
   display: none;
-}
-
-/* A meal of the Essen tab: its slot, the dish, and the cook's chip at the end. Read-only, so no swipe. */
-.meal-group {
-  border: 1px solid var(--k-rule);
-  border-radius: var(--k-radius-8);
-  background: var(--k-surface);
-}
-
-.meal {
-  display: flex;
-  align-items: baseline;
-  gap: var(--k-space-12);
-  min-height: 44px;
-  padding: var(--k-space-12) var(--k-space-16);
-}
-
-.meal + .meal {
-  border-top: 1px solid var(--k-rule);
-}
-
-.meal-slot {
-  flex: none;
-  width: 4.5em;
-  color: var(--k-muted);
-  font-size: var(--k-text-13);
-}
-
-.meal-dish {
-  flex: 1;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.meal-rest {
-  color: var(--k-muted);
-}
-
-.meal-cook {
-  flex: none;
-  padding: 1px var(--k-space-8);
-  border-radius: 999px;
-  background: var(--k-bg);
-  color: var(--k-link);
-  font-size: var(--k-text-12);
-}
-
-.meal-cook.mine {
-  background: var(--k-accent);
-  color: var(--k-paper);
-}
-
-.meals-foot {
-  margin: var(--k-space-24) 0 0;
-  text-align: center;
-  color: var(--k-muted);
-  font-size: var(--k-text-13);
 }
