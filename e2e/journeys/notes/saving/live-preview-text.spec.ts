@@ -1,3 +1,4 @@
+import type { Page } from "@playwright/test";
 import { leader, noteText, openApp, openNote, unstamped, vaultWith } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
 
@@ -150,4 +151,95 @@ test("the finder's preview of a note holding \\[...\\] draws no gap and no gutte
   const question = page.getByTestId("review-question");
   await expect(question.locator("[data-gap]")).toHaveText("[...]");
   await expect(question.locator(".cm-lineNumbers")).toHaveCount(0);
+});
+
+/** Opens a note holding `body` with vim on or off; the cursor starts on its first line. */
+async function opened(page: Page, vault: string, body: string, vim: string): Promise<void> {
+  await page.addInitScript((mode) => localStorage.setItem("kasten.vim", mode), vim);
+  await vaultWith(vault, { "Blocks.md": body });
+  await openApp(page);
+  await openNote(page, "Blocks");
+}
+
+/** Puts the cursor `lines` lines below the first, by vim's j and then insert mode, or the arrow. */
+async function down(page: Page, vim: string, lines: number): Promise<void> {
+  await page.keyboard.press(vim === "on" ? "g" : "Control+Home");
+  if (vim === "on") await page.keyboard.press("g");
+  for (let i = 0; i < lines; i++) await page.keyboard.press(vim === "on" ? "j" : "ArrowDown");
+  // Vim's normal mode reads the note as drawn; insert mode shows the source under the cursor.
+  if (vim === "on") await page.keyboard.press("i");
+}
+
+test.describe("live preview's blocks", () => {
+  const content = (page: Page) => page.locator(".cm-content");
+
+  for (const vim of ["on", "off"]) {
+    test(`a fence shows its code alone, and the cursor on its code hands the backticks and language back, vim ${vim}`, async ({
+      page,
+      stack,
+    }) => {
+      await opened(page, stack.vault, "intro\n\n```js\nconst x = 1;\n```", vim);
+      await expect(content(page)).toHaveText("introconst x = 1;");
+      // Onto the code, not a fence line: the whole block comes back, not the cursor's line.
+      await down(page, vim, 3);
+      await expect(content(page)).toHaveText("intro```jsconst x = 1;```");
+    });
+
+    test(`--- draws a divider, and the cursor on its line hands the dashes back, vim ${vim}`, async ({
+      page,
+      stack,
+    }) => {
+      await opened(page, stack.vault, "above\n\n---\n\nbelow", vim);
+      const rule = page.locator(".cm-content .cm-rule");
+      await expect(rule).toHaveCount(1);
+      await expect(content(page)).toHaveText("abovebelow");
+      await down(page, vim, 2);
+      await expect(content(page)).toHaveText("above---below");
+      await expect(rule).toHaveCount(0);
+    });
+  }
+
+  test("a fence with no code and a fence nothing closes keep their backticks", async ({
+    page,
+    stack,
+  }) => {
+    await opened(page, stack.vault, "intro\n\n```\n```\n\nmid\n\n```js\nconst x = 1;", "on");
+    await expect(content(page)).toHaveText("intro``````mid```jsconst x = 1;");
+    // The empty block's two lines are knocked back off the code, as a revealed fence is.
+    const fences = page.locator(".cm-content .cm-code-fence");
+    await expect(fences.filter({ hasText: /^```$/ })).toHaveCount(2);
+  });
+
+  test("a fenced block draws as one surface marked top and bottom, and the prose above it stays plain", async ({
+    page,
+    stack,
+  }) => {
+    const lines = ["before", "```js", "const x = 1;", "const y = 2;", "```", "after"];
+    await opened(page, stack.vault, lines.join("\n"), "on");
+    const first = page.locator(".cm-content .cm-line").first();
+    await expect(first).toHaveText("before");
+    await expect(first).not.toHaveClass(/cm-code-block/);
+    // Two rows, each fence line fallen into the code line beside it.
+    await expect(page.locator(".cm-content .cm-code-block")).toHaveCount(2);
+    await expect(page.locator(".cm-content .cm-code-open")).toHaveCount(1);
+    await expect(page.locator(".cm-content .cm-code-close")).toHaveCount(1);
+  });
+
+  test("a setext underline draws no divider, and a note's frontmatter stays as typed", async ({
+    page,
+    stack,
+  }) => {
+    await opened(page, stack.vault, "Title\n---\n\nbody", "on");
+    await expect(content(page)).toContainText("body");
+    await expect(page.locator(".cm-content .cm-rule")).toHaveCount(0);
+
+    await vaultWith(stack.vault, { "Front.md": "---\nid: 1\n---\n# Notes" });
+    await openNote(page, "Front");
+    // Read hides a frontmatter until the cursor is in it, so onto its first line.
+    await page.keyboard.press("g");
+    await page.keyboard.press("g");
+    // No divider, and the fields underlined into no heading.
+    await expect(content(page)).toHaveText("---id: 1---Notes");
+    await expect(page.locator(".cm-content .cm-rule")).toHaveCount(0);
+  });
 });
