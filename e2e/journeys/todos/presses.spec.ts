@@ -4,8 +4,10 @@ import {
   leader,
   noteText,
   openApp,
+  readAll,
   TODO_ROW,
   today,
+  vaultWith,
 } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 
@@ -311,3 +313,100 @@ for (const [key, state, mark] of [
     await expect(stateOf(page, first.words, state)).toBeVisible();
   });
 }
+
+const STATES = "02 Projects/States.md";
+
+/**
+ * Opens the todo pane on a note holding every state, on a clock fixed at noon of 2026-08-10, with
+ * the list's answer cut to that note so the legend counts its rows alone.
+ */
+async function openStates(page: Page, vault: string): Promise<void> {
+  await vaultWith(vault, {
+    [STATES]: [
+      "# States",
+      "",
+      "- [ ] call the dentist 📅 2026-08-07",
+      "- [b] ship it 📅 2026-08-07",
+      "- [/] wire up the pane 📅 2026-08-10",
+      "- [w] decision record 📅 2026-08-10 👤 2026-08-03 [[Zoe]]",
+      "- [w] hand back the keys 👤 2026-08-03 📅 2026-08-10",
+      "- [r] write the parser 📅 2026-08-10",
+      "- [ ] buy milk 📅 2026-08-10",
+      "",
+    ].join("\n"),
+  });
+  await page.route(
+    (url) => url.pathname === "/api/todos",
+    async (route) => {
+      if (route.request().method() !== "GET") return route.fallback();
+      const response = await route.fetch();
+      const rows: { path: string }[] = await response.json();
+      await route.fulfill({ response, json: rows.filter((row) => row.path === STATES) });
+    },
+  );
+  await page.clock.setFixedTime(new Date("2026-08-10T12:00:00"));
+  await openApp(page);
+  await leader(page, "gt");
+  await expect(page.locator(TODO_ROW)).toHaveCount(7);
+}
+
+test.describe("the open list's states", () => {
+  test("blocked and waiting rows are muted in their date's section, review is not, and the legend counts each state", async ({
+    page,
+    stack,
+  }) => {
+    await openStates(page, stack.vault);
+    // Headings and rows in the order drawn, read in one evaluate (#1937), each row by its colour.
+    const drawn = await readAll(page, `h3, ${TODO_ROW}`, (all) =>
+      all.map((node) =>
+        node.tagName === "H3"
+          ? (node.textContent ?? "").toLowerCase()
+          : `${getComputedStyle(node).color} ${node.textContent}`,
+      ),
+    );
+    const colour = (words: string) => drawn.find((line) => line.includes(words))?.split(") ")[0];
+    const at = (words: string) => drawn.findIndex((line) => line.includes(words));
+    expect(at("ship it")).toBeGreaterThan(at("overdue"));
+    expect(at("ship it")).toBeLessThan(at("today"));
+    expect(at("decision record")).toBeGreaterThan(at("today"));
+    expect(colour("ship it")).toBe(colour("decision record"));
+    expect(colour("ship it")).not.toBe(colour("buy milk"));
+    expect(colour("write the parser")).toBe(colour("buy milk"));
+    await expect(stateOf(page, "write the parser", "review")).toBeVisible();
+    await expect(stateOf(page, "decision record", "waiting")).toBeVisible();
+    await expect(page.locator(TODO_ROW, { hasText: "decision record" })).toContainText("👤 7d Zoe");
+
+    const legend = page.getByTestId("todo-footer").getByRole("list", { name: "legend" });
+    await expect(legend).toBeVisible();
+    const counts = await readAll(page, '[aria-label="legend"] li', (all) =>
+      Object.fromEntries(all.map((li) => [li.title, Number(li.textContent)])),
+    );
+    expect(counts).toMatchObject({ open: 2, doing: 1, blocked: 1, waiting: 2, review: 1 });
+    await expect(page.getByRole("button", { name: /^Shared lists/ })).toHaveCount(0);
+  });
+
+  test("the filter finds a waiting row by the name it waits on", async ({ page, stack }) => {
+    await openStates(page, stack.vault);
+    await page.getByLabel("filter todos").fill("zoe");
+    await expect(page.locator(TODO_ROW)).toHaveCount(1);
+    await expect(page.locator(TODO_ROW)).toContainText("decision record");
+  });
+
+  test("i on a waiting row that names nobody puts the caret where the name goes", async ({
+    page,
+    stack,
+  }) => {
+    await openStates(page, stack.vault);
+    await cursorTo(page, "hand back the keys");
+    await page.keyboard.press("i");
+    const input = page.getByLabel("edit line");
+    await expect(input).toBeFocused();
+    await expect
+      .poll(() =>
+        input.evaluate((field: HTMLInputElement) =>
+          field.value.slice(0, field.selectionStart ?? 0),
+        ),
+      )
+      .toBe("- [w] hand back the keys 👤 2026-08-03");
+  });
+});

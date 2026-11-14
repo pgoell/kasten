@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
-import { builtCss, leader, openApp, openNote, panes, readAll } from "../../harness/app.ts";
+import { builtCss, leader, openApp, openNote, PANE, panes, readAll } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
-import { focusedPane } from "./workspace/stored.ts";
+import { beside, focusedPane, layout, load, seed } from "./workspace/stored.ts";
 
 /** The saved layout of each tab: split direction, zoom, pane count and focused pane, and the active tab. */
 const saved = (page: Page) =>
@@ -201,4 +201,69 @@ test("reduced transparency takes the tab strip's blur away", async ({ page }) =>
     features: [{ name: "prefers-reduced-transparency", value: "reduce" }],
   });
   await expect.poll(() => stripBlur(page)).toBe("none");
+});
+
+test.describe("the pane header", () => {
+  const headers = (page: Page) => page.locator(`${PANE}:visible [data-pane-header]`);
+  /** Each pane's focus line as its height and colour, and its frame (box and header) as tags and classes. */
+  const frames = (page: Page) =>
+    readAll(page, PANE, (all) =>
+      all.map((pane) => {
+        const line = getComputedStyle(pane.querySelector("[data-focus-line]") as Element);
+        const header = pane.querySelector("[data-pane-header]") as Element;
+        const frame = [pane, header, ...header.querySelectorAll("*")];
+        return {
+          line: `${line.height} ${line.backgroundColor}`,
+          frame: frame.map((node) => `${node.tagName} ${node.getAttribute("class")}`).join("|"),
+        };
+      }),
+    );
+
+  test("a split draws a header per pane with its kind and path, and a single or zoomed pane none", async ({
+    page,
+  }) => {
+    await openApp(page);
+    await expect(page.locator(".cm-content:focus")).toHaveCount(1);
+    await expect(headers(page)).toHaveCount(0);
+    await seed(
+      page,
+      layout([beside({ path: "Welcome.md" }, { pdf: { path: "04 Books/Primer.pdf" } })]),
+    );
+    await page.reload();
+    await expect(headers(page)).toHaveCount(2);
+    await expect(headers(page).nth(0)).toContainText("Welcome.md");
+    await expect(headers(page).nth(1)).toContainText("PDF");
+    await expect(headers(page).nth(1)).toContainText("04 Books/Primer.pdf");
+    await panes(page).nth(0).locator(".cm-line").first().click();
+    await page.keyboard.press("Escape");
+    await leader(page, "z");
+    await expect(panes(page)).toHaveCount(1);
+    await expect(page.locator("[data-pane-header], [data-focus-line]")).toHaveCount(0);
+    await leader(page, "z");
+    await expect(headers(page)).toHaveCount(2);
+  });
+
+  test("the focused pane carries the 2 px accent line, and moving the focus moves the line alone", async ({
+    page,
+  }) => {
+    await seed(page, layout([beside({ path: "Welcome.md" }, { path: "02 Projects/Home.md" })]));
+    await load(page);
+    await panes(page).nth(0).locator(".cm-line").first().click();
+    await page.keyboard.press("Escape");
+    const clear = "rgba(0, 0, 0, 0)";
+    await expect
+      .poll(async () => (await frames(page)).map(({ line }) => line.endsWith(clear)))
+      .toEqual([false, true]);
+    const before = await frames(page);
+    expect(before.map(({ line }) => line.split(" ")[0])).toEqual(["2px", "2px"]);
+    // Both frames read the same, focused or not: only the line tells them apart.
+    expect(before[0]?.frame).toBe(before[1]?.frame);
+    await leader(page, "l");
+    await expect
+      .poll(async () => (await frames(page)).map(({ line }) => line))
+      .toEqual([before[1]?.line, before[0]?.line]);
+    expect((await frames(page)).map(({ frame }) => frame)).toEqual(
+      before.map(({ frame }) => frame),
+    );
+  });
 });
