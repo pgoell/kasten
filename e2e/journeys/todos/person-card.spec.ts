@@ -4,8 +4,10 @@ import {
   leader,
   noteText,
   openApp,
+  openNote,
   phone,
   TODO_ROW,
+  tapHeight,
   today,
   vaultWith,
 } from "../../harness/app.ts";
@@ -139,4 +141,91 @@ test("a drag that starts on a board card's chip moves the card and opens no note
     .poll(() => noteText(stack.vault, CHIPS), { timeout: 15_000 })
     .toMatch(/^- \[x\] send the invoice/m);
   await expect(page.getByRole("tab", { name: "Pascal" })).toHaveCount(0);
+});
+
+const MAX = "03 Areas/08 People/Max Bosch.md";
+const MEETING = "02 Projects/FDE/2026-09-28 FDE Check-in.md";
+const MET = "[[Max Bosch]] and me, 20 min";
+const CARD = {
+  [MAX]: "---\ntype: Person\n---\n\n# Max Bosch\n",
+  "03 Areas/08 People/Nobody.md": "---\ntype: Person\n---\n\n# Nobody\n",
+  [MEETING]: `# FDE Check-in\n\nagenda\n\n${MET}\n\nnext time\n`,
+  "Plain.md": "---\ntype: Note\n---\n\n# Plain\n",
+  "01 Periodic/00 Daily/2026-09-30.md":
+    "# 2026-09-30\n\n- [ ] send [[Max Bosch]] the repo 📅 2026-10-02\n- [ ] something nobody is named in\n- [ ] call [[Plain]]\n- ✅ 2026-09-29 paired with [[Max Bosch]]\n",
+};
+
+/** Opens a note of CARD by its address and returns its footer's three sections. */
+async function maxCard(page: Page, vault: string, path = MAX) {
+  await vaultWith(vault, CARD);
+  await page.goto(`/?note=${encodeURIComponent(path)}`);
+  const section = (name: string) => page.getByRole("region", { name });
+  return {
+    todos: section("Open todos"),
+    met: section("Last meetings"),
+    done: section("Recently done"),
+  };
+}
+
+test.describe("the person card", () => {
+  test("draws the person's open todos, last meetings and done lines, and no card under a note of another type", async ({
+    page,
+    stack,
+  }) => {
+    const { todos, met, done } = await maxCard(page, stack.vault);
+    // The first load parses the whole bundle, which takes past 5 s on a loaded box (#1615).
+    await expect(todos.getByRole("button")).toHaveText(
+      [/send Max Bosch the repo\s*📅 2026-10-02$/],
+      {
+        timeout: 15_000,
+      },
+    );
+    await expect(met.getByRole("button")).toHaveText(["2026-09-28FDE Check-in"]);
+    await expect(done.getByRole("button")).toHaveText(["2026-09-29paired with Max Bosch"]);
+
+    // The todo cache is filled now, so a card the Note would draw shows at once.
+    await openNote(page, "Plain");
+    await expect(page.locator(".cm-content:visible", { hasText: "Plain" })).toBeVisible();
+    await expect(page.getByText("call Plain")).toHaveCount(0);
+    await expect(todos).toHaveCount(0);
+  });
+
+  test("a click on a row opens the note it names with the cursor on that line", async ({
+    page,
+    stack,
+  }) => {
+    const { met } = await maxCard(page, stack.vault);
+    await met.getByRole("button", { name: /FDE Check-in/ }).click({ timeout: 15_000 });
+    await expect(
+      page.getByRole("tab", { name: "2026-09-28 FDE Check-in", selected: true }),
+    ).toBeVisible();
+    await expect(page.locator(".cm-content:focus .cm-activeLine")).toHaveText(
+      "Max Bosch and me, 20 min",
+    );
+  });
+
+  test("a person nothing links gets the sentence that says how the card fills", async ({
+    page,
+    stack,
+  }) => {
+    await maxCard(page, stack.vault, "03 Areas/08 People/Nobody.md");
+    await expect(
+      page.getByText("nothing links [[Nobody]] yet. Write the link into a todo and it shows here."),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(
+      page.getByRole("heading", { name: /open todos|last meetings|recently done/ }),
+    ).toHaveCount(0);
+  });
+
+  test.describe("on a phone", () => {
+    test.use(phone);
+
+    test("every row of the card is at least 44 px tall", async ({ page, stack }) => {
+      const { todos } = await maxCard(page, stack.vault);
+      await expect(todos).toBeVisible({ timeout: 15_000 });
+      const rows = page.locator("section[aria-label] button");
+      await expect(rows).toHaveCount(3);
+      for (const row of await rows.all()) expect(await tapHeight(row)).toBeGreaterThanOrEqual(44);
+    });
+  });
 });
