@@ -133,15 +133,16 @@ export function KeyHelp({ onClose }: { onClose: () => void }) {
   // whatever was focused when it opened, and hands the focus back on the way
   // out. Restoring what held it beats naming the editor: the same key opens this
   // from the file tree, and closing there belongs back in the tree.
-  // Read on the first render, before the phone sheet takes the focus for its panel:
-  // in an effect the sheet's panel would already be the element that held it.
-  const [opener] = useState<Element | null>(() => document.activeElement);
+  // Read on the first render, before the phone sheet takes the focus for its panel. From the
+  // palette that is its field, gone by the effect, whose cleanup has handed the focus back (#2038).
+  const [first] = useState<Element | null>(() => document.activeElement);
   useEffect(() => {
+    const opener = first?.isConnected ? first : document.activeElement;
     field.current?.focus();
     return () => {
       if (opener instanceof HTMLElement) opener.focus();
     };
-  }, [opener]);
+  }, [first]);
 
   const others: Group[] = [
     {
