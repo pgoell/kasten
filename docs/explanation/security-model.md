@@ -68,8 +68,9 @@ other path `404`. The backend then refuses every path outside `/share/*` when
 the request's `Host` is `KASTEN_SHARE_HOST`. A fault in either lock leaves the
 other standing.
 
-The routes behind this edge are the six `/share/` routes, which read and write
-the notes in the shared folder and nothing else. The shell and the chat pane sit
+The routes behind this edge are the `/share/` routes, which read and write the
+notes in the shared folder, and read the recipe notes by name, and nothing
+else. The shell and the chat pane sit
 behind the main gate, on routes this host does not carry, so the second person
 has no path to them. The table is in
 [Reverse-proxy routes](/reference/reverse-proxy-routes.md#the-share-host).

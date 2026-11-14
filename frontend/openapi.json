@@ -7586,6 +7586,75 @@
         }
       }
     },
+    "/share/recipes": {
+      "get": {
+        "tags": [
+          "share"
+        ],
+        "summary": "List Recipes",
+        "description": "Every recipe note outside the archive that its bare name reaches, by title.",
+        "operationId": "list_recipes_share_recipes_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SharedRecipeEntry"
+                  },
+                  "type": "array",
+                  "title": "Response List Recipes Share Recipes Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/share/recipes/{name}": {
+      "get": {
+        "tags": [
+          "share"
+        ],
+        "summary": "Read Recipe",
+        "description": "One recipe to cook from: its lines and steps, without numbers or the meals cooked.",
+        "operationId": "read_recipe_share_recipes__name__get",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedRecipe"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/share/events": {
       "get": {
         "tags": [
@@ -16620,6 +16689,61 @@
         "title": "SharedDay",
         "description": "A day that has a planned meal, its meals lunch first."
       },
+      "SharedIngredient": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "group": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quantity"
+          },
+          "quantity_to": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quantity To"
+          },
+          "rest": {
+            "type": "string",
+            "title": "Rest"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text",
+          "group",
+          "quantity",
+          "quantity_to",
+          "rest"
+        ],
+        "title": "SharedIngredient",
+        "description": "An ingredient line, its barcode taken off, with the number a view scales."
+      },
       "SharedMeal": {
         "properties": {
           "slot": {
@@ -16664,6 +16788,17 @@
               }
             ],
             "title": "Cook"
+          },
+          "recipe": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipe"
           }
         },
         "type": "object",
@@ -16672,10 +16807,141 @@
           "kind",
           "dish",
           "servings",
-          "cook"
+          "cook",
+          "recipe"
         ],
         "title": "SharedMeal",
         "description": "One meal: the dish, whether it comes from a batch, how many it cooks, and who cooks."
+      },
+      "SharedRecipe": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "servings": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Servings"
+          },
+          "time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "ingredients": {
+            "items": {
+              "$ref": "#/components/schemas/SharedIngredient"
+            },
+            "type": "array",
+            "title": "Ingredients"
+          },
+          "steps": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Steps"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "title",
+          "servings",
+          "time",
+          "tags",
+          "source",
+          "ingredients",
+          "steps"
+        ],
+        "title": "SharedRecipe",
+        "description": "A recipe as the lists app shows it to cook from. The meals cooked stay in kasten."
+      },
+      "SharedRecipeEntry": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "servings": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Servings"
+          },
+          "time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "title",
+          "servings",
+          "time",
+          "tags"
+        ],
+        "title": "SharedRecipeEntry",
+        "description": "A recipe as the Rezepte tab lists it."
       },
       "ShoppingWritten": {
         "properties": {

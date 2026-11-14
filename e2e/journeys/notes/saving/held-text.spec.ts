@@ -407,3 +407,63 @@ test.describe("leaving the editor route by the browser's Back", () => {
     expect(shown?.includes(TYPED)).toBe(true);
   });
 });
+
+test.describe("the save sign's panel", () => {
+  const detail = (page: Page) => page.getByTestId("status-detail");
+
+  /** Opens Welcome with a route that answers each PUT of it with a full disk while `failing.on` holds. */
+  async function fullDisk(page: Page) {
+    const failing = { on: true };
+    await notePuts(page, WELCOME, (route) =>
+      failing.on ? route.fulfill({ status: 507 }) : route.fallback(),
+    );
+    await openApp(page);
+    await openWelcome(page);
+    return failing;
+  }
+
+  /** Types a line in vim and waits for the sign to read `status`; a click on the bar took the focus. */
+  async function typeLine(page: Page, line: string, status: string) {
+    await page.locator(".cm-content").first().click();
+    await expect(focused(page)).toHaveCount(1);
+    await page.keyboard.type(`Go${line}`);
+    await page.keyboard.press("Escape");
+    await expect.poll(async () => (await bar(page)).status, { timeout: 15_000 }).toBe(status);
+  }
+
+  test("opens out why a write failed and what to do on a click, every button of the bar out of the tab order", async ({
+    page,
+  }) => {
+    await fullDisk(page);
+    await typeLine(page, TYPED, "Could not save");
+    await page.getByTestId("save-status").click();
+    await expect(detail(page)).toHaveText(
+      "Could not save\nPUT /api/files/Welcome.md failed with 507\n" +
+        "Your text is still here. :w or ctrl+s writes it again, :e! drops it for the vault's.",
+    );
+    const order = await page
+      .locator("footer button")
+      .evaluateAll((all) => all.map((button) => button.getAttribute("tabindex")));
+    expect([order.length > 1, new Set(order)]).toEqual([true, new Set(["-1"])]);
+  });
+
+  test("shuts with the failure it showed, so the next arrives shut, and a good save opens nothing", async ({
+    page,
+  }) => {
+    const failing = await fullDisk(page);
+    await typeLine(page, TYPED, "Could not save");
+    await page.getByTestId("save-status").click();
+    await expect(detail(page)).toBeVisible();
+
+    failing.on = false;
+    await typeLine(page, "A second line.", "Saved");
+    failing.on = true;
+    await typeLine(page, "A third line.", "Could not save");
+    await expect(detail(page)).toHaveCount(0);
+
+    failing.on = false;
+    await typeLine(page, "A fourth line.", "Saved");
+    await page.getByTestId("save-status").click();
+    await expect(detail(page)).toHaveCount(0);
+  });
+});

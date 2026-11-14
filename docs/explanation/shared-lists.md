@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: Shared lists
-description: Why the shared shopping and todo lists are plain lines in two vault notes, how an item is given to a person and who ticked it, why a second gate and a /share prefix stand in front of them rather than a second user, what the second person can reach, and how parts, an edit, a delete, a conflict, a live update, an offline change, Alle and Meine, the look and Clear behave.
+description: Why the shared shopping and todo lists are plain lines in two vault notes, how an item is given to a person and who ticked it, why a second gate and a /share prefix stand in front of them rather than a second user, what the second person can reach, why the recipes are read by name, and how parts, an edit, a delete, a conflict, a live update, an offline change, Alle and Meine, the look and Clear behave.
 tags: [share, lists, security, todo]
 status: stable
 ---
@@ -121,7 +121,7 @@ left out, whatever filter is chosen.
 
 The lists page draws with the tokens of the main app, so its colours, type and
 spacing match the rest of kasten, and it takes its shapes from the todo pane: a
-small label for a title, tabs on an accent line for Einkauf, Todo and Essen, pill chips
+small label for a title, tabs on an accent line for Einkauf, Todo, Essen and Rezepte, pill chips
 for Alle and Meine, flat rows under small headings, and the pane's rounded
 square boxes, edged when open and filled green when done. It is light by default and follows the phone's
 colour scheme, changing when the phone does. It does not read the choice made in
@@ -179,8 +179,9 @@ behind a gate that admits two people.
 
 Through the share host, the person reaches:
 
-* ten routes under `/share/`, which read and write the notes in `05 Shared`
+* eleven routes under `/share/` that read and write the notes in `05 Shared`
   and nothing else
+* two routes that read the recipe notes, wherever they sit, and nothing more
 * the app's own pages and files
 
 The person cannot reach any other note, `/api/`, the agent routes, the
@@ -188,6 +189,30 @@ terminal or the chat pane. A name that resolves outside `05 Shared` answers
 `404`, and so does a symlink that points out of it, or a name with a slash in
 it. The event stream carries only the events for paths inside the folder,
 because another note's path in a stream would leak that note's name.
+
+## Recipes by name
+
+The week plans sit in `05 Shared`, but the recipes they cook do not: a recipe
+is any note with `type: Recipe`, in whatever folder it was filed. The person
+who cooks from the plan needs the recipe, so the share host reads recipe notes
+outside its folder. It is the one place it does, and it is held three ways.
+
+* Only a note whose frontmatter says `type: Recipe` answers, and none in the
+  archive. Any other name answers `404`, so the routes cannot be used to ask
+  whether some other note exists.
+* A recipe goes by its name, the one a bare `[[name]]` reaches, never by its
+  path. A path would tell the share host the vault's folders, and a name with a
+  slash in it answers `404`.
+* The routes read and never write, and they carry the lines and steps only. The
+  `## Gekocht` lines stay in kasten, and so do the numbers, which would cost an
+  Open Food Facts lookup per line on every open.
+
+The Rezepte tab lists the recipes with a search over titles and tags. A recipe
+opens with a servings stepper that scales each line's amount as kasten's card
+does, its groups and its steps. In Essen, a dish whose line links a recipe note
+opens it, and the phone's back button returns to Essen. A change to a recipe
+sends no event to the share host, since the note is outside the folder, so the
+app reads it each time it opens.
 
 ## How a conflict is settled
 
@@ -235,7 +260,7 @@ them back.
 
 ## Related
 
-* [HTTP API: shared lists](/reference/http-api/shared-lists.md): the ten routes, with what each takes and answers
+* [HTTP API: shared lists](/reference/http-api/shared-lists.md): the thirteen routes, with what each takes and answers
 * [Reverse-proxy routes](/reference/reverse-proxy-routes.md): the share host's table and its checks
 * [Security model](/explanation/security-model.md): the second edge and the rest of the gate
 * [The agent boundary](/explanation/the-agent-boundary.md): the other route into the vault, and how it is held

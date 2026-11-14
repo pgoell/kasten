@@ -1,7 +1,9 @@
 import { type KeyboardEvent, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import "../styles/lists.css";
+import "../styles/food/lists-food.css";
 import { followScheme } from "./follow-scheme";
-import { MealsTab } from "./lists-meals";
+import { MealsTab } from "./food/meals";
+import { RecipesTab } from "./food/recipes";
 import { Row } from "./lists-row";
 import { createListsStore, type Item, LISTS, type ListsStore, type Snapshot } from "./lists-store";
 import {
@@ -18,8 +20,10 @@ import { tickLine } from "./tick-line";
 /** The done items shown before "Erledigt" is unfolded. */
 const FOLDED = 3;
 
-/** The read-only tab after the lists: the week plans' meals. */
+/** The read-only tabs after the lists: the week plans' meals, and the recipes to cook them. */
 const MEALS = "Essen";
+const RECIPES = "Rezepte";
+const READ_ONLY = [MEALS, RECIPES];
 
 /** How long a delete waits for Rückgängig before it is sent. */
 const UNDO_MS = 5000;
@@ -59,6 +63,8 @@ function Lists({ store }: { store: ListsStore }) {
   // Items with their parts folded away, by row key. Parts show by default.
   const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
   const [pending, setPending] = useState<Pending | null>(null);
+  // The recipe open in Rezepte. Opening one pushes a history entry, so the phone's back closes it.
+  const [recipe, setRecipe] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const field = useRef<HTMLInputElement>(null);
   const now = Date.now();
@@ -71,6 +77,16 @@ function Lists({ store }: { store: ListsStore }) {
     setPending(null);
   };
   useEffect(() => () => sendPending.current(), []);
+
+  useEffect(() => {
+    const onPop = (event: PopStateEvent) => {
+      const { tab, recipe } = pageOf(event.state);
+      setRecipe(recipe);
+      if (tab !== null) setCurrent(tab);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
 
   // "Meine": the items for you, and the ones for nobody. With no name read, that is the nobody ones.
   const shown = (item: Item) => {
@@ -86,10 +102,26 @@ function Lists({ store }: { store: ListsStore }) {
   const loaded = snap.lists[current] !== undefined;
   const chips = suggestionsFor(snap, current, draft);
 
+  const reading = READ_ONLY.includes(current);
+
   function choose(name: string): void {
     setCurrent(name);
     setMenu(null);
     setUnder(null);
+    setRecipe(null);
+  }
+
+  function openRecipe(name: string): void {
+    // The entry under the recipe remembers the tab it was opened from, for back to return to.
+    window.history.replaceState({ tab: current }, "");
+    window.history.pushState({ tab: RECIPES, recipe: name }, "");
+    setCurrent(RECIPES);
+    setRecipe(name);
+  }
+
+  function closeRecipe(): void {
+    if (pageOf(window.history.state).recipe !== null) window.history.back();
+    else setRecipe(null);
   }
 
   function add(text: string): void {
@@ -181,7 +213,7 @@ function Lists({ store }: { store: ListsStore }) {
             </a>
           )}
           {/* biome-ignore lint/a11y/useSemanticElements: a pair of filter chips, not a form group */}
-          <div className="filters" role="group" aria-label="Anzeige" hidden={current === MEALS}>
+          <div className="filters" role="group" aria-label="Anzeige" hidden={reading}>
             <button type="button" aria-pressed={!mine} onClick={() => setMine(false)}>
               Alle
             </button>
@@ -202,9 +234,16 @@ function Lists({ store }: { store: ListsStore }) {
               {name} <span className="count">{openCount(snap, name)}</span>
             </button>
           ))}
-          <button type="button" aria-pressed={current === MEALS} onClick={() => choose(MEALS)}>
-            {MEALS}
-          </button>
+          {READ_ONLY.map((name) => (
+            <button
+              key={name}
+              type="button"
+              aria-pressed={name === current}
+              onClick={() => choose(name)}
+            >
+              {name}
+            </button>
+          ))}
         </div>
         {!snap.online && <p className="status pill">Offline, wird gesendet</p>}
         {snap.signIn && <p className="status pill">Anmelden nötig</p>}
@@ -224,9 +263,15 @@ function Lists({ store }: { store: ListsStore }) {
         </div>
       )}
 
-      <MealsTab shown={current === MEALS} me={snap.me} />
+      <MealsTab shown={current === MEALS} me={snap.me} onRecipe={openRecipe} />
+      <RecipesTab
+        shown={current === RECIPES}
+        open={recipe}
+        onOpen={openRecipe}
+        onBack={closeRecipe}
+      />
 
-      <main className="lists" hidden={current === MEALS}>
+      <main className="lists" hidden={reading}>
         {loaded && open.length === 0 && done.length === 0 && (
           <p className="empty">Nichts auf der Liste</p>
         )}
@@ -274,7 +319,7 @@ function Lists({ store }: { store: ListsStore }) {
         </div>
       )}
 
-      <footer className="composer" hidden={current === MEALS}>
+      <footer className="composer" hidden={reading}>
         {under !== null && (
           <div className="under">
             <span>Teil von „{under}“</span>
@@ -320,6 +365,14 @@ function Lists({ store }: { store: ListsStore }) {
       </footer>
     </div>
   );
+}
+
+/** The tab and open recipe a history entry of this page holds; anything else holds neither. */
+function pageOf(state: unknown): { tab: string | null; recipe: string | null } {
+  if (typeof state !== "object" || state === null) return { tab: null, recipe: null };
+  const tab = "tab" in state && typeof state.tab === "string" ? state.tab : null;
+  const recipe = "recipe" in state && typeof state.recipe === "string" ? state.recipe : null;
+  return { tab, recipe };
 }
 
 /**

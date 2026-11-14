@@ -1,10 +1,11 @@
 /**
  * The Essen tab: the week plans' meals from today on, read-only, as `GET /share/meals` gives
- * them. Planning happens in kasten; `docs/reference/food/meal-plan.md` holds the format.
+ * them. Planning happens in kasten; `docs/reference/food/meal-plan.md` holds the format. A dish
+ * with a recipe note opens it.
  */
 
 import { useEffect, useState } from "react";
-import { localDay, personOf } from "./lists-view";
+import { localDay, personOf } from "../lists-view";
 
 export type SharedMeal = {
   slot: "lunch" | "dinner";
@@ -12,6 +13,7 @@ export type SharedMeal = {
   dish: string;
   servings: number | null;
   cook: string | null;
+  recipe: string | null;
 };
 export type SharedDay = { date: string; meals: SharedMeal[] };
 
@@ -86,12 +88,14 @@ function useMeals(): { days: SharedDay[] | null; failed: string | null; today: s
   return { days, failed, today };
 }
 
+type MealsProps = { me: string | null; onRecipe: (name: string) => void };
+
 /** The tab, read only while it is the one `shown`, so the lists open no second stream. */
-export function MealsTab({ shown, me }: { shown: boolean; me: string | null }) {
-  return shown ? <Meals me={me} /> : null;
+export function MealsTab({ shown, ...props }: MealsProps & { shown: boolean }) {
+  return shown ? <Meals {...props} /> : null;
 }
 
-function Meals({ me }: { me: string | null }) {
+function Meals({ me, onRecipe }: MealsProps) {
   const { days, failed, today } = useMeals();
   return (
     <main className="lists meals">
@@ -106,11 +110,22 @@ function Meals({ me }: { me: string | null }) {
             {day.meals.map((meal) => {
               const { dish, rest } = mealWords(meal);
               const chip = cookChip(meal, me);
+              const recipe = meal.recipe;
               return (
                 <div key={`${meal.slot}:${meal.dish}`} className="meal">
                   <span className="meal-slot">{meal.slot === "lunch" ? "Mittag" : "Abend"}</span>
                   <span className="meal-dish">
-                    {dish}
+                    {recipe === null ? (
+                      dish
+                    ) : (
+                      <button
+                        type="button"
+                        className="meal-recipe"
+                        onClick={() => onRecipe(recipe)}
+                      >
+                        {dish}
+                      </button>
+                    )}
                     {rest && <span className="meal-rest"> · Rest</span>}
                   </span>
                   {chip !== null && (

@@ -246,7 +246,29 @@ async def read_meals(
         settings.share_folder,
         share.names(settings),
         today or date.today(),
+        settings.archive_path,
     )
+
+
+@router.get("/recipes")
+async def list_recipes(
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> list[plan.SharedRecipeEntry]:
+    """Every recipe note outside the archive that its bare name reaches, by title."""
+    book = await asyncio.to_thread(plan.Cookbook, settings.vault_path, settings.archive_path)
+    return await asyncio.to_thread(book.entries)
+
+
+@router.get("/recipes/{name}")
+async def read_recipe(
+    name: str, settings: Annotated[Settings, Depends(get_settings)]
+) -> plan.SharedRecipe:
+    """One recipe to cook from: its lines and steps, without numbers or the meals cooked."""
+    book = await asyncio.to_thread(plan.Cookbook, settings.vault_path, settings.archive_path)
+    found = await asyncio.to_thread(book.recipe, name)
+    if found is None:
+        raise HTTPException(status_code=404, detail="No such recipe")
+    return found
 
 
 @router.get("/events")

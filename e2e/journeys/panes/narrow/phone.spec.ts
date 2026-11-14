@@ -1,7 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Page } from "@playwright/test";
-import { phone, tapHeight } from "../../../harness/app.ts";
+import { panes, phone, tapHeight, today } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
 import { bothTexts, OUTSIDE, sign, welcome } from "../conflict/conflicted.ts";
 
@@ -88,6 +88,84 @@ test.describe("on a phone", () => {
     await expect(page.getByRole("dialog", { name: "Search notes" })).toBeVisible();
     await tapSheet(page);
     await expect(page.getByRole("dialog")).toHaveCount(0);
+  });
+
+  test("today, todos and chat each open their own pane from the toolbar, with no dialog or drawer", async ({
+    page,
+  }) => {
+    await load(page);
+    await expect(toolbar(page).getByRole("button")).toHaveCount(6);
+    // Off today's note first, or its button would have nothing to change.
+    await page.getByRole("button", { name: "Find a note" }).tap();
+    await page.getByRole("combobox").fill("Welcome");
+    await page
+      .getByRole("option", { name: /Welcome/ })
+      .first()
+      .tap();
+    const shown = () => panes(page).locator(".cm-content").first().textContent();
+    await expect.poll(shown).toContain("front door");
+    const alone = async () => [
+      await page.getByRole("dialog").count(),
+      await page.getByRole("navigation", { name: "Vault" }).isVisible(),
+    ];
+
+    await page.getByRole("button", { name: "Open today's note" }).tap();
+    await expect
+      .poll(async () => [
+        ...(await alone()),
+        await panes(page).getByRole("heading", { name: today(), exact: true }).isVisible(),
+      ])
+      .toEqual([0, false, true]);
+    await page.getByRole("button", { name: "Open the todo pane" }).tap();
+    // The pane, not the palette's todo overlay, which is a dialog.
+    await expect(page.getByRole("region", { name: "Todos" })).toBeVisible();
+    expect(await alone()).toEqual([0, false]);
+    await page.getByRole("button", { name: "Open the chat with Claude Code" }).tap();
+    // The composer by name: the todo pane's filter is a textbox too.
+    await expect(page.getByRole("textbox", { name: "Message" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Todos" })).toHaveCount(0);
+    expect(await alone()).toEqual([0, false]);
+  });
+
+  test("the next-pane button reads the pane in view, a tap moves on, and each button is 44 px", async ({
+    page,
+  }) => {
+    await load(page);
+    for (const _ of [1, 2]) {
+      await page.getByRole("button", { name: "Run a command by name" }).tap();
+      await page.getByRole("option", { name: /^Split the pane left and right/ }).tap();
+    }
+    const next = page.getByRole("button", { name: "Move to the next pane" });
+    await expect(next).toHaveText(/^[123]\/3$/);
+    const at = Number((await next.textContent())?.[0]);
+    await next.tap();
+    await expect(next).toHaveText(`${(at % 3) + 1}/3`);
+    const sizes = await toolbar(page)
+      .getByRole("button")
+      .evaluateAll((all) => all.map((b) => b.getBoundingClientRect()))
+      .then((boxes) =>
+        boxes.map((box) => box.width >= 44 && Math.round(box.height * 64) / 64 >= 44),
+      );
+    expect(sizes).toEqual(Array(7).fill(true));
+  });
+
+  test("a tap on the toolbar leaves the focus in the editor, so the palette shut gives it back there", async ({
+    page,
+  }) => {
+    await load(page);
+    const editor = page.locator(".cm-content").first();
+    await editor.tap();
+    await expect(editor).toBeFocused();
+    await page.getByRole("button", { name: "Run a command by name" }).tap();
+    await expect(page.getByRole("dialog", { name: "Run a command" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(editor).toBeFocused();
+    expect(
+      await toolbar(page)
+        .getByRole("button")
+        .evaluateAll((all) => all.map((button) => button.getAttribute("tabindex"))),
+    ).toEqual(Array(6).fill("-1"));
   });
 
   test("a tap inside the search shuts nothing, and the whole panel stays on the screen (#1782)", async ({
