@@ -16,7 +16,12 @@ import { tagCompletions, vaultTags } from "@/lib/markdown/tag";
 import { backticks } from "@/lib/notes/editor/backticks";
 import { FORMAT } from "@/lib/notes/editor/buffer-keys";
 import { fromVault } from "@/lib/notes/editor/buffer-writes";
-import { editorCommands, forwardCommands, leaderPanel } from "@/lib/notes/editor/editor-commands";
+import {
+  altGrTyping,
+  editorCommands,
+  forwardCommands,
+  leaderPanel,
+} from "@/lib/notes/editor/editor-commands";
 import { byName, reloadHandler, save, saveHandler } from "@/lib/notes/editor/editor-ex";
 import {
   type FileTarget,
@@ -198,6 +203,7 @@ export function createNoteView(o: {
       doc: o.doc,
       selection: o.selection,
       extensions: [
+        altGrTyping,
         // Must come first: whichever keymap is registered earliest wins, and
         // vim's bindings have to beat the ones basicSetup installs.
         modal.of(modalKeys(o.vim)),

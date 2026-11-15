@@ -1,5 +1,5 @@
 import { type Extension, Facet } from "@codemirror/state";
-import { ViewPlugin } from "@codemirror/view";
+import { EditorView, ViewPlugin } from "@codemirror/view";
 import { type CodeMirrorV, getCM, Vim } from "@replit/codemirror-vim";
 import { FORMAT, LEADER_EDITS } from "@/lib/notes/editor/buffer-keys";
 import { toggleMark } from "@/lib/notes/editor/format-commands";
@@ -126,16 +126,16 @@ export const leaderPanel = ViewPlugin.define((view) => {
   return { destroy: () => view.dom.removeEventListener("keydown", onKeyDown, true) };
 });
 
-// Windows reads AltGr as Ctrl+Alt, so vim named AltGr's `}` `<C-A-}>` and ran nothing (#2073).
-// A typed ASCII character reaches vim bare; a non-ASCII one stays vim's, which reads its key.
-const vimKeyFromEvent = Vim.vimKeyFromEvent;
-Vim.vimKeyFromEvent = (event, vim) =>
-  vimKeyFromEvent(
-    (event.ctrlKey || event.altKey) && !isChord(event) && /^[!-~]$/.test(event.key)
-      ? ({ key: event.key } as KeyboardEvent)
-      : event,
-    vim,
-  );
+// Only Windows reads AltGr as Ctrl+Alt (#2073, #2075); elsewhere Ctrl+Alt is a chord.
+const altGrIsCtrlAlt = /Win/.test(navigator.platform);
+// A typed ASCII character then reads bare to vim and CodeMirror; a non-ASCII one stays vim's.
+const typed = (event: KeyboardEvent) => {
+  const altGr = event.ctrlKey ? event.altKey && altGrIsCtrlAlt : event.altKey;
+  if (altGr && !isChord(event) && /^[!-~]$/.test(event.key))
+    Object.defineProperties(event, { ctrlKey: { value: false }, altKey: { value: false } });
+};
+// The keypress too: vim reads the key after a dead key from it.
+export const altGrTyping = EditorView.domEventObservers({ keydown: typed, keypress: typed });
 
 // Vim's built-in `<Space>` (bound to `l`) would shadow `<Space>b`. Its context is
 // none, so unmapping passes none; the typed signature wrongly demands a string.
