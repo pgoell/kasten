@@ -447,3 +447,32 @@ test.describe("the open list's states", () => {
       .toBe("- [w] hand back the keys 👤 2026-08-03");
   });
 });
+
+// AltGr reads as Ctrl+Alt on Windows and Option as Alt on a Mac: either types `@` on a German layout.
+for (const held of ["Control+Alt", "Alt"])
+  test(`@ typed with ${held} held tags the row #agent, and is no palette chord (#2068)`, async ({
+    page,
+    stack,
+  }) => {
+    await openTodos(page);
+    const row = await underCursor(page, stack.vault);
+    await page.keyboard.press(`${held}+@`);
+    await expect
+      .poll(async () =>
+        (await noteText(stack.vault, row.path))
+          .split("\n")
+          .some((line) => line.includes(row.words) && line.includes("#agent")),
+      )
+      .toBe(true);
+  });
+
+test("Ctrl+Shift+P in the todo pane opens the palette and sets no row to doing (#2068)", async ({
+  page,
+  stack,
+}) => {
+  await openTodos(page);
+  const row = await underCursor(page, stack.vault);
+  await page.keyboard.press("Control+Shift+P");
+  await expect(page.getByRole("dialog", { name: "Run a command" })).toBeVisible();
+  expect(await lineWith(stack.vault, row.path, row.words)).toBe(`- [ ] ${row.words}`);
+});

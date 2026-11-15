@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import { TERMINAL_CHORD } from "./key-bindings";
+import { isTerminalChord, TERMINAL } from "./key-bindings";
+
+const PALETTE_KEY = TERMINAL.find((row) => row.command === "openPalette")?.key;
 
 /**
  * Whether a key typed here belongs to the text in front of it. In a note's editor `?` stays vim's
@@ -41,14 +43,10 @@ export function useKeyHelp() {
 export function usePaletteChord(openPalette: () => void) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.key !== "P") return;
-      if (
-        (Object.keys(TERMINAL_CHORD) as (keyof typeof TERMINAL_CHORD)[]).some(
-          (modifier) => event[modifier] !== TERMINAL_CHORD[modifier],
-        )
-      )
+      if (event.defaultPrevented || event.key !== PALETTE_KEY || !isTerminalChord(event)) return;
+      // Not an inert one: the which-key panel stays mounted, inert, while it fades out.
+      if (document.querySelector('[role="dialog"][aria-modal="true"]:not([inert])') !== null)
         return;
-      if (document.querySelector('[role="dialog"][aria-modal="true"]') !== null) return;
       event.preventDefault();
       openPalette();
     };
