@@ -67,16 +67,16 @@ teardown removes the containers. Unlike `fe:e2e`, it stubs no API.
 
 The journeys sit in `e2e/journeys/`: review in `review/` (a sitting, a question jotted in one, a cloze card, Enter on the overview's rows, the daily limits, the sitting's keys with vim on and off, and the deck notes that could not be read), panes in
 `panes/` (layout and the top bar, the pane and tab keys, pane acts whose write is held while the focus moves, links to pages and assets; a note changed on disk under
-unsaved text and a conflicted note reopened in `panes/conflict/`; the stored workspace across a reload, held text in a restored pane and a URL over it in `panes/workspace/`; the drawer, phone toolbar, key help, a resized window and panel sheets in `panes/narrow/`), notes, the finder, a tree row dragged, the new note prompt's folder rows, where a note opens and the status bar's save sign in `notes/`, with saving in `notes/saving/` (edits,
+unsaved text and a conflicted note reopened in `panes/conflict/`; the stored workspace across a reload, held text in a restored pane and a URL over it in `panes/workspace/`; the drawer, phone toolbar, key help, a resized window, panel sheets and todo pane taps in `panes/narrow/`), notes, the finder, a tree row dragged, the new note prompt's folder rows, where a note opens and the status bar's save sign in `notes/`, with saving in `notes/saving/` (edits,
 mention links, held text, the editor's build, live preview, relation names) and the content search and an epub opened while the listing loads in `notes/search/`, the todo list, board, panel, presses,
 twin ids, a person's card and the shared lists in `todos/`, capture, the web page import, the chat pane's replies, the log, the Today pane's failed limits and the tokens page in `day/`, and the book finder, book, video and clip panes and csv and svg files in
 `media/`. `harness.spec.ts` checks the harness itself. Each journey is a
-thing done daily; each that writes checks the file on disk. Twenty-seven files
+thing done daily; each that writes checks the file on disk. Twenty-eight files
 also run journeys at phone width, 414 px with touch, where the editor starts
 without vim: `review/sitting.spec.ts`; `notes/finder.spec.ts`, `notes/status-bar.spec.ts`, the three
 `notes/search/content-search-*.spec.ts`, `notes/search/book-open-listing.spec.ts`, `notes/saving/edits.spec.ts` and
 `notes/saving/mentions.spec.ts`; `panes/links.spec.ts`, `panes/narrow/drawer.spec.ts`,
-`panes/narrow/phone.spec.ts`, `panes/narrow/key-help.spec.ts` and `panes/workspace/reload.spec.ts`;
+`panes/narrow/phone.spec.ts`, `panes/narrow/key-help.spec.ts`, `panes/narrow/todo-pane.spec.ts` and `panes/workspace/reload.spec.ts`;
 `todos/list.spec.ts`, `todos/board.spec.ts`, `todos/twin-ids.spec.ts`,
 `todos/person-card.spec.ts` and `todos/lists.spec.ts`; `day/capture.spec.ts` and `day/log.spec.ts`; and
 `media/book.spec.ts`, `media/book-finder.spec.ts`, `media/clip.spec.ts`,
@@ -84,12 +84,12 @@ without vim: `review/sitting.spec.ts`; `notes/finder.spec.ts`, `notes/status-bar
 `phone` in `e2e/harness/app.ts` sets that up, and
 `git grep -l 'test.use(phone)' e2e/journeys` lists them.
 A runner has no YouTube: the video journey serves a fake player per
-embed (`fakeYouTube` in `e2e/harness/youtube.ts`) and aborts any other request
-that would leave the box.
+embed (`fakeYouTube` in `e2e/harness/youtube.ts`) and aborts any request
+leaving the box.
 The journeys block the service worker: Chromium crashed closing a context while
 it installed (#1606). `mise run fe:e2e` checks the offline worker.
 
-Install Chromium once, after `mise run e2e` has put the packages in `e2e/node_modules`:
+Install Chromium once, after `mise run e2e` has filled `e2e/node_modules`:
 
 ```sh
 e2e/node_modules/.bin/playwright install chromium
@@ -101,20 +101,20 @@ To run one journey:
 cd e2e && mise exec -- bunx playwright test journeys/<file>
 ```
 
-On failure, the run writes a trace and a screenshot to `e2e/test-results/`. Open
+A failure writes a trace and a screenshot to `e2e/test-results/`. Open
 a trace from `e2e/` with `bunx playwright show-trace <zip>`.
 
 CI's E2E jobs run the same journeys on every pull request, split in two by
 `E2E_SHARD=1/2` and `2/2`, each on 3 workers where a local run takes 4. Set
-`E2E_SHARD` yourself to run one slice locally. They are not required checks
+`E2E_SHARD` to run one slice locally. They are not required checks
 yet. Each slice's `e2e-results-<n>` artifact holds its traces and screenshots.
 
 ## The hooks
 
 Lefthook runs some of this for you, from `.config/lefthook.yaml`:
 
-* `pre-commit` runs `mise run lint`, which stays fast on purpose, and the file
-  size and folder size checks on the staged files.
+* `pre-commit` runs `mise run lint`, kept fast on purpose, and the file
+  and folder size checks on the staged files.
 * `pre-push` runs `mise run test` and `mise run fe:typecheck`.
 
 Anything slow enough to make you reach for `--no-verify` belongs in pre-push,
