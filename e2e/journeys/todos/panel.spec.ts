@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import type { Page, Route } from "@playwright/test";
 import {
   cursorTo,
   leader,
@@ -52,18 +52,20 @@ test("the todos panel draws the open todos with their state, narrows on the answ
 /** `days` after today, as the vault writes a date. */
 const plus = (days: number) => localDate(new Date(Date.now() + days * 86_400_000));
 
-/** Opens the todo pane's add prompt, counting the PUTs the page sends from here on. */
+/** Opens the todo pane's add prompt, counting the note writes the page sends from here on. */
 async function openPrompt(page: Page) {
-  const puts: string[] = [];
+  // POST too: the first add of the day creates today's note.
+  const writes: string[] = [];
   page.on("request", (request) => {
-    if (request.method() === "PUT") puts.push(request.url());
+    if (["POST", "PUT"].includes(request.method()) && request.url().includes("/api/files/"))
+      writes.push(request.url());
   });
   await openApp(page);
   await leader(page, "gt");
   await expect(page.getByRole("button", { name: "open water the tomatoes" })).toBeVisible();
   await page.keyboard.press("a");
   const dialog = page.getByRole("dialog", { name: "Add todo" });
-  return { puts, dialog, field: dialog.getByLabel("todo"), preview: dialog.locator("output") };
+  return { writes, dialog, field: dialog.getByLabel("todo"), preview: dialog.locator("output") };
 }
 
 const hints = (page: Page) => page.getByTestId("todo-hint");
@@ -120,28 +122,28 @@ test.describe("the todo prompt", () => {
   });
 
   test("Enter on a hint takes the hint and writes no todo", async ({ page }) => {
-    const { puts, dialog, field } = await openPrompt(page);
+    const { writes, dialog, field } = await openPrompt(page);
     await page.keyboard.type("call the dentist");
     await page.keyboard.press("Tab");
     await expect(hints(page).first()).toBeFocused();
     await page.keyboard.press("Enter");
     await expect(field).toHaveValue("call the dentist due:");
     await expect(dialog).toBeVisible();
-    expect(puts).toEqual([]);
+    expect(writes).toEqual([]);
   });
 
   test("Escape closes it and writes nothing; Enter on an empty field writes nothing and previews nothing", async ({
     page,
     stack,
   }) => {
-    const { puts, dialog, preview } = await openPrompt(page);
+    const { writes, dialog, preview } = await openPrompt(page);
     await page.keyboard.press("Enter");
     await expect(dialog).toBeVisible();
     await expect(preview).toHaveText("");
     await page.keyboard.type("call the dentist");
     await page.keyboard.press("Escape");
     await expect(dialog).toBeHidden();
-    expect(puts).toEqual([]);
+    expect(writes).toEqual([]);
     // A todo added next lands after any write the Escape sent, so its line shows none came.
     await page.keyboard.press("a");
     await page.keyboard.type("buy milk");
@@ -269,4 +271,129 @@ test("the todo pane counts parts on their todo, indents them under it, names one
     expect.stringContaining("0/1"),
     expect.stringMatching(/⏫.*◆/),
   ]);
+});
+
+const VIEWS = "99 Misc/01 Config/todo-views.md";
+const DUE = {
+  "02 Projects/Due.md": `- [ ] pay the rent 📅 ${plus(0)}\n- [ ] mow the lawn 📅 ${plus(0)}\n- [/] paint the fence\n`,
+};
+
+/** Opens the todo pane on the vault as it stands, counting the creates of the views note. */
+async function viewsPane(page: Page) {
+  const creates: string[] = [];
+  page.on("request", (request) => {
+    const path = decodeURIComponent(new URL(request.url()).pathname);
+    if (request.method() === "POST" && path === `/api/files/${VIEWS}`) creates.push(path);
+  });
+  await openApp(page);
+  await leader(page, "gt");
+  await expect(page.getByRole("button", { name: "open water the tomatoes" })).toBeVisible();
+  const rows = page.locator(TODO_ROW);
+  const all = await rows.count();
+  const view = page.getByTestId("todo-view");
+  return { creates, rows, all, view, filter: page.getByLabel("filter todos") };
+}
+
+/** Routes the views note's requests of one method to `answer`, leaving the rest alone. */
+async function holdViews(page: Page, method: string, answer: (route: Route) => Promise<void>) {
+  await page.route(
+    (url) => decodeURIComponent(url.pathname) === `/api/files/${VIEWS}`,
+    (route) => (route.request().method() === method ? answer(route) : route.fallback()),
+  );
+}
+
+test.describe("the todo pane's views", () => {
+  test("v puts each view of the vault's note in the filter line in turn, gives the whole list back past the last, and typing takes the name away", async ({
+    page,
+    stack,
+  }) => {
+    const note = "# Views\n\n- soon: due:today\n- doing: /doing\n- urgent: !highest !high\n";
+    await vaultWith(stack.vault, { ...DUE, [VIEWS]: note });
+    const { creates, rows, all, view, filter } = await viewsPane(page);
+    await page.keyboard.press("v");
+    await expect(view).toHaveText("soon");
+    await expect(filter).toHaveValue("due:today");
+    await expect(rows).toHaveText([/pay the rent/, /mow the lawn/]);
+    await page.keyboard.press("v");
+    await expect(view).toHaveText("doing");
+    await expect(filter).toHaveValue("/doing");
+    await expect(rows).toHaveText([/paint the fence/]);
+    await page.keyboard.press("v");
+    await expect(view).toHaveText("urgent");
+    await page.keyboard.press("v");
+    await expect(view).toBeHidden();
+    await expect(filter).toHaveValue("");
+    await expect(rows).toHaveCount(all);
+    await page.keyboard.press("v");
+    await expect(view).toHaveText("soon");
+    await filter.click();
+    await page.keyboard.press("End");
+    await page.keyboard.type(" #garden");
+    await expect(view).toBeHidden();
+    await expect(filter).toHaveValue("due:today #garden");
+    expect(creates).toEqual([]);
+  });
+
+  test("the first v in a vault with no views note writes the defaults, once however fast a second v comes", async ({
+    page,
+    stack,
+  }) => {
+    await vaultWith(stack.vault, DUE);
+    let release = () => {};
+    const held = new Promise<void>((done) => {
+      release = done;
+    });
+    await holdViews(page, "POST", async (route) => {
+      await held;
+      await route.fallback();
+    });
+    const { creates, rows, view, filter } = await viewsPane(page);
+    await page.keyboard.press("v");
+    await page.keyboard.press("v");
+    await expect.poll(() => creates.length).toBe(1);
+    release();
+    await expect(view).toHaveText("doing");
+    await expect(filter).toHaveValue("/doing");
+    await expect
+      .poll(() => noteText(stack.vault, VIEWS).catch(() => ""))
+      .toContain("- today: due:today");
+    for (const _ of ["review", "important", "", "today"]) await page.keyboard.press("v");
+    await expect(view).toHaveText("today");
+    await expect(filter).toHaveValue("due:today");
+    await expect(rows).toHaveText([/pay the rent/, /mow the lawn/]);
+    expect(creates).toHaveLength(1);
+  });
+
+  const BLANK: [string, Record<string, string>, ((page: Page) => Promise<void>) | null][] = [
+    [
+      "a views note the vault cannot read",
+      { [VIEWS]: "- today: due:today\n" },
+      (page) =>
+        holdViews(page, "GET", (route) =>
+          route.fulfill({ status: 404, json: { detail: "Not found" } }),
+        ),
+    ],
+    [
+      "a views note holding no line it can read",
+      { [VIEWS]: "# Todo views\n\nNone written yet.\n" },
+      null,
+    ],
+    [
+      "a refused create",
+      {},
+      (page) =>
+        holdViews(page, "POST", (route) => route.fulfill({ status: 500, json: { detail: "no" } })),
+    ],
+  ];
+  for (const [name, notes, refuse] of BLANK) {
+    test(`says no views and narrows nothing for ${name}`, async ({ page, stack }) => {
+      await vaultWith(stack.vault, { ...DUE, ...notes });
+      await refuse?.(page);
+      const { rows, all, view, filter } = await viewsPane(page);
+      await page.keyboard.press("v");
+      await expect(view).toHaveText("no views");
+      await expect(filter).toHaveValue("");
+      await expect(rows).toHaveCount(all);
+    });
+  }
 });
