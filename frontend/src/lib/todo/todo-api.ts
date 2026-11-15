@@ -20,6 +20,7 @@ import { isOpen, newId, parseTodo, type Todo, type TodoState } from "@/lib/todo/
 import { agentPress } from "@/lib/todo/todo-agent";
 import { applyBlocked, type Closed, closedAmong } from "@/lib/todo/todo-blocked";
 import type { TodoCycle } from "@/lib/todo/todo-commands";
+import { inTurn, keepLanded, landedRow } from "@/lib/todo/todo-press-echo";
 import { rowLine } from "@/lib/todo/todo-refile";
 import { expandShorthand } from "@/lib/todo/todo-shorthand";
 import { parseSession } from "@/lib/todo/todo-time";
@@ -141,33 +142,6 @@ export function cycleTodoAside(
   paths: string[],
 ): Promise<void> {
   return inTurn(() => cycleAside(path, cycle, today, paths));
-}
-
-/** The write before this one, which the next waits on. */
-let turns: Promise<unknown> = Promise.resolve();
-
-/**
- * How long a write waits on the one before it, then goes on alone. The api client has
- * no timeout, so a lost answer would otherwise hold every later press until reload.
- */
-const TURN_WAIT_MS = 10_000;
-
-/**
- * Run `work` once the write before it has settled. Every write here reads a note and
- * saves it back, today's note most of all, so two at once would race and one get a 409.
- */
-function inTurn<T>(work: () => Promise<T>): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const bound = new Promise<void>((resolve) => {
-    timer = setTimeout(resolve, TURN_WAIT_MS);
-  });
-  const turn = Promise.race([turns, bound])
-    .finally(() => clearTimeout(timer))
-    .then(work);
-  // Settled either way, so the next write waits on this one and never on why
-  // it failed.
-  turns = Promise.allSettled([turn]);
-  return turn;
 }
 
 async function cycleAside(
@@ -306,26 +280,6 @@ function pressTarget(text: string, hit: SearchHit, twins: number[] | undefined) 
   return todo === null && plain === null ? undefined : { at, line, todo };
 }
 
-/** Where an `x` left a row's todo, by the row as listed and as drawn, for a press read before it landed (#2080). */
-const landed = new Map<string, { row: SearchHit; at: number }>();
-const rowKey = (hit: SearchHit) => `${hit.path}\n${hit.line}\n${hit.text}`;
-
-/** The press on the line an earlier press wrote, else on the row as listed. */
-function landedTarget(text: string, hit: SearchHit, twins: number[] | undefined) {
-  const lines = text.split("\n");
-  const kept = landed.get(rowKey(hit));
-  // Only for a row the note has moved past, by its line or its twins' count: a todo listed since goes as listed.
-  const stale =
-    lines[hit.line - 1] !== hit.text ||
-    (twins !== undefined && lines.filter((each) => each === hit.text).length !== twins.length);
-  const fresh =
-    kept && Date.now() - kept.at <= TURN_WAIT_MS && lines[kept.row.line - 1] === kept.row.text;
-  const row = stale && fresh ? kept.row : undefined;
-  return row
-    ? { row, target: pressTarget(text, row, undefined) }
-    : { row: hit, target: pressTarget(text, hit, twins) };
-}
-
 /** Point `row`, `hit`, the drawn row and keys naming their line at where `pressed` sits now. */
 function land(
   row: SearchHit,
@@ -339,14 +293,7 @@ function land(
   const lines = own.find((write) => write.path === hit.path)?.text.split("\n") ?? [];
   if (parseTodo(pressed) === null || lines.filter((each) => each === pressed).length !== 1) return;
   const to = { ...row, line: lines.indexOf(pressed) + 1 + shift, text: pressed };
-  const old = new Set([row, hit, { ...hit, text: drawn ?? hit.text }].map(rowKey));
-  const now = Date.now();
-  // Swept here, read only within one turn's wait, by which the list has redrawn.
-  for (const [key, each] of landed) {
-    if (now - each.at > TURN_WAIT_MS) landed.delete(key);
-    else if (old.has(rowKey(each.row))) old.add(key);
-  }
-  for (const key of old) landed.set(key, { row: to, at: now });
+  keepLanded([row, hit, { ...hit, text: drawn ?? hit.text }], to);
 }
 
 /**
@@ -359,7 +306,8 @@ export function agentTodoIn(
   today: string,
   twins?: number[],
 ): { text: string; line: string } | { why: string } {
-  const at = rowLine(text, hit, twins);
+  const { row, twins: kept } = landedRow(text, hit, twins);
+  const at = rowLine(text, row, kept);
   if (at === null) return { why: "that line has changed since it was listed" };
   const lines = text.split("\n");
   const pressed = agentPress(lines, at, today, newId());
@@ -389,7 +337,8 @@ async function cycleInVault(
   // The vault, not the row: the list is as old as the last fetch, and the note
   // is what the press is about to overwrite.
   const text = await fetchNote(hit.path);
-  const { row, target } = landedTarget(text, hit, twins);
+  const { row, twins: kept } = landedRow(text, hit, twins);
+  const target = pressTarget(text, row, kept);
   if (target === undefined) return;
   const { at, line, todo } = target;
 
@@ -478,7 +427,8 @@ async function toggleTimer(
   // The vault, not the row: the list is as old as the last fetch.
   const text = await fetchNote(hit.path);
   // The same reading a state press makes, so `t` never times another todo.
-  const at = rowLine(text, hit, twins);
+  const { row, twins: kept } = landedRow(text, hit, twins);
+  const at = rowLine(text, row, kept);
   if (at === null) throw new Error("that line has changed since it was listed");
   const todo = parseTodo(text.split("\n")[at - 1] ?? "");
   if (todo === null) return;

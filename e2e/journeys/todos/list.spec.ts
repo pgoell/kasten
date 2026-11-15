@@ -74,6 +74,24 @@ test("two x presses straight after each other walk the row on to done (#2080)", 
   await expect(page.getByText(/^Nothing moved/)).toHaveCount(0);
 });
 
+test("t straight after an x starts a session on the todo the x walked (#2084)", async ({
+  page,
+  stack,
+}) => {
+  await openApp(page);
+  await leader(page, "gt");
+  await expect(page.getByRole("button", { name: "open water the tomatoes" })).toBeVisible();
+  await page.keyboard.press("x");
+  await page.keyboard.press("t");
+  await expect
+    .poll(() => noteText(stack.vault, `01 Periodic/00 Daily/${today()}.md`).catch(() => ""), {
+      timeout: 15_000,
+    })
+    .toMatch(/^- \d\d:\d\d-.*water the tomatoes/m);
+  expect(await noteText(stack.vault, "02 Projects/Garden.md")).toMatch(/^- \[\/\] water the tomatoes/m);
+  await expect(page.getByText(/^Nothing moved/)).toHaveCount(0);
+});
+
 test("clicking a todo opens its note on the todo's line", async ({ page }) => {
   await openApp(page);
   await leader(page, "gt");
