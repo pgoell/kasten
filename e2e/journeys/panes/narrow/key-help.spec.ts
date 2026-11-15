@@ -313,14 +313,14 @@ async function watchTyped(page: Page) {
     window.addEventListener("keydown", (e) => e.key.length === 1 && "@~{}[]|€".includes(e.key) && typed.push(e), true);
   });
 }
-/** The cursor's line and column, off CodeMirror's own view, which the bundle reaches only through its DOM. */
+/** The cursor's line number, text and column, off CodeMirror's own view, which the bundle reaches only through its DOM. */
 const cursor = (page: Page) =>
   page.locator(".cm-content:visible").evaluate((el) => {
     type State = { selection: { main: { head: number } }; doc: { lineAt(at: number): { text: string; from: number } } };
     const { state } = (el as unknown as { cmTile: { root: { view: { state: State } } } }).cmTile.root.view;
     const head = state.selection.main.head;
     const line = state.doc.lineAt(head);
-    return `${line.text}@${head - line.from}`;
+    return `${line.number}:${line.text}@${head - line.from}`;
   });
 const taken = (page: Page) =>
   page.evaluate(() => (window as unknown as { typed: KeyboardEvent[] }).typed.map((e) => e.defaultPrevented));
@@ -339,21 +339,21 @@ test.describe("vim's own keys typed through AltGr or Option (#2073)", () => {
   });
 
   for (const layout of ["windows", "linux", "mac"] as const)
-    test(`on a ${layout} layout | [[ ]] { } r| ~ and @q act in normal mode and type nothing`, async ({ page, stack }) => {
+    test(`on a ${layout} layout [[ ]] { } | r| ~ and @q act in normal mode and type nothing`, async ({ page, stack }) => {
       await vaultWith(stack.vault, { [NOTE]: BODY });
       await openApp(page);
       await findNote(page, "Keys");
       await page.keyboard.press("G");
-      // The moves come before any edit, so no save's answer lands while they run.
+      // No j or k: right after the windows shape they can land at the note's end (#2076).
       const moves: [string[], string][] = [
-        [["$", "3", "|"], "echo foxtrot@2"],
-        [["[", "["], "{ delta@0"],
-        [["[", "["], "{ alpha@0"],
-        [["]", "]"], "{ delta@0"],
-        [["{"], "@0"],
-        [["k"], "bravo@0"],
-        [["}"], "@0"],
-        [["j"], "charlie@0"],
+        [["[", "["], "13:{ delta@0"],
+        [["[", "["], "9:{ alpha@0"],
+        [["]", "]"], "13:{ delta@0"],
+        [["{"], "11:@0"],
+        [["{"], "8:@0"],
+        [["}"], "11:@0"],
+        [["G", "$", "3", "|"], "14:echo foxtrot@2"],
+        [["r", "|"], "14:ec|o foxtrot@2"],
       ];
       for (const [keys, at] of moves) {
         for (const key of keys)
@@ -361,14 +361,12 @@ test.describe("vim's own keys typed through AltGr or Option (#2073)", () => {
           else await page.keyboard.press(key);
         await expect.poll(() => cursor(page)).toBe(at);
       }
-      await page.keyboard.press("r");
-      await typeAt(page, layout, "|");
-      for (const key of ["G", "0"]) await page.keyboard.press(key);
+      await page.keyboard.press("0");
       await typeAt(page, layout, "~");
-      for (const key of ["q", "q", "~", "q"]) await page.keyboard.press(key);
+      for (const key of ["q", "q", "~", "q", "l"]) await page.keyboard.press(key);
       await typeAt(page, layout, "@");
       await page.keyboard.press("q");
-      const after = "{ alpha\nbravo\n\n|harlie\n{ delta\nECHo foxtrot";
+      const after = "{ alpha\nbravo\n\ncharlie\n{ delta\nEC|O foxtrot";
       await expect.poll(async () => unstamped(await noteText(stack.vault, NOTE))).toContain(after);
       expect(await taken(page)).not.toContain(false);
     });
