@@ -1,3 +1,5 @@
+import { mkdir } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import type { Page } from "@playwright/test";
 import { builtCss, leader, openApp, openNote, PANE, panes, readAll } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
@@ -265,5 +267,131 @@ test.describe("the pane header", () => {
     expect((await frames(page)).map(({ frame }) => frame)).toEqual(
       before.map(({ frame }) => frame),
     );
+  });
+});
+
+test.describe("the terminal prompt", () => {
+  const prompt = (page: Page) => page.getByRole("dialog", { name: "Open terminal" });
+  const field = (page: Page) => prompt(page).getByRole("combobox");
+  const rule = (page: Page) => prompt(page).locator("output");
+  const picked = (page: Page) => prompt(page).locator('[role="option"][aria-selected="true"]');
+
+  /** Makes each herdr session the backend lists, opens the app and `Space c s`; answers the sessions opened. */
+  async function ask(page: Page, vault: string, sessions: string[] = []) {
+    for (const name of sessions)
+      await mkdir(join(dirname(vault), "herdr", name), { recursive: true });
+    const opened: string[] = [];
+    page.on("websocket", (socket) => {
+      const arg = new URL(socket.url()).searchParams.get("arg");
+      if (arg !== null) opened.push(arg);
+    });
+    await openApp(page);
+    await leader(page, "cs");
+    await expect(field(page)).toBeFocused();
+    return opened;
+  }
+  const SESSIONS = ["agent-kasten", "notes", "scratch"];
+
+  test("refuses an empty name and one with a space, saying the rule, and Escape opens nothing", async ({
+    page,
+    stack,
+  }) => {
+    const opened = await ask(page, stack.vault);
+    await page.keyboard.press("Enter");
+    await expect(rule(page)).toContainText("letters, numbers");
+    await page.keyboard.type("my session");
+    await page.keyboard.press("Enter");
+    await expect(rule(page)).toContainText("letters, numbers");
+    await expect(prompt(page)).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(prompt(page)).toHaveCount(0);
+    await expect(page.locator(".xterm")).toHaveCount(0);
+    expect(opened).toEqual([]);
+  });
+
+  test("offers the sessions that exist, narrows them as you type, and Tab then Enter opens the one taken", async ({
+    page,
+    stack,
+  }) => {
+    const opened = await ask(page, stack.vault, SESSIONS);
+    await expect(prompt(page).getByRole("option")).toHaveText(SESSIONS);
+    await page.keyboard.type("not");
+    await expect(prompt(page).getByRole("option")).toHaveText(["notes"]);
+    await field(page).fill("scr");
+    await page.keyboard.press("Tab");
+    await expect(field(page)).toHaveValue("scratch");
+    await expect(field(page)).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(page.locator(".xterm").first()).toBeVisible();
+    expect(opened).toEqual(["scratch"]);
+  });
+
+  test("a click on a session's row opens it", async ({ page, stack }) => {
+    const opened = await ask(page, stack.vault, SESSIONS);
+    await prompt(page).getByRole("option", { name: "notes" }).click();
+    await expect(page.locator(".xterm").first()).toBeVisible();
+    expect(opened).toEqual(["notes"]);
+  });
+
+  test("with no sessions it draws no list, and a new name still opens, starting one", async ({
+    page,
+    stack,
+  }) => {
+    const opened = await ask(page, stack.vault);
+    await page.keyboard.type("brand-new");
+    await expect(prompt(page).getByRole("listbox")).toHaveCount(0);
+    await page.keyboard.press("Enter");
+    await expect(page.locator(".xterm").first()).toBeVisible();
+    expect(opened).toEqual(["brand-new"]);
+  });
+
+  test("the arrows and ctrl+n and ctrl+p move the highlight and stop at either end, Tab takes it, and with no match an arrow moves the caret", async ({
+    page,
+    stack,
+  }) => {
+    await ask(page, stack.vault, SESSIONS);
+    await page.keyboard.type("s");
+    const rows = await prompt(page).getByRole("option").allTextContents();
+    expect(rows.length).toBeGreaterThan(2);
+    await expect(picked(page)).toHaveText(rows[0]);
+    await page.keyboard.press("ArrowDown");
+    await expect(picked(page)).toHaveText(rows[1]);
+    for (const _ of rows) await page.keyboard.press("Control+n");
+    await expect(picked(page)).toHaveText(rows[rows.length - 1]);
+    for (const _ of rows) await page.keyboard.press("ArrowUp");
+    await expect(picked(page)).toHaveText(rows[0]);
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("Control+p");
+    await expect(picked(page)).toHaveText(rows[0]);
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("Tab");
+    await expect(field(page)).toHaveValue(rows[1]);
+
+    await field(page).fill("zzz");
+    await expect(prompt(page).getByRole("option")).toHaveCount(0);
+    await page.keyboard.press("Home");
+    await page.keyboard.press("ArrowDown");
+    expect(await field(page).evaluate((input: HTMLInputElement) => input.selectionStart)).toBe(3);
+    await expect(prompt(page)).toBeVisible();
+  });
+
+  test("with vim off its palette row opens it, as wide as the New note prompt", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
+    await openApp(page);
+    const width = (name: string) =>
+      page
+        .getByRole("dialog", { name })
+        .locator(":scope > div")
+        .first()
+        .evaluate((panel) => panel.getBoundingClientRect().width);
+    await runRow(page, /^Open a terminal/);
+    await expect(field(page)).toBeFocused();
+    const terminal = await width("Open terminal");
+    await page.keyboard.press("Escape");
+    await expect(prompt(page)).toHaveCount(0);
+    await page.getByRole("button", { name: "New note", exact: true }).first().click();
+    expect(await width("New note")).toBe(terminal);
   });
 });
