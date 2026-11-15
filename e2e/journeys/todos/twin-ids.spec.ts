@@ -3,9 +3,11 @@ import {
   cursorTo,
   findNote,
   leader,
+  localDate,
   noteText,
   openApp,
   phone,
+  readAll,
   TODO_ROW,
   today,
   vaultWith,
@@ -302,4 +304,85 @@ test("#544 the todo pane holds no row on an id whose two todos are both closed",
   await paneOver(page, stack.vault, note, 3);
   await expect(at(page, 3)).not.toContainText("⛔");
   await expect(page.getByTitle(/waits for/)).toHaveCount(0);
+});
+
+/** `days` after today, as the vault writes a date. */
+const plus = (days: number) => localDate(new Date(Date.now() + days * 86_400_000));
+const NEXT_YEAR = `${new Date().getFullYear() + 1}-03-01`;
+/** The todo pane's group headings, each with its count, in the order drawn. */
+const headings = (page: Page) => page.getByRole("heading").allTextContents();
+
+test("the todo pane draws one heading per group in order with its count, a todo under its scheduled day, and leaves out what is not work yet", async ({
+  page,
+  stack,
+}) => {
+  const note = [
+    `- [ ] pay the fine 📅 ${plus(-3)}`,
+    `- [ ] buy milk 📅 ${plus(3)} ⏳ ${plus(0)}`,
+    `- [ ] call the dentist 📅 ${plus(0)} 🛫 ${plus(0)}`,
+    `- [ ] file the tax 📅 ${plus(3)}`,
+    `- [ ] renew the passport 📅 ${NEXT_YEAR}`,
+    `- [ ] wait for spring 📅 ${plus(3)} 🛫 ${plus(1)}`,
+    `- [x] read the spec ✅ ${plus(0)}`,
+    "## Time",
+    "- 09:12-10:32 wire up the pane",
+  ];
+  await paneOver(page, stack.vault, `${note.join("\n")}\n`, 5);
+  // Today holds the scheduled milk and the started dentist; the fixture vault's own todos have no date.
+  await expect
+    .poll(() => headings(page))
+    .toEqual([
+      "Overdue 1",
+      "Today 2",
+      "This week 1",
+      "Later 1",
+      expect.stringMatching(/^No date \d+$/),
+      "›Done this week 1",
+    ]);
+  // A date in this year drops its year; one outside it keeps it.
+  await expect(at(page, 3)).toContainText(plus(0).slice(5));
+  await expect(at(page, 3)).not.toContainText(plus(0));
+  await expect(at(page, 5)).toContainText(NEXT_YEAR);
+  // Not work yet, finished, or no todo at all.
+  await expect(at(page, 6)).toHaveCount(0);
+  await expect(at(page, 7)).toHaveCount(0);
+  await expect(at(page, 9)).toHaveCount(0);
+});
+
+test("the todo pane puts higher priority first in a group, client work first within one, parts under their todo, and marks each", async ({
+  page,
+  stack,
+}) => {
+  const t = `📅 ${plus(0)}`;
+  const note = [
+    `- [ ] buy milk ${t} 🔽`,
+    `- [ ] file the tax ${t}`,
+    `- [ ] call the dentist ${t} 🔺`,
+    `  - [ ] find the number ${t} ⏬`,
+    `- [ ] tidy the wiki ${t} ⏫`,
+    `- [ ] send the offer #client ${t}`,
+    "  - [ ] check the numbers",
+    `- [ ] review the draft #client ${t} ⏫`,
+  ];
+  await paneOver(page, stack.vault, `${note.join("\n")}\n`, 8);
+  const order = [3, 4, 8, 5, 6, 7, 2, 1];
+  const rows = await readAll(page, '[data-row*="Waits.md:"]', (all) =>
+    all.map((row) => [Number(row.getAttribute("data-row")?.split(":")[1]), row.textContent ?? ""]),
+  );
+  expect(rows.map(([line]) => line)).toEqual(order);
+  const text = Object.fromEntries(rows) as Record<number, string>;
+  // Client work and its part carry the mark, nothing else; a row draws its own priority.
+  expect(order.map((line) => text[line]?.includes("◆"))).toEqual(
+    order.map((l) => [8, 6, 7].includes(l)),
+  );
+  expect([text[3], text[1], text[4]]).toEqual([
+    expect.stringContaining("🔺"),
+    expect.stringContaining("🔽"),
+    expect.stringContaining("⏬"),
+  ]);
+  expect(text[2]).not.toMatch(/[🔺⏫🔼🔽⏬]/u);
+  // Groups with no rows draw no heading.
+  await expect
+    .poll(() => headings(page))
+    .toEqual(["Today 8", expect.stringMatching(/^No date \d+$/)]);
 });
