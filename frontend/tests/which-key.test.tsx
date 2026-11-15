@@ -191,11 +191,12 @@ describe("WhichKey", () => {
   });
 
   it("a key held with ctrl, alt or meta closes, runs nothing and gives the focus back", async () => {
-    for (const held of ["ctrlKey", "altKey", "metaKey"]) {
+    const chords = [{ ctrlKey: true }, { altKey: true }, { metaKey: true }];
+    for (const held of [...chords, { ctrlKey: true, altKey: true }]) {
       const { note, commands, unmount } = mount();
 
       // `3` alone goes to the third tab, so only the held key keeps it from running.
-      fireEvent.keyDown(screen.getByRole("dialog"), { key: "3", [held]: true });
+      fireEvent.keyDown(screen.getByRole("dialog"), { key: "3", ...held });
 
       expect(commands.goToTab).not.toHaveBeenCalled();
       expect(note).toHaveFocus();
@@ -333,6 +334,29 @@ describe("WhichKey", () => {
     } finally {
       input.remove();
     }
+  });
+
+  it("AltGr's own press keeps the panel, and a sign typed through AltGr or Option runs its key (#2071)", () => {
+    const { commands, unmount } = mount();
+    const panel = screen.getByRole("dialog");
+    fireEvent.keyDown(panel, { key: "AltGraph" });
+    fireEvent.keyDown(panel, { key: "AltGraph", ctrlKey: true, altKey: true });
+    expect(screen.getByRole("dialog")).toBe(panel);
+    fireEvent.keyDown(panel, { key: "%", ctrlKey: true, altKey: true });
+    expect(commands.splitRight).toHaveBeenCalledTimes(1);
+    unmount();
+
+    const option = mount();
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Alt", altKey: true });
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "?", altKey: true });
+    expect(option.commands.showHelp).toHaveBeenCalledTimes(1);
+  });
+
+  it("a sign held with meta closes and runs nothing", async () => {
+    const { commands } = mount();
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "%", metaKey: true });
+    expect(commands.splitRight).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
   it("a held Shift keeps the panel and Space E reveals the tree", () => {

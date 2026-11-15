@@ -1,5 +1,6 @@
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { trapTab } from "@/lib/ui/focus-trap";
+import { isChord } from "@/lib/ui/keys/key-bindings";
 import { heldModifier, TAB_KEYS } from "@/lib/ui/keys/leader-keys";
 import { contextAt, type LeaderContext, type PanelRow, panelRows } from "@/lib/ui/keys/leader-view";
 import { hostLeader, type LeaderOpener } from "@/lib/ui/keys/which-key";
@@ -71,9 +72,12 @@ function rowPress({ key, target }: KeyboardEvent): boolean {
   return key === "Enter" && target instanceof HTMLButtonElement && insidePanel(target);
 }
 
-/** Escape, Space again, or a key held with ctrl, alt or meta: the panel goes and nothing runs. */
-function closesPanel({ key, ctrlKey, altKey, metaKey }: KeyboardEvent): boolean {
-  return key === "Escape" || key === " " || ctrlKey || altKey || metaKey;
+/**
+ * Escape, Space again, or a real chord: the panel goes and nothing runs. AltGr or Option typing
+ * `@` is no chord (#2071).
+ */
+function closesPanel(event: KeyboardEvent): boolean {
+  return event.key === "Escape" || event.key === " " || isChord(event);
 }
 
 /**

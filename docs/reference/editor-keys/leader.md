@@ -48,7 +48,10 @@ From the file tree every key that needs a note or a file shows, since the tree
 acts on its own cursor; `split` and `player` still follow the tab.
 
 A click on a row runs it, or opens its group. Esc, Space again, a press or a focus move outside the panel, or a key
-that matches nothing closes the panel, and the focus goes back where it was. A
+that matches nothing closes the panel, and the focus goes back where it was. So
+does a chord: a key held with Cmd, with Ctrl alone, or with Alt on a letter,
+digit or Space. A sign typed through AltGr or a Mac's Option, such as `@` on a
+German layout, is its key, so `Space @` works there. A
 command run from the panel keeps the focus where it put it, such as a finder. While the panel is open every key goes to it, so `y` takes nothing.
 The panel fades out when it closes, and Space pressed during the fade brings it
 back.

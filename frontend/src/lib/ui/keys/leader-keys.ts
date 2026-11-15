@@ -284,8 +284,10 @@ export function leaderPrefix(typed: string): boolean {
 
 /**
  * Whether the press is a modifier held down rather than a key. The browser
- * sends it before the letter, so a pane resolving by hand must skip it.
+ * sends it before the letter, so a pane resolving by hand must skip it. AltGr's own press is `AltGraph` (#2071).
  */
 export function heldModifier(key: string): boolean {
-  return key === "Shift" || key === "Control" || key === "Alt" || key === "Meta";
+  return (
+    key === "Shift" || key === "Control" || key === "Alt" || key === "AltGraph" || key === "Meta"
+  );
 }
