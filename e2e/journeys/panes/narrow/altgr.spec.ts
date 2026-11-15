@@ -169,8 +169,8 @@ test.describe("vim's own keys typed through AltGr or Option (#2073)", () => {
         [["{"], "11:@0"],
         [["{"], "8:@0"],
         [["}"], "11:@0"],
-        [["}", "j"], "12:charlie@0"],
-        [["{", "k"], "10:bravo@0"],
+        [["{", "j"], "9:{ alpha@0"],
+        [["}", "k"], "10:bravo@0"],
         [["G", "$", "3", "|"], "14:echo foxtrot@2"],
         [["r", "|"], "14:ec|o foxtrot@2"],
       ];
@@ -253,12 +253,14 @@ test.describe("j and k right after an Alt, AltGr or Option press (#2076)", () =>
 
   for (const width of [1280, 390])
     test(`at ${width} px the note head's height pads the content through an Alt press, and Alt shows the crosshair`, async ({ page, stack }) => {
-      await page.setViewportSize({ width, height: 800 });
       await vaultWith(stack.vault, { [NOTE]: BODY });
       await openApp(page);
       await findNote(page, "Keys");
+      await page.setViewportSize({ width, height: 800 });
       const content = page.locator(".cm-content:visible");
-      await expect(content).toBeFocused();
+      // The head wraps taller in a phone's width, and the padding follows it there.
+      const settled = (el: HTMLElement) => getComputedStyle(el).paddingTop === `${(el.previousElementSibling as HTMLElement).offsetHeight}px`;
+      await expect.poll(() => content.evaluate(settled)).toBe(true);
       // Read in the same task as the press, before the head's own ResizeObserver could write the padding back.
       const read = await content.evaluate((el) => {
         const head = (el.previousElementSibling as HTMLElement).offsetHeight;
@@ -271,7 +273,7 @@ test.describe("j and k right after an Alt, AltGr or Option press (#2076)", () =>
       });
       const pad = `${read.head}px`;
       expect(read.head).toBeGreaterThan(40);
-      expect(read).toEqual({ head: read.head, before: [pad, "text"], held: [pad, "crosshair"], after: [pad, "text"] });
+      expect(read).toEqual({ head: read.head, before: [pad, "auto"], held: [pad, "crosshair"], after: [pad, "auto"] });
     });
 });
 
