@@ -399,6 +399,7 @@ test.describe("the graph pane on a phone", () => {
       await button(name).focus();
       await page.keyboard.press("Space");
       await page.keyboard.press("b");
+      await expect(tree(page)).toBeHidden();
     }
 
     await tapMiddle(page);
@@ -410,13 +411,11 @@ test.describe("the graph pane on a phone", () => {
     await space("one link nearer");
     await expect(pane(page).getByText("depth 1")).toBeVisible();
     await space("fit");
-    await expect(tree(page)).toBeHidden();
 
     await tapMiddle(page);
     await expect(asked).toBeVisible();
     await space("Create");
     await expect(pane(page)).toHaveCount(0);
-    await expect(tree(page)).toBeHidden();
   });
 
   test("a tap on a row button opens its note", async ({ page, stack }) => {

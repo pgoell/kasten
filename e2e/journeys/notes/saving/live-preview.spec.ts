@@ -358,7 +358,7 @@ test.describe("a todo's due date", () => {
 });
 
 test.describe("the live preview toggle", () => {
-  const line = (page: Page) => page.locator(".cm-content:focus .cm-line").first();
+  const line = (page: Page) => page.locator(".cm-content:focus .cm-line", { hasText: "Notes" });
 
   test.beforeEach(async ({ page, stack }) => {
     await vaultWith(stack.vault, { "Heads.md": "## Notes" });
