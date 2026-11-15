@@ -249,3 +249,15 @@ test("#773 Enter on a focused state button arms it and opens no note", async ({ 
   await expect(page.locator(".cm-activeLine")).toHaveCount(0);
   expect([writes, await disk(stack.vault)]).toEqual([[], LINES]);
 });
+
+test("two presses of a row's state button straight after each other walk it on to done (#2080)", async ({
+  page,
+  stack,
+}) => {
+  await pane(page, stack.vault);
+  const cycle = page.getByRole("button", { name: "cycle buy milk" });
+  // Each press is a tap that asks and a tap that writes.
+  for (const _ of [1, 2, 3, 4]) await cycle.tap();
+  await expect.poll(() => disk(stack.vault)).toMatch(/^- \[x\] buy milk ✅/m);
+  await expect(page.getByText(/^Nothing moved/)).toHaveCount(0);
+});

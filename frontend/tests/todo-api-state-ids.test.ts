@@ -283,3 +283,93 @@ describe("cycleTodoInVault", () => {
     );
   });
 });
+
+describe("#2080 a second press read before the first landed", () => {
+  const STAMP = "---\nid: g\n---\n";
+  /** A vault whose first save of a note answers with a frontmatter block stamped on top. */
+  function vault(notes: Record<string, string>) {
+    const disk = new Map(
+      Object.entries({ [periodicNote("daily", new Date()).path]: "# day\n", ...notes }),
+    );
+    fetchNote.mockImplementation(async (path: string) => disk.get(path) ?? "");
+    saveNote.mockImplementation(async (path: string, text: string) => {
+      const content = text.startsWith("---\n") ? text : `${STAMP}${text}`;
+      disk.set(path, content);
+      return { path, content };
+    });
+    return disk;
+  }
+  const press = (path: string, line: number, text: string, twins?: number[]) =>
+    cycleTodoInVault({ path, line, text }, "2026-10-18", undefined, twins);
+
+  it("walks the todo on where the first save's stamp moved it", async () => {
+    const disk = vault({ "g1.md": "# G\n- [ ] a\n" });
+    await press("g1.md", 2, "- [ ] a");
+    await press("g1.md", 2, "- [ ] a");
+    expect(disk.get("g1.md")).toMatch(
+      /^---\nid: g\n---\n# G\n- \[x\] a ✅ 2026-10-18 🆔 kt-\w+\n$/,
+    );
+  });
+
+  it("walks it on from the row as drawn too", async () => {
+    const disk = vault({ "g2.md": "# G\n- [ ] a\n" });
+    await press("g2.md", 2, "- [ ] a");
+    await press("g2.md", 2, "- [/] a");
+    expect(disk.get("g2.md")).toMatch(/^---\nid: g\n---\n# G\n- \[x\] a ✅/);
+  });
+
+  it("writes nothing over a line changed since the first press landed", async () => {
+    const disk = vault({ "g3.md": "# G\n- [ ] a\n" });
+    await press("g3.md", 2, "- [ ] a");
+    disk.set("g3.md", `${STAMP}# G\n- [b] a\n`);
+    await expect(press("g3.md", 2, "- [ ] a")).rejects.toThrow("changed since it was listed");
+    expect(disk.get("g3.md")).toBe(`${STAMP}# G\n- [b] a\n`);
+  });
+
+  it("walks the second of two twins twice and leaves the first", async () => {
+    const disk = vault({ "g4.md": "# G\n- [ ] a\n- [ ] a\n" });
+    await press("g4.md", 3, "- [ ] a", [2, 3]);
+    await press("g4.md", 3, "- [ ] a", [2, 3]);
+    expect(disk.get("g4.md")).toMatch(/^---\nid: g\n---\n# G\n- \[ \] a\n- \[x\] a ✅/);
+  });
+
+  it("presses a row listed after the landing on its own line", async () => {
+    const disk = vault({ "g5.md": `${STAMP}# G\n- [ ] a\n` });
+    await press("g5.md", 4, "- [ ] a");
+    disk.set("g5.md", `${STAMP}# G\n- [ ] a\n- [/] a\n`);
+    await press("g5.md", 4, "- [ ] a");
+    expect(disk.get("g5.md")).toBe(`${STAMP}# G\n- [/] a\n- [/] a\n`);
+  });
+
+  it("presses the twin the stamp moved onto the pressed twin's old line on its own line", async () => {
+    const disk = vault({ "g7.md": "# G\n- [ ] a\nx\ny\n- [ ] a\n" });
+    await press("g7.md", 5, "- [ ] a", [2, 5]);
+    await press("g7.md", 5, "- [ ] a");
+    expect(disk.get("g7.md")).toBe(`${STAMP}# G\n- [/] a\nx\ny\n- [/] a\n`);
+  });
+
+  it("walks the far twin twice where the stamp slid the other twin onto its old line", async () => {
+    const disk = vault({ "g8.md": "# G\n- [ ] a\nx\ny\n- [ ] a\n" });
+    await press("g8.md", 5, "- [ ] a", [2, 5]);
+    await press("g8.md", 5, "- [ ] a", [2, 5]);
+    expect(disk.get("g8.md")).toMatch(/^---\nid: g\n---\n# G\n- \[ \] a\nx\ny\n- \[x\] a ✅/);
+  });
+
+  it("follows no record older than one turn's wait", async () => {
+    vault({ "g9.md": "# G\n- [ ] a\n" });
+    await press("g9.md", 2, "- [ ] a");
+    vi.spyOn(Date, "now").mockReturnValue(Date.now() + 60_000);
+    await expect(press("g9.md", 2, "- [ ] a")).rejects.toThrow("changed since it was listed");
+    vi.restoreAllMocks();
+  });
+
+  it("sends the next press to the done line, not the recurring copy put above it", async () => {
+    const todo = "- [/] water 🔁 every week 📅 2026-10-18";
+    const disk = vault({ "g6.md": `# G\n${todo}\n` });
+    await press("g6.md", 2, todo);
+    await press("g6.md", 2, todo);
+    const lines = disk.get("g6.md")?.split("\n") ?? [];
+    expect(lines[4]).toBe("- [ ] water 📅 2026-10-25 🔁 every week");
+    expect(lines[5]).not.toMatch(/^- \[x\]/);
+  });
+});

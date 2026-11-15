@@ -476,3 +476,18 @@ test("Ctrl+Shift+P in the todo pane opens the palette and sets no row to doing (
   await expect(page.getByRole("dialog", { name: "Run a command" })).toBeVisible();
   expect(await lineWith(stack.vault, row.path, row.words)).toBe(`- [ ] ${row.words}`);
 });
+
+test("sends every press of x, however fast, and asks nothing", async ({ page, stack }) => {
+  const puts: string[] = [];
+  page.on("request", (r) => {
+    if (r.method() === "PUT" && decodeURIComponent(r.url()).endsWith(GARDEN)) puts.push(r.url());
+  });
+  await openTodos(page);
+  await cursorTo(page, TOMATOES);
+  // Open, doing, done, and out of the cycle to plain words.
+  for (const _ of [1, 2, 3]) await page.keyboard.press("x");
+  await expect.poll(() => noteText(stack.vault, GARDEN)).toMatch(/^water the tomatoes/m);
+  expect(puts).toHaveLength(3);
+  await expect(page.getByText(/^Nothing moved/)).toHaveCount(0);
+  await expect(page.locator("[data-armed]")).toHaveCount(0);
+});
