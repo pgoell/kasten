@@ -9,6 +9,7 @@ import {
   toggleTimerInVault,
 } from "@/lib/todo/todo-api";
 import { addSubtaskInVault, blockTodoInVault, editTodoInVault } from "@/lib/todo/todo-line-edits";
+import { followRow, keepLanded, twinsOf } from "@/lib/todo/todo-press-echo";
 import { todoApiHooks } from "./todo-api-fixture";
 
 // Standing in for the module rather than for `fetch`, the way the pane's tests
@@ -83,6 +84,44 @@ describe("editTodoInVault", () => {
     await editTodoInVault(HIT, "- [ ] call the dentist 📅 2026-08-15");
 
     expect(saveNote).not.toHaveBeenCalled();
+  });
+});
+
+describe("#2087 an edit row through a redraw", () => {
+  it("answers whether the edit wrote: true where it landed, false where the line changed under it", async () => {
+    fetchNote.mockResolvedValue(NOTE);
+    expect(await editTodoInVault(HIT, "- [ ] call the dentist now")).toBe(true);
+    fetchNote.mockResolvedValue(NOTE.replace("call the dentist", "call the vet"));
+    expect(await editTodoInVault(HIT, "- [ ] call the dentist now")).toBe(false);
+  });
+
+  const at = { path: "a.md", line: 2, text: "- [ ] same" };
+  const row = (line: number, text = "- [ ] same", path = "a.md") => ({ path, line, text });
+
+  it("follows the one line of its note that says its words, wherever the redraw moved it", () => {
+    const rows = [row(1, "- [ ] other"), row(5), row(5, "- [ ] same", "b.md")];
+    expect(followRow(at, { nth: 0, of: 1 }, rows)).toEqual(row(5));
+  });
+
+  it("follows the same one of two twins by their order, and none where their count changed", () => {
+    const twins = twinsOf(row(3), [row(2), row(3)]);
+    expect(twins).toEqual({ nth: 1, of: 2 });
+    expect(followRow(row(3), twins, [row(3), row(4)])).toEqual(row(4));
+    expect(followRow(row(3), twins, [row(3)])).toBeNull();
+  });
+
+  it("stays on its own line where that line's words changed, and is gone where no row is left there", () => {
+    expect(followRow(at, { nth: 0, of: 1 }, [row(2, "- [ ] new words")])).toEqual(
+      row(2, "- [ ] new words"),
+    );
+    expect(followRow(at, { nth: 0, of: 1 }, [row(1, "- [ ] other")])).toBeNull();
+  });
+
+  it("follows where an x left a row whose words the x changed", () => {
+    keepLanded([at], row(5, "- [/] same"));
+    expect(followRow(at, { nth: 0, of: 1 }, [row(2, "- [ ] other"), row(5, "- [/] same")])).toEqual(
+      row(5, "- [/] same"),
+    );
   });
 });
 

@@ -89,7 +89,7 @@ async function picture(name: string, phone: boolean): Promise<number> {
           }}
           onAdd={() => {}}
           onSubtask={() => {}}
-          onEdit={() => {}}
+          onEdit={async () => true}
           onBlock={() => {}}
           onTimer={() => {}}
           onAgent={() => {}}

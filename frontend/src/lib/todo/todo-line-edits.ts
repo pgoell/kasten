@@ -14,10 +14,10 @@ import { insertSubtask, otherTodoWithId } from "@/lib/todo/todo-write";
 /**
  * Put one edited line back where the row found it, with no reformatting. A blocked line
  * whose last `⛔` was deleted is opened here, and the old line is checked against the row first.
- * The edit was typed over the row's words, so a line an `x` changed since takes none of it.
+ * The edit was typed over the row's words, so a line an `x` changed since takes none of it, and this answers false.
  */
-export async function editTodoInVault(hit: SearchHit, line: string): Promise<void> {
-  await inTurn(() =>
+export async function editTodoInVault(hit: SearchHit, line: string): Promise<boolean> {
+  const written = await inTurn(() =>
     updateNote(hit.path, (text) => {
       const lines = text.split("\n");
       const at = landedRow(text, hit).row.line;
@@ -27,6 +27,7 @@ export async function editTodoInVault(hit: SearchHit, line: string): Promise<voi
       return lines.join("\n");
     }),
   );
+  return written !== null;
 }
 
 /**

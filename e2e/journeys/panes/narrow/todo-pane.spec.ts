@@ -294,3 +294,45 @@ test("timer tapped straight after a state press starts a session on the todo it 
   expect(await noteText(stack.vault, garden)).toMatch(/^- \[\/\] water the tomatoes 🆔 kt-\w+$/m);
   await expect(page.getByText(/^Nothing moved/)).toHaveCount(0);
 });
+
+test("edit tapped after a state press keeps the row and every typed key through the redraw that moves it (#2087)", async ({
+  page,
+  stack,
+}) => {
+  // The vault's own note, with no frontmatter: the press's save stamps three lines on top.
+  const garden = "02 Projects/Garden.md";
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(
+    (url) => decodeURIComponent(url.pathname) === `/api/files/${garden}`,
+    async (route) => {
+      if (route.request().method() === "PUT") await gate;
+      await route.fallback();
+    },
+  );
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open the todo pane" }).tap({ timeout: 15_000 });
+  const cycle = page.getByRole("button", { name: "cycle water the tomatoes" });
+  await cycle.tap();
+  await cycle.tap();
+  await more(page, "water the tomatoes").tap();
+  await strip(page, "edit", "water the tomatoes").tap();
+  await expect(draft(page)).toBeFocused();
+  await page.keyboard.press("Home");
+  for (const _ of "- [/] water the ") await page.keyboard.press("ArrowRight");
+  await page.keyboard.type("red ");
+  const moved = page.waitForResponse(async (response) => {
+    if (!response.url().includes("/api/todos")) return false;
+    const hits = (await response.json()) as { path: string; line: number; text: string }[];
+    return hits.some((hit) => hit.path === garden && hit.text.includes("tomatoes") && hit.line !== 5);
+  });
+  release();
+  await moved;
+  await page.keyboard.type("ripe ", { delay: 150 });
+  await expect(draft(page)).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect.poll(() => noteText(stack.vault, garden)).toMatch(/^- \[\/\] water the red ripe tomatoes/m);
+  await expect(page.getByText(/^Nothing moved/)).toHaveCount(0);
+});

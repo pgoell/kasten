@@ -286,3 +286,147 @@ test.describe("the board's lanes and folds (#811)", () => {
     });
   });
 });
+
+test.describe("the list's edit row through a redraw that moves its line (#2087)", () => {
+  const GARDEN = "02 Projects/Garden.md";
+  const garden = (vault: string) => noteText(vault, GARDEN);
+  const draft = (page: Page) => page.getByLabel("edit line");
+
+  /** Holds every save of Garden.md until the call it returns. */
+  async function heldSaves(page: Page) {
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route(
+      (url) => decodeURIComponent(url.pathname) === `/api/files/${GARDEN}`,
+      async (route) => {
+        if (route.request().method() === "PUT") await gate;
+        await route.fallback();
+      },
+    );
+    return release;
+  }
+
+  /** The listing that puts the tomatoes off line 5, where the note first had them. */
+  const moved = (page: Page) =>
+    page.waitForResponse(async (response) => {
+      if (!response.url().includes("/api/todos")) return false;
+      const hits = (await response.json()) as { path: string; line: number; text: string }[];
+      return hits.some((hit) => hit.path === GARDEN && hit.text.includes("tomatoes") && hit.line !== 5);
+    });
+
+  /** `x` then `i` on the tomatoes, typing mid-line before and slowly after the redraw, then Enter. */
+  async function typeThroughRedraw(page: Page, vault: string, release: () => void) {
+    await cursorTo(page, "water the tomatoes");
+    await page.keyboard.press("x");
+    await expect(page.getByRole("button", { name: "doing water the tomatoes" })).toBeVisible();
+    await page.keyboard.press("i");
+    await expect(draft(page)).toBeFocused();
+    // Mid-line, so a caret the redraw put back at the end would show in the words.
+    await page.keyboard.press("Home");
+    for (const _ of "- [/] water the ") await page.keyboard.press("ArrowRight");
+    await page.keyboard.type("red ");
+    const listed = moved(page);
+    release();
+    await listed;
+    await page.keyboard.type("ripe ", { delay: 150 });
+    await expect(draft(page)).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect.poll(() => garden(vault)).toMatch(/^- \[\/\] water the red ripe tomatoes/m);
+    await expect(page.getByTestId("notice")).toHaveCount(0);
+  }
+
+  test("x then i keeps the row and every typed key through the redraw, and Enter writes them", async ({
+    page,
+    stack,
+  }) => {
+    const release = await heldSaves(page);
+    await openApp(page);
+    await leader(page, "gt");
+    await typeThroughRedraw(page, stack.vault, release);
+  });
+
+  test("with vim off, x then i keeps the row through the redraw, and Enter writes it", async ({
+    page,
+    stack,
+  }) => {
+    await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
+    const release = await heldSaves(page);
+    await openApp(page);
+    await page.keyboard.press("Control+Shift+P");
+    await page.getByRole("option", { name: /^Open the todo pane/ }).click();
+    await expect(page.getByRole("button", { name: "open water the tomatoes" })).toBeVisible();
+    await typeThroughRedraw(page, stack.vault, release);
+  });
+
+  const EDITS = "02 Projects/Edits.md";
+  const edits = (vault: string) => noteText(vault, EDITS);
+  const notice = (page: Page) => page.getByTestId("notice");
+
+  /** `i` on `words` in Edits.md, ` now` typed at its end; answers the note as listed. */
+  async function editing(page: Page, vault: string, lines: string, words: string, nth = 0) {
+    await vaultWith(vault, { [EDITS]: lines });
+    await openApp(page);
+    await leader(page, "gt");
+    await cursorTo(page, words, nth);
+    await page.keyboard.press("i");
+    await page.keyboard.press("End");
+    await page.keyboard.type(" now");
+    return edits(vault);
+  }
+
+  test("an edit whose line changed writes nothing, says so, keeps the text, and goes once the line reads as before", async ({
+    page,
+    stack,
+  }) => {
+    const listed = await editing(page, stack.vault, "- [ ] call the plumber\n", "call the plumber");
+    await vaultWith(stack.vault, { [EDITS]: listed.replace("plumber", "plumber today") });
+    await page.keyboard.press("Enter");
+    await expect(notice(page)).toHaveText("Nothing moved: that line has changed since the edit opened");
+    await expect(draft(page)).toHaveValue("- [ ] call the plumber now");
+    await expect(draft(page)).toBeFocused();
+    expect(await edits(stack.vault)).toMatch(/^- \[ \] call the plumber today$/m);
+    await vaultWith(stack.vault, { [EDITS]: listed });
+    await page.keyboard.press("Enter");
+    await expect.poll(() => edits(stack.vault)).toMatch(/^- \[ \] call the plumber now$/m);
+  });
+
+  test("an edit that fails with a 500 says so and keeps the text for another Enter", async ({ page, stack }) => {
+    await editing(page, stack.vault, "- [ ] mend the fence\n", "mend the fence");
+    await page.route(
+      (url) => decodeURIComponent(url.pathname) === `/api/files/${EDITS}`,
+      (route) =>
+      route.request().method() === "PUT" ? route.fulfill({ status: 500 }) : route.fallback(),
+    );
+    await page.keyboard.press("Enter");
+    await expect(notice(page)).toContainText("Nothing moved:");
+    await expect(draft(page)).toHaveValue("- [ ] mend the fence now");
+    await page.unrouteAll();
+    await page.keyboard.press("Enter");
+    await expect.poll(() => edits(stack.vault)).toMatch(/^- \[ \] mend the fence now$/m);
+  });
+
+  test("an edit row follows its todo when lines land above it, and Enter writes there", async ({ page, stack }) => {
+    const listed = await editing(page, stack.vault, "- [ ] sweep the porch\n", "sweep the porch");
+    await vaultWith(stack.vault, { [EDITS]: listed.replace("- [ ] sweep", "- [ ] one\n- [ ] two\n- [ ] sweep") });
+    await expect(page.locator(TODO_ROW).filter({ hasText: "two" })).toBeVisible();
+    await page.keyboard.type("!", { delay: 100 });
+    await page.keyboard.press("Enter");
+    await expect.poll(() => edits(stack.vault)).toMatch(/^- \[ \] two\n- \[ \] sweep the porch now!$/m);
+  });
+
+  test("of two twins, an edit row whose twin left closes, keeping its text in the notice, and the keys work again", async ({
+    page,
+    stack,
+  }) => {
+    const listed = await editing(page, stack.vault, "- [ ] same\n- [ ] same\n", "same", 1);
+    await vaultWith(stack.vault, { [EDITS]: listed.replace("- [ ] same\n", "") });
+    await expect(notice(page)).toContainText("The edit read: - [ ] same now");
+    await expect(draft(page)).toHaveCount(0);
+    expect(await edits(stack.vault)).toMatch(/^- \[ \] same$/m);
+    await cursorTo(page, "same");
+    await page.keyboard.press("x");
+    await expect.poll(() => edits(stack.vault)).toMatch(/^- \[\/\] same/m);
+  });
+});

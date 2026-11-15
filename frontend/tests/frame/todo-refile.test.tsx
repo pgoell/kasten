@@ -46,7 +46,7 @@ async function mount(width: number, height: number) {
         onCycle={() => {}}
         onAdd={() => {}}
         onSubtask={() => {}}
-        onEdit={() => {}}
+        onEdit={async () => true}
         onBlock={() => {}}
         onTimer={() => {}}
         onAgent={() => {}}

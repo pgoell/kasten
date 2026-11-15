@@ -177,3 +177,34 @@ export function landedRow<R extends Row>(
     ? { row: { ...hit, line: kept.row.line, text: kept.row.text }, twins: undefined }
     : { row: hit, twins };
 }
+
+/** The lines of `at`'s note that say its words, by line, and which of them is `at`: how an edit tells twins apart. */
+export function twinsOf(at: Row, rows: Row[]): { nth: number; of: number } {
+  const same = rows
+    .filter((row) => row.path === at.path && row.text === at.text)
+    .map((row) => row.line);
+  // `at` is one of them even where its own line no longer says its words.
+  const own = same.includes(at.line) ? 0 : 1;
+  return { nth: same.filter((line) => line < at.line).length, of: same.length + own };
+}
+
+/**
+ * The row an open edit of `at` (its words as typed over) is drawn on after a redraw: the same one of the lines
+ * saying them while their count holds, else where an `x` left it. Null where twins cannot be told apart, or none is left (#2087).
+ */
+export function followRow<R extends Row>(
+  at: Row,
+  twins: { nth: number; of: number },
+  rows: R[],
+): R | null {
+  const here = rows.filter((row) => row.path === at.path);
+  const same = here
+    .filter((row) => row.text === at.text)
+    .sort((one, other) => one.line - other.line);
+  if (same.length > 0) return same.length === twins.of ? (same[twins.nth] ?? null) : null;
+  const kept = landed.get(keyOf(at));
+  const fresh = kept !== undefined && Date.now() - kept.at <= TURN_WAIT_MS;
+  const went = fresh ? here.find((row) => keyOf(row) === keyOf(kept.row)) : undefined;
+  // Its words changed on its own line: the edit stays there, and the write refuses it.
+  return went ?? here.find((row) => row.line === at.line) ?? null;
+}

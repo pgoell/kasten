@@ -129,7 +129,7 @@ it("A3 #1321 draws and scrolls the todo board at phone width within its commit a
             onCycle={() => {}}
             onAdd={() => {}}
             onSubtask={() => {}}
-            onEdit={() => {}}
+            onEdit={async () => true}
             onBlock={() => {}}
             onTimer={() => {}}
             onAgent={() => {}}
