@@ -261,3 +261,33 @@ test("two presses of a row's state button straight after each other walk it on t
   await expect.poll(() => disk(stack.vault)).toMatch(/^- \[x\] buy milk ✅/m);
   await expect(page.getByText(/^Nothing moved/)).toHaveCount(0);
 });
+
+test("timer tapped straight after a state press starts a session on the todo it walked (#2084)", async ({
+  page,
+  stack,
+}) => {
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  // The state press's save waits until the timer is tapped, so the timer reads the row as it was listed.
+  await page.route(
+    (url) => decodeURIComponent(url.pathname) === `/api/files/${NOTE}`,
+    async (route) => {
+      if (route.request().method() === "PUT") await gate;
+      await route.fallback();
+    },
+  );
+  await pane(page, stack.vault);
+  const cycle = page.getByRole("button", { name: "cycle buy milk" });
+  await cycle.tap();
+  await cycle.tap();
+  await more(page, "buy milk").tap();
+  await strip(page, "timer", "buy milk").tap();
+  release();
+  await expect
+    .poll(() => noteText(stack.vault, `01 Periodic/00 Daily/${today()}.md`).catch(() => ""))
+    .toMatch(/^- \d\d:\d\d-.*buy milk/m);
+  expect(await disk(stack.vault)).toMatch(/^- \[\/\] buy milk 🆔 kt-\w+$/m);
+  await expect(page.getByText(/^Nothing moved/)).toHaveCount(0);
+});

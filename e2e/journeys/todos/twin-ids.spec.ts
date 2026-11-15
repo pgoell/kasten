@@ -452,3 +452,21 @@ test.describe("a key straight after an x, on a note's first save (#2084)", () =>
     expect(await noteText(stack.vault, PLAN)).not.toMatch(/^- \[.\] ship the deck/m);
   });
 });
+
+test.describe("with vim off, a key straight after an x (#2084)", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
+  });
+
+  test("t starts a session on the todo the x walked", async ({ page, stack }) => {
+    await openApp(page);
+    // The palette, since the leader is vim's.
+    await page.keyboard.press("Control+Shift+P");
+    await page.getByRole("option", { name: /^Open the todo pane/ }).click();
+    await expect(page.getByRole("button", { name: "open water the tomatoes" })).toBeVisible();
+    await page.keyboard.press("x");
+    await page.keyboard.press("t");
+    await expect.poll(() => daily(stack.vault).catch(() => "")).toMatch(/^- \d\d:\d\d-.*water the tomatoes/m);
+    await expect(notice(page)).toHaveCount(0);
+  });
+});
