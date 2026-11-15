@@ -298,6 +298,7 @@ export function useTodoActions({
    */
   const editTodo = useCallback(
     (hit: SearchHit, line: string): Promise<boolean> => {
+      setNotice(undefined);
       begun();
       return editTodoInVault(hit, line)
         .then(

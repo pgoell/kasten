@@ -390,6 +390,7 @@ test.describe("the list's edit row through a redraw that moves its line (#2087)"
     await vaultWith(stack.vault, { [EDITS]: listed });
     await page.keyboard.press("Enter");
     await expect.poll(() => edits(stack.vault)).toMatch(/^- \[ \] call the plumber now$/m);
+    await expect(notice(page)).toHaveCount(0);
   });
 
   test("an edit that fails with a 500 says so and keeps the text for another Enter", async ({ page, stack }) => {
@@ -405,6 +406,7 @@ test.describe("the list's edit row through a redraw that moves its line (#2087)"
     await page.unrouteAll();
     await page.keyboard.press("Enter");
     await expect.poll(() => edits(stack.vault)).toMatch(/^- \[ \] mend the fence now$/m);
+    await expect(notice(page)).toHaveCount(0);
   });
 
   test("an edit row follows its todo when lines land above it, and Enter writes there", async ({ page, stack }) => {
