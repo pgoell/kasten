@@ -1,5 +1,5 @@
 import type { Locator, Page } from "@playwright/test";
-import { leader, openApp, phone } from "../../../harness/app.ts";
+import { findNote, leader, noteText, openApp, phone, TODO_ROW, vaultWith } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
 
 /** The left edge and top of each box, rounded to the pixel. */
@@ -187,5 +187,101 @@ test.describe("the palette chord (#2068)", () => {
       await runButton.tap();
       await expect(palette(page)).toBeVisible();
     });
+  });
+});
+
+/** CDP's modifier bits. */
+const ALT = 1;
+const CTRL = 2;
+/**
+ * How `@` arrives from a German layout: AltGr+Q reads as Ctrl+Alt on Windows and as an `AltGraph`
+ * press with no flag on Linux; a German Mac's Option+L is Alt. Each sends its modifier's own press first.
+ */
+const LAYOUTS = {
+  windows: [["Control", "ControlLeft", CTRL], ["AltGraph", "AltRight", CTRL | ALT], ["@", "KeyQ", CTRL | ALT]],
+  linux: [["AltGraph", "AltRight", 0], ["@", "KeyQ", 0]],
+  mac: [["Alt", "AltLeft", ALT], ["@", "KeyL", ALT]],
+} as const;
+
+async function typeAt(page: Page, layout: keyof typeof LAYOUTS, upTo = 3) {
+  const presses = LAYOUTS[layout].slice(0, upTo);
+  const cdp = await page.context().newCDPSession(page);
+  for (const [key, code, modifiers] of presses) {
+    const text = key === "@" ? { text: key } : {};
+    await cdp.send("Input.dispatchKeyEvent", { type: "keyDown", key, code, modifiers, ...text });
+  }
+  for (const [key, code, modifiers] of presses.toReversed())
+    await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", key, code, modifiers });
+  await cdp.detach();
+}
+
+test.describe("@ typed through AltGr or Option (#2071)", () => {
+  const NOTE = "01 Notes/Bank.md";
+  for (const layout of ["windows", "linux", "mac"] as const)
+    test(`vim on, Space @ on a ${layout} layout sends the todo to the agent, and u takes it back`, async ({
+      page,
+      stack,
+    }) => {
+      await vaultWith(stack.vault, { [NOTE]: "# Bank\n\n- [ ] ring the bank" });
+      await openApp(page);
+      await findNote(page, "Bank");
+      await page.keyboard.press("G");
+      await page.keyboard.press("Space");
+      await expect(page.getByRole("dialog", { name: "Leader keys" })).toBeVisible();
+      await typeAt(page, layout);
+      await expect.poll(() => noteText(stack.vault, NOTE)).toContain("- [ ] ring the bank #agent");
+      await page.keyboard.press("u");
+      await expect.poll(() => noteText(stack.vault, NOTE)).not.toContain("#agent");
+    });
+
+  test("vim off, @ typed through AltGr or Option in a note types @ and nothing else", async ({
+    page,
+    stack,
+  }) => {
+    await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
+    await vaultWith(stack.vault, { "Mail.md": "# Mail\n\nmail " });
+    await openApp(page);
+    await page.getByRole("button", { name: "Mail", exact: true }).click();
+    await page.locator(".cm-line", { hasText: /^mail/ }).click();
+    await page.keyboard.press("End");
+    // Chromium on Linux types no text held with Ctrl, as a plain textarea shows, so the windows shape is left out here.
+    let typed = "mail ";
+    for (const layout of ["linux", "mac"] as const) {
+      await typeAt(page, layout);
+      typed += "@";
+      await expect(page.locator(".cm-content")).toContainText(typed);
+    }
+    await expect.poll(() => noteText(stack.vault, "Mail.md")).toContain(typed);
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+  });
+
+  test("vim off, in the todo pane AltGr's own press keeps the panel open, and @ on a linux layout tags the row", async ({
+    page,
+    stack,
+  }) => {
+    await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
+    await openApp(page);
+    await page.keyboard.press("Control+Shift+P");
+    await page.getByRole("option", { name: /^Open the todo pane/ }).click();
+    const cursor = page.locator(`${TODO_ROW}[tabindex="0"]`);
+    await cursor.focus();
+    for (const layout of ["windows", "linux", "mac"] as const) {
+      await page.keyboard.press("Space");
+      const panel = page.getByRole("dialog", { name: "Leader keys" });
+      await expect(panel).toBeVisible();
+      await typeAt(page, layout, layout === "windows" ? 2 : 1);
+      await expect(panel).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(panel).toHaveCount(0);
+    }
+    const row = (await cursor.getAttribute("data-row")) ?? "";
+    const path = row.slice(0, row.lastIndexOf(":"));
+    const at = Number(row.slice(row.lastIndexOf(":") + 1)) - 1;
+    const words = (await noteText(stack.vault, path)).split("\n")[at]?.replace(/^- \[ \] /, "") ?? "";
+    await typeAt(page, "linux");
+    // The write adds the note's own frontmatter, so the line is found by its words, not its number.
+    await expect
+      .poll(async () => (await noteText(stack.vault, path)).includes(`${words} #agent`))
+      .toBe(true);
   });
 });
