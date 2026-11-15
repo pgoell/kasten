@@ -59,6 +59,21 @@ test("with a mouse the todo pane draws no touch buttons, and each press of x wal
   await expect(page.locator("[data-armed]")).toHaveCount(0);
 });
 
+test("two x presses straight after each other walk the row on to done (#2080)", async ({
+  page,
+  stack,
+}) => {
+  await openApp(page);
+  await leader(page, "gt");
+  await expect(page.getByRole("button", { name: "open water the tomatoes" })).toBeVisible();
+  await page.keyboard.press("x");
+  await page.keyboard.press("x");
+  await expect
+    .poll(() => noteText(stack.vault, "02 Projects/Garden.md"), { timeout: 15_000 })
+    .toMatch(/^- \[x\] water the tomatoes/m);
+  await expect(page.getByText(/^Nothing moved/)).toHaveCount(0);
+});
+
 test("clicking a todo opens its note on the todo's line", async ({ page }) => {
   await openApp(page);
   await leader(page, "gt");

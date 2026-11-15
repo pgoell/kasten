@@ -318,6 +318,36 @@ function pressTarget(text: string, hit: SearchHit, twins: number[] | undefined) 
   return todo === null && plain === null ? undefined : { at, line, todo };
 }
 
+/** Where an `x` left a row's todo, by the row as listed and as drawn: a press read before the last landed names the old line (#2080). */
+const landed = new Map<string, SearchHit>();
+const rowKey = (hit: SearchHit) => `${hit.path}\n${hit.line}\n${hit.text}`;
+
+/** The press on the line an earlier press wrote while that line still says it, else on the row as listed. */
+function landedTarget(text: string, hit: SearchHit, twins: number[] | undefined) {
+  const row = landed.get(rowKey(hit));
+  return row !== undefined && text.split("\n")[row.line - 1] === row.text
+    ? { row, target: pressTarget(text, row, undefined) }
+    : { row: hit, target: pressTarget(text, hit, twins) };
+}
+
+/** Point `row`, `hit`, the drawn row and keys naming their line at where `pressed` sits now. */
+function land(
+  row: SearchHit,
+  hit: SearchHit,
+  drawn: string | null,
+  own: Write[],
+  pressed: string,
+  shift: number,
+) {
+  // By its words: a recurring copy can land above it. A line made plain is `stamped`'s.
+  const lines = own.find((write) => write.path === hit.path)?.text.split("\n") ?? [];
+  if (parseTodo(pressed) === null || lines.filter((each) => each === pressed).length !== 1) return;
+  const to = { ...row, line: lines.indexOf(pressed) + 1 + shift, text: pressed };
+  const old = new Set([row, hit, { ...hit, text: drawn ?? hit.text }].map(rowKey));
+  for (const [key, at] of landed) if (old.has(rowKey(at))) old.add(key);
+  for (const key of old) landed.set(key, to);
+}
+
 /**
  * The line the row's todo sits on now, or null where the note no longer says. Lines
  * shift with each write, so the words decide; twins, which share words, go by rank.
@@ -371,7 +401,7 @@ async function cycleInVault(
   // The vault, not the row: the list is as old as the last fetch, and the note
   // is what the press is about to overwrite.
   const text = await fetchNote(hit.path);
-  const target = pressTarget(text, hit, twins);
+  const { row, target } = landedTarget(text, hit, twins);
   if (target === undefined) return;
   const { at, line, todo } = target;
 
@@ -430,6 +460,7 @@ async function cycleInVault(
   });
   const shift = gained.get(hit.path) ?? 0;
   if (shift > 0) stamped.set(hit.path, { line: hit.line, text: hit.text, shift });
+  land(row, hit, pressedLine(hit.text, today, id, state), writes, pressed, shift);
 
   // After the send, so the dependents in this note are read as the write above
   // left them. No note is skipped: this half can see every blocker, where the
