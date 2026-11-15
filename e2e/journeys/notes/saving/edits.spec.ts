@@ -345,3 +345,74 @@ test.describe("on a phone", () => {
     });
   }
 });
+
+test.describe("the formatting and indenting keys with vim on", () => {
+  /** Opens `Keys.md` holding `text`, the cursor at its start in normal mode. */
+  async function keys(page: Page, vault: string, text: string) {
+    await vaultWith(vault, { "Keys.md": text });
+    await openApp(page);
+    await openNote(page, "Keys");
+  }
+  const saved = (vault: string) => noteText(vault, "Keys.md");
+
+  for (const [key, marks] of [
+    ["Control+b", "**"],
+    ["Control+i", "*"],
+    ["Control+Shift+X", "~~"],
+    ["Control+Shift+H", "=="],
+  ] as const) {
+    test(`${key} in insert mode wraps the word under the cursor in ${marks}`, async ({
+      page,
+      stack,
+    }) => {
+      await keys(page, stack.vault, "word\n");
+      await page.keyboard.press("i");
+      await page.keyboard.press(key);
+      await expect
+        .poll(() => saved(stack.vault), { timeout: 15_000 })
+        .toContain(`\n${marks}word${marks}\n`);
+    });
+  }
+
+  test("Ctrl+B in normal mode leaves the note alone, vim owning the key", async ({
+    page,
+    stack,
+  }) => {
+    await keys(page, stack.vault, "word\n");
+    await page.keyboard.press("Control+b");
+    await page.keyboard.type("A!");
+    await page.keyboard.press("Escape");
+    await expect.poll(() => saved(stack.vault), { timeout: 15_000 }).toContain("\nword!\n");
+  });
+
+  test("Ctrl+B on a visual selection wraps it and drops back to normal mode", async ({
+    page,
+    stack,
+  }) => {
+    await keys(page, stack.vault, "word\n");
+    await page.keyboard.type("v$");
+    await page.keyboard.press("Control+b");
+    await expect.poll(() => saved(stack.vault), { timeout: 15_000 }).toContain("\n**word**\n");
+    // Normal mode hides the marks again; visual or insert mode would show them.
+    const line = page.locator(".cm-content:focus .cm-line", { hasText: "word" });
+    await expect(line).toHaveText("word");
+  });
+
+  for (const [name, text, tab, after] of [
+    [
+      "Tab nests a list item under the one above",
+      "- first\n- second\n",
+      "Tab",
+      "- first\n  - second\n",
+    ],
+    ["Shift+Tab lifts it back out", "- first\n  - second\n", "Shift+Tab", "- first\n- second\n"],
+    ["Tab indents a plain line too", "first\nsecond\n", "Tab", "first\n  second\n"],
+  ] as const) {
+    test(name, async ({ page, stack }) => {
+      await keys(page, stack.vault, text);
+      await page.keyboard.type("ji");
+      await page.keyboard.press(tab);
+      await expect.poll(() => saved(stack.vault), { timeout: 15_000 }).toContain(after);
+    });
+  }
+});
