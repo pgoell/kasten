@@ -386,12 +386,33 @@ test.describe("the terminal prompt", () => {
         .locator(":scope > div")
         .first()
         .evaluate((panel) => panel.getBoundingClientRect().width);
+    await page.getByRole("button", { name: "New note", exact: true }).first().click();
+    const note = await width("New note");
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog", { name: "New note" })).toHaveCount(0);
     await runRow(page, /^Open a terminal/);
     await expect(field(page)).toBeFocused();
-    const terminal = await width("Open terminal");
-    await page.keyboard.press("Escape");
-    await expect(prompt(page)).toHaveCount(0);
-    await page.getByRole("button", { name: "New note", exact: true }).first().click();
-    expect(await width("New note")).toBe(terminal);
+    expect(await width("Open terminal")).toBe(note);
   });
+});
+
+test.describe("the palette chord after the New note prompt closes", () => {
+  const prompt = (page: Page) => page.getByRole("dialog", { name: "New note" });
+  for (const vim of ["on", "off"])
+    for (const via of ["button", "leader"].slice(0, vim === "on" ? 2 : 1))
+      for (const close of ["Escape", "backdrop"])
+        test(`vim ${vim}, opened by ${via}, closed by ${close}: Ctrl+Shift+P opens the palette`, async ({
+          page,
+        }) => {
+          await page.addInitScript((v) => localStorage.setItem("kasten.vim", v), vim);
+          await openApp(page);
+          if (via === "leader") await leader(page, "cf");
+          else await page.getByRole("button", { name: "New note", exact: true }).first().click();
+          await expect(prompt(page).getByRole("combobox")).toBeFocused();
+          if (close === "Escape") await page.keyboard.press("Escape");
+          else await prompt(page).click({ position: { x: 5, y: 5 } });
+          await expect(prompt(page)).toHaveCount(0);
+          await page.keyboard.press("Control+Shift+P");
+          await expect(page.getByRole("dialog", { name: "Run a command" })).toBeVisible();
+        });
 });

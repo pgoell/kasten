@@ -40,7 +40,7 @@ import { useTodoActions } from "@/lib/todo/use-todo-actions";
 import { useKeyboardInset } from "@/lib/ui/input/use-keyboard-inset";
 import { useViewport } from "@/lib/ui/input/use-viewport";
 import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
-import { useKeyHelp } from "@/lib/ui/keys/use-key-help-key";
+import { useKeyHelp, usePaletteChord } from "@/lib/ui/keys/use-window-keys";
 import { useVaultEvents } from "@/lib/vault/events/use-vault-events";
 import { useTrash } from "@/lib/vault/move/use-trash";
 import { useFileTransfer } from "@/lib/vault/use-file-transfer";
@@ -323,6 +323,7 @@ function Home() {
       setHelpOpen,
     ],
   );
+  usePaletteChord(commands.openPalette);
   const closeGraphSheet = useCallback(
     () => setGraphSheet((previous) => ({ ...previous, open: false })),
     [],

@@ -213,7 +213,7 @@ is, there being no mode to ask about. The palette runs the rest by name:
 The three copy rows take the selection, or the whole note where nothing is
 selected. `:copy` with a line range typed by hand has no row.
 
-Ctrl+Shift+P opens the palette from a note with or without vim. The key is Ctrl
+Ctrl+Shift+P opens the palette from anywhere but an open dialog, with or without vim. The key is Ctrl
 on a Mac too, as it is in [a terminal](/reference/editor-keys/terminal.md#terminal). Firefox on Windows and Linux
 keeps that chord for a private window and does not hand it to the page, so it
 opens nothing there. Without vim, and on a device with no keyboard, the other
