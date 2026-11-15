@@ -213,6 +213,85 @@ test("a take's toast sits at the foot of the transcript, and goes to the top for
   expect(blocked).toEqual([]);
 });
 
+test("the transcript marks the paragraph at the second, draws markup as text, and a time seeks there", async ({
+  page,
+  stack,
+}) => {
+  const odd = "<img src=x onerror=alert(1)> ## Highlights [[x]]";
+  const body = `[00:05] One.\n\n[00:31] Two.\n\n[00:31] Two again.\n\n[01:10] ${odd}`;
+  const talk = "01 Notes/Talk.md";
+  await vaultWith(stack.vault, {
+    [talk]: `---\nwatching: {kastenVid01: 31}\n---\n# Talk\n\n[The talk](https://youtu.be/kastenVid01)\n\n## Transcript\n\n${body}\n`,
+  });
+  await fakeYouTube(page);
+  await openApp(page);
+  await findNote(page, "Talk");
+  const list = (await videoView(page)).getByRole("list", { name: "Transcript" });
+
+  await expect(list.getByRole("button")).toHaveText(["00:05", "00:31", "00:31", "01:10"]);
+  // Two rows at 0:31 both draw, and the mark sits on the later one alone.
+  await expect(list.locator('[aria-current="true"]')).toHaveText(["00:31Two again."]);
+  await expect(list.getByText(odd)).toBeVisible();
+  await expect(list.locator("img, h1, h2, h3")).toHaveCount(0);
+
+  await list.getByRole("button", { name: "Seek to 01:10" }).click();
+  await page.getByRole("button", { name: "Play" }).click();
+  await page.getByRole("button", { name: "Pause" }).click();
+  await expect.poll(() => noteText(stack.vault, talk)).toMatch(/^watching: \{kastenVid01: 100\}$/m);
+});
+
+test("the transcript follows a later second only while Follows the video is on", async ({
+  page,
+  stack,
+}) => {
+  const take = "[05:00](https://www.youtube.com/watch?v=kastenVid01&t=300s) ^hl-a1b2c3";
+  await vaultWith(stack.vault, {
+    "01 Notes/Talk.md": talkWith(`\n## Highlights\n\n> A.\n\n${take}\n`),
+  });
+  await fakeYouTube(page);
+  await openApp(page);
+  await findNote(page, "Talk");
+  const pane = await videoView(page);
+  const list = pane.getByRole("list", { name: "Transcript" });
+  const follow = pane.getByRole("button", { name: "Follows the video" });
+  const markAt = () =>
+    list.evaluate((ol) => {
+      const mark = ol.querySelector('[aria-current="true"]') as HTMLElement;
+      const box = ol.getBoundingClientRect();
+      return (mark.getBoundingClientRect().top - box.top) / box.height;
+    });
+  const playPause = async () => {
+    await pane.getByRole("button", { name: "Play" }).click();
+    await pane.getByRole("button", { name: "Pause" }).click();
+  };
+
+  await follow.click();
+  await expect(follow).toHaveAttribute("aria-pressed", "false");
+  await pane.getByRole("list", { name: "Taken from this video" }).getByRole("button").click();
+  await playPause();
+  await expect(list.locator('[aria-current="true"]')).toContainText("Passage 33");
+  expect(await markAt()).toBeGreaterThan(1);
+
+  await follow.click();
+  await playPause();
+  await expect(list.locator('[aria-current="true"]')).toContainText("Passage 36");
+  await expect.poll(markAt).toBeCloseTo(1 / 3, 1);
+});
+
+test("a note with no transcript says Space c v writes it, and draws no list", async ({ page }) => {
+  await fakeYouTube(page);
+  await openApp(page);
+  await findNote(page, "Lecture");
+  await leader(page, "gv");
+  const pane = page.locator("[data-video-pane]");
+  await pane.getByRole("button", { name: "Video view" }).click();
+
+  await expect(pane.locator("p:has(kbd)")).toHaveText(
+    /^No transcript in this note yet\. Space c v writes/,
+  );
+  await expect(pane.getByRole("list", { name: "Transcript" })).toHaveCount(0);
+});
+
 test("Put it in a note says nothing was written lately when only the archive was, and lists a note written outside it", async ({
   page,
   stack,
