@@ -97,6 +97,8 @@ test.describe("the sheet around a panel", () => {
       await test.step(panel.name, async () => {
         const { sheet, panel: box, field } = await open(page, panel);
         await press(page, await middle(field));
+        await framed(page);
+        await expect(sheet).toBeVisible();
         await press(page, await bare(box));
         await framed(page);
         await expect(sheet).toBeVisible();
