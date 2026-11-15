@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { NoteMissing } from "@/lib/core/api";
 import { noteBase } from "@/lib/notes/note-base";
 import { periodicNote } from "@/lib/notes/text/periodic";
 import { cycleTodoAside, cycleTodoInVault } from "@/lib/todo/todo-api";
@@ -52,7 +53,7 @@ describe("cycleTodoInVault", () => {
     fetchTodos.mockResolvedValue([]);
     const row = { path: "spec.md", line: 2, text: "- [x] read the spec ✅ 2026-08-10" };
 
-    await cycleTodoInVault(row, "2026-08-10", ["spec.md"]);
+    await cycleTodoInVault(row, "2026-08-10");
 
     expect(saveNote).toHaveBeenCalledTimes(1);
     expect(saveNote.mock.calls[0]?.slice(0, 2)).toEqual([
@@ -70,8 +71,8 @@ describe("cycleTodoInVault", () => {
     fetchTodos.mockResolvedValue([]);
     const row = { path: "spec.md", line: 2, text: "- [x] read the spec ✅ 2026-08-10" };
 
-    await cycleTodoInVault(row, "2026-08-10", ["spec.md"]);
-    await cycleTodoInVault(row, "2026-08-10", ["spec.md"]);
+    await cycleTodoInVault(row, "2026-08-10");
+    await cycleTodoInVault(row, "2026-08-10");
 
     expect(saveNote.mock.calls[1]?.[1]).toBe(
       "---\nid: a\n---\n# Spec\n- [ ] read the spec ➕ 2026-08-10\n",
@@ -91,11 +92,9 @@ describe("cycleTodoInVault", () => {
     fetchTodos.mockResolvedValue([]);
     const held = { path: "spec.md", line: 2, text: "- [x] read the spec ✅ 2026-08-10" };
 
-    await cycleTodoInVault(held, "2026-08-10", ["spec.md"]);
-    await cycleTodoInVault({ path: "spec.md", line: 6, text: "- [ ] buy milk" }, "2026-08-10", [
-      "spec.md",
-    ]);
-    await cycleTodoInVault(held, "2026-08-10", ["spec.md"]);
+    await cycleTodoInVault(held, "2026-08-10");
+    await cycleTodoInVault({ path: "spec.md", line: 6, text: "- [ ] buy milk" }, "2026-08-10");
+    await cycleTodoInVault(held, "2026-08-10");
 
     expect(saveNote.mock.calls.at(-1)?.[1]).toBe(
       "---\nid: a\n---\n# Spec\n- [ ] read the spec ➕ 2026-08-10\n- [/] buy milk\n",
@@ -111,12 +110,11 @@ describe("cycleTodoInVault", () => {
     await cycleTodoInVault(
       { path: "spec.md", line: 2, text: before.split("\n")[1] ?? "" },
       "2026-08-10",
-      ["spec.md"],
     );
 
     // Listed after the stamp on line 6, its todo since gone; prose three lines down stays prose.
     const later = { path: "spec.md", line: 6, text: "- [x] write ✅ 2026-08-10" };
-    await expect(cycleTodoInVault(later, "2026-08-10", ["spec.md"])).rejects.toThrow(
+    await expect(cycleTodoInVault(later, "2026-08-10")).rejects.toThrow(
       "that line has changed since it was listed",
     );
     expect(saveNote).toHaveBeenCalledTimes(1);
@@ -132,12 +130,11 @@ describe("cycleTodoInVault", () => {
     await cycleTodoInVault(
       { path: "spec.md", line: 2, text: "- [x] read the spec ✅ 2026-08-10" },
       "2026-08-10",
-      ["spec.md"],
     );
 
     // Another todo, listed on line 2 too and since gone; the prose three lines down stays prose.
     const later = { path: "spec.md", line: 2, text: "- [x] write ✅ 2026-08-10" };
-    await expect(cycleTodoInVault(later, "2026-08-10", ["spec.md"])).rejects.toThrow(
+    await expect(cycleTodoInVault(later, "2026-08-10")).rejects.toThrow(
       "that line has changed since it was listed",
     );
     expect(saveNote).toHaveBeenCalledTimes(1);
@@ -148,7 +145,7 @@ describe("cycleTodoInVault", () => {
     fetchTodos.mockResolvedValue([]);
     const row = { path: "other.md", line: 5, text: "- [x] read the spec ✅ 2026-08-10" };
 
-    await expect(cycleTodoInVault(row, "2026-08-10", ["other.md"])).rejects.toThrow(
+    await expect(cycleTodoInVault(row, "2026-08-10")).rejects.toThrow(
       "that line has changed since it was listed",
     );
     expect(saveNote).not.toHaveBeenCalled();
@@ -160,7 +157,7 @@ describe("cycleTodoInVault", () => {
     fetchTodos.mockResolvedValue([]);
     const row = { path: "spec.md", line: 2, text: "- [x] read the spec ✅ 2026-08-10" };
 
-    await expect(cycleTodoInVault(row, "2026-08-10", ["spec.md"])).rejects.toThrow(
+    await expect(cycleTodoInVault(row, "2026-08-10")).rejects.toThrow(
       "that line has changed since it was listed",
     );
     expect(saveNote).not.toHaveBeenCalled();
@@ -179,10 +176,7 @@ describe("cycleTodoInVault", () => {
       { path: daily, line: 2, text: "- ✅ 2026-08-10 a [[projects/kasten]] kt-aaaaaa" },
     ]);
 
-    await cycleTodoInVault({ path: "projects/kasten.md", line: 1, text: line }, "2026-08-10", [
-      "projects/kasten.md",
-      daily,
-    ]);
+    await cycleTodoInVault({ path: "projects/kasten.md", line: 1, text: line }, "2026-08-10");
 
     expect(saveNote).toHaveBeenCalledExactlyOnceWith(
       "projects/kasten.md",
@@ -215,7 +209,6 @@ describe("cycleTodoInVault", () => {
       await cycleTodoInVault(
         { path: "projects/kasten.md", line: 1, text: line },
         "2026-08-10",
-        ["projects/kasten.md", daily],
         "done",
       );
 
@@ -241,7 +234,6 @@ describe("cycleTodoInVault", () => {
     await cycleTodoInVault(
       { path: "projects/kasten.md", line: 1, text: line },
       "2026-08-10",
-      ["projects/kasten.md", daily],
       "done",
     );
 
@@ -267,7 +259,6 @@ describe("cycleTodoInVault", () => {
     await cycleTodoInVault(
       { path: "projects/kasten.md", line: 1, text: line },
       "2026-08-10",
-      ["projects/kasten.md", daily],
       "blocked",
     );
 
@@ -282,7 +273,6 @@ describe("cycleTodoInVault", () => {
     await cycleTodoInVault(
       { path: "projects/kasten.md", line: 1, text: line },
       "2026-08-10",
-      ["projects/kasten.md"],
       "blocked",
     );
 
@@ -298,7 +288,6 @@ describe("cycleTodoInVault", () => {
     await cycleTodoInVault(
       { path: "projects/kasten.md", line: 1, text: line },
       "2026-10-18",
-      ["projects/kasten.md"],
       "done",
     );
 
@@ -315,7 +304,6 @@ describe("cycleTodoInVault", () => {
     await cycleTodoInVault(
       { path: "projects/kasten.md", line: 1, text: line },
       "2026-10-18",
-      ["projects/kasten.md"],
       "done",
     );
 
@@ -329,11 +317,34 @@ describe("cycleTodoInVault", () => {
     await cycleTodoInVault(
       { path: "projects/kasten.md", line: 1, text: line },
       "2026-10-18",
-      ["projects/kasten.md"],
       "blocked",
     );
 
     expect(saveNote).not.toHaveBeenCalled();
+  });
+});
+
+describe("#2061 a press sent before the file listing answers", () => {
+  it("ticks the todo's own note and makes today's for its log, never creating the todo's", async () => {
+    const daily = periodicNote("daily", NOW).path;
+    fetchNote.mockImplementation(async (path: string) => {
+      if (path !== "spec.md") throw new NoteMissing(path);
+      return "- [ ] read the spec\n";
+    });
+    const row = { path: "spec.md", line: 1, text: "- [ ] read the spec" };
+
+    await cycleTodoInVault(row, "2026-08-10", "done");
+
+    expect(createNote).toHaveBeenCalledExactlyOnceWith(
+      daily,
+      expect.stringContaining("read the spec"),
+    );
+    expect(saveNote).toHaveBeenCalledExactlyOnceWith(
+      "spec.md",
+      expect.stringMatching(/^- \[x\] read the spec/),
+      false,
+      noteBase("- [ ] read the spec\n"),
+    );
   });
 });
 

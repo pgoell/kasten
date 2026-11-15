@@ -37,7 +37,6 @@ describe("#802 the pane's tick", () => {
     await cycleTodoInVault(
       { path: "routine.md", line: 1, text: "- [ ] routine 📅 2026-08-10 🔁 every week" },
       "2026-08-10",
-      ["routine.md"],
       "done",
     );
 
@@ -55,7 +54,7 @@ describe("#802 the pane's tick", () => {
 describe("#1305 the pane's tick on a waiting recurring todo", () => {
   async function tick(line: string): Promise<string> {
     fetchNote.mockImplementation(async (path: string) => (path === "a.md" ? `${line}\n` : ""));
-    await cycleTodoInVault({ path: "a.md", line: 1, text: line }, "2026-08-10", ["a.md"], "done");
+    await cycleTodoInVault({ path: "a.md", line: 1, text: line }, "2026-08-10", "done");
     return ((saveNote.mock.calls[0]?.[1] as string) ?? "").split("\n")[0] ?? "";
   }
 

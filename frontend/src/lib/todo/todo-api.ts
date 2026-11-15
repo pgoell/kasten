@@ -35,28 +35,23 @@ import {
 
 /**
  * Today's daily note and its text, which every write here lands in or beside. `known`
- * is a note the caller has read already, so it is not asked for twice. `listed` is
- * `paths` with today's note in it exactly when the note exists, for `send`.
+ * is a note the caller has read already, so it is not asked for twice. `fresh` holds
+ * the note's path exactly when the read found no note there, for `send` to create.
  */
 async function dailyNote(
-  paths: string[],
   known: Record<string, string> = {},
-): Promise<{ path: string; text: string; listed: string[] }> {
+): Promise<{ path: string; text: string; fresh: string[] }> {
   const daily = periodicNote("daily", new Date());
-  const listed = [...paths, daily.path];
   const text = known[daily.path];
-  if (text !== undefined) return { path: daily.path, text, listed };
+  if (text !== undefined) return { path: daily.path, text, fresh: [] };
   try {
-    // Asked even when the listing lacks it: a press queued behind the day's first
-    // still holds the listing from before that press made the note.
-    return { path: daily.path, text: await fetchNote(daily.path), listed };
+    return { path: daily.path, text: await fetchNote(daily.path), fresh: [] };
   } catch (error) {
     if (!(error instanceof NoteMissing)) throw error;
     // The body goes over as it stands, the way `follow` sends one: `periodic.ts`
     // opens it with the frontmatter block, and a line in front of that fence
     // would leave the note untyped.
-    const without = paths.filter((path) => path !== daily.path);
-    return { path: daily.path, text: daily.body, listed: without };
+    return { path: daily.path, text: daily.body, fresh: [daily.path] };
   }
 }
 
@@ -67,14 +62,13 @@ async function dailyNote(
  */
 async function send(
   writes: Write[],
-  paths: string[],
+  fresh: string[],
   read: Record<string, string>,
 ): Promise<Map<string, number>> {
   const gained = new Map<string, number>();
   for (const write of writes) {
-    // A path the vault does not hold is only ever today's daily note, which a
-    // create makes along with the folders on the way to it.
-    if (!paths.includes(write.path)) {
+    // Only today's note, and only when its read found none (#2061).
+    if (fresh.includes(write.path)) {
       await createNote(write.path, write.text);
       continue;
     }
@@ -96,18 +90,18 @@ const stamped = new Map<string, { line: number; text: string; shift: number }>()
 const lineCount = (text: string) => text.split("\n").length;
 
 /** Put what was typed into today's note, under `## TODOs`. */
-export function addTodoInVault(input: string, today: string, paths: string[]): Promise<void> {
-  return inTurn(() => addTodo(input, today, paths));
+export function addTodoInVault(input: string, today: string): Promise<void> {
+  return inTurn(() => addTodo(input, today));
 }
 
-async function addTodo(input: string, today: string, paths: string[]): Promise<void> {
-  const daily = await dailyNote(paths);
+async function addTodo(input: string, today: string): Promise<void> {
+  const daily = await dailyNote();
   const writes = addTodoWrites({
     dailyPath: daily.path,
     dailyText: daily.text,
     todo: expandShorthand(input, today),
   });
-  await send(writes, daily.listed, { [daily.path]: daily.text });
+  await send(writes, daily.fresh, { [daily.path]: daily.text });
 }
 
 /**
@@ -360,18 +354,16 @@ export function agentTodoIn(
 export function cycleTodoInVault(
   hit: SearchHit,
   today: string,
-  paths: string[],
   state?: TodoState,
   twins?: number[],
   id = newId(),
 ): Promise<void> {
-  return inTurn(() => cycleInVault(hit, today, paths, state, twins, id));
+  return inTurn(() => cycleInVault(hit, today, state, twins, id));
 }
 
 async function cycleInVault(
   hit: SearchHit,
   today: string,
-  paths: string[],
   state: TodoState | undefined,
   twins: number[] | undefined,
   id: string,
@@ -414,7 +406,7 @@ async function cycleInVault(
     logged[path] = path === hit.path ? text : await fetchNote(path);
   }
 
-  const daily = await dailyNote(paths, logged);
+  const daily = await dailyNote(logged);
   // The pressed todo answers off the press itself, inside `cycleLines`.
   const closed = closedAmong(todos.flatMap((found) => parseTodo(found.text) ?? []));
 
@@ -431,7 +423,7 @@ async function cycleInVault(
     state,
   });
 
-  const gained = await send(writes, daily.listed, {
+  const gained = await send(writes, daily.fresh, {
     ...logged,
     [hit.path]: text,
     [daily.path]: daily.text,
@@ -454,16 +446,14 @@ async function cycleInVault(
 export function toggleTimerInVault(
   hit: SearchHit,
   clock: { date: string; time: string },
-  paths: string[],
   twins?: number[],
 ): Promise<void> {
-  return inTurn(() => toggleTimer(hit, clock, paths, twins));
+  return inTurn(() => toggleTimer(hit, clock, twins));
 }
 
 async function toggleTimer(
   hit: SearchHit,
   clock: { date: string; time: string },
-  paths: string[],
   twins: number[] | undefined,
 ): Promise<void> {
   // The vault, not the row: the list is as old as the last fetch.
@@ -492,7 +482,7 @@ async function toggleTimer(
     notes[found.path] ??= await fetchNote(found.path);
   }
 
-  const daily = await dailyNote(paths, notes);
+  const daily = await dailyNote(notes);
   notes[daily.path] = daily.text;
 
   const writes = timerWrites({
@@ -506,5 +496,5 @@ async function toggleTimer(
     id: newId(),
   });
 
-  await send(writes, daily.listed, notes);
+  await send(writes, daily.fresh, notes);
 }

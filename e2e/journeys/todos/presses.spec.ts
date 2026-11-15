@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import {
   cursorTo,
+  hold,
   leader,
   noteText,
   openApp,
@@ -121,6 +122,42 @@ async function openTodos(page: Page): Promise<void> {
   await leader(page, "gt");
   await expect(page.getByRole("button", { name: `open ${LAUNDRY}` })).toBeVisible();
 }
+
+/** Opens the todo pane with `GET /api/files` held unanswered; the first write to `path` resolves `written`. */
+async function openUnlisted(page: Page, path: string) {
+  const asked = page.waitForRequest((r) => new URL(r.url()).pathname === "/api/files");
+  const release = await hold(page, /\/api\/files$/);
+  const written = page.waitForResponse(
+    (r) => decodeURIComponent(new URL(r.url()).pathname) === `/api/files/${path}` && r.request().method() !== "GET",
+  );
+  // Not `openApp`: the home note waits on the listing this holds back.
+  await page.goto("/");
+  await asked;
+  await expect(page.getByRole("button", { name: "Search notes" })).toBeVisible({ timeout: 15_000 });
+  await leader(page, "gt");
+  await expect(page.getByRole("button", { name: `open ${LAUNDRY}` })).toBeVisible();
+  return { release, sent: async () => `${(await written).request().method()} ${(await written).status()}` };
+}
+
+test("t before the file listing answers starts a session in today's note (#2061)", async ({ page, stack }) => {
+  const unlisted = await openUnlisted(page, HOME);
+  await cursorTo(page, LAUNDRY);
+  await page.keyboard.press("t");
+  expect(await unlisted.sent()).toBe("PUT 200");
+  await expect
+    .poll(() => noteText(stack.vault, `01 Periodic/00 Daily/${today()}.md`).catch(() => ""))
+    .toMatch(/^- \d\d:\d\d-.*fold the laundry/m);
+  await unlisted.release();
+});
+
+test("x before the file listing answers moves the todo in its own note (#2061)", async ({ page, stack }) => {
+  const unlisted = await openUnlisted(page, GARDEN);
+  await cursorTo(page, TOMATOES);
+  await page.keyboard.press("X");
+  expect(await unlisted.sent()).toBe("PUT 200");
+  await expect.poll(() => noteText(stack.vault, GARDEN)).toMatch(/^- \[x\] water the tomatoes/m);
+  await unlisted.release();
+});
 
 test("a press draws the row's new state before the vault has the write", async ({
   page,

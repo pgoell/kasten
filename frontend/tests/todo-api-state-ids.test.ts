@@ -42,7 +42,6 @@ describe("cycleTodoInVault", () => {
     await cycleTodoInVault(
       { path: "projects/kasten.md", line: 1, text: "- [ ] a" },
       "2026-10-18",
-      ["projects/kasten.md"],
       "blocked",
     );
 
@@ -61,7 +60,6 @@ describe("cycleTodoInVault", () => {
       cycleTodoInVault(
         { path: "projects/kasten.md", line: 1, text: "- [ ] a" },
         "2026-10-18",
-        ["projects/kasten.md"],
         "blocked",
       ),
     ).rejects.toThrow("that line has changed since it was listed");
@@ -77,7 +75,6 @@ describe("cycleTodoInVault", () => {
     await cycleTodoInVault(
       { path: "projects/kasten.md", line: 1, text: "- [ ] a" },
       "2026-10-18",
-      ["projects/kasten.md"],
       "blocked",
     );
 
@@ -98,7 +95,6 @@ describe("cycleTodoInVault", () => {
     await cycleTodoInVault(
       { path: "projects/kasten.md", line: 2, text: "- [ ] a" },
       "2026-10-18",
-      ["projects/kasten.md"],
       "blocked",
       [1, 2],
     );
@@ -120,7 +116,6 @@ describe("cycleTodoInVault", () => {
       cycleTodoInVault(
         { path: "projects/kasten.md", line: 2, text: "- [ ] a" },
         "2026-10-18",
-        ["projects/kasten.md"],
         "blocked",
         [1, 2],
       ),
@@ -136,7 +131,6 @@ describe("cycleTodoInVault", () => {
     await cycleTodoInVault(
       { path: "projects/kasten.md", line: 2, text: "- [ ] a" },
       "2026-10-18",
-      ["projects/kasten.md"],
       "blocked",
       [1, 2],
     );
@@ -158,7 +152,6 @@ describe("cycleTodoInVault", () => {
       cycleTodoInVault(
         { path: "projects/kasten.md", line: 2, text: "- [ ] a" },
         "2026-10-18",
-        ["projects/kasten.md"],
         "blocked",
         [1, 2],
       ),
@@ -205,12 +198,7 @@ describe("cycleTodoInVault", () => {
       ]);
 
       await expect(
-        cycleTodoInVault(
-          { path: "projects/kasten.md", line: 1, text: line },
-          "2026-10-18",
-          ["projects/kasten.md", "projects/other.md", "deps.md", daily],
-          state,
-        ),
+        cycleTodoInVault({ path: "projects/kasten.md", line: 1, text: line }, "2026-10-18", state),
       ).rejects.toThrow("🆔 kt-aaaaaa is on another todo too: projects/other.md line 7");
 
       expect(saveNote).not.toHaveBeenCalled();
@@ -233,7 +221,6 @@ describe("cycleTodoInVault", () => {
       cycleTodoInVault(
         { path: "projects/kasten.md", line: 1, text: line },
         "2026-10-18",
-        ["projects/kasten.md", "a.md", "b.md"],
         "doing",
         [1, 2],
       ),
@@ -266,11 +253,7 @@ describe("cycleTodoInVault", () => {
       { path: daily, line: 4, text: session },
     ]);
 
-    await cycleTodoInVault({ path: "projects/kasten.md", line: 1, text: line }, "2026-10-18", [
-      "projects/kasten.md",
-      "deps.md",
-      daily,
-    ]);
+    await cycleTodoInVault({ path: "projects/kasten.md", line: 1, text: line }, "2026-10-18");
 
     expect(saveNote).toHaveBeenCalledWith(
       "projects/kasten.md",
@@ -289,9 +272,7 @@ describe("cycleTodoInVault", () => {
   it("#534 I2 a state press on a todo with no id searches nothing and sets it done", async () => {
     fetchNote.mockResolvedValue("- [/] a\n");
 
-    await cycleTodoInVault({ path: "projects/kasten.md", line: 1, text: "- [/] a" }, "2026-10-18", [
-      "projects/kasten.md",
-    ]);
+    await cycleTodoInVault({ path: "projects/kasten.md", line: 1, text: "- [/] a" }, "2026-10-18");
 
     expect(searchNotes).not.toHaveBeenCalled();
     expect(saveNote).toHaveBeenCalledWith(

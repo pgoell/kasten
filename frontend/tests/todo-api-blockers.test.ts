@@ -171,7 +171,6 @@ describe("#537 a ⛔ naming a 🆔 two todos carry", () => {
     await cycleTodoInVault(
       { path: "inbox.md", line: 4, text: "- [ ] d 🆔 kt-dddddd" },
       "2026-08-10",
-      ["inbox.md", daily],
       "done",
     );
 
@@ -211,7 +210,6 @@ describe("#537 a ⛔ naming a 🆔 two todos carry", () => {
     await cycleTodoInVault(
       { path: "d.md", line: 1, text: "- [/] d 🆔 kt-dddddd" },
       "2026-08-10",
-      ["d.md", "deps.md", daily],
       "done",
     );
 
@@ -238,7 +236,6 @@ describe("#537 a ⛔ naming a 🆔 two todos carry", () => {
     await cycleTodoInVault(
       { path: "d.md", line: 1, text: "- [/] d 🆔 kt-dddddd" },
       "2026-08-10",
-      ["d.md", "deps.md", daily],
       "done",
     );
 

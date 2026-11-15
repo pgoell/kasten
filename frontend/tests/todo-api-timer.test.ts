@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { NoteMissing } from "@/lib/core/api";
 import { noteBase } from "@/lib/notes/note-base";
 import { dailyDate, periodicNote } from "@/lib/notes/text/periodic";
 import { toggleTimerInVault } from "@/lib/todo/todo-api";
@@ -60,7 +61,6 @@ describe("toggleTimerInVault", () => {
     await toggleTimerInVault(
       { path: "projects/kasten.md", line: 1, text: "- [ ] a 🆔 kt-aaaaaa" },
       clock,
-      ["projects/kasten.md", daily],
     );
 
     expect(saveNote).toHaveBeenCalledExactlyOnceWith(
@@ -79,10 +79,7 @@ describe("toggleTimerInVault", () => {
     fetchNote.mockImplementation(async (path: string) => notes[path]);
 
     await expect(
-      toggleTimerInVault({ path: "projects/kasten.md", line: 1, text: "- [ ] a" }, clock, [
-        "projects/kasten.md",
-        daily,
-      ]),
+      toggleTimerInVault({ path: "projects/kasten.md", line: 1, text: "- [ ] a" }, clock),
     ).rejects.toThrow("that line has changed since it was listed");
 
     expect(saveNote).not.toHaveBeenCalled();
@@ -103,10 +100,7 @@ describe("toggleTimerInVault", () => {
       { path: daily, line: 2, text: open },
     ]);
 
-    await toggleTimerInVault({ path: "projects/kasten.md", line: 1, text: "- [ ] a" }, clock, [
-      "projects/kasten.md",
-      daily,
-    ]);
+    await toggleTimerInVault({ path: "projects/kasten.md", line: 1, text: "- [ ] a" }, clock);
 
     expect(saveNote).toHaveBeenCalledWith(
       daily,
@@ -127,7 +121,6 @@ describe("toggleTimerInVault", () => {
     await toggleTimerInVault(
       { path: "projects/kasten.md", line: 2, text: "- [ ] a" },
       clock,
-      ["projects/kasten.md", daily],
       [1, 2],
     );
 
@@ -152,13 +145,11 @@ describe("toggleTimerInVault", () => {
       { path: "projects/kasten.md", line: 1, text: line },
       { path: "projects/kasten.md", line: 2, text: line },
     ]);
-    const paths = ["projects/kasten.md", daily];
-
     await expect(
-      toggleTimerInVault({ path: "projects/kasten.md", line: 2, text: line }, clock, paths, [1, 2]),
+      toggleTimerInVault({ path: "projects/kasten.md", line: 2, text: line }, clock, [1, 2]),
     ).rejects.toThrow("🆔 kt-aaaaaa is on another todo too: projects/kasten.md line 1");
     await expect(
-      toggleTimerInVault({ path: "projects/kasten.md", line: 1, text: line }, clock, paths, [1, 2]),
+      toggleTimerInVault({ path: "projects/kasten.md", line: 1, text: line }, clock, [1, 2]),
     ).rejects.toThrow("🆔 kt-aaaaaa is on another todo too: projects/kasten.md line 2");
 
     expect(saveNote).not.toHaveBeenCalled();
@@ -180,11 +171,7 @@ describe("toggleTimerInVault", () => {
     ]);
 
     await expect(
-      toggleTimerInVault({ path: "projects/kasten.md", line: 1, text: line }, clock, [
-        "projects/kasten.md",
-        "projects/other.md",
-        daily,
-      ]),
+      toggleTimerInVault({ path: "projects/kasten.md", line: 1, text: line }, clock),
     ).rejects.toThrow("🆔 kt-aaaaaa is on another todo too: projects/other.md line 7");
 
     expect(saveNote).not.toHaveBeenCalled();
@@ -205,11 +192,7 @@ describe("toggleTimerInVault", () => {
       { path: "deps.md", line: 1, text: "- [b] c ⛔ kt-aaaaaa" },
     ]);
 
-    await toggleTimerInVault({ path: "projects/kasten.md", line: 1, text: line }, clock, [
-      "projects/kasten.md",
-      "deps.md",
-      daily,
-    ]);
+    await toggleTimerInVault({ path: "projects/kasten.md", line: 1, text: line }, clock);
 
     expect(saveNote).toHaveBeenCalledExactlyOnceWith(
       daily,
@@ -226,10 +209,7 @@ describe("toggleTimerInVault", () => {
     };
     fetchNote.mockImplementation(async (path: string) => notes[path]);
 
-    await toggleTimerInVault({ path: "projects/kasten.md", line: 1, text: "- [ ] a" }, clock, [
-      "projects/kasten.md",
-      daily,
-    ]);
+    await toggleTimerInVault({ path: "projects/kasten.md", line: 1, text: "- [ ] a" }, clock);
 
     expect(searchNotes).not.toHaveBeenCalled();
     expect(saveNote).toHaveBeenCalledWith(
@@ -250,13 +230,69 @@ describe("toggleTimerInVault", () => {
     searchNotes.mockRejectedValue(new Error("GET /api/search failed with 500"));
 
     await expect(
-      toggleTimerInVault({ path: "projects/kasten.md", line: 1, text: line }, clock, [
-        "projects/kasten.md",
-        daily,
-      ]),
+      toggleTimerInVault({ path: "projects/kasten.md", line: 1, text: line }, clock),
     ).rejects.toThrow("GET /api/search failed with 500");
 
     expect(saveNote).not.toHaveBeenCalled();
     expect(createNote).not.toHaveBeenCalled();
+  });
+});
+
+describe("#2061 a timer press sent before the file listing answers", () => {
+  const daily = periodicNote("daily", NOW).path;
+  const clock = { date: dailyDate(daily) ?? "", time: "14:03" };
+  const hit = { path: "projects/kasten.md", line: 1, text: "- [ ] a" };
+
+  function vault(notes: Record<string, string>) {
+    fetchNote.mockImplementation(async (path: string) => {
+      if (notes[path] === undefined) throw new NoteMissing(path);
+      return notes[path];
+    });
+  }
+
+  it("makes today's note and saves the todo's own, never creating that", async () => {
+    vault({ "projects/kasten.md": "- [ ] a\n" });
+
+    await toggleTimerInVault(hit, clock);
+
+    expect(createNote).toHaveBeenCalledExactlyOnceWith(
+      daily,
+      expect.stringMatching(/^- 14:03- {6}a \[\[projects\/kasten\]\] kt-/m),
+    );
+    expect(saveNote).toHaveBeenCalledExactlyOnceWith(
+      "projects/kasten.md",
+      expect.stringMatching(/^- \[ \] a 🆔 kt-/),
+      false,
+      noteBase("- [ ] a\n"),
+    );
+  });
+
+  it("writes into today's note on disk by its read, and creates nothing", async () => {
+    vault({ "projects/kasten.md": "- [ ] a\n", [daily]: "## Time\n" });
+
+    await toggleTimerInVault(hit, clock);
+
+    expect(createNote).not.toHaveBeenCalled();
+    expect(saveNote).toHaveBeenCalledWith(
+      daily,
+      expect.stringContaining("a [[projects/kasten]]"),
+      false,
+      noteBase("## Time\n"),
+    );
+    expect(saveNote).toHaveBeenCalledTimes(2);
+  });
+
+  it("saves a todo that sits in today's note itself, and creates nothing", async () => {
+    vault({ [daily]: "## TODOs\n- [ ] a\n" });
+
+    await toggleTimerInVault({ ...hit, path: daily, line: 2 }, clock);
+
+    expect(createNote).not.toHaveBeenCalled();
+    expect(saveNote).toHaveBeenCalledExactlyOnceWith(
+      daily,
+      expect.stringContaining("## Time"),
+      false,
+      noteBase("## TODOs\n- [ ] a\n"),
+    );
   });
 });
