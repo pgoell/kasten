@@ -188,6 +188,18 @@ export function isTerminalChord(
   );
 }
 
+/**
+ * Whether a press with a modifier held is a chord, not a typed character. AltGr reads as Ctrl+Alt
+ * and a Mac's Option as Alt, and on many layouts they type `[`, `]` or `@` (#2070).
+ */
+export function isChord(
+  event: Pick<KeyboardEvent, "key" | "ctrlKey" | "altKey" | "metaKey">,
+): boolean {
+  if (event.metaKey || (event.ctrlKey && !event.altKey)) return true;
+  if (!event.altKey) return false;
+  return [...event.key].length !== 1 || /[A-Za-z0-9 ]/.test(event.key);
+}
+
 export interface TerminalBinding {
   /**
    * `KeyboardEvent.key` under `TERMINAL_CHORD`: uppercase for a letter, as shift is down.

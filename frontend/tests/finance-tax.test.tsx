@@ -116,7 +116,8 @@ describe("the finance pane's Tax tab", () => {
       "/api/finance/tax/2026/lines/werbungskosten.csv",
     );
 
-    fireEvent.keyDown(pane, { key: "]" });
+    // Typed through AltGr (Ctrl+Alt) as on a German layout (#2070).
+    fireEvent.keyDown(pane, { key: "]", ctrlKey: true, altKey: true });
 
     expect(await screen.findByText("Tax year 2027")).toBeInTheDocument();
     expect(tax.fetchTaxYear).toHaveBeenLastCalledWith(2027);

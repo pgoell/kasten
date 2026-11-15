@@ -243,6 +243,33 @@ describe("the finance pane's overview, budget and transactions", () => {
     await waitFor(() => expect(api.requestPull).toHaveBeenCalledTimes(1));
   });
 
+  it("#2070 [ and ] typed through AltGr or Option step the month; a real chord steps none", async () => {
+    renderPane();
+    await screen.findByRole("heading", { name: "October 2026" });
+    const pane = screen.getByRole("region", { name: "Finance" });
+    const typed = (key: string, held: object) => fireEvent.keyDown(pane, { key, ...held });
+
+    // AltGr reads as Ctrl+Alt, a Mac's Option as Alt.
+    typed("[", { ctrlKey: true, altKey: true });
+    expect(await screen.findByRole("heading", { name: "September 2026" })).toBeTruthy();
+    typed("[", { altKey: true });
+    expect(await screen.findByRole("heading", { name: "August 2026" })).toBeTruthy();
+    typed("]", { ctrlKey: true, altKey: true });
+    expect(await screen.findByRole("heading", { name: "September 2026" })).toBeTruthy();
+    typed("]", { altKey: true, shiftKey: true });
+    expect(await screen.findByRole("heading", { name: "October 2026" })).toBeTruthy();
+
+    for (const held of [{ ctrlKey: true }, { metaKey: true }, { metaKey: true, altKey: true }]) {
+      expect(typed("[", held)).toBe(true);
+    }
+    // Alt with a letter is a chord, not a typed letter: Alt+P pulls nothing, Alt+q closes nothing.
+    expect(typed("P", { altKey: true, shiftKey: true })).toBe(true);
+    expect(typed("q", { altKey: true })).toBe(true);
+    expect(typed("P", { ctrlKey: true, shiftKey: true })).toBe(true);
+    expect(screen.getByRole("heading", { name: "October 2026" })).toBeTruthy();
+    expect(api.requestPull).not.toHaveBeenCalled();
+  });
+
   it("#1036 on the budget, y takes the suggestion and e edits the limit from the month shown", async () => {
     renderPane();
     press("B");
@@ -259,6 +286,28 @@ describe("the finance pane's overview, budget and transactions", () => {
     fireEvent.change(field, { target: { value: "1700" } });
     fireEvent.keyDown(field, { key: "Enter" });
     await waitFor(() => expect(api.writeLimit).toHaveBeenCalledWith(5, "1700", "2026-10"));
+  });
+
+  it("#2070 [ typed through AltGr into a limit stays the field's, and a leader sequence still runs", async () => {
+    const commands = stubCommands();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <FinancePane commands={commands} focusSignal={0} onNotice={vi.fn()} today="2026-10-25" />
+      </QueryClientProvider>,
+    );
+    press("B");
+    await screen.findByText(/Raise to 540/);
+    press("e");
+    const field = await screen.findByRole("textbox", { name: /limit from October 2026/ });
+    expect(fireEvent.keyDown(field, { key: "[", ctrlKey: true, altKey: true })).toBe(true);
+    expect(screen.getByRole("heading", { name: "October 2026" })).toBeTruthy();
+    fireEvent.keyDown(field, { key: "Escape" });
+
+    press(" ");
+    press("g");
+    press("t");
+    expect(commands.openTodos).toHaveBeenCalledTimes(1);
   });
 
   it("#1036 on the transactions, a category key sorts the cursor's booking in place", async () => {

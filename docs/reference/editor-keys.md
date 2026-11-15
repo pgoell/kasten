@@ -120,7 +120,9 @@ On To sort and Transactions each category takes a key, in the order the
 categories are listed by name: `1` to `9` and `0`, then `b` to `z` without
 `j`, `k` and `q`. The key shows on the category's button. A category past the
 last key is reached by its button. The tabs, the month and "pull now" take
-upper case and brackets, so they never meet a category's key.
+upper case and brackets, so they never meet a category's key. A bracket typed
+through AltGr or a Mac's Option, as on a German layout, steps the month too;
+a key held with Ctrl alone or Cmd is left to the browser and the app.
 
 | Key | Does |
 | --- | --- |
