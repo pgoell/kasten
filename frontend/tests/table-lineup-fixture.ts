@@ -3,7 +3,7 @@ import { act, fireEvent } from "@testing-library/react";
 
 /**
  * The table-line-up tests' shared note and helpers, for `table-lineup.test.tsx`
- * `table-lineup-paste.test.tsx` and `editor-save-and-undo.test.tsx`.
+ * and `editor-save-and-undo.test.tsx`.
  */
 
 /** A table with a short cell in its last row, and a line after it for the cursor to go to. */

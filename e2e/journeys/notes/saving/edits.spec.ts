@@ -208,6 +208,92 @@ test.describe("the table line-up takes only what the reader typed into (#792)", 
   });
 });
 
+// Each cell padded to its column, as the line-up writes a table.
+const pad = (rows: string[][]) =>
+  rows.map((row) => `| ${row.map((cell, n) => cell.padEnd([3, 6, 3][n] ?? 3)).join(" | ")} |`);
+
+test.describe("the table line-up takes what a paste, a yank or a rebuilt table changes (#792)", () => {
+  test("a row pasted under a table is lined up on save, vim off", async ({ page, stack }) => {
+    await rowEnd(page, stack.vault, RAGGED, 3, "off");
+    await page.locator(".cm-content").evaluate((content) => {
+      const clipboardData = new DataTransfer();
+      clipboardData.setData("text/plain", "| yyy | z |");
+      content.dispatchEvent(new ClipboardEvent("paste", { clipboardData, bubbles: true }));
+    });
+    await page.keyboard.press("Control+s");
+    const rows = pad([["a", "longer"], ["---", "------"], ["xx", "b"], ["yyy", "z"]]);
+    await onDisk(stack.vault, [...rows, "after"].join("\n"));
+  });
+
+  test("yyp on the last row lines the table up on leave, vim on", async ({ page, stack }) => {
+    await rowEnd(page, stack.vault, RAGGED, 2, "on");
+    await page.keyboard.type("yyp");
+    await page.keyboard.type("GA!");
+    await page.keyboard.press("Escape");
+    const rows = pad([["a", "longer"], ["---", "------"], ["xx", "b"], ["xx", "b"]]);
+    await onDisk(stack.vault, [...rows, "", "after!"].join("\n"));
+  });
+
+  test("a table typed invalid and valid again is lined up on leave, vim off", async ({
+    page,
+    stack,
+  }) => {
+    await rowEnd(page, stack.vault, RAGGED, 0, "off");
+    // A third head cell the dashes do not match yet, so the table stops being one.
+    await page.keyboard.type(" x |");
+    await page.keyboard.press("Control+End");
+    await page.keyboard.press("Control+Home");
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("End");
+    await page.keyboard.type(" - |");
+    await page.keyboard.press("Control+End");
+    // An edit below and no save: a save lines up any kept table, so only autosave proves the leave did.
+    await page.keyboard.type("!");
+    const rows = pad([["a", "longer", "x"], ["---", "------", "---"], ["xx", "b", ""]]);
+    await onDisk(stack.vault, [...rows, "", "after!"].join("\n"));
+  });
+
+  test("x on the head's first pipe still lines the table up on :w, vim on", async ({
+    page,
+    stack,
+  }) => {
+    await rowEnd(page, stack.vault, RAGGED, 2, "on");
+    await page.keyboard.type("hic");
+    await page.keyboard.press("Escape");
+    await page.keyboard.type("gg0xG:w");
+    await page.keyboard.press("Enter");
+    // The head's indent, left by the lost pipe, is worn by every line.
+    const rows = pad([["a", "longer"], ["---", "------"], ["xx", "bc"]]).map((row) => ` ${row}`);
+    await onDisk(stack.vault, [...rows, "", "after"].join("\n"));
+  });
+
+  test("two tables typed into at once are both lined up on save, and one undo takes both out, vim off", async ({
+    page,
+    stack,
+  }) => {
+    const source = RAGGED.replace("after", "| p | longer |\n| - | - |\n| yy | b |\n\nafter");
+    await rowEnd(page, stack.vault, source, 2, "off");
+    await page.keyboard.press("ArrowLeft");
+    await page.keyboard.press("ArrowLeft");
+    // ctrl+d twice takes the `b` here and the `b` in the second table: one typing reaches both.
+    await page.keyboard.press("Control+d");
+    await page.keyboard.press("Control+d");
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.type("c");
+    await page.keyboard.press("Control+s");
+    const head = pad([["a", "longer"], ["---", "------"], ["xx", "bc"]]);
+    const next = pad([["p", "longer"], ["---", "------"], ["yy", "bc"]]);
+    await onDisk(stack.vault, [...head, "", ...next, "", "after"].join("\n"));
+
+    await page.keyboard.press("Control+z");
+    await page.keyboard.press("Control+Home");
+    for (let step = 0; step < 6; step++) await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("Control+End");
+    await page.keyboard.press("Control+s");
+    await onDisk(stack.vault, source.replaceAll("b |\n", "bc |\n"));
+  });
+});
+
 test.describe("on a phone", () => {
   test.use(phone);
 

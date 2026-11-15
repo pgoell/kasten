@@ -354,3 +354,35 @@ test.describe("on a phone", () => {
     expect(blocked).toEqual([]);
   });
 });
+
+test.describe("a YouTube link in live preview", () => {
+  /** Opens `01 Notes/Tube.md` holding `text`, the cursor on its first line so the link below draws. */
+  async function tube(page: Page, vault: string, text: string): Promise<string[]> {
+    await vaultWith(vault, { "01 Notes/Tube.md": text });
+    const blocked = await fakeYouTube(page);
+    await page.goto(`/?note=${encodeURIComponent("01 Notes/Tube.md")}`);
+    await expect(page.locator(".cm-content")).toContainText("notes", { timeout: 15_000 });
+    await page.keyboard.type("gg");
+    return blocked;
+  }
+  // The frames sit in a layer over the editor, so a redraw of the line never reloads one.
+  const player = "iframe.cm-video-frame";
+
+  test("![](link) draws as the video's player in place of its address", async ({ page, stack }) => {
+    const blocked = await tube(page, stack.vault, "notes\n\n![](https://youtu.be/iDulhoQ2pro)\n");
+
+    await expect(page.locator(player)).toHaveAttribute("src", /\/embed\/iDulhoQ2pro(\?|$)/);
+    await expect(page.locator(".cm-content")).not.toContainText("youtu.be");
+    expect(blocked).toEqual([]);
+  });
+
+  test("the player opens at the second the note's watching: says", async ({ page, stack }) => {
+    await tube(
+      page,
+      stack.vault,
+      "---\nwatching: {iDulhoQ2pro: 312}\n---\n\nnotes\n\n![](https://youtu.be/iDulhoQ2pro)\n",
+    );
+
+    await expect(page.locator(player)).toHaveAttribute("src", /\/embed\/iDulhoQ2pro\?.*start=312/);
+  });
+});

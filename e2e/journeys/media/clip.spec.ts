@@ -288,3 +288,109 @@ test.describe("a sound on a phone", () => {
     await expect(access(join(stack.vault, "sounds/talk.wav"))).rejects.toThrow();
   });
 });
+
+/** Opens `01 Notes/Players.md` holding `body` under a heading, beside the two clips, with vim as asked. */
+async function players(page: Page, vault: string, body: string, vim: "on" | "off" = "on") {
+  const clip = (name: string) => readFile(join(import.meta.dirname, "clips", name));
+  await vaultWith(vault, {
+    "clips/walk.mp4": await clip("walk.mp4"),
+    "clips/RUN.WEBM": await clip("swim.webm"),
+    "clips/Swim #1.WEBM": await clip("swim.webm"),
+    "01 Notes/Players.md": `# Players\n\n${body}`,
+  });
+  await page.addInitScript((mode) => localStorage.setItem("kasten.vim", mode), vim);
+  await page.goto(`/?note=${encodeURIComponent("01 Notes/Players.md")}`);
+  await expect(page.locator(".cm-content")).toContainText("Players", { timeout: 15_000 });
+  // A note opens with the cursor on its first line under the heading, which shows that line's source.
+  await page.keyboard.press(vim === "on" ? "g" : "Control+Home");
+  if (vim === "on") await page.keyboard.press("g");
+}
+
+/** A player that waits to be asked: controls, no autoplay, only the head read, inline on a phone. */
+async function waitsToBeAsked(video: Locator, src: string): Promise<void> {
+  await expect(video).toHaveAttribute("src", src);
+  await expect(video).toHaveJSProperty("controls", true);
+  await expect(video).toHaveJSProperty("autoplay", false);
+  await expect(video).not.toHaveAttribute("autoplay");
+  await expect(video).toHaveJSProperty("preload", "metadata");
+  await expect(video).toHaveJSProperty("playsInline", true);
+}
+
+for (const vim of ["on", "off"] as const) {
+  test(`![[walk.mp4]] and ![[run.webm]] draw as players that wait to be asked, vim ${vim}`, async ({
+    page,
+    stack,
+  }) => {
+    await players(page, stack.vault, "![[walk.mp4]]\n\n![[run.webm]]\n", vim);
+
+    const drawn = page.locator(".cm-content video.cm-clip");
+    await expect(drawn).toHaveCount(2);
+    // The vault holds `RUN.WEBM`: an embed finds its file whatever the case.
+    await waitsToBeAsked(drawn.nth(0), "/api/assets/clips/walk.mp4");
+    await waitsToBeAsked(drawn.nth(1), "/api/assets/clips/RUN.WEBM");
+    await expect(page.locator(".cm-content img.cm-image")).toHaveCount(0);
+    await expect(page.locator(".cm-content")).not.toContainText("![[");
+  });
+}
+
+test("![](path) to a video file draws the same player, an escaped and queried address too", async ({
+  page,
+  stack,
+}) => {
+  await players(page, stack.vault, "![](clips/walk.mp4)\n\n![](<clips/Swim%20%231.WEBM?t=2>)\n");
+
+  const drawn = page.locator(".cm-content video.cm-clip");
+  await expect(drawn).toHaveCount(2);
+  await waitsToBeAsked(drawn.nth(0), "/api/assets/clips/walk.mp4");
+  await waitsToBeAsked(drawn.nth(1), "/api/assets/clips/Swim%20%231.WEBM?t=2");
+  await expect(page.locator(".cm-content img.cm-image")).toHaveCount(0);
+});
+
+test("a video file the vault does not hold reads Not found", async ({ page, stack }) => {
+  await players(page, stack.vault, "![[gone.mp4]]\n");
+
+  await expect(page.locator(".cm-content .cm-embed-missing")).toHaveText("Not found: gone.mp4");
+  await expect(page.locator(".cm-content video")).toHaveCount(0);
+});
+
+test("a playing video goes on through a keystroke elsewhere in the note", async ({ page, stack }) => {
+  await players(page, stack.vault, "![[walk.mp4]]\n");
+  const video = page.locator(".cm-content video.cm-clip");
+  await video.evaluate(async (element: HTMLVideoElement) => {
+    element.muted = true;
+    element.loop = true;
+    await element.play();
+    (window as unknown as { player: Element }).player = element;
+  });
+
+  await page.keyboard.type("A more");
+  await page.keyboard.press("Escape");
+
+  await expect(page.locator(".cm-content")).toContainText("Players more");
+  // The same element, still playing: a rebuilt one would start again from a stop.
+  expect(
+    await video.evaluate((element) => (window as unknown as { player: Element }).player === element),
+  ).toBe(true);
+  await expect(video).toHaveJSProperty("paused", false);
+});
+
+test("a sound's ![](path) draws as a player that reads nothing until played, not a picture", async ({
+  page,
+  stack,
+}) => {
+  const fetched: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("/api/assets/Flashcards/")) fetched.push(request.url());
+  });
+  await vaultWith(stack.vault, { "Flashcards/Japanese media/kana.MP3": silence() });
+  await players(page, stack.vault, "word\n\n![](Flashcards/Japanese%20media/kana.MP3)\n");
+
+  const audio = page.locator(".cm-content audio.cm-audio");
+  await expect(audio).toHaveAttribute("src", "/api/assets/Flashcards/Japanese%20media/kana.MP3");
+  await expect(audio).toHaveJSProperty("controls", true);
+  // A deck of a thousand cards would otherwise fetch a thousand sounds.
+  await expect(audio).toHaveAttribute("preload", "none");
+  await expect(page.locator(".cm-content img.cm-image")).toHaveCount(0);
+  await expect(page.locator(".cm-content")).not.toContainText("kana");
+  expect(fetched).toEqual([]);
+});
