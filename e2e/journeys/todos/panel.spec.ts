@@ -397,3 +397,105 @@ test.describe("the todo pane's views", () => {
     });
   }
 });
+
+const BLOCKS = "02 Projects/Blocks.md";
+const PICK = "write the docs";
+
+/** The todo pane over a note of `lines`, with `b` pressed on the row holding `on`. */
+async function picker(page: Page, vault: string, lines: string[], on = PICK) {
+  await vaultWith(vault, { [BLOCKS]: `${lines.join("\n")}\n` });
+  await openApp(page);
+  await leader(page, "gt");
+  await cursorTo(page, on);
+  await page.keyboard.press("b");
+  return page.getByTestId("todo-pick");
+}
+
+const BLOCK_LINES = ["- [ ] write the docs", "- [ ] ship the release", "- [ ] tag it"];
+// The body alone: the vault stamps a frontmatter onto the note once it is read.
+const blocks = async (vault: string) =>
+  (await noteText(vault, BLOCKS)).replace(/^---\n[\s\S]*?\n---\n/, "");
+
+test.describe("the todo pane's b picker", () => {
+  test("names the row, Enter writes ⛔ and the blocker's new id into the two lines, and opens nothing", async ({
+    page,
+    stack,
+  }) => {
+    const pick = await picker(page, stack.vault, BLOCK_LINES);
+    await expect(pick).toHaveText(`⛔ pick what blocks: ${PICK}`);
+    await expect(page.getByText("Enter pick")).toBeVisible();
+    await cursorTo(page, "ship the release");
+    await page.keyboard.press("Enter");
+    await expect(pick).toBeHidden();
+    await expect
+      .poll(() => blocks(stack.vault))
+      .toMatch(
+        /^- \[.\] write the docs ⛔ (kt-\w{6})\n- \[ \] ship the release 🆔 \1\n- \[ \] tag it\n$/,
+      );
+    // Enter outside the picker opens the row's note in a tab of its own.
+    await expect(page.getByRole("tab", { name: "Blocks" })).toHaveCount(0);
+  });
+
+  test("Enter on the row itself keeps the picker, and Escape gives the list back, both writing nothing", async ({
+    page,
+    stack,
+  }) => {
+    const pick = await picker(page, stack.vault, BLOCK_LINES);
+    await page.keyboard.press("Enter");
+    await expect(pick).toBeVisible();
+    await cursorTo(page, "ship the release");
+    await page.keyboard.press("Escape");
+    await expect(pick).toBeHidden();
+    // The cycle lands after any write the two presses sent.
+    await cursorTo(page, "tag it");
+    await page.keyboard.press("x");
+    await expect.poll(() => blocks(stack.vault)).toContain("[/] tag it");
+    expect(await blocks(stack.vault)).not.toMatch(/⛔|🆔/);
+  });
+
+  test("keeps every key that acts on a row off the picker", async ({ page, stack }) => {
+    const pick = await picker(page, stack.vault, BLOCK_LINES);
+    const rows = await page.locator(TODO_ROW).count();
+    for (const key of ["x", "X", "t", "a", "s", "i", "d", "q"]) await page.keyboard.press(key);
+    await expect(pick).toBeVisible();
+    await expect(page.locator(TODO_ROW)).toHaveCount(rows);
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.getByLabel("edit line")).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await cursorTo(page, "tag it");
+    await page.keyboard.press("x");
+    await expect.poll(() => blocks(stack.vault)).toContain("[/] tag it");
+    expect(await blocks(stack.vault)).toMatch(
+      /^- \[ \] write the docs\n- \[ \] ship the release\n/,
+    );
+    expect(await noteText(stack.vault, `01 Periodic/00 Daily/${today()}.md`)).toBe("");
+  });
+
+  test("offers a todo that cannot start yet, which the list leaves out", async ({
+    page,
+    stack,
+  }) => {
+    const later = page.locator(TODO_ROW, { hasText: "start later" });
+    const pick = await picker(page, stack.vault, [
+      ...BLOCK_LINES,
+      `- [ ] start later 🛫 ${plus(5)}`,
+    ]);
+    await expect(pick).toBeVisible();
+    await expect(later).toHaveCount(1);
+    await page.keyboard.press("Escape");
+    await expect(later).toHaveCount(0);
+  });
+
+  test("b on a finished row opens no picker", async ({ page, stack }) => {
+    await picker(page, stack.vault, [...BLOCK_LINES, `- [x] done thing ✅ ${plus(0)}`]);
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("d");
+    await cursorTo(page, "done thing");
+    await page.keyboard.press("b");
+    // A picker opened there would hold, and the next b on an open row would not name it.
+    await page.keyboard.press("d");
+    await cursorTo(page, "tag it");
+    await page.keyboard.press("b");
+    await expect(page.getByTestId("todo-pick")).toHaveText("⛔ pick what blocks: tag it");
+  });
+});

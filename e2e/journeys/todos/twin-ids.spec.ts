@@ -237,3 +237,69 @@ test.describe("on a phone", () => {
       .toEqual([other, ...before]);
   });
 });
+
+/** The todo pane over `note` as Waits.md, once its row on line `last` is drawn. */
+async function paneOver(page: Page, vault: string, note: string, last: number) {
+  await vaultWith(vault, { "Waits.md": note });
+  await openApp(page);
+  await leader(page, "gt");
+  await expect(at(page, last)).toBeVisible();
+}
+const at = (page: Page, line: number) => page.locator(`[data-row="Waits.md:${line}"]`);
+
+test("b in the todo pane picking a blocker the todo names already keeps the picker and writes nothing", async ({
+  page,
+  stack,
+}) => {
+  const note = "- [b] write the docs ⛔ kt-c0ffee\n- [ ] ship the release 🆔 kt-c0ffee\n";
+  await paneOver(page, stack.vault, note, 2);
+  await cursorTo(page, "write the docs");
+  await page.keyboard.press("b");
+  await cursorTo(page, "ship the release", 1);
+  await page.keyboard.press("Enter");
+  await expect(page.getByTestId("todo-pick")).toHaveText("⛔ pick what blocks: write the docs");
+  expect((await noteText(stack.vault, "Waits.md")).replace(/^---\n[\s\S]*?\n---\n/, "")).toBe(note);
+});
+
+test("the todo pane says on a row what it waits for and how many wait for it", async ({
+  page,
+  stack,
+}) => {
+  const note = [
+    "- [/] ship the release 🆔 kt-000001",
+    "- [b] write the docs ⛔ kt-000001",
+    "- [b] write the post ⛔ kt-000001 ⛔ kt-ffffff",
+    "- [ ] tag it ⛔ kt-000002",
+    `- [x] cut the branch ✅ ${today()} 🆔 kt-000002`,
+  ];
+  await paneOver(page, stack.vault, `${note.join("\n")}\n`, 4);
+  await expect(at(page, 1)).toContainText("→ 2");
+  await expect(at(page, 2)).toContainText("⛔ ship the release");
+  // Two blockers are a count, and the title names both, one to a line.
+  await expect(at(page, 3)).toContainText("⛔ 2");
+  await expect(at(page, 3).getByTitle("waits for:\nship the release\nkt-ffffff")).toHaveCount(1);
+  // A blocker already closed holds nothing.
+  await expect(at(page, 4)).not.toContainText("⛔");
+});
+
+test("#541 the todo pane holds a row on an id an open and a done todo carry, the open one first", async ({
+  page,
+  stack,
+}) => {
+  const note = `- [ ] ship the release 🆔 kt-aaaaaa\n- [x] cut the branch ✅ ${today()} 🆔 kt-aaaaaa\n- [b] write the docs ⛔ kt-aaaaaa\n`;
+  await paneOver(page, stack.vault, note, 3);
+  await expect(at(page, 3)).toContainText("⛔ kt-aaaaaa");
+  await expect(at(page, 1)).toContainText("→ 1");
+  await expect(at(page, 3).getByTitle("waits for:\nkt-aaaaaa")).toHaveCount(1);
+  await expect(page.getByTitle(/cut the branch/)).toHaveCount(0);
+});
+
+test("#544 the todo pane holds no row on an id whose two todos are both closed", async ({
+  page,
+  stack,
+}) => {
+  const note = `- [x] a ✅ ${today()} 🆔 kt-aaaaaa\n- [-] a ❌ ${today()} 🆔 kt-aaaaaa\n- [b] chase it ⛔ kt-aaaaaa\n`;
+  await paneOver(page, stack.vault, note, 3);
+  await expect(at(page, 3)).not.toContainText("⛔");
+  await expect(page.getByTitle(/waits for/)).toHaveCount(0);
+});
