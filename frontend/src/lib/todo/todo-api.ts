@@ -67,8 +67,7 @@ async function send(
 ): Promise<Map<string, number>> {
   const gained = new Map<string, number>();
   for (const write of writes) {
-    // Only a note its own read found missing is made, never one the file listing
-    // lacks: that listing may not have answered yet (#2061).
+    // Only today's note, and only when its read found none (#2061).
     if (fresh.includes(write.path)) {
       await createNote(write.path, write.text);
       continue;
