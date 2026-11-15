@@ -261,3 +261,36 @@ test("two presses of a row's state button straight after each other walk it on t
   await expect.poll(() => disk(stack.vault)).toMatch(/^- \[x\] buy milk ✅/m);
   await expect(page.getByText(/^Nothing moved/)).toHaveCount(0);
 });
+
+test("timer tapped straight after a state press starts a session on the todo it walked (#2084)", async ({
+  page,
+  stack,
+}) => {
+  // The vault's own note: one written here is stamped before it is listed, so no press moves it.
+  const garden = "02 Projects/Garden.md";
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  // The state press's save waits until the timer is tapped, so the timer reads the row as it was listed.
+  await page.route(
+    (url) => decodeURIComponent(url.pathname) === `/api/files/${garden}`,
+    async (route) => {
+      if (route.request().method() === "PUT") await gate;
+      await route.fallback();
+    },
+  );
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open the todo pane" }).tap({ timeout: 15_000 });
+  const cycle = page.getByRole("button", { name: "cycle water the tomatoes" });
+  await cycle.tap();
+  await cycle.tap();
+  await more(page, "water the tomatoes").tap();
+  await strip(page, "timer", "water the tomatoes").tap();
+  release();
+  await expect
+    .poll(() => noteText(stack.vault, `01 Periodic/00 Daily/${today()}.md`).catch(() => ""))
+    .toMatch(/^- \d\d:\d\d-.*water the tomatoes/m);
+  expect(await noteText(stack.vault, garden)).toMatch(/^- \[\/\] water the tomatoes 🆔 kt-\w+$/m);
+  await expect(page.getByText(/^Nothing moved/)).toHaveCount(0);
+});

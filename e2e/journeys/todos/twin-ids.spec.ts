@@ -386,3 +386,87 @@ test("the todo pane puts higher priority first in a group, client work first wit
     .poll(() => headings(page))
     .toEqual(["Today 8", expect.stringMatching(/^No date \d+$/)]);
 });
+
+test.describe("a key straight after an x, on a note's first save (#2084)", () => {
+  const GARDEN = "02 Projects/Garden.md";
+  const PLAN = "02 Projects/FDE/plan.md";
+  const garden = (vault: string) => noteText(vault, GARDEN);
+
+  /** `x` on the row of `words`, with every save of `path` held until `release`. */
+  async function pressX(page: Page, path = GARDEN, words = "water the tomatoes") {
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route(
+      (url) => decodeURIComponent(url.pathname) === `/api/files/${path}`,
+      async (route) => {
+        if (route.request().method() === "PUT") await gate;
+        await route.fallback();
+      },
+    );
+    await openApp(page);
+    await leader(page, "gt");
+    await cursorTo(page, words);
+    await page.keyboard.press("x");
+    return release;
+  }
+
+  test("@ hands the todo the x walked to the agent", async ({ page, stack }) => {
+    const release = await pressX(page);
+    await page.keyboard.press("@");
+    release();
+    await expect.poll(() => garden(stack.vault)).toMatch(/^- \[\/\] water the tomatoes.*#agent/m);
+    await expect(notice(page)).toHaveCount(0);
+  });
+
+  test("i writes the edit onto the line the x wrote", async ({ page, stack }) => {
+    const release = await pressX(page);
+    // The row as drawn: an `i` opened in the same frame as the `x` is typed over the old words, and writes nothing.
+    await expect(page.getByRole("button", { name: "doing water the tomatoes" })).toBeVisible();
+    await page.keyboard.press("i");
+    await page.keyboard.press("End");
+    await page.keyboard.type(" now");
+    await page.keyboard.press("Enter");
+    release();
+    await expect.poll(() => garden(stack.vault)).toMatch(/^- \[\/\] water the tomatoes now$/m);
+  });
+
+  test("b writes the ⛔ onto the line the x wrote", async ({ page, stack }) => {
+    const release = await pressX(page);
+    await page.keyboard.press("b");
+    await cursorTo(page, "fold the laundry");
+    await page.keyboard.press("Enter");
+    release();
+    await expect.poll(() => garden(stack.vault)).toMatch(/^- \[\/\] water the tomatoes ⛔ kt-\w+$/m);
+    await expect(notice(page)).toHaveCount(0);
+  });
+
+  test("m moves the todo the x walked into its project's note", async ({ page, stack }) => {
+    await vaultWith(stack.vault, { [PLAN]: "# Plan\n\n- [ ] ship the deck\n" });
+    const release = await pressX(page, PLAN, "ship the deck");
+    await page.keyboard.press("m");
+    release();
+    await expect(notice(page)).toContainText("Moved into 02 Projects/FDE/index.md");
+    expect(await noteText(stack.vault, "02 Projects/FDE/index.md")).toMatch(/^- \[\/\] ship the deck$/m);
+    expect(await noteText(stack.vault, PLAN)).not.toMatch(/^- \[.\] ship the deck/m);
+  });
+});
+
+test.describe("with vim off, a key straight after an x (#2084)", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
+  });
+
+  test("t starts a session on the todo the x walked", async ({ page, stack }) => {
+    await openApp(page);
+    // The palette, since the leader is vim's.
+    await page.keyboard.press("Control+Shift+P");
+    await page.getByRole("option", { name: /^Open the todo pane/ }).click();
+    await expect(page.getByRole("button", { name: "open water the tomatoes" })).toBeVisible();
+    await page.keyboard.press("x");
+    await page.keyboard.press("t");
+    await expect.poll(() => daily(stack.vault).catch(() => "")).toMatch(/^- \d\d:\d\d-.*water the tomatoes/m);
+    await expect(notice(page)).toHaveCount(0);
+  });
+});

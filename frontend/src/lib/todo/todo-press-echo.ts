@@ -3,6 +3,7 @@ import { digestOf } from "@/lib/vault/events/vault-events";
 /**
  * The vault's echo of a todo press, which the pane need not hear twice. An event is an echo
  * only when its digest matches a text this press wrote; anybody else's edit still asks.
+ * Below: the turn todo writes take one at a time, and where an `x` left its todo for the next key.
  */
 
 /** How long after a press the echo of its writes may still arrive. */
@@ -104,4 +105,75 @@ export async function pressEcho(path: string, digest: string | null): Promise<bo
   const digests = written.get(path);
   if (digests === undefined) return false;
   return (await Promise.all(digests)).includes(digest);
+}
+
+/** A todo row as the list names it. */
+interface Row {
+  path: string;
+  line: number;
+  text: string;
+}
+
+/**
+ * How long a todo write waits on the one before it, then goes on alone. The api client has
+ * no timeout, so a lost answer would otherwise hold every later press until reload.
+ */
+const TURN_WAIT_MS = 10_000;
+
+/** The todo write before this one, which the next waits on. */
+let turns: Promise<unknown> = Promise.resolve();
+
+/**
+ * Run `work` once the todo write before it has settled. Each reads a note and saves it back,
+ * so two at once would race, and a key after an `x` must read the line the `x` wrote (#2084).
+ */
+export function inTurn<T>(work: () => Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const bound = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, TURN_WAIT_MS);
+  });
+  const turn = Promise.race([turns, bound])
+    .finally(() => clearTimeout(timer))
+    .then(work);
+  // Settled either way, so the next write waits on this one and never on why it failed.
+  turns = Promise.allSettled([turn]);
+  return turn;
+}
+
+/** Where an `x` left a row's todo, by the row as listed and as drawn, for a press read before it landed (#2080). */
+const landed = new Map<string, { row: Row; at: number }>();
+const keyOf = (hit: Row) => `${hit.path}\n${hit.line}\n${hit.text}`;
+
+/** Point every key in `old`, and keys naming their line, at `to`, where an `x` left the todo. */
+export function keepLanded(old: Row[], to: Row): void {
+  const keys = new Set(old.map(keyOf));
+  const now = Date.now();
+  // Swept here, read only within one turn's wait, by which the list has redrawn.
+  for (const [key, each] of landed) {
+    if (now - each.at > TURN_WAIT_MS) landed.delete(key);
+    else if (keys.has(keyOf(each.row))) keys.add(key);
+  }
+  for (const key of keys) landed.set(key, { row: to, at: now });
+}
+
+/**
+ * The row a press reads: the line the last `x` wrote, for a row the note has moved past
+ * (by its line, or its twins' count) while that line still says it; else the row as listed.
+ */
+export function landedRow<R extends Row>(
+  text: string,
+  hit: R,
+  twins?: number[],
+): { row: R; twins: number[] | undefined } {
+  const lines = text.split("\n");
+  const kept = landed.get(keyOf(hit));
+  // A todo listed since at the row's old line goes as listed.
+  const stale =
+    lines[hit.line - 1] !== hit.text ||
+    (twins !== undefined && lines.filter((each) => each === hit.text).length !== twins.length);
+  const fresh =
+    kept && Date.now() - kept.at <= TURN_WAIT_MS && lines[kept.row.line - 1] === kept.row.text;
+  return stale && fresh
+    ? { row: { ...hit, line: kept.row.line, text: kept.row.text }, twins: undefined }
+    : { row: hit, twins };
 }

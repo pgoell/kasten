@@ -2,8 +2,13 @@
 import { NoteMissing } from "@/lib/core/api";
 import { noteBase } from "@/lib/notes/note-base";
 import { periodicNote } from "@/lib/notes/text/periodic";
-import { addTodoInVault } from "@/lib/todo/todo-api";
-import { addSubtaskInVault, editTodoInVault } from "@/lib/todo/todo-line-edits";
+import {
+  addTodoInVault,
+  agentTodoIn,
+  cycleTodoInVault,
+  toggleTimerInVault,
+} from "@/lib/todo/todo-api";
+import { addSubtaskInVault, blockTodoInVault, editTodoInVault } from "@/lib/todo/todo-line-edits";
 import { todoApiHooks } from "./todo-api-fixture";
 
 // Standing in for the module rather than for `fetch`, the way the pane's tests
@@ -203,5 +208,78 @@ describe("addTodoInVault", () => {
       false,
       noteBase("# Today\n"),
     );
+  });
+});
+
+describe("#2084 a key read before an x landed", () => {
+  const STAMP = "---\nid: g\n---\n";
+  const TODAY = "2026-08-10";
+  /** A vault whose first save of a note answers with a frontmatter block stamped on top. */
+  function vault(notes: Record<string, string>) {
+    const disk = new Map(
+      Object.entries({ [periodicNote("daily", NOW).path]: "# day\n", ...notes }),
+    );
+    fetchNote.mockImplementation(async (path: string) => disk.get(path) ?? "");
+    saveNote.mockImplementation(async (path: string, text: string) => {
+      const content = text.startsWith("---\n") ? text : `${STAMP}${text}`;
+      disk.set(path, content);
+      return { path, content };
+    });
+    return disk;
+  }
+  const row = (path: string) => ({ path, line: 2, text: "- [ ] a" });
+  const x = (path: string, id = "kt-aaaaaa") =>
+    cycleTodoInVault(row(path), TODAY, undefined, undefined, id);
+
+  it("t starts a session on the todo the x walked", async () => {
+    const disk = vault({ "k1.md": "# K\n- [ ] a\n" });
+    await x("k1.md");
+    await toggleTimerInVault(row("k1.md"), { date: TODAY, time: "09:00" });
+    expect(disk.get(periodicNote("daily", NOW).path)).toMatch(/^- 09:00- .*a/m);
+    expect(disk.get("k1.md")).toMatch(/^- \[\/\] a 🆔 kt-\w+$/m);
+  });
+
+  it("@ tags the line the x wrote", () => {
+    const disk = vault({ "k2.md": "# K\n- [ ] a\n" });
+    return x("k2.md").then(() => {
+      const tagged = agentTodoIn(disk.get("k2.md") ?? "", row("k2.md"), TODAY);
+      expect(tagged).toMatchObject({ line: expect.stringMatching(/^- \[\/\] a .*#agent/) });
+    });
+  });
+
+  it("an edit of the row as drawn goes onto the line the x wrote", async () => {
+    const disk = vault({ "k3.md": "# K\n- [ ] a\n" });
+    await x("k3.md");
+    const drawn = { ...row("k3.md"), text: "- [/] a" };
+    await editTodoInVault(drawn, "- [/] a and b");
+    expect(disk.get("k3.md")).toBe(`${STAMP}# K\n- [/] a and b\n`);
+  });
+
+  it("an edit typed over the row as listed writes nothing over the line the x wrote", async () => {
+    const disk = vault({ "k4.md": "# K\n- [ ] a\n" });
+    await x("k4.md");
+    await editTodoInVault(row("k4.md"), "- [ ] a and b");
+    expect(disk.get("k4.md")).toBe(`${STAMP}# K\n- [/] a\n`);
+  });
+
+  it("b puts the ⛔ on the line the x wrote", async () => {
+    const disk = vault({ "k5.md": "# K\n- [ ] a\n", "o.md": "- [ ] other 🆔 kt-bbbbbb\n" });
+    await x("k5.md");
+    await blockTodoInVault(row("k5.md"), {
+      path: "o.md",
+      line: 1,
+      text: "- [ ] other 🆔 kt-bbbbbb",
+    });
+    expect(disk.get("k5.md")).toBe(`${STAMP}# K\n- [/] a ⛔ kt-bbbbbb\n`);
+  });
+
+  it("t writes nothing over a line changed since the x landed", async () => {
+    const disk = vault({ "k6.md": "# K\n- [ ] a\n" });
+    await x("k6.md");
+    disk.set("k6.md", `${STAMP}# K\n- [b] a 🆔 kt-aaaaaa\n`);
+    await expect(toggleTimerInVault(row("k6.md"), { date: TODAY, time: "09:00" })).rejects.toThrow(
+      "changed since it was listed",
+    );
+    expect(disk.get("k6.md")).toBe(`${STAMP}# K\n- [b] a 🆔 kt-aaaaaa\n`);
   });
 });

@@ -13,7 +13,7 @@ import {
 } from "@/lib/todo/todo-api";
 import type { TodoCycle } from "@/lib/todo/todo-commands";
 import { blockTodoInVault, editTodoInVault } from "@/lib/todo/todo-line-edits";
-import { beginPress, endPress } from "@/lib/todo/todo-press-echo";
+import { beginPress, endPress, inTurn, landedRow } from "@/lib/todo/todo-press-echo";
 import { fileUnderTodos, lineOf, projectNote, refileOf } from "@/lib/todo/todo-refile";
 import { pressedLine } from "@/lib/todo/todo-write";
 
@@ -100,6 +100,12 @@ function moveRoute(
   return { project, source, target };
 }
 
+/** The row's line in `text`, by its words: the line an `x` wrote where it landed since the row was read (#2084). */
+function movedLine(text: string, hit: TodoHit): number | null {
+  const { row } = landedRow(text, hit);
+  return lineOf(text, row.line, row.text);
+}
+
 /**
  * The block as the note holds it now, checked against what the row read:
  * a row the vault has moved past would move whatever sits there instead.
@@ -111,7 +117,7 @@ async function blockToMove(hit: TodoHit, project: string) {
   );
   // By its text where a write since has shifted it, a press of `m` on
   // another todo of this note among them: the list has not redrawn yet.
-  const at = read === null ? null : lineOf(read, hit.line, hit.text);
+  const at = read === null ? null : movedLine(read, hit);
   return read === null || at === null ? null : refileOf(read, at, project);
 }
 
@@ -280,7 +286,8 @@ export function useTodoActions({
   const agentTodo = useCallback(
     (hit: SearchHit, twins?: number[]) => {
       begun();
-      return tagTodo(hit, twins).finally(settled);
+      // In turn, outside the note's write queue as `m` is, so an `x` just before has landed (#2084).
+      return inTurn(() => tagTodo(hit, twins)).finally(settled);
     },
     [tagTodo, settled, begun],
   );
@@ -408,7 +415,7 @@ export function useTodoActions({
           }
           // The todo or a line under it changed since the copy was made, so
           // taking it out would lose what the copy does not hold.
-          const line = lineOf(text, hit.line, hit.text);
+          const line = movedLine(text, hit);
           const fresh = line === null ? null : refileOf(text, line, project);
           if (fresh === null || fresh.block !== moved.block) {
             left = stays(`${source} changed`);
@@ -435,7 +442,8 @@ export function useTodoActions({
   const refileTodo = useCallback(
     (hit: TodoHit, lane?: string) => {
       begun();
-      return moveTodo(hit, lane).finally(settled);
+      // In turn, so an `x` just before has landed and the move reads its line (#2084).
+      return inTurn(() => moveTodo(hit, lane)).finally(settled);
     },
     [moveTodo, settled, begun],
   );

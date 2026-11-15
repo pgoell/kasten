@@ -60,8 +60,8 @@ export function TodoList(p: {
   today: string;
   coarse: boolean;
   picking: boolean;
-  editing: { key: string; line: string } | null;
-  onEditing(e: { key: string; line: string } | null): void;
+  editing: { key: string; line: string; from: string } | null;
+  onEditing(e: { key: string; line: string; from: string } | null): void;
   draft: React.RefObject<HTMLInputElement | null>;
   armed: string | null;
   onArm(key: string | null): void;
@@ -162,7 +162,7 @@ export function TodoList(p: {
   /** The row as an input holding its whole line, while it is edited. */
   function editRow(
     hit: SearchHit,
-    editing: { key: string; line: string },
+    editing: { key: string; line: string; from: string },
     indent: React.CSSProperties,
   ) {
     const { key } = editing;
@@ -171,14 +171,15 @@ export function TodoList(p: {
         <input
           ref={draft}
           value={editing.line}
-          onChange={(event) => onEditing({ key, line: event.target.value })}
+          onChange={(event) => onEditing({ ...editing, line: event.target.value })}
           onKeyDown={(event) => {
             if (event.key !== "Enter" && event.key !== "Escape") return;
             event.preventDefault();
             // Nothing left in it is nothing to write. Deleting a
             // todo is not what this key is.
             if (event.key === "Enter" && editing.line.trim() !== "") {
-              onWrite(hit, editing.line);
+              // The words it was typed over, not the row as drawn now: an `x` may have moved it since (#2084).
+              onWrite({ ...hit, text: editing.from }, editing.line);
             }
             onEditing(null);
           }}
@@ -199,7 +200,7 @@ export function TodoList(p: {
           found={lineSuggestions(editing.line, today, true)}
           line={editing.line}
           onTake={(edited) => {
-            onEditing({ key, line: edited });
+            onEditing({ ...editing, line: edited });
             // Back to the line, so the next thing typed carries on
             // where the hint left off rather than into a button.
             draft.current?.focus();
