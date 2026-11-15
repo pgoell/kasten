@@ -346,4 +346,48 @@ test.describe("on a phone", () => {
     await expect(page.getByTestId("held")).toHaveText("Not saved: Welcome", { timeout: 15_000 });
     expect(await clocks(page)).toBe(0);
   });
+
+  /** Puts failed saves and conflicts in the held store before the app loads. */
+  async function heldBefore(page: Page, notes: [string, string, boolean][]) {
+    await page.addInitScript((rows) => {
+      const held: Record<string, object[]> = {};
+      for (const [path, reason, conflicted] of rows) {
+        held[path] = [...(held[path] ?? []), { content: "typed here\n", reason, conflicted }];
+      }
+      localStorage.setItem("kasten.held.2", JSON.stringify(held));
+    }, notes);
+    await page.goto("/");
+  }
+
+  test("a tap opens the held list out, a finger having no hover, and a tap on it shuts it", async ({
+    page,
+  }) => {
+    await heldBefore(page, [["a.md", "PUT failed with 500", false]]);
+    await page.getByTestId("held").tap({ timeout: 15_000 });
+    await expect(detail(page)).toContainText("a.md: PUT failed with 500");
+    await expect(detail(page)).toContainText("Open the note to write it again");
+    await detail(page).tap();
+    await expect(detail(page)).toHaveCount(0);
+  });
+
+  test("failed saves and conflicts sit side by side without the clock, each tap opening its own notes", async ({
+    page,
+  }) => {
+    await heldBefore(page, [
+      ["a.md", "PUT failed with 500", false],
+      ["b.md", "Changed on disk", true],
+      ["c.md", "Changed on disk", true],
+    ]);
+    await expect(page.getByTestId("held")).toHaveText("Not saved: a", { timeout: 15_000 });
+    await expect(page.getByTestId("held-conflict")).toHaveText("Changed on disk: 2 notes");
+    await expect(page.locator("footer time")).toBeHidden();
+
+    await page.getByTestId("held").tap();
+    await expect(detail(page)).toContainText("a.md: PUT failed with 500");
+    await expect(detail(page)).not.toContainText("b.md");
+    await page.getByTestId("held-conflict").tap();
+    await expect(detail(page)).toContainText("b.md: Changed on disk");
+    await expect(detail(page)).toContainText("c.md: Changed on disk");
+    await expect(detail(page)).not.toContainText("a.md");
+  });
 });

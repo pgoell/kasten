@@ -107,6 +107,107 @@ for (const vim of ["off", "on"] as const) {
   });
 }
 
+// A ragged table as typed by hand, then with `c` typed after its `b`, then that lined up.
+const RAGGED = "| a | longer |\n| - | - |\n| xx | b |\n\nafter";
+const TYPED_C = RAGGED.replace("| xx | b |", "| xx | bc |");
+const LINED = "| a   | longer |\n| --- | ------ |\n| xx  | bc     |\n\nafter";
+
+/** Opens `Table.md` holding `text`, the cursor at the end of line `row` (from 0). */
+async function rowEnd(page: Page, vault: string, text: string, row: number, vim: "on" | "off") {
+  await page.addInitScript((mode) => localStorage.setItem("kasten.vim", mode), vim);
+  await vaultWith(vault, { "Table.md": text });
+  await openApp(page);
+  await openNote(page, "Table");
+  await page.locator(".cm-content").getByText("after", { exact: true }).click();
+  if (vim === "on") {
+    await page.keyboard.press("Escape");
+    await page.keyboard.type(`${row + 1}G$`);
+    return;
+  }
+  await page.keyboard.press("Control+Home");
+  for (let step = 0; step < row; step++) await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("End");
+}
+
+/** Polls the note below its frontmatter until it reads `text`. */
+const onDisk = (vault: string, text: string) =>
+  expect
+    .poll(async () => body(await noteText(vault, "Table.md")), { timeout: 15_000 })
+    .toBe(text);
+
+test.describe("the table line-up takes only what the reader typed into (#792)", () => {
+  test("Enter at the end of the last row, vim off, leaves the table as it is", async ({
+    page,
+    stack,
+  }) => {
+    await rowEnd(page, stack.vault, RAGGED, 2, "off");
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("Control+s");
+    await onDisk(stack.vault, RAGGED.replace("| xx | b |", "| xx | b |\n"));
+  });
+
+  test("o at the end of the last row and dd above the head, vim on, leave the table as it is", async ({
+    page,
+    stack,
+  }) => {
+    await rowEnd(page, stack.vault, `above\n${RAGGED}`, 3, "on");
+    await page.keyboard.type("o");
+    await page.keyboard.press("Escape");
+    await page.keyboard.type("ggdd");
+    await page.keyboard.press("Control+s");
+    await onDisk(stack.vault, RAGGED.replace("| xx | b |", "| xx | b |\n"));
+  });
+
+  test("dap on one table, vim on, leaves the next as it is", async ({ page, stack }) => {
+    const second = "| e | longer |\n| - | - |\n| xx | y |\n\nafter";
+    await rowEnd(page, stack.vault, `| a | b |\n| - | - |\n| c | d |\n\n${second}`, 0, "on");
+    await page.keyboard.type("dap");
+    await page.keyboard.press("Control+s");
+    await onDisk(stack.vault, second);
+  });
+
+  test("type, u, then leave, vim on, keeps the table byte for byte", async ({ page, stack }) => {
+    await rowEnd(page, stack.vault, RAGGED, 2, "on");
+    await page.keyboard.type("hic");
+    await page.keyboard.press("Escape");
+    await page.keyboard.type("u");
+    // Out of the table, then an edit below it, so a save provably lands after the leave.
+    await page.keyboard.type("GA!");
+    await page.keyboard.press("Escape");
+    await onDisk(stack.vault, `${RAGGED}!`);
+  });
+
+  test("leave by an arrow key, ctrl+z, then save, vim off, keeps the ragged table", async ({
+    page,
+    stack,
+  }) => {
+    await rowEnd(page, stack.vault, RAGGED, 2, "off");
+    await page.keyboard.press("ArrowLeft");
+    await page.keyboard.press("ArrowLeft");
+    await page.keyboard.type("c");
+    await page.keyboard.press("ArrowDown");
+    await onDisk(stack.vault, LINED);
+    await page.keyboard.press("Control+z");
+    await page.keyboard.press("Control+s");
+    await onDisk(stack.vault, TYPED_C);
+  });
+
+  test("a list line with a pipe under a table, vim off, is left as it is", async ({
+    page,
+    stack,
+  }) => {
+    const listed = RAGGED.replace("| xx | b |\n", "| xx | b |\n- note | x\n");
+    await rowEnd(page, stack.vault, listed, 2, "off");
+    await page.keyboard.press("ArrowLeft");
+    await page.keyboard.press("ArrowLeft");
+    await page.keyboard.type("c");
+    await page.keyboard.press("Control+End");
+    await page.keyboard.press("Control+s");
+    const lined = LINED.replace("| xx  | bc     |\n", "| xx  | bc     |\n- note | x\n");
+    await onDisk(stack.vault, lined);
+  });
+});
+
 test.describe("on a phone", () => {
   test.use(phone);
 
