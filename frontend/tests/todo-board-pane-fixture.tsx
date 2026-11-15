@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import type { ComponentProps } from "react";
 import { TodoPane } from "@/components/todo/todo-pane";
 import { createNote, fetchFiles, fetchNote, fetchTodos, type TodoHit } from "@/lib/core/api";
 import { DEFAULT_VIEWS, VIEWS_NOTE } from "@/lib/todo/todo-view";
@@ -91,7 +92,7 @@ export function renderPane({ hits = BOARD, focusSignal = 0, archive = false } = 
   vi.mocked(fetchTodos).mockResolvedValue(hits);
   const onOpen = vi.fn();
   const onCycle = vi.fn();
-  const onEdit = vi.fn();
+  const onEdit = vi.fn<ComponentProps<typeof TodoPane>["onEdit"]>(async () => true);
   const onRefile = vi.fn();
   const onNotice = vi.fn();
   const { reached, commands } = recorder();

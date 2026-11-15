@@ -220,7 +220,7 @@ export async function mount(
         onCycle={onCycle}
         onAdd={() => {}}
         onSubtask={() => {}}
-        onEdit={() => {}}
+        onEdit={async () => true}
         onBlock={() => {}}
         onTimer={() => {}}
         onAgent={() => {}}

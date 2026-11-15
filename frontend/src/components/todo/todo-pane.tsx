@@ -1,12 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
-import { useDeferredValue, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { type BoardKeys, TodoBoard } from "@/components/todo/todo-board";
 import { TodoFooter } from "@/components/todo/todo-footer";
 import { TodoHeader } from "@/components/todo/todo-header";
-import { TodoList } from "@/components/todo/todo-list";
+import { type Editing, TodoList } from "@/components/todo/todo-list";
 import { fetchTodos, type SearchHit, type TodoHit } from "@/lib/core/api";
 import type { TodoState } from "@/lib/todo/todo";
 import { aimAgain, aimOf, cursorAfter } from "@/lib/todo/todo-hold";
+import { followRow, twinsOf } from "@/lib/todo/todo-press-echo";
 import { useArmed } from "@/lib/todo/use-armed";
 import { useBlockerPick } from "@/lib/todo/use-blocker-pick";
 import { useTodoFilter } from "@/lib/todo/use-todo-filter";
@@ -17,6 +18,24 @@ import { type Mode, type Row, rowKey, useTodoRows } from "@/lib/todo/use-todo-ro
 import { useTodoTwins } from "@/lib/todo/use-todo-twins";
 import { useViewport } from "@/lib/ui/input/use-viewport";
 import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
+
+/** The row an edit opened on, by its key, and the words it was typed over. */
+function editAt(editing: Editing) {
+  const cut = editing.key.lastIndexOf(":");
+  return {
+    path: editing.key.slice(0, cut),
+    line: Number(editing.key.slice(cut + 1)),
+    text: editing.from,
+  };
+}
+
+function editOf(hit: SearchHit, line: string, rows: Row[]): Editing {
+  const twins = twinsOf(
+    hit,
+    rows.map((row) => row.hit),
+  );
+  return { key: rowKey(hit), line, from: hit.text, twins };
+}
 
 /** One empty list for every render, so a row that compares its props sees no change. */
 const NO_FILES: string[] = [];
@@ -42,9 +61,9 @@ interface TodoPaneProps {
   onSubtask: (hit: SearchHit) => void;
   /**
    * Puts the row's line back in its note, edited. The one press that carries text:
-   * what the input holds is what the vault gets.
+   * what the input holds is what the vault gets. Answers whether it wrote.
    */
-  onEdit: (hit: SearchHit, line: string) => void;
+  onEdit: (hit: SearchHit, line: string) => Promise<boolean>;
   /**
    * Says the first row's todo waits for the second's. The write puts a `⛔` on one
    * line and may put an id on the other.
@@ -121,7 +140,7 @@ export function TodoPane({
    * The row being edited and its line as it stands, or null. The key, not the hit:
    * the row is looked up at each press, and the text here is the input itself.
    */
-  const [editing, setEditing] = useState<{ key: string; line: string; from: string } | null>(null);
+  const [editing, setEditing] = useState<Editing | null>(null);
   const panel = useRef<HTMLElement>(null);
   const filter = useRef<HTMLInputElement>(null);
   const draft = useRef<HTMLInputElement>(null);
@@ -189,6 +208,25 @@ export function TodoPane({
   const cursorKey = at === undefined ? "" : rowKey(at.hit);
   drawn.current = { rows, cursor, open: groupRows.length };
 
+  // An open edit stays on its todo when a redraw moves its line, or closes keeping its text in the notice (#2087).
+  const edited =
+    editing === null
+      ? undefined
+      : followRow(
+          editAt(editing),
+          editing.twins,
+          rows.map((row) => row.hit),
+        );
+  if (editing !== null && edited && rowKey(edited) !== editing.key) {
+    setEditing({ ...editing, key: rowKey(edited) });
+  }
+  const lost = edited === null ? editing?.line : undefined;
+  useEffect(() => {
+    if (lost === undefined) return;
+    setEditing(null);
+    onNotice(`Nothing moved: that line left the list while it was edited. The edit read: ${lost}`);
+  }, [lost, onNotice]);
+
   // Done rows leave as the hold lets go, so the cursor follows its row rather than its place,
   // or the first row under it that stays where its own row left.
   useLayoutEffect(() => {
@@ -223,8 +261,8 @@ export function TodoPane({
     idle: board || blocker.picking !== null,
   });
 
-  // The key alone, so typing in the row (a new `line`) does not re-run the focus effect.
-  const editingKey = editing?.key;
+  // The words it was typed over, which neither typing nor a follow changes, so neither re-runs the focus effect.
+  const editingKey = editing?.from;
 
   const { held, focusList } = useTodoFocus({
     panel,
@@ -295,7 +333,14 @@ export function TodoPane({
     // An edited line may change its words, and a held row would take it as a new todo
     // at the group's end, so the list is drawn fresh.
     release();
-    setEditing({ key: rowKey(hit), line: hit.text, from: hit.text });
+    setEditing(editOf(hit, hit.text, rows));
+  }
+
+  /** Enter on the edit row. A refused or failed edit opens the row again on what was typed (#2087). */
+  function write(hit: SearchHit, line: string) {
+    void onEdit(hit, line).then((wrote) => {
+      if (!wrote) setEditing((open) => open ?? editOf(hit, line, drawn.current.rows));
+    });
   }
 
   /** `s`: a part of the row, which lands beside its parent in the list drawn fresh. */
@@ -474,7 +519,7 @@ export function TodoPane({
           onRow={onRow}
           files={narrowing.files ?? NO_FILES}
           onPerson={(path) => onOpen(path, 1)}
-          onWrite={onEdit}
+          onWrite={write}
           onCycle={onCycle}
           actions={actions}
           doneWeek={foldRows}

@@ -74,7 +74,7 @@ it("A4 #394 draws a tagged daily todo in its tag's project lane, on a phone and 
             onCycle={() => {}}
             onAdd={() => {}}
             onSubtask={() => {}}
-            onEdit={() => {}}
+            onEdit={async () => true}
             onBlock={() => {}}
             onTimer={() => {}}
             onAgent={() => {}}

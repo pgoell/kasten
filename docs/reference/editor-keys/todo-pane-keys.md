@@ -217,9 +217,15 @@ what this key is. A new line kasten writes in one order; a line edited here
 keeps whatever order you leave it in, and a press that changes its state moves
 none of it.
 
-The note is read again first and the old line checked against the row, so an
-edit onto a row that has gone stale writes nothing rather than replacing
-whatever now sits at that line. Nothing follows the edit: a `## Done` line or a
+The note is read again first and the line checked against the words the edit
+was typed over, so an edit onto a line that has changed since writes nothing
+rather than replacing whatever now sits there. The notice says so and the line
+opens again on what you typed: Enter sends it once the line reads as it did,
+Escape drops it. A write that fails does the same. A redraw that moves the todo
+while its line is open, such as an `x`'s first save putting a header on top,
+keeps the line open on that todo, caret and all. Where the todo is gone, or one
+of its twins went and the two can no longer be told apart, the line closes and
+the notice holds what you typed. Nothing follows the edit: a `## Done` line or a
 session line naming a todo you have just reworded goes on saying what it said,
 those being the record of what happened rather than a copy of the task.
 

@@ -55,7 +55,7 @@ function Screen({ asked }: { asked: SearchHit[] }) {
           onCycle={() => {}}
           onAdd={() => {}}
           onSubtask={() => {}}
-          onEdit={() => {}}
+          onEdit={async () => true}
           onBlock={() => {}}
           onTimer={() => {}}
           onAgent={(hit) => {

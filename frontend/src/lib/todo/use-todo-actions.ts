@@ -293,18 +293,27 @@ export function useTodoActions({
   );
 
   /**
-   * Put an edited line back in its note, from the pane's `e`. No clock: the line is written as typed, so kasten stamps no date on it.
+   * Put an edited line back in its note, from the pane's `i`. No clock: the line is written as typed, so kasten stamps no date on it.
+   * Answers whether it wrote; a refused or failed edit says so, so the pane can keep the text (#2087).
    */
   const editTodo = useCallback(
-    (hit: SearchHit, line: string) => {
+    (hit: SearchHit, line: string): Promise<boolean> => {
+      setNotice(undefined);
       begun();
-      // The vault refused the write, or the note moved out from under the row.
-      // The list stays as it is, and the settle below asks for it anyway.
-      void editTodoInVault(hit, line)
-        .catch(() => {})
+      return editTodoInVault(hit, line)
+        .then(
+          (wrote) => {
+            if (!wrote) setNotice("Nothing moved: that line has changed since the edit opened");
+            return wrote;
+          },
+          (error: unknown) => {
+            setNotice(nothingMoved(error));
+            return false;
+          },
+        )
         .finally(settled);
     },
-    [settled, begun],
+    [settled, setNotice, begun],
   );
 
   /**

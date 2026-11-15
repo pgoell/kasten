@@ -46,6 +46,14 @@ function stateFace(asking: boolean, next: TodoState | undefined, state: TodoStat
   );
 }
 
+/** The row being edited: its key, the input's line, the words it was typed over, and which of their twins it is. */
+export interface Editing {
+  key: string;
+  line: string;
+  from: string;
+  twins: { nth: number; of: number };
+}
+
 /**
  * The list of rows under their headings: the row itself, and on touch the
  * state button and `⋯` beside it, with the input a row turns into while it is
@@ -60,8 +68,8 @@ export function TodoList(p: {
   today: string;
   coarse: boolean;
   picking: boolean;
-  editing: { key: string; line: string; from: string } | null;
-  onEditing(e: { key: string; line: string; from: string } | null): void;
+  editing: Editing | null;
+  onEditing(e: Editing | null): void;
   draft: React.RefObject<HTMLInputElement | null>;
   armed: string | null;
   onArm(key: string | null): void;
@@ -160,14 +168,10 @@ export function TodoList(p: {
   }
 
   /** The row as an input holding its whole line, while it is edited. */
-  function editRow(
-    hit: SearchHit,
-    editing: { key: string; line: string; from: string },
-    indent: React.CSSProperties,
-  ) {
-    const { key } = editing;
+  function editRow(hit: SearchHit, editing: Editing, indent: React.CSSProperties) {
     return (
-      <div key={key}>
+      // One key whatever line it is on, so a redraw that moves the row keeps the input and its caret (#2087).
+      <div key="edit">
         <input
           ref={draft}
           value={editing.line}
