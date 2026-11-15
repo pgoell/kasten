@@ -20,7 +20,7 @@ import { isOpen, newId, parseTodo, type Todo, type TodoState } from "@/lib/todo/
 import { agentPress } from "@/lib/todo/todo-agent";
 import { applyBlocked, type Closed, closedAmong } from "@/lib/todo/todo-blocked";
 import type { TodoCycle } from "@/lib/todo/todo-commands";
-import { lineOf } from "@/lib/todo/todo-refile";
+import { rowLine } from "@/lib/todo/todo-refile";
 import { expandShorthand } from "@/lib/todo/todo-shorthand";
 import { parseSession } from "@/lib/todo/todo-time";
 import { type SessionHit, timerWrites } from "@/lib/todo/todo-timer";
@@ -273,18 +273,6 @@ async function writeLog(
 }
 
 /**
- * Whether the row's line still holds the row's todo: the same words and depth,
- * and the same id where both carry one. A press stamps the id the first time.
- */
-function sameTodo(text: string, hit: SearchHit): boolean {
-  const was = parseTodo(hit.text);
-  const now = parseTodo(text.split("\n")[hit.line - 1] ?? "");
-  if (was === null || now === null) return false;
-  if (was.id !== undefined && now.id !== undefined && was.id !== now.id) return false;
-  return was.text === now.text && was.indent === now.indent;
-}
-
-/**
  * The row's line where a press made it plain words: the listing drops such a line, so a
  * held row still reads as the todo it was, and the next press cycles it back (#2001).
  */
@@ -318,14 +306,20 @@ function pressTarget(text: string, hit: SearchHit, twins: number[] | undefined) 
   return todo === null && plain === null ? undefined : { at, line, todo };
 }
 
-/** Where an `x` left a row's todo, by the row as listed and as drawn: a press read before the last landed names the old line (#2080). */
-const landed = new Map<string, SearchHit>();
+/** Where an `x` left a row's todo, by the row as listed and as drawn, for a press read before it landed (#2080). */
+const landed = new Map<string, { row: SearchHit; at: number }>();
 const rowKey = (hit: SearchHit) => `${hit.path}\n${hit.line}\n${hit.text}`;
 
-/** The press on the line an earlier press wrote while that line still says it, else on the row as listed. */
+/** The press on the line an earlier press wrote, else on the row as listed. */
 function landedTarget(text: string, hit: SearchHit, twins: number[] | undefined) {
-  const row = landed.get(rowKey(hit));
-  return row !== undefined && text.split("\n")[row.line - 1] === row.text
+  const lines = text.split("\n");
+  const kept = landed.get(rowKey(hit));
+  // Only while the row's own line has moved on, or a todo listed since at its old place goes elsewhere.
+  const row =
+    lines[hit.line - 1] !== hit.text && kept && lines[kept.row.line - 1] === kept.row.text
+      ? kept.row
+      : undefined;
+  return row
     ? { row, target: pressTarget(text, row, undefined) }
     : { row: hit, target: pressTarget(text, hit, twins) };
 }
@@ -344,21 +338,13 @@ function land(
   if (parseTodo(pressed) === null || lines.filter((each) => each === pressed).length !== 1) return;
   const to = { ...row, line: lines.indexOf(pressed) + 1 + shift, text: pressed };
   const old = new Set([row, hit, { ...hit, text: drawn ?? hit.text }].map(rowKey));
-  for (const [key, at] of landed) if (old.has(rowKey(at))) old.add(key);
-  for (const key of old) landed.set(key, to);
-}
-
-/**
- * The line the row's todo sits on now, or null where the note no longer says. Lines
- * shift with each write, so the words decide; twins, which share words, go by rank.
- */
-function rowLine(text: string, hit: SearchHit, twins?: number[]): number | null {
-  if (twins !== undefined && twins.length > 1) {
-    const now = text.split("\n").flatMap((line, index) => (line === hit.text ? [index + 1] : []));
-    if (now.length !== twins.length) return null;
-    return now[twins.indexOf(hit.line)] ?? null;
+  const now = Date.now();
+  // A record outlives its press by one turn's wait, by which the list has redrawn.
+  for (const [key, each] of landed) {
+    if (now - each.at > TURN_WAIT_MS) landed.delete(key);
+    else if (old.has(rowKey(each.row))) old.add(key);
   }
-  return lineOf(text, hit.line, hit.text) ?? (sameTodo(text, hit) ? hit.line : null);
+  for (const key of old) landed.set(key, { row: to, at: now });
 }
 
 /**

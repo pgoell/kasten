@@ -341,6 +341,13 @@ describe("#2080 a second press read before the first landed", () => {
     expect(disk.get("g5.md")).toBe(`${STAMP}# G\n- [/] a\n- [/] a\n`);
   });
 
+  it("presses the twin the stamp moved onto the pressed twin's old line on its own line", async () => {
+    const disk = vault({ "g7.md": "# G\n- [ ] a\nx\ny\n- [ ] a\n" });
+    await press("g7.md", 5, "- [ ] a", [2, 5]);
+    await press("g7.md", 5, "- [ ] a");
+    expect(disk.get("g7.md")).toBe(`${STAMP}# G\n- [/] a\nx\ny\n- [/] a\n`);
+  });
+
   it("sends the next press to the done line, not the recurring copy put above it", async () => {
     const todo = "- [/] water 🔁 every week 📅 2026-10-18";
     const disk = vault({ "g6.md": `# G\n${todo}\n` });

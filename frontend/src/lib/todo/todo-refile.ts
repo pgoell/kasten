@@ -3,6 +3,7 @@
  * as `todo-write.ts` is. The route reads the notes and owns the order the two writes go in.
  */
 
+import type { SearchHit } from "@/lib/core/api";
 import { appendUnder } from "@/lib/notes/text/note-section";
 import { parseTodo } from "@/lib/todo/todo";
 import { laneName } from "@/lib/todo/todo-board";
@@ -37,6 +38,31 @@ export function lineOf(text: string, line: number, want: string): number | null 
   if (/^[ \t]/.test(want)) return null;
   const found = lines.flatMap((each, index) => (each === want ? [index + 1] : []));
   return found.length === 1 ? (found[0] ?? null) : null;
+}
+
+/**
+ * Whether the row's line still holds the row's todo: the same words and depth,
+ * and the same id where both carry one. A press stamps the id the first time.
+ */
+function sameTodo(text: string, hit: SearchHit): boolean {
+  const was = parseTodo(hit.text);
+  const now = parseTodo(text.split("\n")[hit.line - 1] ?? "");
+  if (was === null || now === null) return false;
+  if (was.id !== undefined && now.id !== undefined && was.id !== now.id) return false;
+  return was.text === now.text && was.indent === now.indent;
+}
+
+/**
+ * The line the row's todo sits on now, or null where the note no longer says. Lines
+ * shift with each write, so the words decide; twins, which share words, go by rank.
+ */
+export function rowLine(text: string, hit: SearchHit, twins?: number[]): number | null {
+  if (twins !== undefined && twins.length > 1) {
+    const now = text.split("\n").flatMap((line, index) => (line === hit.text ? [index + 1] : []));
+    if (now.length !== twins.length) return null;
+    return now[twins.indexOf(hit.line)] ?? null;
+  }
+  return lineOf(text, hit.line, hit.text) ?? (sameTodo(text, hit) ? hit.line : null);
 }
 
 /**
