@@ -1,4 +1,7 @@
 import { useEffect, useState } from "react";
+import { isTerminalChord, TERMINAL } from "./key-bindings";
+
+const PALETTE_KEY = TERMINAL.find((row) => row.command === "openPalette")?.key;
 
 /**
  * Whether a key typed here belongs to the text in front of it. In a note's editor `?` stays vim's
@@ -30,4 +33,24 @@ export function useKeyHelp() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
   return [helpOpen, setHelpOpen] as const;
+}
+
+/**
+ * The palette's chord wherever the focus sits, a button or a pane with no keys of its own among
+ * them (#2068). The editor, a terminal and a book take it first and call preventDefault; a modal
+ * dialog keeps it, so no palette opens over a prompt. A chord types nothing, so a text field gets it.
+ */
+export function usePaletteChord(openPalette: () => void) {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.key !== PALETTE_KEY || !isTerminalChord(event)) return;
+      // Not an inert one: the which-key panel stays mounted, inert, while it fades out.
+      if (document.querySelector('[role="dialog"][aria-modal="true"]:not([inert])') !== null)
+        return;
+      event.preventDefault();
+      openPalette();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [openPalette]);
 }

@@ -2,7 +2,7 @@ import type { RefObject } from "react";
 import type { BoardKeys } from "@/components/todo/todo-board";
 import type { TodoState } from "@/lib/todo/todo";
 import type { Mode } from "@/lib/todo/use-todo-rows";
-import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
+import { type EditorCommands, isTerminalChord } from "@/lib/ui/keys/key-bindings";
 import { useLeader } from "@/lib/ui/keys/use-leader";
 
 /**
@@ -77,6 +77,8 @@ export function useTodoKeys(o: {
 function leftAlone(event: React.KeyboardEvent, editing: boolean): boolean {
   // Typing in an input is not the list's keys: `j` there is a letter. Nor is a key on a row's hint, which tab reaches.
   if (event.target instanceof HTMLInputElement || editing) return true;
+  // The chord is not a list key: Ctrl+Shift+P is the palette's, not `P` for doing (#2068).
+  if (isTerminalChord(event)) return true;
   const { key, target } = event;
   // Only the cursor's row or card keeps Enter and Space; other buttons' presses are their own.
   if ((key !== "Enter" && key !== " ") || !(target instanceof HTMLButtonElement)) return false;

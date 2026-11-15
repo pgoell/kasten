@@ -169,7 +169,7 @@ export type LeaderCommand = Exclude<
 /**
  * Ctrl and Shift, which a terminal cannot send most chords with, so the shell loses nothing.
  * ponytail: a guess that one week of use decides. Changing it also means `terminal-pane.tsx`,
- * `key-help.tsx`, `key-help.test.tsx`, and by hand the chord table in
+ * `use-window-keys.ts`, `key-help.tsx`, `key-help.test.tsx`, and by hand the chord table in
  * `docs/reference/editor-keys/terminal.md`.
  */
 export const TERMINAL_CHORD = {
@@ -178,6 +178,15 @@ export const TERMINAL_CHORD = {
   altKey: false,
   metaKey: false,
 };
+
+/** Whether `event` holds exactly the chord's modifiers, so AltGr (Ctrl+Alt) typing `@` is no chord. */
+export function isTerminalChord(
+  event: Pick<KeyboardEvent, "ctrlKey" | "shiftKey" | "altKey" | "metaKey">,
+): boolean {
+  return (Object.keys(TERMINAL_CHORD) as (keyof typeof TERMINAL_CHORD)[]).every(
+    (modifier) => event[modifier] === TERMINAL_CHORD[modifier],
+  );
+}
 
 export interface TerminalBinding {
   /**

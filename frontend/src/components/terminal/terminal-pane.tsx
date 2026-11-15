@@ -7,7 +7,7 @@ import {
   TerminalKeys,
   withCtrl,
 } from "@/components/terminal/terminal-keys";
-import { type EditorCommands, TERMINAL, TERMINAL_CHORD } from "@/lib/ui/keys/key-bindings";
+import { type EditorCommands, isTerminalChord, TERMINAL } from "@/lib/ui/keys/key-bindings";
 import { onThemeChange } from "@/lib/ui/theme";
 import "@xterm/xterm/css/xterm.css";
 import {
@@ -102,12 +102,7 @@ export function TerminalPane({
     // xterm sending them on. Modifiers compare by equality, or a chord would eat one the shell wants.
     term.attachCustomKeyEventHandler((event) => {
       if (event.type !== "keydown") return true;
-      const held =
-        event.ctrlKey === TERMINAL_CHORD.ctrlKey &&
-        event.shiftKey === TERMINAL_CHORD.shiftKey &&
-        event.altKey === TERMINAL_CHORD.altKey &&
-        event.metaKey === TERMINAL_CHORD.metaKey;
-      if (!held) return true;
+      if (!isTerminalChord(event)) return true;
 
       const binding = TERMINAL.find((row) => row.key === event.key);
       if (binding === undefined) return true;

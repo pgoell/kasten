@@ -2,7 +2,7 @@ import { type RefObject, useCallback, useEffect, useLayoutEffect, useRef } from 
 import type { FoliateView } from "@/lib/panes/book/foliate-view";
 import type { BookTake } from "@/lib/panes/book/use-book-take";
 import type { BookTurns } from "@/lib/panes/book/use-book-turns";
-import { type EditorCommands, TERMINAL, TERMINAL_CHORD } from "@/lib/ui/keys/key-bindings";
+import { type EditorCommands, isTerminalChord, TERMINAL } from "@/lib/ui/keys/key-bindings";
 import { beginLeader, paneOpener } from "@/lib/ui/keys/which-key";
 
 /**
@@ -83,16 +83,6 @@ export function useBookKeys(o: {
   }, [onKeyDown, wrapper]);
 
   return onKeyDown;
-}
-
-/** Whether `event` holds exactly the modifiers of the terminal chord. */
-function isTerminalChord(event: KeyboardEvent): boolean {
-  return (
-    event.ctrlKey === TERMINAL_CHORD.ctrlKey &&
-    event.shiftKey === TERMINAL_CHORD.shiftKey &&
-    event.altKey === TERMINAL_CHORD.altKey &&
-    event.metaKey === TERMINAL_CHORD.metaKey
-  );
 }
 
 /** Whether `event` is `?` with no modifier but the shift that types it. */

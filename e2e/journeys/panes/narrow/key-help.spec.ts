@@ -1,4 +1,4 @@
-import type { Locator } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { leader, openApp, phone } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
 
@@ -115,5 +115,77 @@ test.describe("the key help on a phone", () => {
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(tab).toBeFocused();
+  });
+});
+
+test.describe("the palette chord (#2068)", () => {
+  const palette = (page: Page) => page.getByRole("dialog", { name: "Run a command" });
+  /** Opens a palette row by name, through the palette, and closes nothing. */
+  async function run(page: Page, row: string) {
+    await page.keyboard.press("Control+Shift+P");
+    await palette(page)
+      .getByRole("option", { name: new RegExp(`^${row}`) })
+      .click();
+    await expect(palette(page)).toHaveCount(0);
+  }
+  const HOMES: [string, (page: Page) => Promise<void>][] = [
+    ["a tree row", (page) => page.getByRole("button", { name: "Welcome", exact: true }).focus()],
+    ["a tab", (page) => page.getByRole("tab", { selected: true }).first().focus()],
+    ["the todo pane", (page) => run(page, "Open the todo pane")],
+    [
+      "the chat box",
+      async (page) => {
+        await run(page, "Open the chat with Claude Code");
+        await page.getByRole("textbox").last().focus();
+      },
+    ],
+  ];
+  for (const vim of ["on", "off"])
+    for (const [home, go] of HOMES)
+      test(`vim ${vim}, with the focus on ${home}, opens the palette`, async ({ page }) => {
+        await page.addInitScript((v) => localStorage.setItem("kasten.vim", v), vim);
+        await openApp(page);
+        await go(page);
+        await expect(page.locator(".cm-editor:focus-within")).toHaveCount(0);
+        await page.keyboard.press("Control+Shift+P");
+        await expect(palette(page)).toHaveCount(1);
+      });
+
+  test("inside the open New note prompt or palette it opens no palette over it", async ({
+    page,
+  }) => {
+    await openApp(page);
+    await leader(page, "cf");
+    const prompt = page.getByRole("dialog", { name: "New note" });
+    await expect(prompt.getByRole("combobox")).toBeFocused();
+    await page.keyboard.press("Control+Shift+P");
+    await expect(prompt).toBeVisible();
+    await expect(palette(page)).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("Control+Shift+P");
+    await page.keyboard.press("Control+Shift+P");
+    await expect(palette(page)).toHaveCount(1);
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+  });
+
+  test.describe("on a phone", () => {
+    test.use(phone);
+    test("after the New note prompt closes by a tap outside, run opens the palette", async ({
+      page,
+    }) => {
+      await page.goto("/");
+      const runButton = page.getByRole("button", { name: "Run a command by name" });
+      await runButton.tap();
+      await palette(page)
+        .getByRole("option", { name: /^Create a note/ })
+        .tap();
+      const prompt = page.getByRole("dialog", { name: "New note" });
+      await expect(prompt).toBeVisible();
+      await prompt.tap({ position: { x: 5, y: 5 } });
+      await expect(prompt).toHaveCount(0);
+      await runButton.tap();
+      await expect(palette(page)).toBeVisible();
+    });
   });
 });
