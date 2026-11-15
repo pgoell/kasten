@@ -219,6 +219,18 @@ describe("the theme", () => {
     });
   });
 
+  it("neither manifest sets a theme_color, which Android would paint the navigation bar with", () => {
+    // Chrome colours an installed app's navigation bar from the manifest's theme_color, fixed at
+    // install; without one the bar follows the phone's light or dark mode.
+    const read = (name: string) =>
+      JSON.parse(readFileSync(path.resolve(import.meta.dirname, `../public/${name}`), "utf8"));
+
+    expect({
+      kasten: read("manifest.webmanifest").theme_color,
+      lists: read("lists.webmanifest").theme_color,
+    }).toEqual({ kasten: undefined, lists: undefined });
+  });
+
   it("the loading screen in index.html copies the theme's colours", () => {
     const html = readFileSync(path.resolve(import.meta.dirname, "../index.html"), "utf8");
     const css = readFileSync(

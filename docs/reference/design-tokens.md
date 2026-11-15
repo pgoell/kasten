@@ -214,6 +214,14 @@ style is inline, so it copies those colours rather than reading the tokens, and
 `background_color`, which Android paints behind the icon as the app starts, is
 the light `--k-bg`.
 
+Neither manifest sets a `theme_color`. Chrome on Android paints an installed
+app's navigation bar with it, fixed at install, so a light one stayed light
+under the dark theme. Without it the navigation bar follows the phone's light
+or dark mode, which is also the app's theme until one is picked by hand; a
+choice that differs from the phone's mode reaches the status bar but not the
+navigation bar. Chrome picks a manifest change up when it next updates the
+installed app, or at once on a reinstall.
+
 ## Accent palettes
 
 Four palettes set the accent colours. Each comes from Sanzo Wada's *A Dictionary
