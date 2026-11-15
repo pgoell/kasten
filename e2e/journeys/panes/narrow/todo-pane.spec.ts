@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { noteText, phone, today, vaultWith } from "../../../harness/app.ts";
+import { hold, noteText, phone, today, vaultWith } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
 
 test.use(phone);
@@ -80,16 +80,33 @@ test("edit turns the tapped row into its line at 16px, Enter writes it, and edit
 });
 
 test("timer starts a session on the strip's row and closes the strip", async ({ page, stack }) => {
-  // A timer tapped before the file listing lands takes the note for a new one and gets a 409 (#2061).
-  const listed = page.waitForResponse((r) => new URL(r.url()).pathname === "/api/files");
   await pane(page, stack.vault);
-  await listed;
   await more(page, "ship it").tap();
   await strip(page, "timer", "ship it").tap();
   await expect(strip(page, "timer", "ship it")).toHaveCount(0);
   await expect
     .poll(() => noteText(stack.vault, `01 Periodic/00 Daily/${today()}.md`).catch(() => ""))
     .toMatch(/^- \d\d:\d\d-.*ship it/m);
+});
+
+test("timer tapped before the file listing answers starts a session in today's note (#2061)", async ({
+  page,
+  stack,
+}) => {
+  const asked = page.waitForRequest((r) => new URL(r.url()).pathname === "/api/files");
+  const release = await hold(page, /\/api\/files$/);
+  const written = page.waitForResponse(
+    (r) => decodeURIComponent(new URL(r.url()).pathname) === `/api/files/${NOTE}` && r.request().method() !== "GET",
+  );
+  await pane(page, stack.vault);
+  await asked;
+  await more(page, "ship it").tap();
+  await strip(page, "timer", "ship it").tap();
+  expect(`${(await written).request().method()} ${(await written).status()}`).toBe("PUT 200");
+  await expect
+    .poll(() => noteText(stack.vault, `01 Periodic/00 Daily/${today()}.md`).catch(() => ""))
+    .toMatch(/^- \d\d:\d\d-.*ship it/m);
+  await release();
 });
 
 test("part opens the part prompt under the strip's row and closes the strip", async ({
