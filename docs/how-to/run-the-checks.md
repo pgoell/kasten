@@ -69,7 +69,7 @@ The journeys sit in `e2e/journeys/`: review in `review/` (a sitting, a question 
 `panes/` (layout and the top bar, the pane and tab keys, pane acts whose write is held while the focus moves, links to pages and assets; a note changed on disk under
 unsaved text and a conflicted note reopened in `panes/conflict/`; the stored workspace across a reload, held text in a restored pane and a URL over it in `panes/workspace/`; the drawer, phone toolbar, key help, a resized window, panel sheets and todo pane taps in `panes/narrow/`), notes, the finder, a tree row dragged, the new note prompt's folder rows, where a note opens and the status bar's save sign in `notes/`, with saving in `notes/saving/` (edits,
 mention links, held text, the editor's build, live preview, relation names) and the content search and an epub opened while the listing loads in `notes/search/`, the todo list, board, panel, presses,
-twin ids, a person's card and the shared lists in `todos/`, capture, the web page import, the chat pane's replies, the log, the Today pane's failed limits and the tokens page in `day/`, and the book finder, book, video and clip panes and csv and svg files in
+twin ids, a person's card and the shared lists in `todos/`, capture, the web page import, the chat replies, the log, Today's failed limits, the tokens page and the finance month keys in `day/`, and the book finder, book, video and clip panes and csv and svg files in
 `media/`. `harness.spec.ts` checks the harness itself. Each journey is a
 thing done daily; each that writes checks the file on disk. Twenty-eight files
 also run journeys at phone width, 414 px with touch, where the editor starts
