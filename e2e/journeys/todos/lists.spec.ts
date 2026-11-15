@@ -111,12 +111,16 @@ test.describe("the todo pane's shared lists", () => {
       Storage.prototype.getItem = blocked;
       Storage.prototype.setItem = blocked;
     });
+    // A throw in the click handler leaves the screen as it was; only the page sees it.
+    const thrown: string[] = [];
+    page.on("pageerror", (error) => thrown.push(error.message));
     await todoPane(page, stack.vault);
     await expect(row(page, "send the offer")).toHaveCount(0);
     await toggle(page, "Shared lists, 1 hidden").click();
     await expect(row(page, "send the offer")).toBeVisible();
     await toggle(page, "Shared lists, shown").click();
     await expect(row(page, "send the offer")).toHaveCount(0);
+    expect(thrown).toEqual([]);
   });
 
   test("a kind chip, the toggle and the typed filter narrow the list together, and All widens it", async ({
