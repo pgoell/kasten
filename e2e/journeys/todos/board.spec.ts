@@ -206,17 +206,19 @@ test.describe("the board's lanes and folds (#811)", () => {
     stack,
   }) => {
     await board(page, stack.vault);
-    const client = laneButton(page, "#client");
-    await client.click();
-    await expect(client).toHaveAttribute("aria-expanded", "false");
-    const before = await noteText(stack.vault, PLAN);
+    // Lanes by project, where a drop in another lane refiles the card: a write, if one got through.
+    await page.getByRole("button", { name: "project", exact: true }).click();
+    const fde = laneButton(page, "FDE");
+    await fde.click();
+    await expect(fde).toHaveAttribute("aria-expanded", "false");
+    const before = await notes(stack.vault);
     const writes: string[] = [];
     page.on("request", (request) => {
       if (request.method() !== "GET" && request.url().includes("/api/")) writes.push(request.url());
     });
 
-    const from = await card(page, "write the deck").boundingBox();
-    const to = await client.boundingBox();
+    const from = await card(page, "fold the laundry").boundingBox();
+    const to = await fde.boundingBox();
     if (!from || !to) throw new Error("the card or the folded heading is not on the screen");
     await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
     await page.mouse.down();
@@ -226,12 +228,12 @@ test.describe("the board's lanes and folds (#811)", () => {
     await page.mouse.up();
 
     await expect(page.locator("[data-lifted]")).toHaveCount(0);
-    // A real drop the next moment, so a write the folded lane sent would have landed first.
-    await laneButton(page, "#internal").click();
-    await expect(laneButton(page, "#internal")).toHaveAttribute("aria-expanded", "false");
+    // Another act the next moment, so a refile the folded lane sent would have gone out first.
+    await fde.click();
+    await expect(fde).toHaveAttribute("aria-expanded", "true");
     expect(writes).toEqual([]);
     await expect(page.getByTestId("notice")).toHaveCount(0);
-    expect(await noteText(stack.vault, PLAN)).toBe(before);
+    expect(await notes(stack.vault)).toEqual(before);
   });
 
   test("Rejected starts folded on a desktop; a click and l onto it unfold it, and a click and h fold it", async ({
