@@ -1,13 +1,13 @@
 ---
 type: Reference
-title: Save path orderings: moving a todo between notes
-description: The orders in which a todo pane's refile with m, and a card dropped on another project lane, can meet the write queue of two notes, what must hold in each, and whether getting it wrong loses a todo.
+title: Save path orderings: moving a todo between notes, and the edit row
+description: The orders in which a todo pane's refile with m, and a card dropped on another project lane, can meet the write queue of two notes, what must hold in each, and whether getting it wrong loses a todo; and the orders a redraw and the vault's answer can meet an open edit row in.
 resource: frontend/src/lib/notes/note/use-autosave.ts
 tags: [editor, saving, autosave, frontend, tests, todos]
 status: stable
 ---
 
-# Save path orderings: moving a todo between notes
+# Save path orderings: moving a todo between notes, and the edit row
 
 Part of [save path orderings](/reference/save-path-orderings.md). The columns are explained in [How to read the table](/reference/save-path-orderings.md#how-to-read-the-table). Rows keep their numbers on every page, so "As 82" points to the same row wherever it sits.
 
@@ -22,3 +22,15 @@ Part of [save path orderings](/reference/save-path-orderings.md). The columns ar
 | 121 | `m` on a project with no `index.md`. | The note is made holding `## TODOs` and the todo, then the note the todo left is written. The new path goes into the listing at once, so a second press queued behind it writes into the note rather than making it again. | no | home-route-refile: `#396 I6 a project folder with no index.md gets one holding the todo`, `#396 B4 two presses back to back on a project with no index.md make it once` (red before the fix, which made it twice) (#396) |
 | 122 | Two `m` presses back to back on two todos of one note, before the list redraws. | The second press finds its todo by its text where the first's write shifted it, if it is a root todo and exactly one line says it, so both move. No line, several, or a part (whose project hangs on its parent, so the same words elsewhere can be another project's todo) reads as changed, as in 119. | no | home-route-refile: `#396 B3 two presses back to back on todos of one note move both` (red before the fix, which left the second in both notes); `todo-refile.test.ts`: `#396 B3 a root todo a write has shifted is found by its words`, `#396 B a nested row whose line moved is not looked for, since its project hangs on its parent` (red before the fix, which found another parent's part) (#396) |
 | 123 | A card dropped on another lane of the board, with lanes by project, including a card from "No project". | The same path as `m`, with the lane's project in place of the todo's: the orders of 117 to 122 hold as they stand, the todo's parts moving with it. There is no second move. | no | home-route-refile: `#397 A2 a card dropped on another project lane moves into that project's note, project's note first`, `#397 A2 a card with no project dropped on a project lane moves into that project's note`, `#397 I4 a dropped card's parts move with it` (all three red before the fix, which filed the todo under its own project or refused it) (#397) |
+
+## The edit row
+
+The rows below are the todo pane's `i`, whose line stays open across redraws (#2087).
+
+| # | Ordering | Must hold | Loses typed text if wrong | Test |
+|---|---|---|---|---|
+| 149 | `i` straight after an `x`, typed into past the redraw in which the `x`'s first save of a note with no frontmatter moved the row three lines down. | The line stays open on the todo, found by the words it was typed over or where the `x` left it, with its caret and every key; Enter writes onto the line the `x` wrote. | yes | board.spec.ts: `x then i keeps the row and every typed key through the redraw, and Enter writes them`, `with vim off, x then i keeps the row through the redraw, and Enter writes it`; todo-pane.spec.ts (phone): `edit tapped after a state press keeps the row and every typed key through the redraw that moves it (#2087)` (all red on main) |
+| 150 | Lines land above an open edit row, by any write. | As 149, by its words; of twins, the same one by their order while their count holds. | yes | board.spec.ts: `an edit row follows its todo when lines land above it, and Enter writes there`; `todo-api-edits.test.ts`: `#2087 an edit row through a redraw` (red on main) |
+| 151 | A redraw leaves an open edit row no line to follow: its twins' count changed, or no row is left at its line. | Nothing is written; the line closes, the notice holds the whole typed text, and the pane's keys work again. | yes | board.spec.ts: `of two twins, an edit row whose twin left closes, keeping its text in the notice, and the keys work again` (red on main) |
+| 152 | Enter on an edit whose line no longer holds the words it was typed over. | Nothing is written over the newer line. The notice says so and the line opens again on the typed text; a second Enter goes through the same check and lands only once the line reads as before. | yes | board.spec.ts: `an edit whose line changed writes nothing, says so, keeps the text, and goes once the line reads as before` (red on main) |
+| 153 | Enter on an edit whose write fails: a `500`, the network, or refused over its base three times. | As 152: the notice, the line open again on the typed text, and Enter sends it again. | yes | board.spec.ts: `an edit that fails with a 500 says so and keeps the text for another Enter` (red on main) |

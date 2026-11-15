@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { Profiler } from "react";
+import { type ComponentProps, Profiler } from "react";
 import { TodoPane } from "@/components/todo/todo-pane";
 import { createNote, fetchFiles, fetchNote, fetchTodos } from "@/lib/core/api";
 import { DEFAULT_VIEWS, VIEWS_NOTE } from "@/lib/todo/todo-view";
@@ -100,7 +100,7 @@ export function renderPane(
   const onCycle = vi.fn();
   const onAdd = vi.fn();
   const onSubtask = vi.fn();
-  const onEdit = vi.fn();
+  const onEdit = vi.fn<ComponentProps<typeof TodoPane>["onEdit"]>(async () => true);
   const onBlock = vi.fn();
   const onTimer = vi.fn();
   const onRefile = vi.fn();
