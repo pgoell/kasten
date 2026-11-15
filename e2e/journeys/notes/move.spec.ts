@@ -1,6 +1,6 @@
 import { readdir, rm, symlink } from "node:fs/promises";
 import { join } from "node:path";
-import type { Page } from "@playwright/test";
+import type { Page, Route } from "@playwright/test";
 import { leader, noteText, openApp, vaultWith } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 
@@ -407,5 +407,71 @@ test.describe("the new note prompt", () => {
     await row(page, "01 Notes").click();
     await expect(row(page, "Canon")).toBeVisible();
     await expect.poll(() => noteText(stack.vault, "01 Notes/Canon.md")).not.toBe("");
+  });
+});
+
+test.describe("the rename prompt", () => {
+  const dialog = (page: Page) => page.getByRole("dialog", { name: "Rename note" });
+  const field = (page: Page) => dialog(page).getByRole("combobox");
+
+  async function renameBorges(page: Page) {
+    await row(page, "inbox").click();
+    await row(page, "borges").click();
+    await expect(page.locator(".cm-content").getByText("born 1899")).toBeVisible();
+    await leader(page, "rf");
+    await expect(field(page)).toBeFocused();
+  }
+
+  test("checks the path, keeps a refused one, retries it once", async ({ page, stack }) => {
+    let tries = 0;
+    let held: Route | undefined;
+    await page.route("**/api/files/**", async (route) => {
+      if (route.request().method() !== "PATCH") return route.fallback();
+      tries += 1;
+      if (tries === 1) return route.fulfill({ status: 409, body: "{}" });
+      held = route;
+    });
+    await loadTree(page, stack.vault);
+    await renameBorges(page);
+    await expect(field(page)).toHaveValue("inbox/borges.md");
+    await page.keyboard.press("Enter");
+    await expect(dialog(page)).toHaveCount(0);
+    await leader(page, "rf");
+    await page.keyboard.type("kafka");
+    await expect(field(page)).toHaveValue("inbox/kafka.md");
+    await field(page).fill("reading/kafka.md");
+    await page.keyboard.press("Enter");
+    await expect(dialog(page).getByRole("status")).toHaveText("a note is already there");
+    await field(page).fill("rea");
+    await expect(dialog(page).getByRole("option").first()).toHaveText("reading/");
+    expect(tries).toBe(0);
+
+    await field(page).fill("reading/borges");
+    await page.keyboard.press("Enter");
+    await expect(dialog(page).getByRole("status")).toHaveText("could not rename the note");
+    await expect(field(page)).toHaveValue("reading/borges");
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("Enter");
+    await expect.poll(() => tries).toBe(2);
+    await held?.fallback();
+    await expect.poll(() => noteText(stack.vault, "reading/borges.md")).toBe(BORGES);
+    expect(tries).toBe(2);
+  });
+
+  test("opens the vault's path, .md put back, with the moved text", async ({ page, stack }) => {
+    await symlink("reading", join(stack.vault, "Alias"));
+    // No events, no read: the text came with the move.
+    await page.route("**/api/events", (route) => route.abort());
+    await page.route(
+      (url) => decodeURIComponent(url.pathname) === "/api/files/reading/borges.md",
+      (route) => (route.request().method() === "GET" ? new Promise(() => {}) : route.fallback()),
+    );
+    await loadTree(page, stack.vault);
+    await renameBorges(page);
+    await vaultWith(stack.vault, { "inbox/borges.md": "in Buenos Aires\n" });
+    await field(page).fill("Alias/borges");
+    await page.keyboard.press("Enter");
+    await expect(page.locator(".cm-content").getByText("in Buenos Aires")).toBeVisible();
+    await expect(page.locator("[data-pane]").getByText("reading", { exact: true })).toBeVisible();
   });
 });
