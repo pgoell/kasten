@@ -335,6 +335,46 @@ test.describe("the top bar", () => {
   });
 });
 
+test.describe("Space in the graph pane", () => {
+  const graph = (page: Page) => page.locator("[data-graph-pane]");
+  const tree = (page: Page) => page.getByRole("navigation", { name: "Vault" });
+
+  test.beforeEach(async ({ page }) => {
+    await openApp(page);
+    await page
+      .locator("[data-top-bar]")
+      .getByRole("button", { name: "Graph", exact: true })
+      .click();
+    await expect(graph(page).locator("canvas")).toBeVisible();
+  });
+
+  test("Space on a focused row button presses it and starts no leader sequence", async ({
+    page,
+  }) => {
+    await graph(page).getByLabel("graph query").fill("?a links [[Long note]]");
+    await page.keyboard.press("Enter");
+    await graph(page).getByRole("button", { name: "Welcome", exact: true }).focus();
+    await page.keyboard.press("Space");
+    await expect(page.locator(".cm-content")).toContainText("front door");
+    await page.keyboard.press("b");
+    await expect(tree(page)).toBeVisible();
+  });
+
+  test("Space on the pane, or after a click on its canvas, starts a leader sequence", async ({
+    page,
+  }) => {
+    await graph(page).focus();
+    await leader(page, "b");
+    await expect(tree(page)).toBeHidden();
+    // A corner, where no note sits for the click to open.
+    await graph(page)
+      .locator("canvas")
+      .click({ position: { x: 4, y: 4 } });
+    await leader(page, "b");
+    await expect(tree(page)).toBeVisible();
+  });
+});
+
 test.describe("the clock in the status bar", () => {
   // A fixed zone, so the wall clock reads the same on every runner.
   test.use({ timezoneId: "Europe/Berlin" });

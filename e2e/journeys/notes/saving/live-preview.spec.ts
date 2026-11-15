@@ -356,3 +356,36 @@ test.describe("a todo's due date", () => {
     });
   }
 });
+
+test.describe("the live preview toggle", () => {
+  const line = (page: Page) => page.locator(".cm-content:focus .cm-line").first();
+
+  test.beforeEach(async ({ page, stack }) => {
+    await vaultWith(stack.vault, { "Heads.md": "## Notes" });
+    await openApp(page);
+    await openNote(page, "Heads");
+    await expect(line(page)).toHaveText("Notes");
+  });
+
+  test("Space p shows every mark, and a second Space p hides them again", async ({ page }) => {
+    await leader(page, "p");
+    await expect(line(page)).toHaveText("## Notes");
+    await leader(page, "p");
+    await expect(line(page)).toHaveText("Notes");
+  });
+
+  test("the undo history holds across the toggle", async ({ page, stack }) => {
+    // Off first, so `x` deletes the character on screen and no hidden mark moves it.
+    await leader(page, "p");
+    await page.keyboard.press("0");
+    await page.keyboard.press("x");
+    await expect(line(page)).toHaveText("# Notes");
+    await leader(page, "p");
+    await leader(page, "p");
+    await page.keyboard.press("u");
+    await expect(line(page)).toHaveText("## Notes");
+    await expect
+      .poll(() => noteText(stack.vault, "Heads.md"), { timeout: 15_000 })
+      .toMatch(/^## Notes/m);
+  });
+});

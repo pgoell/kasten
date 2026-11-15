@@ -1,9 +1,10 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Page } from "@playwright/test";
-import { panes, phone, tapHeight, today } from "../../../harness/app.ts";
+import { panes, phone, tapHeight, today, vaultWith } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
 import { bothTexts, OUTSIDE, sign, welcome } from "../conflict/conflicted.ts";
+import { COARSE } from "../workspace/stored.ts";
 
 const toolbar = (page: Page) => page.getByRole("toolbar", { name: "Commands" });
 
@@ -355,5 +356,76 @@ test.describe("on a phone at another default font", () => {
     expect(await elevens(page)).toEqual(
       ["h", "min-h", "min-w", "size", "w"].map((k) => `${k} 55px`),
     );
+  });
+});
+
+test.describe("the graph pane on a phone", () => {
+  test.use(phone);
+  const pane = (page: Page) => page.locator("[data-graph-pane]");
+  const tree = (page: Page) => page.getByRole("navigation", { name: "Vault" });
+
+  /** Loads the app on a phone workspace holding one graph pane around `path`. */
+  async function graphAround(page: Page, path: string) {
+    const tabs = [{ id: "t", root: { id: "a", graph: { around: path } }, focus: "a" }];
+    const stored = JSON.stringify({ layout: { tabs, active: 0 }, treeOpen: false });
+    await page.addInitScript(([key, value]) => localStorage.setItem(key, value), [COARSE, stored]);
+    await page.goto("/");
+    await expect(pane(page).locator("canvas")).toBeVisible({ timeout: 15_000 });
+  }
+
+  /** Taps the middle of the canvas, where a graph of one note fits it once settled. */
+  async function tapMiddle(page: Page) {
+    await expect(pane(page).getByLabel("zoom")).toBeVisible();
+    const box = await page.getByTestId("graph-canvas").boundingBox();
+    if (!box) throw new Error("no canvas");
+    await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+  }
+
+  test("Space presses the fit, depth, Create and Cancel buttons and starts no leader sequence", async ({
+    page,
+    stack,
+  }) => {
+    await vaultWith(stack.vault, { "Lone.md": "links to [[Nowhere]]\n" });
+    // The answer holds the missing note alone, so it sits where a tap can find it.
+    const ghost = { path: "Nowhere.md", name: "Nowhere", type: null, tags: [], missing: true };
+    const json = { nodes: [ghost], edges: [], columns: [], rows: [], truncated: false };
+    await page.route("**/api/graph?*", (route) => route.fulfill({ json }));
+    await graphAround(page, "Lone.md");
+    const asked = pane(page).getByText("Create Nowhere?");
+    const button = (name: string) => pane(page).getByRole("button", { name, exact: true });
+
+    /** Space on the button, then `b`, which a leader sequence would take as the tree's toggle. */
+    async function space(name: string) {
+      await button(name).focus();
+      await page.keyboard.press("Space");
+      await page.keyboard.press("b");
+    }
+
+    await tapMiddle(page);
+    await expect(asked).toBeVisible();
+    await space("Cancel");
+    await expect(asked).toBeHidden();
+    await space("one link further");
+    await expect(pane(page).getByText("depth 2")).toBeVisible();
+    await space("one link nearer");
+    await expect(pane(page).getByText("depth 1")).toBeVisible();
+    await space("fit");
+    await expect(tree(page)).toBeHidden();
+
+    await tapMiddle(page);
+    await expect(asked).toBeVisible();
+    await space("Create");
+    await expect(pane(page)).toHaveCount(0);
+    await expect(tree(page)).toBeHidden();
+  });
+
+  test("a tap on a row button opens its note", async ({ page, stack }) => {
+    await vaultWith(stack.vault, { "Lone.md": "links to [[Welcome]]\n" });
+    await graphAround(page, "Lone.md");
+    await pane(page).getByLabel("graph query").fill("?a links [[Welcome]]");
+    await page.keyboard.press("Enter");
+    await pane(page).getByRole("button", { name: "Lone", exact: true }).tap();
+    await expect(pane(page)).toHaveCount(0);
+    await expect(page.locator(".cm-content")).toContainText("links to");
   });
 });
