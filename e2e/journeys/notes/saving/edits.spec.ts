@@ -247,9 +247,10 @@ test.describe("the table line-up takes what a paste, a yank or a rebuilt table c
     await page.keyboard.press("End");
     await page.keyboard.type(" - |");
     await page.keyboard.press("Control+End");
-    await page.keyboard.press("Control+s");
+    // An edit below and no save: a save lines up any kept table, so only autosave proves the leave did.
+    await page.keyboard.type("!");
     const rows = pad([["a", "longer", "x"], ["---", "------", "---"], ["xx", "b", ""]]);
-    await onDisk(stack.vault, [...rows, "", "after"].join("\n"));
+    await onDisk(stack.vault, [...rows, "", "after!"].join("\n"));
   });
 
   test("x on the head's first pipe still lines the table up on :w, vim on", async ({
