@@ -128,3 +128,84 @@ test.describe("held text in a restored pane", () => {
     ]);
   });
 });
+
+/** The held store as a page before this one left it: each path's texts by reason and conflict. */
+const heldStore = (notes: Record<string, [reason: string, conflicted?: boolean][]>) => ({
+  [HELD]: JSON.stringify(
+    Object.fromEntries(
+      Object.entries(notes).map(([path, texts]) => [
+        path,
+        texts.map(([reason, conflicted = false]) => ({ content: TYPED, reason, conflicted })),
+      ]),
+    ),
+  ),
+});
+const WELCOME_ALONE = layout([{ id: "t", root: { id: "a", path: "Welcome.md" }, focus: "a" }]);
+const bar = (page: Page, id: string) => page.getByTestId(id);
+const detail = (page: Page) => page.getByTestId("status-detail");
+
+test.describe("the bar's list of notes left behind", () => {
+  test("names a note whose write failed and the way back to it, leaving the open note's sign alone", async ({
+    page,
+  }) => {
+    await seed(page, {
+      ...heldStore({ "Notes/index.md": [["PUT failed with 500"]] }),
+      ...WELCOME_ALONE,
+    });
+    await load(page);
+    await expect(bar(page, "held")).toHaveText("Not saved: index");
+    const title = await bar(page, "held").getAttribute("title");
+    expect(title).toContain("Notes/index.md: PUT failed with 500");
+    expect(title).toContain("Open the note to write it again, or :e! there to drop it.");
+    await expect(page.getByTestId("save-status")).toHaveAttribute("aria-label", "Saved");
+  });
+
+  test("lists every held note, and drops each from the list when its text goes", async ({
+    page,
+  }) => {
+    const b: [string][] = [["PUT failed with 502"]];
+    const two = heldStore({ "a.md": [["PUT failed with 500"]], "Sub/b.md": b });
+    await seed(page, { ...two, ...WELCOME_ALONE });
+    await load(page);
+    await expect(bar(page, "held")).toHaveText("Not saved: 2 notes");
+    await expect(bar(page, "held")).toHaveAttribute("title", /a\.md: PUT failed with 500/);
+    await expect(bar(page, "held")).toHaveAttribute("title", /Sub\/b\.md: PUT failed with 502/);
+
+    // Another tab writes or drops a held text, and this tab's bar follows its storage.
+    const other = await page.context().newPage();
+    await other.goto("/api/version");
+    const write = (value: string) =>
+      other.evaluate(([key, held]) => localStorage.setItem(key, held), [HELD, value]);
+    await write(heldStore({ "Sub/b.md": b })[HELD]);
+    await expect(bar(page, "held")).toHaveText("Not saved: b");
+    await expect(bar(page, "held")).not.toHaveAttribute("title", /a\.md/);
+    await write("{}");
+    await expect(bar(page, "held")).toHaveCount(0);
+  });
+
+  test("names a note holding two texts once, and lists both", async ({ page }) => {
+    await seed(page, {
+      ...heldStore({ "a.md": [["PUT failed with 500"], ["PUT failed with 502"]] }),
+      ...WELCOME_ALONE,
+    });
+    await load(page);
+    await expect(bar(page, "held")).toHaveText("Not saved: a");
+    await expect(bar(page, "held")).toHaveAttribute("title", /a\.md: PUT failed with 500/);
+    await expect(bar(page, "held")).toHaveAttribute("title", /a\.md: PUT failed with 502/);
+  });
+
+  test("lists a conflict left behind under its own label, which opens to its way out", async ({
+    page,
+  }) => {
+    await seed(page, {
+      ...heldStore({ "Notes/index.md": [["Changed on disk", true]] }),
+      ...WELCOME_ALONE,
+    });
+    await load(page);
+    await expect(bar(page, "held-conflict")).toHaveText("Changed on disk: index");
+    await expect(bar(page, "held")).toHaveCount(0);
+    await bar(page, "held-conflict").click();
+    await expect(detail(page)).toContainText("Notes/index.md: Changed on disk");
+    await expect(detail(page)).toContainText(":w keeps your text, :e! takes the vault's.");
+  });
+});
