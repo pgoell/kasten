@@ -3,7 +3,7 @@ import { ViewPlugin } from "@codemirror/view";
 import { type CodeMirrorV, getCM, Vim } from "@replit/codemirror-vim";
 import { FORMAT, LEADER_EDITS } from "@/lib/notes/editor/buffer-keys";
 import { toggleMark } from "@/lib/notes/editor/format-commands";
-import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
+import { type EditorCommands, isChord } from "@/lib/ui/keys/key-bindings";
 import { LEADER, TAB_KEYS } from "@/lib/ui/keys/leader-keys";
 import { beginLeader, editorOpener } from "@/lib/ui/keys/which-key";
 
@@ -125,6 +125,17 @@ export const leaderPanel = ViewPlugin.define((view) => {
   view.dom.addEventListener("keydown", onKeyDown, true);
   return { destroy: () => view.dom.removeEventListener("keydown", onKeyDown, true) };
 });
+
+// Windows reads AltGr as Ctrl+Alt, so vim named AltGr's `}` `<C-A-}>` and ran nothing (#2073).
+// A typed ASCII character reaches vim bare; a non-ASCII one stays vim's, which reads its key.
+const vimKeyFromEvent = Vim.vimKeyFromEvent;
+Vim.vimKeyFromEvent = (event, vim) =>
+  vimKeyFromEvent(
+    (event.ctrlKey || event.altKey) && !isChord(event) && /^[!-~]$/.test(event.key)
+      ? ({ key: event.key } as KeyboardEvent)
+      : event,
+    vim,
+  );
 
 // Vim's built-in `<Space>` (bound to `l`) would shadow `<Space>b`. Its context is
 // none, so unmapping passes none; the typed signature wrongly demands a string.
