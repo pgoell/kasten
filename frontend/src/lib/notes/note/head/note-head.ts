@@ -341,7 +341,7 @@ class HeadPlugin {
     this.observer?.disconnect();
     if (this.head === null) return;
     this.head.remove();
-    this.view.contentDOM.style.paddingTop = "";
+    this.view.scrollDOM.style.removeProperty(HEIGHT);
   }
 
   /** Rebuilds the header's inner DOM when what it shows has changed, then measures it. */
@@ -375,15 +375,19 @@ class HeadPlugin {
       write: ({ left, width, height }) => {
         head.style.left = `${left}px`;
         head.style.width = `${width}px`;
-        // The header's height takes the place of the content's own top padding, as it always did.
-        view.contentDOM.style.paddingTop = `${height}px`;
+        // Not inline on the content: CodeMirror resets its style whole on an attribute change, as on an Alt press (#2076).
+        view.scrollDOM.style.setProperty(HEIGHT, `${height}px`);
       },
     });
   }
 }
 
 /** The header's look, in the tokens so both themes follow the palette. */
+const HEIGHT = "--k-note-head-height";
+
 const headTheme = EditorView.theme({
+  // The header's height takes the place of the content's own top padding; 4px is CodeMirror's until it is measured.
+  ".cm-note-head + .cm-content": { paddingTop: `var(${HEIGHT}, 4px)` },
   ".cm-note-head": {
     position: "absolute",
     top: "0",

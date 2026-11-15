@@ -162,7 +162,6 @@ test.describe("vim's own keys typed through AltGr or Option (#2073)", () => {
       await openApp(page);
       await findNote(page, "Keys");
       await page.keyboard.press("G");
-      // No j or k: right after the windows shape they can land at the note's end (#2076).
       const moves: [string[], string][] = [
         [["[", "["], "13:{ delta@0"],
         [["[", "["], "9:{ alpha@0"],
@@ -170,6 +169,8 @@ test.describe("vim's own keys typed through AltGr or Option (#2073)", () => {
         [["{"], "11:@0"],
         [["{"], "8:@0"],
         [["}"], "11:@0"],
+        [["{", "j"], "9:{ alpha@0"],
+        [["}", "k"], "10:bravo@0"],
         [["G", "$", "3", "|"], "14:echo foxtrot@2"],
         [["r", "|"], "14:ec|o foxtrot@2"],
       ];
@@ -221,6 +222,59 @@ test.describe("vim's own keys typed through AltGr or Option (#2073)", () => {
     await page.keyboard.press("~");
     await expect.poll(async () => unstamped(await noteText(stack.vault, NOTE))).toMatch(/\nECho$/);
   });
+});
+
+test.describe("j and k right after an Alt, AltGr or Option press (#2076)", () => {
+  const NOTE = "Keys.md";
+  const BODY = "---\nid: 01a1df77-0000-7000-8000-000000002076\ncreated: 2026-11-15T13:00:00+00:00\ntype: Note\nmodified: 2026-11-15T13:00:00+00:00\n---\n# Keys\n\n{ alpha\nbravo\n\ncharlie\n{ delta\necho foxtrot";
+  // An Alt tap on Linux, and AltGr+E or Option+E, each with the Alt flag CodeMirror's crosshair answers.
+  const SHAPES = { linux: [["Alt", "AltLeft", ALT]], windows: presses("windows", "€"), mac: presses("mac", "€") } as const;
+  test.beforeEach(async ({ page }) => platformOf(page, titled()));
+
+  for (const vim of ["on", "off"] as const)
+    for (const layout of ["windows", "linux", "mac"] as const)
+      test(`vim ${vim}, on a ${layout} layout a line move right after the press goes one line`, async ({ page, stack }) => {
+        await page.addInitScript((mode) => localStorage.setItem("kasten.vim", mode), vim);
+        await vaultWith(stack.vault, { [NOTE]: BODY });
+        await openApp(page);
+        await page.getByRole("button", { name: "Keys", exact: true }).click();
+        await page.locator(".cm-line", { hasText: /^charlie/ }).click();
+        await page.keyboard.press(vim === "on" ? "k" : "ArrowUp");
+        await page.keyboard.press(vim === "on" ? "0" : "Home");
+        await expect.poll(() => cursor(page)).toBe("11:@0");
+        // One move lands wrong on main about half the time, so each runs eight times.
+        for (let i = 0; i < 8; i++)
+          for (const [key, at] of [[vim === "on" ? "j" : "ArrowDown", "12:charlie@0"], [vim === "on" ? "k" : "ArrowUp", "11:@0"]]) {
+            await send(page, [...SHAPES[layout]]);
+            await page.keyboard.press(key);
+            expect(await cursor(page)).toBe(at);
+          }
+      });
+
+  for (const width of [1280, 390])
+    test(`at ${width} px the note head's height pads the content through an Alt press, and Alt shows the crosshair`, async ({ page, stack }) => {
+      await vaultWith(stack.vault, { [NOTE]: BODY });
+      await openApp(page);
+      await findNote(page, "Keys");
+      await page.setViewportSize({ width, height: 800 });
+      const content = page.locator(".cm-content:visible");
+      // The head wraps taller in a phone's width, and the padding follows it there.
+      const settled = (el: HTMLElement) => getComputedStyle(el).paddingTop === `${(el.previousElementSibling as HTMLElement).offsetHeight}px`;
+      await expect.poll(() => content.evaluate(settled)).toBe(true);
+      // Read in the same task as the press, before the head's own ResizeObserver could write the padding back.
+      const read = await content.evaluate((el) => {
+        const head = (el.previousElementSibling as HTMLElement).offsetHeight;
+        const now = () => [getComputedStyle(el).paddingTop, getComputedStyle(el).cursor];
+        const before = now();
+        el.dispatchEvent(new KeyboardEvent("keydown", { key: "Alt", code: "AltLeft", altKey: true, bubbles: true }));
+        const held = now();
+        el.dispatchEvent(new KeyboardEvent("keyup", { key: "Alt", code: "AltLeft", bubbles: true }));
+        return { head, before, held, after: now() };
+      });
+      const pad = `${read.head}px`;
+      expect(read.head).toBeGreaterThan(40);
+      expect(read).toEqual({ head: read.head, before: [pad, "auto"], held: [pad, "crosshair"], after: [pad, "auto"] });
+    });
 });
 
 /**
