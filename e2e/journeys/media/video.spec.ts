@@ -244,7 +244,7 @@ test("the transcript follows a later second only while Follows the video is on",
   page,
   stack,
 }) => {
-  const take = "> A.\n\n[05:00](https://www.youtube.com/watch?v=kastenVid01&t=300s) ^hl-a1";
+  const take = "> A.\n\n[05:00](https://www.youtube.com/watch?v=kastenVid01&t=300s) ^hl-a1b2c3";
   await vaultWith(stack.vault, { "01 Notes/Talk.md": talkWith(`\n## Highlights\n\n${take}\n`) });
   await fakeYouTube(page);
   await page.emulateMedia({ reducedMotion: "reduce" });
