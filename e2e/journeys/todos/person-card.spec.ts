@@ -14,12 +14,13 @@ import {
 import { expect, test } from "../../harness/stack.ts";
 
 const PASCAL = "03 Areas/08 People/Pascal.md";
+const ALICIA = "03 Areas/08 People/Alicia.md";
 // The todo's words hold no link: only the `👤 [[Pascal]]` field names him.
 const NOTES = {
   [PASCAL]: "---\ntype: Person\n---\n\n# Pascal\n",
   "01 Periodic/00 Daily/2026-10-25.md":
     "# 2026-10-25\n\n- [ ] buy paint 👤 [[Pascal]]\n- [ ] fix the gate 👤 [[Alicia]]\n",
-  "03 Areas/08 People/Alicia.md": "---\ntype: Person\n---\n\n# Alicia\n",
+  [ALICIA]: "---\ntype: Person\n---\n\n# Alicia\n",
 };
 
 /** Opens Pascal's note by its address and returns the card's open todos. */
@@ -226,6 +227,126 @@ test.describe("the person card", () => {
       const rows = page.locator("section[aria-label] button");
       await expect(rows).toHaveCount(3);
       for (const row of await rows.all()) expect(await tapHeight(row)).toBeGreaterThanOrEqual(44);
+    });
+  });
+});
+
+const CHORES = "02 Projects/Chores.md";
+const CHORE_LINES = [
+  "- [ ] buy paint 👤 [[Pascal]]",
+  "- [/] mend the fence 👤 [[Alicia]]",
+  "- [w] hang the door 👤 [[Pascal]] 👤 2026-10-20 [[Alicia]]",
+  "- [ ] paint the hall 👤 [[03 Areas/08 People/Pascal]]",
+  "- [ ] wash the car 👤 [[Pascal|P]]",
+  "- [ ] sweep the yard 👤 [[Nobody]]",
+  "- [ ] rake the leaves 👤 Alicia",
+];
+
+/** The todo pane over Chores.md on 2026-10-25, five days after the waiting row was written. */
+async function chorePane(page: Page, vault: string) {
+  await vaultWith(vault, {
+    [PASCAL]: NOTES[PASCAL],
+    [ALICIA]: NOTES[ALICIA],
+    [CHORES]: `# Chores\n\n${CHORE_LINES.join("\n")}\n`,
+  });
+  await page.clock.setFixedTime(new Date("2026-10-25T12:00:00"));
+  const row = (words: string) => page.locator(TODO_ROW, { hasText: words });
+  return { row, chip: (words: string) => row(words).locator("[data-person]") };
+}
+const body = async (vault: string) =>
+  (await noteText(vault, CHORES)).replace(/^---\n[\s\S]*?\n---\n/, "");
+
+test.describe("the assignee chip on a todo pane row", () => {
+  test("names the person on open, doing and waiting rows, an alias by its words, and links only a name with a note", async ({
+    page,
+    stack,
+  }) => {
+    const { row, chip } = await chorePane(page, stack.vault);
+    await openApp(page);
+    await leader(page, "gt");
+    await expect(chip("buy paint")).toHaveText("Pascal");
+    await expect(chip("mend the fence")).toHaveText("Alicia");
+    await expect(chip("hang the door")).toHaveText("Pascal");
+    await expect(row("hang the door")).toContainText("👤 5d Alicia");
+    await expect(chip("paint the hall")).toHaveText("Pascal");
+    await expect(chip("wash the car")).toHaveText("P");
+    for (const words of ["buy paint", "hang the door", "paint the hall", "wash the car"])
+      await expect(chip(words)).toHaveAttribute("data-person-path", PASCAL);
+    await expect(chip("sweep the yard")).toHaveText("Nobody");
+    await expect(chip("rake the leaves")).toHaveText("Alicia");
+    await expect(chip("sweep the yard")).not.toHaveAttribute("data-person-path");
+    await expect(chip("rake the leaves")).not.toHaveAttribute("data-person-path");
+  });
+
+  test("a click on a chip opens the person note by name, path or alias, and on a row or an unlinked chip the todo's note", async ({
+    page,
+    stack,
+  }) => {
+    const { row, chip } = await chorePane(page, stack.vault);
+    await openApp(page);
+    const opens = async (click: () => Promise<void>, tab: string, line?: string) => {
+      await leader(page, "gt");
+      await click();
+      await expect(page.getByRole("tab", { name: tab, selected: true })).toBeVisible();
+      if (line) await expect(page.locator(".cm-content:focus .cm-activeLine")).toContainText(line);
+    };
+    await opens(() => chip("buy paint").click(), "Pascal");
+    await expect(page.getByRole("tab", { name: "Chores" })).toHaveCount(0);
+    await opens(() => row("buy paint").click(), "Chores", "buy paint");
+    await opens(() => chip("paint the hall").click(), "Pascal");
+    await opens(() => chip("rake the leaves").click(), "Chores", "rake the leaves");
+    await opens(() => chip("wash the car").click(), "Pascal");
+    await opens(() => chip("sweep the yard").click(), "Chores", "sweep the yard");
+    await expect(page.getByRole("tab", { name: "Nobody" })).toHaveCount(0);
+  });
+
+  test("a click on a chip while picking a blocker picks that chip's row and opens no note", async ({
+    page,
+    stack,
+  }) => {
+    const { chip } = await chorePane(page, stack.vault);
+    await openApp(page);
+    await leader(page, "gt");
+    await cursorTo(page, "buy paint");
+    await page.keyboard.press("b");
+    await expect(page.getByTestId("todo-pick")).toBeVisible();
+    await chip("mend the fence").click();
+    await expect.poll(() => body(stack.vault)).toMatch(/buy paint 👤 \[\[Pascal\]\] ⛔ kt-\w{6}\n/);
+    const id = (await body(stack.vault)).match(/⛔ (kt-\w{6})/)?.[1];
+    expect(await body(stack.vault)).toContain(`- [/] mend the fence 👤 [[Alicia]] 🆔 ${id}\n`);
+    await expect(page.getByRole("tab", { name: /Alicia|Chores/ })).toHaveCount(0);
+  });
+
+  test.describe("on a phone", () => {
+    test.use(phone);
+
+    test("a tap on a chip opens the person note and sets no state on its row", async ({
+      page,
+      stack,
+    }) => {
+      const { chip } = await chorePane(page, stack.vault);
+      const writes: string[] = [];
+      page.on("request", (request) => {
+        if (request.method() !== "GET" && request.url().includes("/api/"))
+          writes.push(request.url());
+      });
+      await page.goto("/");
+      await page.getByRole("button", { name: "Open the todo pane" }).tap({ timeout: 15_000 });
+      await chip("buy paint").tap();
+      await expect(page.getByRole("tab", { name: "Pascal", selected: true })).toBeVisible();
+      await expect(page.getByRole("tab", { name: "Chores" })).toHaveCount(0);
+      // One real tick last: todo writes go in turn, so a write the tap sent would land first.
+      await page.getByRole("button", { name: "Open the todo pane" }).tap();
+      await page.getByRole("button", { name: "more for rake the leaves" }).tap();
+      await page.getByRole("button", { name: "done rake the leaves" }).tap();
+      await expect
+        .poll(() => body(stack.vault), { timeout: 15_000 })
+        .toMatch(/^- \[x\] rake the leaves/m);
+      expect(writes.map((url) => decodeURIComponent(url.replace(/^.*\/api\//, "")))).toEqual([
+        `files/${CHORES}`,
+        "files/01 Periodic/00 Daily/2026-10-25.md",
+      ]);
+      expect(await body(stack.vault)).toContain(`\n${CHORE_LINES[0]}\n`);
     });
   });
 });
