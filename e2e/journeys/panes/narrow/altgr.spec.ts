@@ -119,10 +119,12 @@ test.describe("@ typed through AltGr or Option (#2071)", () => {
 });
 
 /** CodeMirror and the editor read the platform once: a Mac's vim drops a lone Alt, and only Windows reads AltGr as Ctrl+Alt. */
-async function platformOf(page: Page, title: string) {
-  const platform = title.includes("mac") ? "MacIntel" : title.includes("windows") ? "Win32" : undefined;
+async function platformOf(page: Page, layout?: Layout) {
+  const platform = { mac: "MacIntel", windows: "Win32", linux: undefined }[layout ?? "linux"];
   if (platform) await page.addInitScript((p) => Object.defineProperty(Navigator.prototype, "platform", { get: () => p }), platform);
 }
+/** The layout a looped journey names in its title. */
+const titled = (): Layout | undefined => (["windows", "linux", "mac"] as const).find((l) => test.info().title.includes(`${l} layout`));
 /** Records each keydown of a character typed with AltGr or Option, so a journey can read who took it. */
 async function watchTyped(page: Page) {
   await page.addInitScript(() => {
@@ -151,7 +153,7 @@ test.describe("vim's own keys typed through AltGr or Option (#2073)", () => {
   const BODY = `${HEAD}{ alpha\nbravo\n\ncharlie\n{ delta\necho foxtrot`;
   test.beforeEach(async ({ page }) => {
     await watchTyped(page);
-    await platformOf(page, test.info().title);
+    await platformOf(page, titled());
   });
 
   for (const layout of ["windows", "linux", "mac"] as const)
@@ -206,6 +208,7 @@ test.describe("vim's own keys typed through AltGr or Option (#2073)", () => {
     });
 
   test("a Ctrl+Alt chord that types no letter stays a chord, and AltGr's € is no motion", async ({ page, stack }) => {
+    await platformOf(page, "windows");
     await vaultWith(stack.vault, { [NOTE]: `${HEAD}echo` });
     await openApp(page);
     await findNote(page, "Keys");
@@ -243,7 +246,7 @@ test.describe("CodeMirror's Ctrl+Alt keys and [ ] \\ typed through AltGr or Opti
   const BODY = `${STAMPS}modified: 2026-11-15T13:00:00+00:00\n---\n# Folds\n\none\n\n## Two\n\ntwo `;
   test.beforeEach(async ({ page }) => {
     await watchTyped(page);
-    await platformOf(page, test.info().title);
+    await platformOf(page, titled());
   });
 
   for (const vim of ["on", "off"] as const)
@@ -292,7 +295,15 @@ test.describe("CodeMirror's Ctrl+Alt keys and [ ] \\ typed through AltGr or Opti
     await page.locator(".cm-line", { hasText: /^## Two/ }).click();
     await page.keyboard.press("Control+Shift+BracketLeft");
     await expect(page.locator(".cm-foldPlaceholder")).toHaveCount(1);
-    // Ctrl+Alt+G the Windows way, a letter and so a chord: go to line.
+  });
+
+  test("vim off, on Windows Ctrl+Alt+G, a letter and so a chord, still goes to a line", async ({ page, stack }) => {
+    await platformOf(page, "windows");
+    await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
+    await vaultWith(stack.vault, { [NOTE]: BODY });
+    await openApp(page);
+    await page.getByRole("button", { name: "Folds", exact: true }).click();
+    await page.locator(".cm-line", { hasText: /^two/ }).click();
     await send(page, [["Control", "ControlLeft", CTRL], ["Alt", "AltLeft", CTRL | ALT], ["g", "KeyG", CTRL | ALT]]);
     await expect(page.getByRole("textbox", { name: /Go to line/ })).toBeVisible();
   });
