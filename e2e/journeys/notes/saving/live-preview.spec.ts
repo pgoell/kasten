@@ -238,6 +238,13 @@ test.describe("a space in an image address (#553)", () => {
     });
   }
 
+  test("draws an <address> with a space as the picture, not a player", async ({ page, stack }) => {
+    await opened(page, stack.vault, "![shot](<99 Misc/shot.png>)", false);
+    // Drawn as typed inside the brackets; the browser escapes the space when it asks for it.
+    await expect.poll(() => pictures(page)).toEqual([["/api/assets/99 Misc/shot.png", "shot"]]);
+    await expect(page.locator(".cm-content iframe, .cm-content video")).toHaveCount(0);
+  });
+
   test("draws a spaced image address in a table cell as the picture", async ({ page, stack }) => {
     await opened(page, stack.vault, `| a |\n| - |\n| ${SHOT} |`, false);
     const cell = page.locator(".cm-table-grid tbody td");
