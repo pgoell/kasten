@@ -14,9 +14,11 @@ Everything in the pages below is what kasten adds on top of vim; every vim bindi
 listed here still does what vim does. [Vim on or off](#vim-on-or-off) says what
 the editor does without it.
 
-A vim key typed through AltGr or a Mac's Option, such as `{` or `~` on a German
-layout, is that key to vim, though Windows reports AltGr as Ctrl+Alt. A Ctrl+Alt
-press that types a letter, a digit or a character past ASCII stays a chord.
+A key typed through AltGr or a Mac's Option, such as `{`, `[` or `~` on a German
+layout, is that character to vim and to the editor, though Windows reports AltGr
+as Ctrl+Alt. So Ctrl+Alt with `[`, `]` or `\` types the character and never runs
+CodeMirror's fold all, unfold all or reindent. A Ctrl+Alt press that types a
+letter, a digit or a character past ASCII stays a chord.
 
 Six files in `frontend/src/lib` hold these bindings as tables: the leader in
 `ui/keys/leader-keys.ts`, the keys that act inside the buffer in
