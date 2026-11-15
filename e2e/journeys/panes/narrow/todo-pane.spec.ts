@@ -80,7 +80,10 @@ test("edit turns the tapped row into its line at 16px, Enter writes it, and edit
 });
 
 test("timer starts a session on the strip's row and closes the strip", async ({ page, stack }) => {
+  // A timer tapped before the file listing lands takes the note for a new one and gets a 409 (#2061).
+  const listed = page.waitForResponse((r) => new URL(r.url()).pathname === "/api/files");
   await pane(page, stack.vault);
+  await listed;
   await more(page, "ship it").tap();
   await strip(page, "timer", "ship it").tap();
   await expect(strip(page, "timer", "ship it")).toHaveCount(0);
