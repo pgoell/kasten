@@ -121,7 +121,7 @@ export function TodoPane({
    * The row being edited and its line as it stands, or null. The key, not the hit:
    * the row is looked up at each press, and the text here is the input itself.
    */
-  const [editing, setEditing] = useState<{ key: string; line: string } | null>(null);
+  const [editing, setEditing] = useState<{ key: string; line: string; from: string } | null>(null);
   const panel = useRef<HTMLElement>(null);
   const filter = useRef<HTMLInputElement>(null);
   const draft = useRef<HTMLInputElement>(null);
@@ -295,7 +295,7 @@ export function TodoPane({
     // An edited line may change its words, and a held row would take it as a new todo
     // at the group's end, so the list is drawn fresh.
     release();
-    setEditing({ key: rowKey(hit), line: hit.text });
+    setEditing({ key: rowKey(hit), line: hit.text, from: hit.text });
   }
 
   /** `s`: a part of the row, which lands beside its parent in the list drawn fresh. */
