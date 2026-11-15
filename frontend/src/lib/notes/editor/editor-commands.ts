@@ -126,13 +126,12 @@ export const leaderPanel = ViewPlugin.define((view) => {
   return { destroy: () => view.dom.removeEventListener("keydown", onKeyDown, true) };
 });
 
-/**
- * Windows reads AltGr as Ctrl+Alt, so vim named AltGr's `}` `<C-A-}>` (#2073) and CodeMirror's
- * Ctrl-Alt-[ folded on AltGr's `[` (#2075). A typed ASCII character then reads to every handler
- * as Linux sends it, with neither held; a non-ASCII one stays vim's, which reads its key.
- */
+// Only Windows reads AltGr as Ctrl+Alt (#2073, #2075); elsewhere Ctrl+Alt is a chord.
+const altGrIsCtrlAlt = /Win/.test(navigator.platform);
+// A typed ASCII character then reads bare to vim and CodeMirror; a non-ASCII one stays vim's.
 const typed = (event: KeyboardEvent) => {
-  if ((event.ctrlKey || event.altKey) && !isChord(event) && /^[!-~]$/.test(event.key))
+  const altGr = event.ctrlKey ? event.altKey && altGrIsCtrlAlt : event.altKey;
+  if (altGr && !isChord(event) && /^[!-~]$/.test(event.key))
     Object.defineProperties(event, { ctrlKey: { value: false }, altKey: { value: false } });
 };
 // The keypress too: vim reads the key after a dead key from it.

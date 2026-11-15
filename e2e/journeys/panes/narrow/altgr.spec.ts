@@ -118,6 +118,11 @@ test.describe("@ typed through AltGr or Option (#2071)", () => {
   });
 });
 
+/** CodeMirror and the editor read the platform once: a Mac's vim drops a lone Alt, and only Windows reads AltGr as Ctrl+Alt. */
+async function platformOf(page: Page, title: string) {
+  const platform = title.includes("mac") ? "MacIntel" : title.includes("windows") ? "Win32" : undefined;
+  if (platform) await page.addInitScript((p) => Object.defineProperty(Navigator.prototype, "platform", { get: () => p }), platform);
+}
 /** Records each keydown of a character typed with AltGr or Option, so a journey can read who took it. */
 async function watchTyped(page: Page) {
   await page.addInitScript(() => {
@@ -146,9 +151,7 @@ test.describe("vim's own keys typed through AltGr or Option (#2073)", () => {
   const BODY = `${HEAD}{ alpha\nbravo\n\ncharlie\n{ delta\necho foxtrot`;
   test.beforeEach(async ({ page }) => {
     await watchTyped(page);
-    // CodeMirror reads a Mac from the platform once, and its vim then drops a lone Alt for a typed character.
-    if (test.info().title.includes("mac"))
-      await page.addInitScript(() => Object.defineProperty(Navigator.prototype, "platform", { get: () => "MacIntel" }));
+    await platformOf(page, test.info().title);
   });
 
   for (const layout of ["windows", "linux", "mac"] as const)
@@ -240,8 +243,7 @@ test.describe("CodeMirror's Ctrl+Alt keys and [ ] \\ typed through AltGr or Opti
   const BODY = `${STAMPS}modified: 2026-11-15T13:00:00+00:00\n---\n# Folds\n\none\n\n## Two\n\ntwo `;
   test.beforeEach(async ({ page }) => {
     await watchTyped(page);
-    if (test.info().title.includes("mac"))
-      await page.addInitScript(() => Object.defineProperty(Navigator.prototype, "platform", { get: () => "MacIntel" }));
+    await platformOf(page, test.info().title);
   });
 
   for (const vim of ["on", "off"] as const)
@@ -271,6 +273,12 @@ test.describe("CodeMirror's Ctrl+Alt keys and [ ] \\ typed through AltGr or Opti
     await vaultWith(stack.vault, { [NOTE]: BODY });
     await openApp(page);
     await page.getByRole("button", { name: "Folds", exact: true }).click();
+    await page.locator(".cm-line", { hasText: /^two/ }).click();
+    // Off Windows Ctrl+Alt is no AltGr, so Ctrl-Alt-[ folds all and Ctrl-Alt-] unfolds.
+    await page.keyboard.press("Control+Alt+BracketLeft");
+    await expect(page.locator(".cm-foldPlaceholder")).not.toHaveCount(0);
+    await page.keyboard.press("Control+Alt+BracketRight");
+    await expect(page.locator(".cm-foldPlaceholder")).toHaveCount(0);
     await page.locator(".cm-line", { hasText: /^two/ }).click();
     // Alt-ArrowUp moves the line up, Ctrl-] indents it.
     await page.keyboard.press("Alt+ArrowUp");
