@@ -110,6 +110,7 @@ test.describe("the todo pane's shared lists", () => {
       };
       Storage.prototype.getItem = blocked;
       Storage.prototype.setItem = blocked;
+      Storage.prototype.removeItem = blocked;
     });
     // A throw in the click handler leaves the screen as it was; only the page sees it.
     const thrown: string[] = [];
