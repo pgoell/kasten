@@ -46,6 +46,7 @@ export const test = base.extend<{ stack: Stack }>({
           KASTEN_UPLOAD_PATH: join(dir, "uploads"),
           KASTEN_TEXT_CACHE_PATH: join(dir, "text"),
           KASTEN_RECEIPTS_PATH: join(dir, "receipts"),
+          KASTEN_HERDR_SESSIONS_PATH: join(dir, "herdr"),
         },
       },
     );

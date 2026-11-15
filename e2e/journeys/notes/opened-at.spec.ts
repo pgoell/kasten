@@ -136,3 +136,171 @@ test.describe("a note opened with no line", () => {
     });
   }
 });
+
+test.describe("the RSVP reader over a note", () => {
+  const READ = "Read.md";
+  const PLACE = "/api/rsvp?path=Read.md";
+  const reader = (page: Page) => page.getByRole("dialog", { name: "RSVP" });
+  const chunk = (page: Page) => reader(page).locator('output[aria-live="off"]');
+  const savedWord = async (page: Page) => (await (await page.request.get(PLACE)).json())?.word;
+
+  /** Opens Read.md by its address, a place already saved at `word` if given. */
+  async function openRead(page: Page, vault: string, word?: number) {
+    await vaultWith(vault, { [READ]: "One two three. Four five six.\n\nSeven eight.\n" });
+    if (word !== undefined) {
+      const anchor = "two three. Four five six.";
+      await page.request.put(PLACE, { data: { word, words: 8, anchor } });
+    }
+    await page.goto(`/?note=${READ}`);
+    await expect(page.locator(".cm-content")).toBeFocused({ timeout: 15_000 });
+    await expect(page.getByText("Seven eight.")).toBeVisible();
+  }
+
+  test("rr resumes at the saved place, and h l H L walk by sentence and paragraph", async ({
+    page,
+    stack,
+  }) => {
+    await openRead(page, stack.vault, 1);
+    await leader(page, "rr");
+    await expect(chunk(page)).toHaveText("two");
+    for (const [key, shown] of [
+      ["l", "Four"],
+      ["L", "Seven"],
+      ["h", "Four"],
+      ["H", "One"],
+    ]) {
+      await page.keyboard.press(key);
+      await expect(chunk(page)).toHaveText(shown);
+    }
+  });
+
+  test("Space plays chunk by chunk, and the place kept on a pause and on Escape is where rr resumes", async ({
+    page,
+    stack,
+  }) => {
+    await page.clock.install();
+    await openRead(page, stack.vault);
+    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100));
+    await leader(page, "rr");
+    await expect(chunk(page)).toHaveText("One");
+    await page.keyboard.press(" ");
+    // 300 words a minute is 200 ms a word.
+    await page.clock.runFor(200);
+    await expect(chunk(page)).toHaveText("two");
+    await page.keyboard.press(" ");
+    await expect.poll(() => savedWord(page)).toBe(1);
+    await page.clock.resume();
+    await page.reload();
+    await expect(page.locator(".cm-content")).toBeFocused({ timeout: 15_000 });
+    await leader(page, "rr");
+    await expect(chunk(page)).toHaveText("two");
+
+    await page.keyboard.press("l");
+    await page.keyboard.press("Escape");
+    await expect(reader(page)).toHaveCount(0);
+    await expect.poll(() => savedWord(page)).toBe(3);
+    await leader(page, "rr");
+    await expect(chunk(page)).toHaveText("Four");
+  });
+
+  test("a place is sent only once the save before it has landed, and the newest wins", async ({
+    page,
+    stack,
+  }) => {
+    await page.clock.install();
+    await openRead(page, stack.vault);
+    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100));
+    const sent: number[] = [];
+    let land = () => {};
+    const landed = new Promise<void>((done) => {
+      land = done;
+    });
+    await page.route("**/api/rsvp?*", async (route) => {
+      if (route.request().method() !== "PUT") return route.continue();
+      sent.push(route.request().postDataJSON().word);
+      if (sent.length === 1) await landed;
+      return route.continue();
+    });
+    await leader(page, "rr");
+    await expect(chunk(page)).toHaveText("One");
+    await page.keyboard.press("l");
+    await page.keyboard.press(" ");
+    await page.keyboard.press(" ");
+    await expect.poll(() => sent).toEqual([3]);
+    await page.keyboard.press("l");
+    await page.keyboard.press("Escape");
+    await expect(reader(page)).toHaveCount(0);
+    // A round trip to the backend, in which a second save sent at once would have reached the route.
+    await savedWord(page);
+    expect(sent).toEqual([3]);
+    land();
+    await expect.poll(() => sent).toEqual([3, 6]);
+    await expect.poll(() => savedWord(page)).toBe(6);
+  });
+
+  test("rh starts at the cursor and saves that as the place", async ({ page, stack }) => {
+    await openRead(page, stack.vault, 1);
+    await page.keyboard.type("ggfi");
+    await leader(page, "rh");
+    await expect(chunk(page)).toHaveText("five");
+    await expect.poll(() => savedWord(page)).toBe(4);
+  });
+
+  test("j and k change the speed, which a reload keeps", async ({ page, stack }) => {
+    await openRead(page, stack.vault);
+    await leader(page, "rr");
+    await expect(chunk(page)).toHaveText("One");
+    for (const key of "kkj") await page.keyboard.press(key);
+    await expect(reader(page).getByText("325", { exact: true })).toBeVisible();
+    await page.reload();
+    await expect(page.locator(".cm-content")).toBeFocused({ timeout: 15_000 });
+    await leader(page, "rr");
+    await expect(reader(page).getByText("325", { exact: true })).toBeVisible();
+  });
+  test("the reader keeps every key, so ? opens no key help over it and q closes nothing", async ({
+    page,
+    stack,
+  }) => {
+    await openRead(page, stack.vault);
+    await leader(page, "rr");
+    await expect(chunk(page)).toHaveText("One");
+    await page.keyboard.press("?");
+    await page.keyboard.press("q");
+    await page.keyboard.press("l");
+    await expect(chunk(page)).toHaveText("Four");
+    await expect(page.getByRole("dialog", { name: "Keyboard shortcuts" })).toHaveCount(0);
+    await expect(page.getByRole("tab", { name: "Read" })).toBeVisible();
+  });
+
+  test("a page that never hands over its text says why", async ({ page, stack }) => {
+    await vaultWith(stack.vault, { "mute.html": "<p>Hello world</p>" });
+    // Served bare, without kasten's page script, so no answer to the ask for its text comes.
+    await page.route("**/api/html/mute.html*", (route) =>
+      route.fulfill({ contentType: "text/html", body: "<p>Hello world</p>" }),
+    );
+    await page.clock.install();
+    await openApp(page);
+    await page.getByRole("button", { name: "mute.html", exact: true }).click();
+    await expect(
+      page.frameLocator("[data-html-pane] iframe").getByText("Hello world"),
+    ).toBeVisible();
+    await page.locator("[data-html-pane] header").getByText("mute.html").click();
+    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100));
+    await leader(page, "rr");
+    await expect(reader(page)).toBeVisible();
+    await page.clock.runFor(5000);
+    await expect(reader(page).getByText("The page did not hand over its text")).toBeVisible();
+  });
+  test("with vim off the palette row opens the reader, whose keys still walk the text", async ({
+    page,
+    stack,
+  }) => {
+    await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
+    await openRead(page, stack.vault);
+    await page.keyboard.press("Control+Shift+P");
+    await page.getByRole("option", { name: /^Read this pane word by word/ }).click();
+    await expect(chunk(page)).toHaveText("One");
+    await page.keyboard.press("l");
+    await expect(chunk(page)).toHaveText("Four");
+  });
+});
