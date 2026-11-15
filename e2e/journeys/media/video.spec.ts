@@ -229,7 +229,7 @@ test("the transcript marks the paragraph at the second, draws markup as text, an
   const list = (await videoView(page)).getByRole("list", { name: "Transcript" });
 
   await expect(list.getByRole("button")).toHaveText(["00:05", "00:31", "00:31", "01:10"]);
-  // Two rows at 0:31 both draw, and the mark sits on the later one alone.
+  // Both 0:31 rows draw, the later one marked.
   await expect(list.locator('[aria-current="true"]')).toHaveText(["00:31Two again."]);
   await expect(list.getByText(odd)).toBeVisible();
   await expect(list.locator("img, h1, h2, h3")).toHaveCount(0);
@@ -244,18 +244,18 @@ test("the transcript follows a later second only while Follows the video is on",
   page,
   stack,
 }) => {
-  const take = "[05:00](https://www.youtube.com/watch?v=kastenVid01&t=300s) ^hl-a1b2c3";
-  await vaultWith(stack.vault, {
-    "01 Notes/Talk.md": talkWith(`\n## Highlights\n\n> A.\n\n${take}\n`),
-  });
+  const take = "> A.\n\n[05:00](https://www.youtube.com/watch?v=kastenVid01&t=300s) ^hl-a1";
+  await vaultWith(stack.vault, { "01 Notes/Talk.md": talkWith(`\n## Highlights\n\n${take}\n`) });
   await fakeYouTube(page);
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await openApp(page);
   await findNote(page, "Talk");
   const pane = await videoView(page);
   const list = pane.getByRole("list", { name: "Transcript" });
   const follow = pane.getByRole("button", { name: "Follows the video" });
   const markAt = () =>
-    list.evaluate((ol) => {
+    list.evaluate(async (ol) => {
+      for (const _ of [1, 2]) await new Promise(requestAnimationFrame);
       const mark = ol.querySelector('[aria-current="true"]') as HTMLElement;
       const box = ol.getBoundingClientRect();
       return (mark.getBoundingClientRect().top - box.top) / box.height;
