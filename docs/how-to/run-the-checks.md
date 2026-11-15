@@ -69,9 +69,9 @@ The journeys sit in `e2e/journeys/`: review in `review/` (a sitting, a question 
 `panes/` (layout and the top bar, the pane and tab keys, pane acts whose write is held while the focus moves, links to pages and assets; a note changed on disk under
 unsaved text and a conflicted note reopened in `panes/conflict/`; the stored workspace across a reload, held text in a restored pane and a URL over it in `panes/workspace/`; the drawer, phone toolbar, key help, a resized window and panel sheets in `panes/narrow/`), notes, the finder, a tree row dragged, the new note prompt's folder rows, where a note opens and the status bar's save sign in `notes/`, with saving in `notes/saving/` (edits,
 mention links, held text, the editor's build, live preview, relation names) and the content search and an epub opened while the listing loads in `notes/search/`, the todo list, board, panel, presses,
-twin ids, a person's card and the shared lists in `todos/`, capture, the web page import, the chat pane's replies, the log and the Today pane's failed limits in `day/`, and the book finder, book, video and clip panes and csv and svg files in
+twin ids, a person's card and the shared lists in `todos/`, capture, the web page import, the chat pane's replies, the log, the Today pane's failed limits and the tokens page in `day/`, and the book finder, book, video and clip panes and csv and svg files in
 `media/`. `harness.spec.ts` checks the harness itself. Each journey is a
-thing done daily, and each one that writes checks the file on disk. Twenty-seven files
+thing done daily; each that writes checks the file on disk. Twenty-seven files
 also run journeys at phone width, 414 px with touch, where the editor starts
 without vim: `review/sitting.spec.ts`; `notes/finder.spec.ts`, `notes/status-bar.spec.ts`, the three
 `notes/search/content-search-*.spec.ts`, `notes/search/book-open-listing.spec.ts`, `notes/saving/edits.spec.ts` and
@@ -83,7 +83,7 @@ without vim: `review/sitting.spec.ts`; `notes/finder.spec.ts`, `notes/status-bar
 `media/csv.spec.ts`, `media/svg.spec.ts` and `media/video.spec.ts`.
 `phone` in `e2e/harness/app.ts` sets that up, and
 `git grep -l 'test.use(phone)' e2e/journeys` lists them.
-A runner has no YouTube, so the video journey serves a fake player for each
+A runner has no YouTube: the video journey serves a fake player per
 embed (`fakeYouTube` in `e2e/harness/youtube.ts`) and aborts any other request
 that would leave the box.
 The journeys block the service worker: Chromium crashed closing a context while
