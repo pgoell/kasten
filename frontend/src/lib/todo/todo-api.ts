@@ -314,11 +314,13 @@ const rowKey = (hit: SearchHit) => `${hit.path}\n${hit.line}\n${hit.text}`;
 function landedTarget(text: string, hit: SearchHit, twins: number[] | undefined) {
   const lines = text.split("\n");
   const kept = landed.get(rowKey(hit));
-  // Only while the row's own line has moved on, or a todo listed since at its old place goes elsewhere.
-  const row =
-    lines[hit.line - 1] !== hit.text && kept && lines[kept.row.line - 1] === kept.row.text
-      ? kept.row
-      : undefined;
+  // Only for a row the note has moved past, by its line or its twins' count: a todo listed since goes as listed.
+  const stale =
+    lines[hit.line - 1] !== hit.text ||
+    (twins !== undefined && lines.filter((each) => each === hit.text).length !== twins.length);
+  const fresh =
+    kept && Date.now() - kept.at <= TURN_WAIT_MS && lines[kept.row.line - 1] === kept.row.text;
+  const row = stale && fresh ? kept.row : undefined;
   return row
     ? { row, target: pressTarget(text, row, undefined) }
     : { row: hit, target: pressTarget(text, hit, twins) };
@@ -339,7 +341,7 @@ function land(
   const to = { ...row, line: lines.indexOf(pressed) + 1 + shift, text: pressed };
   const old = new Set([row, hit, { ...hit, text: drawn ?? hit.text }].map(rowKey));
   const now = Date.now();
-  // A record outlives its press by one turn's wait, by which the list has redrawn.
+  // Swept here, read only within one turn's wait, by which the list has redrawn.
   for (const [key, each] of landed) {
     if (now - each.at > TURN_WAIT_MS) landed.delete(key);
     else if (old.has(rowKey(each.row))) old.add(key);

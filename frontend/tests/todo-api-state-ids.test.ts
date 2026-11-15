@@ -348,6 +348,21 @@ describe("#2080 a second press read before the first landed", () => {
     expect(disk.get("g7.md")).toBe(`${STAMP}# G\n- [/] a\nx\ny\n- [/] a\n`);
   });
 
+  it("walks the far twin twice where the stamp slid the other twin onto its old line", async () => {
+    const disk = vault({ "g8.md": "# G\n- [ ] a\nx\ny\n- [ ] a\n" });
+    await press("g8.md", 5, "- [ ] a", [2, 5]);
+    await press("g8.md", 5, "- [ ] a", [2, 5]);
+    expect(disk.get("g8.md")).toMatch(/^---\nid: g\n---\n# G\n- \[ \] a\nx\ny\n- \[x\] a ✅/);
+  });
+
+  it("follows no record older than one turn's wait", async () => {
+    vault({ "g9.md": "# G\n- [ ] a\n" });
+    await press("g9.md", 2, "- [ ] a");
+    vi.spyOn(Date, "now").mockReturnValue(Date.now() + 60_000);
+    await expect(press("g9.md", 2, "- [ ] a")).rejects.toThrow("changed since it was listed");
+    vi.restoreAllMocks();
+  });
+
   it("sends the next press to the done line, not the recurring copy put above it", async () => {
     const todo = "- [/] water 🔁 every week 📅 2026-10-18";
     const disk = vault({ "g6.md": `# G\n${todo}\n` });
