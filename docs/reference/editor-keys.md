@@ -16,9 +16,9 @@ the editor does without it.
 
 A key typed through AltGr or a Mac's Option, such as `{`, `[` or `~` on a German
 layout, is that character to vim and to the editor, though Windows reports AltGr
-as Ctrl+Alt. So Ctrl+Alt with `[`, `]` or `\` types the character and never runs
-CodeMirror's fold all, unfold all or reindent. A Ctrl+Alt press that types a
-letter, a digit or a character past ASCII stays a chord.
+as Ctrl+Alt. So Ctrl+Alt with `[`, `]` or `\` never runs CodeMirror's fold all,
+unfold all or reindent in a note. A Ctrl+Alt press that types a letter, a digit
+or a character past ASCII stays a chord.
 
 Six files in `frontend/src/lib` hold these bindings as tables: the leader in
 `ui/keys/leader-keys.ts`, the keys that act inside the buffer in

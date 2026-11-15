@@ -131,12 +131,12 @@ export const leaderPanel = ViewPlugin.define((view) => {
  * Ctrl-Alt-[ folded on AltGr's `[` (#2075). A typed ASCII character then reads to every handler
  * as Linux sends it, with neither held; a non-ASCII one stays vim's, which reads its key.
  */
-export const altGrTyping = EditorView.domEventObservers({
-  keydown: (event) => {
-    if ((event.ctrlKey || event.altKey) && !isChord(event) && /^[!-~]$/.test(event.key))
-      Object.defineProperties(event, { ctrlKey: { value: false }, altKey: { value: false } });
-  },
-});
+const typed = (event: KeyboardEvent) => {
+  if ((event.ctrlKey || event.altKey) && !isChord(event) && /^[!-~]$/.test(event.key))
+    Object.defineProperties(event, { ctrlKey: { value: false }, altKey: { value: false } });
+};
+// The keypress too: vim reads the key after a dead key from it.
+export const altGrTyping = EditorView.domEventObservers({ keydown: typed, keypress: typed });
 
 // Vim's built-in `<Space>` (bound to `l`) would shadow `<Space>b`. Its context is
 // none, so unmapping passes none; the typed signature wrongly demands a string.

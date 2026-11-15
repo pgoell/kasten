@@ -188,3 +188,4 @@ test.describe("the palette chord (#2068)", () => {
       await expect(palette(page)).toBeVisible();
     });
   });
+});
