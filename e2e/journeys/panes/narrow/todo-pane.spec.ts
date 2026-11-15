@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { hold, noteText, phone, today, vaultWith } from "../../../harness/app.ts";
+import { hold, noteText, PANE, phone, TODO_ROW, today, vaultWith } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
 
 test.use(phone);
@@ -14,8 +14,8 @@ const strip = (page: Page, label: string, name: string) =>
 const draft = (page: Page) => page.getByLabel("edit line");
 
 /** The todo pane by touch, over Taps.md, once its rows are drawn; it answers the note writes sent from here on. */
-async function pane(page: Page, vault: string) {
-  await vaultWith(vault, { [NOTE]: LINES });
+async function pane(page: Page, vault: string, lines = LINES, last = "ship it") {
+  await vaultWith(vault, { [NOTE]: lines });
   const writes: string[] = [];
   page.on("request", (request) => {
     if (["POST", "PUT"].includes(request.method()) && request.url().includes("/api/files/"))
@@ -23,7 +23,7 @@ async function pane(page: Page, vault: string) {
   });
   await page.goto("/");
   await page.getByRole("button", { name: "Open the todo pane" }).tap({ timeout: 15_000 });
-  await expect(more(page, "ship it")).toBeVisible();
+  await expect(more(page, last)).toBeVisible();
   return writes;
 }
 
@@ -158,4 +158,94 @@ test.describe("blocked by", () => {
     await expect(more(page, "buy milk")).toBeVisible();
     expect([writes, await disk(stack.vault)]).toEqual([[], LINES]);
   });
+});
+
+const row = (page: Page, text: string) => page.locator(TODO_ROW, { hasText: text });
+const tab = (page: Page, name: string) => page.getByRole("button", { name, exact: true });
+
+test("#541 #544 a row holds on an id an open and a done todo carry, and not on one both closed todos carry", async ({
+  page,
+  stack,
+}) => {
+  const done = `✅ ${today()}`;
+  await pane(
+    page,
+    stack.vault,
+    `- [ ] ship the release 🆔 kt-aaaaaa\n- [x] cut the branch ${done} 🆔 kt-aaaaaa\n- [b] write the docs ⛔ kt-aaaaaa\n- [x] a ${done} 🆔 kt-bbbbbb\n- [-] a ❌ ${today()} 🆔 kt-bbbbbb\n- [b] chase it ⛔ kt-bbbbbb\n`,
+    "chase it",
+  );
+  await expect(row(page, "write the docs")).toContainText("⛔ kt-aaaaaa");
+  await expect(row(page, "chase it")).not.toContainText("⛔");
+});
+
+test("the row is the only tab stop, its state button out of the tab order", async ({
+  page,
+  stack,
+}) => {
+  await pane(page, stack.vault);
+  const stops = page.locator(`${PANE} button[title]:not([title=""])[tabindex="0"]`);
+  await expect(stops).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "cycle buy milk" })).toHaveAttribute(
+    "tabindex",
+    "-1",
+  );
+});
+
+test("add todo opens the add prompt", async ({ page, stack }) => {
+  await pane(page, stack.vault);
+  await page.getByRole("button", { name: "add todo" }).tap();
+  await expect(page.getByRole("dialog", { name: "Add todo" })).toBeVisible();
+});
+
+test("done swaps the list for the finished work and back, as d does", async ({ page, stack }) => {
+  await pane(page, stack.vault, `${LINES}- [x] pack the bag ✅ ${today()}\n`);
+  await expect(tab(page, "done")).toHaveAttribute("aria-pressed", "false");
+  await tab(page, "done").tap();
+  await expect(tab(page, "done")).toHaveAttribute("aria-pressed", "true");
+  await expect(row(page, "pack the bag")).toBeVisible();
+  await expect(row(page, "buy milk")).toHaveCount(0);
+  await tab(page, "done").tap();
+  await expect(row(page, "buy milk")).toBeVisible();
+  await expect(tab(page, "done")).toHaveAttribute("aria-pressed", "false");
+});
+
+test("next shows one next action per todo, named under its todo, as n does", async ({
+  page,
+  stack,
+}) => {
+  await pane(page, stack.vault, "- [ ] pack\n  - [ ] socks\n  - [ ] shirts\n", "shirts");
+  await tab(page, "next").tap();
+  await expect(row(page, "shirts")).toHaveCount(0);
+  await expect(row(page, "socks")).toContainText("pack");
+  await expect(tab(page, "next")).toHaveAttribute("aria-pressed", "true");
+  await expect(tab(page, "done")).toHaveAttribute("aria-pressed", "false");
+});
+
+test("view walks the views as v does, and writes the views note once in a vault with none", async ({
+  page,
+  stack,
+}) => {
+  // The views note is written only once the file listing says the vault lacks it (#2081).
+  const listed = page.waitForResponse((r) => new URL(r.url()).pathname === "/api/files");
+  const writes = await pane(page, stack.vault);
+  await listed;
+  await tab(page, "view").tap();
+  await expect(page.getByTestId("todo-view")).toHaveText("today");
+  await expect(page.getByLabel("filter todos")).toHaveValue("due:today");
+  await expect(row(page, "buy milk")).toHaveCount(0);
+  await tab(page, "view").tap();
+  await expect(page.getByTestId("todo-view")).toHaveText("doing");
+  expect(writes.filter((url) => decodeURIComponent(url).endsWith("/todo-views.md"))).toHaveLength(
+    1,
+  );
+});
+
+test("#773 Enter on a focused state button arms it and opens no note", async ({ page, stack }) => {
+  const writes = await pane(page, stack.vault);
+  const cycle = page.getByRole("button", { name: "cycle buy milk" });
+  await cycle.focus();
+  await page.keyboard.press("Enter");
+  await expect(cycle).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".cm-activeLine")).toHaveCount(0);
+  expect([writes, await disk(stack.vault)]).toEqual([[], LINES]);
 });
