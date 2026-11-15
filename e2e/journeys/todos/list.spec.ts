@@ -36,6 +36,29 @@ test("checking off a todo in the todo pane changes the note's line", async ({ pa
     .toMatch(/^- \[x\] water the tomatoes/m);
 });
 
+test("with a mouse the todo pane draws no touch buttons, and each press of x walks the row and asks nothing", async ({
+  page,
+  stack,
+}) => {
+  const garden = () => noteText(stack.vault, "02 Projects/Garden.md");
+  await openApp(page);
+  await leader(page, "gt");
+  await expect(page.getByRole("button", { name: "open water the tomatoes" })).toBeVisible();
+  for (const name of ["add todo", /^cycle /, /^more for /]) {
+    await expect(page.getByRole("button", { name })).toHaveCount(0);
+  }
+  for (const name of ["done", "next", "view"]) {
+    await expect(page.getByRole("button", { name, exact: true })).toHaveCount(0);
+  }
+  // One press at a time: a second press before the first lands is refused as stale (#2080).
+  await page.keyboard.press("x");
+  await expect.poll(garden, { timeout: 15_000 }).toMatch(/^- \[\/\] water the tomatoes/m);
+  await expect(page.getByRole("button", { name: "doing water the tomatoes" })).toBeFocused();
+  await page.keyboard.press("x");
+  await expect.poll(garden, { timeout: 15_000 }).toMatch(/^- \[x\] water the tomatoes/m);
+  await expect(page.locator("[data-armed]")).toHaveCount(0);
+});
+
 test("clicking a todo opens its note on the todo's line", async ({ page }) => {
   await openApp(page);
   await leader(page, "gt");
