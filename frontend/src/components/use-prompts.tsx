@@ -132,14 +132,14 @@ export function usePrompts({
       const today = readClock(new Date()).date;
       const written =
         parent === undefined
-          ? addTodoInVault(input, today, data ?? [])
+          ? addTodoInVault(input, today)
           : addSubtaskInVault(parent, input, today);
       void written.then(todosWritten, () => {
         // The vault refused the write, or the note moved out from under the
         // row. Nothing on screen moved with it, so there is nothing to put back.
       });
     },
-    [data, todosWritten, refocusPane, todoPrompt],
+    [todosWritten, refocusPane, todoPrompt],
   );
 
   /**

@@ -188,11 +188,11 @@ export function useTodoActions({
       const press = { today: readClock(new Date()).date, id: newId(), state };
       void drawPressed(queryClient, hit, press);
       begun();
-      void cycleTodoInVault(hit, press.today, data ?? [], state, twins, press.id)
+      void cycleTodoInVault(hit, press.today, state, twins, press.id)
         .catch((error: unknown) => setNotice(nothingMoved(error)))
         .finally(settled);
     },
-    [queryClient, data, settled, setNotice, begun],
+    [queryClient, settled, setNotice, begun],
   );
 
   /**
@@ -203,11 +203,11 @@ export function useTodoActions({
     (hit: SearchHit, twins?: number[]) => {
       setNotice(undefined);
       begun();
-      void toggleTimerInVault(hit, readClock(new Date()), data ?? [], twins)
+      void toggleTimerInVault(hit, readClock(new Date()), twins)
         .catch((error: unknown) => setNotice(nothingMoved(error)))
         .finally(settled);
     },
-    [data, settled, setNotice, begun],
+    [settled, setNotice, begun],
   );
 
   /**

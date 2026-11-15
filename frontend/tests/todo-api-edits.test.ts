@@ -135,7 +135,7 @@ describe("addTodoInVault", () => {
     // but the top is prose, and the note would carry no type at all.
     fetchNote.mockRejectedValue(new NoteMissing(periodicNote("daily", NOW).path));
 
-    await addTodoInVault("call the dentist", "2026-08-06", []);
+    await addTodoInVault("call the dentist", "2026-08-06");
 
     const [, text] = createNote.mock.calls[0] as [string, string];
     expect(text.split("\n").slice(0, 3)).toEqual(["---", "type: Periodic Note", "---"]);
@@ -145,7 +145,7 @@ describe("addTodoInVault", () => {
     const daily = periodicNote("daily", NOW).path;
     fetchNote.mockResolvedValue("# Today\n");
 
-    await addTodoInVault("call the dentist", "2026-08-06", []);
+    await addTodoInVault("call the dentist", "2026-08-06");
 
     expect(createNote).not.toHaveBeenCalled();
     expect(saveNote).toHaveBeenCalledExactlyOnceWith(
@@ -161,10 +161,9 @@ describe("addTodoInVault", () => {
     let land = () => {};
     fetchNote.mockReturnValueOnce(new Promise((resolve) => (land = () => resolve("# Today\n"))));
     fetchNote.mockResolvedValue("# Today\n");
-    const daily = periodicNote("daily", NOW).path;
 
-    const first = addTodoInVault("call the dentist", "2026-08-06", [daily]);
-    const second = addTodoInVault("buy milk", "2026-08-06", [daily]);
+    const first = addTodoInVault("call the dentist", "2026-08-06");
+    const second = addTodoInVault("buy milk", "2026-08-06");
     await vi.advanceTimersByTimeAsync(0);
     expect(fetchNote).toHaveBeenCalledTimes(1);
 
@@ -179,8 +178,8 @@ describe("addTodoInVault", () => {
     fetchNote.mockResolvedValue("# Today\n");
     const daily = periodicNote("daily", NOW).path;
 
-    void addTodoInVault("call the dentist", "2026-08-06", [daily]);
-    const second = addTodoInVault("buy milk", "2026-08-06", [daily]);
+    void addTodoInVault("call the dentist", "2026-08-06");
+    const second = addTodoInVault("buy milk", "2026-08-06");
     await vi.advanceTimersByTimeAsync(10_000);
     await second;
 
@@ -196,7 +195,7 @@ describe("addTodoInVault", () => {
     const daily = periodicNote("daily", NOW).path;
     fetchNote.mockResolvedValue("# Today\n");
 
-    await addTodoInVault("call the dentist", "2026-08-06", [daily]);
+    await addTodoInVault("call the dentist", "2026-08-06");
 
     expect(saveNote).toHaveBeenCalledExactlyOnceWith(
       daily,

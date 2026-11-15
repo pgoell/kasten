@@ -209,6 +209,12 @@ describe("#538 two presses in flight on the ## Done log", () => {
     expect(createNote).toHaveBeenCalledTimes(2);
   });
 
+  it("#2061 a press into done before the listing answers logs into today's note on disk", async () => {
+    await cycleTodoAside(PATH, INTO_A, "2026-10-18", []);
+
+    expect(logLines(daily)).toEqual([LOG_A]);
+  });
+
   /** A press taking a back out of done, a moment after it went in. */
   const REOPEN_A = {
     before: "- [x] a ✅ 2026-10-18 🆔 kt-aaaaaa",
