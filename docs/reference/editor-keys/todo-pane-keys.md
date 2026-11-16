@@ -237,3 +237,5 @@ The list is read again on every write the vault reports over `/api/events`
 outside a press (inside one, once the last press lands), so a
 todo written by an agent or over ssh appears without a reload. A folder move or
 a deleted note reads it again too, as either can change a todo's project.
+So does each open of the stream, the first included, since a write made before
+the stream opened reaches no watcher.

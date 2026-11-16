@@ -174,3 +174,23 @@ test("i with no row in the list opens no edit line and throws nothing", async ({
   await expect(page.getByTestId("notice")).toHaveCount(0);
   expect(errors).toEqual([]);
 });
+
+test("#2118 a write the vault's stream opened too late to see still reaches the list once it opens", async ({
+  page,
+  stack,
+}) => {
+  // The stream waits until the write has landed, so only a read at its open can show it.
+  let open = () => {};
+  const held = new Promise<void>((resolve) => {
+    open = resolve;
+  });
+  await page.route("**/api/events", async (route) => {
+    await held;
+    await route.continue();
+  });
+  await onDentist(page, stack.vault);
+  await vaultWith(stack.vault, { [NOTE]: note(LINE.replace("call", "ring"), NEXT) });
+  await expect(page.locator(TODO_ROW, { hasText: "call the dentist" })).toBeVisible();
+  open();
+  await expect(page.locator(TODO_ROW, { hasText: "ring the dentist" })).toBeVisible();
+});
