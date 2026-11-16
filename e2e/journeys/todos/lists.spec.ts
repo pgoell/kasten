@@ -100,6 +100,8 @@ test.describe("on a phone", () => {
         expect.stringMatching(/^- \[ \] Brot\b/),
       ]);
     await expect(page.getByRole("checkbox")).toHaveCount(3);
+    // A blank add that reached the server comes back refused, as an error on screen.
+    await expect(page.getByRole("alert")).toHaveCount(0);
   });
 
   test("an empty list says so, and the offline pill shows while the phone is offline", async ({
