@@ -193,7 +193,8 @@ test.describe("the sitting's screens", () => {
     await sitAws(page, stack.vault, held(4), true);
     await expect(page.getByText(/^From /)).toHaveText("From aws, line 3, last seen 4 days ago");
     const back = "[data-testid=review-back]";
-    expect((await styleOf(page, back, "border-top-style"))[0]).toBe("solid");
+    // Preflight gives every element a solid style, so the width is what draws the rule.
+    expect((await styleOf(page, back, "border-top-width"))[0]).toBe("1px");
     const [rule, token] = await styleOf(page, back, "border-top-color", "--k-rule");
     expect(rule).toBe(token);
   });
