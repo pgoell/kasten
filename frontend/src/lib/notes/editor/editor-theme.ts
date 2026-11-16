@@ -10,6 +10,9 @@ import { tags } from "@lezer/highlight";
 const theme = EditorView.theme({
   "&": { color: "var(--k-ink)", backgroundColor: "var(--k-bg)" },
   ".cm-content": { caretColor: "var(--k-accent)" },
+  // A quote's span sits inside a link's and would draw it in the quote's ink (#2116). Only the
+  // highlighter's spans, which carry no `cm-` class, so a dead link keeps its muted look.
+  ":is(.cm-link, .cm-wikilink) span:not([class*='cm-'])": { color: "inherit" },
   ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--k-accent)" },
   // The vim block cursor comes from @replit/codemirror-vim at the highest
   // precedence, on the same selector with its own colour. `&.cm-focused` adds

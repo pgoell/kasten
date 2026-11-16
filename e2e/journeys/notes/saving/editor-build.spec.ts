@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { drawn, hold, openApp, openNote, vaultWith } from "../../../harness/app.ts";
+import { drawn, hold, openApp, openNote, phone, vaultWith } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
 
 type Probe = {
@@ -179,17 +179,20 @@ const LINKS = [
   "depends-on:: [[borges]]",
   "see [[borges]] and [[ficciones]]",
   "| a |\n| - |\n| [text] |\n| [b]() |",
+  "> see [[borges]] and [[cortazar]]",
+  "## see [the docs](https://example.com)",
 ].join("\n\n");
 
 // The cursor sits on `intro`, so no link is revealed.
 const DRAWN = [
   ["intro", "see <L:the docs> now", "plain", "<R:[!note]> not a callout", "see <R:[text]> here"],
-  ["see [text] here", "see [text][ref] here", "see <L:a> here", "see <U:the docs> now"],
+  ["see [text] here", "see [text][ref] here", "see <L:a> here", "see <L:the docs> now"],
   ["see <L:borges> now", "<L:borges> and <D:ficciones>", "see <L:the story> now"],
   ["<D:2026-11-09> | <L:borges#The Aleph/2>", "<L:borges> <L:borges>", "a <L:|> b"],
   ["a <D:/> b <D:/|> c", "see <L:borges> now", "see <L:#The Aleph>", "see <L:Jorge> and <D:Julio>"],
   ["[[]] and [[ ]]", "[[borges and more", "[[borges", "and]] more"],
   ["<R:depends-on::> <L:borges>", "see <L:borges> and <D:ficciones>", "[text]", "<L:b>"],
+  ["see <L:borges> and <D:cortazar>", "see <L:the docs>"],
 ].flat();
 
 /** Opens Links with vim `vim`, in a window tall enough that CodeMirror draws every line. */
@@ -244,6 +247,20 @@ for (const vim of ["on", "off"]) {
     });
   });
 }
+
+test.describe("on a phone", () => {
+  test.use(phone);
+
+  test("#2116 a link in a quote draws in the link colour, a markdown link and a wikilink alike", async ({
+    page,
+    stack,
+  }) => {
+    const quoted = "intro\n\n> see [the docs](https://example.com) and [[borges]]\n";
+    await vaultWith(stack.vault, { "Quoted.md": quoted, "reading/borges.md": "# The Aleph\n" });
+    await page.goto("/?note=Quoted.md");
+    await expect.poll(() => drawn(page)).toEqual(["intro", "see <L:the docs> and <L:borges>"]);
+  });
+});
 
 test("a link reads as dead only once the vault's listing lands, and comes alive when its note arrives", async ({
   page,
