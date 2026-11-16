@@ -4,8 +4,10 @@ import { expect, test } from "../../harness/stack.ts";
 
 const UNREAD = "Cards could not be counted: the daily limits could not be read";
 
-/** The Due column of the home screen an empty pane shows: the third of Today, Recent and Due. */
-const due = (page: Page) => page.locator("[data-today] [data-today-column]").nth(2);
+/** The home screen's columns an empty pane shows, in the order drawn: 0 Today, 1 Recent, 2 Due. */
+const column = (page: Page, nth: number) =>
+  page.locator("[data-today] [data-today-column]").nth(nth);
+const due = (page: Page) => column(page, 2);
 const unreadRow = (page: Page) => due(page).getByText(UNREAD);
 const tryAgain = (page: Page) => due(page).getByRole("button", { name: "Try again" });
 
@@ -105,16 +107,12 @@ test.describe("on a phone", () => {
   });
 });
 
-/** The home screen's columns, in the order drawn: 0 Today, 1 Recent, 2 Due. */
-const column = (page: Page, nth: number) =>
-  page.locator("[data-today] [data-today-column]").nth(nth);
-
-/** A Thursday, so the dates below read as today, last month and overdue. */
+/** A Thursday, so the dates below read as today, earlier this month and overdue. */
 const THURSDAY = new Date(2026, 9, 22, 9);
 const DOING_TODAY = "- [/] Draft the report 📅 2026-10-22";
 const stamped = (day: string) => `---\nmodified: 2026-10-${day}T09:00:00+00:00\n---\n\nwords\n`;
 
-/** Writes `notes` into the vault, then opens the app on Thursday's clock. */
+/** Notes go in before the load, so the first search sees them. */
 async function openThursday(page: Page, vault: string, notes: Record<string, string> = {}) {
   await vaultWith(vault, notes);
   await page.clock.setFixedTime(THURSDAY);
