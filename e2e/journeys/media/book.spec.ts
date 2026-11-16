@@ -1,4 +1,4 @@
-import { copyFile } from "node:fs/promises";
+import { copyFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import type { Locator, Page } from "@playwright/test";
 import {
@@ -6,6 +6,7 @@ import {
   leader,
   noteText,
   openApp,
+  panes,
   phone,
   tapHeight,
   vaultWith,
@@ -242,3 +243,89 @@ async function select(page: Page, words: string) {
     })
     .toBe(true);
 }
+
+test.describe("Note beside on a pdf opened from the tree", () => {
+  const PDF = "x/my plan.pdf";
+  const NOTE = "x/my plan.md";
+  const besideButton = (page: Page) => page.getByRole("button", { name: "Note beside" });
+  const body = async (vault: string) =>
+    (await noteText(vault, NOTE)).replace(/^---\n[\s\S]*?\n---\n/, "");
+
+  /** The pdf, and its note when given, in the vault; the pdf open in its own pane from the tree. */
+  async function openPlan(page: Page, vault: string, note?: string) {
+    await mkdir(join(vault, "x"));
+    await copyFile(join(vault, "04 Books/Primer.pdf"), join(vault, PDF));
+    if (note !== undefined) await vaultWith(vault, { [NOTE]: note });
+    await openApp(page);
+    await page.getByRole("button", { name: "x", exact: true }).click();
+    await page.getByRole("button", { name: "my plan.pdf", exact: true }).click();
+    await expect(besideButton(page)).toBeVisible();
+    await expect(panes(page)).toHaveCount(1);
+  }
+
+  test("opens the pdf's note beside the pdf, writing nothing, and a second press opens no third pane", async ({
+    page,
+    stack,
+  }) => {
+    await openPlan(page, stack.vault, "the plan\n");
+    await besideButton(page).click();
+    await expect(panes(page)).toHaveCount(2);
+    await expect(page.locator(".cm-content:visible")).toContainText("the plan");
+    await besideButton(page).click();
+    await expect(panes(page)).toHaveCount(2);
+    expect(await noteText(stack.vault, NOTE)).toBe("the plan\n");
+  });
+
+  test("makes the note first, empty, when the vault has none", async ({ page, stack }) => {
+    await openPlan(page, stack.vault);
+    await besideButton(page).click();
+    await expect(panes(page)).toHaveCount(2);
+    await expect.poll(() => noteText(stack.vault, NOTE)).not.toBe("");
+    expect(await body(stack.vault)).toBe("");
+  });
+
+  test("opens a note the file list lacks, with no refusal in the bar", async ({ page, stack }) => {
+    await page.route("**/api/files", async (route) => {
+      const listed: string[] = await (await route.fetch()).json();
+      await route.fulfill({ json: listed.filter((path) => path !== NOTE) });
+    });
+    await openPlan(page, stack.vault, "the plan\n");
+    await besideButton(page).click();
+    await expect(panes(page)).toHaveCount(2);
+    await expect(page.locator(".cm-content:visible")).toContainText("the plan");
+    await expect(page.getByTestId("notice")).toHaveCount(0);
+    expect(await noteText(stack.vault, NOTE)).toBe("the plan\n");
+  });
+
+  test("says so in the bar when the vault refuses the note's path, and leaves the pdf alone", async ({
+    page,
+    stack,
+  }) => {
+    const theNote = (url: URL) => decodeURIComponent(url.pathname).endsWith(`/api/files/${NOTE}`);
+    await page.route(theNote, (route) =>
+      route.request().method() === "POST" ? route.fulfill({ status: 500 }) : route.fallback(),
+    );
+    await openPlan(page, stack.vault);
+    await besideButton(page).click();
+    await expect(page.getByTestId("notice")).toHaveText(`The vault refused ${NOTE}`);
+    await expect(panes(page)).toHaveCount(1);
+    await expect(besideButton(page)).toBeVisible();
+    expect(await noteText(stack.vault, NOTE)).toBe("");
+  });
+
+  test.describe("on a phone", () => {
+    test.use(phone);
+
+    test("a tap opens the pdf's note", async ({ page, stack }) => {
+      await mkdir(join(stack.vault, "x"));
+      await copyFile(join(stack.vault, "04 Books/Primer.pdf"), join(stack.vault, PDF));
+      await vaultWith(stack.vault, { [NOTE]: "the plan\n" });
+      await page.goto("/");
+      await page.getByRole("button", { name: "File tree" }).tap({ timeout: 15_000 });
+      await page.getByRole("button", { name: "x", exact: true }).tap();
+      await page.getByRole("button", { name: "my plan.pdf", exact: true }).tap();
+      await besideButton(page).tap();
+      await expect(page.locator(".cm-content:visible")).toContainText("the plan");
+    });
+  });
+});

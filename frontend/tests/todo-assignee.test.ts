@@ -263,6 +263,18 @@ describe("#809 the assignee in the editor and the implied paths", () => {
     );
   });
 
+  it("#1021 I3 nameAt with a due date ahead of the estimate reads the wait at the line end", () => {
+    const line = "- [w] a 📅 2026-10-30 ⏲ 👤 2026-10-25 👤 2026-10-25";
+
+    expect(nameAt(line)).toBe(line.length);
+  });
+
+  it("#1021 I4 nameAt after a 👤 typed with the variation selector reads the wait at the line end", () => {
+    const line = "- [w] a ⏲ 👤 2026-10-25 👤️ 2026-10-25";
+
+    expect(nameAt(line)).toBe(line.length);
+  });
+
   it("#809 I8 quick add keeps a typed 👤 [[name]] as the assignee", () => {
     const line = formatTodo(expandShorthand("buy paint 👤 [[Pascal]] due:10-30", TODAY));
 
