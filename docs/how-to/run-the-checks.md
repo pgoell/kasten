@@ -68,18 +68,18 @@ teardown removes the containers. Unlike `fe:e2e`, it stubs no API.
 The journeys sit in `e2e/journeys/`: review in `review/` (a sitting, a question jotted in one, a cloze card, Enter on the overview's rows, the daily limits, the sitting's keys with vim on and off, and the deck notes that could not be read), panes in
 `panes/` (layout and the top bar, the pane and tab keys, pane acts whose write is held while the focus moves, links to pages and assets; a note changed on disk under
 unsaved text and a conflicted note reopened in `panes/conflict/`; the stored workspace across a reload, held text in a restored pane and a URL over it in `panes/workspace/`; the drawer, phone toolbar, key help, AltGr keys, a resized window, panel sheets and todo pane taps in `panes/narrow/`), notes, the finder, a tree row dragged, the new note prompt's folder rows, where a note opens and the status bar's save sign in `notes/`, with saving in `notes/saving/` (edits,
-mention links, held text, the editor's build and relation names, live preview and its lists and tables) and content search and an epub opened while the listing loads in `notes/search/`, the todo list, board, presses,
-twin ids, a person's card and the shared lists in `todos/` (the panel and the edit line in `todos/pane/`), capture, the web page import, the chat replies, the log, the home screen, the tokens page and the finance month keys in `day/`, and the book finder, book, video and clip panes and csv and svg files in
+mention links, held text, the editor's build and relation names, live preview and its lists and tables) and content search and an epub opened mid-listing in `notes/search/`, the todo list, board, presses,
+twin ids, a person's card and the shared lists in `todos/` (the panel, the edit line, board taps and refile in `todos/pane/`), capture, the web page import, the chat replies, the log, the home screen, the tokens page and the finance month keys in `day/`, and the book finder, book, video and clip panes and csv and svg files in
 `media/`. `harness.spec.ts` checks the harness. Each journey is a
-thing done daily; each that writes checks the file on disk. Thirty-four files
+thing done daily; each that writes checks the file on disk. Thirty-five files
 also run journeys at phone width, 414 px with touch, where the editor starts
-without vim (each a `.spec.ts`): in `review/`, `sitting`, `jot`, `keys` and `rows`; in `notes/`, `finder`,
+without vim: in `review/`, `sitting`, `jot`, `keys` and `rows`; in `notes/`, `finder`,
 `status-bar`, `search/book-open-listing`, the three `search/content-search-*`, `saving/edits`,
 `saving/mentions` and `saving/live-preview-blocks`; in `panes/`, `links`, `workspace/reload`,
 `narrow/drawer`, `narrow/phone`, `narrow/key-help`, `narrow/resize` and `narrow/todo-pane`; in `todos/`, `list`,
-`board`, `twin-ids`, `person-card` and `lists`; in `day/`, `capture`, `log` and `today`; and in
+`board`, `pane/board`, `twin-ids`, `person-card` and `lists`; in `day/`, `capture`, `log` and `today`; and in
 `media/`, `book`, `book-finder`, `clip`, `csv`, `svg` and `video`.
-`phone` in `e2e/harness/app.ts` sets that up, and
+`phone` in `e2e/harness/app.ts` sets that up;
 `git grep -l 'test.use(phone)' e2e/journeys` lists them.
 A runner has no YouTube: the video journey serves a fake player per
 embed (`fakeYouTube` in `e2e/harness/youtube.ts`) and aborts any request

@@ -1,5 +1,14 @@
 import type { Page } from "@playwright/test";
-import { leader, openApp, phone, readAll, tapHeight, vaultWith } from "../../harness/app.ts";
+import {
+  bodyOf,
+  leader,
+  noteText,
+  openApp,
+  phone,
+  readAll,
+  tapHeight,
+  vaultWith,
+} from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 
 /** Opens the review pane on its overview, with the focus in it. */
@@ -276,6 +285,125 @@ test.describe("the Anki link import", () => {
       await button.tap();
       await expect(page.getByText(SUMMARY)).toBeVisible();
       expect(asked).toEqual([{ url: LINK, carry: null }]);
+    });
+  });
+});
+
+test.describe("the parked list", () => {
+  const SR = "<!--SR:!2026-08-20,4,270-->";
+  const CLOUDS = "03 Flashcards/Clouds.md";
+  const TLS = "01 Notes/tls.md";
+  const CLOUDS_TEXT = `#flashcards/aws\n\nWhat is a VPC?::A private cloud !suspended ${SR}\n`;
+  const CLOZE =
+    "#flashcards/geo\n\n{{c1::France}} has {{c2::Paris}} !suspended <!--SR:c1!2026-08-20,4,270-->\n";
+  const ESCAPED =
+    "#flashcards/x\n\na\\\\-b \\*c\\*::back !suspended\n\n{{c1::d\\\\-e}} !suspended\n";
+  // A token-parked card, an unanswered question, a divider nobody tagged and a note its frontmatter parks.
+  const NOTES = {
+    [CLOUDS]: CLOUDS_TEXT,
+    "03 Flashcards/Terraform.md": "#flashcards/tf\n\nWhat is a moved block?::\n",
+    "03 Flashcards/Loose.md": "Question::\n",
+    [TLS]: "---\nsr-due: 2026-08-20\nsr-suspended: true\n---\n# TLS\n\n#review\n",
+  };
+  const rows = (page: Page) => page.locator("button[data-parked]");
+  const putBack = (page: Page, note: string) => page.locator(`button[data-unpark^="${note}:"]`);
+  const disk = (vault: string, note: string) => noteText(vault, note).then(bodyOf);
+
+  async function openParked(page: Page, vault: string, notes: Record<string, string> = NOTES) {
+    await vaultWith(vault, notes);
+    await openReview(page);
+    await page.keyboard.press("p");
+    await expect(page.getByRole("button", { name: "← Decks" })).toBeVisible();
+  }
+
+  test("draws a row for a parked card, an unanswered question and a parked note by its name, saying why, and none for an untagged divider", async ({
+    page,
+    stack,
+  }) => {
+    await openParked(page, stack.vault);
+    await expect(rows(page)).toHaveText([
+      "tlstlssuspended",
+      "What is a VPC?awssuspended",
+      "What is a moved block?tfunanswered",
+    ]);
+    await expect(page.getByText("Question", { exact: true })).toHaveCount(0);
+    // A question with no answer has no token to take off.
+    await expect(page.locator("button[data-unpark]")).toHaveCount(2);
+    await expect(putBack(page, "03 Flashcards/Terraform.md")).toHaveCount(0);
+  });
+
+  test("Put back takes the token off the card's line, keeps its schedule and drops the row, and puts a note back through its frontmatter", async ({
+    page,
+    stack,
+  }) => {
+    await openParked(page, stack.vault);
+    await putBack(page, CLOUDS).click();
+    await expect.poll(() => disk(stack.vault, CLOUDS)).toBe(CLOUDS_TEXT.replace(" !suspended", ""));
+    await expect(page.getByText("What is a VPC?")).toHaveCount(0);
+
+    await putBack(page, TLS).click();
+    await expect.poll(() => noteText(stack.vault, TLS)).toContain("sr-suspended: false");
+    expect(await noteText(stack.vault, TLS)).toContain("sr-due: 2026-08-20");
+    await expect(rows(page)).toHaveCount(1);
+  });
+
+  test("a put back refused over a note changed on disk reads it again, says so, and the next Put back keeps the new line", async ({
+    page,
+    stack,
+  }) => {
+    const changed = `${CLOUDS_TEXT}\nsomebody else's line\n`;
+    let first = true;
+    // The note changes between the read and the write, so the backend refuses the base the row read.
+    await page.route(
+      (url) => decodeURIComponent(url.pathname) === `/api/files/${CLOUDS}`,
+      async (route) => {
+        if (route.request().method() === "PUT" && first) {
+          first = false;
+          await vaultWith(stack.vault, { [CLOUDS]: changed });
+        }
+        await route.continue();
+      },
+    );
+    await openParked(page, stack.vault);
+    await putBack(page, CLOUDS).click();
+    await expect(page.getByRole("alert")).toContainText("The note could not be written");
+    await expect(putBack(page, CLOUDS)).toBeVisible();
+    expect(await disk(stack.vault, CLOUDS)).toBe(changed);
+
+    await putBack(page, CLOUDS).click();
+    await expect.poll(() => disk(stack.vault, CLOUDS)).toBe(changed.replace(" !suspended", ""));
+  });
+
+  test("a parked cloze is one row by its sentence and Put back frees every number; an escaped a\\\\-b reads a\\-b", async ({
+    page,
+    stack,
+  }) => {
+    const GEO = "03 Flashcards/geo.md";
+    await openParked(page, stack.vault, { [GEO]: CLOZE, "03 Flashcards/x.md": ESCAPED });
+    await expect(rows(page)).toHaveText([/^France has Paris/, /^a\\-b \*c\*x/, /^d\\-ex/]);
+    await putBack(page, GEO).click();
+    await expect.poll(() => disk(stack.vault, GEO)).toBe(CLOZE.replace(" !suspended", ""));
+    await expect(rows(page)).toHaveCount(2);
+  });
+
+  test.describe("on a phone", () => {
+    test.use(phone);
+
+    test("a long deck name is cut short inside the row", async ({ page, stack }) => {
+      const deck = "cloud/aws/networking-and-security-groups-in-depth";
+      await vaultWith(stack.vault, { [CLOUDS]: CLOUDS_TEXT.replace("aws", deck) });
+      await page.goto("/");
+      await page.getByRole("button", { name: /cards? waiting/ }).tap();
+      await page.getByRole("button", { name: "1 parked card" }).tap();
+      const row = rows(page);
+      const name = row.getByText(deck);
+      await expect(name).toBeVisible();
+      const [box, cut] = await Promise.all([row.boundingBox(), name.boundingBox()]);
+      expect(cut && box && cut.x + cut.width).toBeLessThanOrEqual(
+        (box?.x ?? 0) + (box?.width ?? 0),
+      );
+      expect(cut?.width).toBeLessThanOrEqual((box?.width ?? 0) * 0.4 + 1);
+      expect(await name.evaluate((el) => getComputedStyle(el).textOverflow)).toBe("ellipsis");
     });
   });
 });
