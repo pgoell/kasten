@@ -1,5 +1,13 @@
 import type { Locator, Page } from "@playwright/test";
-import { leader, noteText, openApp, phone, unstamped, vaultWith } from "../../../harness/app.ts";
+import {
+  drawn,
+  leader,
+  noteText,
+  openApp,
+  phone,
+  unstamped,
+  vaultWith,
+} from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
 
 /** Opens the note by URL and waits for its editor to draw the line holding `last`. */
@@ -196,6 +204,19 @@ test.describe("on a phone", () => {
     await expect.poll(() => line(editor, "second")).toBe("- second|none|1.6em|- ");
     expect(await line(editor, "first")).toBe('first|"• "|1.6em|');
     expect(await line(editor, "done")).toBe('done|"☑ "|1.6em|');
+  });
+
+  test("a note draws its links as their text, a dead one muted, and a plain [text] with its brackets", async ({
+    page,
+    stack,
+  }) => {
+    const note =
+      "see [the docs](https://example.com) now\n\n[[borges]] and [[ficciones]]\n\n[text]\n";
+    await vaultWith(stack.vault, { "Links.md": note, "borges.md": "Jorge\n" });
+    await opened(page, "Links.md", "text");
+    await expect
+      .poll(() => drawn(page))
+      .toEqual(["see <L:the docs> now", "<L:borges> and <D:ficciones>", "[text]"]);
   });
 });
 

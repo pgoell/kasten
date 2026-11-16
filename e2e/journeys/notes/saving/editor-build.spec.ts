@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { openApp, openNote, vaultWith } from "../../../harness/app.ts";
+import { drawn, hold, openApp, openNote, vaultWith } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
 
 type Probe = {
@@ -151,4 +151,113 @@ test("an edit to the ontology note on disk changes what a line head offers, with
   expect(await page.evaluate(() => (window as unknown as { sameLoad?: boolean }).sameLoad)).toBe(
     true,
   );
+});
+
+// One line per case of the jsdom file this replaced; blank lines keep each its own paragraph.
+const LINKS = [
+  "intro",
+  "see [the docs](https://example.com) now",
+  "> plain\n> [!note] not a callout",
+  "> see [text] here",
+  "see [text] here",
+  "see [text][ref] here",
+  "see [a]() here",
+  "> see [the docs](https://example.com) now",
+  "see [[borges]] now",
+  "[[borges]] and [[ficciones]]",
+  "see [[reading/borges#The Aleph|the story]] now",
+  "[[01 Periodic/00 Daily/2026-11-09]] | [[reading/borges#The Aleph/2]]",
+  "[[reading/borges|]] [[borges|]]",
+  "a [[|]] b",
+  "a [[/]] b [[/|]] c",
+  "see [[reading/borges]] now",
+  "see [[#The Aleph]]",
+  "see [[borges|Jorge]] and [[cortazar|Julio]]",
+  "[[]] and [[ ]]",
+  "[[borges and more",
+  "[[borges\nand]] more",
+  "depends-on:: [[borges]]",
+  "see [[borges]] and [[ficciones]]",
+  "| a |\n| - |\n| [text] |\n| [b]() |",
+].join("\n\n");
+
+// Every link line as the jsdom cases read them; the cursor sits on `intro`.
+const DRAWN = [
+  ["intro", "see <L:the docs> now", "plain", "<R:[!note]> not a callout", "see <R:[text]> here"],
+  ["see [text] here", "see [text][ref] here", "see <L:a> here", "see <U:the docs> now"],
+  ["see <L:borges> now", "<L:borges> and <D:ficciones>", "see <L:the story> now"],
+  ["<D:2026-11-09> | <L:borges#The Aleph/2>", "<L:borges> <L:borges>", "a <L:|> b"],
+  ["a <D:/> b <D:/|> c", "see <L:borges> now", "see <L:#The Aleph>", "see <L:Jorge> and <D:Julio>"],
+  ["[[]] and [[ ]]", "[[borges and more", "[[borges", "and]] more"],
+  ["<R:depends-on::> <L:borges>", "see <L:borges> and <D:ficciones>", "[text]", "<L:b>"],
+].flat();
+
+/** Opens Links with vim `vim`, in a window tall enough that CodeMirror draws every line. */
+async function openLinks(page: Page, vault: string, vim: string): Promise<void> {
+  await vaultWith(vault, { "Links.md": LINKS, "reading/borges.md": "# The Aleph\n" });
+  await page.addInitScript((on) => localStorage.setItem("kasten.vim", on), vim);
+  await page.setViewportSize({ width: 1280, height: 2400 });
+  await page.goto("/?note=Links.md");
+  await expect(page.locator(".cm-content:visible")).toContainText("depends-on");
+}
+
+const lineOf = (page: Page, source: string) =>
+  page.locator(".cm-content:visible .cm-line").nth(LINKS.split("\n").indexOf(source));
+
+for (const vim of ["on", "off"]) {
+  test.describe(`with vim ${vim}`, () => {
+    test("a note draws links as their text, keeps a plain [text]'s brackets, mutes a dead link and labels a relation", async ({
+      page,
+      stack,
+    }) => {
+      await openLinks(page, stack.vault, vim);
+      await expect.poll(() => drawn(page)).toEqual(DRAWN);
+    });
+
+    test("the cursor in a link shows that link's source again, and no other link's", async ({
+      page,
+      stack,
+    }) => {
+      await openLinks(page, stack.vault, vim);
+      const sources = [
+        "see [the docs](https://example.com) now",
+        "see [[borges]] now",
+        "see [[reading/borges]] now",
+        "see [[borges|Jorge]] and [[cortazar|Julio]]",
+      ];
+      const shown = ["", "", "", "see [[borges|Jorge]] and Julio"];
+      for (const [n, source] of sources.entries()) {
+        const at = LINKS.split("\n").indexOf(source);
+        if (vim === "on") {
+          await page.keyboard.press("Escape");
+          await page.keyboard.type(`${at + 1}G`);
+          await page.keyboard.press("w");
+          await page.keyboard.press("i");
+        } else {
+          await page.keyboard.press("Control+Home");
+          for (let i = 0; i < at; i++) await page.keyboard.press("ArrowDown");
+          for (let i = 0; i < 5; i++) await page.keyboard.press("ArrowRight");
+        }
+        await expect(lineOf(page, source)).toHaveText(shown[n] || source);
+        expect(await drawn(page)).toContain("<R:depends-on::> <L:borges>");
+      }
+    });
+  });
+}
+
+test("a link reads as dead only once the vault's listing lands, and comes alive when its note arrives", async ({
+  page,
+  stack,
+}) => {
+  const listed = await hold(page, /\/api\/files$/);
+  await openLinks(page, stack.vault, "on");
+  await expect.poll(() => drawn(page)).toContain("see <L:borges> and <L:ficciones>");
+  expect((await drawn(page)).filter((text) => text.includes("<D:"))).toEqual([]);
+
+  await listed();
+  await expect.poll(() => drawn(page)).toContain("see <L:borges> and <D:ficciones>");
+  await vaultWith(stack.vault, { "ficciones.md": "stories\n" });
+  await expect
+    .poll(() => drawn(page), { timeout: 15_000 })
+    .toContain("see <L:borges> and <L:ficciones>");
 });
