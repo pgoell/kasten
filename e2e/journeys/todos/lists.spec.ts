@@ -1,5 +1,14 @@
 import type { Page } from "@playwright/test";
-import { builtCss, leader, openApp, phone, TODO_ROW, vaultWith } from "../../harness/app.ts";
+import {
+  builtCss,
+  leader,
+  noteText,
+  openApp,
+  openNote,
+  phone,
+  TODO_ROW,
+  vaultWith,
+} from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 
 // nginx serves the lists app on the share host's name alone (#736), the name frontend/nginx.conf writes out.
@@ -149,4 +158,178 @@ test.describe("the todo pane's shared lists", () => {
     await expect(row(page, "fix the tap")).toBeVisible();
     await expect(row(page, "fold the laundry")).toBeVisible();
   });
+});
+
+test.describe("<leader>@, the agent key on a note's line (#523)", () => {
+  /** Each step: the keys, then the line `Agent.md` saves, or the reason a refusal names. */
+  type Step = [keys: string, saved: string | { refused: string }];
+  const AGENT = "Space @";
+  const TODAY = "2026-08-10";
+
+  async function agentKey(page: Page, vault: string, body: string, steps: Step[]) {
+    await page.addInitScript(() => localStorage.setItem("kasten.vim", "on"));
+    // The key stamps the date it reads at the press.
+    await page.clock.setFixedTime(new Date(2026, 7, 10, 12));
+    await vaultWith(vault, { "Agent.md": body });
+    await openApp(page);
+    await openNote(page, "Agent");
+    // The save writes a frontmatter block above the line.
+    const saved = async () =>
+      (await noteText(vault, "Agent.md")).replace(/^---\n[\s\S]*?\n---\n/, "");
+    for (const [keys, want] of steps) {
+      for (const key of keys.split(" ")) await page.keyboard.press(key);
+      if (typeof want === "string") {
+        await expect.poll(saved).toBe(want);
+        continue;
+      }
+      await expect(page.getByTestId("notice")).toHaveText(`Nothing moved: ${want.refused}`);
+      // A marker typed after the refusal, so the saved line shows whether the press changed it.
+      for (const key of ["A", "!", "Escape"]) await page.keyboard.press(key);
+      await expect.poll(saved).toBe(`${body}!`);
+    }
+  }
+
+  const CLIENT = { refused: "the agent skips client work" };
+  const once = (saved: string | { refused: string }): Step[] => [[`Shift+G ${AGENT}`, saved]];
+  const twice = (body: string, tagged: string): Step[] => [
+    [`Shift+G ${AGENT}`, tagged],
+    [AGENT, body],
+  ];
+  const CASES: [string, string, Step[]][] = [
+    [
+      "A4 A7 with vim on adds #agent at the end of the words, before the fields",
+      "\t- [ ] call  [[a 📅 b]] 📅 2026-10-20 ^blk1",
+      once("\t- [ ] call  [[a 📅 b]] #agent 📅 2026-10-20 ^blk1"),
+    ],
+    [
+      "A4 A7 on a [ ] todo carrying #agent takes out the tag and one space",
+      "\t- [ ]  call #agent 📅 2026-10-20 ^blk1",
+      once("\t- [ ]  call 📅 2026-10-20 ^blk1"),
+    ],
+    [
+      "A4 on a doing todo carrying #agent leaves it and says it is with the agent",
+      "- [/] call #agent",
+      once({ refused: "that todo is already with the agent" }),
+    ],
+    [
+      "A4 adds #agent to a done todo lacking it",
+      "- [x] call ✅ 2026-10-16",
+      once("- [x] call #agent ✅ 2026-10-16"),
+    ],
+    [
+      "A5 refuses a #client todo, even one carrying #agent",
+      "- [ ] call #client #agent",
+      once(CLIENT),
+    ],
+    [
+      "A5 refuses a todo two steps under a #client todo",
+      "- [ ] big #client\n  - [ ] part\n    - [ ] call",
+      once(CLIENT),
+    ],
+    [
+      "#1445 adds #agent to a todo past a heading under a #client todo",
+      "- [ ] big #client\n## Other\n  - [ ] call",
+      once("- [ ] big #client\n## Other\n  - [ ] call #agent"),
+    ],
+    [
+      "#1445 adds #agent to a todo past a plain list item under a #client todo",
+      "- [ ] big #client\n- plain\n  - [ ] call",
+      once("- [ ] big #client\n- plain\n  - [ ] call #agent"),
+    ],
+    [
+      "#1445 refuses a fenced todo line, which no worker reads",
+      "- [ ] big\n  ```\n  - [ ] call",
+      once({ refused: "that line is code" }),
+    ],
+    [
+      "A5 adds #agent under #client prose, only a todo passing client down",
+      "big #client\n  - [ ] call",
+      once("big #client\n  - [ ] call #agent"),
+    ],
+    [
+      "I6 adds #agent beside a #client sibling",
+      "- [ ] big #client\n- [ ] call",
+      once("- [ ] big #client\n- [ ] call #agent"),
+    ],
+    [
+      "I6 adds #agent under a parent whose other part is #client",
+      "- [ ] big\n  - [ ] other #client\n  - [ ] call",
+      once("- [ ] big\n  - [ ] other #client\n  - [ ] call #agent"),
+    ],
+    [
+      "A6 on a plain line makes it an open todo, then tags it",
+      "call ada",
+      once(`- [ ] call ada #agent ➕ ${TODAY}`),
+    ],
+    [
+      "I4 reads #agents and #agent/x as other tags, adding #agent beside them",
+      "- [ ] call #agents #agent/x 📅 2026-10-20",
+      once("- [ ] call #agents #agent/x #agent 📅 2026-10-20"),
+    ],
+    // `$` onto the last digit, and `x` after the press cuts whatever it is on.
+    [
+      "I1 leaves the cursor on its character",
+      "- [ ] call 📅 2026-10-20",
+      [
+        [`$ ${AGENT}`, "- [ ] call #agent 📅 2026-10-20"],
+        ["x", "- [ ] call #agent 📅 2026-10-2"],
+      ],
+    ],
+    [
+      "I1 one u takes back the whole of it on a plain line",
+      // On a note with no frontmatter yet, this u writes a broken note (#2098).
+      "---\ntype: Note\n---\ncall ada",
+      [
+        [`Shift+G ${AGENT}`, `- [ ] call ada #agent ➕ ${TODAY}`],
+        ["u", "call ada"],
+      ],
+    ],
+    [
+      "A7 reads 2^10 as words, not a block id",
+      "- [ ] compute 2^10",
+      once("- [ ] compute 2^10 #agent"),
+    ],
+    [
+      "A7 twice on 2^10 gives the line back byte for byte",
+      "- [ ] compute 2^10",
+      twice("- [ ] compute 2^10", "- [ ] compute 2^10 #agent"),
+    ],
+    [
+      "A7 twice on a field hard against the words gives the line back byte for byte",
+      "- [ ] foo📅 2026-10-20",
+      twice("- [ ] foo📅 2026-10-20", "- [ ] foo📅 2026-10-20 #agent"),
+    ],
+    [
+      "A7 twice on words hard against two fields puts #agent past both and gives the line back",
+      "- [ ] foo📅 2026-10-20 ⏳ 2026-10-21 ^blk1",
+      twice(
+        "- [ ] foo📅 2026-10-20 ⏳ 2026-10-21 ^blk1",
+        "- [ ] foo📅 2026-10-20 ⏳ 2026-10-21 #agent ^blk1",
+      ),
+    ],
+    [
+      "B adds #agent past a code span holding #agent, the span untouched",
+      "- [ ] run `grep #agent log`",
+      once("- [ ] run `grep #agent log` #agent"),
+    ],
+    [
+      "B adds #agent past a link holding #agent, the link untouched",
+      "- [ ] read [[notes#agent]]",
+      once("- [ ] read [[notes#agent]] #agent"),
+    ],
+    [
+      "B adds #agent past a URL ending #agent, the URL untouched",
+      "- [ ] see https://a.io/p#agent",
+      once("- [ ] see https://a.io/p#agent #agent"),
+    ],
+    [
+      "B on a doing todo with #agent only in a span adds the tag",
+      "- [/] run `grep #agent log`",
+      once("- [/] run `grep #agent log` #agent"),
+    ],
+    ["A10 vim's own @ still replays a macro", "abc", [["g g 0 q a x q @ a", "c"]]],
+  ];
+  for (const [name, body, steps] of CASES) {
+    test(name, async ({ page, stack }) => agentKey(page, stack.vault, body, steps));
+  }
 });

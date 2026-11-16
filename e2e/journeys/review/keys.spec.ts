@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { noteText, openApp, vaultWith } from "../../harness/app.ts";
+import { noteText, openApp, phone, vaultWith } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 
 const BETA = "03 Flashcards/beta.md";
@@ -106,3 +106,167 @@ for (const vim of ["on", "off"]) {
     });
   });
 }
+
+test.describe("folding the deck list (#517)", () => {
+  /** A parent with one due, one new and one parked card below it, and a deck after it. */
+  const TREE = {
+    "03 Flashcards/Capitals.md": "# Capitals\n",
+    "03 Flashcards/d.md":
+      "#flashcards/databases/postgres\n\na::b\n\nc::d <!--SR:!2000-01-01,4,250-->\n\ne::f !suspended\n",
+    "03 Flashcards/z.md": "#flashcards/zz\n\ng::h\n",
+  };
+  const row = (page: Page, name: string) => page.locator(`button[data-deck="${name}"]`);
+  const press = async (page: Page, keys: string) => {
+    for (const key of keys) await page.keyboard.press(key);
+  };
+
+  /** Opens the decks from the palette, which vim off reaches too, with the focus in the pane. */
+  async function openDecks(page: Page, vault: string, notes: Record<string, string> = TREE) {
+    await vaultWith(vault, notes);
+    await openApp(page);
+    await page.keyboard.press("Control+Shift+P");
+    await page.getByRole("option", { name: /^Open the review pane/ }).click();
+    await expect(page.locator("button[data-deck]").last()).toBeVisible();
+    await page.getByRole("heading", { name: "Review" }).click();
+  }
+  /** Starts with `databases` unfolded, as a fold the pane stored. */
+  const unfolded = (page: Page) =>
+    page.addInitScript(() => localStorage.setItem("kasten.review.folds.1", '["databases"]'));
+
+  test("A1 A2 a deck's subdecks sit folded behind a toggle at first, the folded row counts all under it, and a reload keeps the fold", async ({
+    page,
+    stack,
+  }) => {
+    await openDecks(page, stack.vault);
+    await expect(row(page, "databases/postgres")).toHaveCount(0);
+    for (const count of ["1 due", "1 new", "1 parked"])
+      await expect(row(page, "databases")).toContainText(count);
+    const toggle = page.getByRole("button", { name: "unfold databases" });
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await expect(page.getByRole("button", { name: /fold zz/ })).toHaveCount(0);
+
+    await toggle.click();
+    await expect(row(page, "databases/postgres")).toBeVisible();
+    const fold = page.getByRole("button", { name: "fold databases", exact: true });
+    await expect(fold).toHaveAttribute("aria-expanded", "true");
+
+    await page.reload();
+    // The workspace brings the review pane back with the reload.
+    await expect(row(page, "databases/postgres")).toBeVisible({ timeout: 15_000 });
+    await fold.click();
+    await expect(row(page, "databases/postgres")).toHaveCount(0);
+  });
+
+  for (const vim of ["on", "off"]) {
+    test(`A3 za folds and unfolds the deck under the cursor, vim ${vim}`, async ({
+      page,
+      stack,
+    }) => {
+      await page.addInitScript((mode) => localStorage.setItem("kasten.vim", mode), vim);
+      await unfolded(page);
+      await openDecks(page, stack.vault);
+
+      await press(page, "j");
+      await expect(row(page, "databases")).toBeFocused();
+      await press(page, "za");
+      await expect(row(page, "databases/postgres")).toHaveCount(0);
+      await expect(row(page, "databases")).toBeFocused();
+      await press(page, "za");
+      await expect(row(page, "databases/postgres")).toBeVisible();
+    });
+  }
+
+  test("A3 a z followed by another key leaves that key its own", async ({ page, stack }) => {
+    await unfolded(page);
+    await openDecks(page, stack.vault);
+    await press(page, "jzj");
+    await expect(row(page, "databases/postgres")).toBeFocused();
+    await press(page, "kza");
+    await expect(row(page, "databases/postgres")).toHaveCount(0);
+  });
+
+  test("I4 za on a subdeck folds its parent and moves the cursor to the parent's row", async ({
+    page,
+    stack,
+  }) => {
+    await unfolded(page);
+    await openDecks(page, stack.vault);
+    await press(page, "jj");
+    await expect(row(page, "databases/postgres")).toBeFocused();
+    await press(page, "za");
+    await expect(row(page, "databases/postgres")).toHaveCount(0);
+    await expect(row(page, "databases")).toBeFocused();
+  });
+
+  test("I4 za on a subdeck under a parent with nothing to offer moves the cursor to its toggle", async ({
+    page,
+    stack,
+  }) => {
+    await page.addInitScript(() => localStorage.setItem("kasten.review.folds.1", '["trivia"]'));
+    // A limit on the parent disables it above a subdeck whose own line lets it be sat.
+    await openDecks(page, stack.vault, {
+      "03 Flashcards/Capitals.md": "# Capitals\n",
+      "03 Flashcards/t.md": "#flashcards/trivia/geography\n\nq::a\n",
+      "99 Misc/01 Config/decks.md": "trivia: 0 new, 0 reviews\ntrivia/geography: 5 new\n",
+    });
+    await expect(row(page, "trivia")).toBeDisabled();
+
+    // The first `j` stops on the disabled parent's toggle, the second on the subdeck.
+    await press(page, "jj");
+    await expect(row(page, "trivia/geography")).toBeFocused();
+    await press(page, "za");
+    await expect(row(page, "trivia/geography")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "unfold trivia" })).toBeFocused();
+
+    // From the toggle, `l` unfolds and keeps the cursor there, and `j` walks on.
+    await press(page, "l");
+    await expect(page.getByRole("button", { name: "fold trivia", exact: true })).toBeFocused();
+    await press(page, "j");
+    await expect(row(page, "trivia/geography")).toBeFocused();
+  });
+
+  test("I5 j skips the rows a fold hides, and l on a folded deck sits all of it", async ({
+    page,
+    stack,
+  }) => {
+    await openDecks(page, stack.vault);
+    await press(page, "jj");
+    await expect(row(page, "zz")).toBeFocused();
+    await press(page, "kl");
+    await expect(page.getByTestId("review-question")).toHaveText(/^[ac]$/);
+  });
+
+  test("I6 unreadable fold storage leaves everything below the top level folded", async ({
+    page,
+    stack,
+  }) => {
+    await page.addInitScript(() => {
+      const blocked = () => {
+        throw new DOMException("site data is blocked", "SecurityError");
+      };
+      Storage.prototype.getItem = blocked;
+      Storage.prototype.setItem = blocked;
+    });
+    await openDecks(page, stack.vault);
+    await expect(row(page, "databases/postgres")).toHaveCount(0);
+    await page.getByRole("button", { name: "unfold databases" }).click();
+    await expect(row(page, "databases/postgres")).toBeVisible();
+  });
+
+  test.describe("on a phone", () => {
+    test.use(phone);
+
+    test("a tap on the fold arrow shows the subdecks and a second hides them", async ({
+      page,
+      stack,
+    }) => {
+      await vaultWith(stack.vault, TREE);
+      await page.goto("/");
+      await page.getByRole("button", { name: /cards waiting$/ }).tap();
+      await page.getByRole("button", { name: "unfold databases" }).tap();
+      await expect(row(page, "databases/postgres")).toBeVisible();
+      await page.getByRole("button", { name: "fold databases", exact: true }).tap();
+      await expect(row(page, "databases/postgres")).toHaveCount(0);
+    });
+  });
+});
