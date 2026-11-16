@@ -185,6 +185,30 @@ export async function cursorTo(page: Page, words: string, nth = 0): Promise<void
   await expect(page.locator(`${TODO_ROW}[tabindex="0"]`)).toContainText(words);
 }
 
+// nginx serves the lists app on the share host's name alone (#736), the name frontend/nginx.conf writes out.
+const SHARE_HOST = "liste.pgoell.com";
+const LIST = "05 Shared/Einkauf.md";
+
+/** Opens the lists app as the share host serves it, over the shopping list `list` the vault holds. */
+export async function openLists(page: Page, vault: string, list = "- [ ] Milch\n"): Promise<void> {
+  await vaultWith(vault, { [LIST]: list });
+  // Chromium sends its own Host; the request made here names the share host instead.
+  await page.route("**/lists.html", async (route) =>
+    route.fulfill({
+      response: await route.fetch({ headers: { ...route.request().headers(), host: SHARE_HOST } }),
+    }),
+  );
+  await page.goto("/lists.html");
+  // The list is read through the backend's `/share`; the empty line or a group shows once read.
+  await expect(page.locator("main.lists > *").first()).toBeVisible({ timeout: 15_000 });
+}
+
+/** The shopping list's lines on disk below the frontmatter, blank ones left out. */
+export const listLines = async (vault: string): Promise<string[]> =>
+  bodyOf(await noteText(vault, LIST))
+    .split("\n")
+    .filter(Boolean);
+
 /** The page's stylesheets as served: Chromium's CSSOM drops a declaration it does not read, such as a -webkit- one. */
 export async function builtCss(page: Page): Promise<string> {
   const hrefs = await page.evaluate(() =>
