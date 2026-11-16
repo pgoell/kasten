@@ -167,6 +167,8 @@ export function useVaultEvents(focusedNote: RefObject<FocusedNote>, onDeclined: 
     stream.onopen = () => {
       queryClient.invalidateQueries({ queryKey: ["files"] }, { cancelRefetch: false });
       queryClient.invalidateQueries({ queryKey: ["log"] }, { cancelRefetch: false });
+      // A fresh read, not one joined: a fetch begun before the open may predate a write no watcher saw (#2118).
+      if (!pressRunning()) queryClient.invalidateQueries({ queryKey: ["todos"] });
       reloadLogConfig();
     };
     stream.onmessage = (message) => {
