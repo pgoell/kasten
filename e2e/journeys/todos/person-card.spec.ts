@@ -253,7 +253,12 @@ async function chorePane(page: Page, vault: string) {
   });
   await page.clock.setFixedTime(new Date("2026-10-25T12:00:00"));
   const row = (words: string) => page.locator(TODO_ROW, { hasText: words });
-  return { row, chip: (words: string) => row(words).locator("[data-person]") };
+  const chip = (words: string) => row(words).locator("[data-person]");
+  // Until the vault's file list names its note, a chip draws dashed and a press on it
+  // opens the row's own note, so a journey waits for the solid pill (#2123).
+  const linked = (words: string) =>
+    expect(chip(words).locator("span")).toHaveCSS("border-top-style", "solid");
+  return { row, chip, linked };
 }
 const body = async (vault: string) => bodyOf(await noteText(vault, CHORES));
 
@@ -283,7 +288,7 @@ test.describe("the assignee chip on a todo pane row", () => {
     page,
     stack,
   }) => {
-    const { row, chip } = await chorePane(page, stack.vault);
+    const { row, chip, linked } = await chorePane(page, stack.vault);
     await openApp(page);
     const opens = async (click: () => Promise<void>, tab: string, line?: string) => {
       await leader(page, "gt");
@@ -291,7 +296,10 @@ test.describe("the assignee chip on a todo pane row", () => {
       await expect(page.getByRole("tab", { name: tab, selected: true })).toBeVisible();
       if (line) await expect(page.locator(".cm-content:focus .cm-activeLine")).toContainText(line);
     };
-    await opens(() => chip("buy paint").click(), "Pascal");
+    await opens(async () => {
+      await linked("buy paint");
+      await chip("buy paint").click();
+    }, "Pascal");
     await expect(page.getByRole("tab", { name: "Chores" })).toHaveCount(0);
     await opens(() => row("buy paint").click(), "Chores", "buy paint");
     await opens(() => chip("paint the hall").click(), "Pascal");
@@ -325,7 +333,7 @@ test.describe("the assignee chip on a todo pane row", () => {
       page,
       stack,
     }) => {
-      const { chip } = await chorePane(page, stack.vault);
+      const { chip, linked } = await chorePane(page, stack.vault);
       const writes: string[] = [];
       page.on("request", (request) => {
         if (request.method() !== "GET" && request.url().includes("/api/"))
@@ -333,6 +341,7 @@ test.describe("the assignee chip on a todo pane row", () => {
       });
       await page.goto("/");
       await page.getByRole("button", { name: "Open the todo pane" }).tap({ timeout: 15_000 });
+      await linked("buy paint");
       await chip("buy paint").tap();
       await expect(page.getByRole("tab", { name: "Pascal", selected: true })).toBeVisible();
       await expect(page.getByRole("tab", { name: "Chores" })).toHaveCount(0);
