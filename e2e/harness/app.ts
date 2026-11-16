@@ -63,6 +63,9 @@ export function localDate(at: Date): string {
 /** Today's date on this box, as the browser names the daily note it sends. */
 export const today = (): string => localDate(new Date());
 
+/** `days` after today, as the vault writes a date. */
+export const plus = (days: number): string => localDate(new Date(Date.now() + days * 86_400_000));
+
 /** A note in the test's vault, or "" while it is not there, so a poll waits for the write. */
 export async function noteText(vault: string, path: string): Promise<string> {
   try {
@@ -72,6 +75,9 @@ export async function noteText(vault: string, path: string): Promise<string> {
     throw error;
   }
 }
+
+/** A note's text below its frontmatter, which the vault stamps on a note's first save. */
+export const bodyOf = (text: string): string => text.replace(/^---\n[\s\S]*?\n---\n/, "");
 
 export const PANE = "[data-pane]";
 /** The panes on screen; a pane on its way out is hidden. */

@@ -1,17 +1,18 @@
 import type { Page, Route } from "@playwright/test";
 import {
+  bodyOf,
   cursorTo,
   leader,
-  localDate,
   noteText,
   openApp,
+  plus,
   readAll,
   TODO_ROW,
   today,
   vaultWith,
-} from "../../harness/app.ts";
-import { lineOf, openPanel } from "../../harness/search.ts";
-import { expect, test } from "../../harness/stack.ts";
+} from "../../../harness/app.ts";
+import { lineOf, openPanel } from "../../../harness/search.ts";
+import { expect, test } from "../../../harness/stack.ts";
 
 const TODOS = (potatoes: number) => [
   { path: "02 Projects/Garden.md", line: potatoes, text: "- [ ] wire up the pane 📅 2026-08-14" },
@@ -48,9 +49,6 @@ test("the todos panel draws the open todos with their state, narrows on the answ
   await expect(page.getByRole("tab", { name: "Garden", selected: true })).toBeVisible();
   await expect(page.locator(".cm-activeLine")).toContainText("buy seed potatoes");
 });
-
-/** `days` after today, as the vault writes a date. */
-const plus = (days: number) => localDate(new Date(Date.now() + days * 86_400_000));
 
 /** Opens the todo pane's add prompt, counting the note writes the page sends from here on. */
 async function openPrompt(page: Page) {
@@ -413,8 +411,7 @@ async function picker(page: Page, vault: string, lines: string[], on = PICK) {
 
 const BLOCK_LINES = ["- [ ] write the docs", "- [ ] ship the release", "- [ ] tag it"];
 // The body alone: the vault stamps a frontmatter onto the note once it is read.
-const blocks = async (vault: string) =>
-  (await noteText(vault, BLOCKS)).replace(/^---\n[\s\S]*?\n---\n/, "");
+const blocks = async (vault: string) => bodyOf(await noteText(vault, BLOCKS));
 
 test.describe("the todo pane's b picker", () => {
   test("names the row, Enter writes ⛔ and the blocker's new id into the two lines, and opens nothing", async ({

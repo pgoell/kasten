@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test";
 import {
+  bodyOf,
   builtCss,
   leader,
   noteText,
@@ -193,15 +194,14 @@ test.describe("<leader>@, the agent key on a note's line (#523)", () => {
   /** Waits for `want` under the frontmatter block the first save writes, on disk and back in the buffer. */
   async function landed(page: Page, vault: string, want: string) {
     const disk = () => noteText(vault, "Agent.md");
-    await expect.poll(async () => (await disk()).replace(/^---\n[\s\S]*?\n---\n/, "")).toBe(want);
+    await expect.poll(async () => bodyOf(await disk())).toBe(want);
     // A key pressed before the save's reply reaches the buffer takes another path.
     await expect.poll(async () => (await buffer(page)) === (await disk())).toBe(true);
   }
 
   async function agentKey(page: Page, vault: string, body: string, steps: Step[]) {
     await openAgent(page, vault, body, "on");
-    const saved = async () =>
-      (await noteText(vault, "Agent.md")).replace(/^---\n[\s\S]*?\n---\n/, "");
+    const saved = async () => bodyOf(await noteText(vault, "Agent.md"));
     for (const [keys, want] of steps) {
       for (const key of keys.split(" ")) await page.keyboard.press(key);
       if (typeof want === "string") {

@@ -1,5 +1,5 @@
 import type { Page, Response } from "@playwright/test";
-import { leader, openApp, vaultWith } from "../../harness/app.ts";
+import { bodyOf, leader, localDate, noteText, openApp, vaultWith } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 
 const DUE = "<!--SR:!2020-01-01,3,250-->";
@@ -167,5 +167,102 @@ test.describe("the deck counts through a backend that restarts (#1139)", () => {
     await page.clock.runFor(60_000);
     await expect(waiting(page)).toContainText("2 cards waiting");
     expect(reads()).toBe(3);
+  });
+});
+
+test.describe("a new card rated again (#816)", () => {
+  // Pinned, as a rating stamps the day it reads at the press (#1315).
+  const NOW = new Date(2026, 7, 10, 12);
+  const day = (days: number) => localDate(new Date(2026, 7, 10 + days, 12));
+  const fsrs = (due: number, fields: string) =>
+    `<!--SR:!fsrs,${day(due)}T00:00:00.000Z,${fields},${day(0)}T00:00:00.000Z-->`;
+  const AWS = "03 Flashcards/aws.md";
+  const VPC = "What is a VPC?::A private cloud";
+  const SM2 = `#flashcards/aws\n\n${VPC} ${DUE}\n`;
+  const card = async (vault: string) =>
+    (await noteText(vault, AWS)).split("\n").find((line) => line.startsWith(VPC));
+  const aws = (page: Page) => page.locator('button[data-deck="aws"]');
+
+  /** The aws deck under `limit` new a day, opened on its sitting. */
+  async function sit(page: Page, vault: string, text: string, limit = "aws: 1 new\n") {
+    await vaultWith(vault, { [AWS]: text, "99 Misc/01 Config/decks.md": limit });
+    await page.clock.setFixedTime(NOW);
+    await openReview(page);
+    await aws(page).click();
+  }
+
+  /** Each rating in turn, turning the card first. */
+  async function rate(page: Page, ...names: string[]) {
+    for (const name of names) {
+      await page.getByRole("button", { name: "Show the answer" }).click();
+      await page.getByRole("button", { name, exact: true }).click();
+    }
+    await expect(page.getByTestId("review-done")).toBeVisible();
+  }
+
+  for (const [ratings, due, fields] of [
+    [["Again", "Good"], 3, "3,2.31,2.12,2,1,0,0"],
+    [["Again", "Easy"], 8, "8,8.30,1.00,2,1,0,0"],
+    [["Again", "Again", "Good"], 3, "3,2.31,2.12,2,1,0,0"],
+  ] as const)
+    test(`${ratings.join(" then ")} writes a first answer and spends one new card of the limit`, async ({
+      page,
+      stack,
+    }) => {
+      const three = `#flashcards/aws\n\n${VPC}\n\nWhat is S3?::Storage\n\nWhat is EC2?::A server\n`;
+      await sit(page, stack.vault, three);
+      await rate(page, ...ratings);
+      await expect.poll(() => card(stack.vault)).toBe(`${VPC} ${fsrs(due, fields)}`);
+      // Back on the overview the one new card a day is spent: read as a review, the row would offer S3.
+      await page.getByRole("button", { name: "← Decks" }).click();
+      await expect(aws(page)).toBeDisabled();
+      await expect(aws(page)).not.toContainText("new");
+    });
+
+  test("a review card rated again then good turns into FSRS from its SM-2 schedule", async ({
+    page,
+    stack,
+  }) => {
+    await sit(page, stack.vault, SM2, "");
+    await rate(page, "Again", "Good");
+    await expect.poll(() => card(stack.vault)).toBe(`${VPC} ${fsrs(3, "3,1.69,8.50,2,4,1,0")}`);
+  });
+
+  test("#1926 undo of the rating that turned an SM-2 card into FSRS puts its SM-2 comment back as it was", async ({
+    page,
+    stack,
+  }) => {
+    await sit(page, stack.vault, SM2, "");
+    await rate(page, "Good");
+    await expect.poll(() => card(stack.vault)).toContain("<!--SR:!fsrs,");
+    await page.getByRole("button", { name: "Undo" }).click();
+    await expect.poll(async () => bodyOf(await noteText(stack.vault, AWS))).toBe(SM2);
+  });
+
+  test("undo of the second rating, then again, still writes a first answer", async ({ page, stack }) => {
+    await sit(page, stack.vault, `#flashcards/aws\n\n${VPC}\n`);
+    await rate(page, "Again", "Good");
+    await page.getByRole("button", { name: "Undo" }).click();
+    // Back on the card, its answer still shown.
+    await expect(page.getByTestId("review-question")).toHaveText("What is a VPC?");
+    await page.getByRole("button", { name: "Again", exact: true }).click();
+    await expect.poll(() => card(stack.vault)).toBe(`${VPC} ${fsrs(1, "1,0.21,6.41,2,1,0,0")}`);
+  });
+
+  test("a whole note marked #review rated again then good writes a first answer's schedule", async ({
+    page,
+    stack,
+  }) => {
+    await vaultWith(stack.vault, { "notes/tls.md": "# TLS #review\n\nthe handshake\n" });
+    await page.clock.setFixedTime(NOW);
+    await openReview(page);
+    await page.locator('button[data-deck="tls"]').click();
+    // A whole note is shown from the start, so the ratings are the only buttons.
+    await page.getByRole("button", { name: "Again", exact: true }).click();
+    await page.getByRole("button", { name: "Good", exact: true }).click();
+    await expect(page.getByTestId("review-done")).toBeVisible();
+    const fields = async () =>
+      (await noteText(stack.vault, "notes/tls.md")).split("\n").filter((line) => line.startsWith("sr-"));
+    await expect.poll(fields).toEqual([`sr-due: ${day(1)}`, "sr-interval: 1", "sr-ease: 250"]);
   });
 });
