@@ -104,3 +104,99 @@ test.describe("on a phone", () => {
     expect(failed()).toBe(1);
   });
 });
+
+/** The home screen's columns, in the order drawn: 0 Today, 1 Recent, 2 Due. */
+const column = (page: Page, nth: number) =>
+  page.locator("[data-today] [data-today-column]").nth(nth);
+
+/** A Thursday, so the dates below read as today, last month and overdue. */
+const THURSDAY = new Date(2026, 9, 22, 9);
+const DOING_TODAY = "- [/] Draft the report 📅 2026-10-22";
+const stamped = (day: string) => `---\nmodified: 2026-10-${day}T09:00:00+00:00\n---\n\nwords\n`;
+
+/** Writes `notes` into the vault, then opens the app on Thursday's clock. */
+async function openThursday(page: Page, vault: string, notes: Record<string, string> = {}) {
+  await vaultWith(vault, notes);
+  await page.clock.setFixedTime(THURSDAY);
+  await page.goto("/");
+  await expect(page.locator("[data-today]")).toBeVisible({ timeout: 15_000 });
+}
+
+test.describe("the home screen's columns", () => {
+  test("Today heads the empty pane with the date", async ({ page, stack }) => {
+    await openThursday(page, stack.vault);
+    await expect(page.locator("[data-today] h1")).toHaveText("Thursday, 22 October 2026");
+  });
+
+  test("Today lists today's todos with their state", async ({ page, stack }) => {
+    await openThursday(page, stack.vault, { "report.md": `${DOING_TODAY}\n` });
+    const row = column(page, 0).getByRole("button", { name: /Draft the report/ });
+    await expect(row.getByRole("img", { name: "doing" })).toBeVisible();
+  });
+
+  test("Recent lists the notes edited most recently, newest first, with their day", async ({
+    page,
+    stack,
+  }) => {
+    await openThursday(page, stack.vault, { "a.md": stamped("20"), "b.md": stamped("21") });
+    await expect(column(page, 1).getByRole("button")).toHaveText(["b21 Oct", "a20 Oct"]);
+  });
+
+  test("Due lists overdue todos and open loops, and leaves out a todo of today", async ({
+    page,
+    stack,
+  }) => {
+    const todos = `- [ ] Pay the bill 📅 2026-10-01\n- [w] Wait for Anna\n${DOING_TODAY}\n`;
+    await openThursday(page, stack.vault, { "loops.md": todos });
+    const overdue = column(page, 2).getByRole("button", { name: /Pay the bill/ });
+    await expect(overdue).toBeVisible();
+    await expect(column(page, 2).getByRole("button", { name: /Wait for Anna/ })).toBeVisible();
+    await expect(column(page, 2)).toContainText("Overdue");
+    await expect(column(page, 2)).toContainText("Open loops");
+    await expect(column(page, 2)).not.toContainText("Draft the report");
+  });
+
+  test("each column says so plainly when it has nothing", async ({ page, stack }) => {
+    // The fixture's undated todos are neither today nor overdue; with its cards gone nothing is due.
+    await openThursday(page, stack.vault, {
+      "03 Flashcards/Capitals.md": "#flashcards/capitals\n",
+    });
+    await expect(column(page, 0)).toContainText("Nothing for today.");
+    await expect(column(page, 1)).toContainText("Nothing written lately.");
+    await expect(column(page, 2)).toContainText("Nothing due.");
+  });
+
+  test("a failed todos read leaves Today its plain line and the other columns drawn", async ({
+    page,
+    stack,
+  }) => {
+    const failed = await gateway(
+      page,
+      (url) => url.pathname === "/api/todos",
+      () => true,
+    );
+    await openThursday(page, stack.vault, { "report.md": `${DOING_TODAY}\n` });
+    await expect.poll(failed).toBeGreaterThan(0);
+    await expect(column(page, 0)).toContainText("Nothing for today.");
+    await expect(column(page, 0)).not.toContainText("Draft the report");
+    await expect(column(page, 2)).toContainText(/\d+ cards? waiting/);
+  });
+
+  test.describe("on a phone", () => {
+    test.use(phone);
+
+    test("the three columns stack, Today over Recent over Due", async ({ page, stack }) => {
+      await openThursday(page, stack.vault, {
+        "report.md": `${DOING_TODAY}\n`,
+        "b.md": stamped("21"),
+      });
+      await expect(column(page, 0)).toContainText("Draft the report");
+      await expect(column(page, 1)).toContainText("b21 Oct");
+      const tops = await Promise.all(
+        [0, 1, 2].map(async (n) => (await column(page, n).boundingBox())?.y ?? 0),
+      );
+      expect(tops[0]).toBeLessThan(tops[1] ?? 0);
+      expect(tops[1]).toBeLessThan(tops[2] ?? 0);
+    });
+  });
+});
