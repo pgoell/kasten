@@ -202,13 +202,19 @@ test.describe("by touch (#421)", () => {
       stack,
     }) => {
       await byTouch(page, stack.vault);
+      const writes: string[] = [];
+      page.on("request", (request) => {
+        const path = decodeURIComponent(new URL(request.url()).pathname);
+        if (request.method() !== "GET" && path.endsWith(NOTE)) writes.push(path);
+      });
       await more(page, "edit");
       await page.getByLabel("edit line").press(key);
       await expect(page.getByLabel("edit line")).toHaveCount(0);
 
       await button(page, "board").tap();
       await expect(cards(page)).not.toHaveCount(0);
-      // Enter writes the line as it stands, so the note keeps it.
+      // Enter writes the line as it stands, and Escape writes nothing; the note keeps its text.
+      await expect.poll(() => writes.length).toBe(key === "Enter" ? 1 : 0);
       expect(bodyOf(await noteText(stack.vault, NOTE))).toBe(LINES);
     });
   }

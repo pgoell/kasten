@@ -108,7 +108,7 @@ const order = (
 
 /**
  * Answers the to-sort list's reads with two bookings and keeps each sort the page sends, as
- * `PUT path body`. A sort waits on `gate` while one is set.
+ * `path body`. A sort waits on `gate` while one is set.
  */
 async function toSort(page: Page, orders: unknown[] = []) {
   const sorts: string[] = [];
