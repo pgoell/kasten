@@ -153,7 +153,7 @@ test("an edit to the ontology note on disk changes what a line head offers, with
   );
 });
 
-// One line per case of the jsdom file this replaced; blank lines keep each its own paragraph.
+// Blank lines keep each case its own paragraph.
 const LINKS = [
   "intro",
   "see [the docs](https://example.com) now",
@@ -181,7 +181,7 @@ const LINKS = [
   "| a |\n| - |\n| [text] |\n| [b]() |",
 ].join("\n\n");
 
-// Every link line as the jsdom cases read them; the cursor sits on `intro`.
+// The cursor sits on `intro`, so no link is revealed.
 const DRAWN = [
   ["intro", "see <L:the docs> now", "plain", "<R:[!note]> not a callout", "see <R:[text]> here"],
   ["see [text] here", "see [text][ref] here", "see <L:a> here", "see <U:the docs> now"],
