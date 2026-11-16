@@ -165,7 +165,7 @@ test.describe("on a wide touch screen", () => {
   test.use({ viewport: { width: 3000, height: 900 }, hasTouch: true, isMobile: true });
 
   test("the contents and Taken rows are 44 px and Tab stops", async ({ page, stack }) => {
-    const pane = await openContents(page, stack.vault, true);
+    const pane = await openContents(page, stack.vault, "tap");
     // A short passage, so a Taken row with no 44 px floor is one line and shorter than that.
     await select(page, "Chapter One");
     await pane.locator("footer").getByRole("button", { name: "Take" }).tap();
@@ -188,10 +188,91 @@ test.describe("on a wide touch screen", () => {
   });
 });
 
+test.describe("the book pane's side columns on a desktop", () => {
+  test.use({ viewport: { width: 3000, height: 900 } });
+
+  /** Resizes the window until the book pane's content box, what it measures, is `px` wide to the pixel. */
+  async function paneAt(page: Page, pane: Locator, px: number) {
+    const inner = () =>
+      pane.evaluate((el) => {
+        const s = getComputedStyle(el);
+        const sides = ["paddingLeft", "paddingRight", "borderLeftWidth", "borderRightWidth"];
+        return sides.reduce(
+          (w, side) => w - Number.parseFloat(s[side as "paddingLeft"]),
+          el.getBoundingClientRect().width,
+        );
+      });
+    let ratio = 1;
+    for (let pass = 0; pass < 8; pass++) {
+      const now = await inner();
+      if (Math.floor(now) === px) return;
+      const size = page.viewportSize() as { width: number; height: number };
+      const step = Math.round((px + 0.5 - now) / ratio) || 1;
+      await page.setViewportSize({ ...size, width: size.width + step });
+      await page.evaluate(() => new Promise((done) => requestAnimationFrame(done)));
+      ratio = ((await inner()) - now) / step || ratio;
+    }
+    throw new Error(`the book pane never came to ${px} px`);
+  }
+
+  test("draws the contents from 1015 px of the pane's own width and Taken from 1303", async ({
+    page,
+    stack,
+  }) => {
+    const pane = await openContents(page, stack.vault, "click");
+    const contents = pane.getByRole("navigation", { name: "Book contents" });
+    const taken = pane.getByRole("region", { name: "Taken" });
+    // Each step from one side of a line to the other, so a column must come or go to pass.
+    for (const [px, shown, notes] of [
+      [1015, 1, 0],
+      [1014, 0, 0],
+      [1303, 1, 1],
+      [1302, 1, 0],
+    ]) {
+      // Measured again on a miss, since the pane's layout can still shift just after it opens.
+      await expect(async () => {
+        await paneAt(page, pane, px);
+        await expect(contents).toHaveCount(shown, { timeout: 2_000 });
+        await expect(taken).toHaveCount(notes, { timeout: 2_000 });
+      }).toPass({ timeout: 15_000 });
+    }
+    // Wider than either line, so the pane's own width decided and not the window's.
+    expect(page.viewportSize()?.width).toBeGreaterThan(1303);
+  });
+
+  test("marks the chapter read, Taken lists each take, and a row of either goes there", async ({
+    page,
+    stack,
+  }) => {
+    const pane = await openContents(page, stack.vault, "click");
+    const chapter = (name: string) =>
+      pane
+        .getByRole("navigation", { name: "Book contents" })
+        .getByRole("button", { name, exact: true });
+    const marked = pane.locator('nav[aria-label="Book contents"] [aria-current="true"]');
+    const taken = pane.getByRole("region", { name: "Taken" }).getByRole("button");
+    const take = async (words: string) => {
+      await select(page, words);
+      await pane.locator("button[data-take]").click();
+    };
+    await expect(marked).toHaveText(["One"]);
+    await take("Chapter One");
+    await expect(taken).toHaveText(["Chapter One"], { timeout: 15_000 });
+
+    await chapter("Two").click();
+    await expect(marked).toHaveText(["Two"]);
+    await take("Chapter Two");
+    await expect(taken).toHaveText(["Chapter One", "Chapter Two"], { timeout: 15_000 });
+
+    await taken.first().click();
+    await expect(marked).toHaveText(["One"]);
+  });
+});
+
 const book = "04 Books/Contents.md";
 
-/** The contents epub beside its note, opened from the command palette by taps; returns the pane. */
-async function openContents(page: Page, vault: string, wide = false): Promise<Locator> {
+/** The contents epub beside its note, opened from the command palette by taps, or on a wide screen by `wide`; returns the pane. */
+async function openContents(page: Page, vault: string, wide?: "tap" | "click"): Promise<Locator> {
   await vaultWith(vault, { [book]: "# A book\n" });
   await copyFile(
     join(root, "frontend/tests/fixtures/contents.epub"),
@@ -200,7 +281,7 @@ async function openContents(page: Page, vault: string, wide = false): Promise<Lo
   await page.goto(`/?note=${encodeURIComponent(book)}`);
   if (wide) {
     // A wide screen draws no toolbar; the palette's chord works with vim off.
-    await page.locator(".cm-line", { hasText: "A book" }).tap({ timeout: 15_000 });
+    await page.locator(".cm-line", { hasText: "A book" })[wide]({ timeout: 15_000 });
     await page.keyboard.press("Control+Shift+P");
   } else {
     const commands = page.getByRole("toolbar", { name: "Commands" });
@@ -210,7 +291,7 @@ async function openContents(page: Page, vault: string, wide = false): Promise<Lo
   await page
     .getByRole("option", { name: /Read this note's book beside it/ })
     .first()
-    .tap();
+    [wide ?? "tap"]();
   const pane = page.locator("[data-book-pane]");
   await expect(pane.locator("header")).toContainText("%", { timeout: 15_000 });
   return pane;

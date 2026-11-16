@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import { leader, noteText, openApp, openNote, vaultWith } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
+import { fakeYouTube } from "../../../harness/youtube.ts";
 
 /** Counts the browser's fetches of the built mermaid bundle; call before the page loads. */
 function mermaidLoads(page: Page): string[] {
@@ -179,43 +180,43 @@ for (const preview of ["on", "off"]) {
   });
 }
 
+/** A 1 px png, so a drawn picture loads with a size above zero. */
+const DOT = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+  "base64",
+);
+
+/** Each picture live preview draws in the note, as its address and alt text, once it has loaded. */
+async function pictures(page: Page): Promise<[string | null, string | null][]> {
+  const drawn = page.locator(".cm-content img.cm-image");
+  for (const img of await drawn.all())
+    await expect
+      .poll(() => img.evaluate((node: HTMLImageElement) => node.complete && node.naturalWidth))
+      .toBeGreaterThan(0);
+  return drawn.evaluateAll((nodes) =>
+    nodes.map((node) => [node.getAttribute("src"), node.getAttribute("alt")]),
+  );
+}
+
+async function opened(page: Page, vault: string, body: string, vim: boolean): Promise<void> {
+  await vaultWith(vault, {
+    "99 Misc/shot.png": DOT,
+    "x y.png": DOT,
+    "other.png": DOT,
+    "Shot.md": `intro\n\n${body}`,
+  });
+  if (!vim) await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
+  // The https picture's host answers here, so no request leaves the box.
+  await page.route("https://example.com/**", (route) =>
+    route.fulfill({ contentType: "image/png", body: DOT }),
+  );
+  await openApp(page);
+  await openNote(page, "Shot");
+}
+
 test.describe("a space in an image address (#553)", () => {
   const SHOT = "![shot](99 Misc/shot.png)";
   const DRAWN = "/api/assets/99%20Misc/shot.png";
-  /** A 1 px png, so a drawn picture loads with a size above zero. */
-  const DOT = Buffer.from(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
-    "base64",
-  );
-
-  /** Each picture live preview draws in the note, as its address and alt text, once it has loaded. */
-  async function pictures(page: Page): Promise<[string | null, string | null][]> {
-    const drawn = page.locator(".cm-content img.cm-image");
-    for (const img of await drawn.all())
-      await expect
-        .poll(() => img.evaluate((node: HTMLImageElement) => node.complete && node.naturalWidth))
-        .toBeGreaterThan(0);
-    return drawn.evaluateAll((nodes) =>
-      nodes.map((node) => [node.getAttribute("src"), node.getAttribute("alt")]),
-    );
-  }
-
-  async function opened(page: Page, vault: string, body: string, vim: boolean): Promise<void> {
-    await vaultWith(vault, {
-      "99 Misc/shot.png": DOT,
-      "x y.png": DOT,
-      "other.png": DOT,
-      "Shot.md": `intro\n\n${body}`,
-    });
-    if (!vim) await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
-    // The https picture's host answers here, so no request leaves the box.
-    await page.route("https://example.com/**", (route) =>
-      route.fulfill({ contentType: "image/png", body: DOT }),
-    );
-    await openApp(page);
-    await openNote(page, "Shot");
-  }
-
   for (const vim of [true, false]) {
     const mode = vim ? "vim on" : "vim off";
 
@@ -273,6 +274,69 @@ test.describe("a space in an image address (#553)", () => {
   }) => {
     await opened(page, stack.vault, "![a](x y.png)\n\n[a]: other.png", false);
     await expect.poll(() => pictures(page)).toEqual([["/api/assets/x%20y.png", "a"]]);
+  });
+});
+
+test.describe("a reference image (#547, #554)", () => {
+  const CAT = "https://example.com/cat.png";
+  // Lines 2 to 22 of the note, the table at 24 and the fence at 28 after the "intro" opened writes.
+  const BODY = [
+    ...["![cat][pic]", "![b][]", "![c]", "![alt][ref]", "![alt][]", "![alt]"],
+    ...["![d][js]", "![e][data]", "![f][vb]", "![g][code]", "![h](<other.png>)"],
+    "| a |\n| - |\n| ![cat][pic] |",
+    `\`\`\`\n[code]: ${CAT}\n\`\`\``,
+    ...[`[pic]: ${CAT}`, `[b]: ${CAT}`, `[c]: ${CAT}`, "[js]: javascript:x"],
+    ...["[data]: data:image/png;base64,AA", "[vb]: vbscript:x"],
+  ].join("\n\n");
+  const lineAt = (page: Page, n: number) => page.locator(".cm-content .cm-line").nth(n);
+  const part = (n: number) => BODY.split("\n\n")[n / 2 - 1];
+  const drawn = [
+    [CAT, "cat"],
+    [CAT, "b"],
+    [CAT, "c"],
+    ["/api/assets/other.png", "h"],
+    [CAT, "cat"],
+  ];
+
+  for (const vim of [true, false]) {
+    // A step down passes over the drawn line, so the caret comes back left onto its end.
+    const onto = vim ? ["j", "j", "i", "ArrowLeft"] : ["ArrowDown", "ArrowDown", "ArrowLeft"];
+    const off = vim ? ["Escape", "g", "g"] : ["Control+Home"];
+
+    test(`draws a defined one as its picture, marks an undefined one and keeps a script one as typed, vim ${vim ? "on" : "off"}`, async ({
+      page,
+      stack,
+    }) => {
+      await opened(page, stack.vault, BODY, vim);
+      await expect.poll(() => pictures(page)).toEqual(drawn);
+      for (const n of [8, 10, 12])
+        await expect(lineAt(page, n).locator(".cm-plain-brackets")).toHaveText(part(n));
+      for (const n of [14, 16, 18, 20]) await expect(lineAt(page, n)).toHaveText(part(n));
+
+      // On its line the source comes back, in insert mode with vim on; off it, the picture again.
+      for (const key of onto) await page.keyboard.press(key);
+      await expect(lineAt(page, 2)).toHaveText("![cat][pic]");
+      for (const key of off) await page.keyboard.press(key);
+      await expect.poll(() => pictures(page)).toEqual(drawn);
+    });
+  }
+
+  test("draws one defined as a video as its player and as a sound as its control", async ({
+    page,
+    stack,
+  }) => {
+    const blocked = await fakeYouTube(page);
+    const defs = "[clip]: https://youtu.be/iDulhoQ2pro\n\n[word]: x.mp3";
+    await opened(page, stack.vault, `![v][clip]\n\n![s][word]\n\n${defs}`, false);
+    await expect(page.locator("iframe.cm-video-frame")).toHaveAttribute(
+      "src",
+      /\/embed\/iDulhoQ2pro/,
+    );
+    await expect(page.locator(".cm-content audio.cm-audio")).toHaveAttribute(
+      "src",
+      "/api/assets/x.mp3",
+    );
+    expect(blocked).toEqual([]);
   });
 });
 
@@ -380,6 +444,10 @@ test.describe("the live preview toggle", () => {
     await page.keyboard.press("0");
     await page.keyboard.press("x");
     await expect(line(page)).toHaveText("# Notes");
+    // On disk first, so the check after u cannot pass on the file as it started.
+    await expect
+      .poll(() => noteText(stack.vault, "Heads.md"), { timeout: 15_000 })
+      .toMatch(/^# Notes/m);
     await leader(page, "p");
     await leader(page, "p");
     await page.keyboard.press("u");
