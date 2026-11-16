@@ -1,8 +1,9 @@
 import { isolateHistory, redo, undo } from "@codemirror/commands";
 import { Transaction } from "@codemirror/state";
+import type { EditorView } from "@codemirror/view";
 import { act, fireEvent, render } from "@testing-library/react";
 import { Editor } from "@/components/editor";
-import { takeVaultText } from "@/lib/notes/editor/buffer-writes";
+import { takeVaultText, writeWatched } from "@/lib/notes/editor/buffer-writes";
 import { runExCommand } from "./editor-fixture";
 import { content, typeAt, viewIn } from "./table-lineup-fixture";
 
@@ -203,6 +204,49 @@ describe("#1662 one u takes back a whole vim insert", () => {
     fireEvent.keyDown(content(container), { key: "z", ctrlKey: true });
     localStorage.clear();
     expect(view.state.doc.toString()).toBe(stamped + BODY);
+  });
+});
+
+describe("#2098 an undo after the first save added the frontmatter", () => {
+  /** A note with no frontmatter whose first line `edit` rewrote, then the save's block lands above it. */
+  function rewritten(before: string, after: string, land: (view: EditorView) => void) {
+    const { container } = render(<Editor initialDoc={before} preview={false} />);
+    const view = viewIn(container);
+    act(() =>
+      view.dispatch({ changes: { from: 0, to: before.length, insert: after }, userEvent: "input" }),
+    );
+    act(() => land(view));
+    const landed = view.state.doc.toString();
+    act(() => undo(view));
+    const undone = view.state.doc.toString();
+    act(() => redo(view));
+    return { landed, undone, redone: view.state.doc.toString() };
+  }
+
+  it.each(["- [ ] call ada #agent", "-- call ada", "--- call ada", "---", "---\ncall ada"])(
+    "the block goes in above %j, and u gives call ada back under it, ctrl+r the line",
+    (after) => {
+      const { landed, undone, redone } = rewritten("call ada", after, (view) =>
+        takeVaultText(view, STAMP + after),
+      );
+      expect([landed, undone, redone]).toEqual([STAMP + after, `${STAMP}call ada`, landed]);
+    },
+  );
+
+  it("the video position's block lands above a rewritten first line too", () => {
+    const { undone } = rewritten("call ada", "- call ada", (view) =>
+      writeWatched(view, { id: "abc", seconds: 5 }),
+    );
+    expect(undone).toBe("---\nwatching: {abc: 5}\n---\ncall ada");
+  });
+
+  it("an outside write appending a line still lands past the line typed last", () => {
+    const { container } = render(<Editor initialDoc={"a\n"} preview={false} />);
+    const view = viewIn(container);
+    typeAt(view, 2, "foo\n");
+    act(() => takeVaultText(view, "a\nfoo\nbar\n"));
+    act(() => undo(view));
+    expect(view.state.doc.toString()).toBe("a\nbar\n");
   });
 });
 
