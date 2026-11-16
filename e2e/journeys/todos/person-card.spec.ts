@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import {
   cursorTo,
+  findNote,
   leader,
   noteText,
   openApp,
@@ -348,5 +349,84 @@ test.describe("the assignee chip on a todo pane row", () => {
       ]);
       expect(await body(stack.vault)).toContain(`\n${CHORE_LINES[0]}\n`);
     });
+  });
+});
+
+test.describe("the name place after a field that takes the 👤 (#1021)", () => {
+  const PLACE = "02 Projects/Place.md";
+  const DAY = "2026-10-25";
+  const MARKS = { kettle: "⏲", lamp: "⏱", mop: "🆔", nail: "⛔" };
+  const waiting = (words: string, mark: string) => `- [w] ${words} ${mark} 👤 ${DAY} 👤 ${DAY}`;
+  const named = (words: string, mark: string) => `- [w] ${words} 👤 ${DAY} Zoe ${mark} 👤 ${DAY}`;
+  const placeBody = async (vault: string) =>
+    (await noteText(vault, PLACE)).replace(/^---\n[\s\S]*?\n---\n/, "");
+
+  /** Place.md with a todo per mark, open or already waiting, on `DAY`. */
+  async function placeNote(
+    page: Page,
+    vault: string,
+    line: (words: string, mark: string) => string,
+  ) {
+    const lines = Object.entries(MARKS).map(([words, mark]) => line(words, mark));
+    await vaultWith(vault, { [PLACE]: `# Place\n\n${lines.join("\n")}\n` });
+    await page.clock.setFixedTime(new Date(`${DAY}T12:00:00`));
+  }
+
+  test("Space s w puts the cursor after the wait stamp it wrote, so a name typed there follows the stamp", async ({
+    page,
+    stack,
+  }) => {
+    await placeNote(page, stack.vault, (words, mark) => `- [ ] ${words} ${mark} 👤 ${DAY}`);
+    await openApp(page);
+    await findNote(page, "Place");
+    for (const words of Object.keys(MARKS)) {
+      await page.keyboard.press("/");
+      await page.keyboard.type(words);
+      await page.keyboard.press("Enter");
+      await leader(page, "sw");
+      await page.keyboard.press("a");
+      await page.keyboard.type(" Zoe");
+      await page.keyboard.press("Escape");
+    }
+    const want = Object.entries(MARKS).map(([words, mark]) => named(words, mark));
+    await expect.poll(() => placeBody(stack.vault), { timeout: 15_000 }).toContain(want.join("\n"));
+  });
+
+  // The caret sits on the stamp's last digit, which only vim's `a` steps past (#2094).
+  test("with vim off, the palette's waiting puts the cursor on the last digit of the wait stamp it wrote", async ({
+    page,
+    stack,
+  }) => {
+    await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
+    await placeNote(page, stack.vault, (words, mark) => `- [ ] ${words} ${mark} 👤 ${DAY}`);
+    await page.goto(`/?note=${encodeURIComponent(PLACE)}`);
+    await page.locator(".cm-line", { hasText: "kettle" }).click({ timeout: 15_000 });
+    await page.keyboard.press("Control+Shift+P");
+    await page.keyboard.type("Set this todo to waiting on somebody");
+    await page.keyboard.press("Enter");
+    await page.keyboard.type(" Zoe");
+    await expect
+      .poll(() => placeBody(stack.vault), { timeout: 15_000 })
+      .toContain(`- [w] kettle 👤 ${DAY.slice(0, -1)} Zoe${DAY.slice(-1)} ⏲ 👤 ${DAY}`);
+  });
+
+  test("i in the todo pane on a waiting row puts the caret after the wait stamp", async ({
+    page,
+    stack,
+  }) => {
+    await placeNote(page, stack.vault, waiting);
+    await openApp(page);
+    await leader(page, "gt");
+    const input = page.getByLabel("edit line");
+    for (const [words, mark] of Object.entries(MARKS)) {
+      await cursorTo(page, words);
+      await page.keyboard.press("i");
+      await expect(input).toHaveValue(waiting(words, mark));
+      await expect
+        .poll(() => input.evaluate((field: HTMLInputElement) => field.selectionStart))
+        .toBe(waiting(words, mark).length);
+      await page.keyboard.press("Escape");
+      await expect(input).toHaveCount(0);
+    }
   });
 });

@@ -363,3 +363,18 @@ test("a tap on a kind chip narrows the list, a part going with its parent's kind
   await expect(card(1)).toHaveCount(0);
   await expect(page.locator("[data-card]", { hasText: "fold the laundry" })).toHaveCount(0);
 });
+
+test("edit by touch on a waiting row whose estimate takes the 👤 puts the caret after the wait stamp (#1021)", async ({
+  page,
+  stack,
+}) => {
+  const line = "- [w] kettle ⏲ 👤 2026-10-25 👤 2026-10-25";
+  await page.clock.setFixedTime(new Date("2026-10-25T12:00:00"));
+  await pane(page, stack.vault, `${line}\n`, "kettle 2026-10-25");
+  await more(page, "kettle 2026-10-25").tap();
+  await strip(page, "edit", "kettle 2026-10-25").tap();
+  await expect(draft(page)).toHaveValue(line);
+  await expect
+    .poll(() => draft(page).evaluate((field: HTMLInputElement) => field.selectionStart))
+    .toBe(line.length);
+});
