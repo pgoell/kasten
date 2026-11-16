@@ -100,10 +100,6 @@ export function stubCommands() {
   } satisfies EditorCommands;
 }
 
-export function content(container: HTMLElement): string {
-  return (container.querySelector(".cm-content") as HTMLElement).textContent ?? "";
-}
-
 export function open(initialDoc: string, commands: EditorCommands = stubCommands(), path?: string) {
   const onChange = vi.fn();
   const onCycleTodo = vi.fn();

@@ -11,10 +11,14 @@ const tree = (page: Page) => page.getByRole("navigation", { name: "Vault" });
 const row = (page: Page, name: string) => page.getByRole("button", { name, exact: true });
 const dialog = (page: Page, name: string) => page.getByRole("dialog", { name });
 const book = (page: Page) => page.locator("[data-book-pane]");
+/** Whether `path` is on disk: only a missing file reads as false, any other fault fails the poll. */
 const exists = (path: string) =>
   access(path).then(
     () => true,
-    () => false,
+    (error: NodeJS.ErrnoException) => {
+      if (error.code === "ENOENT") return false;
+      throw error;
+    },
   );
 
 /** Waits for the editor to hold the focus, as keys sent sooner are lost (#1615). */
