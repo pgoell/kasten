@@ -401,32 +401,35 @@ test.describe("the list's state button by touch", () => {
     expect(writes).toEqual([]);
   });
 
-  test("neither a question nor an open strip carries onto another todo a write puts on the line", async ({
-    page,
-    stack,
-  }) => {
-    const writes = await byTouch(page, stack.vault, false);
-    await more(page, "fix the tap").tap();
-    await expect(strip(page, "done", "fix the tap")).toBeVisible();
-    await vaultWith(stack.vault, {
-      [ERRANDS]: ERRAND_LINES.replace("fix the tap", "feed the cat"),
-    });
-    // The vault's own watcher brings the write in, as slow as under load as any disk write.
-    await expect(more(page, "feed the cat")).toHaveAttribute("aria-expanded", "false", {
-      timeout: 15_000,
-    });
-    await expect(strip(page, "done", "feed the cat")).toHaveCount(0);
+  for (const motion of ["reduce", "no-preference"] as const) {
+    test(`with motion ${motion}, neither a question nor an open strip carries onto another todo a write puts on the line`, async ({
+      page,
+      stack,
+    }) => {
+      await page.emulateMedia({ reducedMotion: motion });
+      const writes = await byTouch(page, stack.vault, false);
+      await more(page, "fix the tap").tap();
+      await expect(strip(page, "done", "fix the tap")).toBeVisible();
+      await vaultWith(stack.vault, {
+        [ERRANDS]: ERRAND_LINES.replace("fix the tap", "feed the cat"),
+      });
+      // The vault's own watcher brings the write in, as slow as under load as any disk write.
+      await expect(more(page, "feed the cat")).toHaveAttribute("aria-expanded", "false", {
+        timeout: 15_000,
+      });
+      await expect(strip(page, "done", "feed the cat")).toHaveCount(0);
 
-    await cycle(page, "feed the cat").tap();
-    await asks(page, "feed the cat");
-    await vaultWith(stack.vault, {
-      [ERRANDS]: ERRAND_LINES.replace("fix the tap", "mend the gate"),
+      await cycle(page, "feed the cat").tap();
+      await asks(page, "feed the cat");
+      await vaultWith(stack.vault, {
+        [ERRANDS]: ERRAND_LINES.replace("fix the tap", "mend the gate"),
+      });
+      await expect(cycle(page, "mend the gate")).toBeVisible({ timeout: 15_000 });
+      await quiet(page, "mend the gate");
+      await expect(cycle(page, "mend the gate").locator('svg[data-state="open"]')).toHaveCount(1);
+      await cycle(page, "mend the gate").tap();
+      await asks(page, "mend the gate");
+      expect(writes).toEqual([]);
     });
-    await expect(cycle(page, "mend the gate")).toBeVisible({ timeout: 15_000 });
-    await quiet(page, "mend the gate");
-    await expect(cycle(page, "mend the gate").locator('svg[data-state="open"]')).toHaveCount(1);
-    await cycle(page, "mend the gate").tap();
-    await asks(page, "mend the gate");
-    expect(writes).toEqual([]);
-  });
+  }
 });
