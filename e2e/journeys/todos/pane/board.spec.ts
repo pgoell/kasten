@@ -260,13 +260,19 @@ async function asks(page: Page, words: string, next?: string): Promise<void> {
   if (next) await expect(cycle(page, words).locator(`svg[data-state="${next}"]`)).toHaveCount(1);
 }
 
+/** Stops the clock, so only runFor moves the question's four seconds and no wait outlasts them. */
+async function pause(page: Page): Promise<void> {
+  await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 1000);
+}
+
 async function quiet(page: Page, words: string): Promise<void> {
   await expect(cycle(page, words)).toHaveAttribute("aria-pressed", "false");
   await expect(cycle(page, words)).not.toHaveText("?");
 }
 
 test.describe("the list's state button by touch", () => {
-  test.use(phone);
+  // Motion off: a fast second tap sometimes wrote nothing while the press animated (#2117).
+  test.use({ ...phone, reducedMotion: "reduce" });
 
   test("the first tap asks with the state it leaves and a ?, writing nothing; the second walks the row, a review row to done, and opens no note", async ({
     page,
@@ -345,12 +351,15 @@ test.describe("the list's state button by touch", () => {
     page,
     stack,
   }) => {
+    await page.clock.install();
     const writes = await byTouch(page, stack.vault, false);
+    await pause(page);
     await cycle(page, "fix the tap").tap();
     await footer(page).tap();
     await quiet(page, "fix the tap");
     await cycle(page, "fix the tap").tap();
     await asks(page, "fix the tap");
+    await page.clock.resume();
     await page.locator(TODO_ROW, { hasText: "ship it" }).tap();
     await expect(page.locator(".cm-activeLine:visible")).toHaveText("- [b] ship it");
     expect(writes).toEqual([]);
@@ -364,6 +373,7 @@ test.describe("the list's state button by touch", () => {
     await vaultWith(stack.vault, { "01 Notes/Filler.md": fill });
     await page.clock.install();
     const writes = await byTouch(page, stack.vault, false);
+    await pause(page);
     await cycle(page, "fix the tap").tap();
     await asks(page, "fix the tap");
     await page
@@ -373,9 +383,9 @@ test.describe("the list's state button by touch", () => {
         for (let at = row.parentElement; at; at = at.parentElement)
           if (at.scrollHeight > at.clientHeight + 50) return at.scrollBy(0, 50);
       });
+    // A scroll event waits for a frame, and the paused clock holds frames too.
+    await page.clock.runFor(100);
     await quiet(page, "fix the tap");
-    // Paused, so only runFor moves the four seconds and no real time slips in.
-    await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 1000);
     await cycle(page, "fix the tap").tap();
     await asks(page, "fix the tap");
     await page.clock.runFor(3999);
