@@ -378,3 +378,25 @@ test("edit by touch on a waiting row whose estimate takes the 👤 puts the care
     .poll(() => draft(page).evaluate((field: HTMLInputElement) => field.selectionStart))
     .toBe(line.length);
 });
+
+// Without vim the caret goes past the stamp, so the name typed next follows the date (#2094).
+test("the palette's waiting by touch puts the name typed next after the wait stamp", async ({
+  page,
+  stack,
+}) => {
+  const day = "2026-10-25";
+  await vaultWith(stack.vault, { [NOTE]: `- [ ] kettle ⏲ 👤 ${day}\n- [ ] call the plumber\n` });
+  await page.clock.setFixedTime(new Date(`${day}T12:00:00`));
+  await page.goto(`/?note=${encodeURIComponent(NOTE)}`);
+  for (const words of ["kettle", "call the plumber"]) {
+    await page.locator(".cm-line", { hasText: words }).tap({ timeout: 15_000 });
+    await page.getByRole("button", { name: "Run a command by name" }).tap();
+    await page.getByRole("combobox").fill("waiting on somebody");
+    await page.getByRole("option", { name: /waiting on somebody/ }).tap();
+    await expect(page.locator(".cm-content")).toBeFocused();
+    await page.keyboard.type(" Zoe");
+  }
+  await expect
+    .poll(() => disk(stack.vault), { timeout: 15_000 })
+    .toContain(`- [w] kettle 👤 ${day} Zoe ⏲ 👤 ${day}\n- [w] call the plumber 👤 ${day} Zoe`);
+});

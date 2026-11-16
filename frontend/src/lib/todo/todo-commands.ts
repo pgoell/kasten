@@ -1,5 +1,6 @@
 import { ChangeSet, Facet, type Line } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
+import { getCM } from "@replit/codemirror-vim";
 import { readClock } from "@/lib/core/clock";
 import { noticeHandler } from "@/lib/notes/embeds/image";
 import { appendUnderEdit, type Edit } from "@/lib/notes/text/note-section";
@@ -140,6 +141,9 @@ export function cycleTodoAtCursor(view: EditorView, want?: TodoState): void {
   );
 
   const named = want === "waiting" ? nameAt(cycled) : null;
+  // Vim's block cursor in normal mode sits on the last digit, where `a` types after it.
+  const vim = getCM(view)?.state.vim;
+  const block = vim && !vim.insertMode ? 1 : 0;
 
   view.dispatch({
     changes,
@@ -150,11 +154,11 @@ export function cycleTodoAtCursor(view: EditorView, want?: TodoState): void {
     // it; the box is then an offset into the line the changes just wrote.
     //
     // A line just set to waiting names nobody yet, and there the cursor goes
-    // onto the last digit of the date instead, so `a` types the name.
+    // past the date instead, so the name typed next follows it (#2094).
     selection: {
       anchor:
         changes.mapPos(line.from, -1) +
-        (named === null ? (BOX.exec(cycled)?.[0].length ?? 0) : named - 1),
+        (named === null ? (BOX.exec(cycled)?.[0].length ?? 0) : named - block),
     },
   });
 

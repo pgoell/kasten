@@ -392,22 +392,46 @@ test.describe("the name place after a field that takes the 👤 (#1021)", () => 
     await expect.poll(() => placeBody(stack.vault), { timeout: 15_000 }).toContain(want.join("\n"));
   });
 
-  // The caret sits on the stamp's last digit, which only vim's `a` steps past (#2094).
-  test("with vim off, the palette's waiting puts the cursor on the last digit of the wait stamp it wrote", async ({
+  /** A stamp with a field after it and one at the line's end, `vim` on or off. */
+  async function plumber(page: Page, vault: string, vim: string) {
+    await page.addInitScript((on) => localStorage.setItem("kasten.vim", on), vim);
+    await vaultWith(vault, { [PLACE]: `- [ ] kettle ⏲ 👤 ${DAY}\n- [ ] call the plumber\n` });
+    await page.clock.setFixedTime(new Date(`${DAY}T12:00:00`));
+    await page.goto(`/?note=${encodeURIComponent(PLACE)}`);
+  }
+  const plumbed = `- [w] kettle 👤 ${DAY} Zoe ⏲ 👤 ${DAY}\n- [w] call the plumber 👤 ${DAY} Zoe`;
+
+  /** Clicks the line, presses `keys`, then runs the palette's waiting by keys. */
+  async function paletteWaits(page: Page, words: string, ...keys: string[]) {
+    await page.locator(".cm-line", { hasText: words }).click({ timeout: 15_000 });
+    for (const key of [...keys, "Control+Shift+P"]) await page.keyboard.press(key);
+    await page.keyboard.type("Set this todo to waiting on somebody");
+    await page.keyboard.press("Enter");
+  }
+
+  test("with vim off, the palette's waiting puts the cursor after the wait stamp (#2094)", async ({
     page,
     stack,
   }) => {
-    await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
-    await placeNote(page, stack.vault, (words, mark) => `- [ ] ${words} ${mark} 👤 ${DAY}`);
-    await page.goto(`/?note=${encodeURIComponent(PLACE)}`);
-    await page.locator(".cm-line", { hasText: "kettle" }).click({ timeout: 15_000 });
-    await page.keyboard.press("Control+Shift+P");
-    await page.keyboard.type("Set this todo to waiting on somebody");
-    await page.keyboard.press("Enter");
+    await plumber(page, stack.vault, "off");
+    await paletteWaits(page, "kettle");
     await page.keyboard.type(" Zoe");
-    await expect
-      .poll(() => placeBody(stack.vault), { timeout: 15_000 })
-      .toContain(`- [w] kettle 👤 ${DAY.slice(0, -1)} Zoe${DAY.slice(-1)} ⏲ 👤 ${DAY}`);
+    await paletteWaits(page, "call the plumber");
+    await page.keyboard.type(" Zoe");
+    await expect.poll(() => placeBody(stack.vault), { timeout: 15_000 }).toContain(plumbed);
+  });
+
+  // Normal mode leaves the cursor on the last digit for `a`; insert mode types at the caret.
+  test("with vim on, the palette's waiting then a, or in insert mode, puts the name after the stamp", async ({
+    page,
+    stack,
+  }) => {
+    await plumber(page, stack.vault, "on");
+    await paletteWaits(page, "kettle", "Escape");
+    await page.keyboard.type("a Zoe");
+    await paletteWaits(page, "call the plumber", "Escape", "i");
+    await page.keyboard.type(" Zoe");
+    await expect.poll(() => placeBody(stack.vault), { timeout: 15_000 }).toContain(plumbed);
   });
 
   test("i in the todo pane on a waiting row puts the caret after the wait stamp", async ({

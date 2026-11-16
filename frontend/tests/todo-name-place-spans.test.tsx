@@ -149,7 +149,7 @@ describe("#1018 the name place with vim off and by touch", () => {
 
     const stamped = `- [w] see \`👤 ${TODAY} x\` x 👤 ${TODAY}`;
     expect(doc()).toBe(stamped);
-    expect(view.state.selection.main.head).toBe(stamped.length - 1);
+    expect(view.state.selection.main.head).toBe(stamped.length);
   });
 
   it("#1018 I4 by touch, edit on a waiting row past a code span puts the cursor after the stamp", async () => {
