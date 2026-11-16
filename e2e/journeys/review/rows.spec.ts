@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { leader, openApp, readAll, vaultWith } from "../../harness/app.ts";
+import { leader, openApp, phone, readAll, tapHeight, vaultWith } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 
 /** Opens the review pane on its overview, with the focus in it. */
@@ -143,5 +143,139 @@ test.describe("the review overview's words and rows", () => {
     await expect(page.locator('button[data-deck="zeta"]')).toBeVisible();
     await expect(summary(page)).toHaveText("Nothing to go today.");
     await expect(page.getByRole("button", { name: /^Start with/ })).toHaveCount(0);
+  });
+});
+
+test.describe("the Anki link import", () => {
+  const LINK = "https://ankiweb.net/shared/info/1104981491";
+  const DONE = { notes: ["Anki/AWS.md"], cards: 120, media: 2, added: 5, updated: 3 };
+  const SUMMARY =
+    "1 deck, 120 cards: 5 added, 3 updated, 110 kept, 2 removed in Anki, 2 media files";
+  type Answer = { status: number; detail?: string } | "hold";
+
+  /** Answers each POST /api/anki/link with the next of `answers`, the last one over; the stack has no internet. */
+  async function serveLink(page: Page, answers: Answer[]) {
+    const asked: { url: string; carry: string | null }[] = [];
+    await page.route(
+      (url) => url.pathname === "/api/anki/link",
+      async (route) => {
+        const answer = answers[Math.min(asked.length, answers.length - 1)];
+        const query = new URL(route.request().url()).searchParams;
+        asked.push({ url: route.request().postDataJSON().url, carry: query.get("carry") });
+        if (answer === "hold") return;
+        const body = answer.detail ? { detail: answer.detail } : { ...DONE, kept: 110, removed: 2 };
+        await route.fulfill({ status: answer.status, json: body });
+      },
+    );
+    return asked;
+  }
+
+  /** The link field, with the import row opened under the decks. */
+  async function openImport(page: Page) {
+    await openReview(page);
+    await page.getByText("Import an Anki deck").click();
+    return page.getByLabel("a link to an Anki deck");
+  }
+
+  test("Import link sends the pasted link and shows the line a file import shows, and an empty or blank field sends nothing", async ({
+    page,
+  }) => {
+    const asked = await serveLink(page, [{ status: 200 }]);
+    const field = await openImport(page);
+    const button = page.getByRole("button", { name: "Import link" });
+    await button.click();
+    await field.fill("   ");
+    await button.click();
+    await field.fill(LINK);
+    await button.click();
+    await expect(page.getByText(SUMMARY)).toBeVisible();
+    expect(asked).toEqual([{ url: LINK, carry: null }]);
+    await expect(field).toHaveValue("");
+  });
+
+  test("Enter in the field imports, carrying Anki's schedule when ticked", async ({ page }) => {
+    const asked = await serveLink(page, [{ status: 200 }]);
+    const field = await openImport(page);
+    await page.getByRole("checkbox", { name: "Carry Anki's schedule" }).check();
+    await field.fill(LINK);
+    await field.press("Enter");
+    await expect(page.getByText(SUMMARY)).toBeVisible();
+    expect(asked).toEqual([{ url: LINK, carry: "true" }]);
+  });
+
+  test("a link that is not a URL reaches the backend, whose refusal shows word for word and keeps the link to try again", async ({
+    page,
+  }) => {
+    const detail = "That page is not an AnkiWeb shared deck, and the link is not an .apkg";
+    const asked = await serveLink(page, [{ status: 400, detail }, { status: 200 }]);
+    const field = await openImport(page);
+    await field.fill("ankiweb.net/shared/info/1");
+    await field.press("Enter");
+    await expect(page.getByText(detail, { exact: true })).toBeVisible();
+    await expect(field).toHaveValue("ankiweb.net/shared/info/1");
+
+    await page.getByRole("button", { name: "Import link" }).click();
+    await expect(page.getByText(SUMMARY)).toBeVisible();
+    expect(asked.map((ask) => ask.url)).toEqual(Array(2).fill("ankiweb.net/shared/info/1"));
+    await expect(field).toHaveValue("");
+  });
+
+  test("a second click or Enter while importing sends no second import, the button disabled and the line saying Importing", async ({
+    page,
+  }) => {
+    const asked = await serveLink(page, ["hold"]);
+    const field = await openImport(page);
+    const button = page.getByRole("button", { name: "Import link" });
+    await field.fill(LINK);
+    await button.click();
+    await expect(button).toBeDisabled();
+    await expect(page.getByText("Importing…")).toBeVisible();
+    await field.press("Enter");
+    await button.click({ force: true });
+    await expect.poll(() => asked.length).toBe(1);
+    // Room for a second POST to reach the route, had one gone.
+    await page.evaluate(() => new Promise((done) => setTimeout(done, 300)));
+    expect(asked).toHaveLength(1);
+  });
+
+  test("j and p typed in the link field land in it and move nothing, while p on the pane opens the parked list", async ({
+    page,
+  }) => {
+    const field = await openImport(page);
+    await field.click();
+    await page.keyboard.type("jp");
+    await expect(field).toHaveValue("jp");
+    await expect(field).toBeFocused();
+    await expect(page.getByRole("button", { name: "← Decks" })).toHaveCount(0);
+
+    await page.getByRole("heading", { name: "Review" }).click();
+    await page.keyboard.press("p");
+    await expect(page.getByRole("button", { name: "← Decks" })).toBeVisible();
+  });
+
+  test.describe("on a phone", () => {
+    test.use(phone);
+
+    test("a tap imports the link, the field and button are 44 px tall and the row fits the screen", async ({
+      page,
+    }) => {
+      const asked = await serveLink(page, [{ status: 200 }]);
+      await page.goto("/");
+      await page.getByRole("button", { name: "2 cards waiting" }).tap();
+      await page.getByText("Import an Anki deck").tap();
+      const field = page.getByLabel("a link to an Anki deck");
+      const button = page.getByRole("button", { name: "Import link" });
+      expect(await tapHeight(field)).toBeGreaterThanOrEqual(44);
+      expect(await tapHeight(button)).toBeGreaterThanOrEqual(44);
+      const right = await button.evaluate((el) => el.getBoundingClientRect().right);
+      expect(right).toBeLessThanOrEqual(414);
+      expect(await field.getAttribute("type")).toBe("url");
+
+      await field.tap();
+      await field.fill(LINK);
+      await button.tap();
+      await expect(page.getByText(SUMMARY)).toBeVisible();
+      expect(asked).toEqual([{ url: LINK, carry: null }]);
+    });
   });
 });
