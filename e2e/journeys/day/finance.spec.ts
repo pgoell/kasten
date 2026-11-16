@@ -74,10 +74,37 @@ const ORDER = {
   counterparty_name: "Amazon",
   splits: [{ id: 11, amount: "-10.00", text: "Cable" }],
 };
-const charge = (id: number, amount: string, status: string, transaction_id: number | null = null) =>
-  ({ id, kind: "charge", key: `k${id}`, charged_on: "2026-10-17", amount, transaction_id, status, items: [] });
-const order = (id: number, source: string, merchant: string, total: string, charges: unknown[]) =>
-  ({ id, source, order_key: `o${id}`, ordered_on: `2026-10-${18 - id}`, merchant, total, currency: "EUR", charges });
+const charge = (
+  id: number,
+  amount: string,
+  status: string,
+  transaction_id: number | null = null,
+) => ({
+  id,
+  kind: "charge",
+  key: `k${id}`,
+  charged_on: "2026-10-17",
+  amount,
+  transaction_id,
+  status,
+  items: [],
+});
+const order = (
+  id: number,
+  source: string,
+  merchant: string,
+  total: string,
+  charges: unknown[],
+) => ({
+  id,
+  source,
+  order_key: `o${id}`,
+  ordered_on: `2026-10-${18 - id}`,
+  merchant,
+  total,
+  currency: "EUR",
+  charges,
+});
 
 /**
  * Answers the to-sort list's reads with two bookings and keeps each sort the page sends, as
@@ -91,13 +118,16 @@ async function toSort(page: Page, orders: unknown[] = []) {
     route.fulfill({ json: { total: 2, bookings: [BAKERY, ORDER] } }),
   );
   await page.route("**/api/finance/orders/unmatched", (route) => route.fulfill({ json: orders }));
-  await page.route(/\/api\/finance\/(transactions|splits|payees)\/\d+(\/category)?$/, async (route) => {
-    const request = route.request();
-    if (request.method() !== "PUT") return route.fallback();
-    sorts.push(`${new URL(request.url()).pathname} ${request.postData()}`);
-    await box.gate;
-    return route.fulfill({ status: 204 });
-  });
+  await page.route(
+    /\/api\/finance\/(transactions|splits|payees)\/\d+(\/category)?$/,
+    async (route) => {
+      const request = route.request();
+      if (request.method() !== "PUT") return route.fallback();
+      sorts.push(`${new URL(request.url()).pathname} ${request.postData()}`);
+      await box.gate;
+      return route.fulfill({ status: 204 });
+    },
+  );
   await openApp(page);
   await page.keyboard.press("Control+Shift+P");
   await page.getByRole("option", { name: /^Open the finance pane/ }).click();
@@ -187,7 +217,9 @@ test("#1035 a key held with Ctrl, Alt or Meta sorts nothing, and a plain one sor
   for (const held of ["Control", "Alt", "Meta"]) await page.keyboard.press(`${held}+1`);
   await page.keyboard.press("2");
 
-  await expect.poll(() => sorts).toEqual(['/api/finance/transactions/1/category {"category_id":9}']);
+  await expect
+    .poll(() => sorts)
+    .toEqual(['/api/finance/transactions/1/category {"category_id":9}']);
 });
 
 test("#1035 a second press while a sort is in the air sorts nothing more", async ({ page }) => {
