@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test";
 import {
+  bodyOf,
   cursorTo,
   findNote,
   leader,
@@ -254,8 +255,7 @@ async function chorePane(page: Page, vault: string) {
   const row = (words: string) => page.locator(TODO_ROW, { hasText: words });
   return { row, chip: (words: string) => row(words).locator("[data-person]") };
 }
-const body = async (vault: string) =>
-  (await noteText(vault, CHORES)).replace(/^---\n[\s\S]*?\n---\n/, "");
+const body = async (vault: string) => bodyOf(await noteText(vault, CHORES));
 
 test.describe("the assignee chip on a todo pane row", () => {
   test("names the person on open, doing and waiting rows, an alias by its words, and links only a name with a note", async ({
@@ -358,8 +358,7 @@ test.describe("the name place after a field that takes the 👤 (#1021)", () => 
   const MARKS = { kettle: "⏲", lamp: "⏱", mop: "🆔", nail: "⛔" };
   const waiting = (words: string, mark: string) => `- [w] ${words} ${mark} 👤 ${DAY} 👤 ${DAY}`;
   const named = (words: string, mark: string) => `- [w] ${words} 👤 ${DAY} Zoe ${mark} 👤 ${DAY}`;
-  const placeBody = async (vault: string) =>
-    (await noteText(vault, PLACE)).replace(/^---\n[\s\S]*?\n---\n/, "");
+  const placeBody = async (vault: string) => bodyOf(await noteText(vault, PLACE));
 
   /** Place.md with a todo per mark, open or already waiting, on `DAY`. */
   async function placeNote(

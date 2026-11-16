@@ -1,12 +1,13 @@
 import type { Page } from "@playwright/test";
 import {
+  bodyOf,
   cursorTo,
   findNote,
   leader,
-  localDate,
   noteText,
   openApp,
   phone,
+  plus,
   readAll,
   TODO_ROW,
   today,
@@ -260,7 +261,7 @@ test("b in the todo pane picking a blocker the todo names already keeps the pick
   await cursorTo(page, "ship the release", 1);
   await page.keyboard.press("Enter");
   await expect(page.getByTestId("todo-pick")).toHaveText("⛔ pick what blocks: write the docs");
-  expect((await noteText(stack.vault, "Waits.md")).replace(/^---\n[\s\S]*?\n---\n/, "")).toBe(note);
+  expect(bodyOf(await noteText(stack.vault, "Waits.md"))).toBe(note);
 });
 
 test("the todo pane says on a row what it waits for and how many wait for it", async ({
@@ -306,8 +307,6 @@ test("#544 the todo pane holds no row on an id whose two todos are both closed",
   await expect(page.getByTitle(/waits for/)).toHaveCount(0);
 });
 
-/** `days` after today, as the vault writes a date. */
-const plus = (days: number) => localDate(new Date(Date.now() + days * 86_400_000));
 const NEXT_YEAR = `${new Date().getFullYear() + 1}-03-01`;
 /** The todo pane's group headings, each with its count, in the order drawn. */
 const headings = (page: Page) => page.getByRole("heading").allTextContents();

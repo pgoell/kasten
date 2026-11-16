@@ -1,13 +1,21 @@
 import type { Page } from "@playwright/test";
-import { hold, noteText, PANE, phone, TODO_ROW, today, vaultWith } from "../../../harness/app.ts";
+import {
+  bodyOf,
+  hold,
+  noteText,
+  PANE,
+  phone,
+  TODO_ROW,
+  today,
+  vaultWith,
+} from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
 
 test.use(phone);
 
 const NOTE = "02 Projects/Taps.md";
 const LINES = "- [ ] buy milk\n- [ ] renew the passport\n- [ ] ship it\n";
-const disk = (vault: string) =>
-  noteText(vault, NOTE).then((t) => t.replace(/^---\n[\s\S]*?\n---\n/, ""));
+const disk = (vault: string) => noteText(vault, NOTE).then(bodyOf);
 const more = (page: Page, name: string) => page.getByRole("button", { name: `more for ${name}` });
 const strip = (page: Page, label: string, name: string) =>
   page.getByRole("button", { name: `${label} ${name}`, exact: true });

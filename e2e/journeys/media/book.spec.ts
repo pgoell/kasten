@@ -2,6 +2,7 @@ import { copyFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import type { Locator, Page } from "@playwright/test";
 import {
+  bodyOf,
   findNote,
   leader,
   noteText,
@@ -329,8 +330,7 @@ test.describe("Note beside on a pdf opened from the tree", () => {
   const PDF = "x/my plan.pdf";
   const NOTE = "x/my plan.md";
   const besideButton = (page: Page) => page.getByRole("button", { name: "Note beside" });
-  const body = async (vault: string) =>
-    (await noteText(vault, NOTE)).replace(/^---\n[\s\S]*?\n---\n/, "");
+  const body = async (vault: string) => bodyOf(await noteText(vault, NOTE));
 
   /** The pdf, and its note when given, in the vault; the pdf open in its own pane from the tree. */
   async function openPlan(page: Page, vault: string, note?: string) {
