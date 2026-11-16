@@ -107,23 +107,23 @@ test.describe("on a phone", () => {
     stack,
   }) => {
     const writes = await byTouch(page, stack.vault);
-    await page.getByRole("tab", { name: "Doing 1" }).tap();
-    await page.getByRole("button", { name: "more for draw the chart" }).tap();
-    await strip(page, "done", "draw the chart").tap();
+    // Off the cycle's path, so a state cycled rather than set would land elsewhere.
+    await page.getByRole("button", { name: "more for fix the tap" }).tap();
+    await strip(page, "done", "fix the tap").tap();
     await expect
-      .poll(() => disk(stack.vault, PLAN))
-      .toContain(`  - [x] draw the chart ✅ ${today()}`);
+      .poll(() => disk(stack.vault, ERRANDS))
+      .toContain(`- [x] fix the tap ✅ ${today()}`);
     await page.getByRole("tab", { name: /^Done / }).tap();
-    await expect(shown(page)).toContainText(["draw the chart"]);
-    expect(writes.filter((url) => url.endsWith("plan.md"))).toHaveLength(1);
+    await expect(shown(page)).toContainText(["fix the tap"]);
+    expect(writes.filter((url) => url.endsWith("Errands.md"))).toHaveLength(1);
 
-    await page.getByRole("tab", { name: /^Open / }).tap();
-    await page.getByRole("button", { name: "more for write the deck" }).tap();
-    await strip(page, "doing", "write the deck").focus();
+    await page.getByRole("tab", { name: /^Doing / }).tap();
+    await page.getByRole("button", { name: "more for draw the chart" }).tap();
+    await strip(page, "review", "draw the chart").focus();
     await page.keyboard.press("Enter");
-    await expect.poll(() => disk(stack.vault, PLAN)).toContain("- [/] write the deck #internal");
+    await expect.poll(() => disk(stack.vault, PLAN)).toContain("  - [r] draw the chart\n");
     await expect(page.locator(".cm-activeLine")).toHaveCount(0);
-    expect(writes.filter((url) => url.endsWith("plan.md"))).toHaveLength(2);
+    expect(writes.filter((url) => url.endsWith("plan.md"))).toHaveLength(1);
   });
 
   test("B4 cancel shuts the project picker, writes nothing and hands the focus back to the card under the cursor", async ({
@@ -138,7 +138,13 @@ test.describe("on a phone", () => {
     await cancel.tap();
     await expect(page.getByTestId("todo-project-pick")).toHaveCount(0);
     await expect(cursorCard(page)).toBeFocused();
-    expect([writes, await disk(stack.vault, ERRANDS)]).toEqual([[], ERRAND_LINES]);
+    // A later write queues behind any the cancel sent, so the note then shows both or this alone.
+    await page.getByRole("button", { name: "more for fix the tap" }).tap();
+    await strip(page, "doing", "fix the tap").tap();
+    await expect
+      .poll(() => disk(stack.vault, ERRANDS))
+      .toBe(ERRAND_LINES.replace("- [ ] fix the tap", "- [/] fix the tap"));
+    expect(writes).toHaveLength(1);
   });
 
   test("#773 Enter on a focused ⋯ opens its strip and not the cursor card's note, and Space on a focused tab shows that state", async ({
