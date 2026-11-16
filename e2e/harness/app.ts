@@ -273,3 +273,49 @@ export async function walkBackoff(
     })
     .toBeGreaterThan(0);
 }
+
+/**
+ * Each drawn line and table cell but the blank ones, its runs wrapped by look: `<L:…>` the link
+ * colour underlined, `<D:…>` muted and dotted (a dead link), `<U:…>` underlined in another ink,
+ * `<R:…>` muted with no line (a relation's name, or a quote's plain brackets).
+ */
+export const drawn = (page: Page): Promise<string[]> =>
+  page.locator(".cm-content:visible").evaluate((content) => {
+    const tone = (token: string) => {
+      const probe = document.createElement("span");
+      probe.style.color = `var(${token})`;
+      content.append(probe);
+      const { color } = getComputedStyle(probe);
+      probe.remove();
+      return color;
+    };
+    const [link, muted] = [tone("--k-link"), tone("--k-muted")];
+    // Underline does not inherit: the line sits on the link's span, not the text's own.
+    const underline = (from: Element | null, box: Element) => {
+      for (let at = from; at && at !== box; at = at.parentElement) {
+        const style = getComputedStyle(at);
+        if (style.textDecorationLine.includes("underline")) return style;
+      }
+      return null;
+    };
+    const look = (text: Node, box: Element) => {
+      const { color } = getComputedStyle(text.parentElement as Element);
+      const line = underline(text.parentElement, box);
+      if (!line) return color === muted ? "R" : "";
+      if (color === link) return "L";
+      return color === muted && line.textDecorationStyle === "dotted" ? "D" : "U";
+    };
+    const runs = (box: Element) => {
+      const parts: { kind: string; text: string }[] = [];
+      const walk = document.createTreeWalker(box, NodeFilter.SHOW_TEXT);
+      for (let text = walk.nextNode(); text; text = walk.nextNode()) {
+        const kind = look(text, box);
+        const last = parts.at(-1);
+        if (last?.kind === kind) last.text += text.textContent;
+        else parts.push({ kind, text: text.textContent ?? "" });
+      }
+      return parts.map(({ kind, text }) => (kind ? `<${kind}:${text}>` : text)).join("");
+    };
+    const boxes = [...content.querySelectorAll(".cm-line, .cm-table-grid tbody td")].map(runs);
+    return boxes.filter((text) => text !== "");
+  });

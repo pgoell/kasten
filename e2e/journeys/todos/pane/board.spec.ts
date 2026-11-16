@@ -244,3 +244,189 @@ test("#396 A1 #488 on a desktop the list's footer names m refile, and the board'
   await expect(footer(page)).toContainText("m refile");
   await expect(footer(page)).toContainText("h l column");
 });
+
+const cycle = (page: Page, words: string) =>
+  page.getByRole("button", { name: `cycle ${words}`, exact: true });
+const more = (page: Page, words: string) =>
+  page.getByRole("button", { name: `more for ${words}`, exact: true });
+const lineOf = async (vault: string, path: string, words: string) =>
+  (await disk(vault, path)).split("\n").find((line) => line.includes(words));
+const STATES = ["open", "doing", "review", "done", "blocked", "waiting", "rejected"];
+
+/** Whether the row's state button asks: a ? over the state the next tap leaves. */
+async function asks(page: Page, words: string, next?: string): Promise<void> {
+  await expect(cycle(page, words)).toHaveAttribute("aria-pressed", "true");
+  await expect(cycle(page, words)).toHaveText("?");
+  if (next) await expect(cycle(page, words).locator(`svg[data-state="${next}"]`)).toHaveCount(1);
+}
+
+/** Stops the clock, so only runFor moves the question's four seconds and no wait outlasts them. */
+async function pause(page: Page): Promise<void> {
+  await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 1000);
+}
+
+async function quiet(page: Page, words: string): Promise<void> {
+  await expect(cycle(page, words)).toHaveAttribute("aria-pressed", "false");
+  await expect(cycle(page, words)).not.toHaveText("?");
+}
+
+test.describe("the list's state button by touch", () => {
+  test.use(phone);
+
+  // Motion off: a fast second tap sometimes wrote nothing while the press animated (#2117).
+  test.describe("motion off", () => {
+    test.use({ reducedMotion: "reduce" });
+
+    test("the first tap asks with the state it leaves and a ?, writing nothing; the second walks the row, a review row to done, and opens no note", async ({
+      page,
+      stack,
+    }) => {
+      await vaultWith(stack.vault, { "01 Notes/Parser.md": "- [r] write the parser\n" });
+      const writes = await byTouch(page, stack.vault, false);
+      // Done also logs into today's note; the count is of the todos' own notes.
+      const notes = () => writes.filter((url) => !url.includes("Daily"));
+      const rows = [
+        ["fix the tap", "doing", ERRANDS, "- [/] fix the tap"],
+        ["write the parser", "done", "01 Notes/Parser.md", "- [x] write the parser"],
+      ];
+      for (const [n, [words, next, path, walked]] of rows.entries()) {
+        await cycle(page, words).tap();
+        await asks(page, words, next);
+        expect(notes()).toHaveLength(n);
+        await cycle(page, words).tap();
+        await expect.poll(() => lineOf(stack.vault, path, words)).toContain(walked);
+        expect(notes()).toHaveLength(n + 1);
+      }
+      await expect(page.locator(".cm-content:visible")).toHaveCount(0);
+    });
+  });
+
+  test("the strip names the states in the order of the shifted keys, and a tap on each sets it on the one tap and shuts the strip", async ({
+    page,
+    stack,
+  }) => {
+    const writes = await byTouch(page, stack.vault, false);
+    await more(page, "fix the tap").tap();
+    const labels = await page
+      .locator('[aria-label$=" fix the tap"]')
+      .evaluateAll((all) => all.map((button) => button.getAttribute("aria-label")));
+    const named = STATES.map((one) => `${one} fix the tap`);
+    expect(labels.filter((label) => named.includes(label ?? ""))).toEqual(named);
+    await more(page, "fix the tap").tap();
+
+    const marks = { doing: "/", review: "r", blocked: "b", waiting: "w", open: " ", done: "x" };
+    const sets = Object.entries(marks).map(([one, mark]) => [one, mark, "fix the tap"]);
+    for (const [n, [one, mark, words]] of [...sets, ["rejected", "-", "ship it"]].entries()) {
+      await more(page, words).tap();
+      await strip(page, one, words).tap();
+      await expect(strip(page, one, words)).toHaveCount(0);
+      await expect
+        .poll(() => lineOf(stack.vault, ERRANDS, words))
+        .toContain(`- [${mark}] ${words}`);
+      expect(writes.filter((url) => url.endsWith("Errands.md"))).toHaveLength(n + 1);
+    }
+  });
+
+  test("a question lasts for one row: another row's first tap moves it, a strip opening takes it back, and a state tapped shuts an open strip", async ({
+    page,
+    stack,
+  }) => {
+    const writes = await byTouch(page, stack.vault, false);
+    await cycle(page, "fix the tap").tap();
+    await cycle(page, "ship it").tap();
+    await asks(page, "ship it");
+    await quiet(page, "fix the tap");
+    for (const other of ["ship it", "fix the tap"]) {
+      await cycle(page, "fix the tap").tap();
+      await asks(page, "fix the tap");
+      await more(page, other).tap();
+      await quiet(page, "fix the tap");
+      await more(page, other).tap();
+    }
+    await more(page, "fix the tap").tap();
+    await cycle(page, "ship it").tap();
+    await asks(page, "ship it");
+    await expect(more(page, "fix the tap")).toHaveAttribute("aria-expanded", "false");
+    await expect(strip(page, "done", "fix the tap")).toHaveCount(0);
+    expect(writes).toEqual([]);
+  });
+
+  test("a tap elsewhere takes the question back, and a tap on a row then opens its note, writing nothing", async ({
+    page,
+    stack,
+  }) => {
+    await page.clock.install();
+    const writes = await byTouch(page, stack.vault, false);
+    await pause(page);
+    await cycle(page, "fix the tap").tap();
+    await footer(page).tap();
+    await quiet(page, "fix the tap");
+    await cycle(page, "fix the tap").tap();
+    await asks(page, "fix the tap");
+    await page.clock.resume();
+    await page.locator(TODO_ROW, { hasText: "ship it" }).tap();
+    await expect(page.locator(".cm-activeLine:visible")).toHaveText("- [b] ship it");
+    expect(writes).toEqual([]);
+  });
+
+  test("a scroll of the list or four seconds take the question back, and the tap after asks again", async ({
+    page,
+    stack,
+  }) => {
+    const fill = Array.from({ length: 30 }, (_, n) => `- [ ] filler ${n}\n`).join("");
+    await vaultWith(stack.vault, { "01 Notes/Filler.md": fill });
+    await page.clock.install();
+    const writes = await byTouch(page, stack.vault, false);
+    await pause(page);
+    await cycle(page, "fix the tap").tap();
+    await asks(page, "fix the tap");
+    await page
+      .locator(TODO_ROW)
+      .first()
+      .evaluate((row) => {
+        for (let at = row.parentElement; at; at = at.parentElement)
+          if (at.scrollHeight > at.clientHeight + 50) return at.scrollBy(0, 50);
+      });
+    // A scroll event waits for a frame, and the paused clock holds frames too.
+    await page.clock.runFor(100);
+    await quiet(page, "fix the tap");
+    await cycle(page, "fix the tap").tap();
+    await asks(page, "fix the tap");
+    await page.clock.runFor(3999);
+    await asks(page, "fix the tap");
+    await page.clock.runFor(1);
+    await quiet(page, "fix the tap");
+    await cycle(page, "fix the tap").tap();
+    await asks(page, "fix the tap");
+    expect(writes).toEqual([]);
+  });
+
+  test("neither a question nor an open strip carries onto another todo a write puts on the line", async ({
+    page,
+    stack,
+  }) => {
+    const writes = await byTouch(page, stack.vault, false);
+    await more(page, "fix the tap").tap();
+    await expect(strip(page, "done", "fix the tap")).toBeVisible();
+    await vaultWith(stack.vault, {
+      [ERRANDS]: ERRAND_LINES.replace("fix the tap", "feed the cat"),
+    });
+    // The vault's own watcher brings the write in, as slow as under load as any disk write.
+    await expect(more(page, "feed the cat")).toHaveAttribute("aria-expanded", "false", {
+      timeout: 15_000,
+    });
+    await expect(strip(page, "done", "feed the cat")).toHaveCount(0);
+
+    await cycle(page, "feed the cat").tap();
+    await asks(page, "feed the cat");
+    await vaultWith(stack.vault, {
+      [ERRANDS]: ERRAND_LINES.replace("fix the tap", "mend the gate"),
+    });
+    await expect(cycle(page, "mend the gate")).toBeVisible({ timeout: 15_000 });
+    await quiet(page, "mend the gate");
+    await expect(cycle(page, "mend the gate").locator('svg[data-state="open"]')).toHaveCount(1);
+    await cycle(page, "mend the gate").tap();
+    await asks(page, "mend the gate");
+    expect(writes).toEqual([]);
+  });
+});
