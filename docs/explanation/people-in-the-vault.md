@@ -63,7 +63,8 @@ A todo or a list item for a person carries `👤 [[Name]]`, the person it is for
 in any state. The card counts that link as it counts any other, so the item
 shows on the person's card. The todo pane and the board draw the link as a chip
 that opens the person note. Where the note is missing, the chip still shows, in
-an unlinked look.
+an unlinked look. Until the vault's file list arrives, the chip cannot tell which,
+so it shows in a plain look and a press on it opens nothing.
 
 Pascal and Alicia are person notes like any other: `type: Person`, in
 `03 Areas/08 People/`.

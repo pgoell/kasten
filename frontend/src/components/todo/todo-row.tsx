@@ -100,7 +100,7 @@ function metaLine({
 }: {
   project: string | null | undefined;
   todo: Todo;
-  files: string[];
+  files: string[] | undefined;
   wait: string | null;
   blockers: string[];
   dependents: Todo[] | undefined;
@@ -162,11 +162,11 @@ interface RowProps {
   muted: boolean;
   coarse: boolean;
   indent: React.CSSProperties;
-  /** Every path in the vault, which the assignee's chip resolves its note against. */
-  files: string[];
+  /** Every path in the vault, which the assignee's chip resolves its note against; undefined while it loads. */
+  files: string[] | undefined;
   onClick(): void;
-  /** Opens the person note a chip on the row names. */
-  onPerson(path: string): void;
+  /** A press on the row's chip: the person note it names, or null while the file list loads. */
+  onPerson(path: string | null): void;
   /** Set on a row of the first load, the place it staggers in at. */
   enter?: number;
 }
@@ -246,7 +246,7 @@ export const TodoRow = memo(function TodoRow({
       // A tap is Enter by finger. A chip on the row takes its own press.
       onClick={(event) => {
         const note = chipNote(event.target);
-        if (note === null) onClick();
+        if (note === undefined) onClick();
         else onPerson(note);
       }}
       title={key}

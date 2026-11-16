@@ -156,6 +156,8 @@ export function TodoPane({
   // this value, so the hold and twins keep step with the rows.
   const data = useDeferredValue(answer);
   const narrowing = useTodoFilter();
+  // Undefined only while the list loads: a failed one leaves each chip dashed, not waiting (#2124).
+  const paths = narrowing.files ?? (narrowing.filesFailed ? NO_FILES : undefined);
   const blocker = useBlockerPick(onBlock);
   // A blocker is picked off the open list, whichever list `b` was pressed on.
   const listed: Mode = blocker.picking === null ? mode : "open";
@@ -492,7 +494,7 @@ export function TodoPane({
           named={facts.links.named}
           closed={facts.links.closed}
           progress={facts.progress}
-          files={narrowing.files ?? NO_FILES}
+          files={paths}
           today={today}
           coarse={coarse}
           held={held}
@@ -517,7 +519,7 @@ export function TodoPane({
           armed={armed.armed}
           onArm={armed.arm}
           onRow={onRow}
-          files={narrowing.files ?? NO_FILES}
+          files={paths}
           onPerson={(path) => onOpen(path, 1)}
           onWrite={write}
           onCycle={onCycle}

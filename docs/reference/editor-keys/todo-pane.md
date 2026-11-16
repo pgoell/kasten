@@ -83,7 +83,7 @@ sits in the group its due date names rather than under a heading of its own, its
 state already being written on the line. A row
 [waiting on somebody](/reference/todo-format/state-changes.md#waiting-on-somebody) is drawn
 the same way and says for how many days and on whom before its date,
-`👤 7d Ada Lovelace`. A narrow row cuts the name short and keeps the days. A todo with an assignee draws it as a chip with that person's name, and a click or tap on the chip opens the person note, not the row. Over the open list the footer draws [the legend](#the-legend)
+`👤 7d Ada Lovelace`. A narrow row cuts the name short and keeps the days. A todo with an assignee draws it as a chip with that person's name, and a click or tap on the chip opens the person note, not the row. Until the vault's file list arrives, the chip is plain, neither filled nor dashed, and a press on it opens nothing. Over the open list the footer draws [the legend](#the-legend)
 and how many timers are going where any are. Over the next list and the
 blocker picker it counts the rows in words, so many open and so many blocked,
 how many are waiting and how many are to review where any are. With a mouse

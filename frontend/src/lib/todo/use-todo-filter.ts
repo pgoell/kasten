@@ -50,7 +50,10 @@ export function useTodoFilter() {
 
   // Cached by the route, so this costs no request. A try around the GET could not
   // tell a missing note from a backend that is down.
-  const { data: files } = useQuery({ queryKey: ["files"], queryFn: fetchFiles });
+  const { data: files, isError: filesFailed } = useQuery({
+    queryKey: ["files"],
+    queryFn: fetchFiles,
+  });
   const missing = files !== undefined && !files.includes(VIEWS_NOTE);
 
   const { data: note, isFetching: reading } = useQuery({
@@ -96,6 +99,7 @@ export function useTodoFilter() {
     line,
     named,
     files,
+    filesFailed,
     kind,
     setKind,
     shared,

@@ -43,8 +43,8 @@ interface TodoBoardProps {
   closed: Closed;
   /** `3/5` keyed by `path:line`. */
   progress: Map<string, string>;
-  /** Every path in the vault, which `p` lists projects from and a link resolves against. */
-  files: string[];
+  /** Every path in the vault, which `p` lists projects from and a link resolves against; undefined while it loads. */
+  files: string[] | undefined;
   today: string;
   coarse: boolean;
   /** The pane's `held`: whether the keys were ours before a redraw dropped the focus. */
@@ -111,7 +111,7 @@ export function TodoBoard({
       },
     );
 
-  const choices = useMemo(() => projectChoices(files), [files]);
+  const choices = useMemo(() => projectChoices(files ?? []), [files]);
 
   const { ancestors, lanes, columns } = useBoardLanes(cards, parents, byProject);
 
@@ -221,7 +221,7 @@ export function TodoBoard({
   function pick(hit: SearchHit, choice: (typeof choices)[number]) {
     closePicker();
     // Null where the line already links there: a second pick writes nothing.
-    const line = withProjectLink(hit.text, choice, files);
+    const line = withProjectLink(hit.text, choice, files ?? []);
     if (line !== null) onEdit(hit, line);
   }
 

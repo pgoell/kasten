@@ -31,7 +31,7 @@ interface CardMetaProps {
   progress: string | undefined;
   blockers: string[];
   assignee: Todo["assignee"];
-  files: string[];
+  files: string[] | undefined;
 }
 
 /** The line under a card's words: its parts' progress, what it waits for, and who it is assigned to. */
@@ -129,7 +129,7 @@ interface BoardCardProps {
   named: Map<string, Todo>;
   closed: Closed;
   today: string;
-  files: string[];
+  files: string[] | undefined;
   drag: Pick<CardDrag<Card>, "grab" | "swallowed">;
   /** The `⋯` strip open on a phone, by the card's key and text. */
   more: string | null;
@@ -182,8 +182,8 @@ export function BoardCard({
         if (drag.swallowed()) return;
         // A chip takes its own press: the person's note, from its first line.
         const note = chipNote(event.target);
-        if (note === null) onOpen(hit.path, hit.line);
-        else onOpen(note, 1);
+        if (note === undefined) onOpen(hit.path, hit.line);
+        else if (note !== null) onOpen(note, 1);
       }}
       title={key}
       // The card sits on `paper`, not `surface`: the due date's red is measured on that ground.

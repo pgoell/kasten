@@ -74,8 +74,8 @@ export function TodoList(p: {
   armed: string | null;
   onArm(key: string | null): void;
   onRow(hit: SearchHit): void;
-  /** Every path in the vault, which a row's assignee chip resolves its note against. */
-  files: string[];
+  /** Every path in the vault, which a row's assignee chip resolves its note against; undefined while it loads. */
+  files: string[] | undefined;
   onPerson(path: string): void;
   onWrite(hit: SearchHit, line: string): void;
   onCycle(hit: SearchHit): void;
@@ -126,8 +126,11 @@ export function TodoList(p: {
     live.current = { onRow, onPerson, picking };
   });
   const opens = (hit: SearchHit) => () => live.current.onRow(hit);
-  const chips = (hit: SearchHit) => (path: string) =>
-    live.current.picking ? live.current.onRow(hit) : live.current.onPerson(path);
+  // A chip still waiting for the file list opens nothing, but is still its row to a picker.
+  const chips = (hit: SearchHit) => (path: string | null) => {
+    if (live.current.picking) live.current.onRow(hit);
+    else if (path !== null) live.current.onPerson(path);
+  };
 
   /** One row of a group, drawn for the way it is used now. */
   function drawRow(row: Row) {
