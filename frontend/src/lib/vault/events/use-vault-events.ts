@@ -31,9 +31,9 @@ function dailySet(paths: string[] | undefined): string | undefined {
  * Ask for the todos, unless a press runs. Its end asks once its last write lands, and an answer
  * before that draws a still pending press back: a note it made brings index writes no press wrote (#1998).
  */
-function refreshTodos(queryClient: QueryClient): void {
+function refreshTodos(queryClient: QueryClient, fresh = false): void {
   if (pressRunning()) return;
-  queryClient.invalidateQueries({ queryKey: ["todos"] }, { cancelRefetch: false });
+  queryClient.invalidateQueries({ queryKey: ["todos"] }, { cancelRefetch: fresh });
 }
 
 /** A note written: its query, the todos and the graph. */
@@ -163,12 +163,12 @@ export function useVaultEvents(focusedNote: RefObject<FocusedNote>, onDeclined: 
       listed = nowListed;
     });
     // Every open, the first included: a reconnect can miss writes the backend never replays.
-    // At mount this joins the query's first fetch (cancelRefetch off), so it costs nothing.
+    // At mount the files and log reads join the query's first fetch (cancelRefetch off).
     stream.onopen = () => {
       queryClient.invalidateQueries({ queryKey: ["files"] }, { cancelRefetch: false });
       queryClient.invalidateQueries({ queryKey: ["log"] }, { cancelRefetch: false });
       // A fresh read, not one joined: a fetch begun before the open may predate a write no watcher saw (#2118).
-      if (!pressRunning()) queryClient.invalidateQueries({ queryKey: ["todos"] });
+      refreshTodos(queryClient, true);
       reloadLogConfig();
     };
     stream.onmessage = (message) => {
