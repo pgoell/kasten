@@ -1,10 +1,12 @@
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import {
   bodyOf,
   builtCss,
   leader,
+  listLines,
   noteText,
   openApp,
+  openLists,
   openNote,
   phone,
   TODO_ROW,
@@ -12,22 +14,11 @@ import {
 } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 
-// nginx serves the lists app on the share host's name alone (#736), the name frontend/nginx.conf writes out.
-const SHARE_HOST = "liste.pgoell.com";
-
-/** Opens the lists app as the share host serves it, over the shopping list the test's vault holds. */
-async function openLists(page: Page, vault: string): Promise<void> {
-  await vaultWith(vault, { "05 Shared/Einkauf.md": "- [ ] Milch\n" });
-  // Chromium sends its own Host; the request made here names the share host instead.
-  await page.route("**/lists.html", async (route) =>
-    route.fulfill({
-      response: await route.fetch({ headers: { ...route.request().headers(), host: SHARE_HOST } }),
-    }),
-  );
-  await page.goto("/lists.html");
-  // The item is read from the vault through the backend's `/share`.
-  await expect(page.getByText("Milch")).toBeVisible({ timeout: 15_000 });
-}
+const box = (at: Page | Locator, name: string) => at.getByRole("checkbox", { name, exact: true });
+const group = (page: Page, name: string) => page.getByRole("region", { name });
+const field = (page: Page) => page.getByRole("textbox", { name: "Eintrag" });
+const read = (boxes: Locator, key: string) =>
+  boxes.evaluateAll((all, k) => all.map((one) => one.getAttribute(k)), key);
 
 /** The page's scheme and the colour the theme's CSS paints its background with. */
 const painted = (page: Page) =>
@@ -51,6 +42,96 @@ test.describe("on a phone", () => {
     await page.emulateMedia({ colorScheme: "light" });
     await expect.poll(async () => (await painted(page))[0]).toBe("light");
     expect((await painted(page))[1]).not.toBe(dark);
+  });
+
+  test("open rows come first, Erledigt counts the done, a tap ticks and unticks, and Leeren empties the done", async ({
+    page,
+    stack,
+  }) => {
+    const list =
+      "- [x] Eier ✅ 2026-11-01\n- [ ] Milch 🆔 abc123\n- [x] Zitronen ✅ 2026-11-02\n- [ ] Brot\n";
+    await openLists(page, stack.vault, list);
+    const boxes = page.getByRole("checkbox");
+    expect(await read(boxes, "aria-label")).toEqual(["Milch", "Brot", "Eier", "Zitronen"]);
+    expect(await read(boxes, "aria-checked")).toEqual(["false", "false", "true", "true"]);
+    await expect(page.getByRole("heading", { name: "Erledigt 2" })).toBeVisible();
+    for (const mark of ["- [", "✅", "🆔", "abc123", "2026"]) {
+      await expect(page.locator("body")).not.toContainText(mark);
+    }
+
+    const done = group(page, "Erledigt");
+    await box(page, "Brot").tap();
+    await expect(box(done, "Brot")).toHaveAttribute("aria-checked", "true");
+    await expect(page.getByRole("heading", { name: "Erledigt 3" })).toBeVisible();
+    await box(done, "Eier").tap();
+    await expect(box(group(page, "Offen"), "Eier")).toHaveAttribute("aria-checked", "false");
+    await expect(page.getByRole("heading", { name: "Erledigt 2" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Leeren" }).tap();
+    await expect(done).toHaveCount(0);
+    await expect
+      .poll(() => listLines(stack.vault))
+      .toEqual(["- [ ] Eier", "- [ ] Milch 🆔 abc123"]);
+  });
+
+  test("first letters offer a done item and not an open one, a blank Enter writes nothing, and Enter adds and keeps the field", async ({
+    page,
+    stack,
+  }) => {
+    await openLists(page, stack.vault, "- [x] Milch ✅ 2026-11-01\n- [ ] Mineralwasser\n");
+    await field(page).fill("Mi");
+    await expect(page.getByRole("group", { name: "Vorschläge" }).getByRole("button")).toHaveText([
+      "Milch",
+    ]);
+
+    await field(page).fill("   ");
+    await field(page).press("Enter");
+    await field(page).fill("Brot");
+    await field(page).press("Enter");
+    await expect(box(group(page, "Offen"), "Brot")).toBeVisible();
+    await expect(field(page)).toHaveValue("");
+    await expect(field(page)).toBeFocused();
+    // One line more than the two written: the blank Enter, queued first, wrote none.
+    await expect
+      .poll(() => listLines(stack.vault))
+      .toEqual([
+        "- [x] Milch ✅ 2026-11-01",
+        "- [ ] Mineralwasser",
+        expect.stringMatching(/^- \[ \] Brot\b/),
+      ]);
+    await expect(page.getByRole("checkbox")).toHaveCount(3);
+    // A blank add that reached the server comes back refused, as an error on screen.
+    await expect(page.getByRole("alert")).toHaveCount(0);
+  });
+
+  test("an empty list says so, and the offline pill shows while the phone is offline", async ({
+    page,
+    context,
+    stack,
+  }) => {
+    await openLists(page, stack.vault, "");
+    await expect(page.getByText("Nichts auf der Liste")).toBeVisible();
+    const pill = page.getByText("Offline, wird gesendet");
+    await expect(pill).toHaveCount(0);
+    // Set once the page is up: a load while offline fails before the app runs.
+    await context.setOffline(true);
+    await expect(pill).toBeVisible();
+    await context.setOffline(false);
+    await expect(pill).toHaveCount(0);
+  });
+
+  test("links kasten's owner back to kasten, and nobody else", async ({ page, stack }) => {
+    // The e2e stack names no share people, so the owner's answer stands in for the proxy's.
+    const me = { me: "Pascal", people: ["Pascal"], home: "https://kasten.example/" };
+    await page.route("**/share/me", (route) => route.fulfill({ json: me }));
+    await openLists(page, stack.vault);
+    await expect(page.getByRole("link", { name: "kasten" })).toHaveAttribute("href", me.home);
+
+    await page.unroute("**/share/me");
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+    await expect(box(page, "Milch")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("link", { name: "kasten" })).toHaveCount(0);
   });
 });
 

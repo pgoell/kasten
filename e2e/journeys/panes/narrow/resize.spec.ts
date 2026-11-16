@@ -1,7 +1,17 @@
 import type { Page } from "@playwright/test";
-import { leader, openApp, openNote, PANE, panes, readAll } from "../../../harness/app.ts";
+import {
+  leader,
+  openApp,
+  openNote,
+  PANE,
+  panes,
+  phone,
+  readAll,
+  tapHeight,
+  vaultWith,
+} from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
-import { saved } from "../workspace/stored.ts";
+import { COARSE, FINE, saved, seed } from "../workspace/stored.ts";
 
 const tree = (page: Page) => page.getByRole("navigation", { name: "Vault" });
 const WIDE = { width: 1280, height: 800 };
@@ -85,5 +95,114 @@ test.describe("a live window narrowed and widened again", () => {
     await expect
       .poll(async () => [await placed(page, "left"), await page.getByTestId("pane-shown").count()])
       .toEqual([["0px", "calc(50% + 1px)"], 0]);
+  });
+});
+
+test.describe("the tab strip at each width", () => {
+  const NAMES = [...Array(8).keys()].map((n) => `a note whose name runs long ${n}`);
+  const more = (page: Page) => page.getByRole("button", { name: /^\d+ more$/ });
+  const tabs = (page: Page) => page.getByRole("tab");
+  const list = (page: Page) => page.getByRole("tablist");
+
+  /** Loads the app on eight tabs, one note each, the last active, under the pointer's own key. */
+  async function eight(page: Page, vault: string, key: string) {
+    await vaultWith(vault, Object.fromEntries(NAMES.map((name) => [`${name}.md`, "text\n"])));
+    const all = NAMES.map((name, n) => ({
+      id: `t${n}`,
+      root: { id: `p${n}`, path: `${name}.md` },
+      focus: `p${n}`,
+    }));
+    await seed(page, {
+      [key]: JSON.stringify({ layout: { tabs: all, active: 7 }, treeOpen: false }),
+    });
+    await page.goto("/");
+    await expect(page.getByRole("tab", { name: NAMES[7], selected: true })).toBeVisible({
+      timeout: 15_000,
+    });
+  }
+
+  /** Whether the tab is wholly inside the row's box, as the row has scrolled it. */
+  async function inRow(page: Page, name: string) {
+    const [row, tab] = await Promise.all([
+      list(page).boundingBox(),
+      page.getByRole("tab", { name }).boundingBox(),
+    ]);
+    return !!row && !!tab && tab.x >= row.x - 1 && tab.x + tab.width <= row.x + row.width + 1;
+  }
+
+  test.describe("on a phone", () => {
+    test.use(phone);
+
+    test("every tab is drawn with no N more, the active one in the row, a wrap to the first scrolls back, and the text is 15 px", async ({
+      page,
+      stack,
+    }) => {
+      await eight(page, stack.vault, COARSE);
+      await expect(tabs(page)).toHaveCount(8);
+      await expect(more(page)).toHaveCount(0);
+      await expect.poll(() => inRow(page, NAMES[7])).toBe(true);
+      expect(
+        await list(page).evaluate((row) => [row.scrollLeft > 0, getComputedStyle(row).fontSize]),
+      ).toEqual([true, "15px"]);
+
+      await page.getByRole("button", { name: "Run a command by name" }).tap();
+      await page.getByRole("option", { name: "Go to the next tab" }).tap();
+      await expect(page.getByRole("tab", { name: NAMES[0], selected: true })).toBeVisible();
+      await expect.poll(() => list(page).evaluate((row) => row.scrollLeft)).toBe(0);
+    });
+
+    test("the strip ends in a 44 px + named New note that opens the New note prompt, and folds once wide and not again once narrow", async ({
+      page,
+      stack,
+    }) => {
+      await eight(page, stack.vault, COARSE);
+      const plus = page.getByRole("button", { name: "New note" });
+      await expect(plus).toHaveText("");
+      await expect(plus.locator("svg")).toBeVisible();
+      expect((await plus.boundingBox())?.width).toBe(44);
+      await plus.tap();
+      await expect(page.getByRole("dialog", { name: "New note" })).toBeVisible();
+      await page.keyboard.press("Escape");
+
+      await page.setViewportSize(WIDE);
+      await expect(more(page)).toBeVisible();
+      await page.setViewportSize({ width: 414, height: 896 });
+      await expect(tabs(page)).toHaveCount(8);
+      await expect(more(page)).toHaveCount(0);
+    });
+  });
+
+  test("a narrow window with a mouse still folds the tabs behind N more", async ({
+    page,
+    stack,
+  }) => {
+    await page.setViewportSize(NARROW);
+    await eight(page, stack.vault, FINE);
+    await expect(more(page)).toBeVisible();
+    expect(await tabs(page).count()).toBeLessThan(8);
+  });
+
+  test("a wide window folds behind N more, and its top bar's New note, not the strip, makes a note", async ({
+    page,
+    stack,
+  }) => {
+    await eight(page, stack.vault, FINE);
+    await expect(more(page)).toBeVisible();
+    const button = page.getByRole("button", { name: "New note", exact: true });
+    await expect(button).toHaveCount(1);
+    await expect(button).toHaveText("New note");
+    await button.click();
+    await expect(page.getByRole("dialog", { name: "New note" })).toBeVisible();
+  });
+
+  test.describe("under a finger in a wide window", () => {
+    test.use({ ...phone, viewport: WIDE });
+
+    test("the top bar's search field is 13 px and at least 44 px tall", async ({ page, stack }) => {
+      await eight(page, stack.vault, COARSE);
+      const search = page.getByRole("button", { name: /^Search \d+ notes$/ });
+      expect(await search.evaluate((field) => getComputedStyle(field).fontSize)).toBe("13px");
+      expect(await tapHeight(search)).toBeGreaterThanOrEqual(44);
+    });
   });
 });
