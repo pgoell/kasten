@@ -13,16 +13,31 @@ async function line(vault: string, question: string): Promise<string> {
   return text.split("\n").find((row) => row.startsWith(`${question}::`)) ?? "";
 }
 
-/** Sits deck `beta` from the palette, which vim off reaches too, and waits for its first card. */
-async function sitBeta(page: Page, vault: string): Promise<void> {
+/** Fails every GET of beta's note with a 500, which the sitting does not try again. */
+const failBeta = (page: Page) =>
+  page.route(
+    (url) => decodeURIComponent(url.pathname) === `/api/files/${BETA}`,
+    (route) =>
+      route.request().method() === "GET"
+        ? route.fulfill({ status: 500, json: {} })
+        : route.fallback(),
+  );
+
+/**
+ * Sits deck `beta` from the palette, which vim off reaches too, and waits for its first card;
+ * with `failing`, the sitting's read of the note fails and it waits for Try again instead.
+ */
+async function sitBeta(page: Page, vault: string, failing = false): Promise<void> {
   await vaultWith(vault, { [BETA]: NOTE });
   await openApp(page);
   await page.keyboard.press("Control+Shift+P");
   await page.getByRole("option", { name: /^Open the review pane/ }).click();
   const beta = page.locator('button[data-deck="beta"]');
   await expect(beta).toBeEnabled();
+  if (failing) await failBeta(page);
   await beta.focus();
   await page.keyboard.press("Enter");
+  if (failing) return expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
   await expect(page.getByTestId("review-card")).toContainText("c");
   await expect(page.getByTestId("review-back")).toHaveCount(0);
 }
@@ -104,8 +119,65 @@ for (const vim of ["on", "off"]) {
       await expect(page.getByTestId("review-card")).toHaveCount(0);
       await expect(page.locator('button[data-deck="beta"]')).toBeVisible();
     });
+
+    test("I4 B1 Enter on a focused Try again reads the deck again, and the next Enter shows the answer (#1163)", async ({
+      page,
+      stack,
+    }) => {
+      await sitBeta(page, stack.vault, true);
+      const again = page.getByRole("button", { name: "Try again" });
+      await again.focus();
+      await page.unrouteAll({ behavior: "wait" });
+
+      await page.keyboard.press("Enter");
+      await expect(page.getByTestId("review-question")).toHaveText("c");
+      await page.keyboard.press("Enter");
+      await expect(page.getByTestId("review-back")).toHaveText("d");
+    });
+
+    test("B2 Enter on Center left focused on the done screen presses nothing, and a click does (#1163)", async ({
+      page,
+      stack,
+    }) => {
+      await sitBeta(page, stack.vault);
+      for (const _ of "ce") {
+        await page.keyboard.press("Enter");
+        await page.keyboard.press("3");
+      }
+      await expect(page.getByTestId("review-done")).toBeVisible();
+      const center = page.getByRole("button", { name: "Center" });
+      await center.focus();
+
+      await page.keyboard.press("Enter");
+      await expect(page.getByTestId("review-done")).toBeVisible();
+      await expect(center).toHaveAttribute("aria-pressed", "false");
+      await center.click();
+      await expect(center).toHaveAttribute("aria-pressed", "true");
+    });
   });
 }
+
+test.describe("on a phone", () => {
+  test.use(phone);
+
+  test("a tap on Try again reads the deck note again and asks the card (#1163)", async ({
+    page,
+    stack,
+  }) => {
+    await vaultWith(stack.vault, { [BETA]: NOTE });
+    await page.goto("/");
+    await page.getByRole("button", { name: /cards waiting$/ }).tap();
+    const beta = page.locator('button[data-deck="beta"]');
+    await expect(beta).toBeEnabled();
+    await failBeta(page);
+    await beta.tap();
+    const again = page.getByRole("button", { name: "Try again" });
+    await expect(again).toBeVisible();
+    await page.unrouteAll({ behavior: "wait" });
+    await again.tap();
+    await expect(page.getByTestId("review-question")).toHaveText("c");
+  });
+});
 
 test.describe("folding the deck list (#517)", () => {
   /** A parent with one due, one new and one parked card below it, and a deck after it. */

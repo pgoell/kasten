@@ -218,6 +218,103 @@ test("a sitting closed while its deck note read is tried again reads it no more"
   expect(reads()).toBe(2);
 });
 
+test.describe("Try again on a sitting whose deck note read failed for good (#1163)", () => {
+  const tryAgain = (page: Page) => page.getByRole("button", { name: "Try again" });
+
+  /** Sits alpha with its first read failing with a 500, which is not tried again; returns that read's count. */
+  async function failedSitting(page: Page, vault: string) {
+    const first = await sitAlpha(page, vault, (page) => failNote(page, ALPHA, 500, 1));
+    await expect(readAlert(page)).toBeVisible();
+    await expect(tryAgain(page)).toBeVisible();
+    return first;
+  }
+
+  /** Runs the paused clock until the sitting asks alpha's card. */
+  async function asked(page: Page) {
+    await expect
+      .poll(async () => {
+        await page.clock.runFor(100);
+        return page.getByTestId("review-question").textContent();
+      })
+      .toBe("a");
+  }
+
+  test("A3 Try again reads the deck note again and asks the card, with no alert and no Try again", async ({
+    page,
+    stack,
+  }) => {
+    const reads = await failedSitting(page, stack.vault);
+    await tryAgain(page).click();
+    await asked(page);
+    await expect(page.getByRole("alert")).toHaveCount(0);
+    await expect(tryAgain(page)).toHaveCount(0);
+    expect(reads()).toBe(2);
+  });
+
+  test("I1 after Try again answered, a rating whose write fails shows its alert with no Try again", async ({
+    page,
+    stack,
+  }) => {
+    await failedSitting(page, stack.vault);
+    await tryAgain(page).click();
+    await asked(page);
+    await page.route(
+      (url) => decodeURIComponent(url.pathname) === `/api/files/${ALPHA}`,
+      (route) =>
+        route.request().method() === "PUT"
+          ? route.fulfill({ status: 500, json: {} })
+          : route.fallback(),
+    );
+    await page.getByRole("button", { name: "Show the answer" }).click();
+    await page.getByRole("button", { name: "Good" }).click();
+    const unwritten = page.getByRole("alert").filter({ hasText: "The note could not be written" });
+    await expect
+      .poll(async () => {
+        await page.clock.runFor(100);
+        return unwritten.count();
+      })
+      .toBe(1);
+    await expect(tryAgain(page)).toHaveCount(0);
+  });
+
+  test("I2 a Try again while the backend is still down says Reading the deck, tries eight times, then offers Try again again", async ({
+    page,
+    stack,
+  }) => {
+    const first = await failedSitting(page, stack.vault);
+    // Playwright asks the newest route first, so every later read gets a 502.
+    const again = await failNote(page, ALPHA, 502);
+    await tryAgain(page).click();
+    await expect(page.getByText("Reading the deck…")).toBeVisible();
+    await expect(page.getByRole("alert")).toHaveCount(0);
+    await expect(tryAgain(page)).toHaveCount(0);
+
+    await walkBackoff(page, again, readAlert(page));
+    await expect(readAlert(page)).toHaveText(
+      `The note could not be read: GET /api/files/${ALPHA} failed with 502`,
+    );
+    await expect(tryAgain(page)).toBeVisible();
+    expect([first(), again()]).toEqual([1, 8]);
+  });
+
+  test("I3 a sitting closed while a Try again read is tried again reads it no more", async ({
+    page,
+    stack,
+  }) => {
+    await failedSitting(page, stack.vault);
+    const again = await failNote(page, ALPHA, 502);
+    await tryAgain(page).click();
+    await firstRetry(page, again);
+    await page.getByRole("button", { name: "Close Review" }).click();
+    await page.clock.runFor(500);
+    await expect(page.getByText("Reading the deck…")).toHaveCount(0);
+    await page.clock.runFor(61_000);
+    // Proving a read that does not come: a retry the timer fired is on the wire in a few ms.
+    await page.waitForTimeout(500);
+    expect(again()).toBe(2);
+  });
+});
+
 test.describe("the parked list's reads through a backend that restarts (#1150, #1151)", () => {
   const SR = "<!--SR:!2026-08-20,4,270-->";
   const A = "03 Flashcards/aws-a.md";
