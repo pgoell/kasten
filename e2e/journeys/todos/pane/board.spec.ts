@@ -271,30 +271,34 @@ async function quiet(page: Page, words: string): Promise<void> {
 }
 
 test.describe("the list's state button by touch", () => {
-  // Motion off: a fast second tap sometimes wrote nothing while the press animated (#2117).
-  test.use({ ...phone, reducedMotion: "reduce" });
+  test.use(phone);
 
-  test("the first tap asks with the state it leaves and a ?, writing nothing; the second walks the row, a review row to done, and opens no note", async ({
-    page,
-    stack,
-  }) => {
-    await vaultWith(stack.vault, { "01 Notes/Parser.md": "- [r] write the parser\n" });
-    const writes = await byTouch(page, stack.vault, false);
-    // Done also logs into today's note; the count is of the todos' own notes.
-    const notes = () => writes.filter((url) => !url.includes("Daily"));
-    const rows = [
-      ["fix the tap", "doing", ERRANDS, "- [/] fix the tap"],
-      ["write the parser", "done", "01 Notes/Parser.md", "- [x] write the parser"],
-    ];
-    for (const [n, [words, next, path, walked]] of rows.entries()) {
-      await cycle(page, words).tap();
-      await asks(page, words, next);
-      expect(notes()).toHaveLength(n);
-      await cycle(page, words).tap();
-      await expect.poll(() => lineOf(stack.vault, path, words)).toContain(walked);
-      expect(notes()).toHaveLength(n + 1);
-    }
-    await expect(page.locator(".cm-content:visible")).toHaveCount(0);
+  // Motion off: a fast second tap sometimes wrote nothing while the press animated (#2117).
+  test.describe("motion off", () => {
+    test.use({ reducedMotion: "reduce" });
+
+    test("the first tap asks with the state it leaves and a ?, writing nothing; the second walks the row, a review row to done, and opens no note", async ({
+      page,
+      stack,
+    }) => {
+      await vaultWith(stack.vault, { "01 Notes/Parser.md": "- [r] write the parser\n" });
+      const writes = await byTouch(page, stack.vault, false);
+      // Done also logs into today's note; the count is of the todos' own notes.
+      const notes = () => writes.filter((url) => !url.includes("Daily"));
+      const rows = [
+        ["fix the tap", "doing", ERRANDS, "- [/] fix the tap"],
+        ["write the parser", "done", "01 Notes/Parser.md", "- [x] write the parser"],
+      ];
+      for (const [n, [words, next, path, walked]] of rows.entries()) {
+        await cycle(page, words).tap();
+        await asks(page, words, next);
+        expect(notes()).toHaveLength(n);
+        await cycle(page, words).tap();
+        await expect.poll(() => lineOf(stack.vault, path, words)).toContain(walked);
+        expect(notes()).toHaveLength(n + 1);
+      }
+      await expect(page.locator(".cm-content:visible")).toHaveCount(0);
+    });
   });
 
   test("the strip names the states in the order of the shifted keys, and a tap on each sets it on the one tap and shuts the strip", async ({
