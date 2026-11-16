@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { builtCss, phone, vaultWith } from "../../harness/app.ts";
+import { builtCss, leader, openApp, phone, TODO_ROW, vaultWith } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 
 // nginx serves the lists app on the share host's name alone (#736), the name frontend/nginx.conf writes out.
@@ -56,4 +56,97 @@ test("the lists app's top bar blurs the list behind it, with Safari's prefix ahe
   expect(await builtCss(page)).toMatch(
     /\.top\{[^}]*-webkit-backdrop-filter:blur\(18px\) ?saturate\(1\.4\);backdrop-filter:blur\(18px\) ?saturate\(1\.4\)[;}]/,
   );
+});
+
+const SCOPE = {
+  "02 Projects/Calls.md": "# Calls\n\n- [ ] call the client #client\n- [ ] fix the tap #internal\n",
+  "05 Shared/Einkauf.md": "# Einkauf\n\n- [ ] send the offer #client\n",
+};
+const row = (page: Page, text: string) => page.locator(TODO_ROW, { hasText: text });
+const toggle = (page: Page, name: string) => page.getByRole("button", { name, exact: true });
+
+/** The todo pane over SCOPE's two notes, once its rows are drawn. */
+async function todoPane(page: Page, vault: string): Promise<void> {
+  await vaultWith(vault, SCOPE);
+  await openApp(page);
+  await leader(page, "gt");
+  await expect(row(page, "call the client")).toBeVisible();
+}
+
+test.describe("the todo pane's shared lists", () => {
+  test("are hidden at first, the toggle says how many and shows them, and a reload keeps that until it is turned off", async ({
+    page,
+    stack,
+  }) => {
+    await todoPane(page, stack.vault);
+    await expect(toggle(page, "Shared lists, 1 hidden")).toHaveAttribute("aria-pressed", "false");
+    await expect(row(page, "send the offer")).toHaveCount(0);
+    await toggle(page, "Shared lists, 1 hidden").click();
+    await expect(row(page, "send the offer")).toBeVisible();
+    await expect(toggle(page, "Shared lists, shown")).toHaveAttribute("aria-pressed", "true");
+    const stored = () => page.evaluate(() => localStorage.getItem("kasten.todos.shared"));
+    expect(await stored()).toBe("1");
+
+    await page.reload();
+    await leader(page, "gt");
+    await expect(row(page, "send the offer")).toBeVisible({ timeout: 15_000 });
+    await toggle(page, "Shared lists, shown").click();
+    await expect(row(page, "send the offer")).toHaveCount(0);
+    expect(await stored()).toBe(null);
+
+    await page.reload();
+    await leader(page, "gt");
+    await expect(toggle(page, "Shared lists, 1 hidden")).toBeVisible({ timeout: 15_000 });
+    await expect(row(page, "send the offer")).toHaveCount(0);
+  });
+
+  test("stay hidden when site data is blocked, and the toggle still shows and hides them", async ({
+    page,
+    stack,
+  }) => {
+    await page.addInitScript(() => {
+      const blocked = () => {
+        throw new DOMException("site data is blocked", "SecurityError");
+      };
+      Storage.prototype.getItem = blocked;
+      Storage.prototype.setItem = blocked;
+      Storage.prototype.removeItem = blocked;
+    });
+    // A throw in the click handler leaves the screen as it was; only the page sees it.
+    const thrown: string[] = [];
+    page.on("pageerror", (error) => thrown.push(error.message));
+    await todoPane(page, stack.vault);
+    await expect(row(page, "send the offer")).toHaveCount(0);
+    await toggle(page, "Shared lists, 1 hidden").click();
+    await expect(row(page, "send the offer")).toBeVisible();
+    await toggle(page, "Shared lists, shown").click();
+    await expect(row(page, "send the offer")).toHaveCount(0);
+    expect(thrown).toEqual([]);
+  });
+
+  test("a kind chip, the toggle and the typed filter narrow the list together, and All widens it", async ({
+    page,
+    stack,
+  }) => {
+    await todoPane(page, stack.vault);
+    await toggle(page, "#client").click();
+    await expect(row(page, "call the client")).toBeVisible();
+    await expect(row(page, "fix the tap")).toHaveCount(0);
+    await expect(row(page, "fold the laundry")).toHaveCount(0);
+    await expect(row(page, "send the offer")).toHaveCount(0);
+
+    await toggle(page, "Shared lists, 1 hidden").click();
+    await expect(row(page, "send the offer")).toBeVisible();
+    await page.getByLabel("filter todos").fill("offer");
+    await expect(row(page, "send the offer")).toBeVisible();
+    await expect(row(page, "call the client")).toHaveCount(0);
+
+    await toggle(page, "Shared lists, shown").click();
+    await expect(toggle(page, "Shared lists, 1 hidden")).toBeVisible();
+    await expect(row(page, "send the offer")).toHaveCount(0);
+    await page.getByLabel("filter todos").fill("");
+    await toggle(page, "All").click();
+    await expect(row(page, "fix the tap")).toBeVisible();
+    await expect(row(page, "fold the laundry")).toBeVisible();
+  });
 });

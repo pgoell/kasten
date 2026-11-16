@@ -336,3 +336,30 @@ test("edit tapped after a state press keeps the row and every typed key through 
   await expect.poll(() => noteText(stack.vault, garden)).toMatch(/^- \[\/\] water the red ripe tomatoes/m);
   await expect(page.getByText(/^Nothing moved/)).toHaveCount(0);
 });
+
+test("a tap on a kind chip narrows the list, a part going with its parent's kind, and narrows the board", async ({
+  page,
+  stack,
+}) => {
+  const lines =
+    "- [ ] write the deck #internal\n  - [ ] draw the chart\n- [ ] send the invoice #client\n";
+  await pane(page, stack.vault, lines, "send the invoice");
+  const row = (text: string) => page.locator(TODO_ROW, { hasText: text });
+  // The scope strip's own: a lane's heading and a row's buttons carry the same words.
+  const chip = (name: string) =>
+    page.locator("[data-todo-scope]").getByRole("button", { name, exact: true });
+  await chip("#internal").tap();
+  await expect(row("draw the chart")).toBeVisible();
+  await expect(row("write the deck")).toBeVisible();
+  await expect(row("send the invoice")).toHaveCount(0);
+  await expect(row("fold the laundry")).toHaveCount(0);
+
+  await chip("All").tap();
+  await page.getByRole("button", { name: "board", exact: true }).tap();
+  const card = (line: number) => page.locator(`[data-card="${NOTE}:${line}"]`);
+  await expect(card(1)).toBeVisible();
+  await chip("#client").tap();
+  await expect(card(3)).toBeVisible();
+  await expect(card(1)).toHaveCount(0);
+  await expect(page.locator("[data-card]", { hasText: "fold the laundry" })).toHaveCount(0);
+});
