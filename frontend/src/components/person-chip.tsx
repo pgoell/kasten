@@ -14,12 +14,16 @@ export function personNote(assignee: string, paths: string[]): string | null {
 }
 
 /**
- * The person note a press landed on, or null. The chip has no handler: a button cannot
- * hold another, so the press comes up to the row, which asks here first.
+ * The person note a press landed on; null on a chip still waiting for the file list,
+ * which opens nothing (#2124); undefined off a chip. The chip has no handler: a button
+ * cannot hold another, so the press comes up to the row, which asks here first.
  */
-export function chipNote(target: EventTarget | null): string | null {
-  if (!(target instanceof Element)) return null;
-  return target.closest<HTMLElement>("[data-person-path]")?.dataset.personPath ?? null;
+export function chipNote(target: EventTarget | null): string | null | undefined {
+  if (!(target instanceof Element)) return undefined;
+  const chip = target.closest<HTMLElement>("[data-person]");
+  if (chip === null) return undefined;
+  if (chip.dataset.personLoading !== undefined) return null;
+  return chip.dataset.personPath;
 }
 
 /** The pill itself. It takes the text size of the line it sits on. */
@@ -36,20 +40,25 @@ const LINKED = "border border-transparent bg-k-surface text-k-link hover:underli
 const UNLINKED =
   "border border-dashed border-[color-mix(in_srgb,var(--k-rule-strong)_50%,transparent)] text-k-muted hover:bg-k-surface hover:text-k-ink";
 
+/** A name whose file list has not answered: neither filled nor dashed, as it may be either. */
+const LOADING = "border border-transparent text-k-muted";
+
 /**
- * An assignee drawn as a chip. Its hit area is the whole row's height on a
+ * An assignee drawn as a chip; `paths` is undefined while the vault's file list loads. Its hit area is the whole row's height on a
  * phone, so a tap lands on the chip and not beside it.
  */
-export function PersonChip({ assignee, paths }: { assignee: string; paths: string[] }) {
-  const note = personNote(assignee, paths);
+export function PersonChip({ assignee, paths }: { assignee: string; paths?: string[] }) {
+  const note = paths === undefined ? null : personNote(assignee, paths);
+  const look = paths === undefined ? LOADING : note === null ? UNLINKED : LINKED;
   return (
     <span
       data-person={assignee}
       data-person-path={note ?? undefined}
+      data-person-loading={paths === undefined ? "" : undefined}
       title={assignee}
       className="flex max-w-[40%] min-w-[5ch] shrink items-center justify-center self-stretch pointer-coarse:min-h-11 pointer-coarse:min-w-11"
     >
-      <span className={`${PILL} ${note === null ? UNLINKED : LINKED}`}>{plainLinks(assignee)}</span>
+      <span className={`${PILL} ${look}`}>{plainLinks(assignee)}</span>
     </span>
   );
 }

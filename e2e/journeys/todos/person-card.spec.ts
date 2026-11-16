@@ -254,10 +254,9 @@ async function chorePane(page: Page, vault: string) {
   await page.clock.setFixedTime(new Date("2026-10-25T12:00:00"));
   const row = (words: string) => page.locator(TODO_ROW, { hasText: words });
   const chip = (words: string) => row(words).locator("[data-person]");
-  // Until the vault's file list names its note, a chip draws dashed and a press on it
-  // opens the row's own note, so a journey waits for the solid pill (#2123).
-  const linked = (words: string) =>
-    expect(chip(words).locator("span")).toHaveCSS("border-top-style", "solid");
+  // Until the vault's file list answers, a chip waits and a press on it opens nothing,
+  // so a journey waits for the chip to name its note (#2123, #2124).
+  const linked = (words: string) => expect(chip(words)).toHaveAttribute("data-person-path", PASCAL);
   return { row, chip, linked };
 }
 const body = async (vault: string) => bodyOf(await noteText(vault, CHORES));
