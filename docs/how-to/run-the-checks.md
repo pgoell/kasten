@@ -71,9 +71,9 @@ unsaved text and a conflicted note reopened in `panes/conflict/`; the stored wor
 mention links, held text, the editor's build and relation names, live preview and its lists and tables) and content search and an epub opened while the listing loads in `notes/search/`, the todo list, board, presses,
 twin ids, a person's card and the shared lists in `todos/` (the panel and the edit line in `todos/pane/`), capture, the web page import, the chat replies, the log, the home screen, the tokens page and the finance month keys in `day/`, and the book finder, book, video and clip panes and csv and svg files in
 `media/`. `harness.spec.ts` checks the harness. Each journey is a
-thing done daily; each that writes checks the file on disk. Thirty-two files
+thing done daily; each that writes checks the file on disk. Thirty-three files
 also run journeys at phone width, 414 px with touch, where the editor starts
-without vim (each a `.spec.ts`): in `review/`, `sitting`, `keys` and `rows`; in `notes/`, `finder`,
+without vim (each a `.spec.ts`): in `review/`, `sitting`, `jot`, `keys` and `rows`; in `notes/`, `finder`,
 `status-bar`, `search/book-open-listing`, the three `search/content-search-*`, `saving/edits`,
 `saving/mentions` and `saving/live-preview-blocks`; in `panes/`, `links`, `workspace/reload`,
 `narrow/drawer`, `narrow/phone`, `narrow/key-help` and `narrow/todo-pane`; in `todos/`, `list`,
