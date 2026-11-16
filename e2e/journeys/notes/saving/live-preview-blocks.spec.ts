@@ -20,7 +20,7 @@ const lines = (editor: Locator) =>
     }),
   );
 
-/** The line holding `words`, as `lines` reads it, and the text of its typed mark if it shows one. */
+/** The line holding `words`, as `lines` reads it but with `none` kept, and its typed mark's text. */
 const line = (editor: Locator, words: string) =>
   editor
     .locator(".cm-line", { hasText: words })
@@ -290,4 +290,135 @@ test.describe("on a phone, tables", () => {
     await cell.tap();
     await expect(editor.locator(".cm-line", { hasText: "**a \\| b**" })).toHaveText(ROWS[2] ?? "");
   });
+});
+
+/** Each element as drawn: text, side, then c for the code font, m for muted, and a muted `::before`. */
+const seen = (all: Locator) =>
+  all.evaluateAll((els) => {
+    const probe = document.createElement("i");
+    probe.style.cssText = "color: var(--k-muted); font-family: var(--k-mono)";
+    document.body.append(probe);
+    const muted = getComputedStyle(probe);
+    const flag = (s: CSSStyleDeclaration) =>
+      (s.fontFamily === muted.fontFamily ? "c" : "") + (s.color === muted.color ? "m" : "");
+    const read = els.map((el) => {
+      const [s, before] = [getComputedStyle(el), getComputedStyle(el, "::before")];
+      const dash = before.content === "none" ? "" : before.content + flag(before);
+      return [el.textContent, s.textAlign, flag(s), dash].join("|");
+    });
+    probe.remove();
+    return read;
+  });
+
+const GRID = [
+  "| a | **b** | c |",
+  "| :-- | :-: | --: |",
+  "| 1 |  | 3 |",
+  "| 4 | - | – |",
+  "",
+  "| item | qty | price |",
+  "| --- | --- | --- |",
+  "| WH-07 | 10 | $2.50 |",
+  "| tea | -3 |  |",
+  "| `ab` | +1,200 | 4,00 € |",
+  "| us-east-1 | 7 | 1 |",
+  "| 2026-10-24 | 8 | 2 |",
+  "Table: Totals in euros",
+];
+
+for (const vim of ["on", "off", "phone"]) {
+  const kind = vim === "phone" ? "on a phone" : `with vim ${vim}`;
+  test.describe(kind, () => {
+    if (vim === "phone") test.use(phone);
+    else
+      test.beforeEach(({ page }) =>
+        page.addInitScript((v) => localStorage.setItem("kasten.vim", v), vim),
+      );
+
+    test(`#792 tables draw their sides, marks, empty and dash cells, code cells and caption, no source shown`, async ({
+      page,
+      stack,
+    }) => {
+      await vaultWith(stack.vault, { "Grid.md": `before\n\n${GRID.join("\n")}\n` });
+      const editor = await opened(page, "Grid.md", "before");
+      const grids = editor.locator(".cm-table-grid");
+      await expect(grids).toHaveCount(2);
+      // Explicit sides first, a typed dash muted like the empty cell's drawn one.
+      expect(await seen(grids.first().locator("th, td"))).toEqual(
+        ["a|left||", "b|center||", "c|right||", "1|left||", '|center||"‒"m', "3|right||"].concat([
+          "4|left||",
+          "-|center|m|",
+          "–|right|m|",
+        ]),
+      );
+      // Numbers right with their head, code-like names in the code font, a word and a date not.
+      expect(await seen(grids.nth(1).locator("th, td"))).toEqual(
+        ["item|left||", "qty|right||", "price|right||", "WH-07|left|c|", "10|right||"].concat(
+          ["$2.50|right||", "tea|left||", "-3|right||", '|right||"‒"m', "ab|left|c|"],
+          ["+1,200|right||", "4,00 €|right||", "us-east-1|left|c|", "7|right||", "1|right||"],
+          ["2026-10-24|left||", "8|right||", "2|right||"],
+        ),
+      );
+      const caption = editor.locator(".cm-line", { hasText: "Totals" });
+      expect(await seen(caption)).toEqual(["Totals in euros|start|m|"]);
+      expect(await editor.textContent()).not.toMatch(/[|*`]|Table: /);
+    });
+
+    test(`a note that is only a table opens on its source, the cursor being in it`, async ({
+      page,
+      stack,
+    }) => {
+      const rows = ["| a | b |", "| - | - |", "| 1 | 2 |"];
+      await vaultWith(stack.vault, { "Only.md": `${rows.join("\n")}\n` });
+      const editor = await opened(page, "Only.md", "| 1 | 2 |");
+      await expect(editor.locator(".cm-table-grid")).toHaveCount(0);
+      expect(await editor.locator(".cm-line").allTextContents()).toEqual([...rows, ""]);
+    });
+  });
+}
+
+test("#968 a cell's links draw their alias, a folder's note name, a kept slash, and an escaped bar's link opens its note", async ({
+  page,
+  stack,
+}) => {
+  const cells = "[[borges#Life\\|Jorge]] | [[01 Periodic/00 Daily/2026-11-09#Log]] | [[notes/]]";
+  const more = "[[borges\\|]] | [[/]] | [[\\|]] | [[Target\\|shown]]";
+  await vaultWith(stack.vault, {
+    "borges.md": "Jorge\n",
+    "Target.md": "the target's own body\n",
+    "Links.md": `before\n\n| a | b | c | d | e | f | g |\n${"| - ".repeat(7)}|\n| ${cells} | ${more} |\n`,
+  });
+  const editor = await opened(page, "Links.md", "before");
+  const links = editor.locator(".cm-table-grid tbody .cm-wikilink");
+  expect(await seen(links)).toEqual(
+    ["Jorge|left||", "2026-11-09#Log|left|cm|", "notes/|left|m|", "borges|left||"].concat([
+      "/|left|m|",
+      "||left||",
+      "shown|left||",
+    ]),
+  );
+  await links.last().click({ modifiers: ["Control"] });
+  await expect(page.locator(".cm-line", { hasText: "the target's own body" })).toBeVisible();
+});
+
+test("a table that opens a note draws in the finder's reading preview, and the prose under it stays prose", async ({
+  page,
+  stack,
+}) => {
+  await vaultWith(stack.vault, {
+    "Prose.md": "| a | b |\n| - | - |\n| 1 | 2 |\nafter the table `code`\n",
+  });
+  await openApp(page);
+  await leader(page, "ff");
+  const finder = page.getByRole("dialog", { name: "Find note" });
+  await page.keyboard.type("Prose");
+  await expect(finder.getByRole("option", { selected: true })).toContainText("Prose");
+  const preview = finder.getByTestId("preview");
+  await expect(preview.locator(".cm-table-grid tbody tr")).toHaveText(["12"]);
+  expect(await seen(preview.locator(".cm-line:not(:has(table))"))).toEqual([
+    "after the table code|start||",
+    "|start||",
+  ]);
+  expect(await seen(preview.locator(".cm-inline-code"))).toEqual(["code|start|c|"]);
+  expect(await preview.textContent()).not.toMatch(/[|`]/);
 });
