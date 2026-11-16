@@ -1,5 +1,14 @@
 import type { Page } from "@playwright/test";
-import { leader, noteText, openApp, phone, plus, today, vaultWith } from "../../harness/app.ts";
+import {
+  bodyOf,
+  leader,
+  noteText,
+  openApp,
+  phone,
+  plus,
+  today,
+  vaultWith,
+} from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 
 // One deck over two notes, so the note a question goes to is the shown card's and no other.
@@ -264,7 +273,7 @@ test.describe("the sitting's screens", () => {
 
     await page.getByRole("button", { name: "Undo" }).click();
     await expect(page.getByTestId("review-card")).toContainText("What does S3 stand for?");
-    await expect.poll(() => noteText(stack.vault, AWS)).toBe(FRESH);
+    await expect.poll(async () => bodyOf(await noteText(stack.vault, AWS))).toBe(FRESH);
   });
 
   test.describe("on a phone", () => {
