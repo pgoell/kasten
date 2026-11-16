@@ -1,7 +1,15 @@
 import type { Page } from "@playwright/test";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { cursorTo, leader, openApp, readAll, TODO_ROW, vaultWith } from "../../../harness/app.ts";
+import {
+  cursorTo,
+  leader,
+  openApp,
+  readAll,
+  TODO_ROW,
+  todoRows,
+  vaultWith,
+} from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
 
 const NOTE = "02 Projects/Keys.md";
@@ -50,11 +58,13 @@ const dropPlumber = (vault: string) => writeFile(join(vault, NOTE), note(LINES.s
 
 test("j moves the cursor down a row and k moves it back up", async ({ page, stack }) => {
   await openPane(page, stack.vault);
-  await cursorTo(page, "call the plumber");
+  // Not `cursorTo`, which walks by j and k itself.
+  const cursor = async () => (await todoRows(page)).cursor;
+  await expect.poll(cursor).toBe(0);
   await page.keyboard.press("j");
-  await expect(cursorRow(page)).toContainText("wire up the shelf");
+  await expect.poll(cursor).toBe(1);
   await page.keyboard.press("k");
-  await expect(cursorRow(page)).toContainText("call the plumber");
+  await expect.poll(cursor).toBe(0);
 });
 
 test("Enter opens the note the cursor's todo is on, at its line", async ({ page, stack }) => {
