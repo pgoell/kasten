@@ -1,5 +1,5 @@
 import type { Locator, Page } from "@playwright/test";
-import { noteText, phone, unstamped, vaultWith } from "../../../harness/app.ts";
+import { leader, noteText, openApp, phone, unstamped, vaultWith } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
 
 /** Opens the note by URL and waits for its editor to draw the line holding `last`. */
@@ -196,5 +196,98 @@ test.describe("on a phone", () => {
     await expect.poll(() => line(editor, "second")).toBe("- second|none|1.6em|- ");
     expect(await line(editor, "first")).toBe('first|"• "|1.6em|');
     expect(await line(editor, "done")).toBe('done|"☑ "|1.6em|');
+  });
+});
+
+const ROWS = [
+  "| h | i |",
+  "| - | - |",
+  "| a \\| b | **a \\| b** |",
+  "| a \\* b | a \\_ b |",
+  "| a \\[ b | a \\\\ b |",
+  "| [a \\* b](https://x.y) | *a \\_ b* |",
+  "| `a \\| b` | a \\| `b` |",
+  "| `a\\b` | x |",
+];
+const PLAIN = ["a \\* b", "a \\_ b", "a \\[ b", "a \\| b", "x `a \\| b` y"];
+const ESCAPES = `intro\n\n${ROWS.join("\n")}\n\n${PLAIN.join("\n\n")}\n`;
+
+/** The text each of a cell's spans wearing `selector` holds, joined: an escape cuts a run into spans. */
+const worn = (cell: Locator, selector: string) =>
+  cell.locator(selector).evaluateAll((all) => all.map((s) => s.textContent).join(""));
+
+for (const vim of ["on", "off"]) {
+  test(`#512 #515 with vim ${vim} a table cell draws each escape as its character alone, and the cursor in the table shows the source as written`, async ({
+    page,
+    stack,
+  }) => {
+    await page.addInitScript((v) => localStorage.setItem("kasten.vim", v), vim);
+    await vaultWith(stack.vault, { "Escapes.md": ESCAPES });
+    const editor = await opened(page, "Escapes.md", "intro");
+    const cells = editor.locator(".cm-table-grid tbody td");
+    await expect(cells).toHaveText([
+      "a | b",
+      "a | b",
+      "a * b",
+      "a _ b",
+      "a [ b",
+      "a \\ b",
+      "a * b",
+      "a _ b",
+      "a | b",
+      "a | b",
+      "a\\b",
+      "x",
+    ]);
+    expect(await worn(cells.nth(1), ".cm-strong")).toBe("a | b");
+    expect(await worn(cells.nth(6), ".cm-link")).toBe("a * b");
+    expect(await worn(cells.nth(7), ".cm-emphasis")).toBe("a _ b");
+    expect(await worn(cells.nth(8), ".cm-inline-code")).toBe("a | b");
+    // Off a table an escape already showed its character alone, and a code span keeps its backslash.
+    const shown = await editor
+      .locator(".cm-line")
+      .evaluateAll((all) => all.map((l) => l.textContent));
+    expect(shown.slice(-PLAIN.length * 2)).toEqual(
+      ["a * b", "a _ b", "a [ b", "a | b", "x a \\| b y"].flatMap((l) => [l, ""]),
+    );
+
+    await cells.nth(2).click();
+    await expect(editor.locator(".cm-table-grid")).toHaveCount(0);
+    const source = await editor
+      .locator(".cm-line")
+      .evaluateAll((all) => all.slice(2, 2 + 8).map((l) => l.textContent));
+    expect(source).toEqual(ROWS);
+    expect(unstamped(await noteText(stack.vault, "Escapes.md"))).toBe(ESCAPES);
+  });
+}
+
+test("#512 a table cell in the finder's reading preview draws an escaped bar as the bar alone", async ({
+  page,
+  stack,
+}) => {
+  await vaultWith(stack.vault, { "Escapes.md": ESCAPES });
+  await openApp(page);
+  await leader(page, "ff");
+  const finder = page.getByRole("dialog", { name: "Find note" });
+  await page.keyboard.type("Escapes");
+  await expect(finder.getByRole("option", { selected: true })).toContainText("Escapes");
+  await expect(finder.getByTestId("preview").locator(".cm-table-grid tbody td").first()).toHaveText(
+    "a | b",
+  );
+});
+
+test.describe("on a phone, tables", () => {
+  test.use(phone);
+
+  test("#512 a tap on a table cell drawn with an escaped bar shows its row as written", async ({
+    page,
+    stack,
+  }) => {
+    await vaultWith(stack.vault, { "Escapes.md": ESCAPES });
+    const editor = await opened(page, "Escapes.md", "intro");
+    const cell = editor.locator(".cm-table-grid tbody td").first();
+    await expect(cell).toHaveText("a | b");
+    await cell.tap();
+    await expect(editor.locator(".cm-line", { hasText: "**a \\| b**" })).toHaveText(ROWS[2] ?? "");
   });
 });
