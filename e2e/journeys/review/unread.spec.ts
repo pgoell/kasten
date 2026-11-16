@@ -84,6 +84,9 @@ test("a deck note whose read fails after an earlier read answered keeps its deck
   down = true;
   await rateBeta(page);
   await walkBackoff(page, failed, unreadLine(page), { shows: false });
+  // The tries stop at eight: a minute more reads the note no more (#1139 I2).
+  await page.clock.runFor(60_000);
+  expect(failed()).toBe(8);
 
   await expect(page.locator('button[data-deck="alpha"]')).toContainText("1 new");
   await expect(unreadLine(page)).toHaveCount(0);

@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { gateway, openApp, tapHeight, walkBackoff } from "../../harness/app.ts";
+import { gateway, openApp, phone, tapHeight, vaultWith, walkBackoff } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 
 const UNREAD = "Cards could not be counted: the daily limits could not be read";
@@ -68,4 +68,39 @@ test("Try again while the limits read still fails takes the row away while it re
   await walkBackoff(page, failed, unreadRow(page), { from: before });
   await expect(unreadRow(page)).toBeVisible();
   await expect(tryAgain(page)).toBeVisible();
+});
+
+test.describe("on a phone", () => {
+  test.use(phone);
+
+  test("#1139 I4 the Due column's count moves after its deck note's refetch gets a 502 and the next try answers", async ({
+    page,
+    stack,
+  }) => {
+    const alpha = "03 Flashcards/alpha.md";
+    await vaultWith(stack.vault, { [alpha]: "#flashcards/alpha\n\na::b\n" });
+    await page.clock.install();
+    await page.goto("/");
+    const commands = page.getByRole("toolbar", { name: "Commands" });
+    await expect(commands).toBeVisible({ timeout: 15_000 });
+    await expect(due(page)).toContainText("3 cards waiting");
+    await commands.getByRole("button", { name: "Run a command by name" }).tap();
+    await page.getByRole("option", { name: /^Open the review pane/ }).tap();
+    await page.locator('button[data-deck="alpha"]').tap();
+    await page.getByRole("button", { name: "Show the answer" }).tap();
+    const landed = page.waitForResponse((answer) => answer.request().method() === "PUT");
+    await page.getByRole("button", { name: "Good" }).tap();
+    await landed;
+    let down = true;
+    const failed = await gateway(
+      page,
+      (url) => decodeURIComponent(url.pathname) === `/api/files/${alpha}`,
+      () => down,
+    );
+    await page.getByRole("button", { name: "Close Review" }).tap();
+    await expect.poll(failed).toBe(1);
+    down = false;
+    await expect(due(page)).toContainText("2 cards waiting");
+    expect(failed()).toBe(1);
+  });
 });
