@@ -1,4 +1,4 @@
-import { Annotation, Transaction } from "@codemirror/state";
+import { Annotation, type ChangeSpec, Transaction } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { setWatched } from "@/lib/panes/video/video";
 
@@ -9,6 +9,43 @@ import { setWatched } from "@/lib/panes/video/video";
 export const fromVault = Annotation.define<boolean>();
 
 /**
+ * The one span where `wanted` differs from `held`, so the cursor and undo keep their place.
+ * An insertion that fits at several places goes at a line start: a frontmatter block put in
+ * at offset 1 of a line starting `-` splits the undo of an edit to that line (#2098).
+ */
+function smallestChange(held: string, wanted: string): ChangeSpec | null {
+  let from = 0;
+  while (from < held.length && from < wanted.length && held[from] === wanted[from]) from += 1;
+
+  // The tail stops at `from`, so it cannot match text the head already took.
+  let to = held.length;
+  let insertTo = wanted.length;
+  while (to > from && insertTo > from && held[to - 1] === wanted[insertTo - 1]) {
+    to -= 1;
+    insertTo -= 1;
+  }
+  if (from === to && from === insertTo) return null;
+
+  const line = from === to ? lineStart(held, wanted.slice(from, insertTo), from) : -1;
+  if (line >= 0) return { from: line, insert: wanted.slice(line, insertTo - (from - line)) };
+  return { from, to, insert: wanted.slice(from, insertTo) };
+}
+
+/** The first line start `insert` can slide left to from `at` and stay the same edit, or -1. */
+function lineStart(held: string, insert: string, at: number): number {
+  let line = at === 0 || held[at - 1] === "\n" ? at : -1;
+  // Each step left trades the inserted text's last character for the one before it.
+  for (
+    let p = at;
+    p > 0 && held[p - 1] === insert[insert.length - 1 - ((at - p) % insert.length)];
+    p -= 1
+  ) {
+    if (p === 1 || held[p - 2] === "\n") line = p - 1;
+  }
+  return line;
+}
+
+/**
  * Puts the vault's text in, replacing only the differing span so the cursor and
  * undo keep their place. A `false` from `allowed` leaves the note as it is.
  */
@@ -17,27 +54,14 @@ export function takeVaultText(
   text: string,
   allowed?: (text: string) => boolean,
 ): void {
-  const current = view.state.doc.toString();
-  let from = 0;
-  while (from < current.length && from < text.length && current[from] === text[from]) {
-    from += 1;
-  }
-
-  // The tail stops at `from`, so it cannot match text the head already took.
-  let to = current.length;
-  let insertTo = text.length;
-  while (to > from && insertTo > from && current[to - 1] === text[insertTo - 1]) {
-    to -= 1;
-    insertTo -= 1;
-  }
-
+  const changes = smallestChange(view.state.doc.toString(), text);
   // Asked even when nothing changes: the autosave needs the answer.
   if (allowed?.(text) === false) return;
   // Nothing left after the trim is the text already on screen, as on mount.
-  if (from === to && from === insertTo) return;
+  if (changes === null) return;
 
   view.dispatch({
-    changes: { from, to, insert: text.slice(from, insertTo) },
+    changes,
     // Off the undo stack and the save path: an undo here would send old text to the vault.
     annotations: [fromVault.of(true), Transaction.addToHistory.of(false)],
   });
@@ -46,22 +70,11 @@ export function takeVaultText(
 /** Writes a video position into the frontmatter of the note in the buffer. */
 export function writeWatched(view: EditorView, mark: { id: string; seconds: number }): void {
   const held = view.state.doc.toString();
-  const wanted = setWatched(held, mark.id, mark.seconds);
-  if (wanted === held) return;
-
-  // The smallest change, not a whole-document replace, which would move the cursor.
-  let from = 0;
-  while (held[from] === wanted[from]) from += 1;
-  let tail = 0;
-  while (
-    tail < Math.min(held.length, wanted.length) - from &&
-    held[held.length - 1 - tail] === wanted[wanted.length - 1 - tail]
-  ) {
-    tail += 1;
-  }
+  const changes = smallestChange(held, setWatched(held, mark.id, mark.seconds));
+  if (changes === null) return;
 
   view.dispatch({
-    changes: { from, to: held.length - tail, insert: wanted.slice(from, wanted.length - tail) },
+    changes,
     // Nobody typed this, so `u` must not undo it.
     annotations: Transaction.addToHistory.of(false),
   });

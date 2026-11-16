@@ -166,20 +166,46 @@ test.describe("<leader>@, the agent key on a note's line (#523)", () => {
   const AGENT = "Space @";
   const TODAY = "2026-08-10";
 
-  async function agentKey(page: Page, vault: string, body: string, steps: Step[]) {
-    await page.addInitScript(() => localStorage.setItem("kasten.vim", "on"));
+  async function openAgent(page: Page, vault: string, body: string, vim: "on" | "off") {
+    await page.addInitScript((v) => localStorage.setItem("kasten.vim", v), vim);
     // The key stamps the date it reads at the press.
     await page.clock.setFixedTime(new Date(2026, 7, 10, 12));
     await vaultWith(vault, { "Agent.md": body });
-    await openApp(page);
-    await openNote(page, "Agent");
-    // The save writes a frontmatter block above the line.
+    if (vim === "on") {
+      await openApp(page);
+      await openNote(page, "Agent");
+      return;
+    }
+    // A phone opens on the Today page, so the note comes by its URL, the same on both.
+    await page.goto("/?note=Agent.md");
+    const line = page.locator(".cm-line", { hasText: body });
+    await expect(line).toBeVisible({ timeout: 15_000 });
+    await line.click();
+  }
+
+  /** CodeMirror's own handle on the view, the one `EditorView.findFromDOM` reads. */
+  type Tiled = { cmTile: { root: { view: { state: { doc: { toString(): string } } } } } };
+  const buffer = (page: Page) =>
+    page
+      .locator(".cm-content")
+      .evaluate((el) => (el as unknown as Tiled).cmTile.root.view.state.doc.toString());
+
+  /** Waits for `want` under the frontmatter block the first save writes, on disk and back in the buffer. */
+  async function landed(page: Page, vault: string, want: string) {
+    const disk = () => noteText(vault, "Agent.md");
+    await expect.poll(async () => (await disk()).replace(/^---\n[\s\S]*?\n---\n/, "")).toBe(want);
+    // A key pressed before the save's reply reaches the buffer takes another path.
+    await expect.poll(async () => (await buffer(page)) === (await disk())).toBe(true);
+  }
+
+  async function agentKey(page: Page, vault: string, body: string, steps: Step[]) {
+    await openAgent(page, vault, body, "on");
     const saved = async () =>
       (await noteText(vault, "Agent.md")).replace(/^---\n[\s\S]*?\n---\n/, "");
     for (const [keys, want] of steps) {
       for (const key of keys.split(" ")) await page.keyboard.press(key);
       if (typeof want === "string") {
-        await expect.poll(saved).toBe(want);
+        await landed(page, vault, want);
         continue;
       }
       await expect(page.getByTestId("notice")).toHaveText(`Nothing moved: ${want.refused}`);
@@ -266,21 +292,30 @@ test.describe("<leader>@, the agent key on a note's line (#523)", () => {
       "- [ ] call #agents #agent/x 📅 2026-10-20",
       once("- [ ] call #agents #agent/x #agent 📅 2026-10-20"),
     ],
-    // `$` onto the last digit, and `x` after the press cuts whatever it is on.
+    // `f c` onto the words, mid-line, and `x` after the press cuts whatever it is on.
     [
       "I1 leaves the cursor on its character",
       "- [ ] call 📅 2026-10-20",
       [
-        [`$ ${AGENT}`, "- [ ] call #agent 📅 2026-10-20"],
-        ["x", "- [ ] call #agent 📅 2026-10-2"],
+        [`0 f c ${AGENT}`, "- [ ] call #agent 📅 2026-10-20"],
+        ["x", "- [ ] all #agent 📅 2026-10-20"],
+      ],
+    ],
+    // The first save puts a frontmatter block above a line the press rewrote from its start (#2098).
+    [
+      "I1 one u takes back the whole of it on a plain line, the save's block staying",
+      "call ada",
+      [
+        [`Shift+G ${AGENT}`, `- [ ] call ada #agent ➕ ${TODAY}`],
+        ["u", "call ada"],
+        ["Control+r", `- [ ] call ada #agent ➕ ${TODAY}`],
       ],
     ],
     [
-      "I1 one u takes back the whole of it on a plain line",
-      // On a note with no frontmatter yet, this u writes a broken note (#2098).
-      "---\ntype: Note\n---\ncall ada",
+      "#2098 a bullet typed at the start of a note with no frontmatter, then u, gives the line back",
+      "call ada",
       [
-        [`Shift+G ${AGENT}`, `- [ ] call ada #agent ➕ ${TODAY}`],
+        ["Shift+I - Space Escape", "- call ada"],
         ["u", "call ada"],
       ],
     ],
@@ -331,5 +366,39 @@ test.describe("<leader>@, the agent key on a note's line (#523)", () => {
   ];
   for (const [name, body, steps] of CASES) {
     test(name, async ({ page, stack }) => agentKey(page, stack.vault, body, steps));
+  }
+
+  for (const [kind, device] of [
+    ["with vim off", {}],
+    ["on a phone", phone],
+  ] as const) {
+    test.describe(kind, () => {
+      test.use(device);
+
+      // A phone has no undo on the screen: ctrl+z stands in for its keyboard's, the same buffer path.
+      test("#2098 the palette's agent row on a plain line, then ctrl+z, gives the line back", async ({
+        page,
+        stack,
+      }) => {
+        await openAgent(page, stack.vault, "call ada", "off");
+        await page.keyboard.press("Control+Shift+P");
+        await page.getByRole("option", { name: /^Send this todo to the agent/ }).click();
+        await landed(page, stack.vault, `- [ ] call ada #agent ➕ ${TODAY}`);
+        await page.keyboard.press("Control+z");
+        await landed(page, stack.vault, "call ada");
+      });
+
+      test("#2098 a bullet typed at the start of a note with no frontmatter, then ctrl+z, gives the line back", async ({
+        page,
+        stack,
+      }) => {
+        await openAgent(page, stack.vault, "call ada", "off");
+        await page.keyboard.press("Home");
+        await page.keyboard.type("- ");
+        await landed(page, stack.vault, "- call ada");
+        await page.keyboard.press("Control+z");
+        await landed(page, stack.vault, "call ada");
+      });
+    });
   }
 });
