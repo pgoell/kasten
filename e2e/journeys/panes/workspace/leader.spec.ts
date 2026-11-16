@@ -107,7 +107,8 @@ test("gc opens the book the reading note names, from a note with no book of its 
   await openApp(page);
   await findNote(page, "Welcome");
   await leader(page, "gc");
-  await expect(book(page)).toBeVisible();
+  // Primer's pdf opens on page 1 of 8; a book pane over Welcome would have no page to show.
+  await expect(book(page).getByText("13%", { exact: true })).toBeVisible();
 });
 
 test("gb opens the backlinks with the tree still shown, and go the links out with no backlinks", async ({
