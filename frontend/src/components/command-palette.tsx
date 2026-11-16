@@ -1,4 +1,4 @@
-import type { EditorView } from "@codemirror/view";
+import { EditorView } from "@codemirror/view";
 import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { AgentRow } from "@/components/todo/todo-pane";
 import { askLogConfig, logConfig, subscribeLogConfig } from "@/lib/log/log-config";
@@ -55,7 +55,12 @@ export function CommandPalette({ entries, onClose }: CommandPaletteProps) {
     const opener = document.activeElement;
     field.current?.focus();
     return () => {
-      if (opener instanceof HTMLElement) opener.focus();
+      if (!(opener instanceof HTMLElement)) return;
+      // A bare focus on a phone reads the DOM's caret, at the note's start; the view's
+      // own focus writes the caret a command just set (#2094).
+      const view = EditorView.findFromDOM(opener);
+      if (view === null) opener.focus();
+      else view.focus();
     };
   }, []);
 

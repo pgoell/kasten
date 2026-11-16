@@ -280,6 +280,9 @@ twice does not restart the wait. kasten cannot know the name, so you type it,
 straight after the date. Both places put the cursor there on a waiting line
 whose wait names nobody: `i` in the pane opens the line with the cursor after the
 date, and `<leader>sw` leaves it on the date's last digit, where `a` appends.
+The palette's `Set this todo to waiting on somebody` does the same in vim's
+normal mode; with vim off or in insert mode it puts the cursor after the date,
+so the name typed next follows it.
 On a line already waiting, `<leader>sw` changes nothing and leaves the cursor
 where it was.
 From the pane that is `W`, `i`, a space and the name, Enter.
