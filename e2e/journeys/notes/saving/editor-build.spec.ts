@@ -48,14 +48,19 @@ function sameConfig(page: Page): Promise<boolean> {
   });
 }
 
-test.beforeEach(async ({ page, stack }) => {
-  await vaultWith(stack.vault, { "Plain.md": "intro\n" });
+/** Loads the app with vim off and the editors watched, over a vault holding Plain. */
+async function start(page: Page, vault: string): Promise<void> {
+  await vaultWith(vault, { "Plain.md": "intro\n" });
   await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
   await watchEditors(page);
   await openApp(page);
-});
+}
 
-test("a note's editor reads the fonts while its view is still off the page", async ({ page }) => {
+test("a note's editor reads the fonts while its view is still off the page", async ({
+  page,
+  stack,
+}) => {
+  await start(page, stack.vault);
   const before = await page.evaluate(
     () => (window as unknown as { probe: Probe }).probe.fontReads.length,
   );
@@ -74,6 +79,7 @@ test("opening a note does not reconfigure its editor; a new note on disk does, w
   page,
   stack,
 }) => {
+  await start(page, stack.vault);
   await openNote(page, "Plain");
   await expect(page.locator(".cm-content:visible")).toContainText("intro");
   expect(await sameConfig(page)).toBe(true);
@@ -88,6 +94,60 @@ test("opening a note does not reconfigure its editor; a new note on disk does, w
   await expect(page.locator(".cm-tooltip-autocomplete .cm-completionLabel").first()).toHaveText(
     "Fresh",
   );
+  expect(await page.evaluate(() => (window as unknown as { sameLoad?: boolean }).sameLoad)).toBe(
+    true,
+  );
+});
+
+const ONTOLOGY = "99 Misc/01 Config/01 Agents/Ontology.md";
+const FIRST = "# Ontology\n\n## Relations\n\n- invented-here: only this note says so\n";
+const EDITED = "# Ontology\n\n## Relations\n\n- rewritten-since: the note was edited\n";
+
+/** Opens a fresh line below in vim's insert mode and asks for every completion there. */
+async function offeredOnNewLine(page: Page): Promise<void> {
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Shift+G");
+  await page.keyboard.press("o");
+  await page.keyboard.press("Control+Space");
+}
+
+const labels = (page: Page) => page.locator(".cm-tooltip-autocomplete .cm-completionLabel");
+
+/** Opens Plain with vim on, over a vault whose ontology note lists one relation. */
+async function startOntology(page: Page, vault: string): Promise<void> {
+  await page.addInitScript(() => localStorage.setItem("kasten.vim", "on"));
+  await vaultWith(vault, { [ONTOLOGY]: FIRST, "Plain.md": "intro\n" });
+  await openApp(page);
+  await openNote(page, "Plain");
+}
+
+test("a line head offers the relation names the vault's ontology note lists, and no other", async ({
+  page,
+  stack,
+}) => {
+  await startOntology(page, stack.vault);
+  await offeredOnNewLine(page);
+  await expect(labels(page)).toHaveText(["invented-here"]);
+  // The name narrows as it is typed, as any completion does.
+  await page.keyboard.type("inv");
+  await expect(labels(page)).toHaveText(["invented-here"]);
+});
+
+test("an edit to the ontology note on disk changes what a line head offers, with no reload", async ({
+  page,
+  stack,
+}) => {
+  await startOntology(page, stack.vault);
+  await offeredOnNewLine(page);
+  await expect(labels(page)).toHaveText(["invented-here"]);
+  await page.evaluate(() => Object.assign(window, { sameLoad: true }));
+
+  await vaultWith(stack.vault, { [ONTOLOGY]: EDITED });
+  // A new line each try: CodeMirror keeps an open list while the prefix still fits it.
+  await expect(async () => {
+    await offeredOnNewLine(page);
+    await expect(labels(page)).toHaveText(["rewritten-since"], { timeout: 1_000 });
+  }).toPass({ timeout: 15_000 });
   expect(await page.evaluate(() => (window as unknown as { sameLoad?: boolean }).sameLoad)).toBe(
     true,
   );

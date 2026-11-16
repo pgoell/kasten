@@ -68,19 +68,17 @@ teardown removes the containers. Unlike `fe:e2e`, it stubs no API.
 The journeys sit in `e2e/journeys/`: review in `review/` (a sitting, a question jotted in one, a cloze card, Enter on the overview's rows, the daily limits, the sitting's keys with vim on and off, and the deck notes that could not be read), panes in
 `panes/` (layout and the top bar, the pane and tab keys, pane acts whose write is held while the focus moves, links to pages and assets; a note changed on disk under
 unsaved text and a conflicted note reopened in `panes/conflict/`; the stored workspace across a reload, held text in a restored pane and a URL over it in `panes/workspace/`; the drawer, phone toolbar, key help, AltGr keys, a resized window, panel sheets and todo pane taps in `panes/narrow/`), notes, the finder, a tree row dragged, the new note prompt's folder rows, where a note opens and the status bar's save sign in `notes/`, with saving in `notes/saving/` (edits,
-mention links, held text, the editor's build, live preview, relation names) and content search and an epub opened while the listing loads in `notes/search/`, the todo list, board, panel, presses,
+mention links, held text, the editor's build and relation names, live preview and its lists and tables) and content search and an epub opened while the listing loads in `notes/search/`, the todo list, board, panel, presses,
 twin ids, a person's card and the shared lists in `todos/`, capture, the web page import, the chat replies, the log, Today's failed limits, the tokens page and the finance month keys in `day/`, and the book finder, book, video and clip panes and csv and svg files in
 `media/`. `harness.spec.ts` checks the harness. Each journey is a
-thing done daily; each that writes checks the file on disk. Twenty-eight files
+thing done daily; each that writes checks the file on disk. Thirty-two files
 also run journeys at phone width, 414 px with touch, where the editor starts
-without vim: `review/sitting.spec.ts`; `notes/finder.spec.ts`, `notes/status-bar.spec.ts`, the three
-`notes/search/content-search-*.spec.ts`, `notes/search/book-open-listing.spec.ts`, `notes/saving/edits.spec.ts` and
-`notes/saving/mentions.spec.ts`; `panes/links.spec.ts`, `panes/narrow/drawer.spec.ts`,
-`panes/narrow/phone.spec.ts`, `panes/narrow/key-help.spec.ts`, `panes/narrow/todo-pane.spec.ts` and `panes/workspace/reload.spec.ts`;
-`todos/list.spec.ts`, `todos/board.spec.ts`, `todos/twin-ids.spec.ts`,
-`todos/person-card.spec.ts` and `todos/lists.spec.ts`; `day/capture.spec.ts` and `day/log.spec.ts`; and
-`media/book.spec.ts`, `media/book-finder.spec.ts`, `media/clip.spec.ts`,
-`media/csv.spec.ts`, `media/svg.spec.ts` and `media/video.spec.ts`.
+without vim (each a `.spec.ts`): in `review/`, `sitting`, `keys` and `rows`; in `notes/`, `finder`,
+`status-bar`, `search/book-open-listing`, the three `search/content-search-*`, `saving/edits`,
+`saving/mentions` and `saving/live-preview-blocks`; in `panes/`, `links`, `workspace/reload`,
+`narrow/drawer`, `narrow/phone`, `narrow/key-help` and `narrow/todo-pane`; in `todos/`, `list`,
+`board`, `twin-ids`, `person-card` and `lists`; in `day/`, `capture`, `log` and `today`; and in
+`media/`, `book`, `book-finder`, `clip`, `csv`, `svg` and `video`.
 `phone` in `e2e/harness/app.ts` sets that up, and
 `git grep -l 'test.use(phone)' e2e/journeys` lists them.
 A runner has no YouTube: the video journey serves a fake player per
