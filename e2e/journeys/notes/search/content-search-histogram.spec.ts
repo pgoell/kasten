@@ -203,3 +203,29 @@ test.describe("on a phone", () => {
     await expect(week).toHaveAttribute("aria-pressed", "true");
   });
 });
+
+test("a pressed bar writes its week into the URL, Escape takes it out, and a cold load opens on the week it names", async ({
+  page,
+}) => {
+  const search = page.getByRole("dialog", { name: "Search notes" });
+  await answer(page, () => lines("a/one.md", 2, "2026-09-16"));
+  await openSearch(page);
+  await bar(page, 38).click();
+  await expect(page).toHaveURL(/[?&]week=2026-W38(&|$)/);
+  await page.keyboard.press("Escape");
+  await expect(search).toHaveCount(0);
+  await expect(page).not.toHaveURL(/week=/);
+
+  await page.goto("/?week=2026-W38");
+  await expect(search).toBeVisible();
+  await expect(bar(page, 38)).toHaveAttribute("aria-pressed", "true");
+  await expect(bar(page, 37)).toHaveAttribute("aria-pressed", "false");
+});
+
+test("a cold load of a week that is not one opens no search", async ({ page }) => {
+  await page.goto("/?week=2026-W99");
+  await expect(page.getByRole("button", { name: "Welcome", exact: true })).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(page.getByRole("dialog", { name: "Search notes" })).toHaveCount(0);
+});

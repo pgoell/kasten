@@ -104,6 +104,7 @@ test.describe("on a phone", () => {
     await filters.tap();
     await expect(filters).toHaveAttribute("aria-expanded", "true");
     await expect(page.getByRole("group", { name: "Folders" })).toBeVisible();
+    await expect(page.getByRole("group", { name: "Tags" })).toBeVisible();
     for (const target of [bars(page).last(), filter(page, /^projects/), rows(page).first()])
       expect(await tapHeight(target)).toBeGreaterThanOrEqual(44);
     await filter(page, /^projects/).tap();
