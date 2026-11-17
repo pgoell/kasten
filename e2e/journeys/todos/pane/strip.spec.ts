@@ -234,3 +234,77 @@ test.describe("by touch (#421)", () => {
     await expect(cards(page)).not.toHaveCount(0);
   });
 });
+
+test.describe("the board by touch (#394, #429)", () => {
+  test.use(phone);
+  const PLAN = "02 Projects/FDE/plan.md";
+  const lanes = (page: Page) => page.locator("h3:has(button[data-count])");
+  const cursor = (page: Page) => page.locator('[data-card][tabindex="0"]');
+  const KINDS = ["#client", "#internal", "No kind"];
+
+  /** The board by taps over a todo each kind and lane, the fixture's own todos written over. */
+  async function board(page: Page, vault: string) {
+    await vaultWith(vault, {
+      "02 Projects/Garden.md": "# Garden\n",
+      "02 Projects/Home.md": "# Home\n",
+      [NOTE]: LINES,
+      "01 Notes/Work.md": "- [ ] send the invoice #client\n",
+      [PLAN]: "- [ ] write the deck #internal\n  - [/] draw the chart\n",
+      "02 Projects/FDE/index.md": "# FDE\n",
+      "02 Projects/Kasten/plan.md": "- [ ] send the deck #p/fde\n",
+    });
+    await page.goto("/");
+    await page.getByRole("button", { name: "Open the todo pane" }).tap({ timeout: 15_000 });
+    await expect(page.locator(TODO_ROW, { hasText: "send the deck" })).toBeVisible();
+    await button(page, "board").tap();
+    await expect(cards(page).first()).toBeVisible();
+  }
+
+  test("A1 A3 #394 board and back, lanes by project with the cursor and focus on the top card, and the tagged card opens", async ({
+    page,
+    stack,
+  }) => {
+    await board(page, stack.vault);
+    expect(await pressed(page, "board")).toBe("true");
+    await button(page, "board").tap();
+    await expect(page.locator("[data-card]")).toHaveCount(0);
+    expect(await pressed(page, "board")).toBe("false");
+    await button(page, "board").tap();
+    await expect(lanes(page)).toHaveText(KINDS);
+    await cursor(page).focus();
+    await page.keyboard.press("j");
+    await expect(cursor(page)).toContainText("write the deck");
+
+    await button(page, "project").tap();
+    await expect(lanes(page)).toHaveText(["No project", "FDE"]);
+    await expect(cursor(page)).toContainText("fix the tap");
+    await expect(page.locator("[data-card]:focus")).toContainText("fix the tap");
+    await button(page, "kind").tap();
+    await expect(lanes(page)).toHaveText(KINDS);
+    await button(page, "project").tap();
+    await cards(page).filter({ hasText: "send the deck" }).tap();
+    await expect(page.locator(".cm-activeLine")).toContainText("send the deck");
+  });
+
+  test("#429 A4 the strip names the states in order, sets review on one tap, and the Review tab shows the card", async ({
+    page,
+    stack,
+  }) => {
+    await board(page, stack.vault);
+    await page.getByRole("tab", { name: "Doing 1" }).tap();
+    await page.getByLabel("more for draw the chart").tap();
+    const states = ["open", "doing", "review", "done", "blocked", "waiting", "rejected"];
+    const labels = await page
+      .getByRole("button", { name: / draw the chart$/ })
+      .evaluateAll((all) => all.map((one) => one.getAttribute("aria-label")));
+    expect(
+      labels.filter((label) => states.some((one) => label === `${one} draw the chart`)),
+    ).toEqual(states.map((one) => `${one} draw the chart`));
+    await page.getByLabel("review draw the chart").tap();
+    await expect
+      .poll(async () => bodyOf(await noteText(stack.vault, PLAN)))
+      .toContain("  - [r] draw the chart\n");
+    await page.getByRole("tab", { name: "Review 1" }).tap();
+    await expect(cards(page)).toHaveText([/draw the chart/]);
+  });
+});
