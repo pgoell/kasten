@@ -319,3 +319,27 @@ export const drawn = (page: Page): Promise<string[]> =>
     const boxes = [...content.querySelectorAll(".cm-line, .cm-table-grid tbody td")].map(runs);
     return boxes.filter((text) => text !== "");
   });
+
+/**
+ * Keeps what holds the focus at the first DOM change that takes `words` out of the board's Open
+ * cards: a refocus a task later passes a read after the fact by luck (#1515).
+ */
+export const watchDrop = (page: Page, words: string): Promise<void> =>
+  page.evaluate((words) => {
+    const observer = new MutationObserver(() => {
+      // A phone draws the shown state's cards alone, and no columns.
+      const open = [...document.querySelectorAll('[data-column="open"]')];
+      const cells = open.length > 0 ? open : [...document.querySelectorAll("[data-card]")];
+      if (cells.some((cell) => cell.textContent?.includes(words))) return;
+      const at = document.activeElement as HTMLElement | null;
+      document.body.dataset.atDrop = at?.matches("[data-card]")
+        ? (at.textContent ?? "")
+        : at?.tagName;
+      observer.disconnect();
+    });
+    observer.observe(document.body, { subtree: true, childList: true, characterData: true });
+  }, words);
+
+/** What held the focus when the card `watchDrop` watched left Open, or null before then. */
+export const atDrop = (page: Page): Promise<string | null> =>
+  page.evaluate(() => document.body.dataset.atDrop ?? null);

@@ -6,6 +6,7 @@ import {
   openApp,
   phone,
   plus,
+  tapHeight,
   today,
   vaultWith,
 } from "../../harness/app.ts";
@@ -287,6 +288,27 @@ test.describe("the sitting's screens", () => {
       await page.getByRole("button", { name: "Show the answer" }).tap();
       await page.getByRole("button", { name: "aws, line 3" }).tap();
       await expect(page.locator(".cm-activeLine")).toContainText("What does S3 stand for?");
+    });
+
+    test("#600 A11 Undo and Center work by tap", async ({ page, stack }) => {
+      await vaultWith(stack.vault, { [AWS]: FRESH });
+      await page.goto("/");
+      await page.getByRole("button", { name: /cards? waiting$/ }).tap();
+      await page.locator('button[data-deck="aws"]').tap();
+      await page.getByRole("button", { name: "Show the answer" }).tap();
+      await grade(page, "Good").tap();
+      await expect(page.getByTestId("review-done")).toBeVisible();
+      await expect.poll(async () => bodyOf(await noteText(stack.vault, AWS))).not.toBe(FRESH);
+
+      await page.getByRole("button", { name: "Undo" }).tap();
+      await expect(page.getByTestId("review-back")).toHaveText(/Simple Storage Service/);
+      await expect.poll(async () => bodyOf(await noteText(stack.vault, AWS))).toBe(FRESH);
+
+      const center = page.getByRole("button", { name: "Center" });
+      expect(await tapHeight(center)).toBeGreaterThanOrEqual(44);
+      await center.tap();
+      await expect(center).toHaveAttribute("aria-pressed", "true");
+      await expect(page.getByTestId("review-card")).toHaveCSS("text-align", "center");
     });
   });
 });

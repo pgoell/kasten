@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { noteText, openApp, phone, vaultWith } from "../../harness/app.ts";
+import { bodyOf, noteText, openApp, phone, tapHeight, vaultWith } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 
 const BETA = "03 Flashcards/beta.md";
@@ -177,6 +177,75 @@ test.describe("on a phone", () => {
     await again.tap();
     await expect(page.getByTestId("review-question")).toHaveText("c");
   });
+
+  /** Taps into the deck from the home screen, as a phone gets there. */
+  async function tapDeck(page: Page, vault: string, notes: Record<string, string>, deck: string) {
+    await vaultWith(vault, notes);
+    await page.goto("/");
+    await page.getByRole("button", { name: /cards? waiting$/ }).tap();
+    await page.locator(`button[data-deck="${deck}"]`).tap();
+  }
+  const tapGood = async (page: Page) => {
+    await page.getByRole("button", { name: "Show the answer" }).tap();
+    await page.getByRole("button", { name: "Good", exact: true }).tap();
+  };
+
+  test("A8 a nested cloze is rated by tap, each number writing its own comment", async ({
+    page,
+    stack,
+  }) => {
+    const path = "03 Flashcards/c.md";
+    const line = "{{c1::Canberra was {{c2::founded}} in 1913}}";
+    await tapDeck(page, stack.vault, { [path]: `#flashcards/canberra\n\n${line}\n` }, "canberra");
+    const card = page.getByTestId("review-card");
+    const back = page.getByTestId("review-back");
+    const disk = async () => bodyOf(await noteText(stack.vault, path)).split("\n")[2];
+    const sr = (n: number) => ` <!--SR:c${n}!fsrs,[^>]+-->`;
+    const esc = line.replace(/[{}]/g, "\\$&");
+    await expect(card).toHaveText("[...]");
+    await page.getByRole("button", { name: "Show the answer" }).tap();
+    await expect(back).toHaveText("Canberra was founded in 1913");
+    await page.getByRole("button", { name: "Good", exact: true }).tap();
+    await expect.poll(disk).toMatch(new RegExp(`^${esc}${sr(1)}$`));
+    await expect(card).toHaveText("Canberra was [...] in 1913");
+    await tapGood(page);
+    await expect.poll(disk).toMatch(new RegExp(`^${esc}${sr(1)}${sr(2)}$`));
+    await expect(page.getByTestId("review-done")).toBeVisible();
+  });
+
+  test("#612 A5 a decks.md line written while a tapped rating saves leaves the sitting as it was", async ({
+    page,
+    stack,
+  }) => {
+    const decks = "99 Misc/01 Config/decks.md";
+    // The line lands on disk as the rating's write goes out, so every read after it sees it.
+    await page.route(
+      (url) => decodeURIComponent(url.pathname) === "/api/files/03 Flashcards/a.md",
+      async (route) => {
+        if (route.request().method() === "PUT")
+          await vaultWith(stack.vault, { [decks]: "alpha: 1 new\n" });
+        await route.fallback();
+      },
+    );
+    let reads = 0;
+    page.on("request", (request) => {
+      if (request.method() === "GET" && decodeURIComponent(request.url()).endsWith(decks)) reads++;
+    });
+    await tapDeck(
+      page,
+      stack.vault,
+      { "03 Flashcards/a.md": "#flashcards/alpha\n\na::b\n\nc::d\n\ne::f\n" },
+      "alpha",
+    );
+    await expect(page.getByText(/^\d+ left$/)).toHaveText("3 left");
+    const before = reads;
+    await tapGood(page);
+    await expect.poll(() => reads).toBeGreaterThan(before);
+    await page.waitForTimeout(500);
+    // A queue built again under the new line would cut the two new cards left to one.
+    await expect(page.getByText(/^\d+ left$/)).toHaveText("2 left");
+    await expect(page.getByTestId("review-card")).toHaveText("c");
+  });
 });
 
 test.describe("folding the deck list (#517)", () => {
@@ -339,6 +408,44 @@ test.describe("folding the deck list (#517)", () => {
       await expect(row(page, "databases/postgres")).toBeVisible();
       await page.getByRole("button", { name: "fold databases", exact: true }).tap();
       await expect(row(page, "databases/postgres")).toHaveCount(0);
+    });
+
+    test("A4 a parent with nothing to offer folds by a 44 px toggle beside it, and a row with no toggle keeps its width", async ({
+      page,
+      stack,
+    }) => {
+      // One parked card, so neither row has anything to sit.
+      const trivia = { "03 Flashcards/t.md": "#flashcards/trivia/geography\n\na::b !suspended\n" };
+      await vaultWith(stack.vault, { ...TREE, ...trivia });
+      await page.goto("/");
+      await page.getByRole("button", { name: /cards waiting$/ }).tap();
+      const parent = row(page, "trivia");
+      const toggle = page.getByRole("button", { name: "unfold trivia" });
+      await expect(parent).toBeDisabled();
+      await expect(row(page, "trivia/geography")).toHaveCount(0);
+      expect(await tapHeight(toggle)).toBeGreaterThanOrEqual(44);
+      expect(
+        await toggle.evaluate(
+          (el, deck) =>
+            el.parentElement ===
+            document.querySelector(`button[data-deck="${deck}"]`)?.parentElement,
+          "trivia",
+        ),
+      ).toBe(true);
+
+      await toggle.tap();
+      const fold = page.getByRole("button", { name: "fold trivia", exact: true });
+      await expect(fold).toHaveAttribute("aria-expanded", "true");
+      await expect(row(page, "trivia/geography")).toBeVisible();
+      const width = (target: string) =>
+        page.locator(target).evaluate((el) => el.getBoundingClientRect().width);
+      const gutter = await row(page, "trivia/geography").evaluate(
+        (el) => el.previousElementSibling?.getBoundingClientRect().width,
+      );
+      expect(gutter).toBe(await width('button[aria-label="fold trivia"]'));
+      expect(gutter).toBeGreaterThanOrEqual(44);
+      await fold.tap();
+      await expect(row(page, "trivia/geography")).toHaveCount(0);
     });
   });
 });
