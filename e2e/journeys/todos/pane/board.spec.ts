@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test";
 import {
+  atDrop,
   bodyOf,
   cursorTo,
   leader,
@@ -10,6 +11,7 @@ import {
   TODO_ROW,
   today,
   vaultWith,
+  watchDrop,
 } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
 
@@ -145,6 +147,17 @@ test.describe("on a phone", () => {
       .poll(() => disk(stack.vault, ERRANDS))
       .toBe(ERRAND_LINES.replace("- [ ] fix the tap", "- [/] fix the tap"));
     expect(writes).toHaveLength(1);
+  });
+
+  test("#1515 a card the strip moved to done leaves the focus on the next card, in the change that drops it", async ({
+    page,
+    stack,
+  }) => {
+    await byTouch(page, stack.vault);
+    await watchDrop(page, "send the invoice");
+    await strip(page, "more for", "send the invoice").tap();
+    await strip(page, "done", "send the invoice").tap();
+    await expect.poll(() => atDrop(page)).toContain("write the deck");
   });
 
   test("#773 Enter on a focused ⋯ opens its strip and not the cursor card's note, and Space on a focused tab shows that state", async ({
