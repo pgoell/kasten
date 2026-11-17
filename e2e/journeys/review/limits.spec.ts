@@ -172,7 +172,7 @@ test.describe("the deck counts through a backend that restarts (#1139)", () => {
     // The second rating's read goes out at once; the first read's retry, due at 1 s, is dropped.
     await expect.poll(reads).toBe(2);
     // The query's answer is handed on by a timer, which the paused clock runs only once the answer is in (#2114).
-    const third = page.waitForResponse((r) => r.request().method() === "GET" && decodeURIComponent(r.url()).endsWith(ALPHA));
+    const third = page.waitForResponse((r) => r.request().method() === "GET" && r.ok() && decodeURIComponent(r.url()).endsWith(ALPHA));
     await page.clock.runFor(1000);
     await expect.poll(reads).toBe(3);
     await third;
