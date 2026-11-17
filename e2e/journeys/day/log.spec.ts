@@ -271,3 +271,160 @@ test.describe("the overview's Food card counts food days only", () => {
     expect(await barsOf(card(page, "Food").getByRole("img"), 14)).toEqual([]);
   });
 });
+
+const grid = (page: Page) =>
+  page.getByRole("region", { name: "Overview" }).locator(".overview-grid");
+/** The card button that holds the focus, by its place in the grid, which is the order Tab walks. */
+const focused = (page: Page) =>
+  grid(page).evaluate((g) =>
+    [...g.querySelectorAll(".overview-open")].indexOf(document.activeElement as Element),
+  );
+/** The N of the Writing card's "notes in 7 days, N today". */
+const writtenToday = async (page: Page) =>
+  Number(
+    (await card(page, "Writing").locator(".overview-words").textContent())?.match(
+      /(\d+) today$/,
+    )?.[1],
+  );
+
+/** Opens the overview with the vim mode given: by the leader, or by the palette with vim off. */
+async function overviewWith(page: Page, vim: string): Promise<void> {
+  if (vim === "off") await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
+  await openApp(page);
+  if (vim === "on") await leader(page, "ga");
+  else {
+    await page.keyboard.press("Control+Shift+P");
+    await page.getByRole("option", { name: /^Open the overview/ }).click();
+  }
+  await expect(card(page, "Food")).toBeVisible({ timeout: 15_000 });
+}
+
+test.describe("the overview's keys", () => {
+  for (const vim of ["on", "off"]) {
+    test(`#806 I4 h j k l and the arrows move between the cards and Enter opens the Food card's log, vim ${vim}`, async ({
+      page,
+    }) => {
+      await overviewWith(page, vim);
+      const row = await grid(page).evaluate(
+        (g) => getComputedStyle(g).gridTemplateColumns.split(" ").length,
+      );
+      expect(row).toBeGreaterThan(1);
+      await page.getByRole("button", { name: "Food, open the log" }).focus();
+      const walk: [string, number][] = [
+        ["l", 1],
+        ["j", 1 + row],
+        ["k", 1],
+        ["h", 0],
+        ["ArrowRight", 1],
+        ["ArrowDown", 1 + row],
+        ["ArrowUp", 1],
+        ["ArrowLeft", 0],
+      ];
+      for (const [key, at] of walk) {
+        await page.keyboard.press(key);
+        expect(await focused(page), key).toBe(at);
+      }
+      await page.keyboard.press("Enter");
+      await expect(page.getByRole("region", { name: "Log" })).toBeVisible();
+    });
+
+    test(`#806 A7 Space g a opens the overview from the ${vim === "on" ? "editor" : "log pane"} and Space q in it closes it, vim ${vim}`, async ({
+      page,
+    }) => {
+      if (vim === "off") await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
+      await openApp(page);
+      if (vim === "off") {
+        // Vim off, the editor takes no leader, so it starts from the log pane the palette opens.
+        await page.keyboard.press("Control+Shift+P");
+        await page.getByRole("option", { name: /^Open the log/ }).click();
+        await expect(page.getByRole("region", { name: "Log" })).toBeVisible();
+      }
+      await leader(page, "ga");
+      const overview = page.getByRole("region", { name: "Overview" });
+      await expect(overview).toBeVisible({ timeout: 15_000 });
+      await leader(page, "q");
+      await expect(overview).toBeHidden();
+    });
+  }
+
+  for (const width of ["desktop", "phone"]) {
+    test.describe(width, () => {
+      if (width === "phone") test.use(phone);
+
+      test("#806 A7 the home screen's Overview button opens the overview, and its Food card opens the log", async ({
+        page,
+      }) => {
+        await page.goto("/");
+        const button = page.locator("[data-today]").getByRole("button", { name: "Overview" });
+        await expect(button).toBeVisible({ timeout: 15_000 });
+        if (width === "phone") await button.tap();
+        else await button.click();
+        const food = page.getByRole("button", { name: "Food, open the log" });
+        if (width === "phone") await food.tap();
+        else await food.click();
+        await expect(page.getByRole("region", { name: "Log" })).toBeVisible();
+      });
+    });
+  }
+});
+
+test.describe("the overview's Writing card", () => {
+  test("#806 I5 a new note written on disk counts today", async ({ page, stack }) => {
+    await overview(page);
+    await expect(card(page, "Writing").locator(".overview-words")).toHaveText(/\d+ today$/);
+    const before = await writtenToday(page);
+    await vaultWith(stack.vault, { "00 Inbox/new idea.md": "# new idea\n" });
+    await expect.poll(() => writtenToday(page), { timeout: 15_000 }).toBe(before + 1);
+  });
+
+  test("#806 I5 a note the app creates beside the overview counts today", async ({ page }) => {
+    await openApp(page);
+    // A split keeps the overview drawn while the editor beside it makes the note.
+    await leader(page, "%");
+    await leader(page, "ga");
+    await expect(card(page, "Writing").locator(".overview-words")).toHaveText(/\d+ today$/, {
+      timeout: 15_000,
+    });
+    const before = await writtenToday(page);
+    await page.locator(".cm-content:visible").first().locator(".cm-line").last().click();
+    await page.keyboard.press("Escape");
+    await leader(page, "cf");
+    const prompt = page.getByRole("dialog", { name: "New note" });
+    await prompt.getByRole("combobox").fill("made here");
+    await page.keyboard.press("Enter");
+    await expect(prompt).toBeHidden();
+    await expect.poll(() => writtenToday(page), { timeout: 15_000 }).toBe(before + 1);
+  });
+
+  test("#806 I5 a write to a note already listed does not ask GET /api/written again", async ({
+    page,
+    stack,
+  }) => {
+    const asked: string[] = [];
+    page.on("request", (request) => {
+      if (new URL(request.url()).pathname === "/api/written") asked.push(request.url());
+    });
+    // Keeps each vault event's data, so the journey knows the page has read one.
+    await page.addInitScript(() => {
+      const seen: string[] = [];
+      Object.assign(window, { seen });
+      window.EventSource = class extends EventSource {
+        constructor(url: string | URL, init?: EventSourceInit) {
+          super(url, init);
+          this.addEventListener("message", (event) => seen.push(event.data));
+        }
+      };
+    });
+    const seen = () => page.evaluate(() => (window as unknown as { seen: string[] }).seen.join());
+    await overview(page);
+    await expect(card(page, "Writing").locator(".overview-words")).toHaveText(/\d+ today$/);
+    const [before, count] = [await writtenToday(page), asked.length];
+
+    await vaultWith(stack.vault, { "01 Notes/Seeds.md": "# Seeds\n\nchanged\n" });
+    await expect.poll(seen, { timeout: 15_000 }).toContain("01 Notes/Seeds.md");
+    // A new note after it asks once, so a count past one means the listed note asked too.
+    await vaultWith(stack.vault, { "00 Inbox/new idea.md": "# new idea\n" });
+    await expect.poll(() => writtenToday(page), { timeout: 15_000 }).toBe(before + 1);
+    expect(asked.length).toBe(count + 1);
+  });
+});
