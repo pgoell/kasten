@@ -49,7 +49,10 @@ function Tokens() {
       setMinted(made);
       setName("");
       setFailed(null);
-      void queryClient.invalidateQueries({ queryKey: ["tokens"] });
+      // A first read still in flight began before the mint, and an invalidate alone would reuse it (#2153).
+      void queryClient
+        .cancelQueries({ queryKey: ["tokens"], exact: true })
+        .then(() => queryClient.invalidateQueries({ queryKey: ["tokens"] }));
     },
     onError: (error: unknown) => {
       setFailed(error instanceof Error ? error.message : "could not mint that token");
