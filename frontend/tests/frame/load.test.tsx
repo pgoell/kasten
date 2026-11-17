@@ -8,8 +8,8 @@
  * These are the numbers the tree was folded against. Mounting every row cost
  * 443 to 462ms to the first one and 834 to 859ms to the paint, over 10,842
  * buttons. The tree opens folded now, which is 8 rows, 10 to 34ms and 15 to
- * 65ms. What holds it there is a test in the jsdom suite rather than a
- * threshold here: `tests/file-explorer-panel.test.tsx` asserts the folders start
+ * 65ms. What holds it there is a journey rather than a
+ * threshold here: `e2e/journeys/panes/workspace/tree.spec.ts` checks the folders start
  * folded, which is the thing that would have to break for these to climb back.
  *
  * The console lines below do not reach the terminal through vitest's browser
