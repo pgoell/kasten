@@ -115,6 +115,8 @@ interface StatusBarProps {
   archive?: boolean;
   /** One sentence about a failure with no save sign to hang off, such as an upload. */
   notice?: string;
+  /** Clears the notice, and with it a phone's bar when nothing else is left to say. */
+  onDismissNotice?: () => void;
   /** What the backend answered for itself. A prop, since the bar holds no query client. */
   version?: string;
   /**
@@ -172,7 +174,10 @@ function footerClass(noticed: boolean, foot: boolean | undefined) {
   }`;
 }
 
-type ReadingsProps = Pick<StatusBarProps, "version" | "notice" | "archive" | "zoom" | "pane"> & {
+type ReadingsProps = Pick<
+  StatusBarProps,
+  "version" | "notice" | "archive" | "zoom" | "pane" | "onDismissNotice"
+> & {
   uploads: readonly Upload[];
   onNotice: () => void;
 };
@@ -185,7 +190,16 @@ function uploadLabel([first, ...rest]: readonly Upload[]) {
 }
 
 /** The left of the bar: the version, the notice and the readings of the view. */
-function Readings({ version, notice, archive, zoom, pane, uploads, onNotice }: ReadingsProps) {
+function Readings({
+  version,
+  notice,
+  archive,
+  zoom,
+  pane,
+  uploads,
+  onNotice,
+  onDismissNotice,
+}: ReadingsProps) {
   const uploading = uploadLabel(uploads);
   return (
     <div className="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap">
@@ -211,6 +225,18 @@ function Readings({ version, notice, archive, zoom, pane, uploads, onNotice }: R
           className="min-w-0 truncate text-[11px] text-k-danger pointer-coarse:h-11"
         >
           {notice}
+        </button>
+      )}
+      {notice !== undefined && onDismissNotice && (
+        <button
+          type="button"
+          tabIndex={-1}
+          data-testid="notice-dismiss"
+          aria-label="Dismiss notice"
+          onClick={onDismissNotice}
+          className="-ml-1 shrink-0 px-1 text-[13px] leading-none text-k-muted active:text-k-accent pointer-coarse:h-11 pointer-coarse:w-11 pointer-coarse:text-base"
+        >
+          ×
         </button>
       )}
       {archive === true && (
@@ -325,6 +351,7 @@ function Bar({
   conflict,
   onWrite,
   onTakeVault,
+  onDismissNotice,
   uploads,
 }: StatusBarProps & { uploads: readonly Upload[] }) {
   const crowded = notice !== undefined || uploads.length > 0;
@@ -417,6 +444,7 @@ function Bar({
         pane={pane}
         uploads={uploads}
         onNotice={() => open("notice")}
+        onDismissNotice={onDismissNotice}
       />
       {/* The held list crowds the clock out on a phone as a notice does: it
           is the one reading there that loses text if nobody acts on it. */}

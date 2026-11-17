@@ -33,7 +33,7 @@ a phone turned on its side can stop being narrow.
 | Narrow and coarse | [The toolbar](#the-toolbar). No top bar, and a + at the end of the tab strip that makes a note. A status bar with no clock, drawn only while it holds a notice, a failed write, a note changed on disk, a held note or the archive. No rail beside the file tree |
 | Narrow, and the last input was a touch | The editor takes [no focus it was not asked for](#focus) |
 | A touch, whatever the window | A tap on a wikilink [follows it](/reference/editor-keys/links.md#wikilinks) |
-| Neither | A tap or a click [outside a panel](#closing-a-panel) closes it. A tap or a click on a notice in the status bar opens it out in full |
+| Neither | A tap or a click [outside a panel](#closing-a-panel) closes it. A tap or a click on a notice in the status bar opens it out in full, and one on the × beside it clears it |
 
 The 44px rows and buttons are: tree rows and the tree's two buttons, tabs, the
 status bar, the rows of the palette, the finder, the search, the note prompt and
@@ -131,7 +131,7 @@ dimmed page around them.
 | A practice exam | An option is a button. A row of moves: `prev`, `next`, `reveal`, `timer`, `finish`, `close`. `finish` acts on the second tap, and so does `close` while a sitting is under way | [Sit it by touch](/how-to/write-a-practice-exam.md#sit-it-by-touch) |
 | A terminal | A tap focuses it. A row of keys: `Esc`, `Tab`, `Ctrl`, the arrows, `\|`, `/`, `-` | [Terminal](/reference/editor-keys/terminal.md#terminal) |
 | An HTML page | The page's own links and buttons. `Open in a browser tab` in the header | [The file tree](/reference/editor-keys/file-tree.md#the-file-tree) |
-| The status bar | A tap on a notice, or on the save sign of a failed write, opens it out in full. Under a failed write are `Write my text` and `Drop my text`, and under `Changed on disk` `Write my text` and `Take the vault's`. `Not saved: <note>`, a failed write of a note already left, names the notes whose text kasten holds; opening one puts the text back. `Changed on disk: <note>` names a note left while it stood conflicted; opening it shows what differs | [Panes and tabs](/reference/editor-keys/panes-and-tabs.md#panes-and-tabs) |
+| The status bar | A tap on a notice, or on the save sign of a failed write, opens it out in full. A tap on the × beside a notice clears it, and on a phone the bar goes with it when nothing else is left to say. Under a failed write are `Write my text` and `Drop my text`, and under `Changed on disk` `Write my text` and `Take the vault's`. `Not saved: <note>`, a failed write of a note already left, names the notes whose text kasten holds; opening one puts the text back. `Changed on disk: <note>` names a note left while it stood conflicted; opening it shows what differs | [Panes and tabs](/reference/editor-keys/panes-and-tabs.md#panes-and-tabs) |
 | The palette, the finder, the search, a prompt | A tap on a row does what Enter on it does | [The command palette](/reference/editor-keys/leader.md#the-command-palette) |
 
 ### Still keys only

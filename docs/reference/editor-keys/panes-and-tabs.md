@@ -85,11 +85,11 @@ toolbar `1/2`): the focused pane and how many the tab holds, when it holds more
 than one.
 
 Off a phone, that window's footer carries the date and the time and leaves out
-the weekday, the week and the version. A notice takes the clock's place while it shows. A
+the weekday, the week and the version. A notice takes the clock's place. A
 click or a tap on a notice opens it out in full above the footer, and one on
 the save sign of a write that failed or a note that changed on disk does the
-same with the reason and the way out; a second one shuts it. Under a mouse the
-same text is on hover. Opened out, a write that failed has a `Write my text`
+same with the reason and the way out; a second one shuts it. Its × clears a
+notice. Under a mouse the same text is on hover. Opened out, a write that failed has a `Write my text`
 button under it, which does what `:w` does, and `Drop my text`, which does what
 `:e!` does. A note that changed on disk has `Write my text` and
 `Take the vault's`, which is `:e!` again.
