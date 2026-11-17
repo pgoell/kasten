@@ -57,6 +57,7 @@ async function board(
   vim = "on",
   empty = false,
   split = false,
+  notes: Record<string, string> = {},
 ): Promise<string[]> {
   if (vim === "off") await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
   await vaultWith(vault, {
@@ -70,6 +71,7 @@ async function board(
           "02 Projects/FDE/index.md": "# FDE\n",
           "02 Projects/Kasten/index.md": "# Kasten\n",
         }),
+    ...notes,
   });
   await openApp(page);
   // A pane beside, so an editor stays on screen for Escape to hand the focus to.
@@ -80,7 +82,8 @@ async function board(
     await page.getByRole("option", { name: /^Open the todo pane/ }).click();
   }
   await expect(region(page)).toBeVisible({ timeout: 15_000 });
-  if (!empty) await expect(page.locator('[data-row*=".md:"]').first()).toBeVisible();
+  if (!empty || Object.keys(notes).length)
+    await expect(page.locator('[data-row*=".md:"]').first()).toBeVisible();
   const writes: string[] = [];
   page.on("request", (request) => {
     if (["POST", "PUT"].includes(request.method()) && request.url().includes("/api/files/"))
@@ -295,4 +298,141 @@ test("#773 I2 Enter on the focused cursor card picks in the open picker and open
     .toBe(`- [ ] fix the tap ${KASTEN} 🆔 kt-000009`);
   await expect(caretLine(page)).toHaveCount(0);
   await expect(region(page)).toBeVisible();
+});
+
+const columns = (page: Page) => page.getByTestId("todo-column");
+const lanes = (page: Page) => page.locator("h3:has(button[data-count])");
+const lane = (page: Page, name: string) => lanes(page).filter({ hasText: name }).locator("..");
+const left = async (page: Page, words: string) => (await card(page, words).boundingBox())?.x;
+
+test("A2 A5 #429 seven columns on one row, a todo done over a week ago left out, and a card's marks", async ({
+  page,
+  stack,
+}) => {
+  await board(page, stack.vault);
+  // Rejected reads as a chevron and its count while folded (#811 F3c).
+  const heads = ["Open 3", "Doing 1", "Review 0", "Waiting 0", "Blocked 1", "Done 1", "› 1"];
+  await expect(columns(page)).toHaveText(heads);
+  await page.getByRole("button", { name: "Rejected 1" }).click();
+  await expect(card(page, "drop the logo")).toBeVisible();
+  await expect(card(page, "old idea")).toHaveCount(0);
+  const tops = await columns(page).evaluateAll((all) => all.map((one) => one.offsetTop));
+  expect(new Set(tops).size).toBe(1);
+  const row = await page.locator("h3").first().boundingBox();
+  const last = await columns(page).last().boundingBox();
+  expect((row?.x ?? 0) + (row?.width ?? 0)).toBeGreaterThanOrEqual(
+    (last?.x ?? 0) + (last?.width ?? 0) - 2,
+  );
+
+  const deck = page.locator(`[data-card="${PLAN}:1"]`);
+  for (const mark of ["⏫", plus(2).slice(5), "1/2"]) await expect(deck).toContainText(mark);
+  await expect(deck).not.toContainText(plus(2));
+  await expect(card(page, "ship it")).toContainText("⛔ fix the tap");
+  await expect(card(page, "draw the chart")).toContainText("↳ write the deck");
+});
+
+test("#429 A4 V moves the card to review, into the Review column after Doing", async ({
+  page,
+  stack,
+}) => {
+  await board(page, stack.vault);
+  await page.keyboard.press("V");
+  await expect
+    .poll(() => lineOf(stack.vault, DAILY, "send the invoice"))
+    .toMatch(/^- \[r\] send the invoice /);
+  await expect(columns(page).nth(2)).toHaveText("Review 1");
+  const review = await columns(page).nth(2).boundingBox();
+  expect(await left(page, "send the invoice")).toBeGreaterThanOrEqual(review?.x ?? 0);
+  expect(await left(page, "send the invoice")).toBeLessThan(
+    (review?.x ?? 0) + (review?.width ?? 0),
+  );
+});
+
+test("A3 lanes by kind, a part in its parent's, and g lanes by project and back", async ({
+  page,
+  stack,
+}) => {
+  await board(page, stack.vault);
+  const kinds = ["#client", "#internal", "#private", "No kind"];
+  await expect(lanes(page)).toHaveText(kinds);
+  await expect(lane(page, "#internal")).toContainText("draw the chart");
+  await page.keyboard.press("g");
+  await expect(lanes(page)).toHaveText(["No project", "FDE"]);
+  // The invoice by its link, the chart by its folder.
+  for (const words of ["send the invoice", "draw the chart"])
+    await expect(lane(page, "FDE")).toContainText(words);
+  await expect(lane(page, "No project")).toContainText("fix the tap");
+  await page.keyboard.press("g");
+  await expect(lanes(page)).toHaveText(kinds);
+});
+
+for (const vim of ["on", "off"])
+  test(`#394 #395 a #p/fde tag puts a todo in the FDE lane, and g then j k h l reach it, vim ${vim}`, async ({
+    page,
+    stack,
+  }) => {
+    await board(page, stack.vault, vim, false, false, {
+      [DAILY]: `${DAILY_LINES}\n- [ ] post the slides #p/fde\n`,
+      "02 Projects/Kasten/plan.md": "- [ ] send the deck #p/fde\n",
+    });
+    await page.keyboard.press("g");
+    await expect(lanes(page)).toHaveText(["No project", "FDE"]);
+    for (const words of ["send the deck", "post the slides"])
+      await expect(lane(page, "FDE")).toContainText(words);
+    await expect(lane(page, "No project")).not.toContainText("post the slides");
+    const walk = [
+      ["j", "send the invoice"],
+      ["j", "post the slides"],
+      ["j", "write the deck"],
+      ["j", "send the deck"],
+      ["l", "draw the chart"],
+      ["h", "fix the tap"],
+      ...["send the invoice", "post the slides", "write the deck", "send the deck"].map((w) => [
+        "j",
+        w,
+      ]),
+      ["k", "write the deck"],
+      ["j", "send the deck"],
+    ];
+    for (const [key, words] of walk) {
+      await page.keyboard.press(key);
+      await expect(cursor(page)).toContainText(words);
+    }
+    await page.keyboard.press("Enter");
+    await expect(caretLine(page)).toContainText("send the deck");
+  });
+
+test("#541 I4 a card waits on an id two todos carry, though the done twin comes last", async ({
+  page,
+  stack,
+}) => {
+  await board(page, stack.vault, "on", true, false, {
+    [DAILY]:
+      "- [ ] ship the release 🆔 kt-aaaaaa\n- [x] cut the branch 🆔 kt-aaaaaa\n- [b] write the docs ⛔ kt-aaaaaa\n",
+  });
+  await expect(card(page, "write the docs")).toContainText("⛔ kt-aaaaaa");
+});
+
+test("B5 two project folders of one name under two roots draw two lanes", async ({
+  page,
+  stack,
+}) => {
+  await board(page, stack.vault, "on", true, false, {
+    "02 Projects/Foo/a.md": "- [ ] one\n",
+    "03 Areas/Foo/b.md": "- [ ] two\n",
+  });
+  await page.keyboard.press("g");
+  await expect(lanes(page)).toHaveText(["Foo", "Foo"]);
+  await expect(lanes(page).nth(0).locator("..").locator("[data-card]")).toHaveText([/one/]);
+  await expect(lanes(page).nth(1).locator("..").locator("[data-card]")).toHaveText([/two/]);
+});
+
+test("I7 the board draws an archived todo once the archive is shown", async ({ page, stack }) => {
+  await board(page, stack.vault, "on", false, false, {
+    "98 Archive/old.md": "- [ ] file the receipt\n",
+  });
+  await expect(card(page, "send the invoice")).toBeVisible();
+  await expect(card(page, "file the receipt")).toHaveCount(0);
+  await leader(page, "a");
+  await expect(card(page, "file the receipt")).toBeVisible();
 });
