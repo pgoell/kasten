@@ -84,6 +84,34 @@ test.describe("the tokens page", () => {
     ]);
   });
 
+  test("lists a token minted while the first list read is still on its way", async ({ page }) => {
+    // The backend answers the first read before the mint; only the page's sight of it waits (#2153).
+    let read = () => {};
+    let release = () => {};
+    const fetched = new Promise<void>((resolve) => (read = resolve));
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    await page.route(
+      "**/api/tokens",
+      async (route) => {
+        const response = await route.fetch();
+        read();
+        await gate;
+        await route.fulfill({ response });
+      },
+      { times: 1 },
+    );
+    await openOn(page, []);
+    await fetched;
+
+    await page.getByRole("checkbox").check();
+    await mint(page, "website");
+    await expect(page.getByText(SECRET)).toHaveCount(1);
+    release();
+
+    await expect(page.locator("li", { hasText: "website only" })).toContainText("website");
+    await expect(page.getByText("1 in the vault")).toBeVisible();
+  });
+
   test("revokes the row's own token, confirmed, and reads the list again without it", async ({
     page,
   }) => {

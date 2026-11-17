@@ -26,18 +26,16 @@ type Runner = {
 
 async function runner(page: Page): Promise<Runner> {
   const it: Runner = {
-    ...{
-      log: [],
-      down: 0,
-      retry: 3_600_000,
-      answer: 204,
-      posts: [],
-      asked: 0,
-      streams: [],
-      open: 0,
-    },
+    log: [],
+    down: 0,
+    retry: 3_600_000,
+    answer: 204,
+    posts: [],
+    asked: 0,
+    streams: [],
+    open: 0,
     say: (...events) => {
-      for (const res of it.streams)
+      for (const res of it.streams.filter((stream) => !stream.writableEnded && !stream.destroyed))
         for (const e of events) res.write(`data: ${JSON.stringify(e)}\n\n`);
     },
   };
@@ -56,7 +54,10 @@ async function runner(page: Page): Promise<Runner> {
     });
   });
   await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
-  page.once("close", () => server.closeAllConnections());
+  page.once("close", () => {
+    server.closeAllConnections();
+    server.close();
+  });
   const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/`;
   await page.route("**/chat/*", (route) => {
     const path = new URL(route.request().url()).pathname;
