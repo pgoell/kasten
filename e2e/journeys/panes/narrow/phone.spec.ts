@@ -418,6 +418,26 @@ test.describe("the graph pane on a phone", () => {
     await expect(pane(page)).toHaveCount(0);
   });
 
+  test("a note's Graph button opens the Local graph sheet, and a tap on a row there opens that note", async ({
+    page,
+    stack,
+  }) => {
+    await vaultWith(stack.vault, { "Lone.md": "links to [[Welcome]]\n" });
+    const tabs = [{ id: "t", root: { id: "a", path: "Lone.md" }, focus: "a" }];
+    const stored = JSON.stringify({ layout: { tabs, active: 0 }, treeOpen: false });
+    await page.addInitScript(([key, value]) => localStorage.setItem(key, value), [COARSE, stored]);
+    await load(page);
+
+    await page.locator("[data-head='graph']").tap();
+    const sheet = page.getByRole("dialog", { name: "Local graph" });
+    await sheet.getByRole("button", { name: "Welcome", exact: true }).tap();
+
+    await expect(sheet).toBeHidden();
+    await expect(page.locator(".cm-content")).toContainText(
+      "The front door of the e2e fixture vault",
+    );
+  });
+
   test("a tap on a row button opens its note", async ({ page, stack }) => {
     await vaultWith(stack.vault, { "Lone.md": "links to [[Welcome]]\n" });
     await graphAround(page, "Lone.md");
