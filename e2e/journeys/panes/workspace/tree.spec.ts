@@ -213,19 +213,26 @@ test("E reveals an open image the way it reveals a note", async ({ page, stack }
   await expect(row(page, "pic.png")).toBeFocused();
 });
 
-test("E leaves the cursor on the first row with no note open, and with the open note filtered out of the tree", async ({
+test("E leaves the cursor where it was with no note open, and with the open note filtered out of the tree", async ({
   page,
   stack,
 }) => {
   await opened(page, stack.vault);
   await leader(page, "q");
   await expect(page.getByRole("tab", { name: "Welcome" })).toHaveCount(0);
+  await leader(page, "e");
+  await page.keyboard.press("j");
+  await expect(folder(page, "02 Projects")).toBeFocused();
   await leader(page, "E");
-  await expect(folder(page, "01 Notes")).toBeFocused();
+  await expect(folder(page, "02 Projects")).toBeFocused();
 
   await loadOn(page, "98 Archive/Gone.md", "Gone");
+  await leader(page, "e");
+  await page.keyboard.press("j");
+  await expect(folder(page, "02 Projects")).toBeFocused();
+  await toEditor(page);
   await leader(page, "E");
-  await expect(folder(page, "01 Notes")).toBeFocused();
+  await expect(folder(page, "02 Projects")).toBeFocused();
 });
 
 test("the cursor starts on the first row on a nested note's URL, and after E stays where it was moved when a folder unfolds", async ({
