@@ -1,5 +1,14 @@
-import type { Page, Response } from "@playwright/test";
-import { bodyOf, leader, localDate, noteText, openApp, vaultWith } from "../../harness/app.ts";
+import type { Locator, Page, Response } from "@playwright/test";
+import {
+  bodyOf,
+  gateway,
+  leader,
+  localDate,
+  noteText,
+  openApp,
+  vaultWith,
+  walkBackoff,
+} from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 
 const DUE = "<!--SR:!2020-01-01,3,250-->";
@@ -264,5 +273,136 @@ test.describe("a new card rated again (#816)", () => {
     const fields = async () =>
       (await noteText(stack.vault, "notes/tls.md")).split("\n").filter((line) => line.startsWith("sr-"));
     await expect.poll(fields).toEqual([`sr-due: ${day(1)}`, "sr-interval: 1", "sr-ease: 250"]);
+  });
+});
+
+test.describe("Try again on daily limits whose read failed for good (#1167, #1170, #1171)", () => {
+  const LIMITS_API = (url: URL) => url.pathname === "/api/review/limits";
+  const ALERT = "The daily limits could not be read: GET /api/review/limits failed with 502";
+  const limitsAlert = (page: Page) => page.getByRole("alert").filter({ hasText: "daily limits" });
+  const tryAgain = (page: Page) => page.getByRole("button", { name: "Try again" });
+  const left = (page: Page) => page.getByText(/^\d+ left$/);
+  const trivia = (page: Page) => page.locator('button[data-deck="trivia"]');
+
+  /** Runs the paused clock until `target` shows: the query's answers reach the screen through a timer. */
+  const shown = (page: Page, target: Locator) =>
+    expect
+      .poll(async () => {
+        await page.clock.runFor(100);
+        return target.count();
+      })
+      .toBeGreaterThan(0);
+
+  /**
+   * Sits trivia once the overview has read the limits and that read is stale, so the sitting reads
+   * them itself; every later limits read fails while `backend.down`, and `later` lands on disk first.
+   */
+  async function failedSitting(page: Page, vault: string, later = LIMITS) {
+    await vaultWith(vault, TRIVIA);
+    await page.clock.install();
+    await openReview(page);
+    await expect(trivia(page)).toContainText("3 due");
+    await vaultWith(vault, later);
+    // Past the app's 10 s staleTime; a younger answer is used as it is.
+    await page.clock.fastForward(11_000);
+    const backend = { down: true };
+    const failed = await gateway(page, LIMITS_API, () => backend.down);
+    await trivia(page).click();
+    await walkBackoff(page, failed, limitsAlert(page));
+    await expect(limitsAlert(page)).toHaveText(ALERT);
+    return { backend, failed };
+  }
+
+  test("#1171 A4 I2 #1167 A1 I3 a sitting whose limits refetch fails asks no card; Enter on Try again once the backend is back asks under decks.md as it reads now", async ({
+    page,
+    stack,
+  }) => {
+    // The overview read the limits before decks.md gained trivia's line, so its answer would say 6 left.
+    const { backend, failed } = await failedSitting(page, stack.vault);
+    await expect(page.getByTestId("review-card")).toHaveCount(0);
+    await expect(tryAgain(page)).toBeVisible();
+    backend.down = false;
+    await tryAgain(page).focus();
+    await page.keyboard.press("Enter");
+    await shown(page, page.getByTestId("review-question"));
+    await expect(page.getByTestId("review-question")).toHaveText("Due one?");
+    await expect(left(page)).toHaveText("3 left");
+    await expect(page.getByRole("alert")).toHaveCount(0);
+    await expect(tryAgain(page)).toHaveCount(0);
+    expect(failed()).toBe(8);
+  });
+
+  test("#1167 I1 a limits Try again while the backend is still down says Reading the deck, tries eight times, then offers Try again again", async ({
+    page,
+    stack,
+  }) => {
+    const { failed } = await failedSitting(page, stack.vault);
+    await tryAgain(page).click();
+    await expect(page.getByText("Reading the deck…")).toBeVisible();
+    await expect(page.getByRole("alert")).toHaveCount(0);
+    await expect(tryAgain(page)).toHaveCount(0);
+    await walkBackoff(page, failed, limitsAlert(page), { from: 8 });
+    await expect(limitsAlert(page)).toHaveText(ALERT);
+    await expect(tryAgain(page)).toBeVisible();
+  });
+
+  test("#1167 I2 after a limits Try again answered, a rating whose write fails shows its alert with no Try again", async ({
+    page,
+    stack,
+  }) => {
+    const { backend } = await failedSitting(page, stack.vault);
+    backend.down = false;
+    await tryAgain(page).click();
+    await shown(page, page.getByTestId("review-question"));
+    await page.route(
+      (url) => decodeURIComponent(url.pathname) === `/api/files/${Object.keys(TRIVIA)[0]}`,
+      (route) =>
+        route.request().method() === "PUT"
+          ? route.fulfill({ status: 500, json: {} })
+          : route.fallback(),
+    );
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("3");
+    await shown(page, page.getByRole("alert").filter({ hasText: "The note could not be written" }));
+    await expect(tryAgain(page)).toHaveCount(0);
+  });
+
+  test("#1171 I3 a sitting that has its limits keeps asking with no alert when a rating's limits refetch fails for good", async ({
+    page,
+    stack,
+  }) => {
+    await vaultWith(stack.vault, { ...TRIVIA, ...LIMITS });
+    await page.clock.install();
+    await openReview(page);
+    await trivia(page).click();
+    await expect(left(page)).toHaveText("3 left");
+    const failed = await gateway(page, LIMITS_API, () => true);
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("3");
+    // The rating's write refetches the limits; all eight tries fail and no alert may show.
+    await walkBackoff(page, failed, limitsAlert(page), { shows: false });
+    await expect(page.getByTestId("review-question")).toHaveText("Due two?");
+    await expect(left(page)).toHaveText("2 left");
+    await expect(page.getByRole("alert")).toHaveCount(0);
+  });
+
+  test("#1170 I4 Enter on the overview's limits Try again shows the decks, with the focus left in the pane", async ({
+    page,
+    stack,
+  }) => {
+    await vaultWith(stack.vault, TRIVIA);
+    const backend = { down: true };
+    const failed = await gateway(page, LIMITS_API, () => backend.down);
+    await page.clock.install();
+    await openReview(page);
+    await walkBackoff(page, failed, limitsAlert(page));
+    await expect(limitsAlert(page)).toHaveText(ALERT);
+    await expect(trivia(page)).toHaveCount(0);
+    backend.down = false;
+    await tryAgain(page).focus();
+    await page.keyboard.press("Enter");
+    await shown(page, trivia(page));
+    await expect(page.getByRole("alert")).toHaveCount(0);
+    await expect(page.locator('[aria-label="review"]')).toBeFocused();
   });
 });
