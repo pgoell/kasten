@@ -282,6 +282,9 @@ test.describe("the board by touch (#394, #429)", () => {
     await button(page, "kind").tap();
     await expect(lanes(page)).toHaveText(KINDS);
     await button(page, "project").tap();
+    await expect(lanes(page).filter({ hasText: "FDE" }).locator("..")).toContainText(
+      "send the deck",
+    );
     await cards(page).filter({ hasText: "send the deck" }).tap();
     await expect(page.locator(".cm-activeLine")).toContainText("send the deck");
   });
