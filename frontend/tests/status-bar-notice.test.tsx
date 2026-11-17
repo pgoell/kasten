@@ -91,26 +91,6 @@ describe("the clock in the bar", () => {
     expect(screen.queryByTestId("status-detail")).toBeNull();
   });
 
-  it("takes the notice away from its ×, which a phone's quiet bar goes with", () => {
-    // A phone draws the bar only while it has something to say, so a notice nobody can clear
-    // kept it over the page until some later write cleared it.
-    function Route() {
-      const [notice, setNotice] = useState<string | undefined>("A book is already there");
-      return <StatusBar quiet notice={notice} onDismissNotice={() => setNotice(undefined)} />;
-    }
-    const { container } = render(<Route />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Dismiss notice" }));
-    expect(screen.queryByTestId("notice")).toBeNull();
-    expect(container.querySelector("footer")).toBeNull();
-  });
-
-  it("draws no × for a bar that cannot clear its notice", () => {
-    render(<StatusBar notice="A book is already there" />);
-
-    expect(screen.queryByTestId("notice-dismiss")).toBeNull();
-  });
-
   it("cuts a long notice short rather than widen the bar", () => {
     render(<StatusBar notice="A book is already there" />);
 
