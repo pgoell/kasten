@@ -1,4 +1,4 @@
-import { copyFile, writeFile } from "node:fs/promises";
+import { copyFile, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { leader, noteText, openApp, openNote, panes, today } from "../../harness/app.ts";
@@ -256,4 +256,30 @@ test.describe("a pane act whose write is held while the focus moves", () => {
         ]);
     });
   }
+});
+
+test("df with typing still waiting for its write sends the typing first, so the trash holds it", async ({
+  page,
+  stack,
+}) => {
+  const trash = join(stack.vault, ".trash");
+  const entries = () =>
+    readdir(trash).then(
+      (names) => names.filter((name) => name.startsWith("Welcome.md@")),
+      (error: NodeJS.ErrnoException) => {
+        if (error.code === "ENOENT") return [];
+        throw error;
+      },
+    );
+  await page.clock.install();
+  await openApp(page);
+  await openNote(page, "Welcome");
+  // Time stands still from here, so the typing's own write waits and only the delete can send it.
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
+  await page.keyboard.type("Gotyped before the delete");
+  await page.keyboard.press("Escape");
+  await leader(page, "df");
+  await expect.poll(entries, { timeout: 15_000 }).toHaveLength(1);
+  const [entry] = await entries();
+  expect(await readFile(join(trash, entry ?? ""), "utf8")).toContain("typed before the delete");
 });

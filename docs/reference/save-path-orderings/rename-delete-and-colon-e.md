@@ -15,8 +15,8 @@ Part of [save path orderings](/reference/save-path-orderings.md). The columns ar
 
 | # | Ordering | Must hold | Loses typed text if wrong | Test |
 |---|---|---|---|---|
-| 66 | Text waiting; rename or delete. | `saveFirst` writes it first, then the command goes. | yes | `writes on the way to another command when nothing is in conflict`, home-route-daily-and-trash: `writes what is waiting before it deletes the note` |
-| 67 | The note stands conflicted; rename or delete. | Refused; nothing written. | yes | `writes nothing on the way to another command while the note stands conflicted`, home-route-daily-and-trash: `refuses to delete a note that changed on disk` |
+| 66 | Text waiting; rename or delete. | `saveFirst` writes it first, then the command goes. | yes | `writes on the way to another command when nothing is in conflict`, during-save journey: `df with typing still waiting for its write sends the typing first, so the trash holds it` |
+| 67 | The note stands conflicted; rename or delete. | Refused; nothing written. | yes | `writes nothing on the way to another command while the note stands conflicted`, conflict journey: `df is refused: it sends no delete and the note stays on disk with the typing on screen` |
 | 68 | W1 out; rename or delete; W1 fails. | `saveFirst` waits for W1 and refuses. | yes | `lets a rename wait for the write in the air, and refuses when it fails` |
 | 69 | W1 out; rename or delete; W1 lands. | `saveFirst` waits for W1, then lets the command go. | no | orderings: `lets a rename go once the write in the air lands` |
 | 70 | W1 out; rename or delete; W1 refused. | `saveFirst` refuses; status conflict. | yes | orderings: `refuses a rename when the write in the air is refused` |

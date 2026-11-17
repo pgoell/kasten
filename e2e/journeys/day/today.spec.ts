@@ -1,5 +1,16 @@
 import type { Page } from "@playwright/test";
-import { gateway, openApp, phone, tapHeight, vaultWith, walkBackoff } from "../../harness/app.ts";
+import {
+  bodyOf,
+  gateway,
+  leader,
+  noteText,
+  openApp,
+  panes,
+  phone,
+  tapHeight,
+  vaultWith,
+  walkBackoff,
+} from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 
 const UNREAD = "Cards could not be counted: the daily limits could not be read";
@@ -195,6 +206,115 @@ test.describe("the home screen's columns", () => {
       );
       expect(tops[0]).toBeLessThan(tops[1] ?? 0);
       expect(tops[1]).toBeLessThan(tops[2] ?? 0);
+    });
+  });
+});
+
+/** A Thursday at noon: each grain's note below is the one it falls in. */
+const AUGUST_6 = new Date(2026, 7, 6, 12);
+const DAILY = "01 Periodic/00 Daily/2026-08-06.md";
+const LINKS =
+  "[[01 Periodic/00 Daily/2026-08-05]] | [[01 Periodic/01 Weekly/2026-W32]] | [[01 Periodic/00 Daily/2026-08-07]]";
+/** The lines of the block a file opens with, or null when its first line is no fence. */
+const block = (text: string) => text.match(/^---\n([\s\S]*?)\n---\n/)?.[1]?.split("\n") ?? null;
+
+/** Each method sent for `path` from now on. */
+function sentFor(page: Page, path: string): string[] {
+  const sent: string[] = [];
+  page.on("request", (request) => {
+    const at = decodeURIComponent(new URL(request.url()).pathname);
+    if (at === `/api/files/${path}`) sent.push(request.method());
+  });
+  return sent;
+}
+
+/** Steps past every save timer, then waits for the finder, which opens after any write they sent. */
+async function settled(page: Page): Promise<void> {
+  await page.clock.runFor(10_000);
+  await leader(page, "ff");
+  await expect(page.getByRole("dialog", { name: "Find note" })).toBeVisible();
+  await page.keyboard.press("Escape");
+}
+
+test.describe("the periodic notes", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.clock.install({ time: AUGUST_6 });
+  });
+
+  test("gd makes today's note with its block, links and TODOs in one write, and opens it", async ({
+    page,
+    stack,
+  }) => {
+    await openApp(page);
+    const sent = sentFor(page, DAILY);
+    await leader(page, "gd");
+    await expect(panes(page).filter({ hasText: "2026-08-06 Thursday" })).toHaveCount(1);
+    await settled(page);
+    expect(sent.filter((method) => method !== "GET")).toEqual(["POST"]);
+    const text = await noteText(stack.vault, DAILY);
+    expect(block(text)).toContain("type: Periodic Note");
+    expect(bodyOf(text)).toBe(`\n# 2026-08-06 Thursday\n\n${LINKS}\n\n## TODOs\n`);
+  });
+
+  test("gd, gw, gm, gq and gy each open a note whose file starts with a block saying it is periodic", async ({
+    page,
+    stack,
+  }) => {
+    await openApp(page);
+    for (const [keys, path] of [
+      ["gd", DAILY],
+      ["gw", "01 Periodic/01 Weekly/2026-W32.md"],
+      ["gm", "01 Periodic/02 Monthly/2026-08.md"],
+      ["gq", "01 Periodic/03 Quarterly/2026-Q3.md"],
+      ["gy", "01 Periodic/04 Yearly/2026.md"],
+    ]) {
+      await leader(page, keys);
+      const name = path.split("/").pop()?.replace(/\.md$/, "");
+      await expect(page.getByRole("tab", { name, selected: true })).toBeVisible();
+      await expect(page.locator(".cm-content:focus")).toHaveCount(1);
+      expect(block(await noteText(stack.vault, path))).toContain("type: Periodic Note");
+    }
+  });
+
+  test("gd opens the daily note the vault already holds and writes nothing to it", async ({
+    page,
+    stack,
+  }) => {
+    await vaultWith(stack.vault, { [DAILY]: "# 2026-08-06 Thursday\n" });
+    await openApp(page);
+    const sent = sentFor(page, DAILY);
+    await leader(page, "gd");
+    await expect(panes(page).filter({ hasText: "2026-08-06 Thursday" })).toHaveCount(1);
+    await settled(page);
+    expect(sent.filter((method) => method !== "GET")).toEqual([]);
+    expect(await noteText(stack.vault, DAILY)).toBe("# 2026-08-06 Thursday\n");
+  });
+
+  test.describe("on a phone", () => {
+    test.use(phone);
+
+    test("the palette's rows make today's note in one write, delete it and bring it back", async ({
+      page,
+      stack,
+    }) => {
+      const sent = sentFor(page, DAILY);
+      await page.goto("/");
+      const commands = page.getByRole("toolbar", { name: "Commands" });
+      const run = async (row: RegExp) => {
+        await commands.getByRole("button", { name: "Run a command by name" }).tap();
+        await page.getByRole("option", { name: row }).tap();
+      };
+      await expect(commands).toBeVisible({ timeout: 15_000 });
+      await run(/^Open today's note/);
+      await expect(panes(page).filter({ hasText: "2026-08-06 Thursday" })).toHaveCount(1);
+      expect(bodyOf(await noteText(stack.vault, DAILY))).toContain(LINKS);
+      expect(sent.filter((method) => method !== "GET")).toEqual(["POST"]);
+      await run(/^Delete the note/);
+      await expect(panes(page).filter({ hasText: "2026-08-06 Thursday" })).toHaveCount(0);
+      await expect.poll(() => noteText(stack.vault, DAILY)).toBe("");
+      await run(/^Undo the last delete/);
+      await expect(panes(page).filter({ hasText: "2026-08-06 Thursday" })).toHaveCount(1);
+      expect(bodyOf(await noteText(stack.vault, DAILY))).toContain(LINKS);
     });
   });
 });

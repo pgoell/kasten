@@ -239,19 +239,35 @@ test("cf opens New note on the vault root, rf Rename note on the open note, cb t
   expect(await (await chooser).element().getAttribute("accept")).toContain(".epub");
 });
 
-test("df deletes the open note and du brings it back", async ({ page, stack }) => {
-  const seeds = join(stack.vault, "01 Notes/Seeds.md");
+test("df deletes the open note, empties its pane and drops its tree row, and du brings it back open", async ({
+  page,
+  stack,
+}) => {
+  const compost = join(stack.vault, "Compost.md");
+  await vaultWith(stack.vault, { "Compost.md": "Turn the heap.\n" });
   await openApp(page);
-  await findNote(page, "Seeds");
+  await findNote(page, "Compost");
+  await expect(row(page, "Compost")).toBeVisible();
   await leader(page, "df");
-  await expect.poll(() => exists(seeds)).toBe(false);
-  await expect(page.getByRole("tab", { name: "Seeds" })).toHaveCount(0);
+  await expect.poll(() => exists(compost)).toBe(false);
+  await expect(page.getByRole("tab", { name: "Compost" })).toHaveCount(0);
+  await expect(panes(page).filter({ hasText: "Turn the heap" })).toHaveCount(0);
+  await expect(row(page, "Compost")).toHaveCount(0);
   await page.locator(".cm-content").first().click();
   await page.keyboard.press("Escape");
   await inEditor(page);
   await leader(page, "du");
-  await expect(page.getByRole("tab", { name: "Seeds", selected: true })).toBeVisible();
-  await expect.poll(() => exists(seeds)).toBe(true);
+  await expect(page.getByRole("tab", { name: "Compost", selected: true })).toBeVisible();
+  await expect(panes(page).filter({ hasText: "Turn the heap" })).toHaveCount(1);
+  await expect.poll(() => exists(compost)).toBe(true);
+});
+
+test("du with nothing in the trash flashes the bar and opens nothing", async ({ page }) => {
+  await openApp(page);
+  await findNote(page, "Seeds");
+  await leader(page, "du");
+  await expect(page.getByTestId("save-status")).toHaveClass(/animate-flash/);
+  await expect(page.getByRole("tab")).toHaveText(["Seeds"]);
 });
 
 test("dd stays vim's delete line and deletes no note", async ({ page, stack }) => {

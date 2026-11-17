@@ -262,3 +262,16 @@ test("the cursor starts on the first row on a nested note's URL, and after E sta
   await expect(row(page, "Lecture")).toBeVisible();
   await expect(folder(page, "01 Notes")).toBeFocused();
 });
+
+test("a note opened by a click on its row while the tree holds the focus takes the focus into its editor", async ({
+  page,
+}) => {
+  await openApp(page);
+  await findNote(page, "Welcome");
+  await leader(page, "E");
+  await expect(row(page, "Welcome")).toBeFocused();
+  await row(page, "Long note").click();
+  await expect(page.getByRole("tab", { name: "Long note", selected: true })).toBeVisible();
+  await expect(page.locator(".cm-content:focus")).toHaveCount(1);
+  await expect(row(page, "Long note")).not.toBeFocused();
+});
