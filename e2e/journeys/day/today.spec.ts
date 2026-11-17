@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import {
   bodyOf,
+  findNote,
   gateway,
   leader,
   noteText,
@@ -213,6 +214,8 @@ test.describe("the home screen's columns", () => {
 /** A Thursday at noon: each grain's note below is the one it falls in. */
 const AUGUST_6 = new Date(2026, 7, 6, 12);
 const DAILY = "01 Periodic/00 Daily/2026-08-06.md";
+const WEEK = "01 Periodic/01 Weekly/2026-W32.md";
+const YEAR = "01 Periodic/04 Yearly/2026.md";
 const LINKS =
   "[[01 Periodic/00 Daily/2026-08-05]] | [[01 Periodic/01 Weekly/2026-W32]] | [[01 Periodic/00 Daily/2026-08-07]]";
 /** The lines of the block a file opens with, or null when its first line is no fence. */
@@ -288,6 +291,160 @@ test.describe("the periodic notes", () => {
     await settled(page);
     expect(sent.filter((method) => method !== "GET")).toEqual([]);
     expect(await noteText(stack.vault, DAILY)).toBe("# 2026-08-06 Thursday\n");
+  });
+
+  test.describe("the review in the weekly and the yearly note", () => {
+    const own = (title: string) => `# ${title}\n\nmy own line\n`;
+    const review = (page: Page) => page.locator(".cm-review");
+    const READS = /^\/api\/(log|todos|cards|written|written\/notes|github)$/;
+
+    /** Opens `path` by its address, as a link does, once the reads the review sends have answered. */
+    async function openPeriodic(page: Page, vault: string, path: string): Promise<string[]> {
+      await vaultWith(vault, {
+        [WEEK]: own("2026-W32"),
+        [YEAR]: own("2026"),
+        "01 Periodic/01 Weekly/index.md": own("Weekly"),
+        "02 Projects/x.md": own("x"),
+        [DAILY]: own("2026-08-06 Thursday"),
+      });
+      const reads: string[] = [];
+      page.on("requestfinished", (request) => {
+        const at = new URL(request.url()).pathname;
+        if (request.method() === "GET" && READS.test(at)) reads.push(at);
+      });
+      await page.goto(`/?note=${encodeURIComponent(path)}`);
+      await expect(page.locator(".cm-content")).toContainText("my own line", { timeout: 15_000 });
+      if (path === WEEK || path === YEAR) {
+        await expect(review(page)).toContainText("in review");
+        await expect(review(page)).not.toContainText("Reading…");
+      }
+      await page.locator(".cm-content").click();
+      return reads;
+    }
+
+    /** Puts the cursor at the note's end and types `words` and a new line, in vim's insert mode when vim is on. */
+    async function typeAtEnd(page: Page, words: string): Promise<void> {
+      await page.keyboard.press("Control+End");
+      if (await page.locator(".cm-vimMode").count()) {
+        for (const key of ["Escape", "G", "i"]) await page.keyboard.press(key);
+      }
+      await page.keyboard.type(`${words}\n`);
+    }
+
+    /** Steps past the save timers and waits for `path` to hold `body` below its frontmatter. */
+    async function saved(page: Page, vault: string, path: string, body: string): Promise<void> {
+      await page.clock.runFor(10_000);
+      await expect.poll(async () => bodyOf(await noteText(vault, path))).toBe(body);
+    }
+
+    const toggle = async (page: Page) => {
+      await page.keyboard.press("Control+Shift+P");
+      await page.getByRole("option", { name: /^Toggle live preview/ }).click();
+    };
+
+    test("the week review shows in Read and in Edit, and opening, reading and leaving the note writes nothing", async ({
+      page,
+      stack,
+    }) => {
+      const sent = sentFor(page, WEEK);
+      await openPeriodic(page, stack.vault, WEEK);
+      await leader(page, "p");
+      await expect(review(page)).toContainText("Week in review");
+      await leader(page, "ff");
+      await page.getByRole("dialog", { name: "Find note" }).getByRole("combobox").fill("Welcome");
+      await page.keyboard.press("Enter");
+      await expect(page.getByRole("tab", { name: "Welcome", selected: true })).toBeVisible();
+      await settled(page);
+      expect(sent.filter((method) => method !== "GET")).toEqual([]);
+      expect(await noteText(stack.vault, WEEK)).toBe(own("2026-W32"));
+    });
+
+    test("only the weekly note draws a review, not the weekly index, a daily note or a project note", async ({
+      page,
+      stack,
+    }) => {
+      await openPeriodic(page, stack.vault, WEEK);
+      for (const path of ["01 Periodic/01 Weekly/index.md", DAILY, "02 Projects/x.md"]) {
+        await openPeriodic(page, stack.vault, path);
+        await expect(review(page), path).toHaveCount(0);
+      }
+    });
+
+    test("typing below the review, up to its save, asks none of its reads again", async ({
+      page,
+      stack,
+    }) => {
+      await openPeriodic(page, stack.vault, WEEK);
+      // Past the cache's 10 s staleTime, so a block drawn afresh would read again.
+      await page.clock.runFor(11_000);
+      // Up to the save only: the save's own echo asks the todos again, as every write does.
+      const asked: string[] = [];
+      page.on("request", (request) => {
+        const at = new URL(request.url()).pathname;
+        if (request.method() === "GET" && READS.test(at)) asked.push(at);
+      });
+      const save = page.waitForRequest((request) => request.method() === "PUT");
+      await typeAtEnd(page, "one more line");
+      await page.clock.runFor(10_000);
+      await save;
+      expect(asked).toEqual([]);
+      await saved(page, stack.vault, WEEK, `${own("2026-W32")}one more line\n`);
+    });
+
+    test("an autosave of another note in the other pane asks the written notes again", async ({
+      page,
+      stack,
+    }) => {
+      const reads = await openPeriodic(page, stack.vault, YEAR);
+      const before = reads.filter((at) => at === "/api/written/notes").length;
+      await leader(page, "%");
+      await expect(panes(page)).toHaveCount(2);
+      await findNote(page, "Welcome");
+      await typeAtEnd(page, "a line");
+      await page.clock.runFor(10_000);
+      await expect
+        .poll(() => reads.filter((at) => at === "/api/written/notes").length)
+        .toBeGreaterThan(before);
+    });
+
+    test("with vim on, G, gg and j move over the note's own lines and the block takes none", async ({
+      page,
+      stack,
+    }) => {
+      await openPeriodic(page, stack.vault, WEEK);
+      for (const keys of ["Gaend", "ggA top", "jjA mid"]) {
+        await page.keyboard.press("Escape");
+        await page.keyboard.type(keys);
+      }
+      await saved(page, stack.vault, WEEK, "# 2026-W32 top\n\nmy own line mid\nend");
+    });
+
+    test("Ctrl+A and Backspace empty the note and never write the block into it", async ({
+      page,
+      stack,
+    }) => {
+      await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
+      await openPeriodic(page, stack.vault, WEEK);
+      await page.keyboard.press("Control+A");
+      await page.keyboard.press("Backspace");
+      await saved(page, stack.vault, WEEK, "");
+      await expect(review(page)).toContainText("Week in review");
+    });
+
+    for (const vim of ["off", "on"]) {
+      test(`with vim ${vim}, typing below the review edits the note in Read and in Edit`, async ({
+        page,
+        stack,
+      }) => {
+        await page.addInitScript((mode) => localStorage.setItem("kasten.vim", mode), vim);
+        await openPeriodic(page, stack.vault, YEAR);
+        await typeAtEnd(page, `read ${vim}`);
+        await toggle(page);
+        await expect(review(page)).toContainText("Year in review");
+        await typeAtEnd(page, `edit ${vim}`);
+        await saved(page, stack.vault, YEAR, `${own("2026")}read ${vim}\nedit ${vim}\n`);
+      });
+    }
   });
 
   test.describe("on a phone", () => {

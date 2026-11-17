@@ -3,7 +3,7 @@
  * no-write rule. On a phone by touch, one column, nothing sideways, rows 44 px tall, and a tap
  * opens a note at its line. On a desktop, the numbers beside the main column and a click opens a
  * note. Opening, scrolling and leaving the yearly note writes nothing. jsdom lays nothing out,
- * so each is measured here. The typing and the vim tests are in periodic-review-editing.test.tsx.
+ * so each is measured here. The typing and the vim journeys are in e2e/journeys/day/today.spec.ts.
  */
 
 import { userEvent } from "vitest/browser";
