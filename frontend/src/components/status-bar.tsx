@@ -115,10 +115,7 @@ interface StatusBarProps {
   archive?: boolean;
   /** One sentence about a failure with no save sign to hang off, such as an upload. */
   notice?: string;
-  /**
-   * Clears the notice. Without it a phone's bar, drawn only while it has something to say,
-   * stayed up until the next write that happened to clear it.
-   */
+  /** Clears the notice, and with it a phone's bar when nothing else is left to say. */
   onDismissNotice?: () => void;
   /** What the backend answered for itself. A prop, since the bar holds no query client. */
   version?: string;

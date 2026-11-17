@@ -4,8 +4,6 @@ import { StatusBar } from "@/components/status-bar";
 
 describe("the × beside a notice", () => {
   it("takes the notice away from its ×, which a phone's quiet bar goes with", () => {
-    // A phone draws the bar only while it has something to say, so a notice nobody can clear
-    // kept it over the page until some later write cleared it.
     function Route() {
       const [notice, setNotice] = useState<string | undefined>("A book is already there");
       return <StatusBar quiet notice={notice} onDismissNotice={() => setNotice(undefined)} />;
