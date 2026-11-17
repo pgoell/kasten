@@ -7,13 +7,15 @@ import {
   leader,
   noteText,
   openApp,
+  PANE,
   panes,
+  readAll,
   vaultWith,
 } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
 import { beside, focusedPane, layout, load, paneText, seed, selectedTab } from "./stored.ts";
 
-// Every sequence runs from the editor with vim on, the desktop's default: with vim off,
+// Every sequence runs with vim on, the desktop's default, from the editor or the book pane: with vim off,
 // as on a phone, the editor takes no leader and the palette holds the same rows.
 
 const tree = (page: Page) => page.getByRole("navigation", { name: "Vault" });
@@ -99,7 +101,7 @@ test("ff, fg and ft each open their own finder and neither of the other two", as
   await expect(search).toHaveCount(0);
 });
 
-test("gs opens the review and no book beside Primer, and gr opens Primer's book", async ({
+test("gs opens the review and no book beside Primer, and gr opens Primer's book beside the note", async ({
   page,
 }) => {
   await openApp(page);
@@ -110,6 +112,85 @@ test("gs opens the review and no book beside Primer, and gr opens Primer's book"
   await findNote(page, "Primer");
   await leader(page, "gr");
   await expect(book(page)).toBeVisible();
+  await expect(panes(page)).toHaveCount(2);
+  await expect(panes(page).nth(0)).toContainText("Notes on the primer");
+});
+
+test("gr on the home screen opens no pane, and the next sequence is still heard", async ({
+  page,
+}) => {
+  await openApp(page);
+  await expect(page.locator("[data-today]")).toBeVisible();
+  await leader(page, "gr");
+  await leader(page, "ff");
+  await expect(dialog(page, "Find note")).toBeVisible();
+  await expect(panes(page)).toHaveCount(1);
+  await expect(book(page)).toHaveCount(0);
+});
+
+/** Which visible pane draws the focus line, or -1: a click into the book's frame moves `activeElement` whatever the app does. */
+const lit = (page: Page) =>
+  readAll(page, PANE, (all) =>
+    all.findIndex((pane) => {
+      const line = pane.querySelector("[data-focus-line]");
+      return line !== null && getComputedStyle(line).backgroundColor !== "rgba(0, 0, 0, 0)";
+    }),
+  );
+
+test("the book pane's w downloads the file beside the note under the vault's name, and nothing where none lies beside", async ({
+  page,
+}) => {
+  const sent: string[] = [];
+  page.on("download", (download) => sent.push(`${download.suggestedFilename()} ${download.url()}`));
+  await openApp(page);
+  await findNote(page, "Welcome");
+  await leader(page, "gr");
+  await expect(book(page)).toContainText("Nothing to read beside");
+  await expect(book(page)).toBeFocused();
+  await page.keyboard.press("w");
+  await leader(page, "q");
+  await findNote(page, "Primer");
+  await leader(page, "gr");
+  await expect(book(page).getByText("13%", { exact: true })).toBeVisible();
+  const download = page.waitForEvent("download");
+  await page.keyboard.press("w");
+  await download;
+  const url = new URL("/api/assets/04%20Books/Primer.pdf", page.url()).href;
+  expect(sent).toEqual([`Primer.pdf ${url}`]);
+});
+
+test("q closes the focused book pane and leaves the note, and after % closes the new pane and not the book", async ({
+  page,
+}) => {
+  await openApp(page);
+  await findNote(page, "Primer");
+  await leader(page, "gr");
+  await expect(book(page)).toBeFocused();
+  await leader(page, "%");
+  await expect(panes(page)).toHaveCount(3);
+  const books = await book(page).count();
+  await leader(page, "q");
+  await expect(panes(page)).toHaveCount(2);
+  await expect(book(page)).toHaveCount(books);
+  await expect(book(page)).toBeVisible();
+
+  await book(page).focus();
+  await leader(page, "q");
+  await expect(book(page)).toHaveCount(0);
+  await expect(panes(page)).toHaveCount(1);
+  await expect(panes(page).nth(0)).toContainText("Notes on the primer");
+});
+
+test("a click inside the book moves the focus to its pane", async ({ page }) => {
+  await openApp(page);
+  await findNote(page, "Primer");
+  await leader(page, "gr");
+  await expect(book(page).getByText("13%", { exact: true })).toBeVisible();
+  await leader(page, "o");
+  await expect.poll(() => lit(page)).toBe(0);
+  const frame = page.frames().find((f) => f.url().startsWith("blob:"));
+  await frame?.locator("body").click();
+  await expect.poll(() => lit(page)).toBe(1);
 });
 
 test("gc opens the book the reading note names, from a note with no book of its own", async ({
