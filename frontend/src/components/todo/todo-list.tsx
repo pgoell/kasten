@@ -72,7 +72,7 @@ export function TodoList(p: {
   onEditing(e: Editing | null): void;
   draft: React.RefObject<HTMLInputElement | null>;
   armed: string | null;
-  onArm(key: string | null): void;
+  onArm(hit: SearchHit | null): void;
   onRow(hit: SearchHit): void;
   /** Every path in the vault, which a row's assignee chip resolves its note against; undefined while it loads. */
   files: string[] | undefined;
@@ -257,7 +257,7 @@ export function TodoList(p: {
           onClick={() => {
             // A row in the picker is there to be chosen.
             if (picking) return;
-            onArm(asking ? null : arming);
+            onArm(asking ? null : hit);
             // Two ways to change a state do not both stand
             // open: the question shuts a strip, as a strip
             // takes the question back.

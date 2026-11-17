@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, renderHook, screen, within } from "@testing-library/react";
 import { TodoLegend } from "@/components/todo/todo-legend";
 import { TodoList } from "@/components/todo/todo-list";
 import { TodoRow } from "@/components/todo/todo-row";
@@ -6,6 +6,7 @@ import { STATE_ORDER, TodoStateBox } from "@/components/todo/todo-state-box";
 import type { TodoHit } from "@/lib/core/api";
 import { parseTodo, type Todo } from "@/lib/todo/todo";
 import { namedTodos, waitOf } from "@/lib/todo/todo-view";
+import { useArmed } from "@/lib/todo/use-armed";
 import { type Row, type RowFacts, rowKey } from "@/lib/todo/use-todo-rows";
 
 // Spied, so a test can tell a row that drew again from one that kept its last drawing.
@@ -349,5 +350,34 @@ describe("a press redraws only the row it changed", () => {
     fireEvent.click(screen.getByTitle(rowKey(row.hit)));
     expect(first).not.toHaveBeenCalled();
     expect(latest).toHaveBeenCalledWith(row.hit);
+  });
+});
+
+describe("#2092 a state button's question through a redraw", () => {
+  const milk = rowOf(1, "- [/] buy milk").hit;
+  const asking = (hit: TodoHit) => `${rowKey(hit)}\n${hit.text}`;
+
+  it("follows its todo to a new line, and is taken back four seconds after its tap, a redraw between", () => {
+    vi.useFakeTimers();
+    const { result, rerender } = renderHook((rows: TodoHit[]) => useArmed(rows), {
+      initialProps: [milk],
+    });
+    act(() => result.current.arm(milk));
+    act(() => vi.advanceTimersByTime(3000));
+    const moved = { ...milk, line: 7 };
+    rerender([moved]);
+    expect(result.current.armed).toBe(asking(moved));
+    act(() => vi.advanceTimersByTime(1000));
+    expect(result.current.armed).toBeNull();
+    vi.useRealTimers();
+  });
+
+  it("leaves another todo that takes its line unasked", () => {
+    const { result, rerender } = renderHook((rows: TodoHit[]) => useArmed(rows), {
+      initialProps: [milk],
+    });
+    act(() => result.current.arm(milk));
+    rerender([{ ...milk, text: "- [ ] call mom" }]);
+    expect(result.current.armed).toBeNull();
   });
 });
