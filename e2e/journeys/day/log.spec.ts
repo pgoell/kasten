@@ -211,3 +211,63 @@ test.describe("the overview's words", () => {
     });
   }
 });
+
+/** Each bar a chart draws, as days before the range's last day, and whether it is the one-unit stub of a logged zero. */
+const barsOf = (chart: Locator, slots: number) =>
+  chart.evaluate((svg: SVGSVGElement, n) => {
+    const slot = svg.viewBox.baseVal.width / n;
+    return [...svg.querySelectorAll("rect")]
+      .map((bar) => bar.getBBox())
+      .map((box) => ({ ago: n - 1 - Math.floor(box.x / slot), stub: box.height <= 1 }))
+      .sort((a, b) => a.ago - b.ago);
+  }, slots);
+
+test.describe("the overview's Food card counts food days only", () => {
+  const CONFIG = "- 🍽 food: kcal max 2200\n- 💧 water: 250 ml\n- ⚖ weight: kg, last\n";
+  const FED = [
+    { ago: 0, stub: false },
+    { ago: 2, stub: true },
+    { ago: 4, stub: false },
+  ];
+
+  test("#1122 a day of drinks or of weight only draws no bar, a 0 kcal line draws a stub, and the log pane draws the same days", async ({
+    page,
+    stack,
+  }) => {
+    await vaultWith(stack.vault, {
+      "99 Misc/01 Config/log.md": CONFIG,
+      [daily(today())]: logged("- 🍽 🔥 1240 kcal"),
+      [daily(plus(-1))]: logged("- 💧 500 ml"),
+      [daily(plus(-2))]: logged("- 🍽 🔥 0 kcal"),
+      [daily(plus(-3))]: logged("- ⚖ 70 kg"),
+      [daily(plus(-4))]: logged("- 🍽 🔥 1800 kcal"),
+    });
+    await overview(page);
+    await expect.poll(() => barsOf(card(page, "Food").getByRole("img"), 14)).toEqual(FED);
+
+    await leader(page, "gf");
+    const kcal = page
+      .getByRole("region", { name: "Log" })
+      .locator(".log-chart", { has: page.getByRole("heading", { name: "Kcal", exact: true }) });
+    await expect.poll(() => barsOf(kcal.getByRole("img"), 30)).toEqual(FED);
+  });
+
+  test("#1122 a fortnight with logged days but no food line leaves the Food card empty, and the Water card draws the drinks", async ({
+    page,
+    stack,
+  }) => {
+    await vaultWith(stack.vault, {
+      "99 Misc/01 Config/log.md": CONFIG,
+      [daily(plus(-1))]: logged("- 💧 500 ml"),
+      [daily(plus(-2))]: logged("- ⚖ 70 kg"),
+    });
+    await overview(page);
+    await expect
+      .poll(() => barsOf(card(page, "Water").getByRole("img"), 14))
+      .toContainEqual({ ago: 1, stub: false });
+    await expect(card(page, "Food").locator(".overview-caption")).toHaveText(
+      "no food logged in 14 days",
+    );
+    expect(await barsOf(card(page, "Food").getByRole("img"), 14)).toEqual([]);
+  });
+});

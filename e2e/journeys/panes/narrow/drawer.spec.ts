@@ -1,5 +1,18 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import type { Page } from "@playwright/test";
-import { leader, noteText, PANE, panes, phone, readAll, tapHeight } from "../../../harness/app.ts";
+import {
+  leader,
+  noteText,
+  openApp,
+  PANE,
+  panes,
+  phone,
+  readAll,
+  tapHeight,
+  vaultWith,
+} from "../../../harness/app.ts";
+import { root } from "../../../harness/paths.ts";
 import { expect, test } from "../../../harness/stack.ts";
 import { COARSE, stored } from "../workspace/stored.ts";
 
@@ -217,5 +230,73 @@ test.describe("the tree's drawer on a phone", () => {
         await page.locator(".cm-content", { hasText: "long enough" }).count(),
       ])
       .toEqual([0, false, 1]);
+  });
+});
+
+test.describe("a pdf as a row of the tree", () => {
+  const PLAN = "x/my plan.pdf";
+  const FILED = "98 Archive/old.pdf";
+  const row = (page: Page, path: string) => tree(page).locator(`[title="${path}"]`);
+  const pdfPane = (page: Page) => page.locator("[data-pdf-pane]");
+
+  test.beforeEach(async ({ stack }) => {
+    const primer = await readFile(join(stack.vault, "04 Books/Primer.pdf"));
+    await vaultWith(stack.vault, {
+      [PLAN]: primer,
+      [FILED]: primer,
+      // A book beside it, which is a reader's business and no row.
+      "x/DDIA.epub": await readFile(join(root, "frontend/tests/fixtures/contents.epub")),
+    });
+  });
+
+  test("a click on its row opens it over the note at page 1 in one pane, and marks the row current", async ({
+    page,
+  }) => {
+    await openApp(page);
+    await row(page, "Welcome.md").click();
+    await expect(row(page, "Welcome.md")).toHaveAttribute("aria-current", "page");
+    await tree(page).getByRole("button", { name: "x", exact: true }).click();
+    await row(page, PLAN).click();
+
+    await expect(pdfPane(page)).toHaveAttribute("data-pdf-pane", PLAN);
+    await expect(row(page, PLAN)).toHaveAttribute("aria-current", "page");
+    await expect(row(page, "Welcome.md")).not.toHaveAttribute("aria-current");
+    expect([
+      await pdfPane(page).getAttribute("data-page"),
+      await panes(page).count(),
+      await page.locator(".cm-content").count(),
+      await row(page, "x/DDIA.epub").count(),
+    ]).toEqual([null, 1, 0, 0]);
+  });
+
+  test("an archived pdf stays out of the tree until Space a shows the archive", async ({
+    page,
+  }) => {
+    await openApp(page);
+    await expect(tree(page)).toContainText("Welcome");
+    await expect(tree(page)).not.toContainText("98 Archive");
+
+    await leader(page, "a");
+    await tree(page).getByRole("button", { name: "98 Archive", exact: true }).click();
+    await expect(row(page, FILED)).toBeVisible();
+  });
+
+  test.describe("on a phone", () => {
+    test.use(phone);
+
+    test("the drawer marks the open pdf, and its tab is named after it", async ({ page }) => {
+      await load(page);
+      // A second tab, so the strip shows the pdf's tab to name; through the palette, a phone having no leader.
+      await page.getByRole("button", { name: "Run a command by name" }).tap();
+      await page.getByRole("option", { name: /^Create a tab/ }).tap();
+      await openDrawer(page);
+      await tree(page).getByRole("button", { name: "x", exact: true }).tap();
+      await row(page, PLAN).tap();
+
+      await expect(pdfPane(page)).toHaveAttribute("data-pdf-pane", PLAN);
+      await expect(page.getByRole("tab", { name: "my plan", exact: true })).toBeVisible();
+      await openDrawer(page);
+      await expect(row(page, PLAN)).toHaveAttribute("aria-current", "page");
+    });
   });
 });
