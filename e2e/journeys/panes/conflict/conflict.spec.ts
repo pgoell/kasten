@@ -56,6 +56,24 @@ test.describe("a note changed on disk under text nobody saved", () => {
     await expect(page.getByRole("tab", { name: "Welcome", selected: true })).toBeVisible();
   });
 
+  test("df is refused: it sends no delete and the note stays on disk with the typing on screen", async ({
+    page,
+    stack,
+  }) => {
+    await conflicted(page, stack.vault);
+    const deletes: string[] = [];
+    page.on("request", (sent) => sent.method() === "DELETE" && deletes.push(sent.url()));
+    await leader(page, "df");
+    // The finder opens after the delete would have gone, so its dialog marks the moment to count.
+    await leader(page, "ff");
+    await expect(page.getByRole("dialog", { name: "Find note" })).toBeVisible();
+    expect(deletes).toEqual([]);
+    await page.keyboard.press("Escape");
+    await expect
+      .poll(() => state(page, stack.vault))
+      .toEqual(["Changed on disk", OUTSIDE, 1, 1, 1]);
+  });
+
   test("q on the note's pane beside another is refused, writes nothing and lists nothing as left", async ({
     page,
     stack,
