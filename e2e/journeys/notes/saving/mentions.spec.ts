@@ -120,7 +120,8 @@ test.describe("unlinked mentions", () => {
     await expect.poll(async () => (await lists(page))[0]).toEqual([fence]);
     await page.keyboard.press("Enter");
     await expect(page.getByRole("tab", { name: "Seeds", selected: true })).toBeVisible();
-    await expect(page.locator(".cm-activeLine")).toHaveText(FENCE);
+    // The Garden note's editor stays in the page, hidden, while it leaves, with an active line of its own (#2143).
+    await expect(page.locator(".cm-content", { hasText: BEDS }).locator(".cm-activeLine")).toHaveText(FENCE);
     expect(await noteText(stack.vault, SEEDS)).toBe(before);
   });
 

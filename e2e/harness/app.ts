@@ -1,5 +1,5 @@
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises";
+import { basename, dirname, join } from "node:path";
 import { expect, type Locator, type Page } from "@playwright/test";
 
 /** Loads the app and waits until the tree lists the vault and the editor holds the focus. */
@@ -93,14 +93,20 @@ export async function openNote(page: Page, name: string): Promise<void> {
 export const unstamped = (text: string): string =>
   text.replace(/^(id|created|modified): .*\n/gm, "");
 
-/** Writes each file into the vault, making the folders above it. */
+/**
+ * Writes each file into the vault, making the folders above it. Through a hidden file and a rename, as kasten saves:
+ * a note written in place is empty for a moment, and a read then drops its todos (#2143).
+ */
 export async function vaultWith(
   vault: string,
   notes: Record<string, string | Buffer>,
 ): Promise<void> {
   for (const [path, body] of Object.entries(notes)) {
-    await mkdir(dirname(join(vault, path)), { recursive: true });
-    await writeFile(join(vault, path), body);
+    const file = join(vault, path);
+    const hidden = join(dirname(file), `.${basename(file)}.tmp`);
+    await mkdir(dirname(file), { recursive: true });
+    await writeFile(hidden, body);
+    await rename(hidden, file);
   }
 }
 

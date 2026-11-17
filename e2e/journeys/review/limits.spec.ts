@@ -165,14 +165,23 @@ test.describe("the deck counts through a backend that restarts (#1139)", () => {
     await page.locator('button[data-deck="alpha"]').click();
     await expect(page.getByTestId("review-question")).toHaveText("a");
     const reads = await armAlpha(page, [502, 502]);
+    // A read counts as it goes out; the clock may run on only once its answer is in (#2114).
+    const isAlpha = (r: Response) => r.request().method() === "GET" && decodeURIComponent(r.url()).endsWith(ALPHA);
+    let failed = 0;
+    page.on("response", (r) => {
+      if (isAlpha(r) && r.status() === 502) failed++;
+    });
     await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
     await rate(page, "a");
     await expect.poll(reads).toBe(1);
     await rate(page, "c");
     // The second rating's read goes out at once; the first read's retry, due at 1 s, is dropped.
     await expect.poll(reads).toBe(2);
+    await expect.poll(() => failed).toBe(2);
+    const third = page.waitForResponse((r) => isAlpha(r) && r.ok());
     await page.clock.runFor(1000);
     await expect.poll(reads).toBe(3);
+    await third;
     await page.clock.runFor(60_000);
     await expect(waiting(page)).toContainText("2 cards waiting");
     expect(reads()).toBe(3);
