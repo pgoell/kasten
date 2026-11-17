@@ -49,12 +49,12 @@ async function toEditor(page: Page): Promise<void> {
   await expect(page.locator(".cm-content:focus")).toHaveCount(1);
 }
 
-/** `l` on the cursor row unfolds 02 Projects and no other, which a focus check alone could pass on before a stray move lands. */
+/** `l` unfolds 02 Projects and no other, and the focus is still on it after: a focus check alone can pass before a stray move lands. */
 async function unfoldsProjects(page: Page): Promise<void> {
-  await expect(folder(page, "02 Projects")).toBeFocused();
   await page.keyboard.press("l");
   await expect(row(page, "Home")).toBeVisible();
   await expect(row(page, "Lecture")).toHaveCount(0);
+  await expect(folder(page, "02 Projects")).toBeFocused();
 }
 
 /** Clicks New note in the panel's header, reads the folder its prompt starts in, and shuts it. */
