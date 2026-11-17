@@ -344,7 +344,7 @@ const MARKS = [
   "[ref]: JavaScript:alert(1)\n\n[data]: data:text/html,x\n\n[vb]: vbscript:x\n\n[def]: <https://x.y/a\\>b>",
 ].join("\n\n");
 
-/** Opens Marks with vim `vim`, beside the notes its links name, each window.open recorded. */
+/** Opens Marks with vim `vim` in a tall window, beside the notes its links name, each window.open recorded. */
 async function openMarks(page: Page, vault: string, vim: string): Promise<void> {
   await vaultWith(vault, {
     "Marks.md": MARKS,
@@ -352,6 +352,8 @@ async function openMarks(page: Page, vault: string, vim: string): Promise<void> 
   });
   await page.addInitScript((on) => localStorage.setItem("kasten.vim", on), vim);
   await recordOpens(page);
+  // Tall enough that CodeMirror draws every line, so no press scrolls `intro` away.
+  await page.setViewportSize({ width: page.viewportSize()?.width ?? 1280, height: 2400 });
   await page.goto("/?note=Marks.md");
   await expect(page.locator(".cm-content:visible")).toContainText("intro", { timeout: 15_000 });
 }
@@ -369,12 +371,9 @@ async function press(page: Page, how: string, at: string | Locator): Promise<voi
 }
 
 /** Puts the cursor back on `intro`, so no link shows its source and the next press is no repeat. */
-const park = (page: Page, how: string) =>
-  press(
-    page,
-    how === "tap" ? how : "click",
-    page.locator(".cm-content:visible").getByText("intro"),
-  );
+async function park(page: Page, how: string): Promise<void> {
+  await press(page, how === "tap" ? how : "click", page.getByText("intro", { exact: true }));
+}
 
 test.describe("on a phone", () => {
   test.use(phone);
