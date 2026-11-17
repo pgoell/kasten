@@ -69,10 +69,10 @@ The journeys sit in `e2e/journeys/`: review in `review/` (a sitting, a jotted qu
 `panes/` (layout, the top bar, the pane and tab keys, pane acts whose write is held while the focus moves, links to pages and assets; a note changed on disk under
 unsaved text and a conflicted note reopened in `panes/conflict/`; the workspace across a reload, held text in a restored pane, a URL over it and the leader keys in `panes/workspace/`; the drawer, phone toolbar, key help, AltGr keys, a resized window, panel sheets and todo pane taps in `panes/narrow/`), notes, the finder, a tree row dragged, the new note prompt's folder rows, where a note opens and the status bar's save sign in `notes/`, with saving in `notes/saving/` (edits,
 mention links, held text, the editor's build and relation names, live preview and its lists and tables) and content search and an epub opened mid-listing in `notes/search/`, the todo list, board, presses,
-twin ids, a person's card and the shared lists in `todos/` (the panel, keys, edit line, strip, board and list taps and refile in `todos/pane/`), capture, the web page import, the chat replies, the log, the home screen, the tokens page and the finance month keys and to-sort list in `day/`, and the book finder, book, video and clip panes and csv and svg files in
+twin ids, a person's card and the shared lists in `todos/` (the panel, keys, edit line, strip, board and list taps and refile in `todos/pane/`), capture, the web page import, the chat replies, the log and overview, the home screen, the tokens page and the finance month keys and to-sort list in `day/`, and the book finder, book, video and clip panes and csv and svg files in
 `media/`. `harness.spec.ts` checks the harness. Each journey is a
-daily task; one that writes checks the disk. Thirty-eight files
-also run journeys at phone width, 414 px with touch, where the editor starts
+daily task; a write checks the disk. Thirty-eight files
+run journeys at phone width, 414 px with touch, where the editor starts
 without vim: in `review/`, `sitting`, `jot`, `keys` and `rows`; in `notes/`, `finder`,
 `status-bar`, `search/book-open-listing`, the three `search/content-search-*`, `saving/editor-build`, `saving/edits`,
 `saving/mentions` and `saving/live-preview-blocks`; in `panes/`, `links`, `workspace/reload`,

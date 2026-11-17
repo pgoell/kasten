@@ -310,16 +310,23 @@ test("a digit and 0 go to that tab and the tenth, t waits, and th and tl walk th
   await load(page);
   await panes(page).nth(0).locator(".cm-line").first().click();
   await page.keyboard.press("Escape");
-  const steps: (string | null)[] = [];
-  // h alone, as the second key of the t that waits for it.
-  for (const keys of ["3", "0", "t", "h", "tl"]) {
+  const steps = [
+    ["3", "Lecture"],
+    ["0", "Garden"],
+    ["t", "Garden"],
+    ["h", "Home"],
+    ["tl", "Garden"],
+  ];
+  for (const [keys, tab] of steps) {
+    // h alone, as the second key of the t that waits for it.
     if (keys === "h") await page.keyboard.press(keys);
     else await leader(page, keys);
     if (keys === "t") await expect(pressed(page)).toHaveText(["Space", "t"]);
     else await expect(dialog(page, "Leader keys")).toHaveCount(0);
-    steps.push(await selectedTab(page));
+    await expect.poll(() => selectedTab(page)).toBe(tab);
+    // The tab's editor takes the focus after the switch, and keys sent sooner are lost (#1615).
+    if (keys !== "t") await expect(page.locator(".cm-content:focus")).toHaveCount(1);
   }
-  expect(steps).toEqual(["Lecture", "Garden", "Garden", "Home", "Garden"]);
 });
 
 test("cs opens a terminal and makes no tab or note, and cd the dump prompt and deletes no note", async ({
