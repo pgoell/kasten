@@ -1,8 +1,17 @@
 import { access } from "node:fs/promises";
 import { join } from "node:path";
 import type { Page } from "@playwright/test";
-import { bodyOf, findNote, leader, noteText, openApp, vaultWith } from "../../../harness/app.ts";
+import {
+  bodyOf,
+  findNote,
+  leader,
+  noteText,
+  openApp,
+  panes,
+  vaultWith,
+} from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
+import { beside, focusedPane, layout, load, paneText, seed, selectedTab } from "./stored.ts";
 
 // Every sequence runs from the editor with vim on, the desktop's default: with vim off,
 // as on a phone, the editor takes no leader and the palette holds the same rows.
@@ -107,7 +116,9 @@ test("gc opens the book the reading note names, from a note with no book of its 
   page,
   stack,
 }) => {
-  await vaultWith(stack.vault, { "99 Misc/01 Config/reading-now.md": "[[Primer]]\n" });
+  await vaultWith(stack.vault, {
+    "99 Misc/01 Config/reading-now.md": "[[Primer]]\n",
+  });
   await openApp(page);
   await findNote(page, "Welcome");
   await leader(page, "gc");
@@ -121,7 +132,9 @@ test("gb opens the backlinks with the tree still shown, and go the links out wit
   await openApp(page);
   await findNote(page, "Quote");
   await leader(page, "gb");
-  await expect(dialog(page, "Backlinks")).toContainText("Reading", { timeout: 15_000 });
+  await expect(dialog(page, "Backlinks")).toContainText("Reading", {
+    timeout: 15_000,
+  });
   await expect(tree(page)).toBeVisible();
   await shut(page);
   await leader(page, "go");
@@ -169,7 +182,168 @@ test("dd stays vim's delete line and deletes no note", async ({ page, stack }) =
   await page.keyboard.press("d");
   await page.keyboard.press("d");
   await expect
-    .poll(() => noteText(stack.vault, "Lines.md").then(bodyOf), { timeout: 15_000 })
+    .poll(() => noteText(stack.vault, "Lines.md").then(bodyOf), {
+      timeout: 15_000,
+    })
     .toBe("second line\n");
   await expect(page.getByRole("tab", { name: "Lines", selected: true })).toBeVisible();
+});
+
+/** The keys the leader panel says are pressed so far, Space first. */
+const pressed = (page: Page) =>
+  dialog(page, "Leader keys").getByRole("region", { name: "Keys pressed" }).locator("kbd");
+/** Where the Welcome pane stands beside the other pane of two, read off their boxes. */
+async function welcome(page: Page): Promise<string> {
+  const [w, o] = await Promise.all(
+    [{ hasText: "front door" }, { hasNotText: "front door" }].map((has) =>
+      panes(page).filter(has).boundingBox(),
+    ),
+  );
+  if (!w || !o) return "unseen";
+  if (w.x !== o.x) return w.x < o.x ? "left" : "right";
+  return w.y < o.y ? "top" : "bottom";
+}
+
+test("bare \", 3 and l stay vim's register, count and motion, and move no pane or tab", async ({
+  page,
+  stack,
+}) => {
+  await vaultWith(stack.vault, { "Vim keys.md": "aaaa\nword\n" });
+  await openApp(page);
+  await findNote(page, "Vim keys");
+  for (const key of ['"', "a", "y", "y", '"', "a", "p", "3", "x", "j", "l", "x"]) {
+    await page.keyboard.press(key);
+  }
+  await expect
+    .poll(() => noteText(stack.vault, "Vim keys.md").then(bodyOf), {
+      timeout: 15_000,
+    })
+    .toBe("aaaa\na\nwrd\n");
+  expect([await panes(page).count(), await page.getByRole("tab").count()]).toEqual([1, 1]);
+});
+
+test("h, j, k and l move to the pane that way and o to the next", async ({ page }) => {
+  const right = {
+    id: "c",
+    dir: "col",
+    children: [{ id: "b", path: "02 Projects/Home.md" }],
+  };
+  right.children.push({ id: "d", path: "02 Projects/Garden.md" });
+  await seed(page, layout([beside({ path: "Welcome.md" }, right)]));
+  await load(page);
+  await panes(page).nth(0).locator(".cm-line").first().click();
+  await page.keyboard.press("Escape");
+  const moves: number[] = [];
+  for (const key of ["l", "j", "k", "h", "o"]) {
+    await leader(page, key);
+    await expect(dialog(page, "Leader keys")).toHaveCount(0);
+    moves.push(await focusedPane(page));
+  }
+  expect(moves).toEqual([1, 2, 1, 0, 1]);
+});
+
+test("H, J, K and L swap the pane that way, and bare H swaps nothing", async ({ page }) => {
+  const below = {
+    id: "u",
+    root: { id: "s2", dir: "col", children: [{ id: "e", path: "Welcome.md" }] },
+    focus: "e",
+  };
+  below.root.children.push({ id: "f", path: "02 Projects/Home.md" });
+  await seed(
+    page,
+    layout([beside({ path: "02 Projects/Home.md" }, { path: "Welcome.md" }), below]),
+  );
+  await load(page);
+  await panes(page).nth(1).locator(".cm-line").first().click();
+  await page.keyboard.press("Escape");
+  const before = await paneText(page, 1);
+  // The x lands once H is read, so the pane it cuts in shows where the focus stayed.
+  await page.keyboard.press("H");
+  await page.keyboard.press("x");
+  await expect.poll(() => paneText(page, 1)).not.toBe(before);
+  expect(await welcome(page)).toBe("right");
+  const moves: string[] = [];
+  for (const keys of ["H", "L", "tl", "J", "K"]) {
+    await leader(page, keys);
+    if (keys === "tl") {
+      await panes(page).nth(0).locator(".cm-line").first().click();
+      await page.keyboard.press("Escape");
+    } else await expect.poll(() => welcome(page)).not.toBe(moves.at(-1) ?? "right");
+    moves.push(await welcome(page));
+  }
+  expect(moves).toEqual(["left", "right", "top", "bottom", "top"]);
+});
+
+test("c, f and r wait for the next key, and ct then makes a tab and no note", async ({ page }) => {
+  await openApp(page);
+  await findNote(page, "Quote");
+  for (const [first, second, made] of [
+    ["f", "f", "Find note"],
+    ["r", "f", "Rename note"],
+  ]) {
+    await leader(page, first);
+    await expect(pressed(page)).toHaveText(["Space", first]);
+    await page.keyboard.press(second);
+    await expect(dialog(page, made)).toBeVisible();
+    await shut(page);
+  }
+  await leader(page, "c");
+  await expect(pressed(page)).toHaveText(["Space", "c"]);
+  expect(await page.getByRole("tab").count()).toBe(1);
+  await page.keyboard.press("t");
+  await expect(page.getByRole("tab")).toHaveCount(2);
+  await expect(dialog(page, "New note")).toHaveCount(0);
+});
+
+test("a digit and 0 go to that tab and the tenth, t waits, and th and tl walk the tabs", async ({
+  page,
+}) => {
+  const notes = ["Welcome", "Long note", "01 Notes/Lecture", "01 Notes/Reading", "01 Notes/Quote"];
+  notes.push("01 Notes/Seeds", "03 Flashcards/Capitals", "04 Books/Primer", "02 Projects/Home");
+  notes.push("02 Projects/Garden");
+  const tab = (path: string, i: number) => ({
+    id: `t${i}`,
+    root: { id: `p${i}`, path: `${path}.md` },
+    focus: `p${i}`,
+  });
+  await seed(page, layout(notes.map(tab)));
+  await load(page);
+  await panes(page).nth(0).locator(".cm-line").first().click();
+  await page.keyboard.press("Escape");
+  const steps = [
+    ["3", "Lecture"],
+    ["0", "Garden"],
+    ["t", "Garden"],
+    ["h", "Home"],
+    ["tl", "Garden"],
+  ];
+  for (const [keys, tab] of steps) {
+    // h alone, as the second key of the t that waits for it.
+    if (keys === "h") await page.keyboard.press(keys);
+    else await leader(page, keys);
+    if (keys === "t") await expect(pressed(page)).toHaveText(["Space", "t"]);
+    else await expect(dialog(page, "Leader keys")).toHaveCount(0);
+    await expect.poll(() => selectedTab(page)).toBe(tab);
+    // The tab's editor takes the focus after the switch, and keys sent sooner are lost (#1615).
+    if (keys !== "t") await expect(page.locator(".cm-content:focus")).toHaveCount(1);
+  }
+});
+
+test("cs opens a terminal and makes no tab or note, and cd the dump prompt and deletes no note", async ({
+  page,
+  stack,
+}) => {
+  await openApp(page);
+  await findNote(page, "Seeds");
+  await leader(page, "cd");
+  await expect(dialog(page, "Capture a thought")).toBeVisible();
+  expect(await exists(join(stack.vault, "01 Notes/Seeds.md"))).toBe(true);
+  await expect(page.getByRole("tab", { name: "Seeds" })).toHaveCount(1);
+  await shut(page);
+  await leader(page, "cs");
+  await page.keyboard.type("notes");
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".xterm").first()).toBeVisible();
+  expect(await page.getByRole("tab").count()).toBe(1);
+  await expect(dialog(page, "New note")).toHaveCount(0);
 });

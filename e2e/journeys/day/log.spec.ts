@@ -1,5 +1,14 @@
-import type { Page } from "@playwright/test";
-import { findNote, leader, noteText, openApp, phone, today, vaultWith } from "../../harness/app.ts";
+import type { Locator, Page } from "@playwright/test";
+import {
+  findNote,
+  leader,
+  noteText,
+  openApp,
+  phone,
+  plus,
+  today,
+  vaultWith,
+} from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 
 const dailyText = (vault: string) => noteText(vault, `01 Periodic/00 Daily/${today()}.md`);
@@ -84,4 +93,121 @@ test.describe("the palette's Log weight", () => {
     await expect.poll(() => dailyText(stack.vault), { timeout: 15_000 }).not.toBe("");
     expect(await dailyText(stack.vault)).not.toContain("⚖");
   });
+});
+
+const daily = (date: string) => `01 Periodic/00 Daily/${date}.md`;
+const logged = (...lines: string[]) => `# Day\n\n## Log\n${lines.join("\n")}\n`;
+const card = (page: Page, name: string) =>
+  page.getByRole("region", { name: "Overview" }).locator("article", {
+    has: page.getByRole("heading", { name: new RegExp(`^${name}, open `) }),
+  });
+const captions = (page: Page) =>
+  page.getByRole("region", { name: "Overview" }).locator(".overview-caption");
+
+/** Opens the overview from the editor and waits for its Food card. */
+async function overview(page: Page): Promise<void> {
+  await openApp(page);
+  await leader(page, "ga");
+  await expect(card(page, "Food")).toBeVisible({ timeout: 15_000 });
+}
+
+/** How many of a chart's bars draw in the theme's warning colour, which marks a goal passed. */
+const warned = (chart: Locator) =>
+  chart.evaluate((svg) => {
+    const probe = document.createElement("i");
+    probe.style.color = "var(--k-warn)";
+    document.body.append(probe);
+    const warn = getComputedStyle(probe).color;
+    probe.remove();
+    return [...svg.querySelectorAll("rect")].filter((bar) => getComputedStyle(bar).fill === warn)
+      .length;
+  });
+
+test.describe("the overview's words", () => {
+  test("each chart has a line saying what it shows, and each ring names its macro and grams", async ({
+    page,
+    stack,
+  }) => {
+    await vaultWith(stack.vault, {
+      "99 Misc/01 Config/log.md": "- 🍽 food: kcal max 2200, protein min 120\n- 💧 water: 250 ml\n",
+      [daily(today())]: logged("- 🍽 🔥 1240 kcal 🥩 84 g"),
+    });
+    await overview(page);
+    await expect(card(page, "Today").locator(".overview-ring-label")).toHaveText([
+      "Protein 84 of 120 g",
+      "Carbs 0 g",
+      "Fat 0 g",
+    ]);
+    await expect(captions(page)).toHaveText([
+      "kcal per day, 14 days",
+      "macros against today's goal",
+      "weight, 30 days, no weigh-ins yet",
+      "water per day, 14 days",
+      "cards rated per day, 14 days",
+      "todos done per day, 14 days",
+      "notes written per day, 14 days",
+      "notes written per day this year",
+      "sessions per week, 8 weeks",
+    ]);
+  });
+
+  test("a water max passed is counted in words and not by colour alone", async ({
+    page,
+    stack,
+  }) => {
+    await vaultWith(stack.vault, {
+      "99 Misc/01 Config/log.md": "- 💧 water: 250 ml, max 2000\n",
+      [daily(plus(-1))]: logged("- 💧 2500 ml"),
+      [daily(plus(-2))]: logged("- 💧 1000 ml"),
+      [daily(plus(-3))]: logged("- 💧 2100 ml"),
+    });
+    await overview(page);
+    const water = card(page, "Water");
+    const chart = water.getByRole("img", {
+      name: "water per day over 14 days, goal at most 2,000 ml, 2 days over the goal",
+    });
+    await expect(chart).toBeVisible();
+    await expect(water.locator(".overview-caption")).toHaveText(
+      "water per day, 14 days, 2 days over the goal",
+    );
+    expect(await warned(chart)).toBe(2);
+  });
+
+  test("a schedule in a note that is no deck does not count toward the review streak", async ({
+    page,
+    stack,
+  }) => {
+    await vaultWith(stack.vault, {
+      "00 Inbox/cards.md": `#flashcards/aws\n\nQ :: A <!--SR:!${plus(4)},4,270-->\n`,
+      "00 Inbox/plain.md": `Q :: A <!--SR:!${plus(3)},4,270-->\n`,
+    });
+    await overview(page);
+    const flashcards = card(page, "Flashcards");
+    await expect(flashcards.locator(".overview-figure")).toHaveText("1 day");
+    await expect(flashcards.locator(".overview-words")).toHaveText(
+      "in a row with a review, 1 today",
+    );
+  });
+
+  for (const width of ["desktop", "phone"]) {
+    test.describe(width, () => {
+      if (width === "phone") test.use(phone);
+
+      test("a bar card with no logged day says nothing logged in 14 days under its chart", async ({
+        page,
+      }) => {
+        if (width === "phone") {
+          await page.goto("/");
+          const commands = page.getByRole("toolbar", { name: "Commands" });
+          await commands.getByRole("button", { name: "Run a command by name" }).tap();
+          await page.getByRole("option", { name: /^Open the overview/ }).tap();
+        } else await overview(page);
+        for (const name of ["Food", "Water"]) {
+          await expect(card(page, name).locator(".overview-caption")).toHaveText(
+            "nothing logged in 14 days",
+          );
+        }
+      });
+    });
+  }
 });
