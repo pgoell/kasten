@@ -278,7 +278,7 @@ async function askThenMove(page: Page, vault: string, cycle: Locator, lines: str
   await expect(more(page, "call mom")).toBeVisible();
 }
 
-test("a state button's question follows its todo to the line a write from elsewhere moved it to (#2117)", async ({
+test("a state button's question follows its todo to the line a write from elsewhere moved it to (#2092)", async ({
   page,
   stack,
 }) => {
