@@ -397,6 +397,7 @@ function Home() {
         flash={refused}
         archive={archive}
         notice={notice}
+        onDismissNotice={() => setNotice(undefined)}
         version={version}
         zoom={tab.zoom}
         pane={stack}
