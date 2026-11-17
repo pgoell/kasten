@@ -58,6 +58,7 @@ test.describe("the dump prompt", () => {
     await expect(page.locator(".cm-content")).toBeFocused();
     await expect.poll(() => dailyText(stack.vault), { timeout: 15_000 }).toMatch(UNDER_DUMP);
     expect(sent).toEqual([THOUGHT]);
+    await expect(page.getByTestId("notice")).toHaveText("Captured into today's dump");
   });
 
   test("sends nothing on Enter with only blanks typed, and stays open for the thought", async ({
@@ -95,6 +96,61 @@ test.describe("the dump prompt", () => {
     await expect.poll(() => dailyText(stack.vault), { timeout: 15_000 }).toMatch(UNDER_DUMP);
     expect(sent).toEqual([THOUGHT]);
     expect(await dailyText(stack.vault)).not.toContain("half a thought");
+  });
+
+  /** Types `thought` into a fresh prompt and sends it. */
+  async function dump(page: Page, thought: string) {
+    await leader(page, "cd");
+    await page.getByRole("dialog", { name: "Capture a thought" }).getByLabel("dump").fill(thought);
+    await page.keyboard.press("Enter");
+  }
+
+  test("says the thought waits, and how many do, when it cannot be sent", async ({
+    page,
+    context,
+  }) => {
+    await openApp(page);
+    await context.setOffline(true);
+    await dump(page, "an older one");
+    await expect(page.getByTestId("notice")).toHaveText("Captured, waiting to send (1 waiting)");
+    await dump(page, THOUGHT);
+    await expect(page.getByTestId("notice")).toHaveText("Captured, waiting to send (2 waiting)");
+  });
+
+  for (const [name, answer, notice] of [
+    [
+      "the vault's refusal",
+      { status: 400, json: { detail: "Nothing to capture" } },
+      "Nothing to capture",
+    ],
+    [
+      "to sign in again after a 401",
+      { status: 401, body: "" },
+      "Captured, waiting to send: sign in again",
+    ],
+  ] as const)
+    test(`says ${name} where the confirmation would have been`, async ({ page }) => {
+      await page.route("**/api/dump", (route) => route.fulfill(answer));
+      await openApp(page);
+      await dump(page, THOUGHT);
+      await expect(page.getByTestId("notice")).toHaveText(notice);
+    });
+
+  test("says why when the thought cannot be kept, and sends nothing", async ({ page }) => {
+    // The browser refuses the outbox's write, as a full disk does.
+    await page.addInitScript(() => {
+      const add = IDBObjectStore.prototype.add;
+      IDBObjectStore.prototype.add = function (...args) {
+        if (this.name !== "dumps") return add.apply(this, args);
+        throw new DOMException("The quota has been exceeded", "QuotaExceededError");
+      };
+    });
+    const sent = dumpsSent(page);
+    await openApp(page);
+    await dump(page, THOUGHT);
+    await expect(page.getByTestId("notice")).toHaveText("The quota has been exceeded");
+    await expect(page.getByRole("dialog", { name: "Capture a thought" })).toBeHidden();
+    expect(sent).toEqual([]);
   });
 });
 
