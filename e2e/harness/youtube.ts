@@ -6,12 +6,15 @@ const PLAYER = "https://www.youtube.com";
 /**
  * A stand-in for YouTube's embed frame, speaking its postMessage protocol: `listening` subscribes, and each
  * delivery carries `currentTime`. A play moves the clock 30 s on, so a pause lands on start + 30, or on a seek's second + 30.
+ * `window.got` keeps every command's name, for what no screen shows (volume, mute).
  */
 const FAKE_PLAYER = `<!doctype html><script>
 let time = Number(new URL(location.href).searchParams.get("start") ?? 0);
+window.got = [];
 const send = (info) => parent.postMessage(JSON.stringify({ event: "infoDelivery", info }), "*");
 addEventListener("message", (event) => {
   const message = JSON.parse(event.data);
+  if (message.func) window.got.push(message.func);
   if (message.event === "listening") send({ playerState: 5, currentTime: time });
   if (message.func === "playVideo") { send({ playerState: 1, currentTime: time + 1 }); time += 30; }
   if (message.func === "pauseVideo") send({ playerState: 2, currentTime: time });
