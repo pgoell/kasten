@@ -1,5 +1,5 @@
 import type { Locator, Page } from "@playwright/test";
-import { openApp } from "../../harness/app.ts";
+import { openApp, today } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 
 /** CDP's modifier bits. AltGr reads as Ctrl+Alt on Windows; Option is Alt on a Mac. */
@@ -238,4 +238,197 @@ test("#1035 a second press while a sort is in the air sorts nothing more", async
   await expect(food(finance)).toBeEnabled();
   expect(sorts).toEqual(['/api/finance/transactions/1/category {"category_id":7}']);
   await expect(finance.getByText("2 to sort")).toBeVisible();
+});
+
+const THALIA = {
+  transaction_id: 5,
+  booking_date: "2026-03-04",
+  payee: "Thalia",
+  amount: "-400.00",
+};
+const LINE = { form_line: "werbungskosten", label: "Werbungskosten (Anlage N)", total: "1400.00" };
+const YEAR = {
+  lines: [{ ...LINE, bookings: 2, missing: 1 }],
+  allowance: "1230.00",
+  werbungskosten_over: "170.00",
+  missing: [THALIA],
+  money_back: [],
+  entries: [{ ...THALIA, form_line: "werbungskosten" }],
+};
+const proposal = (shared: boolean, tax_amount: string | null) => ({
+  receipt: { id: 3, name: "R.pdf", read_at: "2026-10-26T10:00:00Z", read_error: null },
+  form_line: "handwerker",
+  candidates: [
+    { transaction_id: 9, booking_date: "2026-10-28", amount: "-476.00", payee: "Huber GmbH" },
+  ].map((candidate) => ({ ...candidate, purpose: null, tax_amount, shared })),
+});
+
+/**
+ * Answers the tax reads, the receipts to sort with `queue` and booking 5's tax with `tax`, and
+ * keeps each tax write the page sends, as `METHOD path body`. A confirm answers `confirm`.
+ */
+async function taxRoutes(page: Page, queue: unknown[] = [], tax: unknown = {}, confirm = 204) {
+  const writes: string[] = [];
+  const years: string[] = [];
+  await page.route("**/api/finance/tax/*", (route) => {
+    const year = Number(new URL(route.request().url()).pathname.split("/").pop());
+    years.push(String(year));
+    return route.fulfill({ json: { ...YEAR, year } });
+  });
+  await page.route("**/api/finance/drill/bookings/5", (route) =>
+    route.fulfill({
+      json: {
+        transaction: { ...BAKERY, id: 5, imported_at: "2026-03-05T08:00:00", source_key: "s5" },
+        account: { id: 1, name: "Giro", bank: null, iban: null, kind: "giro", shared: false },
+        ...{ payee: null, twin: null, plans: [], order: null, counts: [] },
+      },
+    }),
+  );
+  await page.route(/\/api\/finance\/(receipts|transactions\/5\/tax)/, (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    if (request.method() === "GET") {
+      return route.fulfill({ json: path.endsWith("to-sort") ? queue : { receipts: [], ...tax } });
+    }
+    writes.push(`${request.method()} ${path} ${request.postData()}`);
+    const held = path.endsWith("confirm") && confirm === 409 && writes.length === 1;
+    const detail = { code: "mark_exists", message: "Already marked 400.00" };
+    return route.fulfill(held ? { status: 409, json: { detail } } : { status: 204 });
+  });
+  return { writes, years };
+}
+
+/** Opens the Tax tab by its key, and from it booking 5's tax card. */
+async function taxCard(page: Page) {
+  await openApp(page);
+  await page.keyboard.press("Control+Shift+P");
+  await page.getByRole("option", { name: /^Open the finance pane/ }).click();
+  const finance = page.getByRole("region", { name: "Finance" });
+  await finance.focus();
+  await page.keyboard.press("X");
+  await finance
+    .getByRole("button", { name: /2026-03-04, Thalia/ })
+    .first()
+    .click();
+  return finance.getByRole("article", { name: "Tax and receipts" });
+}
+
+test("#1040 the Tax tab shows each line's year, what is over the allowance and missing", async ({
+  page,
+}) => {
+  const { years } = await taxRoutes(page);
+  await openApp(page);
+  await page.keyboard.press("Control+Shift+P");
+  await page.getByRole("option", { name: /^Open the finance pane/ }).click();
+  const finance = page.getByRole("region", { name: "Finance" });
+  await finance.focus();
+  const year = Number(today().slice(0, 4));
+
+  await page.keyboard.press("X");
+
+  await expect(finance.getByText(`Tax year ${year}`)).toBeVisible();
+  await expect(finance.getByRole("row", { name: /Anlage N\) \(2\)/ })).toContainText("1.400,00 €");
+  await expect(finance.getByText(/170,00\s€ over the allowance of 1\.230,00\s€/)).toBeVisible();
+  await expect(finance.getByRole("button", { name: /2026-03-04, Thalia/ })).toHaveCount(2);
+  const csv = `/api/finance/tax/${year}/lines/werbungskosten.csv`;
+  await expect(finance.getByRole("link", { name: "CSV" })).toHaveAttribute("href", csv);
+
+  await typeHeld(page, "]", CTRL | ALT);
+
+  await expect(finance.getByText(`Tax year ${year + 1}`)).toBeVisible();
+  expect(years.at(-1)).toBe(String(year + 1));
+  const zip = `/api/finance/tax/${year + 1}/receipts.zip`;
+  await expect(finance.getByRole("link", { name: /ZIP/ })).toHaveAttribute("href", zip);
+});
+
+const CONFIRM = "POST /api/finance/receipts/3/confirm";
+const ASIDE = 'PATCH /api/finance/receipts/3 {"dismissed":true}';
+
+test("#1040 a receipt's proposal confirms only when pressed, then Put aside", async ({ page }) => {
+  const { writes } = await taxRoutes(page, [proposal(false, "300.00")]);
+  const { finance } = await toSort(page);
+  const press = finance.getByRole("button", { name: /2026-10-28, Huber GmbH/ });
+
+  await expect(press).toHaveText(/§35a Handwerker \(Arbeitskosten\) 300,00\s€$/);
+  await press.click();
+  await expect.poll(() => writes).toHaveLength(1);
+  await finance.getByRole("button", { name: "Put aside" }).click();
+
+  const body = { transaction_id: 9, form_line: "handwerker", tax_amount: "300.00" };
+  const sent = JSON.stringify({ ...body, replace: false, receipt_needed: true });
+  await expect.poll(() => writes).toEqual([`${CONFIRM} ${sent}`, ASIDE]);
+});
+
+test("#1040 a proposal on the shared account asks your share and sends it", async ({ page }) => {
+  const { writes } = await taxRoutes(page, [proposal(true, null)]);
+  const asked: string[] = [];
+  page.on("dialog", (dialog) => {
+    asked.push(dialog.type());
+    void dialog.accept("400,00");
+  });
+  const { finance } = await toSort(page);
+
+  await finance.getByRole("button", { name: /your share/ }).click();
+
+  await expect.poll(() => writes).toHaveLength(1);
+  expect(asked).toEqual(["prompt"]);
+  expect(JSON.parse(writes[0].slice(CONFIRM.length))).toMatchObject({ tax_amount: "400.00" });
+});
+
+test("#1040 a mark the booking holds is replaced only when you say so", async ({ page }) => {
+  const { writes } = await taxRoutes(page, [proposal(false, "800.00")], {}, 409);
+  const asked: string[] = [];
+  page.on("dialog", (dialog) => {
+    asked.push(`${dialog.type()} ${dialog.message()}`);
+    void dialog.dismiss();
+  });
+  const { finance } = await toSort(page);
+
+  await finance.getByRole("button", { name: /Huber GmbH/ }).click();
+  await expect.poll(() => asked).toEqual(["confirm Already marked 400.00?"]);
+  await finance.getByRole("button", { name: "Put aside" }).click();
+
+  await expect.poll(() => writes.at(-1)).toBe(ASIDE);
+  expect(writes.filter((write) => write.startsWith(CONFIRM))).toHaveLength(1);
+});
+
+test("#1040 a tax card saves a German amount and keeps a dropped file", async ({ page }) => {
+  const { writes } = await taxRoutes(page, [], { mark: null });
+  const card = await taxCard(page);
+
+  await card.getByLabel("Line").selectOption("werbungskosten");
+  await card.getByLabel("Tax amount").fill("1.200,50");
+  await card.getByRole("button", { name: "Save the mark" }).click();
+  const mark = { form_line: "werbungskosten", tax_amount: "1200.50", receipt_needed: true };
+  const put = `PUT /api/finance/transactions/5/tax-mark ${JSON.stringify({ ...mark, note: null })}`;
+  await expect.poll(() => writes).toEqual([put]);
+
+  const files = await page.evaluateHandle(() => {
+    const data = new DataTransfer();
+    data.items.add(new File(["%PDF-1"], "Rechnung.pdf", { type: "application/pdf" }));
+    return data;
+  });
+  await card.dispatchEvent("drop", { dataTransfer: files });
+
+  await expect.poll(() => writes).toHaveLength(2);
+  expect(writes[1]).toMatch(/^POST \/api\/finance\/receipts .*filename="Rechnung\.pdf"/s);
+  expect(writes[1]).toMatch(/name="transaction_id"\r\n\r\n5\r\n/);
+});
+
+test("#1040 a tax card shows the receipt's status and takes a receipt off", async ({ page }) => {
+  const mark = { form_line: "sonderausgaben", tax_amount: "50.00", receipt_needed: true };
+  const tax = { mark: { ...mark, note: null, receipt_status: "attached" } };
+  const { writes } = await taxRoutes(page, [], { ...tax, receipts: [{ id: 8, name: "S.pdf" }] });
+  const card = await taxCard(page);
+
+  await expect(card.getByText("50,00 € counts, receipt attached")).toBeVisible();
+  await expect(card.getByRole("link", { name: "S.pdf" })).toHaveAttribute(
+    "href",
+    "/api/finance/receipts/8/file",
+  );
+  await card.getByRole("button", { name: "Take off" }).click();
+
+  await expect
+    .poll(() => writes)
+    .toEqual(['PATCH /api/finance/receipts/8 {"transaction_id":null}']);
 });
