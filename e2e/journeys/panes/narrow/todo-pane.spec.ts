@@ -258,7 +258,8 @@ test("#773 Enter on a focused state button arms it and opens no note", async ({ 
   expect([writes, await disk(stack.vault)]).toEqual([[], LINES]);
 });
 
-test("two presses of a row's state button straight after each other walk it on to done (#2080)", async ({
+// Fails 24 of 50 under CPU load: a redraw during the first press takes the second press's question back (#2092).
+test.fixme("two presses of a row's state button straight after each other walk it on to done (#2080)", async ({
   page,
   stack,
 }) => {

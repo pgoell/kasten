@@ -411,7 +411,8 @@ test("#968 a cell's links draw their alias, a folder's note name, a kept slash, 
   });
   const editor = await opened(page, "Links.md", "before");
   const links = editor.locator(".cm-table-grid tbody .cm-wikilink");
-  expect(await seen(links)).toEqual(
+  // A dead link draws muted only once the file list is in, which can land after the table draws (#2142).
+  await expect.poll(() => seen(links)).toEqual(
     ["Jorge|left||", "2026-11-09#Log|left|cm|", "notes/|left|m|", "borges|left||"].concat([
       "/|left|m|",
       "||left||",
