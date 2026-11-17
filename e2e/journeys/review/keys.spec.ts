@@ -201,7 +201,7 @@ test.describe("on a phone", () => {
     const back = page.getByTestId("review-back");
     const disk = async () => bodyOf(await noteText(stack.vault, path)).split("\n")[2];
     const sr = (n: number) => ` <!--SR:c${n}!fsrs,[^>]+-->`;
-    const esc = line.replace(/[{}]/g, "\\$&");
+    const esc = line.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     await expect(card).toHaveText("[...]");
     await page.getByRole("button", { name: "Show the answer" }).tap();
     await expect(back).toHaveText("Canberra was founded in 1913");
