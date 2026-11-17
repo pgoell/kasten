@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import {
   bodyOf,
   hold,
@@ -268,6 +268,53 @@ test("two presses of a row's state button straight after each other walk it on t
   for (const _ of [1, 2, 3, 4]) await cycle.tap();
   await expect.poll(() => disk(stack.vault)).toMatch(/^- \[x\] buy milk ✅/m);
   await expect(page.getByText(/^Nothing moved/)).toHaveCount(0);
+});
+
+/** Taps `cycle` once, then a write from elsewhere puts `call mom` on top of `lines` and the list redraws. */
+async function askThenMove(page: Page, vault: string, cycle: Locator, lines: string) {
+  await cycle.tap();
+  await expect(cycle).toHaveAttribute("aria-pressed", "true");
+  await vaultWith(vault, { [NOTE]: `- [ ] call mom\n${lines}` });
+  await expect(more(page, "call mom")).toBeVisible();
+}
+
+test("a state button's question follows its todo to the line a write from elsewhere moved it to (#2117)", async ({
+  page,
+  stack,
+}) => {
+  const writes = await pane(page, stack.vault);
+  const cycle = page.getByRole("button", { name: "cycle buy milk" });
+  await askThenMove(page, stack.vault, cycle, LINES);
+  await expect(cycle).toHaveAttribute("aria-pressed", "true");
+  await cycle.tap();
+  await expect.poll(() => disk(stack.vault)).toBe(`- [ ] call mom\n${LINES.replace("[ ] buy", "[/] buy")}`);
+  expect(writes).toHaveLength(1);
+});
+
+test("of two twins, the question stays on the one tapped when their lines move, and the next tap walks that one", async ({
+  page,
+  stack,
+}) => {
+  const twins = "- [ ] buy milk\n- [ ] buy milk\n- [ ] ship it\n";
+  await pane(page, stack.vault, twins);
+  const second = page.getByRole("button", { name: "cycle buy milk" }).nth(1);
+  await askThenMove(page, stack.vault, second, twins);
+  await second.tap();
+  await expect.poll(() => disk(stack.vault)).toBe("- [ ] call mom\n- [ ] buy milk\n- [/] buy milk\n- [ ] ship it\n");
+});
+
+test("a question leaves with its todo, and the todo now on its line asks at its own first tap", async ({
+  page,
+  stack,
+}) => {
+  const writes = await pane(page, stack.vault);
+  const rest = LINES.replace("- [ ] buy milk\n", "");
+  await askThenMove(page, stack.vault, page.getByRole("button", { name: "cycle buy milk" }), rest);
+  const mom = page.getByRole("button", { name: "cycle call mom" });
+  await expect(mom).toHaveAttribute("aria-pressed", "false");
+  await mom.tap();
+  await expect(mom).toHaveAttribute("aria-pressed", "true");
+  expect([writes, await disk(stack.vault)]).toEqual([[], `- [ ] call mom\n${rest}`]);
 });
 
 test("timer tapped straight after a state press starts a session on the todo it walked (#2084)", async ({
