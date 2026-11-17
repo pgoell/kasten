@@ -286,6 +286,11 @@ const writtenToday = async (page: Page) =>
       /(\d+) today$/,
     )?.[1],
   );
+/** Waits for the written read's answer: the card says 0 today before it, and the seed vault's copied notes date today by mtime. */
+const answered = (page: Page) =>
+  expect(card(page, "Writing").locator(".overview-words")).toHaveText(/[1-9]\d* today$/, {
+    timeout: 15_000,
+  });
 
 /** Opens the overview with the vim mode given: by the leader, or by the palette with vim off. */
 async function overviewWith(page: Page, vim: string): Promise<void> {
@@ -371,7 +376,7 @@ test.describe("the overview's keys", () => {
 test.describe("the overview's Writing card", () => {
   test("#806 I5 a new note written on disk counts today", async ({ page, stack }) => {
     await overview(page);
-    await expect(card(page, "Writing").locator(".overview-words")).toHaveText(/\d+ today$/);
+    await answered(page);
     const before = await writtenToday(page);
     await vaultWith(stack.vault, { "00 Inbox/new idea.md": "# new idea\n" });
     await expect.poll(() => writtenToday(page), { timeout: 15_000 }).toBe(before + 1);
@@ -382,9 +387,7 @@ test.describe("the overview's Writing card", () => {
     // A split keeps the overview drawn while the editor beside it makes the note.
     await leader(page, "%");
     await leader(page, "ga");
-    await expect(card(page, "Writing").locator(".overview-words")).toHaveText(/\d+ today$/, {
-      timeout: 15_000,
-    });
+    await answered(page);
     const before = await writtenToday(page);
     await page.locator(".cm-content:visible").first().locator(".cm-line").last().click();
     await page.keyboard.press("Escape");
@@ -417,7 +420,7 @@ test.describe("the overview's Writing card", () => {
     });
     const seen = () => page.evaluate(() => (window as unknown as { seen: string[] }).seen.join());
     await overview(page);
-    await expect(card(page, "Writing").locator(".overview-words")).toHaveText(/\d+ today$/);
+    await answered(page);
     const [before, count] = [await writtenToday(page), asked.length];
 
     await vaultWith(stack.vault, { "01 Notes/Seeds.md": "# Seeds\n\nchanged\n" });
