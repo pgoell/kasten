@@ -95,6 +95,131 @@ test.describe("a live window narrowed and widened again", () => {
     await expect
       .poll(async () => [await placed(page, "left"), await page.getByTestId("pane-shown").count()])
       .toEqual([["0px", "calc(50% + 1px)"], 0]);
+    await page.setViewportSize(NARROW);
+    await expect
+      .poll(async () => [await placed(page, "top"), await placed(page, "left")])
+      .toEqual([
+        ["0px", "calc(50% + 1px)"],
+        ["0px", "0px"],
+      ]);
+  });
+});
+
+test.describe("a split in a narrow window (#793)", () => {
+  /** Each drawn pane's box against the frame's, whether it has a header row, and whether its focus line is lit. */
+  const stack = (page: Page) =>
+    readAll(page, PANE, (all) =>
+      all.map((pane) => {
+        const box = pane.getBoundingClientRect();
+        const frame = (pane.parentElement as HTMLElement).getBoundingClientRect();
+        const line = pane.querySelector("[data-focus-line]");
+        return {
+          id: pane.getAttribute("data-pane"),
+          left: box.left - frame.left,
+          right: frame.right - box.right,
+          top: Math.round(box.top),
+          bottom: Math.round(box.bottom),
+          header: pane.querySelector("[data-pane-header]") !== null,
+          lit: line !== null && getComputedStyle(line).backgroundColor !== "rgba(0, 0, 0, 0)",
+        };
+      }),
+    );
+  const lit = async (page: Page) => (await stack(page)).map((pane) => pane.lit);
+
+  async function split(page: Page) {
+    await page.setViewportSize(NARROW);
+    await page.goto("/");
+    await page.locator(".cm-content").first().click({ timeout: 15_000 });
+    await page.keyboard.press("Escape");
+    const [whole] = await stack(page);
+    await leader(page, "%");
+    await expect(panes(page)).toHaveCount(2);
+    return whole;
+  }
+
+  test("A5 draws both panes full width, one above the other, each under its header", async ({
+    page,
+  }) => {
+    const { top, bottom } = (await split(page)) ?? { top: 0, bottom: 0 };
+    // Each half the height, less the 2 px rule between them.
+    const half = (from: number, to: number) => ({ left: 0, right: 0, top: from, bottom: to });
+    const mid = (top + bottom) / 2;
+    await expect
+      .poll(() => stack(page))
+      .toEqual([
+        expect.objectContaining({ ...half(top, mid - 1), header: true }),
+        expect.objectContaining({ ...half(mid + 1, bottom), header: true }),
+      ]);
+  });
+
+  test("I1 a click in a pane focuses it, and closing one gives the other the whole height", async ({
+    page,
+  }) => {
+    const whole = await split(page);
+    await page.locator(PANE).nth(0).locator(".cm-content").click();
+    await expect.poll(() => lit(page)).toEqual([true, false]);
+    await expect(page.getByTestId("pane-shown")).toHaveText("pane 1/2");
+    await page.locator(PANE).nth(1).locator(".cm-content").click();
+    await expect.poll(() => lit(page)).toEqual([false, true]);
+    await expect(page.getByTestId("pane-shown")).toHaveText("pane 2/2");
+
+    await page.keyboard.press("Escape");
+    await leader(page, "q");
+    await expect
+      .poll(() => stack(page))
+      .toEqual([
+        expect.objectContaining({ top: whole?.top, bottom: whole?.bottom, header: false }),
+      ]);
+  });
+
+  test.describe("under a finger", () => {
+    test.use(phone);
+
+    async function splitByPalette(page: Page) {
+      await page.goto("/");
+      await expect(page.locator(".cm-content").first()).toBeVisible({ timeout: 15_000 });
+      await page.getByRole("button", { name: "Run a command by name" }).tap();
+      await page.getByRole("option", { name: /^Split the pane left and right/ }).tap();
+      await expect(panes(page)).toHaveCount(2);
+    }
+
+    test("I1 the toolbar's pane button moves the focus between the stacked panes", async ({
+      page,
+    }) => {
+      await splitByPalette(page);
+      await expect.poll(() => lit(page)).toEqual([true, false]);
+      await page.getByRole("button", { name: "Move to the next pane" }).tap();
+      await expect.poll(() => lit(page)).toEqual([false, true]);
+    });
+
+    test("I1 with the keyboard up the focused pane takes the whole height, and both come back once it goes", async ({
+      page,
+    }) => {
+      // Headless Chromium draws no keyboard, so the visual viewport is one the page can shrink.
+      await page.addInitScript(() => {
+        const viewport = Object.assign(new EventTarget(), { scale: 1, offsetTop: 0 });
+        Object.defineProperty(viewport, "height", { value: innerHeight, writable: true });
+        Object.defineProperty(window, "visualViewport", { value: viewport });
+      });
+      await splitByPalette(page);
+      const resize = (by: number) =>
+        page.evaluate((less) => {
+          const viewport = window.visualViewport as unknown as EventTarget & { height: number };
+          viewport.height = innerHeight - less;
+          viewport.dispatchEvent(new Event("resize"));
+        }, by);
+
+      await page.getByRole("button", { name: "Move to the next pane" }).tap();
+      await expect.poll(() => lit(page)).toEqual([false, true]);
+      const [upper, lower] = await stack(page);
+
+      await resize(300);
+      await expect
+        .poll(() => stack(page))
+        .toEqual([expect.objectContaining({ id: lower?.id, top: upper?.top, header: false })]);
+      await resize(0);
+      await expect.poll(() => lit(page)).toEqual([false, true]);
+    });
   });
 });
 
