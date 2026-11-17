@@ -1,5 +1,5 @@
 import type { Page, Route } from "@playwright/test";
-import { leader, openApp, readAll } from "../../../harness/app.ts";
+import { leader, openApp, openNote, panes, readAll } from "../../../harness/app.ts";
 import { answer, bars, daysAgo, type Hit, hit, openSearch } from "../../../harness/search.ts";
 import { expect, test } from "../../../harness/stack.ts";
 
@@ -238,4 +238,22 @@ test("Escape hands the focus back to the editor the search opened over", async (
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog", { name: "Search notes" })).toHaveCount(0);
   await expect(page.locator(".cm-content:focus")).toHaveCount(1);
+});
+
+test("with two panes, Enter opens the line in the focused pane and leaves the other pane's note", async ({
+  page,
+}) => {
+  await answer(page, (route) => vaultHits(route, ["far away letter"]));
+  await openApp(page);
+  await openNote(page, "Welcome");
+  await leader(page, "%");
+  await expect(panes(page)).toHaveCount(2);
+  await leader(page, "fg");
+  await page.keyboard.type("letter");
+  await expect(rows(page)).toHaveCount(1);
+  await page.keyboard.press("Enter");
+  const [left, right] = [panes(page).first(), panes(page).last()];
+  await expect(right.locator(".cm-activeLine")).toContainText("reply to the far away letter");
+  await expect(left.locator(".cm-content")).toContainText("front door");
+  await expect(left.locator(".cm-content")).not.toContainText("far away letter");
 });
