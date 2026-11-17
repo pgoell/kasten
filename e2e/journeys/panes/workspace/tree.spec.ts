@@ -275,3 +275,132 @@ test("a note opened by a click on its row while the tree holds the focus takes t
   await expect(page.locator(".cm-content:focus")).toHaveCount(1);
   await expect(row(page, "Long note")).not.toBeFocused();
 });
+
+test.describe("a reader while the vault moves under it", () => {
+  const PRIMER = "04 Books/Primer.md";
+  const reader = (page: Page) => page.locator("[data-book-pane]");
+  const prompt = (page: Page, name: string) => page.getByRole("dialog", { name });
+
+  /** Opens Primer with its book beside it; answers the notes whose book the browser read, in order. */
+  async function reading(page: Page, vault: string): Promise<string[]> {
+    const reads: string[] = [];
+    page.on("response", (answer) => {
+      const [, note] = answer.url().split("/api/books/");
+      if (note) reads.push(decodeURIComponent(note));
+    });
+    await opened(page, vault);
+    await findNote(page, "Primer");
+    await leader(page, "gr");
+    await expect(reader(page).getByText("13%", { exact: true })).toBeVisible();
+    expect(reads).toEqual([PRIMER]);
+    return reads;
+  }
+
+  /** Renames the row the tree cursor reaches after `j` pressed `steps` times from the top. */
+  async function renameRow(page: Page, steps: number, name: string, kind: string, to: string) {
+    await leader(page, "e");
+    for (let step = 0; step < steps; step += 1) await page.keyboard.press("j");
+    await expect(row(page, name)).toBeFocused();
+    await page.keyboard.press("r");
+    await prompt(page, kind).getByRole("combobox").fill(to);
+    await page.keyboard.press("Enter");
+    await expect(prompt(page, kind)).toHaveCount(0);
+  }
+
+  /** The reader is drawn on its first page and shows no alert. */
+  async function stillReads(page: Page) {
+    await expect(reader(page).getByText("13%", { exact: true })).toBeVisible();
+    await expect(reader(page).getByRole("alert")).toHaveCount(0);
+  }
+
+  test("E in the reader focuses the tree row of the note it reads", async ({ page, stack }) => {
+    await reading(page, stack.vault);
+    // Its folder is still folded, so E has to unfold the way as well.
+    await expect(tree(page).getByTitle(PRIMER)).toHaveCount(0);
+    // The keys are in the reader: l turns its page.
+    await page.keyboard.press("l");
+    await expect(reader(page).getByText("25%", { exact: true })).toBeVisible();
+    await leader(page, "E");
+    await expect(tree(page).getByTitle(PRIMER)).toBeFocused();
+  });
+
+  test("renaming the reader's folder carries the reader and its book to the new path", async ({
+    page,
+    stack,
+  }) => {
+    const reads = await reading(page, stack.vault);
+    await renameRow(page, 3, "04 Books", "Rename folder", "Books");
+    await expect.poll(() => reads).toEqual([PRIMER, "Books/Primer.md"]);
+    await stillReads(page);
+    expect((await readdir(join(stack.vault, "Books"))).sort()).toEqual(["Primer.md", "Primer.pdf"]);
+  });
+
+  test("renaming another folder leaves the reader as it was and reads its book no second time", async ({
+    page,
+    stack,
+  }) => {
+    const reads = await reading(page, stack.vault);
+    await renameRow(page, 2, "03 Flashcards", "Rename folder", "Cards");
+    await expect(folder(page, "Cards")).toBeVisible();
+    await stillReads(page);
+    expect(reads).toEqual([PRIMER]);
+  });
+
+  test("renaming the reader's note carries the reader and its book to the new path", async ({
+    page,
+    stack,
+  }) => {
+    const reads = await reading(page, stack.vault);
+    // Back to the note's own pane: rf renames the focused pane's note.
+    await leader(page, "o");
+    await leader(page, "rf");
+    await prompt(page, "Rename note").getByRole("combobox").fill("04 Books/Basics.md");
+    await page.keyboard.press("Enter");
+    await expect.poll(() => reads).toEqual([PRIMER, "04 Books/Basics.md"]);
+    await stillReads(page);
+    expect((await readdir(join(stack.vault, "04 Books"))).sort()).toEqual([
+      "Basics.md",
+      "Basics.pdf",
+    ]);
+  });
+
+  test("renaming another note leaves the reader as it was and reads its book no second time", async ({
+    page,
+    stack,
+  }) => {
+    const reads = await reading(page, stack.vault);
+    await leader(page, "e");
+    await page.keyboard.press("G");
+    await expect(row(page, "Welcome")).toBeFocused();
+    await page.keyboard.press("r");
+    await prompt(page, "Rename note").getByRole("combobox").fill("Hello.md");
+    await page.keyboard.press("Enter");
+    await expect(row(page, "Hello")).toBeVisible();
+    await stillReads(page);
+    expect(reads).toEqual([PRIMER]);
+  });
+});
+
+test("Space a puts the archive mark on the status bar and the archived todos in Space f t", async ({
+  page,
+  stack,
+}) => {
+  await vaultWith(stack.vault, {
+    "01 Notes/Chores.md": "- [ ] live chore\n",
+    "98 Archive/Old.md": "- [ ] filed chore\n",
+  });
+  await openApp(page);
+  const todos = page.getByRole("dialog", { name: "Todos" });
+  await leader(page, "ft");
+  await expect(todos.getByRole("option", { name: /live chore/ })).toBeVisible({ timeout: 15_000 });
+  await expect(todos.getByRole("option", { name: /filed chore/ })).toHaveCount(0);
+  await expect(page.getByTestId("archive-shown")).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(todos).toHaveCount(0);
+
+  await leader(page, "a");
+  await expect(page.getByTestId("archive-shown")).toBeVisible();
+  await leader(page, "ft");
+  await expect(todos.getByRole("option", { name: /filed chore/ })).toBeVisible();
+  await expect(todos.getByRole("option", { name: /live chore/ })).toBeVisible();
+});
