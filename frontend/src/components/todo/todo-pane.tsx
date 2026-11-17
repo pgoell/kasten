@@ -146,7 +146,6 @@ export function TodoPane({
   const draft = useRef<HTMLInputElement>(null);
   // A finger has no keys, so a touch screen draws each of them as a button.
   const { coarse } = useViewport();
-  const armed = useArmed();
 
   const { data: answer } = useQuery({
     queryKey: ["todos", archive],
@@ -203,6 +202,7 @@ export function TodoPane({
     () => (doneOpen ? [...groupRows, ...foldRows] : groupRows),
     [groupRows, doneOpen, foldRows],
   );
+  const armed = useArmed(useMemo(() => rows.map((row) => row.hit), [rows]));
 
   // Narrowing the list can strand the cursor past the end of it.
   const cursor = Math.min(active, Math.max(rows.length - 1, 0));

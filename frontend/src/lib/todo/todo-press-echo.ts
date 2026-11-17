@@ -191,11 +191,13 @@ export function twinsOf(at: Row, rows: Row[]): { nth: number; of: number } {
 /**
  * The row an open edit of `at` (its words as typed over) is drawn on after a redraw: the same one of the lines
  * saying them while their count holds, else where an `x` left it. Null where twins cannot be told apart, or none is left (#2087).
+ * `onLine` keeps it on its own line once its words have changed there; a question does not, as another todo may hold that line.
  */
 export function followRow<R extends Row>(
   at: Row,
   twins: { nth: number; of: number },
   rows: R[],
+  onLine = true,
 ): R | null {
   const here = rows.filter((row) => row.path === at.path);
   const same = here
@@ -206,5 +208,5 @@ export function followRow<R extends Row>(
   const fresh = kept !== undefined && Date.now() - kept.at <= TURN_WAIT_MS;
   const went = fresh ? here.find((row) => keyOf(row) === keyOf(kept.row)) : undefined;
   // Its words changed on its own line: the edit stays there, and the write refuses it.
-  return went ?? here.find((row) => row.line === at.line) ?? null;
+  return went ?? (onLine ? here.find((row) => row.line === at.line) : undefined) ?? null;
 }
