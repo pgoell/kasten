@@ -10,9 +10,9 @@ import {
   phone,
   today,
   vaultWith,
-} from "../../harness/app.ts";
-import { expect, test } from "../../harness/stack.ts";
-import { fakeYouTube } from "../../harness/youtube.ts";
+} from "../../../harness/app.ts";
+import { expect, test } from "../../../harness/stack.ts";
+import { fakeYouTube } from "../../../harness/youtube.ts";
 
 const lecture = "01 Notes/Lecture.md";
 const frame = '[data-video-pane] iframe[title="video"]';

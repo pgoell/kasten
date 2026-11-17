@@ -71,17 +71,17 @@ unsaved text and a conflicted note reopened in `panes/conflict/`; the workspace 
 mention links, held text, the editor's build and relation names, live preview and its lists and tables) and content search and an epub opened mid-listing in `notes/search/`, the todo list, board, presses,
 twin ids, a person's card and the shared lists in `todos/` (the panel, list and board keys and taps, edit line, strip and refile in `todos/pane/`), capture, the web page import, chat replies, the log and overview, the home screen, the tokens page and finance month keys, to-sort and tax tabs in `day/`, and the book finder, book, video and clip panes and csv and svg files in
 `media/`. `harness.spec.ts` checks the harness. Each journey is a
-daily task; a write checks the disk. 38 files
+daily task; a write checks the disk. 40 files
 run journeys at phone width, 414 px with touch, where the editor starts
 without vim: in `review/`, `sitting`, `jot`, `keys` and `rows`; in `notes/`, `finder`,
 `status-bar`, `search/book-open-listing`, the three `search/content-search-*`, `saving/editor-build`, `saving/edits`,
 `saving/mentions` and `saving/live-preview-blocks`; in `panes/`, `links`, `workspace/reload`,
 `narrow/drawer`, `narrow/phone`, `narrow/key-help`, `narrow/resize` and `narrow/todo-pane`; in `todos/`, `list`,
-`board`, `pane/board`, `pane/chip-loading`, `pane/strip`, `twin-ids`, `person-card` and `lists`; in `day/`, `capture`, `log` and `today`; and in
-`media/`, `book`, `book-finder`, `clip`, `csv`, `svg` and `video`.
+`board`, `pane/board`, `pane/chip-loading`, `pane/strip`, `twin-ids`, `person-card` and `lists`; in `day/`, `capture`, `chat`, `log` and `today`; and in
+`media/`, `book`, `book-finder`, `clip`, `csv`, `svg`, `video/watching` and `video/full-screen`.
 `phone` in the harness sets that up;
 `git grep -l 'test.use(phone)' e2e/journeys` lists them.
-A runner has no YouTube: the video journey serves a fake player per
+A runner has no YouTube: the video journeys serve a fake player per
 embed (`fakeYouTube` in `e2e/harness/youtube.ts`) and aborts any request
 leaving the box.
 The journeys block the service worker: Chromium crashed closing a context while
