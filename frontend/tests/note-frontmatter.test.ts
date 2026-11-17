@@ -11,12 +11,16 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { EditorState } from "@codemirror/state";
+import { EditorView } from "@codemirror/view";
+import { QueryClient } from "@tanstack/react-query";
 import { parseConfig } from "@/lib/log/log-kinds";
 import { logLines } from "@/lib/log/log-lines";
 import { parseMyFoods } from "@/lib/log/my-foods";
 import { belowFrontmatter } from "@/lib/markdown/frontmatter-language";
 import { noteBody, readField, setField } from "@/lib/notes/text/note-frontmatter";
+import { periodicReview, reviewSource } from "@/lib/review/periodic-review";
 import { landedAs, unstamped } from "@/lib/saving/held-text";
+import { notePath } from "@/lib/todo/todo-commands";
 
 const CFI = "epubcfi(/6/14!/4/2/2/1:0)";
 
@@ -235,5 +239,29 @@ describe("#1449 every reader reads below the closer frontmatter.py finds", () =>
       unstamped("---\nmodified: x\n---\nb"),
       unstamped("---\n---\nb"),
     ]).toEqual(["---\nid: a\n---\nb", "---\n\n---\nb", "---\n---\nb"]);
+  });
+});
+
+describe("#1449 the review sits under the closer frontmatter.py finds, on a note with no title", () => {
+  it.each([
+    ["spaces and tabs after the closer", "---\na: b\n--- \t\nbody", 3],
+    ["a carriage return after the closer", "---\r\na: b\r\n---\r\nbody", 3],
+    ["a space before the closer", "---\na: b\n ---\nbody", 0],
+    ["four dashes, then the closer", "---\na: b\n----\nc: d\n---\nbody", 5],
+  ])("%s", (_, doc, closer) => {
+    const state = EditorState.create({
+      doc,
+      extensions: [
+        periodicReview,
+        notePath.of("01 Periodic/01 Weekly/2026-W43.md"),
+        reviewSource.of({ client: new QueryClient(), open: () => undefined }),
+      ],
+    });
+    const from: number[] = [];
+    for (const set of state.facet(EditorView.decorations)) {
+      if (typeof set !== "function") set.between(0, state.doc.length, (at) => void from.push(at));
+    }
+
+    expect(from).toEqual([closer === 0 ? 0 : state.doc.line(closer).to]);
   });
 });
