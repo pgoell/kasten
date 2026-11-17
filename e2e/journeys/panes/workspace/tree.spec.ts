@@ -49,6 +49,14 @@ async function toEditor(page: Page): Promise<void> {
   await expect(page.locator(".cm-content:focus")).toHaveCount(1);
 }
 
+/** `l` on the cursor row unfolds 02 Projects and no other, which a focus check alone could pass on before a stray move lands. */
+async function unfoldsProjects(page: Page): Promise<void> {
+  await expect(folder(page, "02 Projects")).toBeFocused();
+  await page.keyboard.press("l");
+  await expect(row(page, "Home")).toBeVisible();
+  await expect(row(page, "Lecture")).toHaveCount(0);
+}
+
 /** Clicks New note in the panel's header, reads the folder its prompt starts in, and shuts it. */
 async function startsIn(page: Page): Promise<string> {
   await panel(page).getByRole("button", { name: "New note" }).click();
@@ -224,7 +232,7 @@ test("E leaves the cursor where it was with no note open, and with the open note
   await page.keyboard.press("j");
   await expect(folder(page, "02 Projects")).toBeFocused();
   await leader(page, "E");
-  await expect(folder(page, "02 Projects")).toBeFocused();
+  await unfoldsProjects(page);
 
   await loadOn(page, "98 Archive/Gone.md", "Gone");
   await leader(page, "e");
@@ -232,7 +240,7 @@ test("E leaves the cursor where it was with no note open, and with the open note
   await expect(folder(page, "02 Projects")).toBeFocused();
   await toEditor(page);
   await leader(page, "E");
-  await expect(folder(page, "02 Projects")).toBeFocused();
+  await unfoldsProjects(page);
 });
 
 test("the cursor starts on the first row on a nested note's URL, and after E stays where it was moved when a folder unfolds", async ({
