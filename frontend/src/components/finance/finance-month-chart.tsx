@@ -46,8 +46,7 @@ export function MonthChart({
         ) : (
           <Bars
             label={label}
-            // A month of refunds past its spending draws no bar below the axis.
-            points={values.map((value, index) => ({ index, amount: Math.max(0, value) }))}
+            points={values.map((value, index) => ({ index, amount: value }))}
             slots={months.length}
             goal={goal === undefined ? undefined : { type: "ceiling", value: goal }}
             todayIndex={shown === -1 ? undefined : shown}
