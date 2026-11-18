@@ -212,3 +212,33 @@ async def test_an_unknown_id_is_404_and_the_archive_waits_to_be_asked(client: As
 
     assert missing.status_code == 404
     assert ("old" in await rows(client), "old" in await rows(client, archive=True)) == (False, True)
+
+
+async def test_a_repeat_counts_off_its_from_day_before_a_soft_deadline(client: AsyncClient) -> None:
+    monday = "2026-11-16"
+    row = await add(client, "standup notes", repeat="every week on Monday", from_day=monday)
+    await state(client, row["id"], "done")
+    live = (await rows(client))["standup notes"]
+
+    assert live["from_day"] == "2026-11-23"
+
+
+async def test_a_rounds_time_stays_with_the_round(client: AsyncClient, store: AsyncEngine) -> None:
+    row = await add(
+        client, "practice", repeat="every day", deadline="2026-11-18", deadline_hard=True
+    )
+    await client.post(f"/api/todos/{row['id']}/timer")
+    async with store.begin() as connection:
+        await connection.exec_driver_sql(
+            "UPDATE todos.session SET started = started - interval '30 minutes'"
+        )
+    await client.post(f"/api/todos/{row['id']}/timer")
+    await state(client, row["id"], "done")
+    await client.post(f"/api/todos/{row['id']}/timer")
+    async with store.begin() as connection:
+        await connection.exec_driver_sql(
+            "UPDATE todos.session SET started = started - interval '10 minutes' WHERE ended IS NULL"
+        )
+    stopped = await client.post(f"/api/todos/{row['id']}/timer")
+
+    assert stopped.json()[0]["worked"] == 10

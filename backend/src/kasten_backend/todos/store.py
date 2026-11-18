@@ -234,7 +234,9 @@ class Writes:
 
         The todo keeps its id, so embeds, blockers and plan picks still name it.
         """
-        days = recur.shift(row.repeat or "", row.deadline or row.from_day, self.today)
+        # The editor counted off due, then scheduled: a hard deadline, then the from-day.
+        anchor = row.deadline if row.deadline_hard else (row.from_day or row.deadline)
+        days = recur.shift(row.repeat or "", anchor, self.today)
         if days is None:
             return
         parts = await self.parts(row)
@@ -246,6 +248,10 @@ class Writes:
             rounds[part.id] = new_id(taken | set(rounds.values()))
             self._copy(part, rounds[part.id], rounds[part.parent_id or ""], part.position)
         await self.session.flush()
+        # The round's time goes with the round, so the todo's next total starts at nothing.
+        timed = select(TodoSession).where(TodoSession.todo_id.in_(list(rounds)))
+        for session in (await self.session.scalars(timed)).all():
+            session.todo_id = rounds[session.todo_id]
         for one in (row, *parts):
             self._move_on(one, days, part=one is not row)
             if await self._held(one.blocked_by):

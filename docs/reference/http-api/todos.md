@@ -188,8 +188,10 @@ Puts the todo in `state`, with what that drags along:
 
 * **Done** stamps `done` and ticks every open part. On a todo with a `repeat` it
   writes the finished round as a done row of its own, `round_of` naming the todo
-  and its parts copied under it, and moves the todo and its parts on by the
-  rule: open, with no `done`, `worked` or wait. The todo keeps its id.
+  and its parts copied under it, with their timer sessions. It moves the todo
+  and its parts on by the rule, counted off a hard deadline, else the from-day,
+  else the soft deadline: open, with no `done`, `worked` or wait. The todo keeps
+  its id.
 * **Rejected** stamps `cancelled`. Leaving either state drops its stamp, and
   closing or reopening a todo moves what it blocks between open and blocked.
 * **Waiting** stamps `waiting_since` unless it has one, and takes `look_again`
