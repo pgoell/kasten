@@ -162,6 +162,18 @@ test("the conflict diff folds each run of unchanged lines into a count, one line
     .toEqual(["⋯ 12 lines", "  line 12", "- theirs", "+ mine", "  line 1", "⋯ 13 lines"]);
 });
 
+/** Puts failed saves and conflicts in the held store before the app loads. */
+async function heldBefore(page: Page, notes: [string, string, boolean][]) {
+  await page.addInitScript((rows) => {
+    const held: Record<string, object[]> = {};
+    for (const [path, reason, conflicted] of rows) {
+      held[path] = [...(held[path] ?? []), { content: "typed here\n", reason, conflicted }];
+    }
+    localStorage.setItem("kasten.held.2", JSON.stringify(held));
+  }, notes);
+  await page.goto("/");
+}
+
 test.describe("the × beside a notice", () => {
   test("a click on the × takes the notice and itself away, and the bar stays with its clock", async ({
     page,
@@ -177,18 +189,15 @@ test.describe("the × beside a notice", () => {
     await expect(page.locator("footer time").last()).toBeVisible();
   });
 
-  // PR #2052's nit: the held list crowds the clock out in any window under md, not only a phone's.
-  test("a held note hides the clock in a narrow window that is not a phone", async ({ page }) => {
-    await page.setViewportSize({ width: 600, height: 800 });
-    await page.addInitScript(() => {
-      const entry = { content: "typed here\n", reason: "PUT failed with 507" };
-      localStorage.setItem("kasten.held.2", JSON.stringify({ "a.md": [entry] }));
-    });
-    await page.goto("/");
-    await expect(page.getByTestId("held")).toHaveText("Not saved: a", { timeout: 15_000 });
-    expect(await clocks(page)).toBeGreaterThan(0);
-    await expect(page.locator("footer time:visible")).toHaveCount(0);
-  });
+});
+
+// The held list crowds the clock out in any window under md, not only a phone's.
+test("a held note hides the clock in a narrow window that is not a phone", async ({ page }) => {
+  await page.setViewportSize({ width: 600, height: 800 });
+  await heldBefore(page, [["a.md", "PUT failed with 507", false]]);
+  await expect(page.getByTestId("held")).toHaveText("Not saved: a", { timeout: 15_000 });
+  expect(await clocks(page)).toBeGreaterThan(0);
+  await expect(page.locator("footer time:visible")).toHaveCount(0);
 });
 
 test.describe("on a phone", () => {
@@ -386,18 +395,6 @@ test.describe("on a phone", () => {
     await expect(page.getByTestId("held")).toHaveText("Not saved: Welcome", { timeout: 15_000 });
     expect(await clocks(page)).toBe(0);
   });
-
-  /** Puts failed saves and conflicts in the held store before the app loads. */
-  async function heldBefore(page: Page, notes: [string, string, boolean][]) {
-    await page.addInitScript((rows) => {
-      const held: Record<string, object[]> = {};
-      for (const [path, reason, conflicted] of rows) {
-        held[path] = [...(held[path] ?? []), { content: "typed here\n", reason, conflicted }];
-      }
-      localStorage.setItem("kasten.held.2", JSON.stringify(held));
-    }, notes);
-    await page.goto("/");
-  }
 
   test("a tap opens the held list out, a finger having no hover, and a tap on it shuts it", async ({
     page,
