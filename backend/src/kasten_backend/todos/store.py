@@ -270,7 +270,10 @@ class Writes:
             self._copy(part, rounds[part.id], rounds[part.parent_id or ""], part.position)
         await self.session.flush()
         # The round's time goes with the round, so the todo's next total starts at nothing.
-        timed = select(TodoSession).where(TodoSession.todo_id.in_(list(rounds)))
+        # A session still running stays on the todo, where its timer can stop it.
+        timed = select(TodoSession).where(
+            TodoSession.todo_id.in_(list(rounds)), TodoSession.ended.is_not(None)
+        )
         for session in (await self.session.scalars(timed)).all():
             session.todo_id = rounds[session.todo_id]
         for one in (row, *parts):

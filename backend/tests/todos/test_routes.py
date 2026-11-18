@@ -266,3 +266,12 @@ async def test_deleting_a_parent_records_each_part_it_takes(client: AsyncClient)
     history = (await client.get(f"/api/todos/{part['id']}/history")).json()
 
     assert [one["after"] is None for one in history] == [False, True]
+
+
+async def test_a_timer_running_at_the_tick_stays_on_the_todo(client: AsyncClient) -> None:
+    row = await add(client, "practice", repeat="every day", deadline="2026-11-18")
+    await client.post(f"/api/todos/{row['id']}/timer")
+    await state(client, row["id"], "done")
+    stopped = await client.post(f"/api/todos/{row['id']}/timer")
+
+    assert stopped.json()[0]["worked"] == 0
