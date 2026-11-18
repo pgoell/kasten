@@ -448,4 +448,21 @@ describe("the route", () => {
       expect(fetchHistory).toHaveBeenCalledWith("index.md");
     });
   });
+  it("#770 a conflicted log.md kept and closed is read off the vault again when opened", async () => {
+    // No screen shows the dropped cache: the route's own log.md query keeps it observed.
+    const LOG = "99 Misc/01 Config/log.md";
+    fetchFiles.mockResolvedValue([...Object.keys(VAULT), LOG]);
+    fetchNote.mockImplementation(async (path: string) =>
+      path === LOG ? "- 🍵 tea: 1 cup\n" : VAULT[path],
+    );
+    const app = await renderApp(`/?note=${encodeURIComponent(LOG)}`);
+    await settle();
+    app.leader("q");
+    await settle();
+
+    holdText(LOG, { content: "typed", reason: "PUT failed with 409", conflicted: true });
+    await settle();
+
+    expect(app.cached(LOG)).toBeUndefined();
+  });
 });

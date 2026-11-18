@@ -9,9 +9,9 @@ import {
   openNote,
   phone,
   vaultWith,
-} from "../../../harness/app.ts";
-import { expect, test } from "../../../harness/stack.ts";
-import { daily, PAST, TODAY } from "./log.ts";
+} from "../../../../harness/app.ts";
+import { expect, test } from "../../../../harness/stack.ts";
+import { daily, PAST, TODAY } from "../log.ts";
 
 const DAILY = daily(TODAY);
 const DAY_TEXT = `# ${TODAY}\n\n## TODOs\n`;
