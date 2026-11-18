@@ -1,63 +1,8 @@
-import type { Locator, Page } from "@playwright/test";
-import { barsOf, leader, openApp, phone, vaultWith } from "../../../harness/app.ts";
+import { barsOf, phone, vaultWith } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
+import { WEIGHED as CONFIG, chart, fed, tile, trends, weeks } from "./log.ts";
 
-// A Sunday clear of a clock change, so the 7 days end on it and its week starts on Monday the 9th.
-const SUNDAY = new Date(2026, 10, 15, 12);
-const CONFIG =
-  "- 💧 water: 250 ml, min 2000\n- 🍽 food: kcal max 2000, protein min 100\n- ⚖ weight: kg, last\n";
 const MACROS = "🥩 100 g 🍞 200 g 🧈 60 g";
-
-/** Writes each November day's log lines and the config, pins the clock, and opens the log pane's Trends at `span`. */
-async function trends(
-  page: Page,
-  vault: string,
-  days: Record<number, string[]>,
-  { config = CONFIG, span = "7d", narrow = false } = {},
-): Promise<Locator> {
-  const notes = Object.entries(days).map(([day, lines]) => [
-    `01 Periodic/00 Daily/2026-11-${day.padStart(2, "0")}.md`,
-    `# Day\n\n## Log\n${lines.join("\n")}\n`,
-  ]);
-  await vaultWith(vault, { "99 Misc/01 Config/log.md": config, ...Object.fromEntries(notes) });
-  await page.clock.setFixedTime(SUNDAY);
-  const pane = page.getByRole("region", { name: "Trends" });
-  if (narrow) {
-    await page.goto("/");
-    const commands = page.getByRole("toolbar", { name: "Commands" });
-    await commands.getByRole("button", { name: "Run a command by name" }).tap({ timeout: 15_000 });
-    await page.getByRole("option", { name: /^Open the log/ }).tap();
-    await page.getByRole("tab", { name: "Trends" }).tap();
-    await pane.getByRole("button", { name: span }).tap();
-  } else {
-    await openApp(page);
-    await leader(page, "gf");
-    await pane.getByRole("button", { name: span }).click();
-  }
-  return pane;
-}
-
-/** The figure and words of the summary tile with this label. */
-const tile = (pane: Locator, label: string) =>
-  pane
-    .locator(".log-summary-tile")
-    .filter({ has: pane.page().getByText(label, { exact: true }) })
-    .locator("dd");
-
-const chart = (pane: Locator, name: string) =>
-  pane.getByRole("img", { name: new RegExp(`^${name} over`) });
-
-/** The By week table's cells, header row first. */
-const weeks = (pane: Locator) =>
-  pane
-    .getByRole("table", { name: "By week" })
-    .evaluate((table) =>
-      [...table.querySelectorAll("tr")].map((row) =>
-        [...row.querySelectorAll("th, td")].map((cell) => cell.textContent ?? ""),
-      ),
-    );
-
-const fed = (...ago: number[]) => ago.map((n) => ({ ago: n, stub: false }));
 
 for (const width of ["desktop", "phone"]) {
   test.describe(width, () => {
