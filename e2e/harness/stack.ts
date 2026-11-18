@@ -5,7 +5,7 @@ import { cp, mkdtemp, rm } from "node:fs/promises";
 import { createServer, request, type Server } from "node:http";
 import { type AddressInfo, connect } from "node:net";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { PassThrough, type Readable } from "node:stream";
 import { test as base } from "@playwright/test";
 import { compose, databaseUrl, fixtureVault, root } from "./paths.ts";
@@ -37,6 +37,7 @@ export const test = base.extend<{ stack: Stack }, { warm: string }>({
       if (String(ready).trim() !== "ready") throw new Error(`warm backend said ${ready}`);
       await use(socket);
       await endWarm(parent);
+      await rm(dirname(socket), { recursive: true, force: true });
     },
     { scope: "worker" },
   ],

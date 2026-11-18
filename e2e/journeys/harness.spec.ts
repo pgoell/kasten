@@ -5,7 +5,7 @@ import { cp, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { createServer, get } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { expect as plainExpect, test as plainTest } from "@playwright/test";
 import { fixtureVault, root } from "../harness/paths.ts";
 import {
@@ -135,6 +135,7 @@ plainTest("a warm parent that died fails the next start, and its stop returns", 
   await plainExpect(stop(orphan).then(() => "stopped")).resolves.toBe("stopped");
   await plainExpect(endWarm(parent).then(() => "ended")).resolves.toBe("ended");
   await rm(dir, { recursive: true, force: true });
+  await rm(dirname(socket), { recursive: true, force: true });
 });
 
 plainTest("a warm parent ends when its worker closes its stdin", async () => {
@@ -143,6 +144,7 @@ plainTest("a warm parent ends when its worker closes its stdin", async () => {
   const [ready] = await once(parent.stdout, "data");
   plainExpect(String(ready).trim()).toBe("ready");
   await endWarm(parent);
+  await rm(dirname(socket), { recursive: true, force: true });
   plainExpect(parent.exitCode).toBe(0);
 });
 
