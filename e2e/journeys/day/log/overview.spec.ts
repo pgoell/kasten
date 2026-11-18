@@ -1,5 +1,6 @@
 import type { Locator, Page } from "@playwright/test";
 import {
+  barsOf,
   findNote,
   leader,
   noteText,
@@ -8,8 +9,8 @@ import {
   plus,
   today,
   vaultWith,
-} from "../../harness/app.ts";
-import { expect, test } from "../../harness/stack.ts";
+} from "../../../harness/app.ts";
+import { expect, test } from "../../../harness/stack.ts";
 
 const dailyText = (vault: string) => noteText(vault, `01 Periodic/00 Daily/${today()}.md`);
 
@@ -211,16 +212,6 @@ test.describe("the overview's words", () => {
     });
   }
 });
-
-/** Each bar a chart draws, as days before the range's last day, and whether it is the one-unit stub of a logged zero. */
-const barsOf = (chart: Locator, slots: number) =>
-  chart.evaluate((svg: SVGSVGElement, n) => {
-    const slot = svg.viewBox.baseVal.width / n;
-    return [...svg.querySelectorAll("rect")]
-      .map((bar) => bar.getBBox())
-      .map((box) => ({ ago: n - 1 - Math.floor(box.x / slot), stub: box.height <= 1 }))
-      .sort((a, b) => a.ago - b.ago);
-  }, slots);
 
 test.describe("the overview's Food card counts food days only", () => {
   const CONFIG = "- 🍽 food: kcal max 2200\n- 💧 water: 250 ml\n- ⚖ weight: kg, last\n";

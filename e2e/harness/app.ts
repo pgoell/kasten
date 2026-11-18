@@ -349,3 +349,13 @@ export const watchDrop = (page: Page, words: string): Promise<void> =>
 /** What held the focus when the card `watchDrop` watched left Open, or null before then. */
 export const atDrop = (page: Page): Promise<string | null> =>
   page.evaluate(() => document.body.dataset.atDrop ?? null);
+
+/** Each bar a chart draws, as days before the range's last day, and whether it is the one-unit stub of a logged zero. */
+export const barsOf = (chart: Locator, slots: number) =>
+  chart.evaluate((svg: SVGSVGElement, n) => {
+    const slot = svg.viewBox.baseVal.width / n;
+    return [...svg.querySelectorAll("rect")]
+      .map((bar) => bar.getBBox())
+      .map((box) => ({ ago: n - 1 - Math.floor(box.x / slot), stub: box.height <= 1 }))
+      .sort((a, b) => a.ago - b.ago);
+  }, slots);
