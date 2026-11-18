@@ -92,7 +92,6 @@ test("#1192 I3 an ended linked video loaded back by a time, closed while it buff
   page,
   stack,
 }) => {
-  test.fail(true, "#2200: a close by Space q writes no position");
   const blocked = await fakeYouTube(page);
   const puts = watchingPuts(page, talk);
   const pane = await watchBeside(page, stack.vault, talk, talkNote(150));

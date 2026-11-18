@@ -73,8 +73,10 @@ The note remembers it, one entry per video:
 watching: {iDulhoQ2pro: 77, TQQlZhbC5ps: 118}
 ```
 
-Written whenever the player stops, and read when it opens, so `<leader>gv`
-tomorrow starts where you stopped today. Keyed by the video's own id and not by
+Written whenever the player stops and when its pane closes (`<leader>q`, a tap
+on the palette's close, the tab's ×), and read when it opens, so `<leader>gv`
+tomorrow starts where you stopped today. A close writes into the note's editor
+when that note is open, so text typed and not yet saved stays. Keyed by the video's own id and not by
 where the link sits, so reordering the note moves nothing and two lectures in
 one note cannot overwrite each other. A video wound back to the start, or played
 to its end, drops out of the mapping rather than storing a zero, so it opens at

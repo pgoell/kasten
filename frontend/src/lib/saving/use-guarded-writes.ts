@@ -153,8 +153,13 @@ export function useGuardedWrites({
   const keepPosition = useCallback(
     (note: string, id: string, seconds: number) => {
       if (note === "") return;
-      if (focusedNote.current.path === note) setMark({ note, id, seconds });
-      else void writePosition(note, (text) => setWatched(text, id, seconds));
+      if (focusedNote.current.path === note) return setMark({ note, id, seconds });
+      // A closed pane hands its note the focus while this waits in the queue, which refuses it (#2200).
+      void writePosition(note, (text) => setWatched(text, id, seconds)).then((written) => {
+        // Landed: an older mark would put its second back when the note's editor mounts again.
+        if (written) setMark((held) => (held?.note === note ? undefined : held));
+        else if (focusedNote.current.path === note) setMark({ note, id, seconds });
+      });
     },
     [writePosition, focusedNote],
   );

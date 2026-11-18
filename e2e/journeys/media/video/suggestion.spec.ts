@@ -131,7 +131,6 @@ test("#1566 I3 an ended linked video loaded back by a click, closed while it buf
   page,
   stack,
 }) => {
-  test.fail(true, "#2200: a close by Space q writes no position");
   const blocked = await fakeYouTube(page);
   const puts = watchingPuts(page, talk);
   const pane = await marked(page, stack.vault);
@@ -143,7 +142,7 @@ test("#1566 I3 an ended linked video loaded back by a click, closed while it buf
   await say(pane, { videoData: { video_id: LINKED }, playerState: 3, currentTime: 0 });
   await leader(page, "q");
   await expect(pane).toHaveCount(0);
-  await expect.poll(() => puts, { timeout: 10_000 }).toEqual([`${LINKED}: 20`]);
+  await expect.poll(() => puts, { timeout: 10_000 }).toEqual(["", `${LINKED}: 20`]);
   expect(blocked).toEqual([]);
 });
 
