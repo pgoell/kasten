@@ -61,9 +61,9 @@ are not grouped: each Action bump comes as its own pull request.
 ## Run the end-to-end journeys
 
 `mise run e2e` builds the frontend, then runs the Playwright journeys in `e2e/`
-against it. You need Docker, for Postgres and nginx, and Chromium. Each test gets
-its own copy of the fixture vault, database and backend, and
-teardown removes the containers. Unlike `fe:e2e`, it stubs no API.
+against it. It needs Docker (Postgres, nginx) and Chromium. Each test gets
+its own copy of the fixture vault, database and backend;
+teardown drops the containers. Unlike `fe:e2e`, it stubs no API.
 
 The journeys sit in `e2e/journeys/`: review in `review/` (a sitting, a jotted question, a cloze card, Enter on the overview's rows, the daily limits, the sitting's keys, vim on and off, and deck notes that could not be read), panes in
 `panes/` (layout, the top bar, the pane and tab keys, pane moves while a write is held, links to pages and assets; a note changed on disk under
@@ -71,13 +71,13 @@ unsaved text and a conflicted note reopened in `panes/conflict/`; the workspace 
 mention links, held text, the editor's build and relation names, live preview and its lists and tables) and content search and an epub opened mid-listing in `notes/search/`, the todo list, board, presses,
 twin ids, a person's card and the shared lists in `todos/` (the panel, list and board keys and taps, edit line, strip and refile in `todos/pane/`), capture, the web page import, chat replies, the log and overview, the home screen, the tokens page and finance month keys, to-sort and tax tabs in `day/`, and the book finder, book, video and clip panes and csv and svg files in
 `media/`. `harness.spec.ts` checks the harness. Each journey is a
-daily task; a write checks the disk. 42 files
+daily task; a write checks the disk. 43 files
 run journeys at phone width, 414 px with touch, where vim starts
 off: in `review/`, `sitting`, `jot`, `keys` and `rows`; in `notes/`, `finder`,
 `status-bar`, `search/book-open-listing`, the three `search/content-search-*`, `saving/editor-build`, `saving/edits`,
 `saving/mentions` and `saving/live-preview-blocks`; in `panes/`, `links`, `workspace/reload`,
 `narrow/drawer`, `narrow/phone`, `narrow/key-help`, `narrow/resize` and `narrow/todo-pane`; in `todos/`, `list`,
-`board`, `pane/board`, `pane/chip-loading`, `pane/strip`, `twin-ids`, `person-card` and `lists`; in `day/`, `capture`, `chat`, `log/overview`, `log/trends` and `today`; and in
+`board`, `pane/board`, `pane/chip-loading`, `pane/strip`, `twin-ids`, `person-card` and `lists`; in `day/`, `capture`, `chat`, `log/overview`, `log/trends`, `log/pane` and `today`; and in
 `media/`, `book`, `book-finder`, `clip`, `csv`, `svg`, `video/watching`, `video/full-screen` and `video/view`.
 `phone` in the harness sets that up;
 `git grep -l 'test.use(phone)' e2e/journeys` lists them.
