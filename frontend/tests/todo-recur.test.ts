@@ -1,4 +1,6 @@
 // @vitest-environment node
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { formatTodo, parseTodo, type Todo } from "@/lib/todo/todo";
 import { formatRecurrence, nextDate, nextOccurrence, parseRecurrence } from "@/lib/todo/todo-recur";
 
@@ -272,5 +274,22 @@ describe("nextOccurrence", () => {
 
   it("answers null for a todo that does not recur", () => {
     expect(copy("- [/] a 📅 2026-08-10")).toBeNull();
+  });
+});
+
+/** #2191: the cases the store's recurrence runs too, so a repeat lands where the editor said. */
+const RECURS: { date: string; rule: string; whenDone: boolean | null; next: string | null }[] =
+  JSON.parse(
+    readFileSync(
+      path.resolve(import.meta.dirname, "../../backend/tests/fixtures/todo_recur.json"),
+      "utf8",
+    ),
+  );
+
+describe("#2191 the store counts a repeat as the editor does", () => {
+  it.each(RECURS.map((one) => [`${one.rule} from ${one.date}`, one] as const))("%s", (_, one) => {
+    const rule = parseRecurrence(one.rule);
+    expect(rule?.whenDone ?? null).toBe(one.whenDone);
+    expect(rule === null ? null : nextDate(one.date, rule)).toBe(one.next);
   });
 });

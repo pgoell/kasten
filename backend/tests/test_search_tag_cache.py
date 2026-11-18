@@ -164,7 +164,7 @@ async def test_1238_i4_a_file_hit_takes_its_note_tags_from_the_cache(
 def count_facets(monkeypatch: pytest.MonkeyPatch) -> dict[str, list[str]]:
     """The notes each reader parses from here on: tags, todos and graph."""
     parsed: dict[str, list[str]] = {"tags": [], "todos": [], "graph": []}
-    for name, module in (("tags", tags), ("todos", todos.lines), ("graph", graph)):
+    for name, module in (("tags", tags), ("todos", todos.lines.read), ("graph", graph)):
         real = module._parse
 
         def counted(path: str, raw: bytes, real: Any = real, name: str = name) -> Any:

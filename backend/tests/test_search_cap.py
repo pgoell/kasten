@@ -148,7 +148,7 @@ async def test_the_todo_list_answers_at_its_cap(
 ) -> None:
     # Every reader of lines shares `scan_vault`. The todo list stands for the
     # others, its cap lowered so a fixture reaches it.
-    monkeypatch.setattr(todos.lines, "MOST_TODOS", 10)
+    monkeypatch.setattr(todos.lines.read, "MOST_TODOS", 10)
     (vault / "japan.md").write_text(
         "".join(f"- [ ] Japanese {number} {PADDING}\n" for number in range(1, 2_001)),
         encoding="utf-8",

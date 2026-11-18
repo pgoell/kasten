@@ -922,7 +922,11 @@ export interface paths {
          */
         get: operations["list_todos_api_todos_get"];
         put?: never;
-        post?: never;
+        /**
+         * Add Todo
+         * @description Add an open todo, created today, with a soft deadline in 14 days unless it names one.
+         */
+        post: operations["add_todo_api_todos_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3325,6 +3329,130 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/todos/rows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Rows
+         * @description Every todo in the store, the archive's only with `archive`, in note and sibling order.
+         */
+        get: operations["list_rows_api_todos_rows_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/todos/{todo_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Todo
+         * @description Delete a todo and its parts; its history stays.
+         */
+        delete: operations["delete_todo_api_todos__todo_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Change Todo
+         * @description Change a todo's fields; answers every row the change touched.
+         */
+        patch: operations["change_todo_api_todos__todo_id__patch"];
+        trace?: never;
+    };
+    "/api/todos/{todo_id}/state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set State
+         * @description Put a todo in a state, with its stamps, its parts, its next round and its dependents.
+         */
+        post: operations["set_state_api_todos__todo_id__state_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/todos/{todo_id}/cycle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cycle Todo
+         * @description Walk a todo one step: open, doing, done, open; a hold picks up at doing.
+         */
+        post: operations["cycle_todo_api_todos__todo_id__cycle_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/todos/{todo_id}/timer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Toggle Timer
+         * @description Start a session on a todo, or stop every one it has running and total them.
+         */
+        post: operations["toggle_timer_api_todos__todo_id__timer_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/todos/{todo_id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * History
+         * @description Every write to a todo, oldest first.
+         */
+        get: operations["history_api_todos__todo_id__history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/rsvp": {
         parameters: {
             query?: never;
@@ -4210,6 +4338,67 @@ export interface components {
             kind: "fixed" | "flexible" | "non_monthly" | "income" | "saving" | "ignore";
             /** Id */
             id: number;
+        };
+        /**
+         * Change
+         * @description A change to a todo read at `version`; a stale version answers 409.
+         */
+        Change: {
+            /** Priority */
+            priority?: ("highest" | "high" | "medium" | "low" | "lowest") | null;
+            /** From Day */
+            from_day?: string | null;
+            /** Deadline */
+            deadline?: string | null;
+            /** Deadline Hard */
+            deadline_hard?: boolean | null;
+            /** Repeat */
+            repeat?: string | null;
+            /** Estimate */
+            estimate?: number | null;
+            /** Assignee */
+            assignee?: string | null;
+            /** Waiting On */
+            waiting_on?: string | null;
+            /** Look Again */
+            look_again?: string | null;
+            /** Blocked By */
+            blocked_by?: string[] | null;
+            /** Remind At */
+            remind_at?: string | null;
+            /** Parent Id */
+            parent_id?: string | null;
+            /** Project */
+            project?: string | null;
+            /** Note */
+            note?: string | null;
+            /** Shared List */
+            shared_list?: string | null;
+            /** Words */
+            words?: string | null;
+            /** Version */
+            version: number;
+        };
+        /**
+         * ChangeOut
+         * @description One write to a todo: who, when, and the row before and after (None for none).
+         */
+        ChangeOut: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** By */
+            by: string;
+            /** Before */
+            before: {
+                [key: string]: unknown;
+            } | null;
+            /** After */
+            after: {
+                [key: string]: unknown;
+            } | null;
         };
         /**
          * ChargeIn
@@ -5567,6 +5756,44 @@ export interface components {
             lines: string[];
         };
         /**
+         * NewTodo
+         * @description A todo to add: its words, and any field it starts with.
+         */
+        NewTodo: {
+            /** Priority */
+            priority?: ("highest" | "high" | "medium" | "low" | "lowest") | null;
+            /** From Day */
+            from_day?: string | null;
+            /** Deadline */
+            deadline?: string | null;
+            /** Deadline Hard */
+            deadline_hard?: boolean | null;
+            /** Repeat */
+            repeat?: string | null;
+            /** Estimate */
+            estimate?: number | null;
+            /** Assignee */
+            assignee?: string | null;
+            /** Waiting On */
+            waiting_on?: string | null;
+            /** Look Again */
+            look_again?: string | null;
+            /** Blocked By */
+            blocked_by?: string[] | null;
+            /** Remind At */
+            remind_at?: string | null;
+            /** Parent Id */
+            parent_id?: string | null;
+            /** Project */
+            project?: string | null;
+            /** Note */
+            note?: string | null;
+            /** Shared List */
+            shared_list?: string | null;
+            /** Words */
+            words: string;
+        };
+        /**
          * Note
          * @description One note, as it sits on disk.
          */
@@ -6813,6 +7040,21 @@ export interface components {
             category_set_by: string | null;
         };
         /**
+         * StateChange
+         * @description A state to put a todo in; a wait may name its look-again day and who it waits on.
+         */
+        StateChange: {
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "open" | "doing" | "review" | "done" | "blocked" | "waiting" | "rejected";
+            /** Look Again */
+            look_again?: string | null;
+            /** Waiting On */
+            waiting_on?: string | null;
+        };
+        /**
          * Stored
          * @description How many balances a post stored, new or replacing a figure for the same day.
          */
@@ -7018,6 +7260,79 @@ export interface components {
             project: string | null;
             /** Shared */
             shared: boolean;
+        };
+        /**
+         * TodoOut
+         * @description One todo as the store holds it.
+         */
+        TodoOut: {
+            /** Id */
+            id: string;
+            /** Words */
+            words: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "open" | "doing" | "review" | "done" | "blocked" | "waiting" | "rejected";
+            /** Tags */
+            tags: string[];
+            /** Note */
+            note: string | null;
+            /** Shared List */
+            shared_list: string | null;
+            /** Project */
+            project: string | null;
+            /** Parent Id */
+            parent_id: string | null;
+            /** Position */
+            position: number;
+            /** Round Of */
+            round_of: string | null;
+            /** Blocked By */
+            blocked_by: string[];
+            /** Repeat */
+            repeat: string | null;
+            /** On Completion */
+            on_completion: string | null;
+            /** Priority */
+            priority: ("highest" | "high" | "medium" | "low" | "lowest") | null;
+            /** From Day */
+            from_day: string | null;
+            /** Deadline */
+            deadline: string | null;
+            /** Deadline Hard */
+            deadline_hard: boolean;
+            /** Assignee */
+            assignee: string | null;
+            /** Waiting On */
+            waiting_on: string | null;
+            /** Waiting Since */
+            waiting_since: string | null;
+            /** Look Again */
+            look_again: string | null;
+            /** Remind At */
+            remind_at: string | null;
+            /** Estimate */
+            estimate: number | null;
+            /** Worked */
+            worked: number | null;
+            /**
+             * Created
+             * Format: date
+             */
+            created: string;
+            /** Done */
+            done: string | null;
+            /** Cancelled */
+            cancelled: string | null;
+            /**
+             * Updated
+             * Format: date-time
+             */
+            updated: string;
+            /** Version */
+            version: number;
         };
         /**
          * TokenAction
@@ -8733,6 +9048,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TodoHit"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_todo_api_todos_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewTodo"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodoOut"];
                 };
             };
             /** @description Validation Error */
@@ -12698,6 +13046,229 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    list_rows_api_todos_rows_get: {
+        parameters: {
+            query?: {
+                archive?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodoOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_todo_api_todos__todo_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                todo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_todo_api_todos__todo_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                todo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Change"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodoOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_state_api_todos__todo_id__state_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                todo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StateChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodoOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cycle_todo_api_todos__todo_id__cycle_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                todo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodoOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    toggle_timer_api_todos__todo_id__timer_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                todo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodoOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    history_api_todos__todo_id__history_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                todo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

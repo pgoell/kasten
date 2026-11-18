@@ -146,6 +146,76 @@ are read whole, which adds 15 to 20 ms to the answer.
 A vault directory that does not exist reads as an empty one, so a fresh
 checkout still serves.
 
+## The store
+
+The routes of the todo store in Postgres
+([Todos in Postgres](/explanation/vault-and-derived-index/todos-in-postgres.md)).
+Nothing in the app calls them yet; the pane moves to them with the import. Each
+write answers every row it touched, shaped as `GET /api/todos/rows` shapes one,
+and records each row before and after under `by: browser`. An unknown id
+answers `404`.
+
+A row carries `id`, `words` (tags where typed), `state`, `tags`, `note`,
+`shared_list`, `project`, `parent_id`, `position`, `round_of`, `blocked_by`,
+`repeat`, `on_completion`, `priority`, `from_day`, `deadline`, `deadline_hard`,
+`assignee`, `waiting_on`, `waiting_since`, `look_again`, `remind_at`,
+`estimate` and `worked` in minutes, `created`, `done`, `cancelled`, `updated`
+and `version`.
+
+On every write `tags` is read off `words`, and a todo with no parent and no
+shared list left with no deadline gets a soft one 14 days on. A `blocked_by`
+naming a todo still open, or no todo, makes an open todo blocked, and taking
+the last one off opens it.
+
+## GET /api/todos/rows
+
+Every todo, in note, parent and position order. The archive's only with
+`archive=true`.
+
+## POST /api/todos
+
+Adds an open todo, created today, and answers `201` with the row. With no
+`project`, it takes the folder a `#p/x` tag names, else its parent's.
+
+## PATCH /api/todos/{todo_id}
+
+Changes the fields named. Takes the `version` it read and answers `409` for any
+other.
+
+## POST /api/todos/{todo_id}/state
+
+Puts the todo in `state`, with what that drags along:
+
+* **Done** stamps `done` and ticks every open part. On a todo with a `repeat` it
+  writes the finished round as a done row of its own, `round_of` naming the todo
+  and its parts copied under it, and moves the todo and its parts on by the
+  rule: open, with no `done`, `worked` or wait. The todo keeps its id.
+* **Rejected** stamps `cancelled`. Leaving either state drops its stamp, and
+  closing or reopening a todo moves what it blocks between open and blocked.
+* **Waiting** stamps `waiting_since` unless it has one, and takes `look_again`
+  (seven days on when not given) and `waiting_on`. Sent again to a waiting todo
+  with either, it moves the wait on: chasing, or waiting longer. Leaving waiting
+  clears all three.
+
+## POST /api/todos/{todo_id}/cycle
+
+Walks the todo one step: open, doing, done, open. Review goes to done, blocked
+and waiting to doing, rejected to open.
+
+## POST /api/todos/{todo_id}/timer
+
+Starts a session, or stops every one running and sums the closed ones into
+`worked`. A session closes on its own day, at 23:59 when that day is gone.
+
+## DELETE /api/todos/{todo_id}
+
+Deletes the todo and its parts, answering `204`. Its history stays.
+
+## GET /api/todos/{todo_id}/history
+
+Every write to the todo, oldest first: `at`, `by`, `before` and `after`, each
+row as JSON or `null`.
+
 ## Reminders
 
 A todo with `⏰ YYYY-MM-DD HH:MM` sends a web push at that time to every device

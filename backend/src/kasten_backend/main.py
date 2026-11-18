@@ -21,6 +21,7 @@ from kasten_backend import (
     push,
     rsvp,
     share,
+    todos,
     tokens,
     training,
     uploads,
@@ -308,6 +309,7 @@ app.include_router(finance_sync.router)
 app.include_router(finance_receipts.router)
 app.include_router(finance_tax.router)
 app.include_router(share.router)
+app.include_router(todos.router)
 app.include_router(rsvp.router)
 app.add_middleware(share.ShareGate)
 app.add_middleware(FinanceGuard)

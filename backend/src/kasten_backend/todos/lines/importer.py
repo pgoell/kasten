@@ -15,8 +15,8 @@ from sqlalchemy import select
 
 from kasten_backend import periodic, vault
 from kasten_backend.change import vault_change, vault_write
-from kasten_backend.todos import fields
-from kasten_backend.todos.lines import LINE, find_todos, parents, projects_of, word_tags
+from kasten_backend.todos.lines import fields
+from kasten_backend.todos.lines.read import LINE, find_todos, parents, projects_of, word_tags
 from kasten_backend.todos.models import Todo, TodoChange, TodoSession
 
 if TYPE_CHECKING:

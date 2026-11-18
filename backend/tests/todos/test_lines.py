@@ -8,7 +8,7 @@ a test each. The project each line carries is `test_todo_project.py`'s.
 
 from typing import TYPE_CHECKING
 
-from kasten_backend.todos import lines as todo_lines
+from kasten_backend.todos.lines import read as todo_lines
 
 if TYPE_CHECKING:
     from pathlib import Path

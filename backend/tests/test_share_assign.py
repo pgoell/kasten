@@ -297,7 +297,7 @@ _LONG = "a" + " " * 40_000 + "x"
 )
 def test_1889_a_field_value_before_a_long_blank_run_reads_in_linear_time(call: str) -> None:
     # A child process, since `re` cannot be stopped from inside.
-    code = f"from kasten_backend.todos.fields import *; {call}"
+    code = f"from kasten_backend.todos.lines.fields import *; {call}"
 
     # The timeout sits far under main's time and above a slow interpreter start.
     subprocess.run([sys.executable, "-c", code], check=True, timeout=10)  # noqa: S603

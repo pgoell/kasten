@@ -1,9 +1,6 @@
-"""Todos: the reader of todo lines in the vault, and the store in Postgres taking over (#2191).
+"""Todos: the store in Postgres (#2191), and the reader of the vault's todo lines it replaces."""
 
-`lines` and `fields` read the vault's lines until the import moves them into the store.
-"""
-
-from kasten_backend.todos import fields, lines
+from kasten_backend.todos import lines
 from kasten_backend.todos.lines import (
     COMMENT,
     HTML_LINE,
@@ -12,7 +9,9 @@ from kasten_backend.todos.lines import (
     PROJECT_ROOTS,
     TAG,
     fenced_lines,
+    fields,
     find_todos,
+    importer,
     line_tags,
     parents,
     project_by_tag,
@@ -21,6 +20,7 @@ from kasten_backend.todos.lines import (
     projects_of,
     tags_in,
 )
+from kasten_backend.todos.route import router
 
 __all__ = [
     "COMMENT",
@@ -32,6 +32,7 @@ __all__ = [
     "fenced_lines",
     "fields",
     "find_todos",
+    "importer",
     "line_tags",
     "lines",
     "parents",
@@ -39,5 +40,6 @@ __all__ = [
     "project_folders",
     "project_in",
     "projects_of",
+    "router",
     "tags_in",
 ]

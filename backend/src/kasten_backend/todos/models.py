@@ -60,6 +60,8 @@ class Todo(Base):
         Text, ForeignKey(f"{SCHEMA}.todo.id", ondelete="CASCADE"), index=True
     )
     position: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    round_of: Mapped[str | None] = mapped_column(Text, index=True)
+    """On a finished round of a repeating todo, the todo, which keeps its id and moves on."""
     blocked_by: Mapped[list[str]] = mapped_column(
         ARRAY(Text), nullable=False, server_default=text("'{}'")
     )

@@ -16,10 +16,11 @@ are the second. They will live in a `todos` schema as the system of record, and
 the vault will no longer rebuild them.
 
 This page records the decisions behind the move, taken in
-[#2191](https://github.com/pgoell/kasten/issues/2191). Migration `0019` makes the
-tables and `todos:import` fills them. Nothing else reads or writes them yet: the
-line reader still answers `GET /api/todos` until the readers move, as
-[The cutover](#the-cutover) says.
+[#2191](https://github.com/pgoell/kasten/issues/2191). Migrations `0019` and
+`0020` make the tables, `todos:import` fills them, and
+[the store's routes](/reference/http-api/todos.md#the-store) read and write
+them. The app does not call those routes yet: the line reader still answers
+`GET /api/todos` until the readers move, as [The cutover](#the-cutover) says.
 
 ## Why the line stops being enough
 
@@ -127,9 +128,11 @@ markdown.
 
 **Done.** The `## Done` section stops growing. A finished todo's `done` day is
 on its row, so "what got done on a day" is a query, and the daily note can show
-it without a copy. A recurring todo keeps its own row when ticked, done, and the
-next round is a new row with a new id, so the history of a series is its rows.
-The `## Done` lines already in old daily notes stay as text.
+it without a copy. A repeating todo keeps its id when ticked: the finished round
+becomes a done row of its own whose `round_of` names the todo, and the todo
+moves on to its next dates. So the embed in a note, a `⛔` naming it and a day
+plan's pick all still name the live todo, and the history of a series is its
+rounds. The `## Done` lines already in old daily notes stay as text.
 
 **Time.** Each stretch of work is a row in `todos.session`, with a start and an
 end, empty while the timer runs. A stop sums the closed sessions into `worked`,
