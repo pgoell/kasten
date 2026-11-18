@@ -77,7 +77,7 @@ export function watchingPuts(page: Page, path: string): string[] {
   return puts;
 }
 
-/** Opens `path` holding `text` with its video beside it by the palette, as vim on or off can, and returns the pane once its player listens. */
+/** Opens `path` holding `text` with its video beside it by the palette, as vim on or off can, and returns the pane once its player frame has loaded. */
 export async function watchBeside(page: Page, vault: string, path: string, text: string): Promise<Locator> {
   await vaultWith(vault, { [path]: text });
   await page.goto(`/?note=${encodeURIComponent(path)}`);

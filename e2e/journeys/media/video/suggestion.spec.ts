@@ -60,7 +60,7 @@ test("#1497 I1 a second suggestion counts from its own second, not the first one
   expect(blocked).toEqual([]);
 });
 
-test("#1497 I2 l on a suggestion leaves the linked video's second and writes nothing for it", async ({
+test("#1497 I2 l and a pause on a suggestion leave the linked video's second and write nothing for it", async ({
   page,
   stack,
 }) => {
@@ -71,10 +71,13 @@ test("#1497 I2 l on a suggestion leaves the linked video's second and writes not
   await say(pane, onOther(30));
   await keys(page, pane, ["l"]);
   await expect.poll(() => sentTo(pane)).toEqual([seek(40)]);
-  await say(pane, { videoData: { video_id: LINKED } });
+  // A pause on the suggestion is a stop, which would write if the pane took it for the linked video.
+  await say(pane, { playerState: 2, currentTime: 45 });
+  await say(pane, { videoData: { video_id: LINKED }, playerState: 1 });
   await keys(page, pane, ["l"]);
   await expect.poll(() => sentTo(pane)).toEqual([seek(40), seek(210)]);
-  expect(puts).toEqual([]);
+  await say(pane, { playerState: 2, currentTime: 212 });
+  await expect.poll(() => puts, { timeout: 15_000 }).toEqual([`${LINKED}: 212`]);
   expect(blocked).toEqual([]);
 });
 
