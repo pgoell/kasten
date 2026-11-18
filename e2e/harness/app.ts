@@ -139,6 +139,34 @@ export async function hold(
   };
 }
 
+/** Holds the vault's event stream until the returned call lets it open. */
+export async function holdStream(page: Page): Promise<() => void> {
+  let open = () => {};
+  const held = new Promise<void>((resolve) => {
+    open = resolve;
+  });
+  await page.route("**/api/events", async (route) => {
+    await held;
+    await route.continue();
+  });
+  return open;
+}
+
+/** Keeps the data of each vault event the page reads; the returned call reads them joined. Call before the page loads. */
+export async function recordEvents(page: Page): Promise<() => Promise<string>> {
+  await page.addInitScript(() => {
+    const seen: string[] = [];
+    Object.assign(window, { seen });
+    window.EventSource = class extends EventSource {
+      constructor(url: string | URL, init?: EventSourceInit) {
+        super(url, init);
+        this.addEventListener("message", (event) => seen.push(event.data));
+      }
+    };
+  });
+  return () => page.evaluate(() => (window as unknown as { seen: string[] }).seen.join());
+}
+
 /** The addresses the page asked window.open for since `recordOpens`. */
 export const opened = (page: Page): Promise<string[]> =>
   page.evaluate(() => (window as unknown as { opened: string[] }).opened);

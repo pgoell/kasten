@@ -62,6 +62,18 @@ export async function logPane(
   return pane;
 }
 
+/** Each GET /api/log the page sends, as `from..to`. */
+export function logReads(page: Page): string[] {
+  const asked: string[] = [];
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (url.pathname === "/api/log") {
+      asked.push(`${url.searchParams.get("from")}..${url.searchParams.get("to")}`);
+    }
+  });
+  return asked;
+}
+
 export const selected = (page: Page) => page.locator('li[aria-selected="true"]');
 
 // A Sunday clear of a clock change, so the 7 days end on it and its week starts on Monday the 9th.

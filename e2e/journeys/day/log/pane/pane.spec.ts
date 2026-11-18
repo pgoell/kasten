@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
-import { findNote, leader, openApp, phone, plus, vaultWith } from "../../../harness/app.ts";
-import { expect, test } from "../../../harness/stack.ts";
+import { findNote, leader, openApp, phone, plus, vaultWith } from "../../../../harness/app.ts";
+import { expect, test } from "../../../../harness/stack.ts";
 import {
   CONFIG,
   CONFIG_PATH,
@@ -8,24 +8,13 @@ import {
   daily,
   lines,
   logPane,
+  logReads,
   note,
   OATS,
   PAST,
   selected,
   TODAY,
-} from "./log.ts";
-
-/** Each GET /api/log the page sends, as `from..to`. */
-function logReads(page: Page): string[] {
-  const asked: string[] = [];
-  page.on("request", (request) => {
-    const url = new URL(request.url());
-    if (url.pathname === "/api/log") {
-      asked.push(`${url.searchParams.get("from")}..${url.searchParams.get("to")}`);
-    }
-  });
-  return asked;
-}
+} from "../log.ts";
 
 const editForm = (page: Page) => page.locator(".log-pane-edit");
 
@@ -173,6 +162,19 @@ for (const how of ["leader", "palette"] as const) {
     await expect.poll(() => lines(stack.vault)).toEqual([...DAY, "- ☕ 1"]);
   });
 }
+
+test("#624 with vim off, the palette's Open the log opens the pane and e then Save rewrites the entry's line", async ({
+  page,
+  stack,
+}) => {
+  const pane = await logPane(page, stack.vault, "palette");
+  await pane.focus();
+  await page.keyboard.press("e");
+  await expect(editForm(page).getByLabel("Amount")).toHaveValue("500 ml");
+  await editForm(page).getByLabel("Amount").fill("750 ml");
+  await editForm(page).getByRole("button", { name: "Save" }).click();
+  await expect.poll(() => lines(stack.vault)).toEqual(["- 💧 750 ml", ...DAY.slice(1)]);
+});
 
 test("#624 Escape leaves the edit without writing", async ({ page, stack }) => {
   const pane = await logPane(page, stack.vault);
@@ -332,5 +334,16 @@ test.describe("on a phone", () => {
     await expect
       .poll(() => lines(stack.vault))
       .toEqual([DAY[0], "- ☕ 3", ...DAY.slice(2), "- 💧 250 ml"]);
+  });
+
+  test("#624 a row tapped then Delete removes its line, with no notice", async ({
+    page,
+    stack,
+  }) => {
+    const pane = await logPane(page, stack.vault, "phone");
+    await pane.getByRole("button", { name: "☕ 2" }).tap();
+    await editForm(page).getByRole("button", { name: "Delete" }).tap();
+    await expect.poll(() => lines(stack.vault)).toEqual([DAY[0], ...DAY.slice(2)]);
+    await expect(page.getByTestId("notice")).toHaveCount(0);
   });
 });
