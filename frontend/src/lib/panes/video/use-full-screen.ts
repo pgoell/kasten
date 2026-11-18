@@ -1,4 +1,10 @@
-import { type RefObject, useEffect, useState } from "react";
+import { type RefObject, useEffect, useRef, useState } from "react";
+
+// A browser refusing a request rejects with a TypeError and changes nothing,
+// so the pane stays as it was.
+function refused(error: unknown) {
+  if (!(error instanceof TypeError)) throw error;
+}
 
 /**
  * Full screen for one box in a pane. The box must sit inside the pane, so keys
@@ -13,6 +19,8 @@ export function useFullScreen(
   // Safari on an iPhone has no full screen for a box, only for its video, so the
   // caller draws no button there.
   const canFull = document.fullscreenEnabled === true;
+  /** What runs once the exit `exitThen` asked for has landed. */
+  const afterExit = useRef<(() => void) | null>(null);
 
   // Followed, not set by the toggle: Esc leaves full screen with no key event.
   // Focus returns to the pane only if this box was full and focus stayed in it.
@@ -27,6 +35,9 @@ export function useFullScreen(
       else if (was && stayed) pane.current?.focus();
       was = now;
       setFull(now);
+      const after = afterExit.current;
+      afterExit.current = null;
+      if (!now) after?.();
     }
     document.addEventListener("fullscreenchange", follow);
     return () => document.removeEventListener("fullscreenchange", follow);
@@ -43,10 +54,19 @@ export function useFullScreen(
       document.fullscreenElement === element
         ? document.exitFullscreen()
         : element.requestFullscreen();
-    // A browser refusing the request rejects with a TypeError and changes
-    // nothing, so the pane stays as it was.
-    asked.catch((error: unknown) => {
-      if (!(error instanceof TypeError)) throw error;
+    asked.catch(refused);
+  }
+
+  /**
+   * Out of full screen, then `after`, run once the change has landed and handed
+   * the focus back: the page outside the box takes no focus before it (#2160).
+   */
+  function exitThen(after: () => void) {
+    afterExit.current = after;
+    document.exitFullscreen().catch((error: unknown) => {
+      refused(error);
+      afterExit.current = null;
+      after();
     });
   }
 
@@ -57,5 +77,5 @@ export function useFullScreen(
     else pane.current?.focus();
   }
 
-  return { full, canFull, toggleFull, refocus };
+  return { full, canFull, toggleFull, exitThen, refocus };
 }

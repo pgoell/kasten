@@ -275,7 +275,9 @@ which has no Esc.
 Space still starts the leader in full screen, but the which-key panel does not
 show: it sits outside the box, so the browser hides it. A sequence typed blind
 leaves full screen first and then runs, so whatever it opens or moves to is on
-screen. Esc after Space drops the waiting leader along with full screen.
+screen, and the focus lands where it would outside full screen. Every other way
+out leaves the focus on the pane. Esc after Space drops the waiting leader along
+with full screen.
 
 Where the browser cannot put a box full screen, as Safari on an iPhone cannot,
 the button is not drawn and `f` does nothing. A browser that refuses the request
