@@ -1,7 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Page, Route } from "@playwright/test";
-import { noteText, openApp, openNote, phone, unstamped } from "../../harness/app.ts";
+import { leader, noteText, openApp, openNote, phone, unstamped } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 import { conflicted, OUTSIDE, sign, welcome } from "../panes/conflict/conflicted.ts";
 
@@ -160,6 +160,35 @@ test("the conflict diff folds each run of unchanged lines into a count, one line
   await expect
     .poll(() => diffRows(page), { timeout: 15_000 })
     .toEqual(["⋯ 12 lines", "  line 12", "- theirs", "+ mine", "  line 1", "⋯ 13 lines"]);
+});
+
+test.describe("the × beside a notice", () => {
+  test("a click on the × takes the notice and itself away, and the bar stays with its clock", async ({
+    page,
+  }) => {
+    await openApp(page);
+    await leader(page, "cd");
+    await page.getByRole("dialog", { name: "Capture a thought" }).getByLabel("dump").fill("a thought");
+    await page.keyboard.press("Enter");
+    await expect(page.getByTestId("notice")).toHaveText("Captured into today's dump");
+    await page.getByRole("button", { name: "Dismiss notice" }).click();
+    await expect(page.getByTestId("notice")).toHaveCount(0);
+    await expect(page.getByTestId("notice-dismiss")).toHaveCount(0);
+    await expect(page.locator("footer time").last()).toBeVisible();
+  });
+
+  // PR #2052's nit: the held list crowds the clock out in any window under md, not only a phone's.
+  test("a held note hides the clock in a narrow window that is not a phone", async ({ page }) => {
+    await page.setViewportSize({ width: 600, height: 800 });
+    await page.addInitScript(() => {
+      const entry = { content: "typed here\n", reason: "PUT failed with 507" };
+      localStorage.setItem("kasten.held.2", JSON.stringify({ "a.md": [entry] }));
+    });
+    await page.goto("/");
+    await expect(page.getByTestId("held")).toHaveText("Not saved: a", { timeout: 15_000 });
+    expect(await clocks(page)).toBeGreaterThan(0);
+    await expect(page.locator("footer time:visible")).toHaveCount(0);
+  });
 });
 
 test.describe("on a phone", () => {
@@ -325,6 +354,17 @@ test.describe("on a phone", () => {
       timeout: 15_000,
     });
     expect(await clocks(page)).toBe(0);
+  });
+
+  test("a tap on the × takes the notice away, and the quiet bar goes with it", async ({ page }) => {
+    await welcomeByTap(page);
+    await command(page, "Log alcohol");
+    await expect(page.getByTestId("notice")).toHaveText("Logged 🍺 1 into today's note", {
+      timeout: 15_000,
+    });
+    await page.getByRole("button", { name: "Dismiss notice" }).tap();
+    await expect(page.getByTestId("notice")).toHaveCount(0);
+    await expect(page.locator("footer")).toHaveCount(0);
   });
 
   test("the bar comes back without the clock for the archive", async ({ page }) => {

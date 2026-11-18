@@ -62,3 +62,12 @@ describe("the clock in the bar", () => {
     expect(screen.getByTestId("version")).toHaveClass("max-md:hidden");
   });
 });
+
+// No screen mounts the bar without onDismissNotice, so no journey reaches this case (#962).
+describe("the × beside a notice", () => {
+  it("draws no × for a bar that cannot clear its notice", () => {
+    render(<StatusBar notice="A book is already there" />);
+
+    expect(screen.queryByTestId("notice-dismiss")).toBeNull();
+  });
+});
