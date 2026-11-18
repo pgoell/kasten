@@ -380,13 +380,21 @@ test.describe("@ sends the cursor's todo to the agent (#523)", () => {
     await expect.poll(() => disk(stack.vault)).toBe(text([SEND]));
   });
 
-  test("B1 three quick @ on two rows of the same words each press their own todo", async ({ page, stack }) => {
-    await agentPane(page, stack.vault, FOOS, "foo", { held: true });
-    // In one task, so no write lands before the last press, as quick presses on a slow vault.
-    await page.evaluate(() => {
-      for (const key of ["j", "@", "k", "@", "j", "@"])
-        document.activeElement?.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
+  // Fails on main: the second and third press are refused (#2188).
+  test.fail("B1 three quick @ on two rows of the same words each press their own todo", async ({ page, stack }) => {
+    let open = () => {};
+    const gate = new Promise<void>((resolve) => {
+      open = resolve;
     });
+    // Every write held until the last press, so all three queue before one lands.
+    const put = async (route: Route) => {
+      await gate;
+      await route.fallback();
+    };
+    const puts = await agentPane(page, stack.vault, FOOS, "foo", { held: true, put });
+    for (const key of ["j", "@", "k", "@", "j", "@"]) await page.keyboard.press(key);
+    await expect.poll(() => puts.length).toBe(1);
+    open();
     await expect.poll(() => disk(stack.vault)).toBe(text(["- [ ] foo #agent", "- [ ] foo #agent"]));
   });
 
