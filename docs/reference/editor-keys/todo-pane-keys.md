@@ -23,64 +23,46 @@ under this cursor, and the bare `x` is the key that acts on a row.
 Enter opens the note into this pane, which is what clicking a row in the file
 tree already does, and `<leader>gt` brings the list back in one press.
 
-`x` writes the vault rather than a buffer. The row shows the new state at
-once, the list and the board alike, before the vault has the write; the list's
-next answer from the vault, after the press, stands, a refused write included.
-The note the row names is read again first. A root todo a write above has shifted is found by its words; a row whose
-todo cannot be found cycles nothing, and the notice says so. The note redraws
-in whatever pane is showing it. Ticking one done also writes the
-[done log](/reference/todo-format/time-and-repeats.md#the-done-log) line into today's daily note,
-and it carries the same three rules `<leader>x` carries: the parts go with a
-parent, a recurring todo gets its next copy, and the dependents of a todo that
-just closed or reopened are rewritten wherever they live.
+`x` writes the todo store rather than a buffer: `POST /api/todos/{id}/cycle`,
+or `POST /api/todos/{id}/state` for a state key, by the `🆔` on the row's line.
+The row shows the new state at once, the list and the board alike, before the
+store has the write; the list's next answer, after the press, stands, a refused
+write included, and the notice says why. The store applies the rules itself:
+the done and cancelled dates, the parts going with a parent, a repeating todo's
+next round, and the dependents of a todo that just closed or reopened.
 
 A press on a row of the open list (`x`, a state key, `t`, `@`, `m`, or the
 state button on a phone) changes that row only, and the page draws that row
 again, not the whole list. While presses follow each other, the list keeps the
 order it was drawn in: a row checked off stays where it was, struck through, and
 a todo written elsewhere meanwhile joins the end of its group. A struck row that
-the next `x` makes plain words stays too, so `x` once more cycles it back to an
-open todo. The order goes a second after the last press, and the done rows and
+the next `x` opens again stays too. The order goes a second after the last press, and the done rows and
 plain lines leave; the cursor stays on its row,
 or on the first row under it that stays where its own row left. It also goes once
 the focus leaves the pane, the pane closes or the page reloads, and `d`, `n`, `v`,
 `c`, `b`, `i`, `s` and the filter draw the list afresh too. A press redraws the
 list once, after its last write, whether every write landed or not, and
-presses of `x`, the state keys, `t`, `@`, `e`, `b` and `m` that overlap redraw it once, after the last lands; the vault's
-word on a note the press wrote asks again only where the note now holds other
-text than the press wrote (#947). While a press runs, no word from the vault
-asks at all: the redraw after the last press reads the list, other writers'
-lines included, so a write the press set off, such as the folder listings of a
-daily note it made, draws no pending row back (#1998).
+presses of `x`, the state keys, `t`, `@`, `e`, `b` and `m` that overlap redraw it once, after the last lands (#947).
+While a press runs, no word from the vault asks at all: the redraw after the
+last press reads the list, other writers' lines included (#1998).
 
-`t` starts a session on the row's todo, or closes the ones it has running, and
-writes both to the [time log](/reference/todo-format/time-and-repeats.md#the-time-log). A row
+`t` starts a session on the row's todo, or closes the ones it has running, in
+the todo store. A row
 whose todo has a session open carries `▶` after its state, and where that
 session was opened on an earlier day the mark carries the day, `▶ 08-09`, which
-is how a timer nobody stopped reads as unstopped. The row shows what is on disk:
+is how a timer nobody stopped reads as unstopped. The row shows what the store holds:
 there is no clock ticking on it, and a session lands in `⏱` when it is stopped.
-Where a write since the list was drawn moved the row's todo so that `t` cannot
-tell which line it is, `t` writes nothing and the notice says
-`Nothing moved: that line has changed since it was listed`, as a state key does.
+It sends `POST /api/todos/{id}/timer`.
 
 `@` sends the row's todo to [the agent worker](/reference/todo-format/tags-projects-and-views.md#agent-work)
 by writing `#agent` on its line, and takes the tag back off an open `[ ]` todo,
 by the rules of `<leader>@` in [Todos](/reference/editor-keys/todos.md#todos): a todo in another state keeps
 the tag, and client work is refused, each with its sentence in the notice. It
-writes the way `m` does, in the note's write queue and naming the text it read,
-so a note holding text not yet saved, open to type in or still being saved is
-not written, and the notice says why. It works on the list, not on the board.
+sends the changed line to `PUT /api/todos/{id}/line`. It works on the list, not on the board.
 On a phone the row's `⋯` strip carries `agent`, which does the same.
 The palette opened over the todo pane lists it too, as "Send the todo under the
 cursor to the agent, or take it back", acting on the row under the cursor; over
 a note or any other pane it does not.
-
-`t`, `x`, a state key and a dropped card find a todo's sessions, log line and
-dependents by its `🆔`. Where that `🆔` stands on another todo line too, a
-pasted copy in the same note or in another, the press writes nothing and the
-notice says `Nothing moved: 🆔 <id> is on another todo too: <note> line <n>`,
-with `, and 2 more` where it stands on three others. Session, log and `⛔` lines
-name the id without carrying it, and do not count.
 
 The cell between the count and the date is the two clocks: `⏱ 1h20m / 2h` with
 both, `⏱ 1h20m` with only the worked total, `⏲ 2h` with only an estimate, and
@@ -125,36 +107,20 @@ can still be what another waits for. It takes neither the todo itself nor a
 todo the line names already, and stays open when you try. `b` does nothing on
 a finished todo.
 
-Enter writes two lines. The blocker gets a `🆔` where it has none, and the
-todo gets `⛔` and that id. An open todo becomes blocked; one that is doing or
-waiting keeps its state.
+Enter adds the blocker's id to the todo's `blocked_by` through
+`PATCH /api/todos/{id}`, at the version the list read. An open todo becomes
+blocked; one that is doing or waiting keeps its state.
 
 `m` moves the row's todo into its project's note, the `index.md` of the
-project `GET /api/todos` names for it, which is the note `p` links to. The todo
-goes with every line indented under it, as they stand, to the end of that
-note's `## TODOs`, which is made where there is none; a project's folder with
-no `index.md` gets one holding the todo. In the todo's place stays a plain
-bullet, not a checkbox: its words and a link to the project's note. One todo
-per press, so no bulk move happens. [The todo board](/explanation/the-todo-board.md#the-refile-key)
-says why.
-
-The project's note is written first and the note the todo left second, each
-once and in its note's write queue. Neither is written while it is open to type
-in, while a write of it is in the air, or while it holds text a failed save
-left, and the notice says which. Where the project's note is not written,
-nothing moves. Where the note the todo left changed since it was listed, or its
-write fails, that note is not written: the notice says the todo was copied and
-asks you to check that note before pressing again. A second `m`
-then finishes the move without a second copy only where the todo carries a
-`🆔` and the project's note holds its whole block as it stands; otherwise it
-copies the todo again, since a duplicate can be deleted and a lost line cannot.
-A press right after another on the same note finds its todo by its words where
-the first press moved it, when exactly one root todo has those words; a part
-whose line moved reads as changed. A todo with no project
-moves nowhere, and the notice names `p` and a `#p/x` tag; a todo already in its
-project's note stays. The way back is the
-[history pane](/reference/editor-keys/panes-and-tabs.md#the-history-pane)'s restore on each of the two notes: `u` in an
-editor does not reach a write made through the vault.
+project `GET /api/todos` names for it, which is the note `p` links to. It sends
+`PATCH /api/todos/{id}` with that project and note, so the todo's parts go with
+it; a part leaves its parent, or the list would still draw it under that
+parent. No note is written, and the `![[kt-…]]` embed stays in the note the
+todo left. One todo per press, so no bulk move happens.
+[The todo board](/explanation/the-todo-board.md#the-refile-key) says why.
+A todo with no project moves nowhere, and the notice names `p` and a `#p/x`
+tag; a todo already in its project's note stays. A move the store refuses, such
+as one at a stale version, says why in the notice.
 [Dependencies](/reference/todo-format/state-changes.md#dependencies) has the rule.
 
 A row that waits says for what: `⛔` and the blocker's words, or `⛔ 2` where

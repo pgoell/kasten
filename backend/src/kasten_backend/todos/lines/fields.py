@@ -1,7 +1,7 @@
 """The field readers of a todo line: the markers its words carry, and the words and assignee left.
 
 A port of the editor's `readFields` in `todo-fields.ts`, held to it by one table of cases.
-It imports nothing from `todos.py`, which reads it.
+It imports nothing from `lines.py`, which reads it.
 """
 
 import re
@@ -62,6 +62,8 @@ FIELDS = (
     ID,
 )
 BLOCKED_BY = re.compile("⛔" + _VS + _ONE_WORD)
+ALARM = re.compile("⏰" + _VS + _DATE + r"[ \t]+([0-9]{2}:[0-9]{2})(?=[ \t]|$)")
+"""A reminder, `⏰ 2026-11-12 09:00`: words to the editor, a push to the backend."""
 # What a cut field leaves behind: a stop for every free-text or one-word value, so
 # it does not run across the gap. `_WORD` and the `🔁` value already refuse it.
 _CUT = "\n"
@@ -108,9 +110,12 @@ def mask(text: str) -> str:
     return blank(text, SPANS)
 
 
+type Span = tuple[int, int]
+
+
 def _scan(
     rest: str,
-) -> tuple[str, str | None, dict[re.Pattern[str], tuple[int, int]], list[tuple[int, int]]]:
+) -> tuple[str, str | None, dict[re.Pattern[str], list[Span]], list[Span]]:
     """A todo's words, assignee and the place of each field, as `readTagged` reads them.
 
     Fields are found on a copy with every span blanked, so a marker in a link is no marker.
@@ -123,14 +128,14 @@ def _scan(
     # assignee takes is then the reader's own cut, not a match on the whole line.
     origin = list(range(len(rest)))
     who = None
-    places = {}
-    cuts = []
+    places: dict[re.Pattern[str], list[Span]] = {}
+    cuts: list[Span] = []
     for pattern in (*FIELDS, BLOCKED_BY, WAITING, ASSIGNEE):
         while (found := pattern.search(masked)) is not None and any(found.groups()):
             if pattern is ASSIGNEE:
                 who = text[found.start(1) : found.end(1)]
             cuts.append((origin[found.start()], origin[found.end() - 1] + 1))
-            places.setdefault(pattern, cuts[-1])
+            places.setdefault(pattern, []).append(cuts[-1])
             text = text[: found.start()] + _CUT + text[found.end() :]
             masked = masked[: found.start()] + _CUT + masked[found.end() :]
             origin = [*origin[: found.start()], -1, *origin[found.end() :]]
@@ -166,7 +171,7 @@ def assignee_span(rest: str) -> tuple[int, int] | None:
 
 def place(rest: str, field: re.Pattern[str]) -> tuple[int, int] | None:
     """Where the reader takes `field` in `rest`, the first one for `BLOCKED_BY`, or None."""
-    return _scan(rest)[2].get(field)
+    return next(iter(_scan(rest)[2].get(field, [])), None)
 
 
 def id_of(rest: str) -> str | None:
@@ -174,3 +179,13 @@ def id_of(rest: str) -> str | None:
     found = place(rest, ID)
     match = None if found is None else ID.match(rest, *found)
     return None if match is None else match[1]
+
+
+def values(rest: str) -> tuple[str, dict[re.Pattern[str], list[tuple[str | None, ...]]]]:
+    """A todo's words and each field's groups, every `⛔` in order: the whole of what it says."""
+    text, _, places, _ = _scan(rest)
+    found = {
+        pattern: [match.groups() for span in spans if (match := pattern.fullmatch(rest, *span))]
+        for pattern, spans in places.items()
+    }
+    return text, found

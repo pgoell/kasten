@@ -18,7 +18,7 @@ describe("the todo pane", () => {
     { path: "a.md", line: 1, text: "- [/] wire up the pane 📅 2026-08-10" },
     { path: "a.md", line: 2, text: "  - [x] read the spec ✅ 2026-08-10" },
     { path: "a.md", line: 3, text: "  - [ ] write it" },
-    { path: "a.md", line: 4, text: "    - [ ] draft it" },
+    { path: "a.md", line: 4, text: "    - [ ] draft it 🆔 kt-dddddd" },
     { path: "b.md", line: 7, text: "- [ ] buy milk 📅 2026-08-14" },
   ];
 
@@ -37,7 +37,13 @@ describe("the todo pane", () => {
     expect(pane.texts().join()).toContain("buy milk");
   });
 
-  it("opens the next action's own line rather than the root's", async () => {
+  it("opens the next action's own embed rather than the root's", async () => {
+    const views = fetchNote.getMockImplementation();
+    fetchNote.mockImplementation((path: string) =>
+      path === "a.md"
+        ? Promise.resolve("# A\n\n![[kt-aaaaaa]]\n- ![[kt-dddddd]]\n")
+        : views?.(path),
+    );
     const pane = renderPane(NESTED);
     await pane.loaded();
     expect(pane.rows()).toHaveLength(4);
@@ -48,7 +54,7 @@ describe("the todo pane", () => {
     // `buy milk` in This week.
     pane.press("Enter");
 
-    expect(pane.onOpen).toHaveBeenCalledWith("a.md", 4);
+    await waitFor(() => expect(pane.onOpen).toHaveBeenCalledWith("a.md", 4));
   });
 
   it("swaps the done list for the next actions rather than showing both", async () => {

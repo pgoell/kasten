@@ -25,6 +25,8 @@ from kasten_backend.agent.oauth import challenge
 from kasten_backend.agent.route import BEARER, REFUSED
 from kasten_backend.config import DEFAULTS, get_settings
 from kasten_backend.graph import MOST_DEPTH, GraphError
+from kasten_backend.todos.serve import plans as plan_tools
+from kasten_backend.todos.serve import tools as todo_tools
 from kasten_backend.tokens import activity as token_activity
 from kasten_backend.tokens import identify
 from kasten_backend.vault import ASSET_MAGIC
@@ -256,9 +258,11 @@ TOOLS = (
     read_guide,
     list_skills,
     read_skill,
+    *todo_tools.TOOLS,
+    *plan_tools.TOOLS,
     *agent_mcp_finance.TOOLS,
 )
-"""The eleven capabilities, the guide and the finance reads, in the order the reference lists them.
+"""The eleven capabilities, the guide, the todo tools and the finance reads, in reference order.
 
 `read_guide` is an extra tool, not a capability: it reads a string baked into the image,
 never the vault. See docs/explanation/the-agent-boundary.md and its finance-reads page.
@@ -277,6 +281,8 @@ READING = (
             "read_skill",
         }
     )
+    | todo_tools.READING
+    | plan_tools.READING
     | agent_mcp_finance.READING
 )
 """Which tools only read, told to the client as `readOnlyHint`.

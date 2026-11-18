@@ -87,6 +87,79 @@ export async function fetchTodos(archive = false): Promise<TodoHit[]> {
   return data;
 }
 
+/** A block of a day's plan, with the ids of the todos picked for it. */
+export type PlanBlock = components["schemas"]["PlanBlockIn"];
+/** A saved day plan; the schema leaves the answer untyped, so this names it. */
+export type DayPlan = { day: string; saved: string; by: string; blocks: PlanBlock[] };
+
+/** The plan saved for `day` (`YYYY-MM-DD`), its blocks in time order; null with none saved. */
+export async function fetchPlan(day: string): Promise<DayPlan | null> {
+  const { data, response } = await client.GET("/api/plans/{day}", { params: { path: { day } } });
+  if (response.status === 404) return null;
+  if (!data) throw new Error(`GET /api/plans failed with ${response.status}`);
+  return data as unknown as DayPlan;
+}
+
+/** One todo as the store holds it. */
+export type TodoRow = components["schemas"]["TodoOut"];
+/** The fields a `PATCH` changes; `epic` is optional here, since a sent `false` ends an epic. */
+export type TodoChange = Omit<components["schemas"]["Change"], "epic"> & { epic?: boolean };
+
+/** Every store write answers the rows it touched, or throws the backend's sentence. */
+async function touched(
+  label: string,
+  call: Promise<{ data?: TodoRow[]; error?: unknown; response: Response }>,
+): Promise<TodoRow[]> {
+  const { data, error, response } = await call;
+  if (data) return data;
+  throw new Error(
+    reason(error as { detail?: unknown }) ?? `${label} failed with ${response.status}`,
+  );
+}
+
+/** Add the todo a typed line says; with no note and no parent it lands in today's daily note. */
+export function addTodoLine(text: string, parentId?: string): Promise<TodoRow[]> {
+  const body = parentId === undefined ? { text } : { text, parent_id: parentId };
+  return touched("POST /api/todos/line", client.POST("/api/todos/line", { body }));
+}
+
+/** Change a todo to what its edited line says, its box included. */
+export function changeTodoLine(id: string, text: string): Promise<TodoRow[]> {
+  const params = { path: { todo_id: id } };
+  return touched(
+    "PUT /api/todos/line",
+    client.PUT("/api/todos/{todo_id}/line", { params, body: { text } }),
+  );
+}
+
+/** Put a todo in `state`; the store stamps dates, ticks parts and moves a repeat on. */
+export function setTodoState(id: string, state: TodoRow["state"]): Promise<TodoRow[]> {
+  const params = { path: { todo_id: id } };
+  return touched(
+    "POST /api/todos/state",
+    client.POST("/api/todos/{todo_id}/state", { params, body: { state } }),
+  );
+}
+
+/** Walk a todo on: open, doing, done, open. */
+export function cycleStoreTodo(id: string): Promise<TodoRow[]> {
+  const params = { path: { todo_id: id } };
+  return touched("POST /api/todos/cycle", client.POST("/api/todos/{todo_id}/cycle", { params }));
+}
+
+/** Start a session on a todo, or stop the ones running. */
+export function toggleTodoTimer(id: string): Promise<TodoRow[]> {
+  const params = { path: { todo_id: id } };
+  return touched("POST /api/todos/timer", client.POST("/api/todos/{todo_id}/timer", { params }));
+}
+
+/** Change a todo's fields as read at `version`; a stale version is refused. */
+export function patchTodo(id: string, change: TodoChange): Promise<TodoRow[]> {
+  const params = { path: { todo_id: id } };
+  const body = change as components["schemas"]["Change"];
+  return touched("PATCH /api/todos", client.PATCH("/api/todos/{todo_id}", { params, body }));
+}
+
 /**
  * Candidate lines in search's shape. `review.ts` picks the notes and `srs.ts` parses them, so nothing about the format is known here.
  */

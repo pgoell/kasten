@@ -7,7 +7,8 @@ import re
 import secrets
 from datetime import date  # noqa: TC003  a stamp is written from it
 
-from kasten_backend import todo_fields, todos
+from kasten_backend import todos
+from kasten_backend.todos import fields as todo_fields
 
 TASK = re.compile(r"^([ \t]*)- \[([ xX])\] (.*?)(\r?)$")
 """A task line at any indent: its indent, its state, its words and the line ending an edit keeps."""

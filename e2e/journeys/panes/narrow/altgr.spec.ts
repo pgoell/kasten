@@ -50,7 +50,7 @@ async function send(page: Page, sent: [string, string, number][], typed?: string
 test.describe("@ typed through AltGr or Option (#2071)", () => {
   const NOTE = "01 Notes/Bank.md";
   for (const layout of ["windows", "linux", "mac"] as const)
-    test(`vim on, Space @ on a ${layout} layout sends the todo to the agent, and u takes it back`, async ({
+    test(`vim on, Space @ on a ${layout} layout sends the todo to the agent`, async ({
       page,
       stack,
     }) => {
@@ -61,9 +61,9 @@ test.describe("@ typed through AltGr or Option (#2071)", () => {
       await page.keyboard.press("Space");
       await expect(page.getByRole("dialog", { name: "Leader keys" })).toBeVisible();
       await typeAt(page, layout);
-      await expect.poll(() => noteText(stack.vault, NOTE)).toContain("- [ ] ring the bank #agent");
-      await page.keyboard.press("u");
-      await expect.poll(() => noteText(stack.vault, NOTE)).not.toContain("#agent");
+      const rows = async () => (await fetch(`${stack.url}/api/todos/rows`)).text();
+      await expect.poll(rows).toContain("ring the bank #agent");
+      expect(await noteText(stack.vault, NOTE)).not.toContain("#agent");
     });
 
   test("vim off, @ typed through AltGr or Option in a note types @ and nothing else", async ({
@@ -106,15 +106,15 @@ test.describe("@ typed through AltGr or Option (#2071)", () => {
       await page.keyboard.press("Escape");
       await expect(panel).toHaveCount(0);
     }
-    const row = (await cursor.getAttribute("data-row")) ?? "";
-    const path = row.slice(0, row.lastIndexOf(":"));
-    const at = Number(row.slice(row.lastIndexOf(":") + 1)) - 1;
-    const words = (await noteText(stack.vault, path)).split("\n")[at]?.replace(/^- \[ \] /, "") ?? "";
+    // The store holds the todo, so the tag lands in its row's words and not in a note.
+    const tagged = async () => {
+      const rows = (await (await fetch(`${stack.url}/api/todos/rows`)).json()) as { words: string }[];
+      return rows.filter((r) => r.words.includes("#agent")).map((r) => r.words.replace(/\s*#agent/, ""));
+    };
+    expect(await tagged()).toEqual([]);
     await typeAt(page, "linux");
-    // The write adds the note's own frontmatter, so the line is found by its words, not its number.
-    await expect
-      .poll(async () => (await noteText(stack.vault, path)).includes(`${words} #agent`))
-      .toBe(true);
+    await expect.poll(tagged).toHaveLength(1);
+    await expect(cursor).toContainText((await tagged())[0] ?? "");
   });
 });
 

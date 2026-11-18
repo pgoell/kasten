@@ -4,8 +4,8 @@ import type { Page } from "@playwright/test";
 import {
   findNote,
   leader,
-  opened,
   openApp,
+  opened,
   phone,
   readAll,
   recordOpens,
@@ -142,7 +142,8 @@ test("the finder previews the highlighted note as the editor draws it, and reads
   await page.keyboard.type("grdn");
   await expect(finder.getByRole("option", { selected: true })).toHaveText("Garden 02 Projects");
   const preview = finder.getByTestId("preview");
-  await expect(preview).toContainText("water the tomatoes");
+  // Its todos are embeds the preview draws as their ids; the prose shows as drawn.
+  await expect(preview).toContainText("Work for the spring beds.");
   // `# Garden` drawn as a heading, its mark hidden as the editor hides it.
   await expect(preview).toContainText("Garden");
   await expect(preview).not.toContainText("#");
@@ -163,15 +164,14 @@ test("Escape closes the finder and opens nothing", async ({ page }) => {
 test("a content search opens the note on the line it matches", async ({ page }) => {
   await openApp(page);
   await leader(page, "fg");
-  await page.keyboard.type("far away letter");
-  await expect(page.getByRole("option", { name: /far away letter/ })).toBeVisible();
+  // A todo's words are in the store, not its note, so the search looks for prose.
+  await page.keyboard.type("Line 240 of filler");
+  await expect(page.getByRole("option", { name: /Line 240 of filler/ })).toBeVisible();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("tab", { name: "Long note", selected: true })).toBeVisible();
-  const line = page.locator(".cm-line", {
-    hasText: "reply to the far away letter",
-  });
+  const line = page.locator(".cm-line", { hasText: "Line 240 of filler" });
   await expect(line).toBeInViewport();
-  await expect(page.locator(".cm-activeLine")).toContainText("reply to the far away letter");
+  await expect(page.locator(".cm-activeLine")).toContainText("Line 240 of filler");
 });
 
 /**

@@ -1,4 +1,6 @@
 // @vitest-environment node
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { formatTodo, parseTodo, type Todo } from "@/lib/todo/todo";
 import { readFields } from "@/lib/todo/todo-fields";
 import { EXAMPLE, parsed } from "./todo-fixture";
@@ -233,5 +235,41 @@ describe("#1889 a field value before a long run of blanks", () => {
     ["👤   ", { assignee: undefined, text: "👤" }],
   ])("reads %j as main does", (line, fields) => {
     expect(readFields(line)).toMatchObject(fields);
+  });
+});
+
+/** #2191: the cases the import's reader runs too, so a line reads the same in the store. */
+const READS: { line: string; fields: Partial<Todo> }[] = JSON.parse(
+  readFileSync(
+    path.resolve(import.meta.dirname, "../../backend/tests/fixtures/todo_reads.json"),
+    "utf8",
+  ),
+);
+const READ_KEYS = [
+  "due",
+  "scheduled",
+  "start",
+  "priority",
+  "recurrence",
+  "onCompletion",
+  "created",
+  "done",
+  "cancelled",
+  "estimate",
+  "worked",
+  "id",
+  "assignee",
+  "waitingSince",
+  "waitingOn",
+] as const;
+
+describe("#2191 the import reads a line's fields as the editor does", () => {
+  it.each(READS.map((one) => [one.line, one] as const))("%s", (_, one) => {
+    const todo = parsed(one.line);
+    const read: Partial<Todo> = Object.fromEntries(
+      READ_KEYS.filter((key) => todo[key] !== undefined).map((key) => [key, todo[key]]),
+    );
+    if (todo.blockedBy.length > 0) read.blockedBy = todo.blockedBy;
+    expect(read).toEqual(one.fields);
   });
 });

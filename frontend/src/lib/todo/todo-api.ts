@@ -1,108 +1,209 @@
 /**
- * The impure half of a write: the reads and writes, with no rules. That keeps the
- * rules in `todo-write.ts` testable with no server in front of them.
+ * The todo writes the pane, the board and the prompts make, each one call to the todo store,
+ * which applies the rules itself. `cycleTodoAside` alone still writes notes, for a checkbox typed in one.
  */
 
+import type { QueryClient } from "@tanstack/react-query";
 import {
+  addTodoLine,
+  changeTodoLine,
   createNote,
+  cycleStoreTodo,
   fetchNote,
   fetchTodos,
   NoteExists,
   NoteMissing,
+  patchTodo,
   type SearchHit,
-  saveNote,
   searchNotes,
+  setTodoState,
+  type TodoHit,
+  type TodoRow,
+  toggleTodoTimer,
   updateNote,
 } from "@/lib/core/api";
-import { noteBase } from "@/lib/notes/note-base";
 import { periodicNote } from "@/lib/notes/text/periodic";
-import { isOpen, newId, parseTodo, type Todo, type TodoState } from "@/lib/todo/todo";
+import {
+  formatTodo,
+  isOpen,
+  newId,
+  parseTodo,
+  setStateOn,
+  type Todo,
+  type TodoState,
+} from "@/lib/todo/todo";
 import { agentPress } from "@/lib/todo/todo-agent";
-import { applyBlocked, type Closed, closedAmong } from "@/lib/todo/todo-blocked";
+import { applyBlocked, type Closed, closedAmong, unblockedEdit } from "@/lib/todo/todo-blocked";
 import type { TodoCycle } from "@/lib/todo/todo-commands";
-import { inTurn, keepLanded, landedRow } from "@/lib/todo/todo-press-echo";
-import { rowLine } from "@/lib/todo/todo-refile";
+import { inTurn } from "@/lib/todo/todo-press-echo";
 import { expandShorthand } from "@/lib/todo/todo-shorthand";
 import { parseSession } from "@/lib/todo/todo-time";
-import { type SessionHit, timerWrites } from "@/lib/todo/todo-timer";
-import {
-  addTodoWrites,
-  cycleTodoWrites,
-  doneLogWrites,
-  otherTodoWithId,
-  pressedLine,
-  type Write,
-} from "@/lib/todo/todo-write";
+import { doneLogWrites, otherTodoWithId } from "@/lib/todo/todo-write";
+
+/** A listed line, with the store row behind it where the listing sent one. */
+type Listed = SearchHit & { todo?: TodoRow | null };
 
 /**
- * Today's daily note and its text, which every write here lands in or beside. `known`
- * is a note the caller has read already, so it is not asked for twice. `fresh` holds
- * the note's path exactly when the read found no note there, for `send` to create.
+ * The store id behind a row: its row first, since a press drawn ahead of the store can leave
+ * plain words; else the `🆔` every todo line carries, or a timer line's id.
  */
-async function dailyNote(
-  known: Record<string, string> = {},
-): Promise<{ path: string; text: string; fresh: string[] }> {
-  const daily = periodicNote("daily", new Date());
-  const text = known[daily.path];
-  if (text !== undefined) return { path: daily.path, text, fresh: [] };
+export function todoIdOf(hit: Listed): string {
+  const id = hit.todo?.id ?? parseTodo(hit.text)?.id ?? parseSession(hit.text)?.id;
+  if (id === undefined) throw new Error("that line names no todo");
+  return id;
+}
+
+/**
+ * The line of `path` that embeds the todo listed at `line`, or the todo it is a part of: a store
+ * todo's listed line counts todos, not the note's lines. Any line no todo is listed at stays.
+ */
+export function noteLineOf(
+  client: QueryClient,
+  path: string,
+  line: number,
+): number | Promise<number> {
+  const hits = client
+    .getQueriesData<TodoHit[]>({ queryKey: ["todos"] })
+    .flatMap(([, h]) => h ?? []);
+  const listed = hits.find((hit) => hit.path === path && hit.line === line)?.todo;
+  // Answered now where nothing needs reading, so a plain open stays synchronous.
+  if (!listed) return line;
+  const rows = new Map(hits.flatMap((hit) => (hit.todo ? [[hit.todo.id, hit.todo] as const] : [])));
+  return client
+    .ensureQueryData({ queryKey: ["note", path], queryFn: () => fetchNote(path) })
+    .then((text) => {
+      const lines = text.split("\n");
+      for (let row = rows.get(listed.id); row; ) {
+        const embed = `![[${row.id}]]`;
+        const at = lines.findIndex((each) => each.includes(embed));
+        if (at >= 0) return at + 1;
+        row = row.parent_id === null ? undefined : rows.get(row.parent_id);
+      }
+      return 1;
+    });
+}
+
+/**
+ * The note line a todo's `![[kt-…]]` sits on, or its parent's for a part, which has none. A
+ * listing's `line` counts todos, not note lines (#2191); no embed opens the note at its top.
+ */
+export async function embedLineOf(hit: Listed): Promise<number | undefined> {
+  const id = hit.todo?.id ?? parseTodo(hit.text)?.id;
+  if (id === undefined) return undefined;
+  let lines: string[];
   try {
-    return { path: daily.path, text: await fetchNote(daily.path), fresh: [] };
+    lines = (await fetchNote(hit.path)).split("\n");
   } catch (error) {
-    if (!(error instanceof NoteMissing)) throw error;
-    // The body goes over as it stands, the way `follow` sends one: `periodic.ts`
-    // opens it with the frontmatter block, and a line in front of that fence
-    // would leave the note untyped.
-    return { path: daily.path, text: daily.body, fresh: [daily.path] };
+    if (error instanceof NoteMissing) return undefined;
+    throw error;
   }
-}
-
-/**
- * Send each write, one note at a time. `read` is the text each write was worked out
- * from; a note that moved since is refused with `ChangedOnDisk`, never written over.
- * Answers the lines each saved note gained on top, a stamped frontmatter block.
- */
-async function send(
-  writes: Write[],
-  fresh: string[],
-  read: Record<string, string>,
-): Promise<Map<string, number>> {
-  const gained = new Map<string, number>();
-  for (const write of writes) {
-    // Only today's note, and only when its read found none (#2061).
-    if (fresh.includes(write.path)) {
-      await createNote(write.path, write.text);
-      continue;
-    }
-    const text = read[write.path];
-    if (text === undefined) throw new Error(`no read of ${write.path} to name as its base`);
-    const saved = await saveNote(write.path, write.text, false, noteBase(text));
-    // An answer with no content (a double in the tests) gained nothing.
-    gained.set(write.path, lineCount(saved?.content ?? write.text) - lineCount(write.text));
+  for (const each of [id, hit.todo?.parent_id]) {
+    const at = lines.findIndex((line) => line.includes(`![[${each}]]`));
+    if (each && at >= 0) return at + 1;
   }
-  return gained;
+  return undefined;
 }
 
-/**
- * Per note, the row a press stamped a frontmatter block over and how far that moved it. Kept
- * for that row alone, by its line and its words: a row listed after the stamp reads its line as it is now.
- */
-const stamped = new Map<string, { line: number; text: string; shift: number }>();
-
-const lineCount = (text: string) => text.split("\n").length;
-
-/** Put what was typed into today's note, under `## TODOs`. */
-export function addTodoInVault(input: string, today: string): Promise<void> {
-  return inTurn(() => addTodo(input, today));
+/** Open a listed todo's note at its embed. */
+export function openTodo(hit: Listed, onOpen: (path: string, line: number) => void): void {
+  void embedLineOf(hit).then((line) => onOpen(hit.path, line ?? 1));
 }
 
-async function addTodo(input: string, today: string): Promise<void> {
-  const daily = await dailyNote();
-  const writes = addTodoWrites({
-    dailyPath: daily.path,
-    dailyText: daily.text,
-    todo: expandShorthand(input, today),
+/** The store row behind an id, as the listing last read it; a `PATCH` needs its version. */
+export type RowOf = (id: string) => TodoRow | undefined;
+
+function rowNamed(rowOf: RowOf, id: string): TodoRow {
+  const row = rowOf(id);
+  if (row === undefined) throw new Error("that todo is not in the list yet");
+  return row;
+}
+
+/** Put what was typed into today's note. */
+export function addTodoInVault(input: string, today: string): Promise<TodoRow[]> {
+  return inTurn(() => addTodoLine(formatTodo(expandShorthand(input, today))));
+}
+
+/** Put a typed todo under the row's todo as a part of it. */
+export function addSubtaskInVault(
+  hit: SearchHit,
+  input: string,
+  today: string,
+): Promise<TodoRow[]> {
+  return inTurn(() => addTodoLine(formatTodo(expandShorthand(input, today)), todoIdOf(hit)));
+}
+
+/** Walk one todo on, or set the state a key named; a state it is in already sends nothing. */
+export function cycleTodoInVault(hit: Listed, state?: TodoState): Promise<TodoRow[]> {
+  return inTurn(async () => {
+    const id = todoIdOf(hit);
+    if (state === undefined) return cycleStoreTodo(id);
+    if (parseTodo(hit.text)?.state === state) return [];
+    return setTodoState(id, state);
   });
-  await send(writes, daily.fresh, { [daily.path]: daily.text });
+}
+
+/** Start a session on one todo, or close the ones it has running. */
+export function toggleTimerInVault(hit: SearchHit): Promise<TodoRow[]> {
+  return inTurn(() => toggleTodoTimer(todoIdOf(hit)));
+}
+
+/**
+ * Change the todo to what the edited line says, box and fields included. A `[b]` whose last
+ * `⛔` the edit took off goes as open, or the store would block it again by its box.
+ */
+export function editTodoInVault(hit: SearchHit, line: string): Promise<TodoRow[]> {
+  return inTurn(() => changeTodoLine(todoIdOf(hit), unblockedEdit(hit.text, line)));
+}
+
+/** Make the row's todo wait on the blocker picked. */
+export function blockTodoInVault(
+  hit: SearchHit,
+  blocker: SearchHit,
+  rowOf: RowOf,
+): Promise<TodoRow[]> {
+  return inTurn(async () => {
+    const row = rowNamed(rowOf, todoIdOf(hit));
+    const by = todoIdOf(blocker);
+    if (row.blocked_by.includes(by)) return [];
+    return patchTodo(row.id, { version: row.version, blocked_by: [...row.blocked_by, by] });
+  });
+}
+
+/** Move the row's todo into `note` under `project`; a part leaves its parent, or it would stay drawn there. */
+export function moveTodoInVault(
+  hit: SearchHit,
+  move: { project: string; note: string },
+  rowOf: RowOf,
+): Promise<TodoRow[]> {
+  return inTurn(async () => {
+    const row = rowNamed(rowOf, todoIdOf(hit));
+    const parent = row.parent_id === null ? {} : { parent_id: null };
+    return patchTodo(row.id, { version: row.version, ...move, ...parent });
+  });
+}
+
+/**
+ * Hand one todo to the agent worker, or take it back, by `#agent` in its line. `lines` is the
+ * row's note as listed, so a client tag on a todo above it counts.
+ */
+export function agentTodoInVault(
+  hit: SearchHit,
+  lines: string[],
+  today: string,
+  rowOf: RowOf,
+  sent?: (line: string) => void,
+): Promise<TodoRow[]> {
+  return inTurn(async () => {
+    const id = todoIdOf(hit);
+    // The line sends its box, and an `x` just before may have moved the todo past the one drawn (#2084).
+    const state = rowOf(id)?.state;
+    const read = [...lines];
+    read[hit.line - 1] = state === undefined ? hit.text : setStateOn(hit.text, state, today, id);
+    const pressed = agentPress(read, hit.line, today, newId());
+    if ("why" in pressed) throw new Error(pressed.why);
+    sent?.(pressed.line);
+    return changeTodoLine(id, pressed.line.trimStart());
+  });
 }
 
 /**
@@ -244,226 +345,4 @@ async function writeLog(
     // A reopen on a day with no note yet has no line to drop.
     if (!(unlisted && error instanceof NoteMissing)) throw error;
   }
-}
-
-/**
- * The row's line where a press made it plain words: the listing drops such a line, so a
- * held row still reads as the todo it was, and the next press cycles it back (#2001).
- */
-function madePlain(text: string, hit: SearchHit): number | null {
-  const was = parseTodo(hit.text);
-  if (was === null) return null;
-  const lines = text.split("\n");
-  const plain = (at: number) => {
-    const line = lines[at - 1] ?? "";
-    return (
-      line.trim() !== "" &&
-      parseTodo(line) === null &&
-      parseTodo(`- [ ] ${line}`)?.text === was.text
-    );
-  };
-  if (plain(hit.line)) return hit.line;
-  // Or as far down as the press's own save moved it, and nowhere else: prose is never taken.
-  const stamp = stamped.get(hit.path);
-  const own = stamp?.line === hit.line && stamp.text === hit.text;
-  return own && plain(hit.line + stamp.shift) ? hit.line + stamp.shift : null;
-}
-
-/** Where a press lands, and the todo there: null for a line made plain words, nothing for any other plain line. */
-function pressTarget(text: string, hit: SearchHit, twins: number[] | undefined) {
-  const plain = madePlain(text, hit);
-  const at = rowLine(text, hit, twins) ?? plain;
-  if (at === null) throw new Error("that line has changed since it was listed");
-  const line = text.split("\n")[at - 1] ?? "";
-  const todo = parseTodo(line);
-  // Only a row whose own words are no todo, which the listing never hands over.
-  return todo === null && plain === null ? undefined : { at, line, todo };
-}
-
-/** Point `row`, `hit`, the drawn row and keys naming their line at where `pressed` sits now. */
-function land(
-  row: SearchHit,
-  hit: SearchHit,
-  drawn: string | null,
-  own: Write[],
-  pressed: string,
-  shift: number,
-) {
-  // By its words: a recurring copy can land above it. A line made plain is `stamped`'s.
-  const lines = own.find((write) => write.path === hit.path)?.text.split("\n") ?? [];
-  if (parseTodo(pressed) === null || lines.filter((each) => each === pressed).length !== 1) return;
-  const to = { ...row, line: lines.indexOf(pressed) + 1 + shift, text: pressed };
-  keepLanded([row, hit, { ...hit, text: drawn ?? hit.text }], to);
-}
-
-/**
- * The note as `@` leaves it, and the line it wrote. Runs inside the route's write queue,
- * and a second press keeps that line, since twins cannot be told apart.
- */
-export function agentTodoIn(
-  text: string,
-  hit: SearchHit,
-  today: string,
-  twins?: number[],
-): { text: string; line: string } | { why: string } {
-  const { row, twins: kept } = landedRow(text, hit, twins);
-  const at = rowLine(text, row, kept);
-  if (at === null) return { why: "that line has changed since it was listed" };
-  const lines = text.split("\n");
-  const pressed = agentPress(lines, at, today, newId());
-  if ("why" in pressed) return pressed;
-  lines[at - 1] = pressed.line;
-  return { text: lines.join("\n"), line: pressed.line };
-}
-
-/** Read what the press needs, work out the writes, and send them. */
-export function cycleTodoInVault(
-  hit: SearchHit,
-  today: string,
-  state?: TodoState,
-  twins?: number[],
-  id = newId(),
-): Promise<void> {
-  return inTurn(() => cycleInVault(hit, today, state, twins, id));
-}
-
-async function cycleInVault(
-  hit: SearchHit,
-  today: string,
-  state: TodoState | undefined,
-  twins: number[] | undefined,
-  id: string,
-): Promise<void> {
-  // The vault, not the row: the list is as old as the last fetch, and the note
-  // is what the press is about to overwrite.
-  const text = await fetchNote(hit.path);
-  const { row, twins: kept } = landedRow(text, hit, twins);
-  const target = pressTarget(text, row, kept);
-  if (target === undefined) return;
-  const { at, line, todo } = target;
-
-  // The id goes only into the write, so stamping it before the search changes
-  // nothing; it lets the press be read here, ahead of the search, as it will land.
-  const pressed = pressedLine(line, today, id, state);
-  // A press that leaves the line as it is, such as `X` on a done todo, has
-  // nothing to log, unblock or write, so it costs no search and no save.
-  if (pressed === null) return;
-  const now = parseTodo(pressed);
-
-  // The whole vault's todos, off the one pass the pane already asked for: they
-  // answer for the blockers, and for whether the id is this todo's alone.
-  const todos = await fetchTodos();
-  if (todo?.id !== undefined) {
-    const other = otherTodoWithId(todo.id, hit.path, at, todos, text);
-    if (other !== null) throw new Error(other);
-  }
-
-  // Only a press that enters or leaves done touches the log, and any todo with
-  // an id that does may be named by a line already written: a hand or an agent
-  // can move a ticked todo to any state with its log line left in place, so the
-  // state it comes from says nothing. A todo with no id needs no search, since
-  // nothing can name a todo that has never had a name.
-  const named =
-    (todo?.state === "done" || now?.state === "done") && todo?.id !== undefined
-      ? new Set((await searchNotes(todo.id)).map((found) => found.path))
-      : new Set<string>();
-
-  const logged: Record<string, string> = {};
-  for (const path of named) {
-    logged[path] = path === hit.path ? text : await fetchNote(path);
-  }
-
-  const daily = await dailyNote(logged);
-  // The pressed todo answers off the press itself, inside `cycleLines`.
-  const closed = closedAmong(todos.flatMap((found) => parseTodo(found.text) ?? []));
-
-  const writes = cycleTodoWrites({
-    path: hit.path,
-    text,
-    line: at,
-    dailyPath: daily.path,
-    dailyText: daily.text,
-    logged,
-    today,
-    id,
-    closed,
-    state,
-  });
-
-  const gained = await send(writes, daily.fresh, {
-    ...logged,
-    [hit.path]: text,
-    [daily.path]: daily.text,
-  });
-  const shift = gained.get(hit.path) ?? 0;
-  if (shift > 0) stamped.set(hit.path, { line: hit.line, text: hit.text, shift });
-  land(row, hit, pressedLine(hit.text, today, id, state), writes, pressed, shift);
-
-  // After the send, so the dependents in this note are read as the write above
-  // left them. No note is skipped: this half can see every blocker, where the
-  // press could see only the ones in the note it moved.
-  if (todo !== null && now?.id !== undefined && isOpen(todo) !== isOpen(now)) {
-    await writeBackBlocked(now.id, !isOpen(now), "");
-  }
-}
-
-/**
- * Start a session on one todo, or close the ones it has running. Reads only the notes
- * naming its id, not the vault. A todo with no id is always a start.
- */
-export function toggleTimerInVault(
-  hit: SearchHit,
-  clock: { date: string; time: string },
-  twins?: number[],
-): Promise<void> {
-  return inTurn(() => toggleTimer(hit, clock, twins));
-}
-
-async function toggleTimer(
-  hit: SearchHit,
-  clock: { date: string; time: string },
-  twins: number[] | undefined,
-): Promise<void> {
-  // The vault, not the row: the list is as old as the last fetch.
-  const text = await fetchNote(hit.path);
-  // The same reading a state press makes, so `t` never times another todo.
-  const { row, twins: kept } = landedRow(text, hit, twins);
-  const at = rowLine(text, row, kept);
-  if (at === null) throw new Error("that line has changed since it was listed");
-  const todo = parseTodo(text.split("\n")[at - 1] ?? "");
-  if (todo === null) return;
-
-  const notes: Record<string, string> = { [hit.path]: text };
-  const hits = todo.id === undefined ? [] : await searchNotes(todo.id);
-  // Sessions are found by id, so a second todo carrying it would have its
-  // session closed and its minutes written onto this line.
-  if (todo.id !== undefined) {
-    const other = otherTodoWithId(todo.id, hit.path, at, hits, text);
-    if (other !== null) throw new Error(other);
-  }
-  const sessions: SessionHit[] = hits.map((found) => ({ path: found.path, text: found.text }));
-
-  // Only the notes a close would rewrite. The closed lines are read for their
-  // minutes alone, and the search already answered with those whole.
-  for (const found of sessions) {
-    const session = parseSession(found.text);
-    if (session === null || session.end !== undefined) continue;
-    notes[found.path] ??= await fetchNote(found.path);
-  }
-
-  const daily = await dailyNote(notes);
-  notes[daily.path] = daily.text;
-
-  const writes = timerWrites({
-    path: hit.path,
-    line: at,
-    dailyPath: daily.path,
-    notes,
-    sessions,
-    today: clock.date,
-    now: clock.time,
-    id: newId(),
-  });
-
-  await send(writes, daily.fresh, notes);
 }

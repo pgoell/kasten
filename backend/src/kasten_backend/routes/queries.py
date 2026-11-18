@@ -19,15 +19,12 @@ from kasten_backend.search_meta import (
     day_of,
     stamp,
 )
-from kasten_backend.share import inside
 from kasten_backend.tags import find_tags
 from kasten_backend.todos import (
     PROJECT_ROOTS,
-    find_todos,
     project_by_tag,
     project_folders,
     project_in,
-    projects_of,
 )
 from kasten_backend.vault import (
     Stamp,
@@ -61,24 +58,6 @@ class LineHit(BaseModel):
 
     text: str
     """The line itself, for the client to show and to rank."""
-
-
-class TodoHit(LineHit):
-    """One todo line, or one running session line, and the project it belongs to."""
-
-    project: str | None
-    """The project folder, `02 Projects/FDE`, by the rule `todos.projects_of` reads.
-
-    Its own model rather than a field on `LineHit`, which the cards answer with
-    too and which have no project to give.
-    """
-
-    shared: bool
-    """Whether the todo's note is a shared list, a note directly inside the share folder.
-
-    The rule `share.inside` reads, so the client hides these from the todo
-    views by default without a copy of the rule of its own.
-    """
 
 
 class Mention(BaseModel):
@@ -219,25 +198,6 @@ async def read_history_version(
         raise HTTPException(status_code=404, detail="No such version")
 
     return Version(content=content)
-
-
-@router.get("/api/todos")
-async def list_todos(
-    settings: Annotated[Settings, Depends(get_settings)], archive: bool = False
-) -> list[TodoHit]:
-    """Find every checkbox line and every time session line in the vault, each with its project."""
-    hits = await find_todos(settings.vault_path, None if archive else settings.archive_path)
-    projects = projects_of(hits, list_markdown_files(settings.vault_path))
-    return [
-        TodoHit(
-            path=hit.path,
-            line=hit.line,
-            text=hit.text,
-            project=project,
-            shared=inside(settings, hit.path),
-        )
-        for hit, project in zip(hits, projects, strict=True)
-    ]
 
 
 @router.get("/api/cards")

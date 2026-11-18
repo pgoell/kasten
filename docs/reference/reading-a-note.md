@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: Reading a note
-description: What the top bar holds, the three-column grid the note pane lays out with its numbers, the header block at the top of a note, Read and Edit, the frontmatter behind Properties, the outline, the container query's breaks, the local graph in the right margin and its sheet, and the Today screen an empty pane shows, with its timers.
+description: What the top bar holds, the three-column grid the note pane lays out with its numbers, the header block at the top of a note, Read and Edit, the frontmatter behind Properties, the outline, the container query's breaks, the local graph in the right margin and its sheet, and the Today screen an empty pane shows, with its timers and the day plan.
 resource: frontend/src/components/note/note-pane.tsx
 tags: [frontend, design, reader]
 status: stable
@@ -167,7 +167,7 @@ note, the larger graph to zoom and drag
 
 An empty pane shows Today above its empty editor, so every key an empty pane
 took still works. The heading is the date. Under it sits a Timers row, then
-three columns.
+the day plan when one is saved, then three columns.
 
 Timers lists each running timer with its name, the clock time it rings, the
 time left counting down, and **Stop**. A repeat shows its step and next time
@@ -180,6 +180,16 @@ has its own. When a timer rings, the server pushes it to every subscribed device
 the server drops it a few seconds later. The same row fills a pane of its own,
 the timers tab, which `<leader>gT` and the palette's `Open the timers` open; there
 `i` moves to the name field and Escape back out.
+
+The day plan comes from `GET /api/plans/{day}`
+([The day plan](/reference/http-api/todos.md#the-day-plan)). Under Now it shows
+the block that holds the present minute: its title, whether it is focus or
+batch, its start and end, and the todos picked for it. A click on a todo's box
+moves it on (open, doing, done) through `POST /api/todos/{id}/cycle`; a click on
+its words opens its line. Under that a line names the next block's start and
+title. Between two blocks only that line shows, and after the last block,
+nothing. With no plan saved for the day, the screen shows nothing for it. The
+page reads the plan again every minute, so Now moves on as the day does.
 
 The three columns:
 

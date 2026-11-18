@@ -65,4 +65,4 @@ gives the full order and why.
 ## Related
 
 * [HTTP API: finance sorting](/reference/http-api/finance-sorting.md): the routes behind the pane
-* [Finance in Postgres](/explanation/finance-in-postgres.md): why the bookings live in the database
+* [Finance in Postgres](/explanation/vault-and-derived-index/finance-in-postgres.md): why the bookings live in the database

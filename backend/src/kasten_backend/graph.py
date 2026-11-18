@@ -33,6 +33,7 @@ MOST_DEPTH = 5
 """How far out a local graph reaches. Five links from any note is most vaults."""
 
 WIKILINK = re.compile(r"\[\[([^\[\]\n]+)\]\]")
+TODO_EMBED = re.compile(r"kt-[0-9a-f]{6}")
 """One `[[link]]`, spelled the way `code_spans.py` and the editor's parser spell it."""
 
 RELATION = re.compile(r"^ {0,3}(?:- )?([a-z][a-z-]*):: [ \t]*\[\[([^\[\]\n]+)\]\]")
@@ -141,9 +142,10 @@ def link_target(written: str) -> str | None:
 
     `links.split_target` cuts off an alias and a heading, so `[[Plan#Risks]]` names `Plan`. A link
     to a heading of its own note, and an embed of a file such as `![[plan.pdf]]`, name no note.
+    Nor does `![[kt-3f9a2c]]`: a todo in the store, embedded where its line was (#2191).
     """
     name = split_target(written).name
-    if not name or names_a_file(name):
+    if not name or names_a_file(name) or TODO_EMBED.fullmatch(name):
         return None
     return name
 

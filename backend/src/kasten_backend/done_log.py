@@ -8,12 +8,13 @@ The fixture `frontend/tests/fixtures/done-lines.json` holds what both copies mus
 import re
 from typing import TYPE_CHECKING
 
-from kasten_backend import periodic, search, todo_fields, todos, vault
+from kasten_backend import periodic, search, todos, vault
 from kasten_backend.agent import capabilities as agent
 from kasten_backend.change import vault_change, vault_write
 from kasten_backend.folders import create_note
 from kasten_backend.frontmatter import body_start
 from kasten_backend.periodic import append_under
+from kasten_backend.todos import fields as todo_fields
 
 if TYPE_CHECKING:
     from collections.abc import Callable

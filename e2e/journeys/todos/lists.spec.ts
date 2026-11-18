@@ -1,3 +1,5 @@
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import type { Locator, Page } from "@playwright/test";
 import {
   bodyOf,
@@ -165,57 +167,15 @@ async function todoPane(page: Page, vault: string): Promise<void> {
 }
 
 test.describe("the todo pane's shared lists", () => {
-  test("are hidden at first, the toggle says how many and shows them, and a reload keeps that until it is turned off", async ({
-    page,
-    stack,
-  }) => {
+  // The import leaves a shared list's lines in its note, so the store holds none of them.
+  test("stay out of the pane, which then draws no shared lists toggle", async ({ page, stack }) => {
     await todoPane(page, stack.vault);
-    await expect(toggle(page, "Shared lists, 1 hidden")).toHaveAttribute("aria-pressed", "false");
+    await expect(row(page, "fix the tap")).toBeVisible();
     await expect(row(page, "send the offer")).toHaveCount(0);
-    await toggle(page, "Shared lists, 1 hidden").click();
-    await expect(row(page, "send the offer")).toBeVisible();
-    await expect(toggle(page, "Shared lists, shown")).toHaveAttribute("aria-pressed", "true");
-    const stored = () => page.evaluate(() => localStorage.getItem("kasten.todos.shared"));
-    expect(await stored()).toBe("1");
-
-    await page.reload();
-    await leader(page, "gt");
-    await expect(row(page, "send the offer")).toBeVisible({ timeout: 15_000 });
-    await toggle(page, "Shared lists, shown").click();
-    await expect(row(page, "send the offer")).toHaveCount(0);
-    expect(await stored()).toBe(null);
-
-    await page.reload();
-    await leader(page, "gt");
-    await expect(toggle(page, "Shared lists, 1 hidden")).toBeVisible({ timeout: 15_000 });
-    await expect(row(page, "send the offer")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^Shared lists/ })).toHaveCount(0);
   });
 
-  test("stay hidden when site data is blocked, and the toggle still shows and hides them", async ({
-    page,
-    stack,
-  }) => {
-    await page.addInitScript(() => {
-      const blocked = () => {
-        throw new DOMException("site data is blocked", "SecurityError");
-      };
-      Storage.prototype.getItem = blocked;
-      Storage.prototype.setItem = blocked;
-      Storage.prototype.removeItem = blocked;
-    });
-    // A throw in the click handler leaves the screen as it was; only the page sees it.
-    const thrown: string[] = [];
-    page.on("pageerror", (error) => thrown.push(error.message));
-    await todoPane(page, stack.vault);
-    await expect(row(page, "send the offer")).toHaveCount(0);
-    await toggle(page, "Shared lists, 1 hidden").click();
-    await expect(row(page, "send the offer")).toBeVisible();
-    await toggle(page, "Shared lists, shown").click();
-    await expect(row(page, "send the offer")).toHaveCount(0);
-    expect(thrown).toEqual([]);
-  });
-
-  test("a kind chip, the toggle and the typed filter narrow the list together, and All widens it", async ({
+  test("a kind chip and the typed filter narrow the list together, and All widens it", async ({
     page,
     stack,
   }) => {
@@ -224,17 +184,13 @@ test.describe("the todo pane's shared lists", () => {
     await expect(row(page, "call the client")).toBeVisible();
     await expect(row(page, "fix the tap")).toHaveCount(0);
     await expect(row(page, "fold the laundry")).toHaveCount(0);
-    await expect(row(page, "send the offer")).toHaveCount(0);
 
-    await toggle(page, "Shared lists, 1 hidden").click();
-    await expect(row(page, "send the offer")).toBeVisible();
-    await page.getByLabel("filter todos").fill("offer");
-    await expect(row(page, "send the offer")).toBeVisible();
+    await page.getByLabel("filter todos").fill("call");
+    await expect(row(page, "call the client")).toBeVisible();
+    await page.getByLabel("filter todos").fill("tap");
     await expect(row(page, "call the client")).toHaveCount(0);
+    await expect(row(page, "fix the tap")).toHaveCount(0);
 
-    await toggle(page, "Shared lists, shown").click();
-    await expect(toggle(page, "Shared lists, 1 hidden")).toBeVisible();
-    await expect(row(page, "send the offer")).toHaveCount(0);
     await page.getByLabel("filter todos").fill("");
     await toggle(page, "All").click();
     await expect(row(page, "fix the tap")).toBeVisible();
@@ -252,7 +208,8 @@ test.describe("<leader>@, the agent key on a note's line (#523)", () => {
     await page.addInitScript((v) => localStorage.setItem("kasten.vim", v), vim);
     // The key stamps the date it reads at the press.
     await page.clock.setFixedTime(new Date(2026, 7, 10, 12));
-    await vaultWith(vault, { "Agent.md": body });
+    // Written past the import, so the lines stay text: the keys on a todo's embed are below.
+    await writeFile(join(vault, "Agent.md"), body);
     if (vim === "on") {
       await openApp(page);
       await openNote(page, "Agent");
@@ -482,4 +439,49 @@ test.describe("<leader>@, the agent key on a note's line (#523)", () => {
       });
     });
   }
+});
+
+test.describe("the todo keys on a todo's embed", () => {
+  /** Every todo in the store, as `GET /api/todos` renders each one, a line apiece. */
+  async function store(url: string): Promise<string> {
+    const hits = (await (await fetch(`${url}/api/todos`)).json()) as { text: string }[];
+    return hits.map((hit) => hit.text).join("\n");
+  }
+
+  /** Embed.md holding one imported todo, open with vim's cursor on its embed; answers the note. */
+  async function onEmbed(page: Page, vault: string, line: string): Promise<string> {
+    await vaultWith(vault, { "Embed.md": `# Embed\n\n${line}\n` });
+    const note = await noteText(vault, "Embed.md");
+    expect(note).toMatch(/^!\[\[kt-[0-9a-f]{6}\]\]$/m);
+    await openApp(page);
+    await openNote(page, "Embed");
+    for (const key of ["/", "k", "t", "-", "Enter"]) await page.keyboard.press(key);
+    return note;
+  }
+
+  for (const [keys, line, want] of [
+    ["@", "- [ ] call ada 📅 2026-10-20", /^- \[ \] call ada #agent .*📅 2026-10-20/m],
+    ["x", "- [ ] call ada", /^- \[\/\] call ada /m],
+    ["sx", "- [ ] call ada", /^- \[x\] call ada /m],
+    ["sw", "- [ ] call ada", /^- \[w\] call ada /m],
+  ] as const) {
+    test(`Space ${keys} acts on the todo in the store and leaves the embed as it was`, async ({
+      page,
+      stack,
+    }) => {
+      const note = await onEmbed(page, stack.vault, line);
+      await leader(page, keys);
+      await expect.poll(() => store(stack.url)).toMatch(want);
+      expect(await noteText(stack.vault, "Embed.md")).toBe(note);
+    });
+  }
+
+  test("Space i stamps nothing on an embed", async ({ page, stack }) => {
+    const note = await onEmbed(page, stack.vault, "- [ ] call ada");
+    await leader(page, "i");
+    // A real key after it: once its write lands, a write Space i sent would have too.
+    await leader(page, "x");
+    await expect.poll(() => store(stack.url)).toMatch(/^- \[\/\] call ada /m);
+    expect(await noteText(stack.vault, "Embed.md")).toBe(note);
+  });
 });

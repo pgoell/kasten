@@ -512,3 +512,11 @@ def pinned_day(monkeypatch: pytest.MonkeyPatch) -> date:
     monkeypatch.setattr("kasten_backend.share.lists.date", _Pinned)
     monkeypatch.setattr("kasten_backend.web.route.date", _Pinned)
     return PINNED_DAY
+
+
+@pytest.fixture
+async def store(activity: AsyncEngine) -> AsyncIterator[AsyncEngine]:
+    """The scratch database with the todo store emptied, for the tests that write todos."""
+    async with activity.begin() as connection:
+        await connection.execute(text("TRUNCATE todos.todo, todos.session, todos.change"))
+    yield activity

@@ -21,6 +21,7 @@ from kasten_backend import (
     push,
     rsvp,
     share,
+    todos,
     tokens,
     training,
     uploads,
@@ -43,7 +44,7 @@ from kasten_backend.books import route as books_route
 from kasten_backend.build import build_id
 from kasten_backend.change import settled
 from kasten_backend.config import Settings, get_settings
-from kasten_backend.events import KEEPALIVE, format_retry, format_sse, watch_vault
+from kasten_backend.events import KEEPALIVE, TODO_LISTENERS, format_retry, format_sse, watch_vault
 from kasten_backend.files import RefusedError
 from kasten_backend.finance.routes.budget import budget as finance_budget
 from kasten_backend.finance.routes.budget import drill as finance_drill
@@ -308,6 +309,8 @@ app.include_router(finance_sync.router)
 app.include_router(finance_receipts.router)
 app.include_router(finance_tax.router)
 app.include_router(share.router)
+app.include_router(todos.router)
+app.include_router(todos.plans_router)
 app.include_router(rsvp.router)
 app.add_middleware(share.ShareGate)
 app.add_middleware(FinanceGuard)
@@ -356,6 +359,7 @@ async def stream_events(settings: Annotated[Settings, Depends(get_settings)]) ->
                 batches.put_nowait(None)
 
         watching = asyncio.create_task(collect())
+        TODO_LISTENERS.add(batches)
         try:
             while True:
                 try:
@@ -372,6 +376,7 @@ async def stream_events(settings: Annotated[Settings, Depends(get_settings)]) ->
                 for event in events:
                     yield format_sse(event)
         finally:
+            TODO_LISTENERS.discard(batches)
             watching.cancel()
 
     return StreamingResponse(report(), media_type="text/event-stream")

@@ -7,7 +7,7 @@ import type { PdfRenderer } from "@/lib/panes/book/pdf-view";
 import type { TodoState } from "@/lib/todo/todo";
 import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
-import { act, outside, pageHooks, renderApp, settle, theRoute, VAULT } from "./home-route-fixture";
+import { outside, pageHooks, renderApp, settle, theRoute, VAULT } from "./home-route-fixture";
 import { NARROW, stubMatchMedia } from "./match-media";
 
 defineFoliateFake();
@@ -182,64 +182,6 @@ describe("the route", () => {
   theRoute();
 
   describe("a press on a todo whose 🆔 stands on another todo line", () => {
-    const PATH = "inbox.md";
-    const LINE = "- [/] a 🆔 kt-aaaaaa";
-    /** The issue's copy-paste: one todo line twice, id and all. */
-    const TWINS = [
-      { path: PATH, line: 1, text: LINE, project: null, shared: false },
-      { path: PATH, line: 2, text: LINE, project: null, shared: false },
-    ];
-    const DEPENDENT = {
-      path: "deps.md",
-      line: 1,
-      text: "- [b] c ⛔ kt-aaaaaa",
-      project: null,
-      shared: false,
-    };
-    /** What a press on the second twin says. */
-    const SECOND = "Nothing moved: 🆔 kt-aaaaaa is on another todo too: inbox.md line 1";
-
-    /** The app over a vault holding the twins and a todo waiting on them. */
-    async function vault() {
-      const notes: Record<string, string> = {
-        ...VAULT,
-        [PATH]: `${LINE}\n${LINE}`,
-        [DEPENDENT.path]: DEPENDENT.text,
-      };
-      fetchFiles.mockImplementation(async () => Object.keys(notes));
-      fetchNote.mockImplementation(async (path: string) => notes[path]);
-      fetchTodos.mockResolvedValue([...TWINS, DEPENDENT]);
-      searchNotes.mockResolvedValue([...TWINS, DEPENDENT]);
-      const app = await renderApp();
-      await settle();
-      return app;
-    }
-
-    /** The same, with the pane open. */
-    async function listing() {
-      const app = await vault();
-      app.leader("g", "t");
-      await settle();
-      return app;
-    }
-
-    /** Nothing in the vault moved: no line, no log, no dependent. */
-    function wroteNothing() {
-      expect(saveNote).not.toHaveBeenCalled();
-      expect(createNote).not.toHaveBeenCalled();
-    }
-
-    it("#534 A3 a card dropped on done carrying another todo's 🆔 writes nothing and names the other", async () => {
-      const app = await listing();
-
-      act(() => paneProps.current?.onCycle(TWINS[1] as TodoHit, "done", [1, 2]));
-      await hashed();
-      await settle();
-
-      wroteNothing();
-      expect(app.notice()).toBe(SECOND);
-    });
-
     describe("#538 two quick presses into done in one note", () => {
       const TWO = "two.md";
       const daily = periodicNote("daily", NOW).path;

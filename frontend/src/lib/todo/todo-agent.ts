@@ -3,6 +3,8 @@
  * `todo-write.ts` is: it returns the line, or the foot's sentence when nothing is written.
  */
 
+import type { QueryClient } from "@tanstack/react-query";
+import type { SearchHit, TodoHit } from "@/lib/core/api";
 import { bodyFences } from "@/lib/notes/text/note-code";
 import { parseTodo, todoTagsOn, wordsEnd } from "@/lib/todo/todo";
 import { descendants, inherited, isClient, noteTree } from "@/lib/todo/todo-view";
@@ -86,4 +88,17 @@ export function agentPress(
     return { why: "taking #agent out would make a tag of what follows it" };
   }
   return { line: out };
+}
+
+/** The row's note as listed, line by line, for the `@` press's client check. */
+export function listedLines(queryClient: QueryClient, hit: SearchHit): string[] {
+  const lines: string[] = [];
+  for (const [, hits] of queryClient.getQueriesData<TodoHit[]>({ queryKey: ["todos"] })) {
+    for (const each of hits ?? []) {
+      if (each.path === hit.path && each.line < 100_000) lines[each.line - 1] = each.text;
+    }
+    if (lines.length > 0) break;
+  }
+  lines[hit.line - 1] = hit.text;
+  return Array.from(lines, (line) => line ?? "");
 }

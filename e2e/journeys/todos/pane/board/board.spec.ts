@@ -1,10 +1,8 @@
 import type { Page } from "@playwright/test";
 import {
   atDrop,
-  bodyOf,
   cursorTo,
   leader,
-  noteText,
   openApp,
   phone,
   plus,
@@ -22,7 +20,13 @@ const PLAN_LINES = `# Plan\n\n- [ ] write the deck #internal\n  - [/] draw the c
 // The invoice files under FDE by its link; the tap names no project.
 const SEND = "- [ ] send the invoice [[02 Projects/FDE/index|FDE]] #client";
 const ERRAND_LINES = `# Errands\n\n${SEND}\n- [b] ship it\n- [ ] fix the tap\n- [-] drop the logo ❌ ${today()}\n`;
-const disk = (vault: string, path: string) => noteText(vault, path).then(bodyOf);
+/** Every todo as `GET /api/todos` renders it from its row, with the row beside it. */
+const hits = async (url: string): Promise<{ text: string; todo: { note: string | null } }[]> =>
+  (await fetch(`${url}/api/todos`)).json();
+const lineOf = async (url: string, words: string) =>
+  (await hits(url)).find((hit) => hit.text.includes(words))?.text;
+const noteOf = async (url: string, words: string) =>
+  (await hits(url)).find((hit) => hit.text.includes(words))?.todo.note;
 const card = (page: Page, words: string) => page.locator("[data-card]", { hasText: words });
 const cursorCard = (page: Page) => page.locator('[data-card][tabindex="0"]');
 const shown = (page: Page) => page.locator("[data-card]:visible");
@@ -30,7 +34,7 @@ const strip = (page: Page, label: string, words: string) =>
   page.getByRole("button", { name: new RegExp(`^${label} ${words}`) });
 const footer = (page: Page) => page.getByTestId("todo-footer");
 
-/** Writes the two notes and the two project notes, and records each note write sent from here on. */
+/** Writes the two notes and the two project notes, and records each todo write sent from here on. */
 async function notes(page: Page, vault: string): Promise<string[]> {
   await vaultWith(vault, {
     [PLAN]: PLAN_LINES,
@@ -40,7 +44,7 @@ async function notes(page: Page, vault: string): Promise<string[]> {
   });
   const writes: string[] = [];
   page.on("request", (request) => {
-    if (["POST", "PUT"].includes(request.method()) && request.url().includes("/api/files/"))
+    if (request.method() !== "GET" && request.url().includes("/api/todos/"))
       writes.push(request.url());
   });
   return writes;
@@ -58,12 +62,8 @@ async function byTouch(page: Page, vault: string, board = true): Promise<string[
   return writes;
 }
 
-/** Both refile notes as the vault holds them. */
-const refiled = async (vault: string) => [await disk(vault, FDE), await disk(vault, ERRANDS)];
-const MOVED = [
-  `# FDE\n\n## TODOs\n${SEND}\n`,
-  ERRAND_LINES.replace(SEND, "- send the invoice [[02 Projects/FDE/index|FDE]] #client"),
-];
+/** The note a refile files a todo into is its project's index, and no line moves. */
+const refiled = (url: string) => noteOf(url, "send the invoice");
 
 test.describe("on a phone", () => {
   test.use(phone);
@@ -113,19 +113,21 @@ test.describe("on a phone", () => {
     await page.getByRole("button", { name: "more for fix the tap" }).tap();
     await strip(page, "done", "fix the tap").tap();
     await expect
-      .poll(() => disk(stack.vault, ERRANDS))
-      .toContain(`- [x] fix the tap ✅ ${today()}`);
+      .poll(() => lineOf(stack.url, "fix the tap"))
+      .toMatch(new RegExp(`^- \\[x\\] fix the tap .*✅ ${today()}`));
     await page.getByRole("tab", { name: /^Done / }).tap();
     await expect(shown(page)).toContainText(["fix the tap"]);
-    expect(writes.filter((url) => url.endsWith("Errands.md"))).toHaveLength(1);
+    expect(writes).toHaveLength(1);
 
     await page.getByRole("tab", { name: /^Doing / }).tap();
     await page.getByRole("button", { name: "more for draw the chart" }).tap();
     await strip(page, "review", "draw the chart").focus();
     await page.keyboard.press("Enter");
-    await expect.poll(() => disk(stack.vault, PLAN)).toContain("  - [r] draw the chart\n");
+    await expect
+      .poll(() => lineOf(stack.url, "draw the chart"))
+      .toMatch(/^ {2}- \[r\] draw the chart /);
     await expect(page.locator(".cm-activeLine")).toHaveCount(0);
-    expect(writes.filter((url) => url.endsWith("plan.md"))).toHaveLength(1);
+    expect(writes).toHaveLength(2);
   });
 
   test("B4 cancel shuts the project picker, writes nothing and hands the focus back to the card under the cursor", async ({
@@ -143,9 +145,7 @@ test.describe("on a phone", () => {
     // A later write queues behind any the cancel sent, so the note then shows both or this alone.
     await page.getByRole("button", { name: "more for fix the tap" }).tap();
     await strip(page, "doing", "fix the tap").tap();
-    await expect
-      .poll(() => disk(stack.vault, ERRANDS))
-      .toBe(ERRAND_LINES.replace("- [ ] fix the tap", "- [/] fix the tap"));
+    await expect.poll(() => lineOf(stack.url, "fix the tap")).toMatch(/^- \[\/\] fix the tap /);
     expect(writes).toHaveLength(1);
   });
 
@@ -173,7 +173,7 @@ test.describe("on a phone", () => {
 
     await page.getByRole("tab", { name: "Doing 1" }).focus();
     await page.keyboard.press(" ");
-    await expect(shown(page)).toHaveText([/draw the chart$/]);
+    await expect(shown(page)).toHaveText([/draw the chart/]);
   });
 
   test("#488 the board's and the list's footers drop their key hints", async ({ page, stack }) => {
@@ -193,7 +193,7 @@ test.describe("on a phone", () => {
     await byTouch(page, stack.vault);
     await page.getByRole("button", { name: "more for send the invoice" }).tap();
     await strip(page, "refile", "send the invoice").tap();
-    await expect.poll(() => refiled(stack.vault)).toEqual(MOVED);
+    await expect.poll(() => refiled(stack.url)).toBe(FDE);
   });
 });
 
@@ -220,7 +220,7 @@ for (const vim of ["on", "off"]) {
       await byKeys(page, stack.vault, vim);
       await cursorTo(page, "send the invoice");
       await page.keyboard.press("m");
-      await expect.poll(() => refiled(stack.vault)).toEqual(MOVED);
+      await expect.poll(() => refiled(stack.url)).toBe(FDE);
     });
 
     test(`#396 m on a board card hands on that card, not the one first in the lane`, async ({
@@ -241,7 +241,7 @@ for (const vim of ["on", "off"]) {
       await expect(page.getByTestId("notice")).toHaveText(
         "That todo has no project: give it one with p or a #p/x tag",
       );
-      expect([writes, await refiled(stack.vault)]).toEqual([[], ["# FDE\n", ERRAND_LINES]]);
+      expect([writes, await noteOf(stack.url, "fix the tap")]).toEqual([[], ERRANDS]);
     });
   });
 }
@@ -262,8 +262,6 @@ const cycle = (page: Page, words: string) =>
   page.getByRole("button", { name: `cycle ${words}`, exact: true });
 const more = (page: Page, words: string) =>
   page.getByRole("button", { name: `more for ${words}`, exact: true });
-const lineOf = async (vault: string, path: string, words: string) =>
-  (await disk(vault, path)).split("\n").find((line) => line.includes(words));
 const STATES = ["open", "doing", "review", "done", "blocked", "waiting", "rejected"];
 
 /** Whether the row's state button asks: a ? over the state the next tap leaves. */
@@ -296,19 +294,17 @@ test.describe("the list's state button by touch", () => {
     }) => {
       await vaultWith(stack.vault, { "01 Notes/Parser.md": "- [r] write the parser\n" });
       const writes = await byTouch(page, stack.vault, false);
-      // Done also logs into today's note; the count is of the todos' own notes.
-      const notes = () => writes.filter((url) => !url.includes("Daily"));
       const rows = [
-        ["fix the tap", "doing", ERRANDS, "- [/] fix the tap"],
-        ["write the parser", "done", "01 Notes/Parser.md", "- [x] write the parser"],
+        ["fix the tap", "doing", "- [/] fix the tap"],
+        ["write the parser", "done", "- [x] write the parser"],
       ];
-      for (const [n, [words, next, path, walked]] of rows.entries()) {
+      for (const [n, [words, next, walked]] of rows.entries()) {
         await cycle(page, words).tap();
         await asks(page, words, next);
-        expect(notes()).toHaveLength(n);
+        expect(writes).toHaveLength(n);
         await cycle(page, words).tap();
-        await expect.poll(() => lineOf(stack.vault, path, words)).toContain(walked);
-        expect(notes()).toHaveLength(n + 1);
+        await expect.poll(() => lineOf(stack.url, words)).toContain(walked);
+        expect(writes).toHaveLength(n + 1);
       }
       await expect(page.locator(".cm-content:visible")).toHaveCount(0);
     });
@@ -333,10 +329,8 @@ test.describe("the list's state button by touch", () => {
       await more(page, words).tap();
       await strip(page, one, words).tap();
       await expect(strip(page, one, words)).toHaveCount(0);
-      await expect
-        .poll(() => lineOf(stack.vault, ERRANDS, words))
-        .toContain(`- [${mark}] ${words}`);
-      expect(writes.filter((url) => url.endsWith("Errands.md"))).toHaveLength(n + 1);
+      await expect.poll(() => lineOf(stack.url, words)).toContain(`- [${mark}] ${words}`);
+      expect(writes).toHaveLength(n + 1);
     }
   });
 
@@ -378,7 +372,9 @@ test.describe("the list's state button by touch", () => {
     await asks(page, "fix the tap");
     await page.clock.resume();
     await page.locator(TODO_ROW, { hasText: "ship it" }).tap();
-    await expect(page.locator(".cm-activeLine:visible")).toHaveText("- [b] ship it");
+    // The embed under the caret shows its source with vim off.
+    const id = (await lineOf(stack.url, "ship it"))?.match(/kt-\w{6}$/)?.[0];
+    await expect(page.locator(".cm-activeLine:visible")).toHaveText(`![[${id}]]`);
     expect(writes).toEqual([]);
   });
 

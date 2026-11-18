@@ -31,7 +31,7 @@ async def test_809_a3_todo_counts_per_project_of_the_live_copy() -> None:
         if "👤" not in hit.text:
             continue
         rest = todos.LINE.fullmatch(hit.text)
-        words = todos._words(rest[2] or "") if rest else None
+        words = todos.lines.read._words(rest[2] or "") if rest else None
         with_person.append({"path": hit.path, "line": hit.line, "words": words})
 
     _write_json(

@@ -263,26 +263,13 @@ option C done one press at a time, so no bulk move happens.
 * The project is the one `GET /api/todos` answers, so the key files a todo
   where the board draws it. The note is `<project>/index.md`, the note `p`
   links to.
-* The todo moves with its parts, every line indented under it, as they stand.
-  It lands under `## TODOs`, the section a new todo lands in, and a plain
-  bullet stays behind in its place: the todo's words and a link to the
-  project's note. Not a checkbox, or Tasks would count the todo twice.
-* The project's note is written first, then the note the todo left. A write
-  that fails between the two leaves the todo in both notes, never in none,
-  and the notice says so.
-* Each note is written once, in its note's write queue, with the guards a
-  link from the backlinks panel has: a note open to type in, being saved, or
-  holding text a failed save left is not written, and the notice says why.
+* The todo moves with its parts: the move is one `PATCH` to the todo store
+  naming the project and its note, and the parts follow their parent. A part
+  moved on its own leaves its parent. No note is written.
 * A todo with no project moves nowhere: the notice names the two ways to give
   it one, `p` and a `#p/x` tag. A todo already in its project's note stays.
-* A project's folder with no `index.md` gets one, holding the todo. The
-  folder is there by construction, since the backend names only folders it
-  found, and `p` already links to that note, so the note is the one the user
-  was going to make. Obsidian makes a missing note the same way when a link
-  to it is followed.
-* The way back is the history pane's restore on each of the two notes. `u`
-  in an editor does not reach it: the move went through the vault, not
-  through the buffer, as every key in the pane does.
+* The way back is to move it again: `u` in an editor does not reach it, as
+  the move went through the store, not a buffer.
 
 ### Drag and drop
 
@@ -292,8 +279,7 @@ to move a card; the keys and the strip stay as they are.
 * A drop on another column sets the state, through the write the state keys
   make, so done still runs the completion walk.
 * A drop on another lane, with lanes by project, refiles the todo into that
-  project's note through the refile key's path: the project's note first, the
-  note the todo left only when it is unchanged. There is no second move.
+  project's note through the refile key's path, one `PATCH` to the store.
 * A drop on the cell the card left, a drop outside the board, and a drag
   that Escape cancels write nothing.
 * A drop that changes the lane and the column at once writes nothing and

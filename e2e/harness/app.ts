@@ -1,6 +1,7 @@
 import { mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { expect, type Locator, type Page } from "@playwright/test";
+import { importTodos, stacks } from "./stack.ts";
 
 /** Loads the app and waits until the tree lists the vault and the editor holds the focus. */
 export async function openApp(page: Page): Promise<void> {
@@ -108,6 +109,9 @@ export async function vaultWith(
     await writeFile(hidden, body);
     await rename(hidden, file);
   }
+  // Todo lines written into a running stack's vault become todos, as the import made them.
+  const url = stacks.get(vault);
+  if (url !== undefined) await importTodos(url);
 }
 
 /** Keeps each address the page asks window.open for, as a new tab would leave the box. Call before the page loads. */

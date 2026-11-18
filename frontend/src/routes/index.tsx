@@ -231,7 +231,7 @@ function Home() {
   const { openInPane, openHtmlInPane, openImageInPane, openPdfFromTree, openPeriodic } = opening;
   const trash = useTrash({ panePath: pane.path, setLayout, saveFirst, refuse, openInPane });
   const { discardImage } = trash;
-  const todos = useTodoActions({ data, archive, write: guarded.write, focusedNote, setNotice });
+  const todos = useTodoActions({ data, setNotice });
   const logActions = useLogActions({ data, write: guarded.write, focusedNote, setNotice });
   const { todosWritten, agentTodo } = todos;
   const prompts = usePrompts({

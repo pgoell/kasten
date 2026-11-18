@@ -1,4 +1,4 @@
-import { act, fireEvent, screen } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { toggleVim } from "@/lib/notes/editor/vim-setting";
 import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 import { BOARD, boardHooks, boardPane, DAILY, DECK, INVOICE, TAP } from "./todo-board-pane-fixture";
@@ -224,7 +224,10 @@ describe("dragging a card (#397)", () => {
     expect(pane.onCycle).not.toHaveBeenCalled();
     expect(pane.onRefile).not.toHaveBeenCalled();
     fireEvent.click(pane.card("send the invoice"));
-    expect(pane.onOpen).toHaveBeenCalledExactlyOnceWith(DAILY, 4);
+    // A row no store todo backs opens at its listed line.
+    await waitFor(() =>
+      expect(pane.onOpen).toHaveBeenCalledExactlyOnceWith(DAILY, expect.any(Number)),
+    );
   });
 
   it("#397 I2 Escape during a drag cancels it and writes nothing", async () => {

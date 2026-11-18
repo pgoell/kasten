@@ -74,7 +74,7 @@ data: {"path": "daily/2026-08-05.md", "change": "written", "digest": "3fda1d2d4b
 ```
 
 Each event names a path, what happened to it, and a digest of what is on disk
-now. There are four kinds:
+now. There are five kinds:
 
 * `written`: the note is on disk, and `digest` is the sha256 of its bytes.
 * `removed`: the note is gone, and `digest` is `null`.
@@ -83,6 +83,9 @@ now. There are four kinds:
 * `page`: an html page in the vault was written. `path` names it, and `digest`
   is the sha256 of its bytes. It comes beside the `listing` the same change
   sends. A removed page sends no `page`, only the `listing`.
+* `todos`: a write to the todo store committed. `path` is empty and `digest`
+  is `null`; the client asks `GET /api/todos` again. A store write touches no
+  note, so nothing on disk would tell it.
 
 `listing` is how a folder move arrives. `PATCH /api/folders/{path}` is a single
 rename, so the kernel names the directory and stops: no note under it fires at

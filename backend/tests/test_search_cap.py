@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from backend.tests.todos.lines import old_route
 from kasten_backend import history, todos
 from kasten_backend.file_search import TEXT_LISTING
 from kasten_backend.search import MOST_HITS, literal_matcher, scan_vault
@@ -148,14 +149,14 @@ async def test_the_todo_list_answers_at_its_cap(
 ) -> None:
     # Every reader of lines shares `scan_vault`. The todo list stands for the
     # others, its cap lowered so a fixture reaches it.
-    monkeypatch.setattr(todos, "MOST_TODOS", 10)
+    monkeypatch.setattr(todos.lines.read, "MOST_TODOS", 10)
     (vault / "japan.md").write_text(
         "".join(f"- [ ] Japanese {number} {PADDING}\n" for number in range(1, 2_001)),
         encoding="utf-8",
     )
 
     async with asyncio.timeout(LIMIT):
-        response = await client.get("/api/todos")
+        response = await old_route.lines(client)
 
     assert response.status_code == 200
     assert [todo["line"] for todo in response.json()] == list(range(1, 11))

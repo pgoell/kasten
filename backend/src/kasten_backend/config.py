@@ -217,6 +217,15 @@ class Settings(BaseSettings):
     timezone: str = "Europe/Berlin"
     """The zone a todo's `⏰ 2026-11-12 09:00` is read in, since the server's clock runs in UTC."""
 
+    plan_focus_blocks: int = 2
+    """How many focus blocks a day plan may hold (#2191)."""
+
+    plan_focus_todos: int = 1
+    """How many todos one focus block may pick."""
+
+    week_outcomes: int = 5
+    """How many outcomes a week may name."""
+
     share_host: str = ""
     """The `Host` the shared lists app is served on, or empty for none.
 

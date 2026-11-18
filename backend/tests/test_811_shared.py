@@ -6,6 +6,8 @@ down, or in a folder whose name only starts with `05 Shared`, is not a list.
 
 from typing import TYPE_CHECKING
 
+from backend.tests.todos.lines import old_route
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -20,7 +22,7 @@ def write(vault: Path, path: str, text: str) -> None:
 
 async def shared_by_text(client: AsyncClient) -> dict[str, bool]:
     """Each todo line's `shared` flag, keyed by its text."""
-    response = await client.get("/api/todos")
+    response = await old_route.lines(client)
     assert response.status_code == 200
     return {hit["text"]: hit["shared"] for hit in response.json()}
 

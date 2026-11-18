@@ -18,6 +18,7 @@ Each topic has its own page:
 * [The line and its fields](/reference/todo-format/the-line.md): the line, every field, the field order, and how a field gets written, with the add prompt's shorthand
 * [States, blockers and parts](/reference/todo-format/state-changes.md): the seven states, the cycle, setting a state, subtasks, dependencies and waiting on somebody
 * [Repeats, the done log and the time log](/reference/todo-format/time-and-repeats.md): the recurrence rules, the done log and the time log
+* [The line reader](/reference/todo-format/the-line-reader.md): how the import finds every todo line in the vault, the project each belongs to, and the lines that end a todo's parts
 * [Tags, projects and views](/reference/todo-format/tags-projects-and-views.md): client work, agent work, filter terms, saved views, the agent note and projects
 
 ## Related

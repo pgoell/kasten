@@ -89,7 +89,7 @@ any time, which is the whole point of
 [The vault and the derived index](/explanation/vault-and-derived-index.md). The
 vault cannot be rebuilt from anything. Three things in Postgres do not rebuild
 either. The `finance` schema is a record of its own, see
-[Finance in Postgres](/explanation/finance-in-postgres.md), and two tables
+[Finance in Postgres](/explanation/vault-and-derived-index/finance-in-postgres.md), and two tables
 outside it are small: `rsvp_places`, whose loss costs only where
 each RSVP run stopped, and `token_action`, whose loss costs the request record
 each agent token shows on `/tokens`. Three consequences follow, and all three

@@ -185,10 +185,12 @@ in. Nothing stores it; each read works it out.
 
 ## POST /api/finance/contracts/reminders
 
-Writes each contract note's next cancel-by todo under `## Cancel-by`, as
-`- [ ] cancel or renegotiate <name>, renews <date> 📅 <cancel-by> ⏳ <four weeks before, not before today>`,
-and answers the paths it wrote. `today` is required. An open todo there holds
-the note; past a done or rejected one the next comes after its `📅`.
+Adds each contract note's next cancel-by todo to the todo store, read from the
+line `- [ ] cancel or renegotiate <name>, renews <date> 📅 <cancel-by> ⏳ <four weeks before, not before today>`
+(a hard due date and a planned date), writes its embed `![[kt-…]]` under the
+note's `## Cancel-by`, and answers the paths it wrote. `today` is required. An
+open todo of that note holds it, a line under the heading or a row in the store;
+past a done or rejected one the next comes after its due date.
 
 ## POST /api/finance/contracts
 

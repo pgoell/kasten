@@ -10,9 +10,20 @@ import {
   QueryObserver,
   type QueryObserverResult,
 } from "@tanstack/react-query";
-import { fetchNote } from "@/lib/core/api";
+import {
+  changeTodoLine,
+  cycleStoreTodo,
+  fetchNote,
+  fetchTodos,
+  setTodoState,
+  type TodoHit,
+  type TodoRow,
+} from "@/lib/core/api";
+import { readClock } from "@/lib/core/clock";
 import { encodePath } from "@/lib/notes/links/note-path";
 import { namesAFile } from "@/lib/notes/links/wikilink";
+import { newId } from "@/lib/todo/todo";
+import { agentPress, listedLines } from "@/lib/todo/todo-agent";
 import { opensInFilePane } from "@/lib/vault/file-kind";
 
 /** Hands an embed the text of its note, now and on every later change. */
@@ -25,6 +36,14 @@ export interface EmbedSource {
   watch(path: string, listener: (text: string | null) => void): () => void;
   /** Opens the note in the focused pane at a 1-based line; a pdf opens at its page. */
   open(path: string, line?: number): void;
+  /** Calls `listener` with the todo `![[kt-…]]` names as the todo list reads it, null where unlisted. */
+  watchTodo?(id: string, listener: (row: TodoRow | null) => void): () => void;
+  /** Walks that todo on in the store. */
+  cycleTodo?(id: string): void;
+  /** Puts that todo in `state` in the store. */
+  setTodoState?(id: string, state: TodoRow["state"]): void;
+  /** Toggles `#agent` on that todo in the store; answers why nothing moved, or null. */
+  agentTodo?(id: string): string | null;
 }
 
 /**
@@ -34,6 +53,9 @@ export interface EmbedSource {
 export const embedSource = Facet.define<EmbedSource, EmbedSource | null>({
   combine: (values) => values[0] ?? null,
 });
+
+/** The name a store todo's embed carries, `![[kt-1a2b3c]]`: a todo, never a note. */
+export const TODO_ID = /^kt-[0-9a-f]{6}$/;
 
 /** How many embeds the view sits inside. The note being edited is depth 0. */
 export const embedDepth = Facet.define<number, number>({
@@ -58,6 +80,11 @@ export function queryEmbedSource(
   openPdf: (path: string, page?: number) => void,
   openTable?: (path: string) => void,
 ): EmbedSource {
+  // A store write sends no vault event, so the listing is asked again once it settles.
+  const relist = (write: Promise<unknown>) => {
+    const again = () => client.invalidateQueries({ queryKey: ["todos"] });
+    void write.then(again, again);
+  };
   return {
     watch(path, listener) {
       const queryKey = ["note", path];
@@ -101,6 +128,49 @@ export function queryEmbedSource(
         stopObserver = null;
         stopCache();
       };
+    },
+    // The pane's own listing, so an embed and the todo pane show one answer.
+    watchTodo(id, listener) {
+      const observer = new QueryObserver<TodoHit[]>(client, {
+        queryKey: ["todos", false],
+        queryFn: () => fetchTodos(false),
+        // Each embed mounts its own observer, which would refetch the list on every mount.
+        staleTime: 10_000,
+      });
+      let last: TodoRow | null | undefined;
+      const report = (result: QueryObserverResult<TodoHit[]>) => {
+        if (result.data === undefined) return;
+        const row = result.data.find((hit) => hit.todo?.id === id)?.todo ?? null;
+        if (row === last || (row !== null && row.version === last?.version)) return;
+        last = row;
+        listener(row);
+      };
+      const stop = observer.subscribe(report);
+      report(observer.getCurrentResult());
+      return stop;
+    },
+    cycleTodo(id) {
+      relist(cycleStoreTodo(id));
+    },
+    setTodoState(id, state) {
+      relist(setTodoState(id, state));
+    },
+    // The pane's `@`: the rendered line from the listing, its note's lines for the client check.
+    agentTodo(id) {
+      const hit = client
+        .getQueriesData<TodoHit[]>({ queryKey: ["todos"] })
+        .flatMap(([, hits]) => hits ?? [])
+        .find((each) => each.todo?.id === id);
+      if (hit === undefined) return "that todo is not listed";
+      const pressed = agentPress(
+        listedLines(client, hit),
+        hit.line,
+        readClock(new Date()).date,
+        newId(),
+      );
+      if ("why" in pressed) return pressed.why;
+      relist(changeTodoLine(id, pressed.line.trimStart()));
+      return null;
     },
     // A pdf goes to kasten's own viewer, since phone viewers ignore `#page` (#353), and a csv or a
     // video file to the image's pane. Other files get a tab, since `open` would read their bytes as note text.

@@ -10,7 +10,7 @@ import {
 } from "react";
 import { createNote, fetchNote, NoteExists, type SearchHit } from "@/lib/core/api";
 import type { FileTarget } from "@/lib/notes/editor/editor-follow";
-import { queryEmbedSource } from "@/lib/notes/embeds/embed";
+import { queryEmbedSource, TODO_ID } from "@/lib/notes/embeds/embed";
 import { encodePath } from "@/lib/notes/links/note-path";
 import { namesAFile, pdfPage, splitTarget, wikiLinkPath } from "@/lib/notes/links/wikilink";
 import { noteSectionOf } from "@/lib/notes/text/note-section";
@@ -374,6 +374,8 @@ export function useNoteOpening({
    */
   const follow = useCallback(
     (target: string, file?: FileTarget, body = "", at = startPane(layoutNow.current)) => {
+      // A store todo's name, never a note to make (#2191).
+      if (TODO_ID.test(splitTarget(target).name)) return false;
       const listed = linkPaths(queryClient);
       if (!(listed instanceof Promise)) return followIn(listed, target, file, body, at);
       // Read off the pane the press came from, as `openAtHeading` does, so a late open never pulls the reader back.

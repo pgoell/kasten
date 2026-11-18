@@ -169,6 +169,18 @@ test("#807 I3 a week that has not started says so, and draws nothing else", asyn
   await expect(page.locator(".review-tiles")).toHaveCount(0);
 });
 
+/** Tasks as it reads once the `!` typed at the end of the cursor's line lands on the export's embed. */
+async function marked(url: string): Promise<string> {
+  const rows = (await (
+    await fetch(`${url}/api/todos/rows?note=${encodeURIComponent(FDE)}`)
+  ).json()) as {
+    id: string;
+    words: string;
+  }[];
+  const id = (words: string) => rows.find((row) => row.words === words)?.id;
+  return `# tasks\n\n![[${id("ship the export")}]]!\n![[${id("next thing")}]]\n`;
+}
+
 for (const vim of ["on", "off"]) {
   test(`#807 I7 with vim ${vim}, a click on a Done row opens its note at the todo's line`, async ({
     page,
@@ -186,7 +198,7 @@ for (const vim of ["on", "off"]) {
     await page.clock.runFor(10_000);
     await expect
       .poll(async () => bodyOf(await noteText(stack.vault, FDE)))
-      .toBe("# tasks\n\n- [x] ship the export ✅ 2026-11-10!\n- [ ] next thing\n");
+      .toBe(await marked(stack.url));
   });
 }
 
@@ -204,7 +216,7 @@ test.describe("on a phone", () => {
     await page.clock.runFor(10_000);
     await expect
       .poll(async () => bodyOf(await noteText(stack.vault, FDE)))
-      .toBe("# tasks\n\n- [x] ship the export ✅ 2026-11-10!\n- [ ] next thing\n");
+      .toBe(await marked(stack.url));
   });
 });
 

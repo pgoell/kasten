@@ -18,6 +18,8 @@ from kasten_backend.finance.tax import models as finance_tax_models  # noqa: F40
 from kasten_backend.pieces import (
     models as pieces_models,  # noqa: F401  (registers the pieces tables)
 )
+from kasten_backend.todos.store import days as todo_days  # noqa: F401
+from kasten_backend.todos.store import models as todo_models  # noqa: F401
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import Connection

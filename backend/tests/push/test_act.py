@@ -1,4 +1,4 @@
-"""`Done` and `Tomorrow` on a reminder, which find their line by its text (#1682)."""
+"""`Done` and `Tomorrow` on a reminder, which find their todo in the store by its id (#1682)."""
 
 import datetime as dt
 from typing import TYPE_CHECKING
@@ -6,10 +6,9 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from backend.tests.push.conftest import PushService, note, subscribe
+from backend.tests.push.conftest import PushService, subscribe, todo
 from kasten_backend.push import tick
-from kasten_backend.push.due import put_off, reminders
-from kasten_backend.todos import find_todos
+from kasten_backend.push.due import put_off
 
 if TYPE_CHECKING:
     import httpx
@@ -17,127 +16,103 @@ if TYPE_CHECKING:
 
     from kasten_backend.config import Settings
 
+BERLIN = ZoneInfo("Europe/Berlin")
 PATH = "Notes/Errands.md"
-LINE = "- [ ] call the dentist ⏰ 2026-11-12 09:00"
 
 
-def _today() -> dt.date:
-    return dt.datetime.now(ZoneInfo("Europe/Berlin")).date()
+def _noon() -> dt.datetime:
+    # Noon keeps clear of the hour where a Berlin day and its UTC day differ.
+    return dt.datetime.now(BERLIN).replace(hour=12, minute=0, second=0, microsecond=0)
 
 
-def _read(settings: Settings, path: str = PATH) -> str:
-    """The note's text after the frontmatter a save stamps."""
-    text = (settings.vault_path / path).read_text(encoding="utf-8")
-    return text.split("---\n", 2)[2] if text.startswith("---\n") else text
+ALARM = f"⏰ {_noon():%Y-%m-%d %H:%M}"
 
 
-def _daily(settings: Settings) -> str:
-    target = settings.vault_path / f"01 Periodic/00 Daily/{_today().isoformat()}.md"
-    return target.read_text(encoding="utf-8") if target.is_file() else ""
+async def _rows(client: httpx.AsyncClient) -> dict[str, dict]:
+    return {row["id"]: row for row in (await client.get("/api/todos/rows")).json()}
 
 
-async def _act(client: httpx.AsyncClient, action: str, text: str = LINE) -> int:
+async def _line(client: httpx.AsyncClient, id_: str) -> str:
+    """The todo's line as the store renders it, its id on it, as a reminder pushes it."""
+    [hit] = [hit for hit in (await client.get("/api/todos")).json() if hit["todo"]["id"] == id_]
+    return hit["text"]
+
+
+async def _act(client: httpx.AsyncClient, action: str, text: str) -> int:
     answer = await client.post("/api/push/act", json={"path": PATH, "text": text, "action": action})
     return answer.status_code
 
 
-async def test_1682_done_ticks_the_line_found_by_its_text_where_it_moved(
+async def test_1682_done_ticks_the_todo_and_its_open_parts(
     client: httpx.AsyncClient, served: Settings
 ) -> None:
-    note(served, f"# Errands\n\n{LINE}\n  - [ ] find the card\n", PATH)
-    note(served, f"# Errands\n\nnew line\nanother\n\n{LINE}\n  - [ ] find the card\n", PATH)
-    assert await _act(client, "done") == 204
-    lines = _read(served).split("\n")
-    today = _today().isoformat()
-    assert lines[5].startswith(f"- [x] call the dentist ⏰ 2026-11-12 09:00 ✅ {today} 🆔 kt-")
-    assert lines[6] == f"  - [x] find the card ✅ {today}"
-    assert lines[2:5] == ["new line", "another", ""]
-    id_ = lines[5].rsplit(" ", 1)[1]
-    assert f"- ✅ {today} call the dentist" in _daily(served)
-    assert id_ in _daily(served)
+    top = await todo(client, f"- [ ] call the dentist {ALARM}", PATH)
+    answer = await client.post(
+        "/api/todos/line", json={"text": "- [ ] find the card", "parent_id": top["id"]}
+    )
+    part = answer.json()[0]
+    assert await _act(client, "done", await _line(client, top["id"])) == 204
+    rows = await _rows(client)
+    today = _noon().date().isoformat()
+    assert (rows[top["id"]]["state"], rows[top["id"]]["done"]) == ("done", today)
+    assert (rows[part["id"]]["state"], rows[part["id"]]["done"]) == ("done", today)
 
 
-async def test_1682_tomorrow_moves_the_alarm_a_day_on_where_the_line_moved(
+async def test_1682_tomorrow_moves_the_alarm_to_the_same_time_tomorrow(
     client: httpx.AsyncClient, served: Settings
 ) -> None:
-    note(served, f"# Errands\n\nnew line\n{LINE}\n", PATH)
-    assert await _act(client, "tomorrow") == 204
-    tomorrow = (_today() + dt.timedelta(days=1)).isoformat()
-    assert _read(served) == f"# Errands\n\nnew line\n- [ ] call the dentist ⏰ {tomorrow} 09:00\n"
-    assert _daily(served) == ""
-
-
-async def test_1705_a_crlf_reminder_sends_text_its_tomorrow_finds(
-    client: httpx.AsyncClient, served: Settings
-) -> None:
-    note(served, f"# Errands\r\n\r\n{LINE}\r\n", PATH)
-    [sent] = reminders(await find_todos(served.vault_path), ZoneInfo("Europe/Berlin"))
-    assert sent.text == LINE
-    assert await _act(client, "tomorrow", sent.text) == 204
-    tomorrow = (_today() + dt.timedelta(days=1)).isoformat()
-    landed = (served.vault_path / PATH).read_bytes().decode()
-    assert landed.endswith(f"\r\n- [ ] call the dentist ⏰ {tomorrow} 09:00\r\n")
-    assert landed.count("\n") == landed.count("\r\n")
+    row = await todo(client, "- [ ] call the dentist ⏰ 2026-11-12 09:00", PATH)
+    assert await _act(client, "tomorrow", await _line(client, row["id"])) == 204
+    after = (await _rows(client))[row["id"]]
+    tomorrow = _noon().date() + dt.timedelta(days=1)
+    expected = dt.datetime.combine(tomorrow, dt.time(9, 0), BERLIN)
+    assert dt.datetime.fromisoformat(after["remind_at"]) == expected
+    assert after["state"] == "open"
 
 
 @pytest.mark.parametrize("action", ["done", "tomorrow"])
 @pytest.mark.parametrize(
-    "body",
+    ("seeded", "line"),
     [
-        "# Errands\n\n- [ ] call the dentist about the bill ⏰ 2026-11-12 09:00\n",
-        f"# Errands\n\n{LINE}\n{LINE}\n",
-        "# Errands\n\n- [x] call the dentist ⏰ 2026-11-12 09:00\n",
+        (False, "- [ ] call the dentist ⏰ 2026-11-12 09:00"),
+        (False, "- [ ] call the dentist ⏰ 2026-11-12 09:00 🆔 kt-000000"),
+        (True, "- [x] call the dentist ⏰ 2026-11-12 09:00"),
+        (True, "- [ ] buy milk"),
+        (True, "- [ ] buy milk `⏰ 2026-11-12 09:00`"),
     ],
-    ids=["text gone", "two lines with its text", "done already"],
+    ids=["no id", "no such todo", "done already", "no alarm", "alarm in code"],
 )
-async def test_1682_an_act_whose_line_is_gone_or_twinned_writes_nothing(
-    client: httpx.AsyncClient, served: Settings, action: str, body: str
+async def test_1682_an_act_on_no_open_reminder_writes_nothing(
+    client: httpx.AsyncClient, served: Settings, action: str, seeded: bool, line: str
 ) -> None:
-    note(served, body, PATH)
-    assert await _act(client, action) == 409
-    assert _read(served) == body
-    assert _daily(served) == ""
-
-
-@pytest.mark.parametrize("action", ["done", "tomorrow"])
-@pytest.mark.parametrize(
-    "line", ["- [ ] buy milk", "- [ ] buy milk `⏰ 2026-11-12 09:00`"], ids=["none", "in code"]
-)
-async def test_1682_an_act_on_a_line_with_no_alarm_writes_nothing(
-    client: httpx.AsyncClient, served: Settings, action: str, line: str
-) -> None:
-    body = f"# Errands\n\n{line}\n"
-    note(served, body, PATH)
+    if seeded:
+        line = await _line(client, (await todo(client, line, PATH))["id"])
+    before = await _rows(client)
     assert await _act(client, action, line) == 409
-    assert _read(served) == body
-    assert _daily(served) == ""
+    assert await _rows(client) == before
 
 
-async def test_1682_an_act_on_a_note_that_is_gone_writes_nothing(
+async def test_1682_done_on_a_repeat_keeps_the_round_and_moves_the_todo_on(
     client: httpx.AsyncClient, served: Settings
 ) -> None:
-    assert await _act(client, "done") == 409
-    assert not (served.vault_path / PATH).exists()
+    today = _noon().date()
+    row = await todo(client, f"- [ ] pay rent 🔁 every day 📅 {today.isoformat()} {ALARM}", PATH)
+    assert await _act(client, "done", await _line(client, row["id"])) == 204
+    rows = await _rows(client)
+    moved = rows[row["id"]]
+    assert (moved["state"], moved["due"]) == ("open", (today + dt.timedelta(days=1)).isoformat())
+    [kept] = [one for one in rows.values() if one["round_of"] == row["id"]]
+    assert (kept["state"], kept["done"]) == ("done", today.isoformat())
 
 
-@pytest.mark.parametrize(
-    ("line", "other"),
-    [
-        ("- [ ] pay rent 🔁 every month ⏰ 2026-11-12 09:00", ""),
-        ("- [ ] pay rent ⏰ 2026-11-12 09:00 🆔 kt-aaa111", "- [ ] copy 🆔 kt-aaa111\n"),
-        ("- [ ] pay rent ⏰ 2026-11-12 09:00 🆔 kt-aaa111", "- [ ] then this ⛔ kt-aaa111\n"),
-    ],
-    ids=["recurring", "id on another todo", "id a blocker names"],
-)
-async def test_1682_done_the_pane_writes_more_for_is_refused_and_writes_nothing(
-    client: httpx.AsyncClient, served: Settings, line: str, other: str
+async def test_1682_done_unblocks_the_todo_it_held(
+    client: httpx.AsyncClient, served: Settings
 ) -> None:
-    body = f"# Errands\n\n{line}\n"
-    note(served, body, PATH)
-    note(served, other, "Other.md")
-    assert await _act(client, "done", line) == 422
-    assert _read(served) == body
-    assert _daily(served) == ""
+    first = await todo(client, f"- [ ] pay rent {ALARM}", PATH)
+    then = await todo(client, f"- [ ] then this ⛔ {first['id']}", PATH)
+    assert then["state"] == "blocked"
+    assert await _act(client, "done", await _line(client, first["id"])) == 204
+    assert (await _rows(client))[then["id"]]["state"] == "open"
 
 
 def test_1682_put_off_moves_only_the_alarm_the_reader_takes() -> None:
@@ -153,12 +128,16 @@ async def test_1682_a_reminder_carries_its_line_and_after_tomorrow_waits_a_day(
 ) -> None:
     service = PushService()
     await subscribe(client, service, "phone")
-    now = dt.datetime.now(ZoneInfo("Europe/Berlin")).replace(second=0, microsecond=0)
-    line = f"  - [ ] call the dentist ⏰ {now.date().isoformat()} {now:%H:%M}"
-    note(served, f"# Errands\n\n- [ ] errands\n{line}\n", PATH)
+    now = _noon()
+    top = await todo(client, "- [ ] errands", PATH)
+    await client.post(
+        "/api/todos/line", json={"text": f"- [ ] call the dentist {ALARM}", "parent_id": top["id"]}
+    )
     async with service.client() as http:
         assert await tick(push_db, served, http, now) == 1
-        assert service.sent[0][1]["text"] == line
+        line = service.sent[0][1]["text"]
+        assert line.startswith("  - [ ] call the dentist ")
+        assert f"{ALARM} 🆔 kt-" in line
         assert await _act(client, "tomorrow", line) == 204
         assert await tick(push_db, served, http, now + dt.timedelta(minutes=1)) == 0
         assert await tick(push_db, served, http, now + dt.timedelta(days=1)) == 1

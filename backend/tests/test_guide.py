@@ -30,18 +30,15 @@ async def test_startup_writes_the_guide(startup_vault: Path) -> None:
     assert "# How to work with todos" in text
 
 
-async def test_the_guide_names_the_review_state(startup_vault: Path) -> None:
+async def test_the_guide_sends_agents_to_the_store(startup_vault: Path) -> None:
     async with LifespanManager(app):
         pass
 
     text = (startup_vault / GUIDE_PATH).read_text(encoding="utf-8")
 
-    assert "| `[r]` | review |" in text
-    assert "[ /xXbwr-]" in text
-    # An agent moving a ticked todo back to review leaves done, so the guide
-    # has to send it through the un-ticking walk, done log line and all.
-    assert "from `[x]` to `[r]`" in text
-    assert "delete its done log line" in text
+    assert "| `review` | done, waiting for a look |" in text
+    assert "search_todos" in text
+    assert "never write a\ntodo line into a note" in text
 
 
 async def test_startup_keeps_the_guide_the_vault_already_has(startup_vault: Path) -> None:

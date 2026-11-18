@@ -106,6 +106,12 @@ run = [
   "docker compose up -d db",
 ]
 
+[tasks."todos:import"]
+description = "Report what moving the vault's todo lines into the store would do; `-- --write` does it"
+# One move, run once per vault at the cutover: docs/explanation/vault-and-derived-index/todos-in-postgres.md.
+dir = "{{config_root}}/backend"
+run = "uv run python -m kasten_backend.todos.importer"
+
 [tasks."db:migrate"]
 description = "Apply migrations to the dev DB"
 dir = "{{config_root}}/backend"

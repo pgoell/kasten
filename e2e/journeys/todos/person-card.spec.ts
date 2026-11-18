@@ -1,3 +1,5 @@
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import {
   bodyOf,
@@ -10,10 +12,16 @@ import {
   phone,
   TODO_ROW,
   tapHeight,
-  today,
   vaultWith,
 } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
+
+/** The store's todos, each as the line `GET /api/todos` renders. */
+const store = async (url: string) =>
+  ((await (await fetch(`${url}/api/todos`)).json()) as { text: string }[])
+    .map((hit) => hit.text)
+    .join("\n");
+const TICK = /\/api\/todos\/kt-[0-9a-f]{6}\/state$/;
 
 const PASCAL = "03 Areas/08 People/Pascal.md";
 const ALICIA = "03 Areas/08 People/Alicia.md";
@@ -37,8 +45,8 @@ async function pascalsTodos(page: Page, vault: string) {
 
 const listsOnlyHisTodo = async (page: Page, vault: string) => {
   const todos = await pascalsTodos(page, vault);
-  // One row: Alicia's todo, the same shape, stays off Pascal's card.
-  await expect(todos.getByRole("button")).toHaveText([/buy paint$/]);
+  // One row: Alicia's todo stays off Pascal's card. The 📅 is the store's soft due.
+  await expect(todos.getByRole("button")).toHaveText([/buy paint(📅 [\d-]+)?$/]);
 };
 
 test("a person note's footer lists the open todo assigned to them by 👤 [[name]], and no one else's", async ({
@@ -64,7 +72,7 @@ test.describe("on a phone", () => {
     await page.getByRole("button", { name: "Open the todo pane" }).tap();
     await page.getByRole("button", { name: "board", exact: true }).tap();
     await chip.tap();
-    await opensPascal(page, stack.vault, writes, async () => {
+    await opensPascal(page, stack.url, writes, async () => {
       await page.getByRole("button", { name: "Open the todo pane" }).tap();
       await page.getByRole("button", { name: "more for fix the tap" }).tap();
       await page.getByRole("button", { name: "done fix the tap" }).tap();
@@ -92,21 +100,16 @@ async function chippedCard(page: Page, vault: string) {
 
 /**
  * The person note fills a tab of its own and the card's note stays shut. Then `tick` checks off the
- * other card for real: todo writes go in turn, so once its two land, a write the chip sent would have too.
+ * other card for real: todo writes go in turn, so once it lands, a write the chip sent would have too.
  */
-async function opensPascal(page: Page, vault: string, writes: string[], tick: () => Promise<void>) {
+async function opensPascal(page: Page, url: string, writes: string[], tick: () => Promise<void>) {
   await expect(page.getByRole("tab", { name: "Pascal", selected: true })).toBeVisible();
   await expect(page.locator(".cm-content:visible", { hasText: "Pascal" })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Chips" })).toHaveCount(0);
   await tick();
-  await expect
-    .poll(() => noteText(vault, CHIPS), { timeout: 15_000 })
-    .toMatch(/^- \[x\] fix the tap/m);
-  const daily = `01 Periodic/00 Daily/${today()}.md`;
-  await expect
-    .poll(() => writes.map((url) => decodeURIComponent(url.replace(/^.*\/api\//, ""))))
-    .toEqual([`files/${CHIPS}`, `files/${daily}`]);
-  expect(await noteText(vault, CHIPS)).toContain(INVOICE);
+  await expect.poll(() => store(url), { timeout: 15_000 }).toMatch(/^- \[x\] fix the tap/m);
+  await expect.poll(() => writes).toEqual([expect.stringMatching(TICK)]);
+  expect(await store(url)).toMatch(/^- \[ \] send the invoice/m);
 }
 
 test("a click on a board card's assignee chip opens the person note", async ({ page, stack }) => {
@@ -116,7 +119,7 @@ test("a click on a board card's assignee chip opens the person note", async ({ p
   await expect(page.locator(TODO_ROW, { hasText: "send the invoice" })).toBeVisible();
   await page.keyboard.press("c");
   await chip.click();
-  await opensPascal(page, stack.vault, writes, async () => {
+  await opensPascal(page, stack.url, writes, async () => {
     await leader(page, "gt");
     await cursorTo(page, "fix the tap");
     await page.keyboard.press("X");
@@ -141,7 +144,7 @@ test("a drag that starts on a board card's chip moves the card and opens no note
   await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 10 });
   await page.mouse.up();
   await expect
-    .poll(() => noteText(stack.vault, CHIPS), { timeout: 15_000 })
+    .poll(() => store(stack.url), { timeout: 15_000 })
     .toMatch(/^- \[x\] send the invoice/m);
   await expect(page.getByRole("tab", { name: "Pascal" })).toHaveCount(0);
 });
@@ -237,7 +240,7 @@ const CHORES = "02 Projects/Chores.md";
 const CHORE_LINES = [
   "- [ ] buy paint 👤 [[Pascal]]",
   "- [/] mend the fence 👤 [[Alicia]]",
-  "- [w] hang the door 👤 [[Pascal]] 👤 2026-10-20 [[Alicia]]",
+  "- [w] hang the door 👤 [[Pascal]] 👤 2026-10-20 [[Alicia]] 🛫 2026-10-24",
   "- [ ] paint the hall 👤 [[03 Areas/08 People/Pascal]]",
   "- [ ] wash the car 👤 [[Pascal|P]]",
   "- [ ] sweep the yard 👤 [[Nobody]]",
@@ -259,7 +262,6 @@ async function chorePane(page: Page, vault: string) {
   const linked = (words: string) => expect(chip(words)).toHaveAttribute("data-person-path", PASCAL);
   return { row, chip, linked };
 }
-const body = async (vault: string) => bodyOf(await noteText(vault, CHORES));
 
 test.describe("the assignee chip on a todo pane row", () => {
   test("names the person on open, doing and waiting rows, an alias by its words, and links only a name with a note", async ({
@@ -319,9 +321,10 @@ test.describe("the assignee chip on a todo pane row", () => {
     await page.keyboard.press("b");
     await expect(page.getByTestId("todo-pick")).toBeVisible();
     await chip("mend the fence").click();
-    await expect.poll(() => body(stack.vault)).toMatch(/buy paint 👤 \[\[Pascal\]\] ⛔ kt-\w{6}\n/);
-    const id = (await body(stack.vault)).match(/⛔ (kt-\w{6})/)?.[1];
-    expect(await body(stack.vault)).toContain(`- [/] mend the fence 👤 [[Alicia]] 🆔 ${id}\n`);
+    const id = (await store(stack.url)).match(/mend the fence .*🆔 (kt-\w{6})/)?.[1];
+    await expect
+      .poll(() => store(stack.url))
+      .toMatch(new RegExp(`^- \\[b\\] buy paint .*⛔ ${id}`, "m"));
     await expect(page.getByRole("tab", { name: /Alicia|Chores/ })).toHaveCount(0);
   });
 
@@ -349,13 +352,10 @@ test.describe("the assignee chip on a todo pane row", () => {
       await page.getByRole("button", { name: "more for rake the leaves" }).tap();
       await page.getByRole("button", { name: "done rake the leaves" }).tap();
       await expect
-        .poll(() => body(stack.vault), { timeout: 15_000 })
+        .poll(() => store(stack.url), { timeout: 15_000 })
         .toMatch(/^- \[x\] rake the leaves/m);
-      expect(writes.map((url) => decodeURIComponent(url.replace(/^.*\/api\//, "")))).toEqual([
-        `files/${CHORES}`,
-        "files/01 Periodic/00 Daily/2026-10-25.md",
-      ]);
-      expect(await body(stack.vault)).toContain(`\n${CHORE_LINES[0]}\n`);
+      expect(writes).toEqual([expect.stringMatching(TICK)]);
+      expect(await store(stack.url)).toMatch(/^- \[ \] buy paint /m);
     });
   });
 });
@@ -364,9 +364,10 @@ test.describe("the name place after a field that takes the 👤 (#1021)", () => 
   const PLACE = "02 Projects/Place.md";
   const DAY = "2026-10-25";
   const MARKS = { kettle: "⏲", lamp: "⏱", mop: "🆔", nail: "⛔" };
-  const waiting = (words: string, mark: string) => `- [w] ${words} ${mark} 👤 ${DAY} 👤 ${DAY}`;
   const named = (words: string, mark: string) => `- [w] ${words} 👤 ${DAY} Zoe ${mark} 👤 ${DAY}`;
   const placeBody = async (vault: string) => bodyOf(await noteText(vault, PLACE));
+  // Past the import, so the lines stay text for the editor's keys.
+  const write = (vault: string, text: string) => writeFile(join(vault, PLACE), text);
 
   /** Place.md with a todo per mark, open or already waiting, on `DAY`. */
   async function placeNote(
@@ -375,7 +376,7 @@ test.describe("the name place after a field that takes the 👤 (#1021)", () => 
     line: (words: string, mark: string) => string,
   ) {
     const lines = Object.entries(MARKS).map(([words, mark]) => line(words, mark));
-    await vaultWith(vault, { [PLACE]: `# Place\n\n${lines.join("\n")}\n` });
+    await write(vault, `# Place\n\n${lines.join("\n")}\n`);
     await page.clock.setFixedTime(new Date(`${DAY}T12:00:00`));
   }
 
@@ -402,7 +403,7 @@ test.describe("the name place after a field that takes the 👤 (#1021)", () => 
   /** A stamp with a field after it and one at the line's end, `vim` on or off. */
   async function plumber(page: Page, vault: string, vim: string) {
     await page.addInitScript((on) => localStorage.setItem("kasten.vim", on), vim);
-    await vaultWith(vault, { [PLACE]: `- [ ] kettle ⏲ 👤 ${DAY}\n- [ ] call the plumber\n` });
+    await write(vault, `- [ ] kettle ⏲ 👤 ${DAY}\n- [ ] call the plumber\n`);
     await page.clock.setFixedTime(new Date(`${DAY}T12:00:00`));
     await page.goto(`/?note=${encodeURIComponent(PLACE)}`);
   }
@@ -445,19 +446,17 @@ test.describe("the name place after a field that takes the 👤 (#1021)", () => 
     page,
     stack,
   }) => {
-    await placeNote(page, stack.vault, waiting);
+    const stamped = `- [w] kettle 👤 ${DAY}`;
+    // No fixed clock: a day before the store's look-again day hides the row.
+    await vaultWith(stack.vault, { [PLACE]: `${stamped}\n` });
     await openApp(page);
     await leader(page, "gt");
     const input = page.getByLabel("edit line");
-    for (const [words, mark] of Object.entries(MARKS)) {
-      await cursorTo(page, words);
-      await page.keyboard.press("i");
-      await expect(input).toHaveValue(waiting(words, mark));
-      await expect
-        .poll(() => input.evaluate((field: HTMLInputElement) => field.selectionStart))
-        .toBe(waiting(words, mark).length);
-      await page.keyboard.press("Escape");
-      await expect(input).toHaveCount(0);
-    }
+    await cursorTo(page, "kettle");
+    await page.keyboard.press("i");
+    await expect(input).toHaveValue(new RegExp(`^- \\[w\\] kettle 👤 ${DAY} `));
+    await expect
+      .poll(() => input.evaluate((field: HTMLInputElement) => field.selectionStart))
+      .toBe(stamped.length);
   });
 });

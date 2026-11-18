@@ -11,10 +11,15 @@ import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
-from sqlalchemy.pool import NullPool
 
-from backend.tests.push.conftest import KEY, PUBLIC, PushService, note, subscribe
+from backend.tests.push.conftest import (
+    KEY,
+    PUBLIC,
+    PushService,
+    berlin_engine,
+    subscribe,
+    todo,
+)
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.main import app
 from kasten_backend.push import PushDevice, tick
@@ -26,6 +31,8 @@ from kasten_backend.todos import find_todos
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from sqlalchemy.ext.asyncio import AsyncEngine
 
 BERLIN = ZoneInfo("Europe/Berlin")
 NOW = dt.datetime(2026, 11, 12, 9, 0, tzinfo=BERLIN)
@@ -163,7 +170,7 @@ async def test_a_reminder_due_now_goes_to_every_device_with_its_note(
 ) -> None:
     service = PushService()
     await subscribe(client, service, "phone", "laptop")
-    note(served, "# Today\n\n- [ ] call the dentist ⏰ 2026-11-12 09:00\n", "01 Periodic/Today.md")
+    await todo(client, "- [ ] call the dentist ⏰ 2026-11-12 09:00", "01 Periodic/Today.md")
     async with service.client() as http:
         assert await tick(push_db, served, http, NOW) == 1
     assert sorted(endpoint for endpoint, _ in service.sent) == [
@@ -172,27 +179,7 @@ async def test_a_reminder_due_now_goes_to_every_device_with_its_note(
     ]
     message = service.sent[0][1]
     assert message["body"] == "call the dentist"
-    assert (message["path"], message["line"]) == ("01 Periodic/Today.md", 3)
-
-
-@pytest.mark.parametrize(
-    "text",
-    [
-        "# Today\r\n\r\n- [ ] call the dentist ⏰ 2026-11-12 09:00\r\n",
-        "# Today\n\n- [ ] call the dentist ⏰ 2026-11-12 09:00\r",
-    ],
-)
-async def test_1703_a_crlf_note_sends_its_reminder(
-    client: httpx.AsyncClient, served: Settings, push_db: AsyncEngine, text: str
-) -> None:
-    service = PushService()
-    await subscribe(client, service, "phone")
-    note(served, text, "01 Periodic/Today.md")
-    async with service.client() as http:
-        assert await tick(push_db, served, http, NOW) == 1
-    [(_, message)] = service.sent
-    assert message["body"] == "call the dentist"
-    assert (message["path"], message["line"]) == ("01 Periodic/Today.md", 3)
+    assert (message["path"], message["line"]) == ("01 Periodic/Today.md", 1)
 
 
 async def test_a_reminder_not_yet_due_waits(
@@ -200,7 +187,7 @@ async def test_a_reminder_not_yet_due_waits(
 ) -> None:
     service = PushService()
     await subscribe(client, service, "phone")
-    note(served, "- [ ] later ⏰ 2026-11-12 09:01\n")
+    await todo(client, "- [ ] later ⏰ 2026-11-12 09:01")
     async with service.client() as http:
         assert await tick(push_db, served, http, NOW) == 0
         assert await tick(push_db, served, http, NOW + dt.timedelta(minutes=1)) == 1
@@ -212,7 +199,7 @@ async def test_a_missed_reminder_goes_late_under_an_hour_and_is_dropped_after(
 ) -> None:
     service = PushService()
     await subscribe(client, service, "phone")
-    note(served, "- [ ] missed ⏰ 2026-11-12 09:00\n")
+    await todo(client, "- [ ] missed ⏰ 2026-11-12 09:00")
     async with service.client() as http:
         assert await tick(push_db, served, http, NOW + dt.timedelta(minutes=late)) == sent
         # A dropped one stays dropped: it never becomes due again.
@@ -225,12 +212,12 @@ async def test_a_restart_after_a_send_does_not_send_again(
 ) -> None:
     service = PushService()
     await subscribe(client, service, "phone")
-    note(served, "- [ ] once ⏰ 2026-11-12 09:00\n")
+    await todo(client, "- [ ] once ⏰ 2026-11-12 09:00")
     async with service.client() as http:
         assert await tick(push_db, served, http, NOW) == 1
-    # A new process: its own engine and client, nothing kept in memory; a line added above.
-    note(served, "# Today\n\n- [ ] once ⏰ 2026-11-12 09:00\n")
-    fresh = create_async_engine(scratch_database, poolclass=NullPool)
+    # A new process: its own engine and client, nothing kept in memory; another todo in its note.
+    await todo(client, "- [ ] another")
+    fresh = berlin_engine(scratch_database)
     try:
         async with service.client() as http:
             assert await tick(fresh, served, http, NOW + dt.timedelta(minutes=5)) == 0
@@ -244,8 +231,8 @@ async def test_two_workers_send_once(
 ) -> None:
     service = PushService()
     await subscribe(client, service, "phone")
-    note(served, "- [ ] once ⏰ 2026-11-12 09:00\n")
-    other = create_async_engine(scratch_database, poolclass=NullPool)
+    await todo(client, "- [ ] once ⏰ 2026-11-12 09:00")
+    other = berlin_engine(scratch_database)
     try:
         # Another worker holds the lock: this one sends nothing, and does not wait.
         async with other.connect() as holder:
@@ -269,7 +256,7 @@ async def test_a_removed_device_gets_no_push(
     service = PushService()
     phone, _ = await subscribe(client, service, "phone", "laptop")
     await client.delete(f"/api/push/devices/{phone}")
-    note(served, "- [ ] once ⏰ 2026-11-12 09:00\n")
+    await todo(client, "- [ ] once ⏰ 2026-11-12 09:00")
     async with service.client() as http:
         assert await tick(push_db, served, http, NOW) == 1
     assert [endpoint for endpoint, _ in service.sent] == ["https://push.example/laptop"]
@@ -282,7 +269,7 @@ async def test_a_gone_endpoint_drops_its_device(
     service = PushService()
     await subscribe(client, service, "phone", "laptop")
     service.status["https://push.example/phone"] = status
-    note(served, "- [ ] once ⏰ 2026-11-12 09:00\n")
+    await todo(client, "- [ ] once ⏰ 2026-11-12 09:00")
     async with service.client() as http:
         assert await tick(push_db, served, http, NOW) == 1
     names = [d["name"] for d in (await client.get("/api/push")).json()["devices"]]
@@ -301,7 +288,7 @@ async def test_a_failing_push_service_keeps_the_device_and_the_others_get_theirs
             raise httpx.ConnectTimeout("slow", request=request)
         return service.handle(request)
 
-    note(served, "- [ ] once ⏰ 2026-11-12 09:00\n")
+    await todo(client, "- [ ] once ⏰ 2026-11-12 09:00")
     async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
         assert await tick(push_db, served, http, NOW) == 1
     assert "https://push.example/tablet" in [endpoint for endpoint, _ in service.sent]
@@ -309,13 +296,21 @@ async def test_a_failing_push_service_keeps_the_device_and_the_others_get_theirs
         assert await connection.scalar(select(func.count()).select_from(PushDevice)) == 3
 
 
-async def test_done_fenced_and_archived_todos_send_nothing(
+async def test_done_and_archived_todos_send_nothing(
     client: httpx.AsyncClient, served: Settings, push_db: AsyncEngine
 ) -> None:
     service = PushService()
     await subscribe(client, service, "phone")
-    note(served, "- [x] done ⏰ 2026-11-12 09:00\n\n```\n- [ ] fenced ⏰ 2026-11-12 09:00\n```\n")
-    note(served, "- [ ] old ⏰ 2026-11-12 09:00\n", f"{served.archive_path}/Old.md")
+    await todo(client, "- [x] done ⏰ 2026-11-12 09:00")
+    await todo(client, "- [ ] old ⏰ 2026-11-12 09:00", f"{served.archive_path}/Old.md")
     async with service.client() as http:
         assert await tick(push_db, served, http, NOW) == 0
     assert service.sent == []
+
+
+async def test_a_reminder_line_keeps_its_hour_on_a_utc_connection(
+    client: httpx.AsyncClient, served: Settings, push_db: AsyncEngine
+) -> None:
+    await todo(client, "- [ ] call the dentist ⏰ 2026-11-12 09:00")
+    [hit] = (await client.get("/api/todos")).json()
+    assert "⏰ 2026-11-12 09:00" in hit["text"]

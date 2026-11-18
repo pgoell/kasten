@@ -1,17 +1,14 @@
 import { EditorView } from "@codemirror/view";
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent } from "@testing-library/react";
 import { afterEach } from "vitest";
-import { NoteMissing, type TodoHit } from "@/lib/core/api";
 import { noteBase } from "@/lib/notes/note-base";
 import { formatTodo, parseTodo, patchLine, type Todo } from "@/lib/todo/todo";
 import { cycleTodoAtCursor } from "@/lib/todo/todo-commands";
 import { readFields } from "@/lib/todo/todo-fields";
 import { cycleLines } from "@/lib/todo/todo-write";
-import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
-import { pageHooks, renderApp, settle, theRoute, VAULT } from "./home-route-fixture";
+import { pageHooks } from "./home-route-fixture";
 import { open } from "./keybindings-fixture";
-import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 import { TODAY, UNKNOWN } from "./todo-write-fixture";
 
 defineFoliateFake();
@@ -215,44 +212,6 @@ describe("#1046 a bare one-word marker before an id keeps its words in the pane"
         state: "done",
       }).get(1),
     ).toBe(`- [x] a ⏲ ✅ ${TODAY} 🆔 kt-1 more`);
-  });
-});
-
-describe("#1046 a bare one-word marker before an id keeps its words by touch", () => {
-  theRoute();
-  beforeEach(() => {
-    vi.mocked(searchNotes).mockResolvedValue([]);
-  });
-
-  it("#1046 A8 by touch, done on a doing row with a bare estimate before its id writes one id", async () => {
-    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
-    const PATH = "inbox.md";
-    const line = "- [/] a ⏲ 🆔 kt-1 more";
-    const text = `## TODOs\n${line}`;
-    const written = () =>
-      (saveNote.mock.calls.find(([path]) => path === PATH)?.[1] as string | undefined)?.split("\n");
-    const rows: TodoHit[] = [{ path: PATH, line: 2, text: line, project: null, shared: false }];
-    fetchFiles.mockImplementation(async () => [...Object.keys(VAULT), PATH]);
-    // A note the vault lacks is NoteMissing, as the api answers it, not undefined.
-    fetchNote.mockImplementation(async (path: string) => {
-      if (path === PATH) return text;
-      if (VAULT[path] === undefined) throw new NoteMissing(path);
-      return VAULT[path];
-    });
-    fetchTodos.mockResolvedValue(rows);
-
-    await renderApp();
-    await settle();
-    fireEvent.click(screen.getByRole("button", { name: "Open the todo pane" }));
-    await settle();
-    fireEvent.click(screen.getByLabelText(/^more for /));
-    fireEvent.click(screen.getByLabelText(/^done /));
-    await hashed();
-    await settle();
-
-    expect(written()?.slice(1)).toEqual([
-      expect.stringMatching(/^- \[x\] a ⏲ ✅ \d{4}-\d{2}-\d{2} 🆔 kt-1 more$/),
-    ]);
   });
 });
 

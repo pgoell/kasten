@@ -7,316 +7,76 @@ type: Reference
 For agents working in this vault, whether you run in kasten's own terminal pane
 or on a machine outside it.
 
-The vault is a directory of markdown files and it is the source of truth. A todo
-is one line of a note, and that line carries every field the todo has. Nothing
-about a todo lives anywhere else, so `rg`, an editor and `cat` are enough to
-read and change one.
+Todos live in kasten's todo store, not in note lines. Where a todo line used to
+be, a note now holds an embed of the todo:
 
 ```markdown
-- [/] wire up the pane #kasten 📅 2026-08-14 ⏳ 2026-08-12 ⏫ 🔁 every week ➕ 2026-08-09 ⏲ 2h 🆔 kt-3f9a2c
+![[kt-3f9a2c]]
 ```
 
-A markdown list item, a checkbox, the words, then the fields. The bullet and the
-box are required and every field is optional.
+The embed carries the id and nothing else. A `- [ ]` typed into a note is a
+plain markdown checkbox and no todo: nothing reads it as one. So never write a
+todo line into a note; add the todo through the store.
 
-## The rule
+## Through MCP
 
-Edit the markdown directly for everything: writing a new todo, changing its
-words, setting a date, adding a tag, indenting one todo under another, moving a
-todo to another note.
+A client on kasten's MCP server has five todo tools: `search_todos`,
+`add_todo`, `change_todo`, `set_todo_state` and `complete_todo`. Their arguments
+are in their descriptions.
 
-One exception. **Ticking a todo done goes through the API**, because a
-completion is not one character: it stamps the line, writes a line in today's
-note, may write the next copy of a recurring todo, and may reopen todos that
-were waiting on this one. [Completing a todo](#completing-a-todo) is the whole
-list.
-
-Two things are never yours to write: the `---` block at the top of a note, which
-kasten keeps in step, and the `.jj` directory beside the notes.
-
-## Reading
-
-From the vault root, with `rg` and `cat`, which is all a read needs:
-
-```sh
-rg -n '^\s*- \[[ /xXbwr-]\] '           # every todo line, with note and line number
-rg -n '📅 2026-08-14'                  # everything due that day
-rg -n 'kt-3f9a2c'                      # the todo, its done log line, its sessions
-cat '{{periodic}}/00 Daily/2026-08-10.md'
-```
-
-`GET /api/todos` below answers the first of those over HTTP, if you would rather
-have JSON.
-
-## Reaching the API
+## Through the HTTP API
 
 In kasten's terminal pane the base URL is in `$KASTEN_API`. Outside it, use
 whatever address serves the backend, `http://127.0.0.1:8000` when you run it
 yourself.
 
 ```sh
-curl -s "$KASTEN_API/api/todos"                     # every candidate todo line
-curl -s "$KASTEN_API/api/search?q=kt-3f9a2c"        # every line naming an id
-curl -s "$KASTEN_API/api/files/{{periodic|url}}/00%20Daily/2026-08-10.md"
+curl -s "$KASTEN_API/api/todos/rows?state=open&words=bank"   # search, as rows
+curl -s "$KASTEN_API/api/todos?state=waiting"                # search, as lines
+curl -s -X POST "$KASTEN_API/api/todos/line" -H 'Content-Type: application/json' \
+  -d '{"text": "- [ ] call the bank #money 📅 2026-12-01"}'    # add
+curl -s -X POST "$KASTEN_API/api/todos/kt-3f9a2c/state" -H 'Content-Type: application/json' \
+  -d '{"state": "done"}'                                       # tick
 ```
 
-`GET /api/todos` answers with one object per line,
-`{"path", "line", "text", "project"}`. It parses no state or field: you read the
-format below yourself. `project` is the project the todo belongs to, by
-[the rule under Projects](#projects), as a folder path such as
-`"02 Projects/FDE"`, or `null`. It also returns time log lines, and in a note
-with an indented todo the headings and plain list items that end a todo's parts,
-none of them todos and each carrying `null`: keep the lines that open with `- [`.
-A todo inside a code fence is no todo and does not come back.
+`GET /api/todos/rows` takes `state`, `words`, `tag`, `kind`, `project`, `epic`,
+`parent`, `priority`, `due_by`, `planned_on`, `look_again_by`, `waiting`,
+`shown_on`, `archive`, `sort` and `limit`. A change is
+`PATCH /api/todos/<id>` with the `version` a read gave and the fields to set.
 
-Writing a note back:
+## The states
 
-```sh
-curl -s -X PUT "$KASTEN_API/api/files/<path>" \
-  -H 'content-type: application/json' \
-  -d "$(jq -n --arg content "$(cat note.md)" '{content: $content}')"
-```
-
-`PUT` takes the whole note and replaces it, so read the note first and send back
-what you got with your change in it. `POST` on the same path starts a note that
-is not there yet and takes the same body. A write through either is stamped with
-today's date, recorded in the vault's history as its own change, and reaches an
-open kasten at once.
-
-If you cannot reach the API at all, do the same writes straight to the files.
-You lose the stamp and the history entry, nothing else. Say so when you report
-back.
-
-## Completing a todo
-
-Today's date below is the day you are doing this, `YYYY-MM-DD`.
-
-1. Find the line: `GET /api/todos`, or `rg` in the vault.
-2. Rewrite it: the box becomes `[x]`, add `✅ <today>`, and add
-   `🆔 kt-<six hex>` if the line carries no id. Keep
-   [the field order](#the-field-order).
-3. If the todo has parts, that is todos indented under it, tick every part that
-   is still `[ ]`, `[/]`, `[b]`, `[w]` or `[r]`: box `[x]` and `✅ <today>` on
-   each, no id, and drop the dated `👤` wait the part carries. An undated `👤`
-   is the assignee and stays.
-   Leave a part already done or rejected alone.
-4. If the line carries `🔁`, leave the finished line where it is and put a fresh
-   copy above it, one period on. Move every date it carries by the same number
-   of days, and drop the `✅`, the `🆔` and the `⏱` from the copy.
-   If it has parts, write each one again under the copy, in the same order and
-   at the same indent: box `[ ]` whatever state it ended in (`[b]` while a
-   `⛔` on it names a todo still open), dates moved by the
-   parent's number of days, and no `✅`, `❌`, `🆔`, `⏱`, `👤` or `^block` id.
-   A part keeps its own `🔁` but gets no copy of its own. The parts ticked in
-   step 3 stay under the finished line. Prose or a plain bullet under the todo
-   is no part and is not copied.
-   [Recurrence](#recurrence) says how the period is counted.
-5. If a `- HH:MM-` session line in `## Time` names this todo's id with no end
-   time on it, close it with the current time, then rewrite the todo's `⏱` as
-   the sum of every closed session naming that id across the vault. Find them
-   with `GET /api/search?q=<id>`.
-6. `PUT` the note.
-7. Write the done log line under `## Done` in today's daily note,
-   `{{periodic}}/00 Daily/<today>.md`:
-
-   ```markdown
-   - ✅ 2026-08-10 wire up the pane [[projects/kasten]] kt-3f9a2c
-   ```
-
-   The day, the todo's words, a link to the note it lives in, and its id. Leave
-   the link off when the todo lives in that daily note already. Make the heading
-   if the note has none, and the note itself with `POST` if the vault has none.
-   Search the id first: one line per todo, never two.
-8. If the todo carries an `🆔`, look for todos blocked by it,
-   `GET /api/search?q=<id>` and keep the `⛔` lines. A dependent sitting at `[b]`
-   whose every `⛔` now names a closed todo becomes `[ ]`. Touch no other state.
-   `PUT` each note you changed.
-
-Un-ticking is the same walk backwards: the box goes back to `[ ]`, the `✅` comes
-off, the done log line is deleted wherever it sits, and dependents go back to
-`[b]`. Parts stay done.
+| State | Means |
+|---|---|
+| `open` | not started |
+| `doing` | started |
+| `review` | done, waiting for a look |
+| `done` | finished |
+| `blocked` | held by a todo in `blocked_by` |
+| `waiting` | waiting on somebody, until `look_again` |
+| `rejected` | dropped |
 
 ## The fields
 
-| Field | Written | Value |
-| --- | --- | --- |
-| due | `📅 2026-08-14` | a date |
-| scheduled | `⏳ 2026-08-12` | a date |
-| start | `🛫 2026-08-11` | a date |
-| priority | `🔺` `⏫` `🔼` `🔽` `⏬` | the glyph alone, no value |
-| recurrence | `🔁 every week` | a rule, see below |
-| created | `➕ 2026-08-09` | a date |
-| done | `✅ 2026-08-10` | a date |
-| cancelled | `❌ 2026-08-10` | a date |
-| estimate | `⏲ 2h` | a duration |
-| worked | `⏱ 1h20m` | a duration, written by kasten off the time log |
-| id | `🆔 kt-3f9a2c` | `kt-` and six hex characters |
-| blocked by | `⛔ kt-8b1e04` | another todo's id |
-| assignee | `👤 [[Pascal]]` | an undated name, the person the todo is for, in any state |
-| waiting on | `👤 2026-08-03 [[Ada Lovelace]]` | a date, the day the wait began, then who (the name optional) |
-| tags | `#health` | a word, left where you typed it |
+- **Three dates.** `due` is the day it must be done by, hard or soft; a todo
+  with none gets a soft one 14 days out. `planned` is the day you mean to do it;
+  passing it makes nothing overdue. `hold_until` hides it from every list
+  before that day.
+- **Waiting** carries who (`waiting_on`), since when, and `look_again`, the day
+  it comes back; until then no list shows it.
+- **Organisation.** Tags are typed in the words (`#money`, `#p/trip`). The kind
+  is a tag: `#client`, `#internal` or `#private`. `parent_id` makes a todo a
+  part of another, at any depth and across notes. `epic` marks a todo as an
+  epic, and `epic_id` counts a todo toward one across projects.
+- **Priority** is `highest`, `high`, `medium`, `low` or `lowest`; none sorts
+  between medium and low.
 
-**A date** is `YYYY-MM-DD` and nothing else. `📅 next tuesday` is not a date, so
-the whole of it stays in the words where you can see it.
+Ticking a todo done ticks its open parts, moves a repeating todo on to its next
+round and opens the todos that waited on it. The store does all of that; do not
+do it by hand.
 
-**A duration** is `2h`, `45m` or `1h20m`. `90`, `1h30` and `two hours` are not.
+To read a day's notes as before:
 
-**The five priorities** read highest, high, medium, low and lowest, in the order
-of the table. A todo carries at most one.
-
-**An id** is unique in the vault. Six hex characters after `kt-`, from a real
-random source, because the id is what the done log, the time log and every `⛔`
-name.
-
-**`⛔` may appear more than once** and each one names an id. Every other field
-appears once. A todo opens only when every `⛔` on it names a closed todo, and a
-`⛔` naming an id no note holds changes nothing.
-
-Every field except the two clocks is what the obsidian-tasks plugin already
-reads, so this vault opened in Obsidian shows working tasks.
-
-## The seven states
-
-| Box | State |
-| --- | --- |
-| `[ ]` | open |
-| `[/]` | doing |
-| `[r]` | review |
-| `[x]` | done |
-| `[b]` | blocked |
-| `[w]` | waiting |
-| `[-]` | rejected |
-
-`[X]` reads as done too, because other editors write it that way. Write `[x]`.
-`[R]` is no todo at all. Open means neither done nor rejected, so a blocked
-todo is open work, and so are a waiting one and one in review. Entering
-rejected stamps `❌ <today>`, and leaving it drops that stamp.
-
-Blocked waits on another todo, named by `⛔`. Waiting waits on a person, for an
-approval or an answer. To set a todo waiting, write the box `[w]` and put
-`👤 <today> <who>` straight after the words, after any assignee and ahead of
-every other field, the name as a `[[link]]` to the person's
-note where the vault has one. Keep a date the line already carries. When the
-todo leaves `[w]` for any other state, drop only the dated `👤`. An assignee
-`👤 [[Pascal]]` with no date stays.
-
-Review is yours. When your work on a todo is done and the owner has to check
-it, write the box `[r]`. Never tick it `[x]` yourself: the owner ticks it once
-the check is done, and a tick of a parent ticks its `[r]` parts with it. Drop
-a `✅`, `❌` or dated `👤` the line carries from the state it leaves. Keep an
-undated `👤` assignee.
-
-A move from `[x]` to `[r]` leaves done, so it is the un-ticking walk with `[r]`
-in place of `[ ]`: take the `✅` off, delete its done log line wherever it
-sits, and put dependents back to `[b]`.
-
-## The field order
-
-The words first, then the fields:
-
+```sh
+cat '{{periodic}}/00 Daily/2026-08-10.md'
 ```
-👤 assignee 👤 wait 📅 ⏳ 🛫 priority 🔁 ➕ ✅ ❌ ⏲ ⏱ 🆔 ⛔
-```
-
-kasten writes a new line in this order. A line that is already there it patches
-rather than rebuilds: a state change, a `⛔` picked, a `🆔` stamped by
-`<leader>i`, on a blocker or on a timer's first start, a `⏱` written on a stop
-and a box opened when an edit takes off the last `⛔` each change the box and
-the fields they write, and nothing else. The indent, a `^block` id at the end,
-the words and the order the fields sit in all stay as typed, and a stamp goes in
-at its place in this order. Tags stay in the words where they were typed.
-
-## Recurrence
-
-```
-every day | every week | every month | every year
-every <n> days | every <n> weeks | every <n> months | every <n> years
-every weekday
-every week on Monday, Thursday | every <n> weeks on Friday | every Sunday
-every month on the 15th | every month on the last
-every month on the 2nd Tuesday | every month on the last Friday
-```
-
-and any of them may end `when done`. A rule this does not cover stays in the
-words and writes nothing.
-
-The next copy is counted off the due date, or the scheduled date, or the start
-date, whichever the todo has first. `when done` counts off the day it was
-ticked. The parts of the todo come along under the copy, open, their dates
-moved by the same number of days, as step 4 of
-[Completing a todo](#completing-a-todo) says.
-
-A month rule counts calendar months and clamps to the last day of a
-month too short for it: the thirty-first of January one month on is the
-twenty-eighth of February. A recurring todo carrying no date at all writes no
-copy.
-
-The last four lines name their days, and such a rule lands on the first of
-them after the date it counts from, never on that date itself. The weeks of
-`every <n> weeks on Friday` are counted from the week that date is in, Monday
-first. A weekday of the month is the 1st to the 4th or the last. A month that
-lacks the day named is passed over, so `on the 31st` skips February, and
-`on the last` is the rule for the end of every month. Every other date on the
-line still moves by the same number of days.
-
-## Two things that look like todos
-
-`1. [ ] ordered` is an ordered list item and `- [[borges]]` is a bullet holding
-a link. Neither is a todo. Neither is the done log line, which is `- ✅` and
-deliberately not a checkbox, so it cannot come back as a todo of its own.
-
-## Subtasks
-
-A todo indented under another is a part of it. The indent is the whole rule: a
-todo belongs to the nearest todo above it carrying a smaller indent, and prose
-between two todos ends nothing. Indent with spaces, two per level.
-
-```markdown
-- [/] safari packing 📅 2026-08-14
-  - [x] passport ✅ 2026-08-09
-  - [ ] esim
-    - [ ] pick a plan
-```
-
-kasten counts the parts and shows `1/3` after the parent's words. Do not write
-that count yourself; it is drawn, not stored.
-
-A part carrying no `📅`, `⏳`, `🛫` or priority of its own is read as having the
-one the todo above it carries, however many steps up that is. So do not copy a
-parent's date onto its parts: write it once, and write a date on a part only
-where that part is due on a different day from the whole. `🆔`, `➕`, `✅`, `❌`,
-`⛔`, `🔁`, `⏲` and `⏱` are never taken from a parent, each saying something
-about one line.
-
-## Client work
-
-`#client` on a todo says the work is for a client. Every other todo is internal
-work. A part of a client todo is client work too, however many steps down, with
-no tag of its own. Do not copy the tag onto the parts.
-
-When you rank todos, order them by priority first, and between two of the same
-priority put client work ahead of internal work. The tag never lifts a todo over
-one of a higher priority, and it changes no date. kasten's todo pane sorts each
-of its groups this way.
-
-## Projects
-
-Every todo belongs to at most one project, a folder such as `02 Projects/FDE`.
-`GET /api/todos` gives it as `project`, so read it there rather than working it
-out. The first of these that answers wins:
-
-1. A `#p/x` tag on the todo, else on the nearest todo above it that it is a
-   part of and that carries one.
-2. The note's folder, when the note sits at any depth inside a folder directly
-   under `02 Projects` or `03 Areas`.
-3. The first `[[link]]` on the line to a note that exists in a folder under
-   `02 Projects`.
-4. The project of the todo it is a part of.
-5. None.
-
-To file a todo under a project its note is not in, write `#p/x` on it, where `x`
-is the folder's name under `02 Projects` with case ignored and a `-` or `_` for
-each space: `#p/japan-honeymoon-2027` files it under
-`02 Projects/Japan Honeymoon 2027`, whatever note it sits in. A tag that names
-no folder there counts for nothing, so check the folder exists. Put the tag on
-the top todo only: its parts follow it, as they follow `#client`.

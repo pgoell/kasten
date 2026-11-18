@@ -41,6 +41,8 @@ const line = (editor: Locator, words: string) =>
       ].join("|"),
     );
 
+// A shared list keeps its todo lines as lines; any other note's go to the store as embeds.
+const SHARED = "05 Shared/";
 const LISTS = "> quoted\n\n- first\n  - nested\n\n1. one\n   1. inner\n\na) ay\nb) bee\n";
 const TODOS = "- [ ] open\n- [/] doing\n- [x] done\n- [b] blocked\n- [-] rejected\n- [[borges]]\n";
 
@@ -53,8 +55,8 @@ test.describe("with vim on", () => {
     page,
     stack,
   }) => {
-    await vaultWith(stack.vault, { "Lists.md": `${LISTS}\n${TODOS}` });
-    const editor = await opened(page, "Lists.md", "borges");
+    await vaultWith(stack.vault, { [`${SHARED}Lists.md`]: `${LISTS}\n${TODOS}` });
+    const editor = await opened(page, `${SHARED}Lists.md`, "borges");
     expect(await lines(editor)).toEqual([
       "quoted||",
       "||",
@@ -89,8 +91,8 @@ test.describe("with vim on", () => {
     page,
     stack,
   }) => {
-    await vaultWith(stack.vault, { "Box.md": "- [ ] task\n" });
-    const editor = await opened(page, "Box.md", "task");
+    await vaultWith(stack.vault, { [`${SHARED}Box.md`]: "- [ ] task\n" });
+    const editor = await opened(page, `${SHARED}Box.md`, "task");
     await editor.click();
     await page.keyboard.press("g");
     await page.keyboard.press("g");
@@ -98,7 +100,9 @@ test.describe("with vim on", () => {
     await page.keyboard.press("x");
     await expect(page.locator(".cm-line", { hasText: /^ask$/ })).toBeVisible();
     await expect
-      .poll(async () => unstamped(await noteText(stack.vault, "Box.md")), { timeout: 15_000 })
+      .poll(async () => unstamped(await noteText(stack.vault, `${SHARED}Box.md`)), {
+        timeout: 15_000,
+      })
       .toContain("- [ ] ask\n");
   });
 
@@ -124,8 +128,12 @@ test.describe("with vim on", () => {
   ];
   for (const [name, doc, counts] of COUNTS) {
     test(`#1445 a parent's count reads only its own parts: ${name}`, async ({ page, stack }) => {
-      await vaultWith(stack.vault, { "Parts.md": `${doc.join("\n")}\n` });
-      const editor = await opened(page, "Parts.md", doc.at(-1)?.trim().slice(6) || "far away");
+      await vaultWith(stack.vault, { [`${SHARED}Parts.md`]: `${doc.join("\n")}\n` });
+      const editor = await opened(
+        page,
+        `${SHARED}Parts.md`,
+        doc.at(-1)?.trim().slice(6) || "far away",
+      );
       // Drawn as todos, so an empty count list is not an editor that drew nothing.
       await expect(editor.locator(".cm-todo").first()).toBeVisible();
       const shown = await editor
@@ -169,8 +177,8 @@ for (const vim of ["on", "off"]) {
     stack,
   }) => {
     await page.addInitScript((v) => localStorage.setItem("kasten.vim", v), vim);
-    await vaultWith(stack.vault, { "Edit.md": "- first\n  - nested\n- [/] task\n" });
-    const editor = await opened(page, "Edit.md", "task");
+    await vaultWith(stack.vault, { [`${SHARED}Edit.md`]: "- first\n  - nested\n- [/] task\n" });
+    const editor = await opened(page, `${SHARED}Edit.md`, "task");
     /** Puts the cursor on the line holding `words`; vim's normal mode then enters insert. */
     const edit = async (words: string) => {
       if (vim === "on") await page.keyboard.press("Escape");
@@ -198,8 +206,8 @@ test.describe("on a phone", () => {
     page,
     stack,
   }) => {
-    await vaultWith(stack.vault, { "Tap.md": "- first\n- second\n- [x] done\n" });
-    const editor = await opened(page, "Tap.md", "done");
+    await vaultWith(stack.vault, { [`${SHARED}Tap.md`]: "- first\n- second\n- [x] done\n" });
+    const editor = await opened(page, `${SHARED}Tap.md`, "done");
     await editor.locator(".cm-line", { hasText: "second" }).tap({ position: { x: 150, y: 5 } });
     await expect.poll(() => line(editor, "second")).toBe("- second|none|1.6em|- ");
     expect(await line(editor, "first")).toBe('first|"• "|1.6em|');
@@ -412,13 +420,15 @@ test("#968 a cell's links draw their alias, a folder's note name, a kept slash, 
   const editor = await opened(page, "Links.md", "before");
   const links = editor.locator(".cm-table-grid tbody .cm-wikilink");
   // A dead link draws muted only once the file list is in, which can land after the table draws (#2142).
-  await expect.poll(() => seen(links)).toEqual(
-    ["Jorge|left||", "2026-11-09#Log|left|cm|", "notes/|left|m|", "borges|left||"].concat([
-      "/|left|m|",
-      "||left||",
-      "shown|left||",
-    ]),
-  );
+  await expect
+    .poll(() => seen(links))
+    .toEqual(
+      ["Jorge|left||", "2026-11-09#Log|left|cm|", "notes/|left|m|", "borges|left||"].concat([
+        "/|left|m|",
+        "||left||",
+        "shown|left||",
+      ]),
+    );
   await links.last().click({ modifiers: ["Control"] });
   await expect(page.locator(".cm-line", { hasText: "the target's own body" })).toBeVisible();
 });

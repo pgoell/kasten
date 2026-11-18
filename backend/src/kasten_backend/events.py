@@ -18,6 +18,7 @@ from watchfiles._rust_notify import WatchfilesRustInternalError
 from kasten_backend.vault import HTML_SUFFIX, SUFFIX
 
 if TYPE_CHECKING:
+    import asyncio
     from collections.abc import AsyncIterator
 
 DEBOUNCE_MS = 100
@@ -27,12 +28,12 @@ An agent rewriting forty notes then costs a handful of messages, not forty. Well
 editor's quiet period, so a note the user is not typing in reloads before its next autosave.
 """
 
-ChangeKind = Literal["written", "removed", "listing", "page"]
+ChangeKind = Literal["written", "removed", "listing", "page", "todos"]
 """What happened, in the client's words rather than watchfiles'.
 
-Four kinds, with no fifth for a new note: a save's rename reads as an addition, so a note
-held for weeks would arrive as new on every save. `page` is an html page the pane shows,
-and rides beside the `listing` its write sends.
+No kind for a new note: a save's rename reads as an addition, so a note held for weeks
+would arrive as new on every save. `page` is an html page the pane shows, and rides beside
+the `listing` its write sends. `todos` is a todo store write, which touches no note.
 """
 
 
@@ -211,3 +212,13 @@ async def watch_vault(root: Path) -> AsyncIterator[list[VaultEvent]]:
         events = to_events(base, changes)
         if events:
             yield events
+
+
+TODO_LISTENERS: set[asyncio.Queue[list[VaultEvent] | None]] = set()
+"""Each open stream's queue, told when a write to the todo store commits (#2191)."""
+
+
+def todos_changed() -> None:
+    """Tell every open stream the todo store changed; a store write touches no note to watch."""
+    for queue in TODO_LISTENERS:
+        queue.put_nowait([VaultEvent(path="", change="todos", digest=None)])

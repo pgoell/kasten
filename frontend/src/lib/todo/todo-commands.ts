@@ -2,6 +2,7 @@ import { ChangeSet, Facet, type Line } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { getCM } from "@replit/codemirror-vim";
 import { readClock } from "@/lib/core/clock";
+import { embedSource } from "@/lib/notes/embeds/embed";
 import { noticeHandler } from "@/lib/notes/embeds/image";
 import { appendUnderEdit, type Edit } from "@/lib/notes/text/note-section";
 import { periodicNote } from "@/lib/notes/text/periodic";
@@ -12,6 +13,15 @@ import { cycleLines, doneLine, doneLineEdits, pressedLine, twinnedIn } from "@/l
 
 /** Where the box ends on a line that has one, which is where the words start. */
 const BOX = /^[ \t]*- \[.\] /;
+
+/** A todo's embed, `![[kt-1a2b3c]]`: the todo lives in the store, not in the line's text. */
+const EMBED = /!\[\[(kt-[0-9a-f]{6})\]\]/;
+
+/** The id of the todo the cursor's line embeds, or null on a line of text. */
+function embeddedAt(view: EditorView): string | null {
+  const { state } = view;
+  return EMBED.exec(state.doc.lineAt(state.selection.main.head).text)?.[1] ?? null;
+}
 
 /** The heading the done log lives under. `todo-write.ts` keeps its own copy. */
 const DONE = "## Done";
@@ -85,6 +95,13 @@ function logEdits(doc: string, before: string, after: string, path: string | und
  */
 export function cycleTodoAtCursor(view: EditorView, want?: TodoState): void {
   const { state } = view;
+  const embedded = embeddedAt(view);
+  if (embedded !== null) {
+    const source = state.facet(embedSource);
+    if (want === undefined) source?.cycleTodo?.(embedded);
+    else source?.setTodoState?.(embedded, want);
+    return;
+  }
   const line = state.doc.lineAt(state.selection.main.head);
   const today = readClock(new Date()).date;
   const id = newId();
@@ -171,6 +188,8 @@ export function cycleTodoAtCursor(view: EditorView, want?: TodoState): void {
  */
 export function stampIdAtCursor(view: EditorView): void {
   const { state } = view;
+  // A store todo has its id already, in the embed.
+  if (embeddedAt(view) !== null) return;
   const line = state.doc.lineAt(state.selection.main.head);
   const todo = parseTodo(line.text);
   // A second press leaves the id the first one wrote: an id names one todo for
@@ -210,6 +229,12 @@ function replaceLine(view: EditorView, line: Line, patched: string): void {
  */
 export function agentTodoAtCursor(view: EditorView): void {
   const { state } = view;
+  const embedded = embeddedAt(view);
+  if (embedded !== null) {
+    const why = state.facet(embedSource)?.agentTodo?.(embedded) ?? null;
+    if (why !== null) state.facet(noticeHandler)?.(`Nothing moved: ${why}`);
+    return;
+  }
   const line = state.doc.lineAt(state.selection.main.head);
   const pressed = agentPress(
     state.doc.toString().split("\n"),

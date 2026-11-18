@@ -11,6 +11,7 @@ import { openBookInFocused } from "@/lib/panes/layout/pane-contents";
 import { atPane, type Layout, type Pane } from "@/lib/panes/layout/panes";
 import type { GuardedWrites } from "@/lib/saving/use-guarded-writes";
 import { visible } from "@/lib/search/archive";
+import { openTodo } from "@/lib/todo/todo-api";
 import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
 import { fileKind } from "@/lib/vault/file-kind";
 import type { Listings } from "@/lib/vault/use-listings";
@@ -188,6 +189,7 @@ export function useFinders({
             setTodosOpen(false);
             // A file hit opens at its place. A note hit keeps its line.
             if (hit?.place) void openFile(path, hit.place, hit.text);
+            else if (todosOpen && hit) openTodo(hit, (note, line) => void openInPane(note, line));
             else void openInPane(path, hitLine);
           }}
           onClose={() => {

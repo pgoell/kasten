@@ -109,3 +109,18 @@
 [data-csv-table] .cm-table-scroll {
   max-height: 100%;
 }
+
+/* A store todo embedded where its line was (#2191). */
+.cm-todo-embed-box {
+  cursor: pointer;
+}
+
+.cm-todo-embed-closed {
+  text-decoration: line-through;
+  color: var(--k-muted);
+}
+
+.cm-todo-embed-gone {
+  color: var(--k-muted);
+  font-style: italic;
+}

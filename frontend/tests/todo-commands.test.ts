@@ -1,8 +1,11 @@
 import { history, undo } from "@codemirror/commands";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
+import { type EmbedSource, embedSource } from "@/lib/notes/embeds/embed";
+import { noticeHandler } from "@/lib/notes/embeds/image";
 import { periodicNote } from "@/lib/notes/text/periodic";
 import {
+  agentTodoAtCursor,
   cycleTodoAtCursor,
   idElsewhere,
   notePath,
@@ -151,5 +154,64 @@ describe("#537 a ⛔ naming a 🆔 two todos carry", () => {
     cycleTodoAtCursor(view);
 
     expect(view.state.doc.line(3).text).toBe("- [ ] c ⛔ kt-aaaaaa ⛔ kt-dddddd");
+  });
+});
+
+describe("the todo keys on a todo's embed line", () => {
+  const LINE = "\t- [ ] ![[kt-1277da]] ^blk1";
+
+  /** A view over an embed line, its store calls and notices recorded. */
+  function embedded(agentWhy: string | null = null) {
+    const source = {
+      watch: () => () => {},
+      open: vi.fn(),
+      cycleTodo: vi.fn(),
+      setTodoState: vi.fn(),
+      agentTodo: vi.fn(() => agentWhy),
+    } satisfies EmbedSource;
+    const notice = vi.fn();
+    const view = new EditorView({
+      state: EditorState.create({
+        doc: `# Note\n${LINE}`,
+        selection: { anchor: 12 },
+        extensions: [embedSource.of(source), noticeHandler.of(notice)],
+      }),
+    });
+    return { view, source, notice };
+  }
+
+  it("<leader>x cycles the todo in the store and leaves the line", () => {
+    const { view, source } = embedded();
+    cycleTodoAtCursor(view);
+    expect(source.cycleTodo).toHaveBeenCalledWith("kt-1277da");
+    expect(view.state.doc.line(2).text).toBe(LINE);
+  });
+
+  it("<leader>sp sets the todo's state in the store and leaves the line", () => {
+    const { view, source } = embedded();
+    cycleTodoAtCursor(view, "doing");
+    expect(source.setTodoState).toHaveBeenCalledWith("kt-1277da", "doing");
+    expect(source.cycleTodo).not.toHaveBeenCalled();
+    expect(view.state.doc.line(2).text).toBe(LINE);
+  });
+
+  it("<leader>@ hands the todo to the store's agent toggle and leaves the line", () => {
+    const { view, source, notice } = embedded();
+    agentTodoAtCursor(view);
+    expect(source.agentTodo).toHaveBeenCalledWith("kt-1277da");
+    expect(notice).not.toHaveBeenCalled();
+    expect(view.state.doc.line(2).text).toBe(LINE);
+  });
+
+  it("<leader>@ the store refuses says why at the foot", () => {
+    const { view, notice } = embedded("the agent skips client work");
+    agentTodoAtCursor(view);
+    expect(notice).toHaveBeenCalledWith("Nothing moved: the agent skips client work");
+  });
+
+  it("<leader>i does nothing, the embed carrying the id", () => {
+    const { view } = embedded();
+    stampIdAtCursor(view);
+    expect(view.state.doc.line(2).text).toBe(LINE);
   });
 });

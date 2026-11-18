@@ -10,8 +10,9 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from kasten_backend import share, todo_fields
+from kasten_backend import share
 from kasten_backend.config import get_settings
+from kasten_backend.todos import fields as todo_fields
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -296,7 +297,7 @@ _LONG = "a" + " " * 40_000 + "x"
 )
 def test_1889_a_field_value_before_a_long_blank_run_reads_in_linear_time(call: str) -> None:
     # A child process, since `re` cannot be stopped from inside.
-    code = f"from kasten_backend.todo_fields import *; {call}"
+    code = f"from kasten_backend.todos.lines.fields import *; {call}"
 
     # The timeout sits far under main's time and above a slow interpreter start.
     subprocess.run([sys.executable, "-c", code], check=True, timeout=10)  # noqa: S603

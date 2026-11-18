@@ -70,6 +70,8 @@ test.describe("the palette's Log weight", () => {
 
   // A past day, so the palette's own ask on the card acts and not the hand-off to today's note.
   test("over a daily note's card asks on that card and writes no line", async ({ page, stack }) => {
+    // The import put the note's todo line in the store, so the note to keep is the one on disk now.
+    const before = await noteText(stack.vault, PAST);
     await openApp(page);
     await findNote(page, "2026-10-20");
     const card = page.locator(".cm-log:visible");
@@ -77,7 +79,7 @@ test.describe("the palette's Log weight", () => {
     await logWeight(page);
     await expect(card.locator(".cm-log-why")).toHaveText("Type the weight in kg");
     await expect(page.getByRole("tab", { name: "2026-10-20", selected: true })).toBeVisible();
-    expect(await noteText(stack.vault, PAST)).toBe(PAST_NOTE);
+    expect(await noteText(stack.vault, PAST)).toBe(before);
     expect(await dailyText(stack.vault)).toBe("");
   });
 
