@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { once } from "node:events";
-import { cp, mkdtemp, rm } from "node:fs/promises";
+import { cp, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { createServer, get } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -64,6 +64,24 @@ test("a forked backend starts at least a second sooner than a cold one, and stop
   const forked = await startup((dir, env) => fork(warm, dir, env));
   console.log(`backend start: cold ${Math.round(cold)} ms, forked ${Math.round(forked)} ms`);
   expect(cold - forked).toBeGreaterThan(1000);
+});
+
+test("a forked backend reads its settings from its own test's env", async ({ warm }) => {
+  const dir = await mkdtemp(join(tmpdir(), "kasten-e2e-"));
+  await cp(fixtureVault, join(dir, "elsewhere"), { recursive: true });
+  await writeFile(join(dir, "elsewhere", "only-here.md"), "# here\n");
+  const db = `t_${randomBytes(6).toString("hex")}`;
+  await createDatabase(db);
+  const env = { ...backendEnv(dir, db), KASTEN_VAULT_PATH: join(dir, "elsewhere") };
+  const backend = fork(warm, dir, env);
+  try {
+    const port = await listening(backend, []);
+    const files = await (await fetch(`http://127.0.0.1:${port}/api/files`)).json();
+    expect(files).toContain("only-here.md");
+  } finally {
+    await stop(backend);
+    await rm(dir, { recursive: true, force: true });
+  }
 });
 
 test("a forked backend that dies at start fails its test with its log and code", async ({
