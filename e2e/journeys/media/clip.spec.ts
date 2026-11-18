@@ -394,3 +394,80 @@ test("a sound's ![](path) draws as a player that reads nothing until played, not
   await expect(page.locator(".cm-content")).not.toContainText("kana");
   expect(fetched).toEqual([]);
 });
+
+const SOUND = '[data-image-pane][aria-label="sound"]';
+
+test("a sound of any suffix case opens from the tree as a player with controls, no picture", async ({
+  page,
+  stack,
+}) => {
+  const names = ["a.m4a", "b.MP3", "c.ogg", "d.wav"];
+  await vaultWith(
+    stack.vault,
+    Object.fromEntries(names.map((name) => [`sounds/${name}`, silence()])),
+  );
+  await openApp(page);
+  await page.getByRole("button", { name: "sounds", exact: true }).click();
+  for (const name of names) {
+    await page.getByRole("button", { name, exact: true }).click();
+    await expect(page.locator(`${SOUND} audio`)).toHaveAttribute(
+      "src",
+      `/api/assets/sounds/${name}`,
+    );
+    await expect(page.locator(`${SOUND} audio`)).toHaveJSProperty("controls", true);
+    await expect(page.locator("[data-image-pane] img")).toHaveCount(0);
+  }
+});
+
+test("d in the tree deletes a sound and leaves a pdf row be, and an epub has no row", async ({
+  page,
+  stack,
+}) => {
+  const deletes: string[] = [];
+  page.on("request", (request) => request.method() === "DELETE" && deletes.push(request.url()));
+  await vaultWith(stack.vault, {
+    "talks/DDIA.epub": "a book",
+    "talks/Plan.PDF": "a plan",
+    "talks/talk.mp3": silence(),
+  });
+  await openApp(page);
+  const row = (name: string) => page.getByRole("button", { name, exact: true });
+  await row("talks").click();
+  await expect(row("Plan.PDF")).toBeVisible();
+  await expect(row("DDIA.epub")).toHaveCount(0);
+  await row("talk.mp3").click();
+  await page.locator(SOUND).press(" ");
+  await page.keyboard.press("E");
+  await expect(row("talk.mp3")).toBeFocused();
+  await page.keyboard.press("k");
+  await expect(row("Plan.PDF")).toBeFocused();
+  // `d` on the pdf, then on the sound: the sound gone first would show the pdf's `d` did nothing.
+  await page.keyboard.press("d");
+  await page.keyboard.press("j");
+  await page.keyboard.press("d");
+  await expect(row("talk.mp3")).toHaveCount(0);
+  await expect(row("Plan.PDF")).toBeVisible();
+  await access(join(stack.vault, "talks/Plan.PDF"));
+  // The vault would refuse a note delete of the pdf, so only the requests sent can show none went.
+  expect(deletes.map((url) => decodeURIComponent(new URL(url).pathname))).toEqual([
+    "/api/assets/talks/talk.mp3",
+  ]);
+});
+
+test("a sound named with # and ? plays at its escaped address, and d in the pane takes it out", async ({
+  page,
+  stack,
+}) => {
+  const name = "talk #2?.mp3";
+  await vaultWith(stack.vault, { [`talks/${name}`]: silence() });
+  await openApp(page);
+  await page.getByRole("button", { name: "talks", exact: true }).click();
+  await page.getByRole("button", { name, exact: true }).click();
+  await expect(page.locator(`${SOUND} audio`)).toHaveAttribute(
+    "src",
+    "/api/assets/talks/talk%20%232%3F.mp3",
+  );
+  await page.locator(SOUND).press("d");
+  await expect(page.locator(SOUND)).toHaveCount(0);
+  await expect(access(join(stack.vault, "talks", name))).rejects.toThrow();
+});
