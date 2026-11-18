@@ -432,3 +432,63 @@ test("#1040 a tax card shows the receipt's status and takes a receipt off", asyn
     .poll(() => writes)
     .toEqual(['PATCH /api/finance/receipts/8 {"transaction_id":null}']);
 });
+
+/** Opens the finance pane over a 12-month trend answer of `totals`, the last on the month shown. */
+async function spending(page: Page, totals: number[]) {
+  await page.route("**/api/finance/budget/trend?*", (route) => {
+    const at = new URL(route.request().url()).searchParams.get("month") ?? "";
+    const months = totals.map((_, i) =>
+      new Date(Date.UTC(+at.slice(0, 4), +at.slice(5) - totals.length + i, 1))
+        .toISOString()
+        .slice(0, 7),
+    );
+    const limits = totals.map(() => null);
+    route.fulfill({ json: { months, categories: [], totals: totals.map(String), limits } });
+  });
+  await openApp(page);
+  await page.keyboard.press("Control+Shift+P");
+  await page.getByRole("option", { name: /^Open the finance pane/ }).click();
+  const finance = page.getByRole("region", { name: "Finance" });
+  const chart = finance.getByRole("img", {
+    name: `spending per month over ${totals.length} months`,
+  });
+  await expect(chart.locator("rect")).toHaveCount(totals.length);
+  return { finance, chart };
+}
+
+/** Each bar's top and height, and the solid lines' heights, in the chart's own units. */
+const drawn = (chart: Locator) =>
+  chart.evaluate((svg: SVGSVGElement) => ({
+    bars: [...svg.querySelectorAll("rect")].map((bar) => [bar.getBBox().y, bar.getBBox().height]),
+    solid: [...svg.querySelectorAll("line")]
+      .filter((line) => getComputedStyle(line).strokeDasharray === "none")
+      .map((line) => line.y1.baseVal.value),
+  }));
+
+test("#2184 months spent above zero stand on the chart's bottom edge, with no zero line", async ({
+  page,
+}) => {
+  const { chart } = await spending(page, [40, 80]);
+  expect(await drawn(chart)).toEqual({
+    bars: [
+      [40, 40],
+      [0, 80],
+    ],
+    solid: [],
+  });
+});
+
+test("#2184 a month whose refunds beat its spending hangs below a zero line, its amount named", async ({
+  page,
+}) => {
+  const { finance, chart } = await spending(page, [60, -20]);
+  expect(await drawn(chart)).toEqual({
+    bars: [
+      [0, 60],
+      [60, 20],
+    ],
+    solid: [60],
+  });
+  await expect(finance.locator(".finance-trend-readout")).toHaveText(/^\w+ \d{4} −20\s€$/);
+  await expect(finance.getByRole("button", { name: /^\w+ \d{4}, −20\s€ spent$/ })).toBeVisible();
+});
