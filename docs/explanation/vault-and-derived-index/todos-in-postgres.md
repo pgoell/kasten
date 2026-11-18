@@ -17,8 +17,9 @@ the vault will no longer rebuild them.
 
 This page records the decisions behind the move, taken in
 [#2191](https://github.com/pgoell/kasten/issues/2191). Migration `0019` makes the
-tables. Nothing reads or writes them yet: the line reader still answers
-`GET /api/todos` until the readers move, as [The cutover](#the-cutover) says.
+tables and `todos:import` fills them. Nothing else reads or writes them yet: the
+line reader still answers `GET /api/todos` until the readers move, as
+[The cutover](#the-cutover) says.
 
 ## Why the line stops being enough
 
@@ -163,10 +164,16 @@ so a line reads the same in the import as in the pane.
 - `project` is worked out once by [the five steps](/reference/todo-format/tags-projects-and-views.md#projects)
   and stored, since the line's link and folder are gone afterwards.
 
-A dry run writes nothing and prints the two checks the move must pass: the
-count of open todo lines before against the count of open rows after, and
-every `kt-` id in the vault found in the store. A second run finds no todo
-lines and changes nothing.
+`mise run todos:import`, or `python -m kasten_backend.todos` in the backend
+container, is a dry run: it writes nothing and prints the two checks the move
+must pass, the count of open todo lines against the count of open rows, and
+every `kt-` id on a line found in the store. `-- --write` does the move, under
+the vault's write lock, as one jj change. The rows are written first and kept
+only once the notes are on disk, so a failed note write stores nothing. A
+second run finds no todo lines and changes nothing.
+
+The import moves a session line only where it names an id. A running session
+in an old daily note ends at 23:59 of its day, as a stop would end it.
 
 ## History and backup
 

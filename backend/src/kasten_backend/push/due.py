@@ -5,7 +5,6 @@ Also when a push may go, given the quiet hours, and the todos a morning push lis
 
 import datetime as dt
 import hashlib
-import re
 from typing import TYPE_CHECKING, NamedTuple
 
 from kasten_backend import todos
@@ -18,10 +17,7 @@ if TYPE_CHECKING:
     from kasten_backend.log_config import Config
     from kasten_backend.search import Hit
 
-ALARM = re.compile(
-    "⏰\N{VARIATION SELECTOR-16}?[ \t]+([0-9]{4}-[0-9]{2}-[0-9]{2})"
-    r"[ \t]+([0-9]{2}:[0-9]{2})(?=[ \t]|$)"
-)
+ALARM = todo_fields.ALARM
 LATE = dt.timedelta(hours=1)
 """How late a missed reminder may still go out; an older one is dropped."""
 CLOSED = "xX-"

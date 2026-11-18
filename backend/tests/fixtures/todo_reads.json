@@ -1,0 +1,20 @@
+[
+  {
+    "line": "- [/] wire up the pane #kasten 📅 2026-08-14 ⏳ 2026-08-12 🛫 2026-08-11 ⏫ 🔁 every week ➕ 2026-08-09 ⏲ 2h ⏱ 1h20m 🆔 kt-3f9a2c ⛔ kt-8b1e04",
+    "fields": {"due": "2026-08-14", "scheduled": "2026-08-12", "start": "2026-08-11", "priority": "high", "recurrence": "every week", "created": "2026-08-09", "estimate": "2h", "worked": "1h20m", "id": "kt-3f9a2c", "blockedBy": ["kt-8b1e04"]}
+  },
+  {
+    "line": "- [w] buy paint 👤 [[Pascal]] 👤 2026-10-25 [[Alicia]] 📅 2026-10-30",
+    "fields": {"assignee": "[[Pascal]]", "waitingSince": "2026-10-25", "waitingOn": "[[Alicia]]", "due": "2026-10-30"}
+  },
+  {"line": "- [ ] notes [[notes 📅 2026-10-20]]", "fields": {}},
+  {"line": "- [ ] a ⛔ 📅 2026-10-20 more", "fields": {"due": "2026-10-20"}},
+  {"line": "- [ ] a 🔁 every week 📅 2026-10-20 more", "fields": {"recurrence": "every week", "due": "2026-10-20"}},
+  {"line": "- [ ] a ⏲ 🆔 kt-1 more", "fields": {"id": "kt-1"}},
+  {"line": "- [ ] x ⛔ kt-a ⛔ kt-b", "fields": {"blockedBy": ["kt-a", "kt-b"]}},
+  {"line": "- [ ] 📅 next tuesday", "fields": {}},
+  {"line": "- [ ] y 📅️ 2026-10-20", "fields": {"due": "2026-10-20"}},
+  {"line": "- [ ] z 👤 Bob 📅 2026-10-20 more", "fields": {"assignee": "Bob", "due": "2026-10-20"}},
+  {"line": "- [x] done thing ✅ 2026-08-10 ❌ 2026-08-11 🏁 keep", "fields": {"done": "2026-08-10", "cancelled": "2026-08-11", "onCompletion": "keep"}},
+  {"line": "- [ ] low 🔽 ^block-1", "fields": {"priority": "low"}}
+]

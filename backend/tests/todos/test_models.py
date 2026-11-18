@@ -12,8 +12,8 @@ from kasten_backend.todos.models import Todo, TodoChange, TodoSession
 DAY = date(2026, 11, 18)
 
 
-async def test_a_bare_todo_takes_the_schema_defaults(activity: AsyncEngine) -> None:
-    async with AsyncSession(activity) as session:
+async def test_a_bare_todo_takes_the_schema_defaults(store: AsyncEngine) -> None:
+    async with AsyncSession(store) as session:
         session.add(
             Todo(id="kt-000001", words="call the dentist #health", state="open", created=DAY)
         )
@@ -28,7 +28,6 @@ async def test_a_bare_todo_takes_the_schema_defaults(activity: AsyncEngine) -> N
         False,
         1,
     )
-    await _clear(activity)
 
 
 @pytest.mark.parametrize(
@@ -41,18 +40,18 @@ async def test_a_bare_todo_takes_the_schema_defaults(activity: AsyncEngine) -> N
     ids=["unknown state", "unknown priority", "hard deadline with no day"],
 )
 async def test_the_schema_refuses_a_row_no_todo_can_be(
-    activity: AsyncEngine, fields: dict[str, object]
+    store: AsyncEngine, fields: dict[str, object]
 ) -> None:
-    async with AsyncSession(activity) as session:
+    async with AsyncSession(store) as session:
         session.add(Todo(id="kt-000002", words="w", created=DAY, **fields))
         with pytest.raises(IntegrityError):
             await session.commit()
 
 
 async def test_deleting_a_todo_takes_its_parts_and_sessions_and_keeps_its_history(
-    activity: AsyncEngine,
+    store: AsyncEngine,
 ) -> None:
-    async with AsyncSession(activity) as session:
+    async with AsyncSession(store) as session:
         session.add(Todo(id="kt-000003", words="pack", state="open", created=DAY))
         await session.flush()
         session.add(
@@ -70,12 +69,3 @@ async def test_deleting_a_todo_takes_its_parts_and_sessions_and_keeps_its_histor
         ]
 
     assert counts == [0, 0, 1]
-    await _clear(activity)
-
-
-async def _clear(engine: AsyncEngine) -> None:
-    async with AsyncSession(engine) as session:
-        for table in (TodoSession, TodoChange, Todo):
-            for row in (await session.scalars(select(table))).all():
-                await session.delete(row)
-        await session.commit()

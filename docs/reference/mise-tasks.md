@@ -53,6 +53,7 @@ the other two services run stock images and rebuild nothing.
 | `db:migrate` | Apply migrations to the dev database |
 | `db:revision` | Autogenerate a migration. Takes `-- -m "message"` |
 | `db:downgrade` | Roll back the last migration |
+| `todos:import` | Report what moving the vault's todo lines into the store would do: open lines against open rows, ids not found, twins. Takes `-- --write` to do it. [Todos in Postgres](/explanation/vault-and-derived-index/todos-in-postgres.md#the-import) |
 
 ## Testing
 
