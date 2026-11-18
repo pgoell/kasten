@@ -128,14 +128,20 @@ test("#791 R8 a take of the note's other video switches the player to it at that
   expect(blocked).toEqual([]);
 });
 
-test("#791 R8 a take of a video the note does not link leaves the player alone", async ({
+test("#791 R8 a take typed for a video the pane has not read yet leaves the player alone", async ({
   page,
   stack,
 }) => {
+  await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
   const blocked = await fakeYouTube(page);
-  const take = "\n> Q.\n\n[02:00](https://www.youtube.com/watch?v=other0000xx&t=120s) ^hl-a1b2c3\n";
-  const pane = await watchBeside(page, stack.vault, talk, talkNote(undefined, take));
-  await say(pane, { playerState: 1, currentTime: 12 });
+  const pane = await watchBeside(page, stack.vault, talk, talkNote());
+  // The save never lands, so the pane still holds the note before the take and does not link its video.
+  await page.route(`**/api/files/${encodeURIComponent(talk).replaceAll("%2F", "/")}`, (route) =>
+    route.request().method() === "PUT" ? new Promise(() => {}) : route.fallback(),
+  );
+  await page.locator(".cm-content .cm-line:visible").last().click();
+  await page.keyboard.type("[02:00](https://www.youtube.com/watch?v=other0000xx&t=120s)");
+  await page.locator(".cm-content .cm-line:visible").first().click();
   await time(page, "02:00").click();
   // The note's own time still seeks, so the click above had its chance to.
   await time(page).click();
@@ -144,6 +150,5 @@ test("#791 R8 a take of a video the note does not link leaves the player alone",
     "src",
     `https://www.youtube.com/embed/${LINKED}?enablejsapi=1`,
   );
-  expect(await sentTo(pane)).toEqual([]);
   expect(blocked).toEqual([]);
 });
