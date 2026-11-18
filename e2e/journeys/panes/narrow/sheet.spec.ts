@@ -1,5 +1,5 @@
 import type { Locator, Page } from "@playwright/test";
-import { findNote, leader, openApp } from "../../../harness/app.ts";
+import { findNote, leader, openApp, openNote, vaultWith } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
 
 /** A panel over the app: its dialog's name, the leader keys that open it, and whether its field is a draft. */
@@ -166,5 +166,153 @@ test.describe("the sheet around a panel", () => {
     await expect(sheet.getByRole("combobox")).toHaveValue(/Quote/, { timeout: 15_000 });
     await press(page, SHEET);
     await expect(sheet).toBeHidden();
+  });
+});
+
+test.describe("a note's links: the margin of a wide pane, the Local graph sheet of a narrow one", () => {
+  const node = (path: string, name: string) => ({
+    path,
+    name,
+    type: null,
+    tags: [],
+    missing: false,
+  });
+  const edge = (source: string, target: string, line: number) => ({
+    source,
+    target,
+    relation: null,
+    line,
+  });
+  // Margin links out to Other, Borges and Ref link in, and Ref twice, which must make one row.
+  const GRAPH = {
+    nodes: [
+      node("Margin.md", "Margin"),
+      node("Other.md", "Other note"),
+      node("Borges.md", "Borges"),
+      node("Ref.md", "Ref"),
+    ],
+    edges: [
+      edge("Margin.md", "Other.md", 3),
+      edge("Borges.md", "Margin.md", 5),
+      edge("Ref.md", "Margin.md", 2),
+      edge("Ref.md", "Margin.md", 4),
+    ],
+    columns: [],
+    rows: [],
+    truncated: false,
+  };
+  const margin = (page: Page) => page.locator("[data-margin='links']");
+  /** The rows of the Links (0) or Backlinks (1) list, the two lists the graph answers. */
+  const rows = (scope: Locator, list: 0 | 1) =>
+    scope.locator("section").nth(list).getByRole("button");
+  const sheet = (page: Page) => page.getByRole("dialog", { name: "Local graph" });
+  const asked: string[] = [];
+
+  /** Opens Margin.md, the graph answered by `graph`, at `width`; every graph and mentions read is kept. */
+  async function openMargin(
+    page: Page,
+    vault: string,
+    width: number,
+    graph: object | null = GRAPH,
+  ) {
+    asked.length = 0;
+    await vaultWith(vault, {
+      "Margin.md": "# Margin\n\nSee the other note.\n",
+      "Other.md": "other\n",
+      "Borges.md": "# Borges\n\nBorn 1899.\n\nSee [[Margin]].\n",
+    });
+    page.on("request", (request) => {
+      const { pathname, search } = new URL(request.url());
+      if (/^\/api\/(graph|mentions)$/.test(pathname)) asked.push(`${pathname}${search}`);
+    });
+    await page.route("**/api/graph?*", (route) =>
+      graph ? route.fulfill({ json: graph }) : route.fulfill({ status: 500, body: "down" }),
+    );
+    await page.setViewportSize({ width, height: 900 });
+    await openApp(page);
+    await openNote(page, "Margin");
+  }
+
+  test("a wide pane lists its links and backlinks, one row a note, and draws the graph around it", async ({
+    page,
+    stack,
+  }) => {
+    await openMargin(page, stack.vault, 1900);
+
+    await expect(rows(margin(page), 0)).toHaveText(["Other note"]);
+    await expect(rows(margin(page), 1)).toHaveText(["Borges", "Ref"]);
+    expect(asked.filter((url) => url.startsWith("/api/graph"))).toEqual([
+      "/api/graph?q=&around=Margin.md&depth=1&archive=false",
+    ]);
+    // Painted, not only placed: the canvas holds the dots of the answer.
+    const canvas = margin(page).getByTestId("local-graph-canvas").locator("canvas");
+    await expect
+      .poll(() =>
+        canvas.evaluate((c: HTMLCanvasElement) => {
+          const { data } = c.getContext("2d")?.getImageData(0, 0, c.width, c.height) ?? {
+            data: [],
+          };
+          return data.some((value, i) => i % 4 === 3 && value > 0);
+        }),
+      )
+      .toBe(true);
+  });
+
+  for (const vim of ["on", "off"]) {
+    test(`a click on a backlink in the margin opens its note at the line that links here, vim ${vim}`, async ({
+      page,
+      stack,
+    }) => {
+      await page.addInitScript((mode) => localStorage.setItem("kasten.vim", mode), vim);
+      await openMargin(page, stack.vault, 1900);
+
+      await rows(margin(page), 1).first().click();
+
+      await expect(page.getByRole("tab", { name: "Borges", selected: true })).toBeVisible();
+      await expect(page.locator(".cm-activeLine")).toHaveText(/^See (\[\[)?Margin(\]\])?\.$/);
+    });
+  }
+
+  test("a failed graph read leaves the plain lines and no rows", async ({ page, stack }) => {
+    await openMargin(page, stack.vault, 1900, null);
+
+    await expect(margin(page)).toContainText("No links.");
+    await expect(margin(page)).toContainText("No backlinks.");
+    await expect(rows(margin(page), 0)).toHaveCount(0);
+    await expect(rows(margin(page), 1)).toHaveCount(0);
+  });
+
+  test("a narrow pane asks no graph and draws no canvas, even after a save, till its Graph button opens the sheet", async ({
+    page,
+    stack,
+  }) => {
+    await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
+    await openMargin(page, stack.vault, 1280);
+    const saved = page.waitForResponse((answer) => answer.request().method() === "PUT");
+    await page.keyboard.type("x");
+    await saved;
+
+    expect(asked).toEqual([]);
+    await expect(page.getByTestId("local-graph-canvas")).toHaveCount(0);
+
+    await page.locator("[data-head='graph']").click();
+    await expect(sheet(page).getByTestId("local-graph-canvas")).toBeVisible();
+    await expect(sheet(page)).toContainText("Backlinks 2");
+    await expect(rows(sheet(page), 1)).toHaveText(["Borges", "Ref"]);
+    // The matcher above counts the sheet's read, so its zero was no glob that never matches.
+    expect(asked.some((url) => url.startsWith("/api/graph"))).toBe(true);
+  });
+
+  test("a click on a row in the sheet opens that note and closes the sheet", async ({
+    page,
+    stack,
+  }) => {
+    await openMargin(page, stack.vault, 1280);
+    await page.locator("[data-head='graph']").click();
+
+    await rows(sheet(page), 0).click();
+
+    await expect(page.getByRole("tab", { name: "Other", selected: true })).toBeVisible();
+    await expect(sheet(page)).toBeHidden();
   });
 });
