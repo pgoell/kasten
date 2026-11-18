@@ -2,7 +2,7 @@
  * Pictures of the home route in the light and the dark theme, at desktop,
  * phone and touch phone width (#777), to look at by eye.
  *
- * The route is mounted over a router the way `log-pane.test.tsx` mounts it,
+ * The route is mounted over a router,
  * with the api answered from a small vault here. Pictures land in
  * node_modules/.cache/kasten-shots with VITE_KASTEN_SHOTS=1.
  */
