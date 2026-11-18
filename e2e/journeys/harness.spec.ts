@@ -12,6 +12,7 @@ import {
   type Backend,
   backendEnv,
   createDatabase,
+  endWarm,
   expect,
   fork,
   killGroup,
@@ -90,9 +91,13 @@ test("a forked backend that dies at start fails its test with its log and code",
   const dir = await mkdtemp(join(tmpdir(), "kasten-e2e-"));
   const log: string[] = [];
   const env = { ...backendEnv(dir, "unused"), KASTEN_DATABASE_URL: "no-url" };
-  await expect(listening(fork(warm, dir, env), log)).rejects.toThrow(
-    /exited with 1:[\s\S]*Could not parse SQLAlchemy URL/,
-  );
+  try {
+    await expect(listening(fork(warm, dir, env), log)).rejects.toThrow(
+      /exited with 1:[\s\S]*Could not parse SQLAlchemy URL/,
+    );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });
 
 test("a forked backend a signal kills fails with the signal, and its stop returns", async ({
@@ -100,11 +105,15 @@ test("a forked backend a signal kills fails with the signal, and its stop return
 }) => {
   const dir = await mkdtemp(join(tmpdir(), "kasten-e2e-"));
   const backend = fork(warm, dir, backendEnv(dir, "t_never_made"));
-  const started = listening(backend, []);
-  await expect.poll(() => backend.pid).toBeDefined();
-  killGroup(backend.pid ?? 0, "SIGKILL");
-  await expect(started).rejects.toThrow(/exited with SIGKILL/);
-  await expect(stop(backend).then(() => "stopped")).resolves.toBe("stopped");
+  try {
+    const started = listening(backend, []);
+    await expect.poll(() => backend.pid).toBeDefined();
+    killGroup(backend.pid ?? 0, "SIGKILL");
+    await expect(started).rejects.toThrow(/exited with SIGKILL/);
+    await expect(stop(backend).then(() => "stopped")).resolves.toBe("stopped");
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });
 
 plainTest("a warm parent that died fails the next start, and its stop returns", async () => {
@@ -122,6 +131,8 @@ plainTest("a warm parent that died fails the next start, and its stop returns", 
     /warm backend: \w+ ECONN(REFUSED|RESET)/,
   );
   await plainExpect(stop(orphan).then(() => "stopped")).resolves.toBe("stopped");
+  await plainExpect(endWarm(parent).then(() => "ended")).resolves.toBe("ended");
+  await rm(dir, { recursive: true, force: true });
 });
 
 plainTest("a warm parent ends when its worker closes its stdin", async () => {
@@ -129,9 +140,8 @@ plainTest("a warm parent ends when its worker closes its stdin", async () => {
   const parent = spawn("uv", warmArgs(socket), { stdio: ["pipe", "pipe", "inherit"] });
   const [ready] = await once(parent.stdout, "data");
   plainExpect(String(ready).trim()).toBe("ready");
-  parent.stdin.end();
-  const [code] = await once(parent, "exit");
-  plainExpect(code).toBe(0);
+  await endWarm(parent);
+  plainExpect(parent.exitCode).toBe(0);
 });
 
 plainTest("a backend that dies at start fails its test with the backend's log", async () => {

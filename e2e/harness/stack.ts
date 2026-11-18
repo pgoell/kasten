@@ -36,8 +36,7 @@ export const test = base.extend<{ stack: Stack }, { warm: string }>({
       ]);
       if (String(ready).trim() !== "ready") throw new Error(`warm backend said ${ready}`);
       await use(socket);
-      parent.stdin.end();
-      await once(parent, "exit");
+      await endWarm(parent);
     },
     { scope: "worker" },
   ],
@@ -66,6 +65,17 @@ export const test = base.extend<{ stack: Stack }, { warm: string }>({
   },
   baseURL: async ({ stack }, use) => use(stack.url),
 });
+
+/** Ends a warm parent by closing its stdin; one that died already returns at once. */
+export async function endWarm(parent: ChildProcess): Promise<void> {
+  if (parent.exitCode !== null || parent.signalCode !== null) return;
+  const exited = once(parent, "exit");
+  parent.stdin?.on("error", (error: NodeJS.ErrnoException) => {
+    if (error.code !== "EPIPE") throw error;
+  });
+  parent.stdin?.end();
+  await exited;
+}
 
 export function warmArgs(socket: string): string[] {
   return [
@@ -125,6 +135,8 @@ export function fork(socket: string, cwd: string, env: Record<string, string>): 
   link.on("error", (error) => forked.stdout.write(`warm backend: ${error.message}\n`));
   link.on("close", () => {
     const ended = /^exit (\S+)/.exec(tail ?? "")?.[1];
+    if (forked.pid !== undefined && !ended)
+      forked.stdout.write("warm backend: closed with no exit line\n");
     if (ended && /^-?\d+$/.test(ended)) forked.exitCode = Number(ended);
     else forked.signalCode = (ended ?? "SIGKILL") as NodeJS.Signals;
     forked.emit("exit", forked.exitCode, forked.signalCode);
