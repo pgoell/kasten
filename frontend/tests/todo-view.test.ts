@@ -478,7 +478,7 @@ describe("#617 a hash in a span or an address is no tag", () => {
   });
 });
 
-/** #1445: the cases `backend/tests/test_todo_project.py` runs too, so the editor and the project agree. */
+/** #1445: the cases `backend/tests/todos/test_project.py` runs too, so the editor and the project agree. */
 const PARTS: { name: string; note: string; todos: number[]; parts: number[] }[] = JSON.parse(
   readFileSync(
     path.resolve(import.meta.dirname, "../../backend/tests/fixtures/todo_parts.json"),

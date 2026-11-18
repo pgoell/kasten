@@ -15,11 +15,15 @@ kasten has one design rule, and the rest of the system falls out of it.
 > schema and rebuild it from the vault. Nothing that only exists in the
 > database is allowed to matter.
 
-The rule has one exception, money. The `finance` schema is a system of record
-and does not rebuild from the vault; [Finance in Postgres](/explanation/finance-in-postgres.md)
-says why. Two small tables bend it too, the RSVP reading places and the
-agent token record, as [below](#rsvp-reading-places). Everything else here
-holds for the rest of Postgres.
+The rule has two exceptions. The `finance` schema holds money as a system of
+record and does not rebuild from the vault;
+[Finance in Postgres](/explanation/vault-and-derived-index/finance-in-postgres.md)
+says why. The `todos` schema will hold todos the same way, once they leave the
+note lines; [Todos in Postgres](/explanation/vault-and-derived-index/todos-in-postgres.md)
+says why and what replaces their history and backup. Two small tables bend the
+rule too, the RSVP reading places and the agent token record, as
+[below](#rsvp-reading-places). Everything else here holds for the rest of
+Postgres.
 
 ## What that buys you
 
@@ -31,13 +35,13 @@ to export from.
 **Backup is a solved problem for notes.** Make the vault a git repository and
 push it. That is backup and file history in one, and it costs nothing, because
 the vault is already plain text. The notes need no database dump job; the
-`finance` schema does, and has one, as
-[Finance in Postgres](/explanation/finance-in-postgres.md#what-backing-up-now-means)
+`finance` schema does, and has one, and the `todos` schema will, as
+[Finance in Postgres](/explanation/vault-and-derived-index/finance-in-postgres.md#what-backing-up-now-means)
 and [Back up and restore](/how-to/back-up-and-restore.md#the-finance-dump-on-the-maintainers-server)
 say.
 
 **The database is disposable, for notes.** `db:reset` throws away every row and
-you lose no notes. You do lose the `finance` rows, which nothing rebuilds, and
+you lose no notes. You do lose the `finance` and `todos` rows, which nothing rebuilds, and
 the RSVP reading places and the agent token record described below. On a dev
 database those are test data, so schema work stays cheap there and migrations
 lose their fear.
@@ -76,7 +80,7 @@ under 20ms; the backlinks panel, which is a line search for the note's name
 beside the unlinked mentions (`GET /api/mentions`); and the review's cards. See [What is not decided yet](#what-is-not-decided-yet).
 
 The test for whether something belongs in the database is simple. Outside
-`finance` and the two tables below, if losing it would lose information, it
+`finance`, `todos` and the two tables below, if losing it would lose information, it
 does not belong there. Note text, titles and the
 links written inside a note are all recoverable by reading the vault again.
 Anything you cannot recover that way has to go into a file.

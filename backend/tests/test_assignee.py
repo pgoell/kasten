@@ -54,7 +54,7 @@ def put(folder: Path, text: str) -> str:
 
 
 def test_809_a1_the_words_of_every_case_of_the_person_field_table() -> None:
-    assert {case["id"]: todos._words(case["rest"]).strip() for case in CASES} == {
+    assert {case["id"]: todos.lines._words(case["rest"]).strip() for case in CASES} == {
         case["id"]: case["text"] for case in CASES
     }
 

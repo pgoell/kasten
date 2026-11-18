@@ -9,7 +9,7 @@ status: draft
 
 # Budget model
 
-The budget reads the bookings in [the finance schema](/explanation/finance-in-postgres.md)
+The budget reads the bookings in [the finance schema](/explanation/vault-and-derived-index/finance-in-postgres.md)
 and works out two things: free to spend this month, and each spending
 category against its limit. Its settings live in the database, not the code:
 each category's kind, its limit, which income is salary and the salary cutoff

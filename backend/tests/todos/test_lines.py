@@ -8,7 +8,7 @@ a test each. The project each line carries is `test_todo_project.py`'s.
 
 from typing import TYPE_CHECKING
 
-import kasten_backend.todos
+from kasten_backend.todos import lines as todo_lines
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -179,7 +179,7 @@ async def test_stops_at_the_cap(
     write(vault, "kasten.md", "- [ ] open\n" * 5)
     # `find_todos` reads the constant at call time, so the cap is moved rather
     # than a note written long enough to reach the real one.
-    monkeypatch.setattr(kasten_backend.todos, "MOST_TODOS", 3)
+    monkeypatch.setattr(todo_lines, "MOST_TODOS", 3)
 
     response = await client.get("/api/todos")
 
@@ -254,4 +254,4 @@ async def test_1705_a_crlf_note_answers_the_lines_of_its_lf_twin(
 def test_1555_fenced_lines_reads_an_opener_under_a_nested_item() -> None:
     lines = ["- a", "  - b", "    ```", "    - [ ] not a todo", "    ```"]
 
-    assert kasten_backend.todos.fenced_lines(lines) == {2, 3, 4}
+    assert todo_lines.fenced_lines(lines) == {2, 3, 4}

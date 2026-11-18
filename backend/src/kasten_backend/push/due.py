@@ -8,7 +8,8 @@ import hashlib
 import re
 from typing import TYPE_CHECKING, NamedTuple
 
-from kasten_backend import todo_fields, todos
+from kasten_backend import todos
+from kasten_backend.todos import fields as todo_fields
 
 if TYPE_CHECKING:
     from zoneinfo import ZoneInfo

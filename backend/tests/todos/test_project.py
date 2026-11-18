@@ -379,7 +379,9 @@ async def test_b4_space_is_read_as_the_editor_reads_it(client: AsyncClient, vaul
     assert (await projects(client))[line] == "02 Projects/FDE"
 
 
-PARTS = json.loads((Path(__file__).parent / "fixtures/todo_parts.json").read_text(encoding="utf-8"))
+PARTS = json.loads(
+    (Path(__file__).parents[1] / "fixtures/todo_parts.json").read_text(encoding="utf-8")
+)
 """#1445: what ends a todo's parts, the cases `frontend/tests/todo-view.test.ts` runs too."""
 
 

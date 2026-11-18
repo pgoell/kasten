@@ -15,7 +15,7 @@ from kasten_backend import vault
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.log_config import Kind, parse_config, parse_kind_line
 from kasten_backend.periodic import DATE_PATTERN, date_range, day_sections
-from kasten_backend.todo_fields import mask
+from kasten_backend.todos import fields as todo_fields
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -203,7 +203,7 @@ def _food(text: str, line: int) -> Entry | None:
     meal = MEAL.match(text, start.end())
     begin = meal.end() if meal else start.end()
     # Found on the masked copy, so a marker in a code span or a link stays words.
-    field = FIELD_START.search(mask(text), begin)
+    field = FIELD_START.search(todo_fields.mask(text), begin)
     words = text[begin : field.start() if field else len(text)].strip(" \t")
 
     values: dict[str, float] = {}

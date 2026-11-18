@@ -11,13 +11,14 @@ from pydantic import AwareDatetime, BaseModel, Field, field_serializer, model_va
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kasten_backend import agent, done_log, share, todo_fields, todos, vault, vcs
+from kasten_backend import agent, done_log, share, todos, vault, vcs
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.db import get_session
 from kasten_backend.push import webpush
 from kasten_backend.push.due import ALARM, CLOSED, put_off
 from kasten_backend.push.loop import deliver
 from kasten_backend.push.models import PushDevice, PushSettings, PushTimer
+from kasten_backend.todos import fields as todo_fields
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator

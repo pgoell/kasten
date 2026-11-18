@@ -10,9 +10,10 @@ from calendar import monthrange
 from dataclasses import dataclass, field
 from decimal import ROUND_UP, Decimal
 
-from kasten_backend import frontmatter, todo_fields, todos
+from kasten_backend import frontmatter, todos
 from kasten_backend.finance.records.ledger import CENT, ZERO, Scope, add_months, months_between
 from kasten_backend.periodic import append_under, section_lines
+from kasten_backend.todos import fields as todo_fields
 
 FORECAST_MONTHS = 12
 DAY = dt.timedelta(days=1)

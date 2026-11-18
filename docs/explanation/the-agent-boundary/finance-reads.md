@@ -9,7 +9,7 @@ status: stable
 # Finance reads past the boundary
 
 The finance module keeps money in Postgres, outside the vault
-([Finance in Postgres](/explanation/finance-in-postgres.md)). Its reads are the
+([Finance in Postgres](/explanation/vault-and-derived-index/finance-in-postgres.md)). Its reads are the
 first capability that reaches data no note holds, so they argue their way in
 like `file` did, and on harder ground: they add nothing a token can break, and
 a great deal it can expose.
@@ -66,4 +66,4 @@ token there exposes no more than the vault.
 
 * [The agent boundary](/explanation/the-agent-boundary.md): the eleven capabilities on the vault, and the gate in front of them all
 * [Agent finance routes](/reference/agent-api/finance.md): the finance routes and the tools beside them
-* [Finance in Postgres](/explanation/finance-in-postgres.md): why money lives outside the vault
+* [Finance in Postgres](/explanation/vault-and-derived-index/finance-in-postgres.md): why money lives outside the vault

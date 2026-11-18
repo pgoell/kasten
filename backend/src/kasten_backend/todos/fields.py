@@ -1,7 +1,7 @@
 """The field readers of a todo line: the markers its words carry, and the words and assignee left.
 
 A port of the editor's `readFields` in `todo-fields.ts`, held to it by one table of cases.
-It imports nothing from `todos.py`, which reads it.
+It imports nothing from `lines.py`, which reads it.
 """
 
 import re

@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
-from kasten_backend import agent, done_log, todo_fields, todos, vault
+from kasten_backend import agent, done_log, todos, vault
 from kasten_backend.share.lines import (
     CLOSED,
     TASK,
@@ -27,6 +27,7 @@ from kasten_backend.share.lines import (
     undone,
     words,
 )
+from kasten_backend.todos import fields as todo_fields
 
 if TYPE_CHECKING:
     import re
