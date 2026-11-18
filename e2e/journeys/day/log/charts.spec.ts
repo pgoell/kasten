@@ -264,7 +264,9 @@ test("#804 I3 a range with nothing logged says nothing logged, draws no bar and 
     { timeout: 15_000 },
   );
   await expect(pane.getByText("macros: nothing logged")).toBeVisible();
-  await expect(pane.getByText("nothing logged", { exact: true }).last()).toBeVisible();
+  await expect(pane.getByRole("table", { name: "By week" }).locator("+ p")).toHaveText(
+    "nothing logged",
+  );
   await expect(pane.locator("rect")).toHaveCount(0);
   await expect(pane).not.toContainText(/NaN|Infinity/);
 });
