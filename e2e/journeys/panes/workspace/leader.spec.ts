@@ -69,7 +69,12 @@ test("E puts the focus on the open note's row in its folded folder, where e land
   await page.locator(".cm-content").click();
   await page.keyboard.press("Escape");
   await inEditor(page);
-  await leader(page, "E");
+  // Shift's own press, as a keyboard sends it before the E, keeps the panel waiting.
+  await page.keyboard.press("Space");
+  await page.keyboard.down("Shift");
+  await expect(dialog(page, "Leader keys")).toBeVisible();
+  await page.keyboard.press("E");
+  await page.keyboard.up("Shift");
   await expect(row(page, "Garden")).toBeFocused();
 });
 

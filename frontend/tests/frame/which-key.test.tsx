@@ -45,11 +45,11 @@ function opener(): HTMLElement {
 }
 
 /** Presses Space on the opener: focus it, then hand the leader to the panel. */
-async function openPanel(): Promise<HTMLElement> {
+async function openPanel(commands = stubCommands()): Promise<HTMLElement> {
   // Effects run after the commit, so the panel's host is registered a frame later.
   await nextFrame();
   opener().focus();
-  const begun = flushSync(() => beginLeader(paneOpener(stubCommands())));
+  const begun = flushSync(() => beginLeader(paneOpener(commands)));
   expect(begun).toBe(true);
   return panelOf() as HTMLElement;
 }
@@ -95,6 +95,24 @@ it("on a desktop Esc fades the panel out and then it is gone", async () => {
   expect(Math.min(...seen)).toBeLessThan(1);
   expect(panel.style.transform).toBe("");
   await expect.poll(() => panelOf(), { timeout: 3000 }).toBeNull();
+});
+
+it("a fading panel takes no click and is hidden from the accessibility tree", async () => {
+  mount();
+  const commands = stubCommands();
+  const panel = await openPanel(commands);
+  const row = [...panel.querySelectorAll("button")].find((b) =>
+    b.textContent?.includes("Toggle the file tree"),
+  );
+
+  key(panel, "Escape");
+  await nextFrame();
+
+  expect([panel.hasAttribute("inert"), panel.getAttribute("aria-hidden")]).toEqual([true, "true"]);
+  const box = (row as HTMLElement).getBoundingClientRect();
+  expect(panel.contains(document.elementFromPoint(box.x + 5, box.y + box.height / 2))).toBe(false);
+  row?.click();
+  expect(commands.toggleTree).not.toHaveBeenCalled();
 });
 
 it("Space while the panel fades catches it and brings it back", async () => {
