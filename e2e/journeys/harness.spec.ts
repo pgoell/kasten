@@ -1,9 +1,26 @@
 import { spawn } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { once } from "node:events";
+import { cp, mkdtemp, rm } from "node:fs/promises";
 import { createServer, get } from "node:http";
 import type { AddressInfo } from "node:net";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { expect as plainExpect, test as plainTest } from "@playwright/test";
-import { expect, killGroup, listening, serve, stop, test } from "../harness/stack.ts";
+import { fixtureVault, root } from "../harness/paths.ts";
+import {
+  type Backend,
+  backendEnv,
+  createDatabase,
+  expect,
+  fork,
+  killGroup,
+  listening,
+  serve,
+  stop,
+  test,
+  warmArgs,
+} from "../harness/stack.ts";
 
 // Run side by side: on a shared stack whichever ran second would list the first one's note.
 for (const name of ["first", "second"]) {
@@ -16,6 +33,88 @@ for (const name of ["first", "second"]) {
     expect(files.filter((path) => path.startsWith("isolation-"))).toEqual([`isolation-${name}.md`]);
   });
 }
+
+test("a forked backend starts at least a second sooner than a cold one, and stops whole", async ({
+  warm,
+}) => {
+  const startup = async (start: (dir: string, env: Record<string, string>) => Backend) => {
+    const dir = await mkdtemp(join(tmpdir(), "kasten-e2e-"));
+    await cp(fixtureVault, join(dir, "vault"), { recursive: true });
+    const db = `t_${randomBytes(6).toString("hex")}`;
+    await createDatabase(db);
+    const began = performance.now();
+    const backend = start(dir, backendEnv(dir, db));
+    try {
+      await listening(backend, []);
+      return performance.now() - began;
+    } finally {
+      await stop(backend);
+      await rm(dir, { recursive: true, force: true });
+      await expect.poll(() => alive(backend.pid ?? 0)).toBe(false);
+    }
+  };
+  const uvicorn = ["kasten_backend.main:app", "--host", "127.0.0.1", "--port", "0"];
+  const cold = await startup((dir, env) =>
+    spawn("uv", ["run", "--no-sync", "--project", root, "uvicorn", ...uvicorn], {
+      cwd: dir,
+      detached: true,
+      env: { ...process.env, ...env },
+    }),
+  );
+  const forked = await startup((dir, env) => fork(warm, dir, env));
+  console.log(`backend start: cold ${Math.round(cold)} ms, forked ${Math.round(forked)} ms`);
+  expect(cold - forked).toBeGreaterThan(1000);
+});
+
+test("a forked backend that dies at start fails its test with its log and code", async ({
+  warm,
+}) => {
+  const dir = await mkdtemp(join(tmpdir(), "kasten-e2e-"));
+  const log: string[] = [];
+  const env = { ...backendEnv(dir, "unused"), KASTEN_DATABASE_URL: "no-url" };
+  await expect(listening(fork(warm, dir, env), log)).rejects.toThrow(
+    /exited with 1:[\s\S]*Could not parse SQLAlchemy URL/,
+  );
+});
+
+test("a forked backend a signal kills fails with the signal, and its stop returns", async ({
+  warm,
+}) => {
+  const dir = await mkdtemp(join(tmpdir(), "kasten-e2e-"));
+  const backend = fork(warm, dir, backendEnv(dir, "t_never_made"));
+  const started = listening(backend, []);
+  await expect.poll(() => backend.pid).toBeDefined();
+  killGroup(backend.pid ?? 0, "SIGKILL");
+  await expect(started).rejects.toThrow(/exited with SIGKILL/);
+  await expect(stop(backend).then(() => "stopped")).resolves.toBe("stopped");
+});
+
+plainTest("a warm parent that died fails the next start, and its stop returns", async () => {
+  const socket = join(await mkdtemp(join(tmpdir(), "kasten-warm-")), "socket");
+  const parent = spawn("uv", warmArgs(socket), {
+    detached: true,
+    stdio: ["pipe", "pipe", "inherit"],
+  });
+  await once(parent.stdout, "data");
+  killGroup(parent.pid ?? 0, "SIGKILL");
+  await once(parent, "exit");
+  const dir = await mkdtemp(join(tmpdir(), "kasten-e2e-"));
+  const orphan = fork(socket, dir, backendEnv(dir, "t_never_made"));
+  await plainExpect(listening(orphan, [])).rejects.toThrow(
+    /warm backend: \w+ ECONN(REFUSED|RESET)/,
+  );
+  await plainExpect(stop(orphan).then(() => "stopped")).resolves.toBe("stopped");
+});
+
+plainTest("a warm parent ends when its worker closes its stdin", async () => {
+  const socket = join(await mkdtemp(join(tmpdir(), "kasten-warm-")), "socket");
+  const parent = spawn("uv", warmArgs(socket), { stdio: ["pipe", "pipe", "inherit"] });
+  const [ready] = await once(parent.stdout, "data");
+  plainExpect(String(ready).trim()).toBe("ready");
+  parent.stdin.end();
+  const [code] = await once(parent, "exit");
+  plainExpect(code).toBe(0);
+});
 
 plainTest("a backend that dies at start fails its test with the backend's log", async () => {
   const log: string[] = [];
