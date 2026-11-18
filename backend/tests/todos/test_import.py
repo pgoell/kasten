@@ -303,3 +303,16 @@ async def test_the_move_is_one_jj_change_once_the_snapshot_settles(
 
     assert descriptions(versioned_vault) == [f"vault: {importer.LABEL}"]
     assert sorted(changed_paths(versioned_vault, "@")) == ["other.md", "plan.md"]
+
+
+def test_a_wait_reads_its_start_as_the_look_again_day() -> None:
+    row = importer.row_of("tax office 👤 [[Tax Office]] ⏳ 2026-11-12 🛫 2026-11-30", "w", TODAY)
+    unread = importer.row_of("tax office 👤 [[Tax Office]]", "w", TODAY)
+
+    assert [row[key] for key in ("waiting_on", "waiting_since", "look_again", "from_day")] == [
+        "[[Tax Office]]",
+        TODAY,
+        date(2026, 11, 30),
+        date(2026, 11, 12),
+    ]
+    assert (row["assignee"], unread["look_again"]) == (None, TODAY)

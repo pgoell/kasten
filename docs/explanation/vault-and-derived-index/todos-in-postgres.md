@@ -56,10 +56,11 @@ One row per todo in `todos.todo`, with what the line held:
 | `⛔` | `blocked_by`, ids in order |
 | `🔁`, `🏁` | `repeat`, `on_completion` |
 | priority glyph | `priority` |
-| `⏳`, `🛫` | `from_day` |
+| `⏳`, `🛫` | `from_day`, except `🛫` on a `[w]` line |
 | `📅` | `deadline` with `deadline_hard` |
 | undated `👤` | `assignee` |
-| dated `👤` on a `[w]` line | `waiting_since`, `waiting_on`, plus the new `look_again` |
+| `👤` on a `[w]` line | `waiting_on`, and `waiting_since` when dated |
+| `🛫` on a `[w]` line | `look_again` |
 | `⏰` | `remind_at` |
 | `⏲`, `⏱` | `estimate`, `worked`, in minutes |
 | `➕`, `✅`, `❌` | `created`, `done`, `cancelled` |
@@ -149,13 +150,14 @@ embeds in the same pass. It reads lines with the reader that serves
 `GET /api/todos` today and the field parser held to the editor's by fixtures,
 so a line reads the same in the import as in the pane.
 
-- `⏳` and `🛫` become the from-day, the later of the two. `📅` becomes a hard
-  deadline.
+- `⏳` and `🛫` become the from-day, the later of the two. On a `[w]` line
+  `🛫` is the look-again day instead, as the planning skill writes it, and
+  `⏳` alone is the from-day. `📅` becomes a hard deadline.
 - An open todo with no `📅` gets a soft deadline 14 days after the import, its
   creation in the store. Fourteen days after `➕` would put most old todos past
   their deadline on the first day.
-- A waiting todo gets the import day as its look-again day, so each one comes
-  up once for a decision.
+- A waiting todo with no `🛫` gets the import day as its look-again day, so
+  each one comes up once for a decision.
 - Done and rejected lines come in too, with their days, so the history of past
   work stays countable. So do the archive's lines; a todo whose note is in the
   archive reads as archived, as now.

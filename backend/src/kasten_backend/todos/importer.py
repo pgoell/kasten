@@ -109,8 +109,12 @@ def row_of(rest: str, box: str, today: date) -> dict[str, Any]:
     words = " ".join(fields.BLOCK_ID.sub("", text).split())
     state = STATES[box]
     due = _day(_first(found, DUE))
-    starts = [day for day in (_day(_first(found, SCHEDULED)), _day(_first(found, START))) if day]
-    waiting = found.get(fields.WAITING, [(None, None)])[0]
+    start = _day(_first(found, START))
+    waits = state == "waiting"
+    # On a `[w]` line the planning skill writes the look-again day as `🛫`.
+    starts = [day for day in (_day(_first(found, SCHEDULED)), None if waits else start) if day]
+    who = _first(found, fields.ASSIGNEE)
+    waiting = found.get(fields.WAITING, [(None, who if waits else None)])[0]
     return {
         "words": words,
         "state": state,
@@ -122,10 +126,10 @@ def row_of(rest: str, box: str, today: date) -> dict[str, Any]:
         "from_day": max(starts, default=None),
         "deadline": due,
         "deadline_hard": due is not None,
-        "assignee": _first(found, fields.ASSIGNEE),
-        "waiting_since": _day(waiting[0]) or (today if state == "waiting" else None),
+        "assignee": None if waits else who,
+        "waiting_since": _day(waiting[0]) or (today if waits else None),
         "waiting_on": waiting[1],
-        "look_again": today if state == "waiting" else None,
+        "look_again": (start or today) if waits else None,
         "remind_at": remind,
         "estimate": minutes(_first(found, ESTIMATE)),
         "worked": minutes(_first(found, WORKED)),
