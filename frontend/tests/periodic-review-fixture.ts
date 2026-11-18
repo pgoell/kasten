@@ -7,7 +7,7 @@ import type { WrittenNote } from "@/lib/review/review-year";
 import { renderApp, settle } from "./home-route-fixture";
 
 /**
- * The shared data of the periodic review tests: one yearly note and one weekly note, the
+ * The shared data of the periodic review tests: one yearly note and a week of daily notes, the
  * reads the vault would answer for them, and the helpers that find what the review drew.
  * The doubles (`vi.hoisted` and `vi.mock`) stay in each test file, since `vi.mock` hoists
  * only in its own file; this holds what the files share and nothing that mocks.
@@ -20,8 +20,6 @@ export const NOW = new Date(2026, 9, 25, 9, 0);
 export const YEAR_NOTE = "01 Periodic/04 Yearly/2026.md";
 export const LAST_YEAR_NOTE = "01 Periodic/04 Yearly/2025.md";
 export const NEXT_YEAR_NOTE = "01 Periodic/04 Yearly/2027.md";
-export const WEEK_NOTE = "01 Periodic/01 Weekly/2026-W43.md";
-export const NEXT_WEEK_NOTE = "01 Periodic/01 Weekly/2026-W44.md";
 export const LOG_CONFIG = "99 Misc/01 Config/log.md";
 export const TODAY = periodicNote("daily", NOW).path;
 
@@ -31,7 +29,6 @@ export const CONFIG = "- 🍽 food: kcal max 2200\n- 💧 water: 250 ml\n- ⚖ w
 /** A note's own words, under the title and its link row, which the review must sit above. */
 export const YEAR_TEXT =
   "# 2026\n\n[[01 Periodic/04 Yearly/2025]] | [[01 Periodic/04 Yearly/2027]]\n\nmy own line\n";
-export const WEEK_TEXT = "# 2026-W43\n\nmy own line\n";
 
 /** The day a daily note is named for, as the route reads it. */
 export function dailyOf(date: string): string {
@@ -177,54 +174,10 @@ export const YEAR_MODEL_USE: ModelUseLine[] = [
   },
 ];
 
-/** The week's log: the weigh-in before it, then five logged days, one of them over the kcal ceiling. */
-export const WEEK_LOG: LogDay[] = [
-  logged("2026-10-12", 0, 80.8),
-  logged("2026-10-19", 2100, 80.6),
-  logged("2026-10-20", 2300),
-  logged("2026-10-21", 1800),
-  logged("2026-10-23", 2000),
-  logged("2026-10-25", 2150, 80.2),
-];
-
 /** The daily notes of the week that hold time: 90 minutes on the 20th. */
 export const WEEK_DAILY: Record<string, string> = {
   [dailyOf("2026-10-20")]: "# 2026-10-20 Tuesday\n\n## Time\n- 09:00-10:30 wire\n",
 };
-
-/** The todos the week counts: two done in it and one open with a due date in it, carried over. */
-export const WEEK_TODOS: TodoHit[] = [
-  {
-    path: "02 Projects/FDE/tasks.md",
-    line: 3,
-    text: "- [x] ship the export ✅ 2026-10-20",
-    project: "02 Projects/FDE",
-    shared: false,
-  },
-  {
-    path: "00 Inbox/tasks.md",
-    line: 7,
-    text: "- [x] reply to Anna ✅ 2026-10-22 ⏱ 10m",
-    project: null,
-    shared: false,
-  },
-  {
-    path: "00 Inbox/tasks.md",
-    line: 8,
-    text: "- [ ] send the deck 📅 2026-10-22",
-    project: null,
-    shared: false,
-  },
-];
-
-/** One flashcard rated on the 22nd, in the deck. */
-export const WEEK_CARDS: LineHit[] = [
-  { path: "00 Inbox/cards.md", line: 1, text: "#flashcards/aws" },
-  { path: "00 Inbox/cards.md", line: 2, text: "Q :: A <!--SR:!2026-10-23,1,270-->" },
-];
-
-/** GitHub's answer for the week: 23 contributions across two days. */
-export const WEEK_GITHUB = { on: true, days: { "2026-10-20": 4, "2026-10-22": 19 } };
 
 /** The text the editor holds, which is the note's own text and never the review's words. */
 export function docText(): string {
