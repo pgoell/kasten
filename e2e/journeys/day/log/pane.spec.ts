@@ -303,10 +303,15 @@ test("#624 a refused food log keeps the food search open", async ({ page, stack 
   await page.keyboard.press("f");
   const sheet = page.getByRole("dialog", { name: "Food search" });
   await sheet.getByRole("button", { name: /oats.*recent/ }).click();
+  await sheet.getByLabel("Meal", { exact: true }).selectOption("breakfast");
   await sheet.getByRole("button", { name: "Log this food" }).click();
   await expect(page.getByText(/^Nothing logged/)).toBeVisible();
-  await expect(sheet.getByRole("button", { name: "Log this food" })).toBeVisible();
   expect(await lines(stack.vault)).toEqual(DAY);
+  // A closing sheet still draws its button while it slides out, so the proof is a second try that lands.
+  await page.unroute("**/api/files/**");
+  await sheet.getByRole("button", { name: "Log this food" }).click();
+  await expect(sheet).toBeHidden();
+  await expect.poll(() => lines(stack.vault)).toEqual([...DAY, OATS]);
 });
 
 test("#624 log.md open in an editor beside the pane keeps its text, and the pane reads its kinds", async ({
