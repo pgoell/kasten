@@ -203,7 +203,10 @@ test("#818 the stream's first open asks log.md no more often than the mount did"
   stack,
 }) => {
   const gets = await onConfig(page);
+  const opened = page.waitForResponse("**/api/events");
   await today(page, stack.vault, WATER);
+  await opened;
+  await expect.poll(gets).toBeGreaterThan(1);
   await expect(button(page, "Log water")).toBeVisible();
   await leader(page, ":");
   await expect(drinks(page)).toHaveText(["Log water"]);
