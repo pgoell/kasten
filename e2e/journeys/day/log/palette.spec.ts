@@ -143,19 +143,22 @@ test("#762 I6 with the focus off today's editor, Log food opens its food search 
   expect(sent).toEqual([]);
 });
 
-test("#762 I5 another note opened while today's note loads gets no food search, nor does today opened by hand", async ({
+test("#762 I5 a past day's card opened while today's note loads gets no food search, nor does today opened by hand", async ({
   page,
   stack,
 }) => {
-  await vaultWith(stack.vault, { [DAILY]: DAY_TEXT });
+  await vaultWith(stack.vault, { [DAILY]: DAY_TEXT, [daily(PAST)]: `# ${PAST}\n\n## TODOs\n` });
   await openApp(page);
   await openNote(page, "Welcome");
   const release = await hold(page, new RegExp(`/api/files/.*${TODAY}\\.md`));
   await logFood(page);
   // The tree, since the pane waits on today's note with no editor to take a leader.
-  await openFromTree(page, "Long note");
+  for (const folder of ["01 Periodic", "00 Daily"]) {
+    await page.getByRole("button", { name: folder, exact: true }).click();
+  }
+  await openFromTree(page, PAST);
   await release();
-  await expect(tab(page, "Long note")).toBeVisible();
+  await expect(card(page)).toBeVisible();
   await expect(query(page)).toHaveCount(0);
   await noSearchOnToday(page);
 });
@@ -191,10 +194,11 @@ test("#762 I5 today's note with no card gets no food search, nor once a heading 
   await page.keyboard.press("g");
   await page.keyboard.press("g");
   await page.keyboard.press("O");
-  await page.keyboard.type(`# ${TODAY}`);
-  await page.keyboard.press("Escape");
+  // One insert, so the card draws once the heading is whole; Escape after the check, as it would close a search.
+  await page.keyboard.insertText(`# ${TODAY}`);
   await expect(card(page)).toBeVisible();
   await expect(query(page)).toHaveCount(0);
+  await page.keyboard.press("Escape");
 });
 
 test("#762 I5 a failed create of today's note leaves nothing waiting for a later <leader>gd", async ({
