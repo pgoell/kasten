@@ -248,12 +248,16 @@ test("#947 B1 a press whose done log is refused says so and still draws its todo
   page,
   stack,
 }) => {
-  const { first, put } = await openOrder(page, stack.vault);
+  const { first, put, reads } = await openOrder(page, stack.vault);
   await cursorTo(page, first[0] ?? "");
+  const before = reads();
   put.allow = 1;
   await page.keyboard.press("x");
   await expect(page.getByText(REFUSED)).toBeVisible({ timeout: 15_000 });
   await expect(struck(page, first[0] ?? "")).toBeVisible();
+  // The landed write's echo is muted, so only the press's own ask at its end redraws it.
+  await page.waitForTimeout(1500);
+  expect(reads() - before).toBe(2);
 });
 
 test("#947 B4 an edit with i during a held order puts the row where its new words put it", async ({
@@ -261,8 +265,9 @@ test("#947 B4 an edit with i during a held order puts the row where its new word
   stack,
 }) => {
   const { first } = await openOrder(page, stack.vault);
-  await cursorTo(page, first[0] ?? "");
+  await aim(page, first[0] ?? "");
   await page.keyboard.press("x");
+  // An edit typed before the x lands is refused, so it waits for the write; the paused clock keeps the x's hold.
   await expect
     .poll(() => noteText(stack.vault, A), { timeout: 15_000 })
     .toContain(`- [x] ${first[0]}`);
@@ -325,35 +330,6 @@ test("#947 B5 a todo typed into today's note right after a press reaches the pan
     .toContain(first[0] ?? "");
   await vaultWith(stack.vault, { [DAILY]: `${await noteText(stack.vault, DAILY)}- [ ] kilo\n` });
   await expect(row(page, "kilo")).toBeVisible({ timeout: 15_000 });
-});
-
-test("#947 B6 a press whose save answers past the last press's echo window still mutes its own echo", async ({
-  page,
-  stack,
-}) => {
-  const open = await openOrder(page, stack.vault);
-  await pressCount(page, stack.vault, open, open.first[0] ?? "");
-  let go = () => {};
-  open.put.stall = {
-    path: DAILY,
-    go: new Promise((resolve) => {
-      go = resolve;
-    }),
-  };
-  await cursorTo(page, open.first[1] ?? "");
-  const before = open.reads();
-  await page.keyboard.press("x");
-  await expect
-    .poll(() => noteText(stack.vault, DAILY), { timeout: 15_000 })
-    .toContain(open.first[1] ?? "");
-  // The echo comes before the save's answer, and the first press's window has closed by then.
-  await expect
-    .poll(async () => (await open.seen()).split(DAILY).length, { timeout: 15_000 })
-    .toBe(3);
-  await page.clock.runFor(3500);
-  go();
-  await page.waitForTimeout(1500);
-  expect(open.reads() - before).toBe(PRESS_READS);
 });
 
 const crlf = (notes: Record<string, string>) =>

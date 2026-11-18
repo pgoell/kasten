@@ -9,7 +9,17 @@ import {
   toggleTimerInVault,
 } from "@/lib/todo/todo-api";
 import { addSubtaskInVault, blockTodoInVault, editTodoInVault } from "@/lib/todo/todo-line-edits";
-import { followRow, keepLanded, twinsOf } from "@/lib/todo/todo-press-echo";
+import {
+  beginPress,
+  endPress,
+  followRow,
+  keepLanded,
+  pressEcho,
+  pressSending,
+  pressWrote,
+  twinsOf,
+} from "@/lib/todo/todo-press-echo";
+import { digestOf } from "@/lib/vault/events/vault-events";
 import { todoApiHooks } from "./todo-api-fixture";
 
 // Standing in for the module rather than for `fetch`, the way the pane's tests
@@ -320,5 +330,26 @@ describe("#2084 a key read before an x landed", () => {
       "changed since it was listed",
     );
     expect(disk.get("k6.md")).toBe(`${STAMP}# K\n- [b] a 🆔 kt-aaaaaa\n`);
+  });
+});
+
+describe("#947 B6 the echo of a press", () => {
+  it("stays muted where its save answers after an earlier press's window closed", async () => {
+    vi.useFakeTimers({ now: NOW });
+    const path = "02 Projects/Echo.md";
+    beginPress();
+    pressWrote(path, "one");
+    endPress();
+    vi.advanceTimersByTime(2900);
+    // The second press's save is out while its echo comes, and answers past the first's window.
+    beginPress();
+    const answered = pressSending(path);
+    vi.advanceTimersByTime(200);
+    pressWrote(path, "two");
+    answered();
+    const echo = await pressEcho(path, await digestOf("two"));
+    endPress();
+    vi.useRealTimers();
+    expect(echo).toBe(true);
   });
 });
