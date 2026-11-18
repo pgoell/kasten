@@ -4,6 +4,7 @@ import type { Page, Route } from "@playwright/test";
 import {
   bodyOf,
   cursorTo,
+  holdStream,
   leader,
   noteText,
   openApp,
@@ -183,14 +184,7 @@ test("#2118 a write the vault's stream opened too late to see still reaches the 
   stack,
 }) => {
   // The stream waits until the write has landed, so only a read at its open can show it.
-  let open = () => {};
-  const held = new Promise<void>((resolve) => {
-    open = resolve;
-  });
-  await page.route("**/api/events", async (route) => {
-    await held;
-    await route.continue();
-  });
+  const open = await holdStream(page);
   await onDentist(page, stack.vault);
   await vaultWith(stack.vault, { [NOTE]: note(LINE.replace("call", "ring"), NEXT) });
   await expect(page.locator(TODO_ROW, { hasText: "call the dentist" })).toBeVisible();

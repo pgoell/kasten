@@ -7,6 +7,7 @@ import {
   openApp,
   phone,
   plus,
+  recordEvents,
   today,
   vaultWith,
 } from "../../../harness/app.ts";
@@ -399,18 +400,8 @@ test.describe("the overview's Writing card", () => {
     page.on("request", (request) => {
       if (new URL(request.url()).pathname === "/api/written") asked.push(request.url());
     });
-    // Keeps each vault event's data, so the journey knows the page has read one.
-    await page.addInitScript(() => {
-      const seen: string[] = [];
-      Object.assign(window, { seen });
-      window.EventSource = class extends EventSource {
-        constructor(url: string | URL, init?: EventSourceInit) {
-          super(url, init);
-          this.addEventListener("message", (event) => seen.push(event.data));
-        }
-      };
-    });
-    const seen = () => page.evaluate(() => (window as unknown as { seen: string[] }).seen.join());
+    // So the journey knows the page has read a vault event.
+    const seen = await recordEvents(page);
     await overview(page);
     await answered(page);
     const [before, count] = [await writtenToday(page), asked.length];

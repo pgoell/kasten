@@ -1,7 +1,15 @@
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import type { Page, Route } from "@playwright/test";
-import { leader, noteText, openApp, openNote, phone, vaultWith } from "../../../../harness/app.ts";
+import {
+  holdStream,
+  leader,
+  noteText,
+  openApp,
+  openNote,
+  phone,
+  vaultWith,
+} from "../../../../harness/app.ts";
 import { expect, test } from "../../../../harness/stack.ts";
 import { CONFIG_PATH, daily, TODAY } from "../log.ts";
 
@@ -50,19 +58,6 @@ async function onConfig(page: Page, answer = (route: Route) => route.fallback())
 }
 const refuse = (route: Route) => route.fulfill({ status: 500, body: "refused" });
 const old = (route: Route) => route.fulfill({ json: { path: CONFIG_PATH, content: WATER } });
-
-/** Holds the vault's event stream until the returned call lets it open. */
-async function holdStream(page: Page): Promise<() => void> {
-  let open = () => {};
-  const held = new Promise<void>((resolve) => {
-    open = resolve;
-  });
-  await page.route("**/api/events", async (route) => {
-    await held;
-    await route.continue();
-  });
-  return open;
-}
 
 const ROWS: [string, string | null, string[], boolean?][] = [
   ["#770 without log.md", null, DEFAULTS],
