@@ -1,68 +1,19 @@
 import type { Page } from "@playwright/test";
-import {
-  bodyOf,
-  findNote,
-  leader,
-  noteText,
-  openApp,
-  phone,
-  plus,
-  today,
-  vaultWith,
-} from "../../../harness/app.ts";
+import { findNote, leader, openApp, phone, plus, vaultWith } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
-
-const CONFIG_PATH = "99 Misc/01 Config/log.md";
-const CONFIG = `- 💧 water: 250 ml, min 2000
-- ☕ coffee: 1, max 3
-- 🍺 alcohol: 1
-- 🥤 juice: 200 ml, max 500
-- 🍽 food: kcal max 2000, protein min 100
-`;
-const OATS = "- 🍽 breakfast: oats 🔥 300 kcal 🥩 10 g 🍞 50 g 🧈 5 g";
-/** Today's log: two drinks, a kind of your own, and food under a meal and under none. */
-const DAY = ["- 💧 500 ml", "- ☕ 2", "- 🥤 200 ml", OATS, "- 🍽 apple 🔥 80 kcal"];
-const TODAY = today();
-const PAST = plus(-1);
-const daily = (date: string) => `01 Periodic/00 Daily/${date}.md`;
-// Stamped as kasten writes a note: a first save stamps a bare one, which moves its lines and fails an undo (#2173).
-const STAMP =
-  "---\nid: 1\ncreated: 2026-11-01T00:00:00+00:00\ntype: note\nmodified: 2026-11-01T00:00:00+00:00\n---\n";
-const note = (lines: string[]) => `${STAMP}# Day\n\n## Log\n${lines.join("\n")}\n`;
-
-/** The log lines in a day's note on disk. */
-const lines = async (vault: string, date = TODAY) =>
-  bodyOf(await noteText(vault, daily(date)))
-    .split("\n")
-    .filter((line) => line.startsWith("- "));
-
-/** Writes the config, today's log and a litre of water yesterday, and opens the log pane. */
-async function logPane(page: Page, vault: string, how: "leader" | "palette" | "phone" = "leader") {
-  await vaultWith(vault, {
-    [CONFIG_PATH]: CONFIG,
-    [daily(TODAY)]: note(DAY),
-    [daily(PAST)]: note(["- 💧 1 l"]),
-  });
-  if (how === "phone") {
-    await page.goto("/");
-    const commands = page.getByRole("toolbar", { name: "Commands" });
-    await commands.getByRole("button", { name: "Run a command by name" }).tap({ timeout: 15_000 });
-    await page.getByRole("option", { name: /^Open the log/ }).tap();
-  } else {
-    if (how === "palette") {
-      await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
-    }
-    await openApp(page);
-    if (how === "leader") await leader(page, "gf");
-    else {
-      await page.keyboard.press("Control+Shift+P");
-      await page.getByRole("option", { name: /^Open the log/ }).click();
-    }
-  }
-  const pane = page.getByRole("region", { name: "Log" });
-  await expect(pane.getByRole("button", { name: "💧 500 ml" })).toBeVisible({ timeout: 15_000 });
-  return pane;
-}
+import {
+  CONFIG,
+  CONFIG_PATH,
+  DAY,
+  daily,
+  lines,
+  logPane,
+  note,
+  OATS,
+  PAST,
+  selected,
+  TODAY,
+} from "./log.ts";
 
 /** Each GET /api/log the page sends, as `from..to`. */
 function logReads(page: Page): string[] {
@@ -76,7 +27,6 @@ function logReads(page: Page): string[] {
   return asked;
 }
 
-const selected = (page: Page) => page.locator('li[aria-selected="true"]');
 const editForm = (page: Page) => page.locator(".log-pane-edit");
 
 test("#624 Today shows each kind against its goal and the food day grouped by meal", async ({
