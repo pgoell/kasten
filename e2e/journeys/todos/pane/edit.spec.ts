@@ -1,3 +1,5 @@
+import { rename, rm } from "node:fs/promises";
+import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import {
   bodyOf,
@@ -193,4 +195,42 @@ test("#2118 a write the vault's stream opened too late to see still reaches the 
   await expect(page.locator(TODO_ROW, { hasText: "call the dentist" })).toBeVisible();
   open();
   await expect(page.locator(TODO_ROW, { hasText: "ring the dentist" })).toBeVisible();
+});
+
+test("an edit that moves the row under another heading writes the line and keeps the keys in the pane", async ({
+  page,
+  stack,
+}) => {
+  const edited = `- [ ] call the dentist ⏳ ${today()} #health`;
+  await vaultWith(stack.vault, { [NOTE]: note("- [ ] call the dentist #health", NEXT) });
+  await openApp(page);
+  await leader(page, "gt");
+  await cursorTo(page, "call the dentist");
+  await page.keyboard.press("i");
+  await draft(page).fill(edited);
+  await page.keyboard.press("Enter");
+  await expect.poll(() => disk(stack.vault)).toBe(note(edited, NEXT));
+  await expect(draft(page)).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Todos" }).locator(":focus")).toHaveCount(1);
+});
+
+test("a folder renamed and a note deleted from outside move the board's card to the lane they leave it in", async ({
+  page,
+  stack,
+}) => {
+  await vaultWith(stack.vault, {
+    "02 Projects/FDE/Kickoff.md": "# Kickoff\n",
+    "01 Notes/Deck.md": "# Deck\n\n- [ ] send deck [[Kickoff]]\n",
+  });
+  await openApp(page);
+  await leader(page, "gt");
+  await page.keyboard.press("c");
+  await page.keyboard.press("g");
+  const lane = (name: string) =>
+    page.locator("h3:has(button[data-count])", { hasText: new RegExp(`^${name}$`) }).locator("..");
+  await expect(lane("FDE")).toContainText("send deck");
+  await rename(join(stack.vault, "02 Projects/FDE"), join(stack.vault, "02 Projects/FDE Client"));
+  await expect(lane("FDE Client")).toContainText("send deck");
+  await rm(join(stack.vault, "02 Projects/FDE Client/Kickoff.md"));
+  await expect(lane("No project")).toContainText("send deck");
 });

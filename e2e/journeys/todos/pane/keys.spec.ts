@@ -2,9 +2,12 @@ import type { Page } from "@playwright/test";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
+  bodyOf,
   cursorTo,
   leader,
+  noteText,
   openApp,
+  panes,
   readAll,
   TODO_ROW,
   todoRows,
@@ -208,18 +211,20 @@ test("#773 A1 Enter on a focused row that is not the cursor opens that row", asy
   await expect(caretLine(page)).toHaveText("buy milk #home");
 });
 
-test("#773 A1 Enter on a focused strip button presses it and opens no row", async ({
-  page,
-  stack,
-}) => {
-  await openPane(page, stack.vault);
-  const done = page.getByRole("button", { name: "d done" });
-  await done.focus();
-  await page.keyboard.press("Enter");
-  await expect(done).toHaveAttribute("aria-pressed", "true");
-  await expect(region(page)).toBeVisible();
-  await expect(caretLine(page)).toHaveCount(0);
-});
+for (const vim of ["on", "off"]) {
+  test(`#773 A1 Enter on a focused strip button presses it and opens no row, vim ${vim}`, async ({
+    page,
+    stack,
+  }) => {
+    await openPane(page, stack.vault, vim);
+    const done = page.getByRole("button", { name: "d done" });
+    await done.focus();
+    await page.keyboard.press("Enter");
+    await expect(done).toHaveAttribute("aria-pressed", "true");
+    await expect(region(page)).toBeVisible();
+    await expect(caretLine(page)).toHaveCount(0);
+  });
+}
 
 test("#773 A2 Space on a focused row that is not the cursor opens that row and starts no leader", async ({
   page,
@@ -240,4 +245,89 @@ test("#773 I1 Enter on the focused cursor row opens its note", async ({ page, st
   await expect(cursorRow(page)).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(caretLine(page)).toHaveText("call the plumber #keys");
+});
+
+test("<leader>q empties the pane of the todo list and leaves the one pane", async ({
+  page,
+  stack,
+}) => {
+  await openPane(page, stack.vault);
+  await leader(page, "q");
+  await expect(region(page)).toHaveCount(0);
+  await expect(panes(page)).toHaveCount(1);
+});
+
+test("#397 a state write the vault refuses leaves the row as it was and says Nothing moved and why", async ({
+  page,
+  stack,
+}) => {
+  await page.route(
+    (url) => decodeURIComponent(url.pathname) === `/api/files/${NOTE}`,
+    (route) =>
+      route.request().method() === "PUT"
+        ? route.fulfill({ status: 500, json: { detail: "refused by the test" } })
+        : route.fallback(),
+  );
+  await openPane(page, stack.vault);
+  const state = row(page, "call the plumber").locator("[data-state]");
+  await cursorTo(page, "call the plumber");
+  const before = await state.getAttribute("data-state");
+  await page.keyboard.press("x");
+  await expect(page.getByTestId("notice")).toHaveText(/^Nothing moved: .*500/);
+  await expect(state).toHaveAttribute("data-state", before ?? "");
+  expect(bodyOf(await noteText(stack.vault, NOTE))).toBe(note(LINES));
+});
+
+/** The pane over `lines`, then `moved` written from outside while the stream is held, so the list stays as listed. */
+async function listedThenMoved(
+  page: Page,
+  vault: string,
+  lines: string[],
+  moved: string[],
+  words: string,
+) {
+  await page.route("**/api/events", () => new Promise(() => {}));
+  await vaultWith(vault, { [NOTE]: note(lines) });
+  await openApp(page);
+  await leader(page, "gt");
+  await expect(row(page, words).first()).toBeVisible({ timeout: 15_000 });
+  await vaultWith(vault, { [NOTE]: note(moved) });
+}
+
+test("#529 t on a row whose line has changed since it was listed writes nothing and says so", async ({
+  page,
+  stack,
+}) => {
+  const puts: string[] = [];
+  page.on("request", (request) => request.method() === "PUT" && puts.push(request.url()));
+  const moved = ["- [ ] ring the plumber #keys", ...LINES.slice(1)];
+  await listedThenMoved(page, stack.vault, LINES, moved, "buy milk");
+  await cursorTo(page, "call the plumber");
+  await page.keyboard.press("t");
+  await expect(page.getByTestId("notice")).toHaveText(
+    "Nothing moved: that line has changed since it was listed",
+  );
+  expect(puts).toEqual([]);
+  expect(bodyOf(await noteText(stack.vault, NOTE))).toBe(note(moved));
+});
+
+test("#530 X on the second of two twins sets that twin after a line above shifted both", async ({
+  page,
+  stack,
+}) => {
+  const twins = ["- [ ] water the fern", "- [ ] water the fern"];
+  await listedThenMoved(page, stack.vault, twins, ["- [ ] buy milk", ...twins], "water the fern");
+  await cursorTo(page, "water the fern", 1);
+  await page.keyboard.press("X");
+  await expect
+    .poll(async () =>
+      bodyOf(await noteText(stack.vault, NOTE))
+        .split("\n")
+        .slice(2, 5),
+    )
+    .toEqual([
+      "- [ ] buy milk",
+      "- [ ] water the fern",
+      expect.stringMatching(/^- \[x\] water the fern/),
+    ]);
 });

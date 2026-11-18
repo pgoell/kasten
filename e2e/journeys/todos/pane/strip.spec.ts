@@ -311,3 +311,34 @@ test.describe("the board by touch (#394, #429)", () => {
     await expect(cards(page)).toHaveText([/draw the chart/]);
   });
 });
+
+test.describe("twins by touch (#530)", () => {
+  test.use(phone);
+
+  test("done on the strip of the second of two twins sets that twin after a line above shifted both", async ({
+    page,
+    stack,
+  }) => {
+    const twins = "- [ ] water the fern\n- [ ] water the fern\n";
+    // The stream held, so the list stays as listed while the note moves under it.
+    await page.route("**/api/events", () => new Promise(() => {}));
+    await vaultWith(stack.vault, { [NOTE]: `# Errands\n\n${twins}` });
+    await page.goto("/");
+    await page.getByRole("button", { name: "Open the todo pane" }).tap({ timeout: 15_000 });
+    await expect(page.getByLabel("more for water the fern")).toHaveCount(2);
+    await vaultWith(stack.vault, { [NOTE]: `# Errands\n\n- [ ] buy milk\n${twins}` });
+    await page.getByLabel("more for water the fern").nth(1).tap();
+    await page.getByLabel("done water the fern").tap();
+    await expect
+      .poll(async () =>
+        bodyOf(await noteText(stack.vault, NOTE))
+          .split("\n")
+          .slice(2, 5),
+      )
+      .toEqual([
+        "- [ ] buy milk",
+        "- [ ] water the fern",
+        expect.stringMatching(/^- \[x\] water the fern/),
+      ]);
+  });
+});
