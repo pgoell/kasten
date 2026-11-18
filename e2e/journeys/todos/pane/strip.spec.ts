@@ -170,6 +170,14 @@ test.describe("by touch (#421)", () => {
     await expect(button(page, "c board")).toHaveCount(0);
   });
 
+  test("#523 A9 the strip's agent adds #agent", async ({ page, stack }) => {
+    await byTouch(page, stack.vault);
+    await page.getByLabel("more for fix the tap").tap();
+    await page.getByLabel("agent fix the tap").tap();
+    const tagged = LINES.replace("fix the tap", "fix the tap #agent");
+    await expect.poll(async () => bodyOf(await noteText(stack.vault, NOTE))).toBe(tagged);
+  });
+
   test("A1 I4 a tap on the strip while a row is edited leaves the edit be, vim on", async ({
     page,
     stack,
