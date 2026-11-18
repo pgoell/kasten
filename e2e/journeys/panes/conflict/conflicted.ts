@@ -102,3 +102,10 @@ export const bothTexts = (vault: string) =>
   expect.stringMatching(new RegExp(`^- ${vault}.*\\+ typed here$`));
 
 export const settled = { status: "Saved", diff: null, listed: null };
+
+/** Presses Escape, then runs `:command`. */
+export async function ex(page: Page, command: string) {
+  await page.keyboard.press("Escape");
+  await page.keyboard.type(`:${command}`);
+  await page.keyboard.press("Enter");
+}

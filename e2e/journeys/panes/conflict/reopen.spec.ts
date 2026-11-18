@@ -8,6 +8,7 @@ import {
   bothTexts,
   conflictBar,
   conflicted,
+  ex,
   focused,
   OUTSIDE,
   settled,
@@ -41,12 +42,6 @@ async function awayWhile(page: Page, vault: string, text: string) {
   await page.goto("about:blank");
   await writeFile(join(vault, "Welcome.md"), text);
   await openApp(page);
-}
-
-async function ex(page: Page, command: string) {
-  await page.keyboard.press("Escape");
-  await page.keyboard.type(`:${command}`);
-  await page.keyboard.press("Enter");
 }
 
 test.describe("a conflicted note reopened after a reload", () => {
