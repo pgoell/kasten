@@ -46,6 +46,11 @@ mise run lint       # ruff, ty, biome
 mise run db:migrate # apply migrations to the dev database
 ```
 
+Biome on `e2e/` files: run it from the repo root with the frontend's rules,
+`frontend/node_modules/.bin/biome check --config-path frontend <files>`. From
+`frontend/`, `bunx biome check ../e2e/...` panics ("path is expected to be
+under the root"), and `mise run lint` does not cover `e2e/`.
+
 ## Documentation
 
 `docs/` is a [Diátaxis](https://diataxis.fr) tree written in
