@@ -112,6 +112,8 @@ export function backendEnv(dir: string, db: string): Record<string, string> {
     KASTEN_TEXT_CACHE_PATH: join(dir, "text"),
     KASTEN_RECEIPTS_PATH: join(dir, "receipts"),
     KASTEN_HERDR_SESSIONS_PATH: join(dir, "herdr"),
+    // The browser's zone, so the store's today is the page's today on any runner (#2191).
+    KASTEN_TIMEZONE: Intl.DateTimeFormat().resolvedOptions().timeZone,
   };
 }
 

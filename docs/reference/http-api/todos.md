@@ -127,7 +127,7 @@ and waiting to doing, rejected to open.
 ## POST /api/todos/{todo_id}/timer
 
 Starts a session, or stops every one running and sums the closed ones into
-`worked`. A session closes on its own day, at 23:59 when that day is gone.
+`worked`. A session running 12 hours or more was left on: it closes at 23:59 of the day it began.
 
 ## DELETE /api/todos/{todo_id}
 

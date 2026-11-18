@@ -22,6 +22,8 @@ if TYPE_CHECKING:
     from kasten_backend.config import Settings
 
 SOFT_DAYS = 14
+FORGOTTEN = timedelta(hours=12)
+"""How long a timer runs before a stop takes it for one left on."""
 LOOK_AGAIN_DAYS = 7
 """How long a wait lasts when nobody names a look-again day."""
 CLOSED = ("done", "rejected")
@@ -408,10 +410,10 @@ class Writes:
             self.session.add(TodoSession(todo_id=id_, started=now))
             return row
         for one in sessions:
-            # A session closes on its own day, at 23:59 when that day is gone.
+            # A timer left running half a day was forgotten: it closes at 23:59 of its own day.
             day = one.started.astimezone(now.tzinfo).date()
             late = datetime.combine(day, time(23, 59), now.tzinfo)
-            one.ended = now if day == now.date() else late
+            one.ended = now if now - one.started < FORGOTTEN else late
         await self.session.flush()
         closed = (await self.session.scalars(mine.where(TodoSession.ended.is_not(None)))).all()
         seconds = sum(

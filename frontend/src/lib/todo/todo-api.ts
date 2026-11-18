@@ -104,9 +104,10 @@ export async function embedLineOf(hit: Listed): Promise<number | undefined> {
   return undefined;
 }
 
-/** Open a listed todo's note at its embed. */
+/** Open a listed todo's note at its embed, else at its listed line. */
 export function openTodo(hit: Listed, onOpen: (path: string, line: number) => void): void {
-  void embedLineOf(hit).then((line) => onOpen(hit.path, line ?? 1));
+  // With no embed, a line the note still holds is where the listing found it.
+  void embedLineOf(hit).then((line) => onOpen(hit.path, line ?? hit.line));
 }
 
 /** The store row behind an id, as the listing last read it; a `PATCH` needs its version. */
