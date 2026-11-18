@@ -1,7 +1,7 @@
 import type { Locator, Page } from "@playwright/test";
-import { barsOf, phone, vaultWith } from "../../../harness/app.ts";
-import { expect, test } from "../../../harness/stack.ts";
-import { WEIGHED as CONFIG, chart, fed, tile, trends, weeks } from "./log.ts";
+import { barsOf, phone, vaultWith } from "../../../../harness/app.ts";
+import { expect, test } from "../../../../harness/stack.ts";
+import { WEIGHED as CONFIG, chart, fed, tile, trends, weeks } from "../log.ts";
 
 const MACROS = "🥩 100 g 🍞 200 g 🧈 60 g";
 

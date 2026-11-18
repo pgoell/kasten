@@ -1,7 +1,7 @@
 import type { Locator } from "@playwright/test";
-import { barsOf, phone } from "../../../harness/app.ts";
-import { expect, test } from "../../../harness/stack.ts";
-import { chart, fed, CONFIG as LOG, tile, trends, weeks } from "./log.ts";
+import { barsOf, phone } from "../../../../harness/app.ts";
+import { expect, test } from "../../../../harness/stack.ts";
+import { chart, fed, CONFIG as LOG, tile, trends, weeks } from "../log.ts";
 
 /** The date `n` days before SUNDAY. */
 const ago = (n: number) => new Date(2026, 10, 15 - n, 12).toLocaleDateString("sv");

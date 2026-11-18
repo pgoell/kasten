@@ -91,6 +91,7 @@ test.describe("the palette's Log weight", () => {
       timeout: 15_000,
     });
     await expect(page.locator(".cm-log:visible .cm-log-why")).toHaveText("Type the weight in kg");
+    await expect(page.locator(".cm-log:visible .cm-log-amount")).toBeFocused();
     await expect.poll(() => dailyText(stack.vault), { timeout: 15_000 }).not.toBe("");
     expect(await dailyText(stack.vault)).not.toContain("⚖");
   });
