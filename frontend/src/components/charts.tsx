@@ -28,13 +28,15 @@ interface BarsProps {
 
 /**
  * A bar per slot that has a value, with its goal as a dashed line. The goal counts toward
- * the top, so the line is always on the chart.
+ * the top, so the line is always on the chart. A negative value hangs below a zero line.
  */
 export function Bars({ label, points, slots, goal, todayIndex, stretch }: BarsProps) {
   const slot = WIDTH / slots;
   const bar = slot * 0.7;
   const top = Math.max(1, goal?.value ?? 0, ...points.map((point) => point.amount));
-  const height = (amount: number) => (amount / top) * HEIGHT;
+  const bottom = Math.min(0, ...points.map((point) => point.amount));
+  const height = (amount: number) => (amount / (top - bottom)) * HEIGHT;
+  const zero = height(top);
 
   return (
     <svg
@@ -47,7 +49,7 @@ export function Bars({ label, points, slots, goal, todayIndex, stretch }: BarsPr
     >
       {points.map(({ index, amount }) => {
         // A logged zero gets a stub one unit high, so it is not drawn like a day with no log.
-        const barHeight = amount === 0 ? 1 : height(amount);
+        const barHeight = amount === 0 ? 1 : height(Math.abs(amount));
         const over = goal !== undefined && overMax(amount, goal);
         const base = over
           ? "log-chart-bar log-chart-over"
@@ -63,20 +65,23 @@ export function Bars({ label, points, slots, goal, todayIndex, stretch }: BarsPr
             key={index}
             className={past ? `${base} log-chart-past` : base}
             x={index * slot + (slot - bar) / 2}
-            y={HEIGHT - barHeight}
+            y={amount < 0 ? zero : zero - barHeight}
             width={bar}
             height={barHeight}
           />
         );
       })}
+      {bottom < 0 ? (
+        <line className="log-chart-zero-line" x1={0} x2={WIDTH} y1={zero} y2={zero} />
+      ) : null}
       {goal === undefined ? null : (
         <line
           data-goal={goal.value}
           className="log-chart-goal"
           x1={0}
           x2={WIDTH}
-          y1={HEIGHT - height(goal.value)}
-          y2={HEIGHT - height(goal.value)}
+          y1={zero - height(goal.value)}
+          y2={zero - height(goal.value)}
         />
       )}
     </svg>

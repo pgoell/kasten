@@ -24,6 +24,12 @@
   opacity: 0.55;
 }
 
+/* Zero, drawn only when a bar hangs below it, such as a month of refunds past its spending. */
+.log-chart-zero-line {
+  stroke: var(--k-rule);
+  stroke-width: 1;
+}
+
 /* The goal is a dashed line in the muted ink, never the warning colour: the
    warning is for a bar that passed its ceiling. */
 .log-chart-goal {
