@@ -189,7 +189,8 @@ Puts the todo in `state`, with what that drags along:
 
 * **Done** stamps `done` and ticks every open part. On a todo with a `repeat` it
   writes the finished round as a done row of its own, `round_of` naming the todo
-  and its parts copied under it, with their timer sessions. It moves the todo
+  and its parts copied under it, with their closed timer sessions. A session
+  still running stays on the todo, so stopping it counts toward the next round. It moves the todo
   and its parts on by the rule, counted off a hard deadline, else the from-day,
   else the soft deadline: open, with no `done`, `worked` or wait. The todo keeps
   its id.
