@@ -62,3 +62,60 @@ export async function logPane(
 }
 
 export const selected = (page: Page) => page.locator('li[aria-selected="true"]');
+
+// A Sunday clear of a clock change, so the 7 days end on it and its week starts on Monday the 9th.
+export const SUNDAY = new Date(2026, 10, 15, 12);
+/** A config with a weight kind, read at its last weigh-in. */
+export const WEIGHED =
+  "- 💧 water: 250 ml, min 2000\n- 🍽 food: kcal max 2000, protein min 100\n- ⚖ weight: kg, last\n";
+
+/** Writes each day's log lines (a November day or a date) and the config, pins the clock, and opens the log pane's Trends at `span`. */
+export async function trends(
+  page: Page,
+  vault: string,
+  days: Record<number, string[]>,
+  { config = WEIGHED, span = "7d", narrow = false } = {},
+): Promise<Locator> {
+  const notes = Object.entries(days).map(([day, lines]) => [
+    `01 Periodic/00 Daily/${day.includes("-") ? day : `2026-11-${day.padStart(2, "0")}`}.md`,
+    `# Day\n\n## Log\n${lines.join("\n")}\n`,
+  ]);
+  await vaultWith(vault, { "99 Misc/01 Config/log.md": config, ...Object.fromEntries(notes) });
+  await page.clock.setFixedTime(SUNDAY);
+  const pane = page.getByRole("region", { name: "Trends" });
+  if (narrow) {
+    await page.goto("/");
+    const commands = page.getByRole("toolbar", { name: "Commands" });
+    await commands.getByRole("button", { name: "Run a command by name" }).tap({ timeout: 15_000 });
+    await page.getByRole("option", { name: /^Open the log/ }).tap();
+    await page.getByRole("tab", { name: "Trends" }).tap();
+    await pane.getByRole("button", { name: span }).tap();
+  } else {
+    await openApp(page);
+    await leader(page, "gf");
+    await pane.getByRole("button", { name: span }).click();
+  }
+  return pane;
+}
+
+/** The figure and words of the summary tile with this label. */
+export const tile = (pane: Locator, label: string) =>
+  pane
+    .locator(".log-summary-tile")
+    .filter({ has: pane.page().getByText(label, { exact: true }) })
+    .locator("dd");
+
+export const chart = (pane: Locator, name: string) =>
+  pane.getByRole("img", { name: new RegExp(`^${name} over`) });
+
+/** The By week table's cells, header row first. */
+export const weeks = (pane: Locator) =>
+  pane
+    .getByRole("table", { name: "By week" })
+    .evaluate((table) =>
+      [...table.querySelectorAll("tr")].map((row) =>
+        [...row.querySelectorAll("th, td")].map((cell) => cell.textContent ?? ""),
+      ),
+    );
+
+export const fed = (...ago: number[]) => ago.map((n) => ({ ago: n, stub: false }));
