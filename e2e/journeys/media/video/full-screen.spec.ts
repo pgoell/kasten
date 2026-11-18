@@ -152,17 +152,69 @@ test("#914 I1 R2 full screen, Space opens no which-key panel, and Space k leaves
   await expect.poll(() => fullIs(page)).toBe("none");
 });
 
-test("#914 R2 a leader sequence typed full screen leaves the focus where it sent it", async ({
-  page,
-}) => {
-  test.fail(true, "#2160: the exit's async change hands the focus back to the video pane");
-  await watch(page);
+/** Holds the browser's exit back, as a slow screen does, so a command run before it ends shows. */
+const heldExit = (page: Page) =>
+  page.addInitScript(() => {
+    const exit = Document.prototype.exitFullscreen;
+    Document.prototype.exitFullscreen = function (this: Document) {
+      return new Promise((done) => setTimeout(done, 300)).then(() => exit.call(this));
+    };
+  });
+
+/** Full screen by f, then the keys typed blind, one by one. */
+async function typedFull(page: Page, keys: string[]): Promise<void> {
   await page.keyboard.press("f");
   await expect.poll(() => focusIs(page)).toBe("box");
-  await page.keyboard.press("Space");
-  await page.keyboard.press("k");
+  for (const key of keys) await page.keyboard.press(key);
+  await expect.poll(() => fullIs(page)).toBe("none");
+}
 
-  await expect(page.locator(".cm-content:focus")).toHaveCount(1);
+for (const vim of ["on", "off"]) {
+  test(`#914 R2 #2160 Space k typed full screen lands in the note's editor, with vim ${vim}`, async ({
+    page,
+  }) => {
+    await page.addInitScript((v) => localStorage.setItem("kasten.vim", v), vim);
+    await watch(page);
+    await typedFull(page, ["Space", "k"]);
+
+    await expect(page.locator(".cm-content").first()).toBeFocused();
+  });
+}
+
+test("#2160 Space k lands in the note's editor when the browser's exit settles late", async ({
+  page,
+}) => {
+  await heldExit(page);
+  await watch(page);
+  await typedFull(page, ["Space", "k"]);
+
+  await expect(page.locator(".cm-content").first()).toBeFocused();
+});
+
+test("#2160 Space f f typed full screen opens the finder with its input focused", async ({
+  page,
+}) => {
+  await watch(page);
+  await typedFull(page, ["Space", "f", "f"]);
+
+  await expect(page.getByRole("dialog", { name: "Find note" }).locator("input")).toBeFocused();
+});
+
+test("#2160 Space a moves no focus, so after the exit the focus is on the pane", async ({
+  page,
+}) => {
+  await watch(page);
+  await typedFull(page, ["Space", "a"]);
+
+  await expect.poll(() => focusIs(page)).toBe("pane");
+});
+
+test("#2160 Space c b typed full screen still opens the file chooser", async ({ page }) => {
+  await watch(page);
+  const chooser = page.waitForEvent("filechooser");
+  await typedFull(page, ["Space", "c", "b"]);
+
+  await chooser;
 });
 
 test("#914 I1 full screen, Space q closes the video pane", async ({ page }) => {
@@ -287,6 +339,25 @@ test.describe("on a phone", () => {
 
     await exitButton(page).tap();
     await expect.poll(() => fullIs(page)).toBe("none");
+    await expect.poll(() => focusIs(page)).toBe("pane");
+  });
+
+  test("#2160 a keyboard's Space f f in full screen by a tap opens the finder as it does outside", async ({
+    page,
+  }) => {
+    await watchByTap(page);
+    const input = page.getByRole("dialog", { name: "Find note" }).locator("input");
+    await page.locator(pane).focus();
+    for (const key of ["Space", "f", "f"]) await page.keyboard.press(key);
+    await expect(input).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(input).toHaveCount(0);
+
+    await headerButton(page).tap();
+    await expect.poll(() => focusIs(page)).toBe("box");
+    for (const key of ["Space", "f", "f"]) await page.keyboard.press(key);
+    await expect.poll(() => fullIs(page)).toBe("none");
+    await expect(input).toBeFocused();
   });
 
   test("#914 A7 where the browser has no full screen for a box, no button is drawn and f does nothing", async ({

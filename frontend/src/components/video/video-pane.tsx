@@ -71,7 +71,7 @@ export function VideoPane({
   /** The player box, the frame with the shield over it: what goes full screen. */
   const box = useRef<HTMLDivElement>(null);
   const transcript = useRef<TranscriptHandle>(null);
-  const { full, canFull, toggleFull, refocus } = useFullScreen(box, panel);
+  const { full, canFull, toggleFull, exitThen, refocus } = useFullScreen(box, panel);
   /** Which of the note's videos is in the frame, by position in the note. */
   const [index, setIndex] = useState(0);
   /** Whether the pane shows the video view: the big player beside the transcript. */
@@ -171,9 +171,9 @@ export function VideoPane({
     event.preventDefault();
     // Typed blind in full screen, a sequence would open its picker or move
     // the focus to a pane the browser is not drawing, and the next keys
-    // would land there unseen. So full screen ends first.
-    if (full) toggleFull();
-    run();
+    // would land there unseen. So full screen ends first, and the command runs once it has.
+    if (full) exitThen(run);
+    else run();
   }
 
   function startLeader(event: React.KeyboardEvent) {
