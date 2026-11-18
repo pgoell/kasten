@@ -51,6 +51,12 @@ Biome on `e2e/` files: run it from the repo root with the frontend's rules,
 `frontend/`, `bunx biome check ../e2e/...` panics ("path is expected to be
 under the root"), and `mise run lint` does not cover `e2e/`.
 
+A scratch Postgres for tests uses the image `kasten-postgres:17`
+(`compose.yaml`'s db service, built from `deploy/postgres`; run
+`docker compose build db` when it is missing). Point `KASTEN_DATABASE_URL` at
+it. Do not parse `compose.yaml` for the image name: the comment above it holds
+the word "shared".
+
 ## Documentation
 
 `docs/` is a [Diátaxis](https://diataxis.fr) tree written in
