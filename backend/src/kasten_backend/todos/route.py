@@ -17,7 +17,14 @@ from kasten_backend.config import Settings, get_settings
 from kasten_backend.db import get_session
 from kasten_backend.todos.lines import read
 from kasten_backend.todos.models import Todo, TodoChange
-from kasten_backend.todos.store import MissingError, StaleError, Writes, plain, tags_of
+from kasten_backend.todos.store import (
+    MissingError,
+    RefusedError,
+    StaleError,
+    Writes,
+    plain,
+    tags_of,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -133,6 +140,8 @@ async def _write(
         await run(writes)
     except MissingError as error:
         raise HTTPException(404, f"No todo has the id {error}.") from error
+    except RefusedError as error:
+        raise HTTPException(422, str(error)) from error
     except StaleError as error:
         raise HTTPException(409, f"{error} changed since it was read: read it again.") from error
     rows = await writes.done()

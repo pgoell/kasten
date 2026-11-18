@@ -165,7 +165,8 @@ and `version`.
 On every write `tags` is read off `words`, and a todo with no parent and no
 shared list left with no deadline gets a soft one 14 days on. A `blocked_by`
 naming a todo still open, or no todo, makes an open todo blocked, and taking
-the last one off opens it.
+the last one off opens it. A `parent_id` that names no todo, the todo itself or
+one of its own parts answers `422`.
 
 ## GET /api/todos/rows
 
@@ -211,7 +212,8 @@ Starts a session, or stops every one running and sums the closed ones into
 
 ## DELETE /api/todos/{todo_id}
 
-Deletes the todo and its parts, answering `204`. Its history stays.
+Deletes the todo and its parts, answering `204`. Each one's delete is recorded
+and its history stays.
 
 ## GET /api/todos/{todo_id}/history
 

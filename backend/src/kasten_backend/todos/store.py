@@ -59,6 +59,10 @@ class MissingError(LookupError):
     """No todo has that id."""
 
 
+class RefusedError(ValueError):
+    """The write names a parent no todo can have: none by that id, or itself or its own part."""
+
+
 class StaleError(ValueError):
     """The row moved since the caller read it: its version is not the one sent."""
 
@@ -127,6 +131,7 @@ class Writes:
         taken = set((await self.session.scalars(select(Todo.id))).all())
         fields = {key: value for key, value in values.items() if key in EDITABLE}
         row = Todo(id=new_id(taken), state="open", created=self.today, version=1, **fields)
+        await self._check_parent(row.id, row.parent_id)
         row.blocked_by = row.blocked_by or []
         row.tags = tags_of(row.words)
         siblings = select(Todo.position).where(Todo.parent_id == row.parent_id)
@@ -145,6 +150,8 @@ class Writes:
             raise StaleError(id_)
         self._touch(row)
         had = list(row.blocked_by)
+        if "parent_id" in values:
+            await self._check_parent(row.id, values["parent_id"])
         for key, value in values.items():
             if key in EDITABLE:
                 setattr(row, key, value)
@@ -158,11 +165,25 @@ class Writes:
             row.state = "blocked" if held else "open"
         return row
 
+    async def _check_parent(self, id_: str, parent: str | None) -> None:
+        """Refuse a parent that is no todo, the todo itself or one of its parts: a loop."""
+        if parent is None:
+            return
+        if await self.session.get(Todo, parent) is None:
+            raise RefusedError(f"No todo has the id {parent}.")
+        row = await self.session.get(Todo, id_)
+        below = set() if row is None else {part.id for part in await self.parts(row)}
+        if parent == id_ or parent in below:
+            raise RefusedError(f"{parent} is {id_} or one of its parts.")
+
     async def delete(self, id_: str) -> None:
-        """Delete a todo and its parts; its change rows stay."""
+        """Delete a todo and its parts, each recorded; their change rows stay."""
         row = await self.get(id_)
-        self._before.setdefault(id_, plain(row))
-        self.session.add(TodoChange(todo_id=id_, by=self.by, before=plain(row), after=None))
+        for gone in (row, *await self.parts(row)):
+            self._before.setdefault(gone.id, plain(gone))
+            self.session.add(
+                TodoChange(todo_id=gone.id, by=self.by, before=plain(gone), after=None)
+            )
         await self.session.delete(row)
 
     async def cycle(self, id_: str) -> Todo:

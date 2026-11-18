@@ -218,9 +218,10 @@ async def test_a_repeat_counts_off_its_from_day_before_a_soft_deadline(client: A
     monday = "2026-11-16"
     row = await add(client, "standup notes", repeat="every week on Monday", from_day=monday)
     await state(client, row["id"], "done")
-    live = (await rows(client))["standup notes"]
+    listed = (await client.get("/api/todos/rows")).json()
+    live = next(one for one in listed if one["id"] == row["id"])
 
-    assert live["from_day"] == "2026-11-23"
+    assert (live["state"], live["from_day"]) == ("open", "2026-11-23")
 
 
 async def test_a_rounds_time_stays_with_the_round(client: AsyncClient, store: AsyncEngine) -> None:
@@ -242,3 +243,26 @@ async def test_a_rounds_time_stays_with_the_round(client: AsyncClient, store: As
     stopped = await client.post(f"/api/todos/{row['id']}/timer")
 
     assert stopped.json()[0]["worked"] == 10
+
+
+async def test_a_parent_must_be_a_todo_and_not_the_todo_or_its_part(client: AsyncClient) -> None:
+    top = await add(client, "top")
+    part = await add(client, "part", parent_id=top["id"])
+    nowhere = await client.post("/api/todos", json={"words": "x", "parent_id": "kt-nothere"})
+    itself = await client.patch(
+        f"/api/todos/{top['id']}", json={"version": 1, "parent_id": top["id"]}
+    )
+    loop = await client.patch(
+        f"/api/todos/{top['id']}", json={"version": 1, "parent_id": part["id"]}
+    )
+
+    assert [nowhere.status_code, itself.status_code, loop.status_code] == [422, 422, 422]
+
+
+async def test_deleting_a_parent_records_each_part_it_takes(client: AsyncClient) -> None:
+    top = await add(client, "top")
+    part = await add(client, "part", parent_id=top["id"])
+    await client.delete(f"/api/todos/{top['id']}")
+    history = (await client.get(f"/api/todos/{part['id']}/history")).json()
+
+    assert [one["after"] is None for one in history] == [False, True]
