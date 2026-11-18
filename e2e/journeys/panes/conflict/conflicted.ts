@@ -103,7 +103,7 @@ export const bothTexts = (vault: string) =>
 
 export const settled = { status: "Saved", diff: null, listed: null };
 
-/** Runs the ex command `command` from normal mode. */
+/** Presses Escape, then runs `:command`. */
 export async function ex(page: Page, command: string) {
   await page.keyboard.press("Escape");
   await page.keyboard.type(`:${command}`);

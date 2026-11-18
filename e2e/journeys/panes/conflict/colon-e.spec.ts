@@ -17,7 +17,7 @@ import {
 
 const WELCOME = /\/api\/files\/Welcome\.md$/;
 
-/** Each request to Welcome by method; `hold` keeps the next request of that method until `let go` runs. */
+/** Each request to Welcome by method; `hold` keeps the next request of that method until `letGo` runs. */
 async function watch(page: Page) {
   // `readsAtPut`: how many GETs had gone out when each PUT went.
   const sent = { GET: [] as string[], PUT: [] as string[], readsAtPut: [] as number[] };
@@ -54,7 +54,22 @@ test.describe(":e and :e! on the open note", () => {
     page,
     stack,
   }) => {
-    const { sent, hold, letGo } = await watch(page);
+    // Every read that answers with the outside text waits at the gate: the echo of the reader's own write passes.
+    let open = () => {};
+    const gate = new Promise<void>((resolve) => (open = resolve));
+    let held = 0;
+    await page.route(
+      (url) => WELCOME.test(decodeURIComponent(url.pathname)),
+      async (route) => {
+        if (route.request().method() !== "GET") return route.fallback();
+        const response = await route.fetch();
+        if ((await response.text()).includes(OUTSIDE.trim())) {
+          held += 1;
+          await gate;
+        }
+        await route.fulfill({ response });
+      },
+    );
     await openApp(page);
     await openNote(page, "Welcome");
     await page.keyboard.type("Gotyped here");
@@ -62,13 +77,11 @@ test.describe(":e and :e! on the open note", () => {
     await expect
       .poll(async () => [await sign(page).getAttribute("aria-label"), await welcome(stack.vault)])
       .toEqual(["Saved", expect.stringContaining("typed here")]);
-    const reads = sent.GET.length;
-    hold("GET");
     await writeFile(join(stack.vault, "Welcome.md"), OUTSIDE);
-    await expect.poll(() => sent.GET.length, { timeout: 15_000 }).toBe(reads + 1);
+    await expect.poll(() => held, { timeout: 15_000 }).toBeGreaterThan(0);
     await page.keyboard.type("Aand more");
     await page.keyboard.press("Escape");
-    letGo("GET");
+    open();
     await expect
       .poll(
         async () => [
