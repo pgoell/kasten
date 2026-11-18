@@ -82,8 +82,9 @@ A bulleted list, one letter each. Ten at most, `A` to `J`.
 - C) either bracket
 ```
 
-A question with no options is not asked. The pane says how many it left out
-rather than dropping them in silence.
+A question with neither options nor a row of scenarios (see
+[Scenario matching](#scenario-matching)) is not asked. The pane says how many it
+left out rather than dropping them in silence.
 
 ### The answer
 

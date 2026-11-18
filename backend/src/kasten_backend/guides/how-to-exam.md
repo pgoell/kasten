@@ -67,8 +67,8 @@ Anything after a `·`, `|`, `:` or `-` is read for `select TWO`, `choose 3` or
 - C) either bracket
 ```
 
-Ten at most, `A` to `J`. A question with no options is not asked, and the pane
-says how many it left out.
+Ten at most, `A` to `J`. A question with neither options nor scenario rows
+(see below) is not asked, and the pane says how many it left out.
 
 **The answer** goes under the question:
 
@@ -167,7 +167,8 @@ folder is a record of how you got better. The exam note is never written to.
 
 Write the markdown. There is no API for making an exam, no frontmatter to add
 and no folder it has to live in: a note anywhere in the vault that holds a
-question heading and lettered options is an exam, and one that does not is not.
+question heading with lettered options or scenario rows under it is an exam,
+and one that does not is not.
 
 Two things are never yours to write: the `---` block at the top of a note, which
 kasten keeps in step, and the `.jj` directory beside the notes.
