@@ -194,7 +194,8 @@ test("#804 on the day after, a refused food log keeps the sheet open and a logge
   await page.keyboard.press("f");
   await logOats(page);
   await expect(page.getByText(/^Nothing logged:/)).toBeVisible();
-  await expect(sheetOf(page)).toBeVisible();
+  // A closing panel still shows while it slides out, so the proof is that no slide out began.
+  await expect(sheetOf(page)).not.toHaveAttribute("style", /translateX\(100%\)/);
   await page.unroute("**/api/files/**");
   await sheetOf(page).getByRole("button", { name: "Log this food" }).click();
   await expect(sheetOf(page)).toBeHidden();
