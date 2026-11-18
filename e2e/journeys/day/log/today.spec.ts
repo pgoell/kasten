@@ -321,3 +321,43 @@ test.describe("on a phone", () => {
     await expect(selected(page)).toContainText("🥤 200 ml");
   });
 });
+
+test.describe("the weight kind", () => {
+  const weighed = "- 💧 water: 250 ml, min 2000\n- ⚖ weight: kg, last\n";
+  for (const width of ["desktop", "phone"]) {
+    test.describe(width, () => {
+      if (width === "phone") test.use(phone);
+      test(`#805 A11 ${width}: an empty or refused amount asks and writes nothing, and a number writes the weight line`, async ({
+        page,
+        stack,
+      }) => {
+        const narrow = width === "phone";
+        const pane = await logPane(page, stack.vault, narrow ? "phone" : "leader", ["- 💧 500 ml"], weighed);
+        const button = pane.getByRole("button", { name: "Log weight" });
+        const press = (at: Locator) => (narrow ? at.tap() : at.click());
+        const amount = pane.getByLabel("Amount");
+        await press(button);
+        await expect(page.getByTestId("notice")).toHaveText("Type the weight in kg");
+        await expect(amount).toBeFocused();
+        await expect(amount).toHaveAttribute("placeholder", "weight in kg");
+        await amount.fill("abc");
+        await amount.press("Enter");
+        await expect(page.getByTestId("notice")).toHaveText("not a weight amount: abc");
+        await expect(amount).toHaveAttribute("placeholder", "weight in kg");
+        expect(await lines(stack.vault)).toEqual(["- 💧 500 ml"]);
+        await amount.fill("82.4");
+        await (narrow ? press(button) : amount.press("Enter"));
+        await expect.poll(() => lines(stack.vault)).toEqual(["- 💧 500 ml", "- ⚖ 82.4 kg"]);
+        await expect(amount).toHaveAttribute("placeholder", "amount");
+        if (narrow) return;
+        await amount.fill("82.6");
+        await button.click();
+        await expect.poll(() => lines(stack.vault)).toEqual(["- 💧 500 ml", "- ⚖ 82.4 kg", "- ⚖ 82.6 kg"]);
+        await button.click();
+        await expect(amount).toHaveAttribute("placeholder", "weight in kg");
+        await pane.getByRole("button", { name: "Day before" }).click();
+        await expect(amount).toHaveAttribute("placeholder", "amount");
+      });
+    });
+  }
+});

@@ -32,9 +32,10 @@ export async function logPane(
   vault: string,
   how: "leader" | "palette" | "phone" = "leader",
   day = DAY,
+  config = CONFIG,
 ): Promise<Locator> {
   await vaultWith(vault, {
-    [CONFIG_PATH]: CONFIG,
+    [CONFIG_PATH]: config,
     [daily(TODAY)]: note(day),
     [daily(PAST)]: note(["- 💧 1 l"]),
   });
@@ -73,7 +74,7 @@ export const WEIGHED =
 export async function trends(
   page: Page,
   vault: string,
-  days: Record<number, string[]>,
+  days: Record<string, string[]>,
   { config = WEIGHED, span = "7d", narrow = false } = {},
 ): Promise<Locator> {
   const notes = Object.entries(days).map(([day, lines]) => [
