@@ -67,7 +67,7 @@ teardown drops the containers. Unlike `fe:e2e`, it stubs no API.
 
 The journeys sit in `e2e/journeys/`: review in `review/` (a sitting, a jotted question, a cloze card, Enter on the overview's rows, the daily limits, the sitting's keys, vim on and off, and deck notes that could not be read), panes in
 `panes/` (layout, the top bar, the pane and tab keys, pane moves while a write is held, links to pages and assets; a note changed on disk under
-unsaved text and a conflicted note reopened in `panes/conflict/`; the workspace over a reload, held text in a restored pane, a URL over it, the tree panel, the leader keys and gf to a highlight's book in `panes/workspace/`; the drawer, phone toolbar, key help, AltGr keys, a resized window, sheets, the link margin and todo pane taps in `panes/narrow/`), notes, the finder, a tree row dragged, the new note prompt's folder rows, where a note opens and the bar's save sign in `notes/`, with saving in `notes/saving/` (edits,
+unsaved text, `:e` and `:e!`, and a conflicted note reopened in `panes/conflict/`; the workspace over a reload, held text in a restored pane, a URL over it, the tree panel, the leader keys and gf to a highlight's book in `panes/workspace/`; the drawer, phone toolbar, key help, AltGr keys, a resized window, sheets, the link margin and todo pane taps in `panes/narrow/`), notes, the finder, a tree row dragged, the new note prompt's folder rows, where a note opens and the bar's save sign in `notes/`, with saving in `notes/saving/` (edits,
 mention links, held text, the editor's build and relation names, live preview and its lists and tables) and content search and an epub opened mid-listing in `notes/search/`, the todo list, board, presses,
 twin ids, a person's card and the shared lists in `todos/` (the panel, list and board keys and taps, edit line, strip and refile in `todos/pane/`), capture, the web page import, chat replies, the log and overview, the home screen, the tokens page and finance month keys, to-sort and tax tabs in `day/`, and the book finder, book, video and clip panes and csv and svg files in
 `media/`. `harness.spec.ts` checks the harness. Each journey is a
@@ -84,10 +84,10 @@ off: in `review/`, `sitting`, `jot`, `keys` and `rows`; in `notes/`, `finder`,
 A runner has no YouTube: the video journeys serve a fake player per
 embed (`fakeYouTube` in `e2e/harness/youtube.ts`) and aborts any request
 leaving the box.
-The journeys block the service worker: Chromium crashed closing a context while
-it installed (#1606). `mise run fe:e2e` checks the offline worker.
+The journeys block the service worker: Chromium crashed closing a context mid-install
+(#1606). `mise run fe:e2e` checks the offline worker.
 
-Install Chromium once, after `mise run e2e` has filled `e2e/node_modules`:
+Install Chromium once `mise run e2e` has filled `e2e/node_modules`:
 
 ```sh
 e2e/node_modules/.bin/playwright install chromium
@@ -99,7 +99,7 @@ To run one journey:
 cd e2e && mise exec -- bunx playwright test journeys/<file>
 ```
 
-A failure writes a trace and a screenshot to `e2e/test-results/`. Open
+A failure writes a trace and screenshot to `e2e/test-results/`. Open
 a trace from `e2e/` with `bunx playwright show-trace <zip>`.
 
 CI's E2E jobs run the same journeys on every pull request, split in two by
