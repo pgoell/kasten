@@ -171,7 +171,8 @@ def _sessions(root: Path, settings: Settings, today: date) -> list[dict[str, Any
 async def plan(settings: Settings, stored: set[str], today: date) -> Plan:
     """What the import would write, read off the vault as it stands: nothing is written."""
     root = settings.vault_path
-    hits = [hit for hit in await find_todos(root) if LINE.fullmatch(hit.text)]
+    # The lines that end parts stay in: `parents` and `projects_of` stop a part at them.
+    hits = await find_todos(root)
     projects = projects_of(hits, vault.list_markdown_files(root))
     result = Plan()
     taken = set(stored)
@@ -182,9 +183,11 @@ async def plan(settings: Settings, stored: set[str], today: date) -> Plan:
     for note, found in by_note.items():
         up = parents((hit.line, hit.text) for hit, _ in found)
         places: dict[str | None, int] = {}
-        for hit, project in found:
+        todos = [(hit, project) for hit, project in found if hit.line in up]
+        for hit, project in todos:
             _plan_line(settings, result, (hit, project, up[hit.line]), (taken, ids, places), today)
-        result.notes[note] = _embedded(root, note, found, ids, up)
+        if todos:
+            result.notes[note] = _embedded(root, note, todos, ids, up)
     return result
 
 
@@ -241,8 +244,10 @@ def _embedded(
     up: dict[int, int | None],
 ) -> str:
     """The note's text with each top todo line an embed and each part line gone."""
-    text: str = vault.read_note(root, note) or ""
-    lines = list(map(str, text.split("\n")))
+    path = vault.resolve_note(root, note)
+    # Split on LF alone, each CR kept on its line, as `rg_lines` numbers them.
+    text = "" if path is None else path.read_text(encoding="utf-8", newline="")
+    lines = text.split("\n")
     for hit, _ in sorted(found, key=lambda one: one[0].line, reverse=True):
         if up[hit.line] is None:
             lines[hit.line - 1] = _embed(lines[hit.line - 1], ids[(hit.path, hit.line)])

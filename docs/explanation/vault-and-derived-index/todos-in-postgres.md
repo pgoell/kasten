@@ -204,6 +204,28 @@ The move ships in steps, and only the last one changes what anyone sees:
    needs the import run against the vault and database it serves, in the same
    window, or the pane comes up empty.
 
+Step 3 has more to move than the todo readers, because some readers of note
+text read todo lines without knowing it:
+
+- **Tags.** The tag list reads tags off todo lines; it reads them off rows too.
+- **Links in a todo's words.** Backlinks, the graph, people cards and the
+  project's link step read a `[[link]]` on a todo line; they read the rows'
+  `words`, `assignee` and `waiting_on`.
+- **The embed.** The graph and the link readers take `![[kt-3f9a2c]]` for a
+  link to a missing note; a `kt-` target is a todo, not a note.
+- **Moving a note.** A move rewrites links in notes; it rewrites them in rows
+  too, and moves `note` along, since the archive filter reads it.
+- **Search.** The line search and the pieces index stop finding a todo's words
+  in its note.
+- **Writers.** The meal plan's shopping list, the contract reminders and the
+  agent guide written at startup write todo lines; they write rows.
+- **Events.** A row written sends no vault event, so the store sends one of its
+  own for the pane to read again.
+
+The import loses two small things on purpose: a part's `^block` id, since parts
+get no embed, and the look of old daily notes, whose ticked lines become
+embeds of done todos.
+
 The planning skill in the vault reads and writes todo lines, and it stops
 working at step 3 until it moves to the agent tools.
 

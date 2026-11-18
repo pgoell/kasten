@@ -9,6 +9,8 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
+from backend.tests.conftest import changed_paths, descriptions
+from kasten_backend import change
 from kasten_backend.config import Settings
 from kasten_backend.todos import fields, importer
 from kasten_backend.todos.models import Todo, TodoChange, TodoSession
@@ -48,6 +50,14 @@ type: Periodic Note
 - 14:00-      water plants kt-eeeeee
 """
 
+ENDS = """- [ ] call
+- plain item
+  - [ ] sub under plain
+
+## Other
+  - [ ] indented under heading
+"""
+
 SHARED = "- [ ] Milch\n- [x] Brot ✅ 2026-11-16\n"
 
 
@@ -60,6 +70,8 @@ def fixtures(vault: Path) -> Settings:
         "98 Archive/old.md": "- [ ] an archived todo\n",
         "notes/fenced.md": "```\n- [ ] in a fence\n```\n",
         "notes/twin.md": "- [ ] twin of flights 🆔 kt-aaaaaa\n",
+        "notes/ends.md": ENDS,
+        "notes/windows.md": "- [ ] crlf one\r\n  - [ ] crlf part\r\n- [ ] crlf two\r\n",
     }.items():
         note = vault / path
         note.parent.mkdir(parents=True, exist_ok=True)
@@ -88,6 +100,12 @@ async def test_every_todo_line_becomes_a_row_with_its_fields(fixtures: Settings)
             "Milch",
             "Brot",
             "an archived todo",
+            "call",
+            "sub under plain",
+            "indented under heading",
+            "crlf one",
+            "crlf part",
+            "crlf two",
         ]
     )
     flights = rows["book flights #p/trip"]
@@ -157,7 +175,7 @@ async def test_a_twin_gets_a_new_id_and_the_counts_hold(fixtures: Settings) -> N
 
     assert twin["id"] != "kt-aaaaaa"
     assert len(moved.renamed) == 1
-    assert moved.open_lines == sum(row["state"] not in importer.CLOSED for row in moved.rows) == 9
+    assert moved.open_lines == sum(row["state"] not in importer.CLOSED for row in moved.rows) == 15
     assert moved.ids_on_lines == {f"kt-{c * 6}" for c in "abde"}
 
 
@@ -187,9 +205,9 @@ async def test_a_run_stores_rows_sessions_and_history_and_a_second_run_finds_not
         sessions = (await session.scalars(select(TodoSession))).all()
         changes = (await session.scalars(select(TodoChange))).all()
 
-    assert first.startswith("open todo lines: 9, open rows: 9")
+    assert first.startswith("open todo lines: 15, open rows: 15")
     assert second.startswith("open todo lines: 0, open rows: 0")
-    assert (len(rows), len(changes)) == (12, 12)
+    assert (len(rows), len(changes)) == (18, 18)
     assert sorted((one.started.hour, one.ended and one.ended.hour) for one in sessions) == [
         (8, 9),
         (13, 22),
@@ -203,7 +221,7 @@ async def test_a_dry_run_writes_nothing(fixtures: Settings, store: AsyncEngine) 
         report = await importer.run(fixtures, session, dry=True)
         rows = (await session.scalars(select(Todo))).all()
 
-    assert report.startswith("open todo lines: 9, open rows: 9")
+    assert report.startswith("open todo lines: 15, open rows: 15")
     assert rows == []
     assert (fixtures.vault_path / "05 Shared/Einkauf.md").read_text() == SHARED
 
@@ -247,3 +265,41 @@ def test_the_reader_takes_the_fields_the_editor_takes(case: dict[str, Any]) -> N
         read["waitingSince"], read["waitingOn"] = found[fields.WAITING][0]
 
     assert read == case["fields"]
+
+
+async def test_a_heading_or_a_plain_item_ends_the_parts_above_it(fixtures: Settings) -> None:
+    moved = await _plan(fixtures)
+    rows = {row["words"]: row for row in moved.rows}
+    ids = {name: rows[name]["id"] for name in rows}
+
+    assert [rows[name]["parent_id"] for name in ("sub under plain", "indented under heading")] == [
+        None,
+        None,
+    ]
+    assert moved.notes["notes/ends.md"] == (
+        f"![[{ids['call']}]]\n- plain item\n  ![[{ids['sub under plain']}]]\n\n"
+        f"## Other\n  ![[{ids['indented under heading']}]]\n"
+    )
+
+
+async def test_a_windows_note_keeps_its_line_endings(fixtures: Settings) -> None:
+    moved = await _plan(fixtures)
+    ids = {row["words"]: row["id"] for row in moved.rows}
+
+    assert moved.notes["notes/windows.md"] == (
+        f"![[{ids['crlf one']}]]\r\n![[{ids['crlf two']}]]\r\n"
+    )
+
+
+async def test_the_move_is_one_jj_change_once_the_snapshot_settles(
+    versioned_vault: Path, store: AsyncEngine
+) -> None:
+    (versioned_vault / "plan.md").write_text("# Plan\n\n- [ ] one\n- [x] two ✅ 2026-11-01\n")
+    (versioned_vault / "other.md").write_text("- [ ] three\n")
+    settings = Settings(vault_path=versioned_vault, timezone="Europe/Berlin")
+    async with AsyncSession(store) as session:
+        await importer.run(settings, session, dry=False)
+    await change.settled()
+
+    assert descriptions(versioned_vault) == [f"vault: {importer.LABEL}"]
+    assert sorted(changed_paths(versioned_vault, "@")) == ["other.md", "plan.md"]
