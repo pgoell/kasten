@@ -35,7 +35,7 @@ for (const name of ["first", "second"]) {
   });
 }
 
-test("a forked backend starts at least a second sooner than a cold one, and stops whole", async ({
+test("a forked backend starts in under three quarters of a cold one's time, and stops whole", async ({
   warm,
 }) => {
   const startup = async (start: (dir: string, env: Record<string, string>) => Backend) => {
@@ -55,16 +55,18 @@ test("a forked backend starts at least a second sooner than a cold one, and stop
     }
   };
   const uvicorn = ["kasten_backend.main:app", "--host", "127.0.0.1", "--port", "0"];
-  const cold = await startup((dir, env) =>
+  const coldStart = (dir: string, env: Record<string, string>) =>
     spawn("uv", ["run", "--no-sync", "--project", root, "uvicorn", ...uvicorn], {
       cwd: dir,
       detached: true,
       env: { ...process.env, ...env },
-    }),
-  );
-  const forked = await startup((dir, env) => fork(warm, dir, env));
+    });
+  // The best of two each, since the other workers' journeys load the box unevenly.
+  const cold = Math.min(await startup(coldStart), await startup(coldStart));
+  const forkStart = (dir: string, env: Record<string, string>) => fork(warm, dir, env);
+  const forked = Math.min(await startup(forkStart), await startup(forkStart));
   console.log(`backend start: cold ${Math.round(cold)} ms, forked ${Math.round(forked)} ms`);
-  expect(cold - forked).toBeGreaterThan(1000);
+  expect(forked).toBeLessThan(cold * 0.75);
 });
 
 test("a forked backend reads its settings from its own test's env", async ({ warm }) => {
