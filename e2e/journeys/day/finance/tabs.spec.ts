@@ -183,8 +183,11 @@ test("#1036 on the budget, y takes the suggestion and e edits the limit from the
 
   // Fixed comes first, so Rent is the first row and Groceries the next.
   await page.keyboard.press("j");
+  const reads = sentTo("GET /api/finance/budget?").length;
   await page.keyboard.press("y");
   await expect.poll(() => sentTo("PUT")).toHaveLength(1);
+  // The save closes any limit field once its write lands, then reads the budget again (#2237).
+  await expect.poll(() => sentTo("GET /api/finance/budget?").length).toBeGreaterThan(reads);
   await page.keyboard.press("k");
   await page.keyboard.press("e");
   await limit(finance).fill("1700");
