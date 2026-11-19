@@ -283,7 +283,11 @@ export function FinanceSankey({
           {point === undefined ? head : describe(point, links, byKey, total)}
         </p>
         {[...sizes].map((words) => (
-          <span key={words} className="finance-sankey-size" aria-hidden="true">
+          <span
+            key={words}
+            className="finance-trend-readout finance-sankey-size"
+            aria-hidden="true"
+          >
             {words}
           </span>
         ))}

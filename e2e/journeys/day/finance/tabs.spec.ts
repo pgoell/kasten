@@ -310,7 +310,8 @@ test("#1036 a failed read of the bank job shows as an alert", async ({ page }) =
   ).toBeVisible();
 });
 
-const readout = (finance: Locator) => finance.locator(".finance-sankey .finance-trend-readout");
+const readout = (finance: Locator) =>
+  finance.locator(".finance-sankey .finance-trend-readout[aria-live]");
 
 /** The sankey's category node, by click or, on a phone, by tap; the drilldown's read and crumbs follow. */
 async function intoGroceries(page: Page, finance: Locator, sentTo: (start: string) => string[]) {

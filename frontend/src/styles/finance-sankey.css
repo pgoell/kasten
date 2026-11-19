@@ -17,14 +17,9 @@
   }
 }
 
-/* A shadow at an edge says more of the chart lies past it. Each shadow stays at its edge
-   while a patch of the card's colour moves with the chart's ends and covers it there, so a
-   shadow shows only where there is more to scroll to, with no script. */
 /* The readout and its hidden copies share one cell, so it is as tall as its longest text. */
 .finance-sankey-readout {
   display: grid;
-  font-size: var(--k-text-15);
-  font-variant-numeric: tabular-nums;
 }
 
 .finance-sankey-readout > * {
@@ -35,6 +30,9 @@
   visibility: hidden;
 }
 
+/* A shadow at an edge says more of the chart lies past it. Each shadow stays at its edge
+   while a patch of the card's colour moves with the chart's ends and covers it there, so a
+   shadow shows only where there is more to scroll to, with no script. */
 .finance-sankey-scroll {
   min-width: 0;
   overflow-x: auto;
