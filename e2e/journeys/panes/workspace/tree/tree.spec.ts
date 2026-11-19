@@ -1,8 +1,8 @@
 import { readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import type { Page } from "@playwright/test";
-import { findNote, leader, openApp, vaultWith } from "../../../harness/app.ts";
-import { expect, test } from "../../../harness/stack.ts";
+import { findNote, leader, openApp, vaultWith } from "../../../../harness/app.ts";
+import { expect, test } from "../../../../harness/stack.ts";
 
 // The note `02 Projects/Garden.md` and the folder `02 Projects/Garden/` share a name on purpose: the vault allows both.
 const BEDS = "02 Projects/Garden/Beds.md";

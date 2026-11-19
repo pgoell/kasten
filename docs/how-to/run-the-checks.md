@@ -60,27 +60,27 @@ are not grouped: each Action bump comes as its own pull request.
 
 ## Run the end-to-end journeys
 
-`mise run e2e` builds the frontend, then runs the Playwright journeys in `e2e/`
-against it. It needs Docker (Postgres, nginx) and Chromium. Each test gets
-its own vault copy, database and backend;
+`mise run e2e` builds the frontend and runs the Playwright journeys in `e2e/`
+against it. It needs Docker and Chromium. Each test gets
+its own vault, database and backend;
 teardown drops the containers. Unlike `fe:e2e`, it stubs no API.
 
 The journeys sit in `e2e/journeys/`: review in `review/` (a sitting, a jotted question, a cloze card, the daily limits, the sitting's keys, vim on and off, unreadable deck notes, and the overview in `overview/`), panes in
 `panes/` (layout, the top bar, the pane and tab keys, pane moves while a write is held, links to pages and assets; a note changed on disk under
-unsaved text, `:e` and `:e!`, and a conflicted note reopened in `panes/conflict/`; the workspace over a reload, held text in a restored pane, a URL over it, the tree panel, the leader keys and gf to a highlight's book in `panes/workspace/`; the drawer, phone toolbar, key help, AltGr keys, a resized window, sheets, the link margin and todo pane taps in `panes/narrow/`), notes, the finder, a tree row dragged, the new note prompt's folder rows, where a note opens and the bar's save sign in `notes/`, with saving in `notes/saving/` (edits,
+unsaved text, `:e` and `:e!`, and a conflicted note reopened in `panes/conflict/`; the workspace over a reload, held text in a restored pane, a URL over it, the tree panel and keys in `tree/`, the leader keys and gf to a highlight's book in `panes/workspace/`; the drawer, phone toolbar, key help, AltGr keys, a resized window, sheets, the link margin and todo pane taps in `panes/narrow/`), notes, the finder, a tree row dragged, the new note prompt's folder rows, where a note opens and the bar's save sign in `notes/`, with saving in `notes/saving/` (edits,
 mention links, held text, the editor's build and relation names, live preview and its lists and tables) and content search and an epub opened mid-listing in `notes/search/`, the todo list, board, presses,
 twin ids, a person's card and the shared lists in `todos/` (the panel, keys, taps, held order, edit line, strip, refile and `board/` in `todos/pane/`), capture, the web page import, chat replies, the log and overview, the home screen, the tokens page in `day/`, finance in `day/finance/`, and the book finder, book, video and clip panes and csv and svg files in
 `media/`. `harness.spec.ts` checks the harness. Each journey is a
-daily task; a write checks the disk. 54 files
+daily task; a write checks the disk. 55 files
 run at 414 px with touch, vim off: in `review/`, `sitting`, `jot`, `keys`, `overview/rows` and `overview/decks`; in `notes/`, `finder`,
 `status-bar`, `search/book-open-listing`, the three `search/content-search-*`, `saving/editor-build`, `saving/edits`,
-`saving/mentions` and `saving/live-preview-blocks`; in `panes/`, `links`, `workspace/reload`,
+`saving/mentions` and `saving/live-preview-blocks`; in `panes/`, `links`, `workspace/reload`, `workspace/tree/edits`,
 `narrow/drawer`, `narrow/phone`, `narrow/key-help`, `narrow/resize` and `narrow/todo-pane`; in `todos/`, `list`,
 `board`, `pane/board/board`, `pane/order`, `pane/chip-loading`, `pane/strip`, `twin-ids`, `person-card` and `lists`; in `day/`, `capture`, `chat`, `finance/drill`, `finance/plans`, `finance/tabs`, each `log/` spec but `pane/events`, and `today`; and in
 `media/`, `book`, `book-finder`, `clip`, `csv`, `svg`, `video/watching`, `video/full-screen`, `video/view`, `video/shield` and `video/close`.
 `git grep -l 'test.use(phone)' e2e/journeys` lists them.
-A runner has no YouTube: the video journeys fake a player per
-embed (`fakeYouTube` in `e2e/harness/youtube.ts`) and abort requests
+A runner has no YouTube: video journeys fake a player
+(`fakeYouTube` in `e2e/harness/youtube.ts`) and abort requests
 leaving the box.
 The journeys block the service worker: Chromium crashed closing a context mid-install
 (#1606). `mise run fe:e2e` checks the offline worker.

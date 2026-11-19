@@ -225,3 +225,15 @@ describe("FileExplorer drag and drop", () => {
     expect(screen.getByText("report.html").closest("button")).toHaveAttribute("draggable", "false");
   });
 });
+
+describe("the focus signal", () => {
+  it("leaves the focus alone until the signal changes", () => {
+    // Mounting is not a request. No screen shows it: the tree stays mounted while its panel folds.
+    const { rerender } = render(<Harness focusSignal={2} />);
+    expect(cursor()).not.toHaveFocus();
+
+    rerender(<Harness focusSignal={2} />);
+
+    expect(cursor()).not.toHaveFocus();
+  });
+});
