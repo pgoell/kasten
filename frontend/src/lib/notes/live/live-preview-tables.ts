@@ -153,7 +153,7 @@ class TableGrid extends WidgetType {
     const block = document.createElement("div");
     block.className = "cm-table-block";
     // A press in a cell follows a link where it would outside a table (#561): a
-    // tap on the link's text or picture, ctrl+click on its text, any click on
+    // tap on the link's text or picture, ctrl+ or alt+click on its text, any click on
     // its picture. `posAtDOM` lands on the block's edge, so the editor's own
     // tap and ctrl+click turn away from a link in a cell, and a press followed
     // here is kept from them.
@@ -164,7 +164,7 @@ class TableGrid extends WidgetType {
     const linked = (event: MouseEvent): boolean =>
       event.target instanceof Element &&
       event.target.closest("[data-target]") !== null &&
-      (tapped || event.ctrlKey || event.metaKey);
+      (tapped || event.ctrlKey || event.metaKey || event.altKey);
     // The press's answer, kept for its click: ctrl let go between the two
     // would otherwise open the table under the note just followed.
     let leftToEditor = false;
@@ -176,7 +176,9 @@ class TableGrid extends WidgetType {
       // reads the wikilink first.
       if (linked(event)) return null;
       const always = tapped || target instanceof HTMLImageElement;
-      return always || event.ctrlKey || event.metaKey ? target.dataset.address : null;
+      return always || event.ctrlKey || event.metaKey || event.altKey
+        ? target.dataset.address
+        : null;
     };
     // A finger the browser takes for a scroll cancels instead, and must not
     // leave the next click armed.

@@ -204,7 +204,7 @@ export async function settled(): Promise<void> {
   }
 }
 
-type How = "tap" | "ctrl" | "meta" | "plain";
+type How = "tap" | "ctrl" | "meta" | "alt" | "plain";
 
 /** A note of `lines` with its table last, and where that table starts, its first line being `head`. */
 export function tabled(lines: string[], head: string): { doc: string; from: number } {
@@ -237,10 +237,10 @@ export async function appWith(
   return { at, block, element: block.querySelector(selector) as Element };
 }
 
-/** A finger on `element`, or a left press with ctrl, meta or neither. */
+/** A finger on `element`, or a left press with ctrl, meta, alt or none. */
 export async function act(element: Element, how: How): Promise<void> {
   if (how === "tap") await tap(element);
-  else await press(element, { ctrl: 2, meta: 4, plain: 0 }[how]);
+  else await press(element, { ctrl: 2, meta: 4, alt: 1, plain: 0 }[how]);
 }
 
 /**

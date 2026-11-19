@@ -75,7 +75,7 @@ export function NotePane({
   preview: boolean;
   archive: boolean;
   listings: Pick<Listings, "data" | "linkable" | "images" | "tags" | "relations">;
-  opening: Pick<NoteOpening, "follow" | "embeds" | "openPassage" | "openInPane">;
+  opening: Pick<NoteOpening, "follow" | "followTo" | "embeds" | "openPassage" | "openInPane">;
   mark: GuardedWrites["mark"];
   buffer: Pick<BufferSync, "held" | "standbyReload" | "typed" | "reload">;
   allowReload: Autosave["allowReload"];
@@ -95,7 +95,7 @@ export function NotePane({
 }) {
   const queryClient = useQueryClient();
   const { held, standbyReload, typed, reload } = buffer;
-  const { follow, embeds, openPassage, openInPane } = opening;
+  const { follow, followTo, embeds, openPassage, openInPane } = opening;
   const { linkable, images, tags, relations, data } = listings;
   const reader = useRef<HTMLDivElement>(null);
   const wide = usePaneWide(reader);
@@ -186,7 +186,7 @@ export function NotePane({
           tags={tags}
           focusSignal={paneSignal}
           focused={focused}
-          onFollow={follow}
+          onFollow={followTo}
           embeds={embeds}
         />
       </div>
@@ -244,7 +244,7 @@ export function NotePane({
             held={heldFor(held, shown.path, queryClient)}
             mark={mark?.note === shown.path ? mark : undefined}
             onSave={onSave}
-            onFollow={follow}
+            onFollow={followTo}
             onCycleTodo={onCycleTodo}
             onOpenHighlight={openPassage}
             onNotice={onNotice}

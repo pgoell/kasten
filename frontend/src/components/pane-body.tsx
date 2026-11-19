@@ -52,7 +52,10 @@ export interface PaneExtras {
   moveTo: PaneMoves["moveTo"];
   preview: boolean;
   listings: Pick<Listings, "data" | "archive" | "linkable" | "images" | "tags" | "relations">;
-  opening: Pick<NoteOpening, "seek" | "openInPane" | "follow" | "embeds" | "openPassage">;
+  opening: Pick<
+    NoteOpening,
+    "seek" | "openInPane" | "follow" | "followTo" | "embeds" | "openPassage"
+  >;
   writes: Pick<
     GuardedWrites,
     "mark" | "moved" | "flush" | "keepPosition" | "takeHighlight" | "restoreOf"

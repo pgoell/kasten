@@ -76,6 +76,8 @@ the heading. The backlinks panel, the graph and a rename read the same rule.
 | `gf` | Open the note or page the wikilink names, or the book a highlight came from | normal |
 | Enter | The same, one key | normal |
 | Ctrl+click | The same, with the mouse | any |
+| Alt+click | The same, in a split beside this pane | any |
+| Alt+Shift+click | The same, in a new tab | any |
 | Tap | The same, with a finger | any |
 
 `gf` is vim's own go-to-file, and it reads the link under the cursor. Anywhere
@@ -114,6 +116,20 @@ work on a wikilink in a drawn table's cell too; a plain click there opens the
 table. A tap on the wikilink the cursor is in moves the cursor, since that is
 the link being edited; a tap on any other link follows it, one to the same
 note included. A double tap or a double Ctrl+click follows once.
+
+Alt+click, Option+click on a Mac, opens the link in a new pane beside the one
+it sits in and moves there, a `<leader>%` and the follow in one press.
+Alt+Shift+click opens it in a new tab instead, kasten's own tab in the strip
+rather than the browser's, and goes to it. Both work on a wikilink and on a
+markdown link naming a vault file, in a drawn table's cell too, and the pane
+you clicked keeps its note. A pdf takes the new pane itself, where a plain
+follow would split again beside it. A `[[#heading]]` link stays in this note,
+and a link with an address opens a browser tab, as Ctrl+click does. So does a
+file no pane shows, such as a sound, and a dead file link opens nothing: neither
+makes a pane. No link
+renders as an anchor, so the browser's own Alt+click, which downloads a link
+on some, never runs. Holding Alt over the note shows the crosshair of a column
+selection, and an Alt-drag off a link still makes one.
 
 Ctrl+click or a tap on a markdown link, `[mail](https://mail.google.com/...)`,
 opens its address in a new tab. Only an address with a scheme opens; a

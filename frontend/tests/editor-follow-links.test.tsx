@@ -123,6 +123,19 @@ describe("Editor", () => {
     expect(onFollow).toHaveBeenCalledWith("borges");
   });
 
+  it.each([
+    ["alt", { altKey: true }, "split"],
+    ["alt+shift", { altKey: true, shiftKey: true }, "tab"],
+  ])("follows a wikilink on %s+click into a %s", (_, held, where) => {
+    const onFollow = vi.fn();
+    const { container } = render(<Editor initialDoc="see [[borges]] now" onFollow={onFollow} />);
+    finishParsing(container);
+
+    fireEvent.mouseDown(container.querySelector(".cm-wikilink") as HTMLElement, held);
+
+    expect(onFollow).toHaveBeenCalledWith("borges", undefined, where);
+  });
+
   it("leaves a plain click on a wikilink to the cursor", () => {
     // Clicking a link to put the cursor in it is how it gets edited, so the
     // modifier is what tells the two apart.
