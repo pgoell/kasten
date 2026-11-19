@@ -130,12 +130,15 @@ test("#947 A2 a row checked off stays in place, struck, until a beat after the l
   page,
   stack,
 }) => {
-  const { first } = await openOrder(page, stack.vault, {
+  const { first, holdNext } = await openOrder(page, stack.vault, {
     notes: { [B]: todos(...doing("echo", "foxtrot"), `- [x] kilo ✅ ${today()}`) },
   });
   await page.getByRole("button", { name: /Done this week/ }).click();
   const shown = await order(page);
   await aim(page, shown[0] ?? "");
+  // The press's read comes rotated: drawn after the hold lets go, it shifts the rows under the cursor (#2230).
+  // So it stays out past the last check; I1, I2 and A4 draw a rotated answer under a hold.
+  holdNext();
   await page.keyboard.press("x");
   await page.clock.runFor(500);
   await expect(struck(page, shown[0] ?? "")).toHaveText(shown[0] ?? "");
