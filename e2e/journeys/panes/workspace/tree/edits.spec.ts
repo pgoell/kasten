@@ -159,7 +159,7 @@ test.describe("the leader from the tree, through its panel", () => {
 test.describe("on a phone with a keyboard, where no panel takes the leader", () => {
   test.use(phone);
 
-  test("the tree's own leader runs: Space c f opens the prompt in the cursor's folder, Space r f does nothing on a folder, Space c x then j moves", async ({
+  test("the tree's own leader runs: Space c f opens the prompt in the cursor's folder, Space r f renames the cursor's note and nothing on a folder, Space c x then j moves", async ({
     page,
   }) => {
     await page.goto("/");
@@ -180,5 +180,10 @@ test.describe("on a phone with a keyboard, where no panel takes the leader", () 
     await leader(page, "cx");
     await page.keyboard.press("j");
     await at(page, "04 Books");
+    await page.keyboard.type("kkl");
+    await page.keyboard.press("j");
+    await expect(cursor(page)).toHaveAttribute("title", "02 Projects/Garden.md");
+    await leader(page, "rf");
+    await expect(prompt(page, "Rename note")).toHaveValue("02 Projects/Garden.md");
   });
 });

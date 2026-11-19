@@ -76,6 +76,8 @@ test("l and Enter open the note under the cursor", async ({ page }) => {
   await at(page, "Quote");
   await page.keyboard.press("l");
   await expect(page.getByRole("tab", { name: "Quote", selected: true })).toBeVisible();
+  // Keys sent before the opened note's editor holds the focus are lost (#1615).
+  await expect(page.locator(".cm-content:focus")).toHaveCount(1);
   await intoTree(page);
   await page.keyboard.press("G");
   await page.keyboard.press("k");
