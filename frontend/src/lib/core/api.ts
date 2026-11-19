@@ -273,7 +273,7 @@ export async function createNote(path: string, content = ""): Promise<Note> {
 
     // The whole note, so writers and movers seed one cache from one answer.
     // The path is the vault's spelling: `daily/./note.md` comes back as `daily/note.md`, which `?note=` takes.
-    pressWrote(data.path, data.content);
+    pressWrote(data.path, data.content, data.content);
     return data;
   } finally {
     answered();
@@ -318,7 +318,7 @@ export async function saveNote(
       });
     }
 
-    pressWrote(data.path, data.content);
+    pressWrote(data.path, data.content, content);
     return data;
   } finally {
     answered();

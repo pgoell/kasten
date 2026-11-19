@@ -14,6 +14,7 @@ import {
   endPress,
   followRow,
   keepLanded,
+  landedRow,
   pressEcho,
   pressSending,
   pressWrote,
@@ -338,18 +339,58 @@ describe("#947 B6 the echo of a press", () => {
     vi.useFakeTimers({ now: NOW });
     const path = "02 Projects/Echo.md";
     beginPress();
-    pressWrote(path, "one");
+    pressWrote(path, "one", "one");
     endPress();
     vi.advanceTimersByTime(2900);
     // The second press's save is out while its echo comes, and answers past the first's window.
     beginPress();
     const answered = pressSending(path);
     vi.advanceTimersByTime(200);
-    pressWrote(path, "two");
+    pressWrote(path, "two", "two");
     answered();
     const echo = await pressEcho(path, await digestOf("two"));
     endPress();
     vi.useRealTimers();
     expect(echo).toBe(true);
+  });
+});
+
+describe("#2210 a row listed before a press stamped its note", () => {
+  const SENT = "# K\n- [x] a\n- [/] b\n";
+  const STAMPED = `---\nid: g\n---\n${SENT}`;
+  const b = (path: string) => ({ path, line: 3, text: "- [/] b" });
+  /** A press whose save of `path` came back with a 3-line block on top. */
+  function stamp(path: string) {
+    beginPress();
+    pressWrote(path, STAMPED, SENT);
+    endPress();
+  }
+
+  it("reads the row as many lines down as the stamp moved it", () => {
+    stamp("s1.md");
+    expect(landedRow(STAMPED, b("s1.md")).row.line).toBe(6);
+  });
+
+  it("moves the twins it was listed with too", () => {
+    stamp("s2.md");
+    expect(landedRow(STAMPED, b("s2.md"), [3]).twins).toEqual([6]);
+  });
+
+  it("reads a row listed after the stamp on its own line, though its words sit as far below too", () => {
+    stamp("s3.md");
+    const twice = `${STAMPED}- [ ] c\n- [ ] d\n- [/] b\n`;
+    expect(landedRow(twice, { ...b("s3.md"), line: 6 }).row.line).toBe(6);
+  });
+
+  it("follows no stamp older than one turn's wait", () => {
+    vi.useFakeTimers({ now: NOW });
+    stamp("s4.md");
+    vi.advanceTimersByTime(10_001);
+    expect(landedRow(STAMPED, b("s4.md")).row.line).toBe(3);
+  });
+
+  it("keeps no stamp from a save made with no press running", () => {
+    pressWrote("s5.md", STAMPED, SENT);
+    expect(landedRow(STAMPED, b("s5.md")).row.line).toBe(3);
   });
 });

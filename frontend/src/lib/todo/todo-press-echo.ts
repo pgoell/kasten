@@ -19,6 +19,8 @@ const fresh = new Set<string>();
 const expiry = new Map<string, number>();
 /** Each path's press saves still out, whose event can beat the answer `pressWrote` reads (#1994). */
 const sending = new Map<string, Set<Promise<void>>>();
+/** Per note, the lines a press's save stamped on top (a frontmatter block) and when (#2210). */
+const stamps = new Map<string, { shift: number; at: number }>();
 
 /** A press has begun. Every write until its `endPress` is the press's own. */
 export function beginPress(): void {
@@ -51,10 +53,12 @@ function prune(): void {
 
 /**
  * A note a press has just written, and the text it now holds: what landed on
- * disk, which is the digest `/api/events` reports for the write.
+ * disk, which is the digest `/api/events` reports for the write. `sent` is what the press sent.
  */
-export function pressWrote(path: string, content: string): void {
+export function pressWrote(path: string, content: string, sent: string): void {
   if (running === 0) return;
+  const shift = content.split("\n").length - sent.split("\n").length;
+  if (shift > 0) stamps.set(path, { shift, at: Date.now() });
   fresh.add(path);
   // Written again by a press, so the expiry of an earlier one no longer bounds
   // it: pruning it then would drop the digest this press is about to echo.
@@ -158,7 +162,8 @@ export function keepLanded(old: Row[], to: Row): void {
 
 /**
  * The row a press reads: the line the last `x` wrote, for a row the note has moved past
- * (by its line, or its twins' count) while that line still says it; else the row as listed.
+ * (by its line, or its twins' count) while that line still says it; else, for a row whose line
+ * a press's stamp moved, that many lines down; else the row as listed.
  */
 export function landedRow<R extends Row>(
   text: string,
@@ -173,9 +178,16 @@ export function landedRow<R extends Row>(
     (twins !== undefined && lines.filter((each) => each === hit.text).length !== twins.length);
   const fresh =
     kept && Date.now() - kept.at <= TURN_WAIT_MS && lines[kept.row.line - 1] === kept.row.text;
-  return stale && fresh
-    ? { row: { ...hit, line: kept.row.line, text: kept.row.text }, twins: undefined }
-    : { row: hit, twins };
+  if (stale && fresh) {
+    return { row: { ...hit, line: kept.row.line, text: kept.row.text }, twins: undefined };
+  }
+  const stamp = stamps.get(hit.path);
+  const shift = stamp && Date.now() - stamp.at <= TURN_WAIT_MS ? stamp.shift : 0;
+  // Listed before a press stamped the note (#2210): its line no longer says it, the moved one does.
+  if (shift > 0 && lines[hit.line - 1] !== hit.text && lines[hit.line - 1 + shift] === hit.text) {
+    return { row: { ...hit, line: hit.line + shift }, twins: twins?.map((line) => line + shift) };
+  }
+  return { row: hit, twins };
 }
 
 /** The lines of `at`'s note that say its words, by line, and which of them is `at`: how an edit tells twins apart. */

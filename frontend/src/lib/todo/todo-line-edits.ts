@@ -80,16 +80,19 @@ async function blockTodo(listed: SearchHit, blocker: SearchHit): Promise<void> {
 
 /**
  * Put a typed todo into the row's note as a part of it, with the add prompt's shorthand.
- * The parent's line is checked against its row first, since the part hangs off it.
+ * The parent's line is checked against its row first, since the part hangs off it; in turn, as an `x` before it may move it (#2210).
  */
 export async function addSubtaskInVault(
   hit: SearchHit,
   input: string,
   today: string,
 ): Promise<void> {
-  await updateNote(hit.path, (text) =>
-    text.split("\n")[hit.line - 1] === hit.text
-      ? insertSubtask(text, hit.line, expandShorthand(input, today))
-      : null,
+  await inTurn(() =>
+    updateNote(hit.path, (text) => {
+      const parent = landedRow(text, hit).row;
+      return text.split("\n")[parent.line - 1] === parent.text
+        ? insertSubtask(text, parent.line, expandShorthand(input, today))
+        : null;
+    }),
   );
 }
