@@ -9,8 +9,8 @@ import {
   today,
   vaultWith,
   watchDrop,
-} from "../../../harness/app.ts";
-import { expect, test } from "../../../harness/stack.ts";
+} from "../../../../harness/app.ts";
+import { expect, test } from "../../../../harness/stack.ts";
 
 const PLAN = "02 Projects/FDE/plan.md";
 const DAILY = `01 Periodic/00 Daily/${today()}.md`;
