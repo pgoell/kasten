@@ -6,6 +6,9 @@ import { expect } from "../../../harness/stack.ts";
 export type Answer = unknown;
 type Reply = (request: Request) => Promise<{ status?: number; json?: unknown }>;
 
+/** Whether the page is a phone's narrow screen, as `phone` in the harness makes it. */
+export const onPhone = (page: Page): boolean => (page.viewportSize()?.width ?? 1280) < 600;
+
 /** An answer that never comes, for a read the journey does not look at. */
 export const never = (): Promise<never> => new Promise(() => undefined);
 
@@ -30,9 +33,18 @@ export async function openFinance(page: Page, answers: Record<string, Answer>) {
     return route.fulfill(json === undefined ? { status: status ?? 204 } : { status, json });
   });
   await page.clock.setFixedTime(new Date("2026-10-25T12:00:00"));
-  await openApp(page);
-  await page.keyboard.press("Control+Shift+P");
-  await page.getByRole("option", { name: /^Open the finance pane/ }).click();
+  if (onPhone(page)) {
+    // A phone has no file tree to wait on: the thumb row's command button opens the palette.
+    await page.goto("/");
+    const commands = page.getByRole("toolbar", { name: "Commands" });
+    await commands.getByRole("button", { name: "Run a command by name" }).tap({ timeout: 15_000 });
+    await page.getByRole("combobox").fill("finance");
+    await page.getByRole("option", { name: /^Open the finance pane/ }).tap();
+  } else {
+    await openApp(page);
+    await page.keyboard.press("Control+Shift+P");
+    await page.getByRole("option", { name: /^Open the finance pane/ }).click();
+  }
   const finance = page.getByRole("region", { name: "Finance" });
   await expect(finance).toBeVisible();
   await finance.focus();
@@ -179,3 +191,61 @@ export async function openBooking(page: Page) {
 /** The breadcrumbs, each crumb one item. */
 export const crumbs = (page: Page) =>
   page.getByRole("navigation", { name: "Breadcrumbs" }).getByRole("listitem");
+
+export const PROPOSAL = {
+  ...{ key: "bill:Haftpflicht", source: "bill", name: "Haftpflicht", account_id: 1, payee_id: 9 },
+  ...{ text: null, amount: "-498.00", tolerance: "12.00", every_months: 12, category_id: 3 },
+  ...{ start: "2026-03-02", seen: 1, last: "2026-03-02" },
+};
+
+/** PROPOSAL as the plan it proposes, the body a confirm sends. */
+export const { key: _k, source: _s, seen: _n, last: _l, ...PLAN } = PROPOSAL;
+
+export const WEDDING = {
+  ...{ id: 7, name: "Wedding", target: "12000.00", due: "2027-08-01", account_id: 5 },
+  ...{ reserved: "4500.00", monthly: "500.00", progress: "0.3750", need: "750.00" },
+  this_month: { planned: "500.00", moved: "500.00", done: true },
+  assigned_month: null,
+  assigned_amount: null,
+};
+
+export const ACCOUNT = {
+  ...{ id: 5, name: "DKB Personal Saving", balance: "21300.00", balance_date: "2026-10-24" },
+  ...{ reserved: "4500.00", unreserved: "16800.00" },
+};
+
+const MIETE = {
+  ...{ plan_id: 1, name: "Miete", due: "2026-10-01", amount: "-950.00", category_id: 2 },
+  reserves: false,
+  match: { transaction_id: 4, booking_date: "2026-09-30", amount: "-950.00", timing: "early" },
+  counts_for: null,
+};
+
+/** The Plans & goals tab's reads, as the jsdom tests answered them, with `over` on top. */
+export const plans = (over: Record<string, Answer> = {}): Record<string, Answer> => ({
+  "GET /api/finance/categories": [],
+  "GET /api/finance/to-sort": { total: 0, bookings: [] },
+  "GET /api/finance/plans": [],
+  "GET /api/finance/plans/upcoming": [MIETE],
+  "GET /api/finance/plans/forecast": {
+    mine: { balance: "0.00", months: [] },
+    household: { balance: "0.00", months: [] },
+  },
+  "GET /api/finance/plans/proposals": [PROPOSAL],
+  "GET /api/finance/goals": { goals: [WEDDING], accounts: [ACCOUNT] },
+  "POST /api/finance/contracts/reminders": [],
+  "GET /api/finance/contracts": { contracts: [], yearly: "0.00" },
+  "GET /api/finance/budget": {
+    ...{ month: "2026-10", share_of_month: "0.8", categories: [] },
+    unreserved: { last_month: "40.00", total: "120.00", moved: "0.00" },
+  },
+  ...over,
+});
+
+/** Opens the Plans & goals tab over `plans(over)`, by its key or, on a phone, its tab. */
+export async function openPlans(page: Page, over: Record<string, Answer> = {}) {
+  const opened = await openFinance(page, plans(over));
+  if (onPhone(page)) await opened.finance.getByRole("tab", { name: /^Plans/ }).tap();
+  else await page.keyboard.press("G");
+  return opened;
+}

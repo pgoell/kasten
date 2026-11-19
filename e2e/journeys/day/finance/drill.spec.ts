@@ -1,3 +1,4 @@
+import { phone } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
 import {
   BOOKING,
@@ -182,4 +183,19 @@ test("#1083 a payee that only pays in averages its money in", async ({ page }) =
   await finance.getByRole("button", { name: "REWE ›" }).click();
 
   await expect(finance.getByText(/^average 3.000\s€ a month$/)).toBeVisible();
+});
+
+test.describe("on a phone", () => {
+  test.use(phone);
+
+  test("#1083 a scope and its account open by tap, each a breadcrumb further", async ({ page }) => {
+    const { finance, sentTo } = await openFinance(page, drills());
+
+    await finance.getByRole("button", { name: "Mine ›" }).tap();
+    await expect(finance.getByRole("heading", { name: "Mine in October 2026" })).toBeVisible();
+    await finance.getByRole("button", { name: /^Giro, 2026-10-02 ›/ }).tap();
+
+    await expect(crumbs(page)).toHaveText(["October 2026", "Mine", "Giro"]);
+    expect(sentTo("GET /api/finance/drill/accounts/")).toHaveLength(1);
+  });
 });
