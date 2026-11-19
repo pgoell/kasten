@@ -2,7 +2,7 @@ import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { findNote, leader, openApp, phone, vaultWith } from "../../../../harness/app.ts";
 import { expect, test } from "../../../../harness/stack.ts";
-import { at, cursor, intoTree, panel, prompt, row, shut, tree } from "./tree.ts";
+import { at, cursor, intoTree, leaderPanel, prompt, row, shut, tree } from "./tree.ts";
 
 const listed = (dir: string) => readdir(dir).then((names) => names.sort());
 
@@ -115,7 +115,7 @@ test.describe("the leader from the tree, through its panel", () => {
     await shut(page, "New note");
     // A folder: nothing opens, so the j after it still moves the cursor.
     await leader(page, "rf");
-    await expect(panel(page)).toHaveCount(0);
+    await expect(leaderPanel(page)).toHaveCount(0);
     await page.keyboard.press("j");
     await at(page, "03 Flashcards");
     await page.keyboard.press("k");
@@ -137,14 +137,14 @@ test.describe("the leader from the tree, through its panel", () => {
     await intoTree(page);
     await page.keyboard.press("j");
     await leader(page, "c");
-    await expect(panel(page).getByLabel("Keys pressed")).toHaveText(/c/);
+    await expect(leaderPanel(page).getByLabel("Keys pressed")).toHaveText(/c/);
     await expect(page.getByRole("dialog", { name: "New note" })).toHaveCount(0);
     await page.keyboard.press("x");
-    await expect(panel(page)).toHaveCount(0);
+    await expect(leaderPanel(page)).toHaveCount(0);
     await page.keyboard.press("j");
     await at(page, "03 Flashcards");
     await leader(page, "cg");
-    await expect(panel(page)).toHaveCount(0);
+    await expect(leaderPanel(page)).toHaveCount(0);
     await page.keyboard.press("j");
     await at(page, "04 Books");
     // Shift's own press comes before the E, as a keyboard sends it.

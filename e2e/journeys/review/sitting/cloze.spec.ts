@@ -1,19 +1,10 @@
 import type { Page } from "@playwright/test";
-import { bodyOf, leader, noteText, openApp, vaultWith } from "../../harness/app.ts";
-import { expect, test } from "../../harness/stack.ts";
+import { bodyOf, leader, noteText, vaultWith } from "../../../harness/app.ts";
+import { expect, test } from "../../../harness/stack.ts";
+import { sitDeck } from "../review.ts";
 
 const NOTE = "03 Flashcards/cloze.md";
 const LINE = "The capital of {{c1::France}} is {{c2::Paris::a city}}.";
-
-/** Writes `notes`, opens the review pane and sits `deck`, waiting for its first card. */
-async function sitDeck(page: Page, vault: string, notes: Record<string, string>, deck: string) {
-  await vaultWith(vault, notes);
-  await openApp(page);
-  await leader(page, "gs");
-  await page.getByRole("heading", { name: "Review" }).click();
-  await page.locator(`button[data-deck="${deck}"]`).click();
-  await expect(page.getByTestId("review-card")).not.toBeEmpty();
-}
 
 /** A cloze note of two numbers, the review pane open on it and its first card shown. */
 async function sitCloze(page: Page, vault: string): Promise<void> {

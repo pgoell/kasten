@@ -1,32 +1,21 @@
 import type { Page } from "@playwright/test";
 import {
   bodyOf,
-  leader,
   noteText,
-  openApp,
   phone,
   plus,
   tapHeight,
   today,
   vaultWith,
-} from "../../harness/app.ts";
-import { expect, test } from "../../harness/stack.ts";
+} from "../../../harness/app.ts";
+import { expect, test } from "../../../harness/stack.ts";
+import { sitDeck } from "../review.ts";
 
 // One deck over two notes, so the note a question goes to is the shown card's and no other.
 const NOTES: Record<string, string> = {
   "03 Flashcards/jot-a.md": "#flashcards/jot\n\nWhat is a VPC?::A private cloud\n",
   "03 Flashcards/jot-b.md": "#flashcards/jot\n\nWhat is S3?::Storage\n",
 };
-
-/** Writes `notes`, opens the review pane and sits `deck`, waiting for its first card. */
-async function sitDeck(page: Page, vault: string, notes: Record<string, string>, deck: string) {
-  await vaultWith(vault, notes);
-  await openApp(page);
-  await leader(page, "gs");
-  await page.getByRole("heading", { name: "Review" }).click();
-  await page.locator(`button[data-deck="${deck}"]`).click();
-  await expect(page.getByTestId("review-card")).not.toBeEmpty();
-}
 
 /** Sits the jot deck; returns the shown card's question and the note it came from. */
 async function sitJot(page: Page, vault: string): Promise<{ question: string; note: string }> {

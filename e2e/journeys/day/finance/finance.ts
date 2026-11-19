@@ -1,5 +1,5 @@
 import type { Page, Request } from "@playwright/test";
-import { openApp } from "../../../harness/app.ts";
+import { onPhone, openApp, runCommand } from "../../../harness/app.ts";
 import { expect } from "../../../harness/stack.ts";
 
 /** What a finance route answers: a JSON body, or an async function of the request giving a status and body. */
@@ -19,9 +19,6 @@ export async function typeHeld(page: Page, key: "[" | "]", modifiers: number) {
   await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", key, code, modifiers });
   await cdp.detach();
 }
-
-/** Whether the page is a phone's narrow screen, as `phone` in the harness makes it. */
-export const onPhone = (page: Page): boolean => (page.viewportSize()?.width ?? 1280) < 600;
 
 /** An answer that never comes, for a read the journey does not look at. */
 export const never = (): Promise<never> => new Promise(() => undefined);
@@ -47,18 +44,9 @@ export async function openFinance(page: Page, answers: Record<string, Answer>) {
     return route.fulfill(json === undefined ? { status: status ?? 204 } : { status, json });
   });
   await page.clock.setFixedTime(new Date("2026-10-25T12:00:00"));
-  if (onPhone(page)) {
-    // A phone has no file tree to wait on: the thumb row's command button opens the palette.
-    await page.goto("/");
-    const commands = page.getByRole("toolbar", { name: "Commands" });
-    await commands.getByRole("button", { name: "Run a command by name" }).tap({ timeout: 15_000 });
-    await page.getByRole("combobox").fill("finance");
-    await page.getByRole("option", { name: /^Open the finance pane/ }).tap();
-  } else {
-    await openApp(page);
-    await page.keyboard.press("Control+Shift+P");
-    await page.getByRole("option", { name: /^Open the finance pane/ }).click();
-  }
+  // A phone has no file tree to wait on: the thumb row's command button opens the palette.
+  await (onPhone(page) ? page.goto("/") : openApp(page));
+  await runCommand(page, /^Open the finance pane/, onPhone(page) ? "finance" : undefined);
   const finance = page.getByRole("region", { name: "Finance" });
   await expect(finance).toBeVisible();
   await finance.focus();

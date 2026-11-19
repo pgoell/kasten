@@ -1,5 +1,14 @@
 import type { Locator, Page } from "@playwright/test";
-import { bodyOf, leader, noteText, openApp, plus, today, vaultWith } from "../../../harness/app.ts";
+import {
+  bodyOf,
+  leader,
+  noteText,
+  openApp,
+  plus,
+  runCommand,
+  today,
+  vaultWith,
+} from "../../../harness/app.ts";
 import { expect } from "../../../harness/stack.ts";
 
 export const CONFIG_PATH = "99 Misc/01 Config/log.md";
@@ -41,19 +50,14 @@ export async function logPane(
   });
   if (how === "phone") {
     await page.goto("/");
-    const commands = page.getByRole("toolbar", { name: "Commands" });
-    await commands.getByRole("button", { name: "Run a command by name" }).tap({ timeout: 15_000 });
-    await page.getByRole("option", { name: /^Open the log/ }).tap();
+    await runCommand(page, /^Open the log/);
   } else {
     if (how === "palette") {
       await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
     }
     await openApp(page);
     if (how === "leader") await leader(page, "gf");
-    else {
-      await page.keyboard.press("Control+Shift+P");
-      await page.getByRole("option", { name: /^Open the log/ }).click();
-    }
+    else await runCommand(page, /^Open the log/);
   }
   const pane = page.getByRole("region", { name: "Log" });
   await expect(pane.getByRole("button", { name: day[0].slice(2) })).toBeVisible({
@@ -98,9 +102,7 @@ export async function trends(
   const pane = page.getByRole("region", { name: "Trends" });
   if (narrow) {
     await page.goto("/");
-    const commands = page.getByRole("toolbar", { name: "Commands" });
-    await commands.getByRole("button", { name: "Run a command by name" }).tap({ timeout: 15_000 });
-    await page.getByRole("option", { name: /^Open the log/ }).tap();
+    await runCommand(page, /^Open the log/);
     await page.getByRole("tab", { name: "Trends" }).tap();
     await pane.getByRole("button", { name: span }).tap();
   } else {

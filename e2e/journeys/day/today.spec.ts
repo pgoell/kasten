@@ -8,6 +8,7 @@ import {
   openApp,
   panes,
   phone,
+  runCommand,
   tapHeight,
   vaultWith,
   walkBackoff,
@@ -95,11 +96,9 @@ test.describe("on a phone", () => {
     await vaultWith(stack.vault, { [alpha]: "#flashcards/alpha\n\na::b\n" });
     await page.clock.install();
     await page.goto("/");
-    const commands = page.getByRole("toolbar", { name: "Commands" });
-    await expect(commands).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("toolbar", { name: "Commands" })).toBeVisible({ timeout: 15_000 });
     await expect(due(page)).toContainText("3 cards waiting");
-    await commands.getByRole("button", { name: "Run a command by name" }).tap();
-    await page.getByRole("option", { name: /^Open the review pane/ }).tap();
+    await runCommand(page, /^Open the review pane/);
     await page.locator('button[data-deck="alpha"]').tap();
     await page.getByRole("button", { name: "Show the answer" }).tap();
     const landed = page.waitForResponse((answer) => answer.request().method() === "PUT");
@@ -456,12 +455,7 @@ test.describe("the periodic notes", () => {
     }) => {
       const sent = sentFor(page, DAILY);
       await page.goto("/");
-      const commands = page.getByRole("toolbar", { name: "Commands" });
-      const run = async (row: RegExp) => {
-        await commands.getByRole("button", { name: "Run a command by name" }).tap();
-        await page.getByRole("option", { name: row }).tap();
-      };
-      await expect(commands).toBeVisible({ timeout: 15_000 });
+      const run = (row: RegExp) => runCommand(page, row);
       await run(/^Open today's note/);
       await expect(panes(page).filter({ hasText: "2026-08-06 Thursday" })).toHaveCount(1);
       expect(bodyOf(await noteText(stack.vault, DAILY))).toContain(LINKS);
