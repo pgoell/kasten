@@ -3,7 +3,6 @@ import {
   cursorTo,
   holdStream,
   leader,
-  noteText,
   openApp,
   panes,
   readAll,
@@ -34,6 +33,7 @@ type Row = {
   version: number;
   parent_id: string | null;
   blocked_by: string[];
+  state: string;
 };
 const rowOf = async (url: string, words: string): Promise<Row | undefined> =>
   ((await (await fetch(`${url}/api/todos/rows`)).json()) as Row[]).find((one) =>
@@ -68,15 +68,10 @@ async function threeTabs(page: Page, vault: string) {
   await expect(row(page, "buy milk")).toBeVisible({ timeout: 15_000 });
 }
 
-/**
- * Deletes the plumber's todo behind the app's back, then writes its note: a store write sends no
- * event, and a note's write is what makes the pane read the todos again.
- */
-async function dropPlumber(url: string, vault: string) {
-  const rows: { id: string; words: string }[] = await (await fetch(`${url}/api/todos/rows`)).json();
-  const plumber = rows.find((row) => row.words.includes("call the plumber"));
-  await fetch(`${url}/api/todos/${plumber?.id}`, { method: "DELETE" });
-  await vaultWith(vault, { [NOTE]: `${await noteText(vault, NOTE)}\n` });
+/** Deletes a todo behind the app's back: the store's todos event makes the pane read them again. */
+async function drop(url: string, words: string) {
+  const { id } = (await rowOf(url, words)) as Row;
+  expect((await fetch(`${url}/api/todos/${id}`, { method: "DELETE" })).ok).toBe(true);
 }
 
 test("j moves the cursor down a row and k moves it back up", async ({ page, stack }) => {
@@ -123,7 +118,7 @@ test("#1368 a write that redraws the rows leaves the focus in the filter line", 
   await openPane(page, stack.vault);
   await page.keyboard.press("/");
   await expect(filter(page)).toBeFocused();
-  await dropPlumber(stack.url, stack.vault);
+  await drop(stack.url, "call the plumber");
   await expect(row(page, "call the plumber")).toHaveCount(0, { timeout: 15_000 });
   await expect(filter(page)).toBeFocused();
 });
@@ -135,7 +130,7 @@ test("#1368 a write that redraws the rows leaves the focus outside the pane wher
   await openPane(page, stack.vault);
   const outside = page.getByRole("button", { name: "Welcome", exact: true });
   await outside.focus();
-  await dropPlumber(stack.url, stack.vault);
+  await drop(stack.url, "call the plumber");
   await expect(row(page, "call the plumber")).toHaveCount(0, { timeout: 15_000 });
   await expect(outside).toBeFocused();
 });
@@ -404,6 +399,19 @@ for (const gone of ["row", "blocker"])
     await expect(notice(page)).toHaveText(/^Nothing moved: No todo has the id/);
     expect((await rowOf(stack.url, "wire up the shelf"))?.blocked_by ?? []).toEqual([]);
   });
+
+test("#2219 deleting the todo a row waits on takes its ⛔ off and opens the row", async ({
+  page,
+  stack,
+}) => {
+  await openPane(page, stack.vault);
+  await block(page, "wire up the shelf", "buy milk");
+  await expect(row(page, "wire up the shelf")).toContainText("⛔");
+  await drop(stack.url, "buy milk");
+  await expect(row(page, "buy milk")).toHaveCount(0, { timeout: 15_000 });
+  await expect(row(page, "wire up the shelf")).not.toContainText("⛔");
+  expect((await rowOf(stack.url, "wire up the shelf"))?.state).toBe("open");
+});
 
 test("#2212 a b the store refuses says why", async ({ page, stack }) => {
   await page.route("**/api/todos/*", (route) =>

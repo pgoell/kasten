@@ -236,6 +236,8 @@ Closing or reopening the blocker rewrites every dependent naming it, in
 whichever note each one lives in, so the line says the truth without anything
 having to work it out at read time. The write runs from the blocker's side
 only: a `⛔` typed by hand takes effect the next time its blocker moves.
+Deleting the blocker takes its id off every dependent, and a `[b]` that
+nothing else holds opens.
 
 `⛔` on a line hands kasten the choice between `[ ]` and `[b]` there, and
 nothing else. `[/]`, `[x]` and `[-]` are never touched, so a state you set by

@@ -46,6 +46,13 @@ async def test_a_wait_and_a_stale_change_through_the_tools() -> None:
         await tools.complete_todo("kt-nothere")
 
 
+async def test_an_agent_blocker_that_is_no_todo_is_refused() -> None:
+    added = (await tools.add_todo("write docs"))[0]
+
+    with pytest.raises(ToolError, match=r"Refused: No todo has the id kt-nothere\."):
+        await tools.change_todo(added["id"], added["version"], blocked_by=["kt-nothere"])
+
+
 async def test_a_store_write_tells_the_open_streams_once_it_commits() -> None:
     queue: asyncio.Queue[Any] = asyncio.Queue()
     events.TODO_LISTENERS.add(queue)
