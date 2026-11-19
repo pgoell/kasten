@@ -357,6 +357,19 @@ describe("the finance pane's overview, budget and transactions", () => {
     );
   });
 
+  it("#2232 the overview, which has no keys of its own, takes none of the tab before it", async () => {
+    api.fetchToSort.mockResolvedValue({ total: 1, bookings: [BOOKING] });
+    renderPane();
+    press("S");
+    await screen.findByText("Tegut");
+    press("O");
+    await screen.findByRole("heading", { name: "Mine ›" });
+
+    press("1");
+    await new Promise((done) => setTimeout(done, 50));
+    expect(api.sortByHand).not.toHaveBeenCalled();
+  });
+
   it("#1036 a negative amount takes a minus sign, and money given back reads as plus", () => {
     expect(euros("-50").replaceAll("\u00a0", " ")).toBe("\u221250 €");
     expect(euros("-0.4").replaceAll("\u00a0", " ")).toBe("0 €");
