@@ -8,8 +8,8 @@ import {
   readAll,
   tapHeight,
   vaultWith,
-} from "../../harness/app.ts";
-import { expect, test } from "../../harness/stack.ts";
+} from "../../../harness/app.ts";
+import { expect, test } from "../../../harness/stack.ts";
 
 /** Opens the review pane on its overview, with the focus in it. */
 async function openReview(page: Page): Promise<void> {
