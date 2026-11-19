@@ -172,6 +172,10 @@ async function openFood(view: EditorView): Promise<void> {
   button?.click();
   // The sheet is drawn in a microtask after the press, so the call waits for that one turn.
   await Promise.resolve();
+  // On a desktop the sheet slides in from past the right edge, which widens the page until
+  // it lands (#2224). A phone's sheet moves by a spring and has no transition to wait for.
+  const sheet = view.dom.querySelector("[role='dialog'][aria-label='Food search']");
+  await Promise.all(sheet?.getAnimations().map((slide) => slide.finished) ?? []);
 }
 
 function scanButton(view: EditorView): HTMLElement | null {
@@ -203,8 +207,10 @@ function cameraShown(view: EditorView): boolean {
 /** Scans a picture of a barcode and expects its code to reach readBarcode. */
 async function readsPicture(picture: URL, code: string): Promise<void> {
   const camera = await stubCamera(picture);
+  let mounted: Awaited<ReturnType<typeof mount>> | null = null;
   try {
-    const { host, view } = await mount(414, 896);
+    mounted = await mount(414, 896);
+    const { view } = mounted;
     await openFood(view);
     pressScan(view);
     await expect.poll(() => cameraShown(view)).toBe(true);
@@ -219,9 +225,10 @@ async function readsPicture(picture: URL, code: string): Promise<void> {
       .toBe(code);
     await expect.poll(() => tracksEnded(camera)).toBe(true);
     await expect.poll(() => cameraShown(view)).toBe(false);
-    view.destroy();
-    host.remove();
   } finally {
+    // Taken down even when the test fails, so its sheet cannot widen the next test's page.
+    mounted?.view.destroy();
+    mounted?.host.remove();
     camera.restore();
     await page.viewport(414, 896);
   }
@@ -233,8 +240,10 @@ async function readsPicture(picture: URL, code: string): Promise<void> {
  */
 async function refusesCamera(width: number, label: string): Promise<void> {
   const camera = await stubCamera(null);
+  let mounted: Awaited<ReturnType<typeof mount>> | null = null;
   try {
-    const { host, view } = await mount(width, 896);
+    mounted = await mount(width, 896);
+    const { host, view } = mounted;
     await openFood(view);
     expect(scanButton(view), "the scan button").not.toBeNull();
     expect(await shot(host, `scan-button-${label}`)).toBe(width);
@@ -259,9 +268,9 @@ async function refusesCamera(width: number, label: string): Promise<void> {
       document.documentElement.clientWidth,
     );
     expect(await shot(host, `scan-refused-${label}`)).toBe(width);
-    view.destroy();
-    host.remove();
   } finally {
+    mounted?.view.destroy();
+    mounted?.host.remove();
     camera.restore();
     await page.viewport(414, 896);
   }
