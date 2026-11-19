@@ -132,7 +132,7 @@ turn the padding off until a pinch.
 ## A write asks first
 
 A finger is less exact than a mouse, and a tap on a todo's state symbol writes
-to the vault. So the button asks: the first tap shows the state the todo would
+the todo. So the button asks: the first tap shows the state the todo would
 move to, and the second one writes. The same holds for whatever else a stray
 tap could not take back: the exam's `finish` and `close`, the image pane's
 `delete`, and a hollow ring in the graph, where a tap would make a note.

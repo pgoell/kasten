@@ -49,7 +49,7 @@ to a ledger file that no person made, under a history meant for writing.
 ## Why not a ledger file in the vault
 
 A plain-text ledger, hledger or beancount style, would keep the rule. kasten
-would read it into an index the way it reads todos, and the database would stay
+would read it into an index the way it read todos then, and the database would stay
 disposable.
 
 It was turned down for three reasons:
