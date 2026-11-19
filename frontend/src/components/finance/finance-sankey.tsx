@@ -269,11 +269,25 @@ export function FinanceSankey({
   const height = drawn.height + 2;
   const when = name ?? (month === monthOf(today) ? `${monthName(month)} so far` : monthName(month));
   const head = headline(flow, nodes, when);
+  const sizes = new Set([
+    head,
+    ...nodes.map((node) => describe({ node }, links, byKey, total)),
+    ...links.map((link) => describe({ link }, links, byKey, total)),
+  ]);
   return (
     <figure className="finance-sankey">
-      <p className="finance-trend-readout" aria-live="polite">
-        {point === undefined ? head : describe(point, links, byKey, total)}
-      </p>
+      {/* Hidden copies of every text it can show keep its height, so a tap's focus moves no node
+          away from under the finger before the click lands (#2236). */}
+      <div className="finance-sankey-readout">
+        <p className="finance-trend-readout" aria-live="polite">
+          {point === undefined ? head : describe(point, links, byKey, total)}
+        </p>
+        {[...sizes].map((words) => (
+          <span key={words} className="finance-sankey-size" aria-hidden="true">
+            {words}
+          </span>
+        ))}
+      </div>
       <div className="finance-sankey-scroll">
         <div className="finance-sankey-plot">
           <svg
