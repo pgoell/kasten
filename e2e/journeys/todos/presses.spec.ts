@@ -1,7 +1,8 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { Locator, Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import {
+  beforeCaret,
   bodyOf,
   cursorTo,
   hold,
@@ -403,10 +404,6 @@ test("sends every press of x, however fast, and asks nothing", async ({ page, st
 });
 
 // The 👤 inside each span is the span's, so the name goes after the stamp at the line's end.
-/** The edit line's text before its caret. */
-const beforeCaret = (input: Locator) =>
-  input.evaluate((field: HTMLInputElement) => field.value.slice(0, field.selectionStart ?? 0));
-
 test.describe("#1018 the name place past a span holding a wait stamp", () => {
   const DAY = "2026-10-25";
   const SPANS = { alpha: `\`👤 ${DAY} x\``, beta: `[👤 ${DAY} x](x)`, gamma: `[[👤 ${DAY} x]]` };
