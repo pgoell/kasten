@@ -60,15 +60,12 @@ type Open = { notes?: Record<string, string>; touch?: boolean };
 /**
  * The todo pane over the Order notes. Each list answer comes rotated one further, as nothing
  * promises the backend's order, so a redraw that does not hold the order moves rows. PUTs past
- * `allow` answer 500, and one whose path holds `stall.path` lands but answers only once let go.
+ * `allow` answer 500.
  */
 async function openOrder(page: Page, vault: string, o: Open = {}) {
   let reads = 0;
   let gate: Promise<void> | undefined;
-  const put = {
-    allow: Number.POSITIVE_INFINITY,
-    stall: undefined as { path: string; go: Promise<void> } | undefined,
-  };
+  const put = { allow: Number.POSITIVE_INFINITY };
   await page.route("**/api/todos?**", async (route) => {
     const wait = gate;
     gate = undefined;
@@ -83,12 +80,7 @@ async function openOrder(page: Page, vault: string, o: Open = {}) {
     if (route.request().method() !== "PUT") return route.fallback();
     if (put.allow <= 0) return route.fulfill({ status: 500, body: "" });
     put.allow -= 1;
-    const stall = put.stall;
-    if (stall === undefined || !decodeURIComponent(route.request().url()).includes(stall.path))
-      return route.fallback();
-    const answer = await route.fetch();
-    await stall.go;
-    await route.fulfill({ response: answer });
+    return route.fallback();
   });
   const seen = await recordEvents(page);
   await vaultWith(vault, { ...NOTES, ...o.notes });
@@ -114,6 +106,9 @@ async function openOrder(page: Page, vault: string, o: Open = {}) {
   };
   return { reads: () => reads, seen, first: await order(page), put, holdNext };
 }
+
+// A list read still out when a journey ends would throw in its handler once the page closes.
+test.afterEach(({ page }) => page.unrouteAll({ behavior: "ignoreErrors" }));
 
 /** Moves the cursor to the first Order row and stops the clock, so the order holds until the test lets it on. */
 async function aim(page: Page, name: string) {
