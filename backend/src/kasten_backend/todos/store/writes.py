@@ -215,6 +215,7 @@ class Writes:
             await self._check_parent(row.id, values["parent_id"])
         if "epic_id" in values:
             await self._check_epic(row.id, values["epic_id"])
+        await self._check_blockers(set(values.get("blocked_by") or []) - set(had))
         for key, value in values.items():
             if key in EDITABLE:
                 setattr(row, key, value)
@@ -240,6 +241,12 @@ class Writes:
         below = set() if row is None else {part.id for part in await self.parts(row)}
         if parent == id_ or parent in below:
             raise RefusedError(f"{parent} is {id_} or one of its parts.")
+
+    async def _check_blockers(self, added: set[str]) -> None:
+        """Refuse an added blocker that is no todo: a deleted one would hold for good (#2212)."""
+        for blocker in sorted(added):
+            if await self.session.get(Todo, blocker) is None:
+                raise RefusedError(f"No todo has the id {blocker}.")
 
     async def _leave_epic(self, id_: str) -> None:
         """A todo no longer an epic lets go of every todo that counted toward it."""

@@ -160,6 +160,21 @@ async def test_the_last_blocker_taken_off_opens_the_todo(client: AsyncClient) ->
     assert response.json()[0]["state"] == "open"
 
 
+async def test_a_blocker_that_is_no_todo_is_refused_and_one_kept_from_before_stays(
+    client: AsyncClient,
+) -> None:
+    gone = await add(client, "ship it")
+    held = await add(client, "write docs", blocked_by=[gone["id"]])
+    await client.delete(f"/api/todos/{gone['id']}")
+    added = {"version": 1, "blocked_by": [gone["id"], "kt-nothere"]}
+    refused = await client.patch(f"/api/todos/{held['id']}", json=added)
+    kept = await client.patch(f"/api/todos/{held['id']}", json={"version": 1, "words": "docs"})
+
+    assert refused.status_code == 422
+    assert refused.json()["detail"] == "No todo has the id kt-nothere."
+    assert kept.json()[0]["blocked_by"] == [gone["id"]]
+
+
 async def test_ticking_a_repeat_keeps_its_id_and_moves_it_on(client: AsyncClient) -> None:
     row = await add(client, "water plants", repeat="every week", due="2026-11-16")
     await add(client, "fern", parent_id=row["id"])

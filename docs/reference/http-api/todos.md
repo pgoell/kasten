@@ -98,7 +98,8 @@ Adds an open todo, created today, and answers `201` with the row. With no
 ## PATCH /api/todos/{todo_id}
 
 Changes the fields named. Takes the `version` it read and answers `409` for any
-other.
+other. A `blocked_by` that adds an id naming no todo answers `422`; an id the
+todo already had stays, as the rule above reads it.
 
 ## POST /api/todos/{todo_id}/state
 

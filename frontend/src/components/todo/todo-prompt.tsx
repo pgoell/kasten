@@ -26,14 +26,16 @@ interface TodoPromptProps {
    * put the line in different notes, so the prompt has to say which one this is.
    */
   under?: string;
+  /** What the field opens on: the text of a write that did not land. */
+  typed?: string;
 }
 
 /**
  * Type a todo in shorthand, and Enter puts it in today's note. The preview under the input
  * runs the same parsers as the write, so what it shows is what lands.
  */
-export function TodoPrompt({ onAdd, onClose, today, under }: TodoPromptProps) {
-  const [input, setInput] = useState("");
+export function TodoPrompt({ onAdd, onClose, today, under, typed: kept }: TodoPromptProps) {
+  const [input, setInput] = useState(kept ?? "");
   const field = useRef<HTMLInputElement>(null);
   const fieldId = useId();
   /** What this press is: a todo in today's note, or a part of the row it opened on. */
