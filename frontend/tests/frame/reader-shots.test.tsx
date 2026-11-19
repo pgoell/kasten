@@ -44,6 +44,9 @@ vi.mock("@/lib/core/api", async (importOriginal) => {
     fetchTerminals: async () => [],
     fetchVersion: async () => "0.8.0",
     fetchWeather: async () => [],
+    // Served here, not by the network, so the margin's lists answer in every run.
+    fetchMentions: async () => [],
+    fetchSimilar: async () => ({ hits: [], read: true, indexed: 5, notes: 5 }),
   };
 });
 
@@ -170,11 +173,13 @@ it("reader margins stay in view while the note scrolls", async () => {
 
     // The margin's graph and lists are asked only once the closed tree makes the
     // pane wide (#781), so they arrive after it; measured before, the margin grows.
-    // The graph's answer can land after two quiet frames under load, so wait for
-    // its rows first: the loop would otherwise settle on the margin before them.
+    // Each list draws its empty line only once its answer is in, and an answer can
+    // land after two quiet frames under load (#2215), so wait for every list first.
     await waitFor(() => {
       expect(links.textContent).toContain("Tokens");
       expect(links.textContent).toContain("Redesign");
+      expect(links.textContent).toContain("No unlinked mentions.");
+      expect(links.textContent).toContain("No notes like this one.");
     }, PATIENCE);
     await fontsIn();
     // Settled once two frames in a row leave its height alone.
