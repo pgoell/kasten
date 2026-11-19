@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
-import { leader, openApp, openNote, panes, phone } from "../../../harness/app.ts";
+import { leader, noteText, openApp, openNote, panes, phone } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
-import { COARSE, FINE, load, saved, seed, selectedTab, stored } from "./stored.ts";
+import { beside, COARSE, FINE, layout, load, saved, seed, selectedTab, stored } from "./stored.ts";
 
 const tree = (page: Page) => page.getByRole("navigation", { name: "Vault" });
 const NARROW = { width: 700, height: 800 };
@@ -135,6 +135,48 @@ test.describe("the workspace across a reload", () => {
       .poll(() => page.evaluate(() => (window as unknown as { tried: string[] }).tried))
       .toContain(FINE);
   });
+
+  // After a reload no key has moved the focus, so a pane focused by a click gets no focus signal, and
+  // its new editor takes the keys only from nobody: the prompt must not hand them to its opener (#2047).
+  for (const vim of ["on", "off"]) {
+    for (const [made, path, typed] of [
+      ["made from the top bar", "01 Notes/Fresh", "fresh line"],
+      ["already there, opened from the tree", "Long note", "kept line"],
+    ]) {
+      test(`a note ${made} in a pane a click focused after a reload takes the keys, vim ${vim}`, async ({
+        page,
+        stack,
+      }) => {
+        await page.addInitScript((mode) => localStorage.setItem("kasten.vim", mode), vim);
+        const right = { ...beside({ path: "Welcome.md" }, { path: "Welcome.md" }), focus: "b" };
+        await seed(page, layout([right]));
+        await load(page);
+        await expect(page.locator(".cm-content")).toHaveCount(2);
+        await page.locator(".cm-content").first().click();
+        await page.keyboard.press("Escape");
+        await expect.poll(() => saved(page)).toMatchObject({ tabs: [{ focus: 0 }] });
+
+        if (path === "Long note") {
+          await tree(page).getByRole("button", { name: "01 Notes", exact: true }).click();
+          await page.keyboard.press("c");
+        } else {
+          await page.getByRole("button", { name: "New note", exact: true }).first().click();
+        }
+        await page.getByRole("dialog", { name: "New note" }).getByRole("combobox").fill(path);
+        await page.keyboard.press("Enter");
+        const name = path.split("/").at(-1) ?? "";
+        await expect(page.getByRole("tab", { name, selected: true })).toBeVisible({
+          timeout: 15_000,
+        });
+        await expect(page.locator(".cm-content:focus")).toHaveCount(1);
+        await page.keyboard.type(vim === "on" ? `i${typed}` : typed);
+        await page.keyboard.press("Escape");
+        await expect
+          .poll(() => noteText(stack.vault, `${path}.md`), { timeout: 15_000 })
+          .toContain(typed);
+      });
+    }
+  }
 
   test("the x on the active tab closes it, and Today goes to the empty tab", async ({ page }) => {
     await openApp(page);
