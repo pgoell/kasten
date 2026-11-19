@@ -139,6 +139,8 @@ test("#2232 a drilldown that falls back to its waiting line takes no keys; back,
   await expect(bookings).toHaveCount(0);
   const opened = sentTo("GET /api/finance/drill/bookings/").length;
   await page.keyboard.press("Enter");
+  // Booking 9 is in the cache, so an Enter that opened it would send nothing: read the crumbs.
+  await expect(crumbs(page)).toHaveText(["September 2026", "REWE", "Groceries"]);
   await page.keyboard.press("Escape");
   await page.keyboard.press("Escape");
   await page.keyboard.press("1");

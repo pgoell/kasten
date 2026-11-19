@@ -1,3 +1,4 @@
+import type { Page } from "@playwright/test";
 import { phone } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
 import { ACCOUNT, onPhone, openPlans, PLAN, PROPOSAL, WEDDING } from "./finance.ts";
@@ -64,30 +65,29 @@ test("#1037 a assigns the month's contribution once, and u takes it back", async
   expect(sentTo("POST /api/finance/goals")).toEqual([ASSIGN]);
 });
 
-for (const [kind, use] of [
-  ["click", {}],
-  ["tap on a phone", phone],
-] as const) {
-  test.describe(kind, () => {
-    test.use(use);
-    test(`#1766 the goal's Assign and Undo buttons write as its keys do, by ${kind}`, async ({
-      page,
-    }) => {
-      const { finance, sentTo } = await openPlans(page, assigning());
+/** Assigns and takes back by Wedding's buttons, a tap on a phone and a click elsewhere. */
+async function assignByButton(page: Page) {
+  const { finance, sentTo } = await openPlans(page, assigning());
+  const press = (name: string | RegExp) => {
+    const button = finance.getByRole("button", { name });
+    return onPhone(page) ? button.tap() : button.click();
+  };
 
-      const press = (name: string | RegExp) => {
-        const button = finance.getByRole("button", { name });
-        return onPhone(page) ? button.tap() : button.click();
-      };
+  await press(/^Assign .* to Wedding$/);
+  await expect.poll(() => sentTo("POST /api/finance/goals")).toEqual([ASSIGN]);
+  await press("Undo assigning to Wedding");
 
-      await press(/^Assign .* to Wedding$/);
-      await expect.poll(() => sentTo("POST /api/finance/goals")).toEqual([ASSIGN]);
-      await press("Undo assigning to Wedding");
-
-      await expect.poll(() => sentTo("DELETE")).toEqual([UNDO]);
-    });
-  });
+  await expect.poll(() => sentTo("DELETE")).toEqual([UNDO]);
 }
+
+test("#1766 the goal's Assign and Undo buttons write as its keys do", ({ page }) =>
+  assignByButton(page));
+
+test.describe("on a phone", () => {
+  test.use(phone);
+
+  test("#1766 the goal's Assign and Undo buttons write by tap", ({ page }) => assignByButton(page));
+});
 
 test("#1037 a proposal with nothing to match opens the form, whose keys rest", async ({ page }) => {
   const loose = [{ ...PROPOSAL, payee_id: null, text: null }];

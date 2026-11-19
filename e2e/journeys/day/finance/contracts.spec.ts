@@ -125,5 +125,5 @@ test("#1675 a proposal with nothing to match offers no Contract until it is a pl
     "Confirm it as a plan first: it has nothing to match by",
   );
   await button.click({ force: true });
-  expect(sentTo("POST /api/finance/contracts ")).toEqual([]);
+  expect(sentTo("POST").filter((line) => !line.includes("reminders"))).toEqual([]);
 });
