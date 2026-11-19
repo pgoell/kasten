@@ -220,15 +220,16 @@ Some readers of note text read todo lines without knowing it. Where each stands:
   text, so a `[[link]]` in a todo's words no longer counts as a link.
 - **The embed.** The graph and the link readers skip `![[kt-3f9a2c]]`: a `kt-`
   target is a todo, not a missing note, and following it makes no note.
-- **Moving a note.** A move rewrites links in notes but not a row's `note`, so a
-  todo keeps the path its note had.
+- **Moving a note.** A note or folder moved through kasten carries its todos:
+  each row's `note` follows it, and its `project` too where the old path gave
+  it. A move made outside kasten leaves the rows on the old path.
 - **Search.** The line search and the pieces index no longer find a todo's words
   in its note; `GET /api/todos` and the agent's `search_todos` do.
 - **Writers.** The contract reminders write rows and an embed. The shopping list
   writes the shared lists, which stay lines. The agent guide written at startup
   points at the store.
-- **Events.** A row written sends no vault event; the pane reads the rows a
-  write answers and asks again.
+- **Events.** A store write touches no note, so it sends a `todos` event of its
+  own on `/api/events` once it commits, and every open pane asks again.
 
 The import loses two small things on purpose: a part's `^block` id, since parts
 get no embed, and the look of old daily notes, whose ticked lines become

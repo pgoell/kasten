@@ -97,7 +97,7 @@ export function useTodoActions({
 }) {
   const queryClient = useQueryClient();
   /**
-   * The lists a todo write moves, asked again here: a store write sends no vault event.
+   * The lists a todo write moves, asked again here rather than waiting for the store's `todos` event.
    * `["files"]` too, since `cycleTodoAside` can make today's daily note.
    */
   const todosWritten = useCallback(() => {
