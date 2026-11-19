@@ -209,7 +209,7 @@ async def test_reading_a_note_or_a_page_runs_off_the_event_loop(
     def on_thread(real: object) -> object:
         def recorded(*args: object) -> object:
             threads.append(threading.get_ident())
-            return real(*args)  # ty: ignore[call-non-callable]
+            return real(*args)  # ty: ignore[not-callable]
 
         return recorded
 
