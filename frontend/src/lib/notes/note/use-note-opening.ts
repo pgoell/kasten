@@ -428,12 +428,14 @@ export function useNoteOpening({
         const opened = followIn(listed, target, file, "", id, true);
         // A note the vault refused to make leaves the pane empty, so it goes again.
         void Promise.resolve(opened).then((ok) => {
-          if (ok === false) setLayout((previous) => dropPane(previous, id, from));
+          if (ok !== false) return;
+          setLayout((previous) => dropPane(previous, id, from));
+          setFocusSignal((previous) => previous + 1);
         });
         return opened;
       });
     },
-    [layoutNow, follow, withListings, followIn, moveTo, setLayout],
+    [layoutNow, follow, withListings, followIn, moveTo, setLayout, setFocusSignal],
   );
 
   /**

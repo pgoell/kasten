@@ -307,6 +307,26 @@ describe("alt+click on a link", () => {
     expect(paneText(0)).toContain("pane one");
   });
 
+  it("alt+click on a refused note in the left of two panes gives the focus back to it", async () => {
+    createNote.mockRejectedValue(new Error("refused"));
+    const app = await opened();
+    app.leader("%");
+    await settle();
+    app.click("target.md");
+    await settle();
+    app.focusPane(0);
+    await settle();
+    finishParsing(drawn()[0] as HTMLElement);
+
+    fireEvent.mouseDown(links()[4] as HTMLElement, { altKey: true });
+    await settle();
+
+    expect(createNote).toHaveBeenCalled();
+    expect(drawn()).toHaveLength(2);
+    expect(app.focusedPane()).toBe(0);
+    expect(paneText(1)).toContain("target body");
+  });
+
   it("a plain click opens nothing", async () => {
     const app = await opened();
 
