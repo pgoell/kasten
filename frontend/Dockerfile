@@ -19,7 +19,7 @@ COPY frontend/ ./
 # There is no node in this image; `bun run` shims one that is bun itself.
 RUN bun run build
 
-FROM nginx:1.31-alpine@sha256:713fc2ebfd92e8217db451477182ee91944b123d2b1ee9fd5a8c6e91ca6c3a11 AS runtime
+FROM nginx:1.31-alpine@sha256:fed7e14be83cbd2661a75cdc5b872d936cf155d46c327084d30b8df19ae88d72 AS runtime
 # nginx 1.27 gets no new images, and its bundle still trusts emSign ECC Root
 # CA - G3, which Mozilla dropped. Both packages, or the trigger rebuilds the old
 # bundle.
