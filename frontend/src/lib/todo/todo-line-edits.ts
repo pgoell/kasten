@@ -54,10 +54,11 @@ export function blockTodoInVault(hit: SearchHit, blocker: SearchHit): Promise<vo
 async function blockTodo(listed: SearchHit, blocker: SearchHit): Promise<void> {
   const blockerText = await fetchNote(blocker.path);
   const blockerLines = blockerText.split("\n");
-  const named = parseTodo(blocker.text);
-  if (named === null) return;
   const picked = rowNow(blockerText, blocker);
   if (picked === null) throw new Error("the blocker's line has changed since it was listed");
+  // Off the line as it stands: an `x` may have closed the blocker since it was listed.
+  const named = parseTodo(picked.text);
+  if (named === null) return;
 
   // One note holding both is read once and written once, the second read
   // being older than the first write otherwise.
@@ -83,7 +84,7 @@ async function blockTodo(listed: SearchHit, blocker: SearchHit): Promise<void> {
   if (held === null) return;
 
   if (named.id === undefined) {
-    blockerLines[picked.line - 1] = patchLine(blocker.text, { ...named, id });
+    blockerLines[picked.line - 1] = patchLine(picked.text, { ...named, id });
     if (!same) await saveNote(blocker.path, blockerLines.join("\n"), false, noteBase(blockerText));
   }
   lines[hit.line - 1] = held;

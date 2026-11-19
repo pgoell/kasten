@@ -3,6 +3,7 @@ import { noteBase } from "@/lib/notes/note-base";
 import { periodicNote } from "@/lib/notes/text/periodic";
 import { cycleTodoInVault } from "@/lib/todo/todo-api";
 import { blockTodoInVault } from "@/lib/todo/todo-line-edits";
+import { keepLanded } from "@/lib/todo/todo-press-echo";
 import { todoApiHooks } from "./todo-api-fixture";
 
 // Standing in for the module rather than for `fetch`, the way the pane's tests
@@ -138,6 +139,18 @@ describe("blockTodoInVault", () => {
     ).rejects.toThrow("the blocker's line has changed since it was listed");
 
     expect(saveNote).not.toHaveBeenCalled();
+  });
+
+  it("#2212 keeps the line an x wrote on a blocker picked before the list redrew", async () => {
+    const done = "- [x] ship the release ✅ 2026-11-19";
+    keepLanded([SHIP], { ...SHIP, text: done });
+    fetchNote.mockImplementation(async (path: string) =>
+      path === "release.md" ? done : NOTES[path],
+    );
+
+    await blockTodoInVault(DOCS, SHIP);
+
+    expect(saveNote.mock.calls[0]?.[1]).toMatch(/^- \[x\] ship the release ✅ 2026-11-19 🆔 kt-/);
   });
 });
 
