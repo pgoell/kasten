@@ -124,7 +124,9 @@ rather than the browser's, and goes to it. Both work on a wikilink and on a
 markdown link naming a vault file, in a drawn table's cell too, and the pane
 you clicked keeps its note. A pdf takes the new pane itself, where a plain
 follow would split again beside it. A `[[#heading]]` link stays in this note,
-and a link with an address opens a browser tab, as Ctrl+click does. No link
+and a link with an address opens a browser tab, as Ctrl+click does. So does a
+file no pane shows, such as a sound, and a dead file link opens nothing: neither
+makes a pane. No link
 renders as an anchor, so the browser's own Alt+click, which downloads a link
 on some, never runs. Holding Alt over the note shows the crosshair of a column
 selection, and an Alt-drag off a link still makes one.

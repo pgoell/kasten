@@ -169,7 +169,7 @@ pageHooks();
 describe("alt+click on a link", () => {
   const PLAN = "rehearse/my plan.pdf";
   const NOTES: Record<string, string> = {
-    "index.md": "pane one\n[[target]]\n[[my plan.pdf]]\n",
+    "index.md": "pane one\n[[target]]\n[[my plan.pdf]]\n[[gone.pdf]]\n[[song.mp3]]\n",
     "target.md": "target body\n",
   };
 
@@ -203,7 +203,7 @@ describe("alt+click on a link", () => {
     fetchTodos.mockResolvedValue([]);
     fetchImages.mockResolvedValue([]);
     fetchHtml.mockResolvedValue([]);
-    fetchAssets.mockResolvedValue([PLAN]);
+    fetchAssets.mockResolvedValue([PLAN, "song.mp3"]);
   });
 
   afterEach(async () => {
@@ -266,6 +266,29 @@ describe("alt+click on a link", () => {
     expect(drawn()).toHaveLength(2);
     expect(paneText(0)).toContain("pane one");
     expect(drawn()[1]?.querySelector("[data-pdf-pane]")?.getAttribute("data-pdf-pane")).toBe(PLAN);
+  });
+
+  // The pane is made only for a follow that fills it.
+  it("alt+click on a link to a missing pdf makes no pane", async () => {
+    const app = await opened();
+
+    fireEvent.mouseDown(links()[2] as HTMLElement, { altKey: true });
+    await settle();
+
+    expect(app.tabs()).toBe(1);
+    expect(drawn()).toHaveLength(1);
+    expect(paneText(0)).toContain("pane one");
+  });
+
+  it("alt+shift+click on a file no pane shows opens it in the browser and makes no tab", async () => {
+    const app = await opened();
+
+    fireEvent.mouseDown(links()[3] as HTMLElement, { altKey: true, shiftKey: true });
+    await settle();
+
+    expect(app.tabs()).toBe(1);
+    expect(drawn()).toHaveLength(1);
+    expect(window.open).toHaveBeenCalledWith("/api/assets/song.mp3", "_blank");
   });
 
   it("a plain click opens nothing", async () => {

@@ -29,6 +29,7 @@ import {
   fillFocused,
   type Layout,
   newPaneId,
+  removeFocused,
   splitFocused,
   tabPanes,
 } from "@/lib/panes/layout/panes";
@@ -118,6 +119,23 @@ function waitedFiles(
     ({ files }) => (held() === from ? files : undefined),
     () => undefined,
   );
+}
+
+/**
+ * Whether following `target` fills a pane, as `followIn` decides it. An asset no pane shows opens
+ * in a browser tab, and a dead file link opens nothing.
+ */
+function landsInPane(listed: LinkPaths, target: string, file: FileTarget | undefined): boolean {
+  const { files, html, assets } = listed;
+  const shown = (path: string) =>
+    html.includes(path) ||
+    (assets.includes(path) && (path.toLowerCase().endsWith(".pdf") || opensInFilePane(path)));
+  if (file !== undefined) return shown(file.path);
+  const { name } = splitTarget(target);
+  if (name === "") return false;
+  const path = wikiLinkPath(target, linkTargets(listed));
+  if (html.includes(path) || files.includes(path)) return true;
+  return namesAFile(name) ? shown(path) : true;
 }
 
 /** Where a search hit found its line in a file, which is what the opener goes to. */
@@ -391,25 +409,26 @@ export function useNoteOpening({
     ],
   );
 
-  /** `follow`, saying whether pane `at` was just made for this open. */
-  const followAt = useCallback(
-    (target: string, file: FileTarget | undefined, body: string, at: string, fresh: boolean) => {
+  /** Runs `open` once the listings are in hand, dropped if the reader has left pane `at`'s note by then. */
+  const withListings = useCallback(
+    (
+      target: string,
+      at: string,
+      open: (listed: LinkPaths) => Promise<boolean> | boolean | undefined,
+    ) => {
       // A store todo's name, never a note to make (#2191).
       if (TODO_ID.test(splitTarget(target).name)) return false;
       const listed = linkPaths(queryClient);
-      if (!(listed instanceof Promise)) return followIn(listed, target, file, body, at, fresh);
+      if (!(listed instanceof Promise)) return open(listed);
       // Read off the pane the press came from, as `openAtHeading` does, so a late open never pulls the reader back.
       const from = tabPanes(layoutNow.current).find((each) => each.id === at)?.path;
-      return listed.then(
-        (loaded) =>
-          focusedNote.current.path === from
-            ? (followIn(loaded, target, file, body, at, fresh) ?? false)
-            : false,
+      return listed.then<boolean, boolean>(
+        (loaded) => (focusedNote.current.path === from ? (open(loaded) ?? false) : false),
         // A listing that will not load opens nothing and makes no note.
         () => false,
       );
     },
-    [queryClient, layoutNow, focusedNote, followIn],
+    [queryClient, layoutNow, focusedNote],
   );
 
   /**
@@ -418,28 +437,38 @@ export function useNoteOpening({
    */
   const follow = useCallback(
     (target: string, file?: FileTarget, body = "", at = startPane(layoutNow.current)) =>
-      followAt(target, file, body, at, false),
-    [layoutNow, followAt],
+      withListings(target, at, (listed) => followIn(listed, target, file, body, at, false)),
+    [layoutNow, withListings, followIn],
   );
 
   /**
-   * Follow a link from an editor: into its own pane, or with `where` (an Alt-click) into a split
-   * beside that pane or a new tab. The pane is made first and named by id, so the open lands in it.
+   * Follow a link from an editor: into its own pane, or with `where` (an Alt-click) into a split beside
+   * that pane or a new tab. The pane is made, and named by id, only for a follow that fills it.
    */
   const followTo = useCallback(
     (target: string, file?: FileTarget, where?: FollowWhere) => {
       const from = startPane(layoutNow.current);
       if (where === undefined) return follow(target, file, "", from);
-      if (TODO_ID.test(splitTarget(target).name)) return false;
-      const id = newPaneId();
-      const made = moveTo((previous) =>
-        where === "tab"
-          ? addTab(previous, id)
-          : atPane(previous, from, (layout) => splitFocused(layout, "row", id)),
-      );
-      return made && followAt(target, file, "", id, true);
+      return withListings(target, from, (listed) => {
+        if (!landsInPane(listed, target, file)) {
+          return followIn(listed, target, file, "", from, false);
+        }
+        const id = newPaneId();
+        const made = moveTo((previous) =>
+          where === "tab"
+            ? addTab(previous, id)
+            : atPane(previous, from, (layout) => splitFocused(layout, "row", id)),
+        );
+        if (!made) return false;
+        const opened = followIn(listed, target, file, "", id, true);
+        // A note the vault refused to make leaves the pane empty, so it goes again.
+        void Promise.resolve(opened).then((ok) => {
+          if (ok === false) setLayout((previous) => atPane(previous, id, removeFocused));
+        });
+        return opened;
+      });
     },
-    [layoutNow, follow, followAt, moveTo],
+    [layoutNow, follow, withListings, followIn, moveTo, setLayout],
   );
 
   /**
