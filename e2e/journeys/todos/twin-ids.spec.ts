@@ -1,5 +1,14 @@
 import type { Page } from "@playwright/test";
-import { cursorTo, leader, openApp, plus, readAll, today, vaultWith } from "../../harness/app.ts";
+import {
+  cursorTo,
+  leader,
+  openApp,
+  plus,
+  readAll,
+  runCommand,
+  today,
+  vaultWith,
+} from "../../harness/app.ts";
 import { expect, type Stack, test } from "../../harness/stack.ts";
 
 const notice = (page: Page) => page.getByTestId("notice");
@@ -257,8 +266,7 @@ test.describe("with vim off, a key straight after an x (#2084)", () => {
   test("t starts a session on the todo the x walked", async ({ page, stack }) => {
     await openApp(page);
     // The palette, since the leader is vim's.
-    await page.keyboard.press("Control+Shift+P");
-    await page.getByRole("option", { name: /^Open the todo pane/ }).click();
+    await runCommand(page, /^Open the todo pane/);
     await expect(page.getByRole("button", { name: "open water the tomatoes" })).toBeVisible();
     await page.keyboard.press("x");
     await page.keyboard.press("t");

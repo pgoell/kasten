@@ -6,6 +6,7 @@ import {
   openApp,
   phone,
   plus,
+  runCommand,
   TODO_ROW,
   today,
   vaultWith,
@@ -203,10 +204,7 @@ async function byKeys(page: Page, vault: string, vim: string): Promise<string[]>
   if (vim === "off") await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
   await openApp(page);
   if (vim === "on") await leader(page, "gt");
-  else {
-    await page.keyboard.press("Control+Shift+P");
-    await page.getByRole("option", { name: /^Open the todo pane/ }).click();
-  }
+  else await runCommand(page, /^Open the todo pane/);
   await expect(page.locator(TODO_ROW, { hasText: "fix the tap" })).toBeVisible();
   return writes;
 }

@@ -4,6 +4,7 @@ import {
   leader,
   openApp,
   plus,
+  runCommand,
   today,
   vaultWith,
   watchDrop,
@@ -81,10 +82,7 @@ async function board(
   // A pane beside, so an editor stays on screen for Escape to hand the focus to.
   if (split) await leader(page, "%");
   if (vim === "on") await leader(page, "gt");
-  else {
-    await page.keyboard.press("Control+Shift+P");
-    await page.getByRole("option", { name: /^Open the todo pane/ }).click();
-  }
+  else await runCommand(page, /^Open the todo pane/);
   await expect(region(page)).toBeVisible({ timeout: 15_000 });
   if (!empty || Object.keys(notes).length)
     await expect(page.locator('[data-row*=".md:"]').first()).toBeVisible();

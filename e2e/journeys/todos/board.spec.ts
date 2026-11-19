@@ -7,6 +7,7 @@ import {
   noteText,
   openApp,
   phone,
+  runCommand,
   TODO_ROW,
   tapHeight,
   today,
@@ -343,8 +344,7 @@ test.describe("the list's edit row through a redraw that moves its row (#2087)",
     await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
     const release = await heldCycles(page);
     await openApp(page);
-    await page.keyboard.press("Control+Shift+P");
-    await page.getByRole("option", { name: /^Open the todo pane/ }).click();
+    await runCommand(page, /^Open the todo pane/);
     await expect(page.getByRole("button", { name: "open water the tomatoes" })).toBeVisible();
     await typeThroughRedraw(page, stack.url, release);
   });

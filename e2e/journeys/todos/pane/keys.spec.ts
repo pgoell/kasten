@@ -7,6 +7,7 @@ import {
   openApp,
   panes,
   readAll,
+  runCommand,
   TODO_ROW,
   todoRows,
   vaultWith,
@@ -49,10 +50,7 @@ async function openPane(page: Page, vault: string, vim = "on") {
   await vaultWith(vault, { [NOTE]: note(LINES) });
   await openApp(page);
   if (vim === "on") await leader(page, "gt");
-  else {
-    await page.keyboard.press("Control+Shift+P");
-    await page.getByRole("option", { name: /^Open the todo pane/ }).click();
-  }
+  else await runCommand(page, /^Open the todo pane/);
   await expect(row(page, "buy milk")).toBeVisible({ timeout: 15_000 });
 }
 

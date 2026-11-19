@@ -5,6 +5,7 @@ import {
   leader,
   openApp,
   phone,
+  runCommand,
   TODO_ROW,
   tapHeight,
   vaultWith,
@@ -30,10 +31,7 @@ async function byKeys(page: Page, vault: string, vim = "on") {
   await vaultWith(vault, { [NOTE]: LINES });
   await openApp(page);
   if (vim === "on") await leader(page, "gt");
-  else {
-    await page.keyboard.press("Control+Shift+P");
-    await page.getByRole("option", { name: /^Open the todo pane/ }).click();
-  }
+  else await runCommand(page, /^Open the todo pane/);
   await expect(page.locator(TODO_ROW, { hasText: "fix the tap" })).toBeVisible();
 }
 

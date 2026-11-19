@@ -34,7 +34,7 @@ test("a sitting on the desktop writes the FSRS comment after a good rating", asy
   page,
   stack,
 }) => {
-  // A click focuses the pane; `j` then reaches the deck row and `l` sits it.
+  // openReview leaves the focus in the pane; `j` reaches the deck row and `l` sits it.
   await openReview(page);
   await page.keyboard.press("j");
   await page.keyboard.press("l");

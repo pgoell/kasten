@@ -1,5 +1,13 @@
 import type { Page } from "@playwright/test";
-import { findNote, noteText, openApp, TODO_ROW, unstamped, vaultWith } from "../../../harness/app.ts";
+import {
+  findNote,
+  noteText,
+  openApp,
+  runCommand,
+  TODO_ROW,
+  unstamped,
+  vaultWith,
+} from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
 
 /** CDP's modifier bits. */
@@ -93,8 +101,7 @@ test.describe("@ typed through AltGr or Option (#2071)", () => {
   }) => {
     await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
     await openApp(page);
-    await page.keyboard.press("Control+Shift+P");
-    await page.getByRole("option", { name: /^Open the todo pane/ }).click();
+    await runCommand(page, /^Open the todo pane/);
     const cursor = page.locator(`${TODO_ROW}[tabindex="0"]`);
     await cursor.focus();
     for (const layout of ["windows", "linux", "mac"] as const) {

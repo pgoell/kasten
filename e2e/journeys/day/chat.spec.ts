@@ -1,7 +1,7 @@
 import { createServer, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import type { Locator, Page } from "@playwright/test";
-import { openApp, phone } from "../../harness/app.ts";
+import { openApp, phone, runCommand } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 
 /**
@@ -74,8 +74,7 @@ async function runner(page: Page): Promise<Runner> {
 /** Opens the chat as a desk does, from the palette, and hands back its pane. */
 async function openChat(page: Page): Promise<Locator> {
   await openApp(page);
-  await page.keyboard.press("Control+Shift+P");
-  await page.getByRole("option", { name: /^Open the chat with Claude Code/ }).click();
+  await runCommand(page, /^Open the chat with Claude Code/);
   const pane = page.getByRole("region", { name: "chat" });
   await expect(pane).toBeVisible();
   return pane;

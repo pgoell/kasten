@@ -1,5 +1,5 @@
 import type { Locator, Page } from "@playwright/test";
-import { bodyOf, findNote, leader, noteText, openApp, panes, phone, vaultWith } from "../../../harness/app.ts";
+import { bodyOf, findNote, leader, noteText, openApp, panes, phone, runCommand, vaultWith } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
 import { beside, layout, load, seed, selectedTab } from "../workspace/stored.ts";
 
@@ -326,8 +326,7 @@ test.describe("the which-key panel", () => {
 
   test("in the finance pane the note's keys are left out, and a line says so", async ({ page }) => {
     await openApp(page);
-    await page.keyboard.press("Control+Shift+P");
-    await page.getByRole("option", { name: /^Open the finance pane/ }).click();
+    await runCommand(page, /^Open the finance pane/);
     await page.getByRole("region", { name: "Finance" }).focus();
     await page.keyboard.press("Space");
     await expect(rowOf(page, /Toggle the file tree/)).toBeVisible();
