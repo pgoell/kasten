@@ -18,8 +18,6 @@ the pane that has the focus.
 character says which way the pane divides: `%` sets the new pane beside this
 one, `"` puts it underneath. Both make the pane empty and move to it, so a
 split is followed by `<leader>ff` or the file tree to say what goes in it.
-Alt+click on a link does both at once, and Alt+Shift+click opens it in a new
-tab: [Links](/reference/editor-keys/links.md) has the rest.
 
 Splitting the same way twice gives even thirds rather than a half and two
 quarters. The panes of one split are one row or one column of any number, not a
