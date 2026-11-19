@@ -57,6 +57,11 @@ vi.mock("@/lib/core/api", () => ({
   NoteMissing: class extends Error {},
   // The live preview's video times reach `transcript.ts`, which imports this.
   fetchTranscript: () => Promise.resolve(),
+  // A `![[kt-…]]` embed's box cycles its todo through this.
+  cycleStoreTodo: () => Promise.resolve([]),
+  setTodoState: () => Promise.resolve([]),
+  changeTodoLine: () => Promise.resolve([]),
+  fetchTodos: () => Promise.resolve([]),
 }));
 
 /**

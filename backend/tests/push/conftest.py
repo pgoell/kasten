@@ -82,11 +82,22 @@ class PushService:
         return httpx.AsyncClient(transport=httpx.MockTransport(self.handle))
 
 
+def berlin_engine(url: str) -> AsyncEngine:
+    """An engine whose sessions read times in Berlin.
+
+    `line_of` writes `remind_at` in the connection's zone, which is UTC on a bare server.
+    """
+    return create_async_engine(
+        url, poolclass=NullPool, connect_args={"options": "-c timezone=Europe/Berlin"}
+    )
+
+
 @pytest.fixture
 async def push_db(scratch_database: str) -> AsyncIterator[AsyncEngine]:
-    """The scratch database with every push table empty."""
-    engine = create_async_engine(scratch_database, poolclass=NullPool)
+    """The scratch database with every push table and the todo store empty."""
+    engine = berlin_engine(scratch_database)
     async with engine.begin() as connection:
+        await connection.execute(text("TRUNCATE todos.todo, todos.session, todos.change"))
         await connection.execute(text("DELETE FROM push_sent"))
         await connection.execute(text("DELETE FROM push_devices"))
         await connection.execute(text("DELETE FROM push_timers"))
@@ -118,6 +129,13 @@ async def subscribe(client: httpx.AsyncClient, service: PushService, *names: str
         assert answer.status_code == 201
         ids.append(answer.json()["id"])
     return ids
+
+
+async def todo(client: httpx.AsyncClient, line: str, path: str = "Today.md") -> dict:
+    """Add a todo to the store as a typed line in note `path`; its row."""
+    answer = await client.post("/api/todos/line", json={"text": line, "note": path})
+    assert answer.status_code == 201, answer.text
+    return answer.json()[0]
 
 
 def note(settings: Settings, body: str, path: str = "Today.md") -> None:

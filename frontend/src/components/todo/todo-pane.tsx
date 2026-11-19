@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { type BoardKeys, TodoBoard } from "@/components/todo/todo-board";
 import { TodoFooter } from "@/components/todo/todo-footer";
@@ -6,6 +6,7 @@ import { TodoHeader } from "@/components/todo/todo-header";
 import { type Editing, TodoList } from "@/components/todo/todo-list";
 import { fetchTodos, type SearchHit, type TodoHit } from "@/lib/core/api";
 import type { TodoState } from "@/lib/todo/todo";
+import { noteLineOf } from "@/lib/todo/todo-api";
 import { aimAgain, aimOf, cursorAfter } from "@/lib/todo/todo-hold";
 import { followRow, twinsOf } from "@/lib/todo/todo-press-echo";
 import { useArmed } from "@/lib/todo/use-armed";
@@ -49,7 +50,7 @@ export interface AgentRow {
 interface TodoPaneProps {
   /** Reached by a leader sequence typed here, so every leader key still works. */
   commands: EditorCommands;
-  onOpen: (path: string, line: number) => void;
+  onOpen: (path: string, line?: number) => void;
   /**
    * Cycles the row's todo in the vault, or sets the state a key named. Takes the
    * hit, not the todo: the write re-reads the note and finds the line by its path and line.
@@ -108,7 +109,7 @@ interface TodoPaneProps {
  */
 export function TodoPane({
   commands,
-  onOpen,
+  onOpen: openLine,
   onCycle: cycle,
   onAdd,
   onSubtask,
@@ -123,6 +124,18 @@ export function TodoPane({
   today,
   archive = false,
 }: TodoPaneProps) {
+  const queryClient = useQueryClient();
+  /** Opens a row's note on its todo's embed: a listed line counts the note's todos. */
+  const onOpen = (path: string, line: number) => {
+    const at = noteLineOf(queryClient, path, line);
+    if (typeof at === "number") openLine(path, at);
+    // A note that will not read still opens, at its top.
+    else
+      void at.then(
+        (found) => openLine(path, found),
+        () => openLine(path, 1),
+      );
+  };
   /** Which row the keys act on. */
   const [active, setActive] = useState(0);
   /** Which list is drawn: the open todos, `d`'s finished ones, or `n`'s actions. */
@@ -520,7 +533,7 @@ export function TodoPane({
           onArm={armed.arm}
           onRow={onRow}
           files={paths}
-          onPerson={(path) => onOpen(path, 1)}
+          onPerson={(path) => openLine(path, 1)}
           onWrite={write}
           onCycle={onCycle}
           actions={actions}

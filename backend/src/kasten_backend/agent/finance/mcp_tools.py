@@ -217,7 +217,8 @@ async def write_contract_reminders(today: date) -> list[str]:
     rejected it writes the next term's. `today` is the user's local date.
     """
     try:
-        return await finance_plans.write_reminders(get_settings(), today.isoformat())
+        async with db.session() as session:
+            return await finance_plans.write_reminders(get_settings(), session, today.isoformat())
     except HTTPException as refused:
         raise ToolError(str(refused.detail)) from refused
 

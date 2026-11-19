@@ -280,6 +280,11 @@ export function createNoteView(o: {
                   if (!keyboardUnasked()) view.focus();
                   latest.current.embeds?.open(target, line);
                 },
+                watchTodo: (id, listener) =>
+                  latest.current.embeds?.watchTodo?.(id, listener) ?? (() => {}),
+                cycleTodo: (id) => latest.current.embeds?.cycleTodo?.(id),
+                setTodoState: (id, state) => latest.current.embeds?.setTodoState?.(id, state),
+                agentTodo: (id) => latest.current.embeds?.agentTodo?.(id) ?? null,
               }),
             ]),
         // A pane with nothing to reload answers the way a refusal does, so

@@ -13,6 +13,7 @@ import {
 } from "@/lib/notes/links/person";
 import { plainLinks } from "@/lib/notes/links/wikilink";
 import { PRIORITY_SYMBOL, STATE_SYMBOL } from "@/lib/todo/todo";
+import { openTodo } from "@/lib/todo/todo-api";
 import { LABEL, ROW } from "@/lib/ui/overlay-styles";
 
 interface PersonCardProps {
@@ -83,7 +84,7 @@ export function PersonCard({ person, paths, archive = false, onOpen }: PersonCar
       <button
         key={`${hit.path}:${hit.line}`}
         type="button"
-        onClick={() => onOpen(hit.path, hit.line)}
+        onClick={() => openTodo(hit, onOpen)}
         className={CARD_ROW}
       >
         <span className="shrink-0 text-k-muted">{STATE_SYMBOL[todo.state]}</span>

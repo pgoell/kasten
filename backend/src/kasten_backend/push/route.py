@@ -11,13 +11,14 @@ from pydantic import AwareDatetime, BaseModel, Field, field_serializer, model_va
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kasten_backend import agent, done_log, share, todo_fields, todos, vault, vcs
+from kasten_backend import todos
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.db import get_session
 from kasten_backend.push import webpush
-from kasten_backend.push.due import ALARM, CLOSED, put_off
 from kasten_backend.push.loop import deliver
 from kasten_backend.push.models import PushDevice, PushSettings, PushTimer
+from kasten_backend.todos import Todo, Writes
+from kasten_backend.todos import fields as todo_fields
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -268,70 +269,35 @@ class ActIn(BaseModel):
     """A button on a reminder: the note, the todo line's text as pushed, and what to do."""
 
     path: str = Field(min_length=1)
-    text: str = Field(min_length=1)
+    text: str = Field(min_length=1, max_length=2000)
     action: Literal["done", "tomorrow"]
 
 
-async def _blocks(settings: Settings, id_: str | None) -> bool:
-    """Whether a `⛔` on any todo names `id_`, whose tick the pane would carry to that todo."""
-    if id_ is None:
-        return False
-    for hit in await todos.find_todos(settings.vault_path, settings.archive_path):
-        todo = todos.LINE.fullmatch(hit.text)
-        rest = todo_fields.mask("" if todo is None else todo[2] or "")
-        if any(found[1] == id_ for found in todo_fields.BLOCKED_BY.finditer(rest)):
-            return True
-    return False
+async def _act(session: AsyncSession, body: ActIn, today: dt.date, zone: ZoneInfo) -> None:
+    """Write one act on the todo the pushed line names by its id.
 
-
-async def _act(settings: Settings, body: ActIn, today: dt.date) -> str | None:
-    """Write one act on the line whose text is `body.text`; the done words to log, if any.
-
-    The line is found by its text, as its number may have moved; none or two refuse with 409.
+    A line with no id, or a todo since closed or with no reminder, refuses with 409.
     """
-    note = vault.resolve_path(settings.vault_path, body.path)
-    raw = note.read_bytes() if note is not None and note.is_file() else b""
-    lines = raw.decode("utf-8").split("\n")
-    found = [at for at, line in enumerate(lines) if line.removesuffix("\r") == body.text]
-    box = None if len(found) != 1 else todos.LINE.fullmatch(body.text)
-    # Only a reminder's line gets buttons, so one with no `⏰` the reader takes is not it.
-    if (
-        box is None
-        or body.text[len(box[1]) + 3] in CLOSED
-        or ALARM.search(todo_fields.mask(box[2] or "")) is None
-    ):
+    found = todos.LINE.fullmatch(body.text)
+    id_ = None if found is None else todo_fields.id_of(found[2] or "")
+    row = None if id_ is None else await session.get(Todo, id_)
+    if row is None or row.state in ("done", "rejected") or row.remind_at is None:
         raise HTTPException(409, CHANGED)
-    at, rest = found[0], None
+    writes = Writes(session, "push", today)
     if body.action == "tomorrow":
-        moved = put_off(lines[at], today)
-        if moved is None:
-            raise HTTPException(409, CHANGED)
-        lines[at] = moved
+        # The wall-clock time in the owner's zone, a day after today, across a clock change too.
+        held = row.remind_at.astimezone(zone)
+        later = dt.datetime.combine(today + dt.timedelta(days=1), held.time(), tzinfo=zone)
+        await writes.edit(row.id, row.version, {"remind_at": later})
     else:
-        if await _blocks(settings, todo_fields.id_of(box[2] or "")):
-            raise HTTPException(422, share.TICK_IN_KASTEN)
-        try:
-            rest = await share.tick_task(settings, body.path, lines, at, today, twins=True)
-        except share.TickInKastenError as error:
-            raise HTTPException(422, str(error)) from error
-    await agent.save_note(settings, body.path, "\n".join(lines), agent.digest(raw))
-    return rest
+        await writes.set_state(row.id, "done")
+    await writes.done()
+    await session.commit()
 
 
 @router.post("/act", status_code=204)
-async def act(body: ActIn, settings: VaultSettings) -> Response:
-    """`Done` or `Tomorrow` on a reminder, written as the todo pane writes a tick."""
+async def act(body: ActIn, session: Session, settings: VaultSettings) -> Response:
+    """`Done` or `Tomorrow` on a reminder, written through the store as the todo pane writes."""
     today = dt.datetime.now(ZoneInfo(settings.timezone)).date()
-    held = vcs.writer.set("push")
-    try:
-        for _ in range(TRIES):
-            try:
-                rest = await _act(settings, body, today)
-            except agent.ConflictError:
-                continue
-            if rest is not None:
-                await done_log.log(settings, body.path, rest, today)
-            return Response(status_code=204)
-    finally:
-        vcs.writer.reset(held)
-    raise HTTPException(409, CHANGED)
+    await _act(session, body, today, ZoneInfo(settings.timezone))
+    return Response(status_code=204)

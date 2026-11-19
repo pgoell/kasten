@@ -9,9 +9,9 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from kasten_backend import todo_fields
 from kasten_backend.food.recipes import parse_amount
 from kasten_backend.food.recipes.note import RecipeNote  # noqa: TC001  read at runtime
+from kasten_backend.todos import fields as todo_fields
 
 _AISLES = json.loads((Path(__file__).parent / "aisles.json").read_text(encoding="utf-8"))
 ORDER: list[str] = _AISLES["order"]

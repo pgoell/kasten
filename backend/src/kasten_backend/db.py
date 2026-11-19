@@ -1,6 +1,6 @@
 """Database engine, session factory and the declarative base for Postgres.
 
-Finance is kept outside the vault, see docs/explanation/finance-in-postgres.md.
+Finance and todos are kept outside the vault, see docs/explanation/vault-and-derived-index/.
 """
 
 import logging

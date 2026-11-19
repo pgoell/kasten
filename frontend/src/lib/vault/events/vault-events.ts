@@ -7,7 +7,7 @@ export interface VaultEvent {
   /** Vault-relative path, or "" on a `listing` event, which names none. */
   path: string;
   /** `page` is an html page written, which is not a note (#1277). */
-  change: "written" | "removed" | "listing" | "page";
+  change: "written" | "removed" | "listing" | "page" | "todos";
   digest: string | null;
 }
 

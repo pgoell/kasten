@@ -1,164 +1,202 @@
 ---
 type: Reference
 title: "HTTP API: todos"
-description: The route that finds every todo line in the vault and the project each belongs to, the devices a todo reminder is pushed to, when pushes go, and the timers that push.
-resource: backend/src/kasten_backend/routes/queries.py
+description: The todo store's routes, the line reader the import uses, the devices a todo reminder is pushed to, when pushes go, and the timers that push.
+resource: backend/src/kasten_backend/todos/serve/route.py
 tags: [api, backend, openapi]
 status: stable
 ---
 
 # HTTP API: todos
 
-The route that finds every todo line in the vault, and works out which project each one belongs to.
+The todo store's routes, the reader of the vault's todo lines the import uses, and the push reminders.
 
 ## GET /api/todos
 
-Finds every line in the vault that could be a todo. Takes an optional
-`archive` and answers with at most 100,000 matches, in the shape
-`GET /api/search` returns plus a `project` and a `shared` on each. That shape
-lets the overlay rank the lines through the ranking it already has and open a
-note on the line it found. `archive` is off for the reason it is off on a
-search: a finished project's open checkboxes are true of the note and false of
-the week.
+Answers the todos in the store as the lines the app parses, each rendered from
+its row, in the shape `GET /api/search` returns plus `project`, `shared` and
+`todo`, the row itself. It takes the filters of
+[`GET /api/todos/rows`](#get-apitodosrows). A part sits under its parent, one
+indent deeper, in its top todo's note, so a part whose parent lives in another
+note still reads as its part. Every line carries its id. A waiting todo shows
+its look-again day as `🛫`. A soft due date shows as `📅` too; `todo.due_hard`
+tells the two apart.
+
+`line` numbers each todo within its note, in that order; the note holds no such
+line, only the embed. With no filter it adds each running timer as the `## Time`
+line the timer reads, `- 14:03- words kt-3f9a2c`, in the daily note of the day
+it started.
 
 ```json
-[{ "path": "02 Projects/kasten/plan.md", "line": 12, "text": "- [/] wire up the pane 📅 2026-08-14 ⏫", "project": "02 Projects/kasten", "shared": false }]
+[{ "path": "02 Projects/kasten/plan.md", "line": 1, "text": "- [/] wire up the pane ⏫ ➕ 2026-08-09 📅 2026-08-14 🆔 kt-3f9a2c", "project": "02 Projects/kasten", "shared": false, "todo": { "id": "kt-3f9a2c", "due_hard": true } }]
 ```
 
-`shared` is `true` when the todo's note sits directly inside the share folder,
-`05 Shared` by default: `05 Shared/Einkauf.md` is shared, `05 Shared/sub/x.md`
-and `05 Sharedx/a.md` are not. It is the rule the share lists are read by, so
-the client can hide the shared lists from the todo views without a rule of its
-own.
+## The line reader
 
-Each note's lines are read as search's `rg` reads them, over the notes
-`GET /api/files` lists, so the two cannot disagree about which notes the vault
-holds. A note's todo lines are held in memory and parsed again only when its
-modification time, change time, size or inode moves (#1758). Nothing is indexed
-and Postgres is not consulted, for the reason search does not consult it: the
-files are the source of truth.
+Before the store, `GET /api/todos` answered the vault's lines. The import still
+reads them, with [the line reader](/reference/todo-format/the-line-reader.md).
 
-It matches two shapes, and sends the lines below that end a todo's parts:
+## The store
 
-* a checkbox list item at any indent, in any of
-  [the seven states](/reference/todo-format/state-changes.md#the-seven-states): `- [ ]`,
-  `- [/]`, `- [r]`, `- [x]`, `- [X]`, `- [b]`, `- [w]` or `- [-]`
-* a running session line, `- 14:03- …`, with no end time on it
+The routes of the todo store in Postgres
+([Todos in Postgres](/explanation/vault-and-derived-index/todos-in-postgres.md)).
+Nothing in the app calls them yet; the pane moves to them with the import. Each
+write answers every row it touched, shaped as `GET /api/todos/rows` shapes one,
+and records each row before and after under `by: browser`. An unknown id
+answers `404`.
 
-`[X]` is matched because another editor writes it that way, and `[R]` is not,
-because nothing does. `[` is not one of
-the state characters, which is what keeps `- [[borges]]` out, and the `- `
-anchor is what keeps `1. [ ] ordered` out. The done log's `- ✅` line does not
-match either, which is
-[the whole reason it is not a checkbox](/reference/todo-format/time-and-repeats.md#the-done-log).
+A row carries `id`, `words` (tags where typed), `state`, `tags`, `note`,
+`shared_list`, `project`, `parent_id`, `position`, `round_of`, `epic`,
+`epic_id`, `blocked_by`, `repeat`, `on_completion`, `priority`, `planned`,
+`hold_until`, `due`, `due_hard`,
+`assignee`, `waiting_on`, `waiting_since`, `look_again`, `remind_at`,
+`estimate` and `worked` in minutes, `created`, `done`, `cancelled`, `updated`
+and `version`.
 
-A closed session line, `- 09:12-10:32 …`, is deliberately not matched. The pane's
-`t` writes both spellings into the
-[time log](/reference/todo-format/time-and-repeats.md#the-time-log), and a running one comes back
-in the same pass as the todos because the view wants to know what is going. A
-closed one says nothing the task line does not already carry, the total being on
-it, and the closed ones are the half of that log that piles up. A stop reads them
-through `GET /api/search` on the todo's id instead, which is one narrow pass at
-the press rather than a growing answer on every fetch.
+On every write `tags` is read off `words`, and a todo with no parent and no
+shared list left with no due date gets a soft one 14 days on. A `blocked_by`
+naming a todo still open, or no todo, makes an open todo blocked, and taking
+the last one off opens it. A `parent_id` that names no todo, the todo itself or
+one of its own parts answers `422`, as does an `epic_id` that names no todo
+marked `epic`, or the todo itself. Setting `epic` to false clears `epic_id` on
+every todo that counted toward it.
 
-The endpoint serves no todo's state or fields. It hands the lines over whole,
-because the editor has to parse a line anyway and two parsers in two languages
-drift. Whether one of them is open or overdue is read on the client, off the
-same module the editor draws a todo with. That is also how the client tells a
-session line from a todo, which is why one endpoint can answer both. The one
-thing the backend works out is `project`, below, and to find the words it reads
-a project from, it takes the fields off a line the way the editor does.
+## GET /api/todos/rows
 
-### The project
+Every todo, in note, parent and position order. The archive's only with
+`archive=true`.
 
-`project` is the project folder a todo belongs to, as a path from the vault
-root, `"02 Projects/FDE"`, or `null` for none. The board draws its lanes by it,
-and an agent reading this endpoint sees the same lanes. The first of these that
-answers wins:
+## POST /api/todos/line
 
-1. A `#p/x` tag on the todo, else on the nearest todo above it that it is a part
-   of and that carries one.
-2. The note's project folder: a folder directly under `02 Projects` or
-   `03 Areas`, with the note at any depth inside it. A note directly in one of
-   those two, or outside them, has none.
-3. The first `[[link]]` on the line that lands on a note that exists, in a
-   folder under `02 Projects`. Areas do not count here.
-4. The project of the todo it is a part of, by this same rule.
-5. `null`.
+Adds the todo a typed line says: `{"text": "- [ ] call the bank 📅 2026-12-01",
+"note": null, "parent_id": null}`. The fields read as the import reads them, and
+the box names the state. With no note and no parent it lands in today's daily
+note. Answers `201` with every row it wrote.
 
-Tags and links are read off the todo's words, as the editor parses them: a
-link inside a field's value, such as `👤 2026-10-01 [[Vendor]]` or
-`🔁 every week [[Vendor]]`, files nothing.
+## PUT /api/todos/{todo_id}/line
 
-A part is a todo indented under another: its parent is the nearest todo above
-it in the same note with a smaller indent, a tab counting as one, with prose in
-between ending nothing. A heading, or a list item that is no todo, ends the parts
-above it at its indent, as the
-[writes end them](/reference/todo-format/state-changes.md#subtasks). A
-session line is no todo, has `project: null` and is nobody's parent, and so is
-a line the editor does not read as a todo, such as one holding a lone `\r`,
-U+2028 or U+2029. A CRLF line comes without its `\r`, as the note read
-`GET /api/files/{path}` answers it, so it is the todo its LF twin is. Done, rejected and archived todos follow the same rule.
+Changes a todo to what its edited line says: `{"text": "…"}`. Words and fields
+take the line's values, a field left off is cleared, and a box that changed
+runs the state change with all it stamps and drags along. A due date the line
+keeps as it was stays soft if it was soft. Stamps (`➕`, `✅`, `❌`) and the
+worked time stay the store's. Answers every row it touched.
 
-How a tag names a folder:
+## POST /api/todos/import
 
-* A tag is read as Obsidian reads one: a letter or `_`, then letters, digits,
-  `_`, `/` and `-`, with no letter, digit, `_` or `/` straight before the `#`.
-  So `#p/fde.` at the end of a sentence is `#p/fde`. Inside a `[[link]]` or a
-  code span counts too, as it does for the board's own tags.
-* `#p/` matches with case ignored, so `#P/FDE` counts.
-* `#p/x/y` names `x`, and `#p/` alone names nothing.
-* `x` names a folder directly under `02 Projects` that holds at least one note.
-  Case is ignored, and a `-` or `_` on either side stands for a space:
-  `#p/japan-honeymoon-2027` names `02 Projects/Japan Honeymoon 2027`.
-* A tag that names no folder is passed over. Of two tags, the first, left to
-  right, that names a folder wins.
+Moves the vault's todo lines into the store, as
+[the import](/explanation/vault-and-derived-index/todos-in-postgres.md#the-import)
+says, and answers `{"report": "…", "written": true}`. Without `write=true` it
+writes nothing and reports what it would do: open lines against open rows, ids
+not found, the count in each state and the parts. A second run finds no lines
+left and changes nothing.
 
-A link lands when it resolves, by the rule `GET /api/files` and the editor
-share, to a note in that listing, which holds the archive too.
+## POST /api/todos
 
-The cap is 100,000 rather than search's 2,000, and the two numbers are doing
-different jobs. Search guards a query that can match anything in the vault. This
-one is a backstop against a single generated file with a million list items in
-it, and nothing else: reaching it truncates the answer silently, which is why it
-sits where nothing written by hand reaches it.
+Adds an open todo, created today, and answers `201` with the row. With no
+`project`, it takes the folder a `#p/x` tag names, else its parent's.
 
-### Fences and the lines that end parts
+## PATCH /api/todos/{todo_id}
 
-The pattern matches a line rather than a parse tree, so it also takes every
-line opening with three backticks or tildes at any indent. A note with such a
-line, or with an indented todo, is then read whole (#1445):
+Changes the fields named. Takes the `version` it read and answers `409` for any
+other.
 
-* A line inside a fenced code block is dropped, a `- [ ]` in a note about
-  markdown among them. markdown-it finds the fences, so one under a nested list
-  item counts and one in a list item ends with the item (#1555). Fences are found
-  in the body alone, so a fence the frontmatter seems to open hides nothing.
-* In a note with an indented todo, every heading and every list item that is no
-  todo, between the first todo and the last indented one, comes back as a line
-  of its own with `project: null`. Those are what can end a part, and the pane
-  reads them to draw what ticks together. A client that wants todos alone keeps
-  the lines its own todo parser reads, as it does for session lines.
+## POST /api/todos/{todo_id}/state
 
-The fence lines themselves never come back, and a note whose only hits are
-fence lines is not read. On the live vault, 33 of the 136 notes holding a todo
-are read whole, which adds 15 to 20 ms to the answer.
+Puts the todo in `state`, with what that drags along:
 
-A vault directory that does not exist reads as an empty one, so a fresh
-checkout still serves.
+* **Done** stamps `done` and ticks every open part. On a todo with a `repeat` it
+  writes the finished round as a done row of its own, `round_of` naming the todo
+  and its parts copied under it, with their closed timer sessions. A session
+  still running stays on the todo, so stopping it counts toward the next round. It moves the todo
+  and its parts on by the rule, counted off a hard due date, else the planned
+  date, else hold off until, else the soft due date, each of the three moved by
+  the same step: open, with no `done`, `worked` or wait. The todo keeps
+  its id.
+* **Rejected** stamps `cancelled`. Leaving either state drops its stamp, and
+  closing or reopening a todo moves what it blocks between open and blocked.
+* **Waiting** stamps `waiting_since` unless it has one, and takes `look_again`
+  (seven days on when not given) and `waiting_on`. Sent again to a waiting todo
+  with either, it moves the wait on: chasing, or waiting longer. Leaving waiting
+  clears all three.
+
+## POST /api/todos/{todo_id}/cycle
+
+Walks the todo one step: open, doing, done, open. Review goes to done, blocked
+and waiting to doing, rejected to open.
+
+## POST /api/todos/{todo_id}/timer
+
+Starts a session, or stops every one running and sums the closed ones into
+`worked`. A session running 12 hours or more was left on: it closes at 23:59 of the day it began.
+
+## DELETE /api/todos/{todo_id}
+
+Deletes the todo and its parts, answering `204`. Each one's delete is recorded
+and its history stays.
+
+## GET /api/todos/{todo_id}/history
+
+Every write to the todo, oldest first: `at`, `by`, `before` and `after`, each
+row as JSON or `null`.
+
+## The day plan
+
+A day's plan is blocks, each `focus` or `batch`, with the todos picked for it.
+A pick sets the todo's `planned` to the plan's day and moves no other date;
+when the day ends the pick is over and the todo keeps its dates. At most
+`KASTEN_PLAN_FOCUS_BLOCKS` focus blocks a day (2) and `KASTEN_PLAN_FOCUS_TODOS`
+todos in one (1); a week names at most `KASTEN_WEEK_OUTCOMES` outcomes (5). Past
+a cap answers `422`, an unknown todo `404`.
+
+## GET /api/plans/{day}
+
+The day's plan: `day`, `saved`, `by`, and `blocks` in time order, each with
+`starts`, `ends`, `kind`, `title` and `todos`, the picked ids in order. `404`
+with none saved.
+
+## PUT /api/plans/{day}
+
+Saves the day's plan, `{"blocks": [{"starts": "09:00", "ends": "11:00",
+"kind": "focus", "title": "memo", "todos": ["kt-3f9a2c"]}]}`, in place of the
+one saved before, and answers it as `GET` does.
+
+## GET /api/outcomes/{day}
+
+The outcomes of the week `day` falls in, `[{"words": "ship it", "todo_id": "kt-3f9a2c"}]`.
+
+## PUT /api/outcomes/{day}
+
+Replaces the outcomes of that week with the list sent, and answers them.
+
+## GET /api/brief/{day}
+
+What a planning talk for the day starts from:
+
+* `last_plan`: the latest plan before the day, each pick with its words and
+  whether it got done (done or in review), and the counts `picked` and `done`
+* `look_again`: waiting todos whose look-again day has come
+* `due_soon`: todos with a hard due date in the next 14 days
+* `outcomes`: the week's outcomes
+* `todos`: the open todos the day's lists show, in a fixed order. First what
+  the dates force, each with `why`: `planned` for that day, `due` within 3 days,
+  `look again`. Then every other todo by priority, highest first and none
+  between medium and low; within one priority a weekly outcome's todo first,
+  then the nearer due date, then client work (`#client` on it or above it), then
+  the older todo. `picked` counts the earlier plans that picked each.
 
 ## Reminders
 
-A todo with `⏰ YYYY-MM-DD HH:MM` sends a web push at that time to every device
+A todo with a reminder (`remind_at`, written `⏰ YYYY-MM-DD HH:MM` on its line) sends a web push at that time to every device
 subscribed here. The devices sit in the `push_devices` table in Postgres, and
 each reminder sent in `push_sent`. A loop in the backend wakes every 15
-seconds and reads the vault for reminders on every fourth wake, so each minute;
+seconds and reads the todo store for reminders on every fourth wake, so each minute;
 only the worker holding a Postgres advisory lock sends. It sends what fell due in the
 last hour and was not sent yet, so a missed reminder goes out late when it is
 under an hour old and never after, bar quiet hours as below. A sent reminder is known by its note, time
 and words, so a restart or a line moved within its note does not send it again.
 
-Only an open todo reminds: not `[x]`, `[X]` or `[-]`, nor one in a fence, a
-code span or the archive. The time is read in `KASTEN_TIMEZONE`. The message is
+Only an open todo reminds: not done or rejected, nor one whose note is in the
+archive. The time is read in `KASTEN_TIMEZONE`. The message is
 encrypted for the device (RFC 8291) and carries `{"title", "body", "path",
 "line", "tag", "text"}`: `body` is the todo's words without its box, fields and
 `⏰`, `text` the todo line as the note holds it, and a tap opens
@@ -249,17 +287,15 @@ device has.
 ## POST /api/push/act
 
 A button on a reminder: `{"path", "text", "action"}`, where `text` is the todo
-line as the push carried it and `action` is `done` or `tomorrow`. The line is
-found by its text in the note, since its number may have moved. `done` ticks it
-as the share tick and the todo pane do: `✅` and today's date, a `🆔` when it
-has none, its open parts taken along, and a `- ✅` line under `## Done` in
-today's daily note. `tomorrow` moves its `⏰` to the day after today, time kept.
+line as the push carried it and `action` is `done` or `tomorrow`. The todo is
+found by the `🆔` on that line, in the store. `done` runs the store's done, as
+the todo pane's tick does: its open parts, its next round, the todos that waited
+on it. `tomorrow` moves its reminder to the same time on the day after today.
 Today is read in `KASTEN_TIMEZONE`, and the history names the writer `push`.
 
-`204` once written. `409` and nothing written when no line or two lines of
-the note read `text`, or the line is no open todo with a `⏰`. `422` and nothing
-written for `done` where the pane writes more than a tick: a recurring todo or
-part, a `🆔` another todo carries, or a `🆔` a `⛔` names.
+`204` once written. `409` and nothing written when the line carries no id, or
+the todo is closed or has no reminder. A push sent before the store carried no
+id on its line, so its buttons answer `409`.
 
 ## Timers
 

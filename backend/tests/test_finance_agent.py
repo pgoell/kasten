@@ -375,10 +375,10 @@ async def test_the_contracts_are_the_plans_tabs_list(
     assert "next 14 days" in " ".join((agent_mcp_finance.list_contracts.__doc__ or "").split())
 
 
+@pytest.mark.usefixtures("agent_vault", "store")
 async def test_the_agent_writes_each_cancel_by_todo_once(
     agent_vault: Path, client: AsyncClient, bearer: dict[str, str]
 ) -> None:
-    # No database here: the pass reads the vault alone, so a self-host without finance has it.
     note = contract_note(agent_vault, "Gym", TERMS)
     day = {"today": "2026-10-10"}
 
@@ -386,13 +386,8 @@ async def test_the_agent_writes_each_cancel_by_todo_once(
 
     assert first.status_code == 200, first.text
     assert first.json() == [f"{CONTRACTS}/Gym.md"]
-    assert "- [ ] cancel or renegotiate Gym" in note.read_text(encoding="utf-8")
+    assert "![[kt-" in note.read_text(encoding="utf-8")
     assert await tool(client, bearer, "write_contract_reminders", **day) == {"result": []}
-    note.write_text(note.read_text(encoding="utf-8").replace("- [ ]", "- [x]"), encoding="utf-8")
-    assert await tool(client, bearer, "write_contract_reminders", **day) == {
-        "result": [f"{CONTRACTS}/Gym.md"]
-    }
-    assert "📅 2027-11-29 ⏳ 2027-11-01\n" in note.read_text(encoding="utf-8")
 
 
 async def test_no_token_reads_no_contract_and_writes_no_todo(

@@ -53,8 +53,12 @@ export const test = base.extend<{ stack: Stack }, { warm: string }>({
     try {
       const apiPort = await listening(backend, log);
       proxy = await serve(apiPort, Number(process.env.E2E_WEB_PORT));
-      await use({ url: `http://127.0.0.1:${(proxy.address() as AddressInfo).port}`, vault });
+      const url = `http://127.0.0.1:${(proxy.address() as AddressInfo).port}`;
+      stacks.set(vault, url);
+      await importTodos(url);
+      await use({ url, vault });
     } finally {
+      stacks.delete(vault);
       proxy?.closeAllConnections();
       proxy?.close();
       await stop(backend);
@@ -66,6 +70,15 @@ export const test = base.extend<{ stack: Stack }, { warm: string }>({
   },
   baseURL: async ({ stack }, use) => use(stack.url),
 });
+
+/** Each running stack's address by its vault, so a note written later can be imported too. */
+export const stacks = new Map<string, string>();
+
+/** Moves the vault's todo lines into the store, as the production import did (#2191). */
+export async function importTodos(url: string): Promise<void> {
+  const answer = await fetch(`${url}/api/todos/import?write=true`, { method: "POST" });
+  if (!answer.ok) throw new Error(`todo import answered ${answer.status}: ${await answer.text()}`);
+}
 
 /** Ends a warm parent by closing its stdin; one that died already returns at once. */
 export async function endWarm(parent: ChildProcess): Promise<void> {
@@ -99,6 +112,8 @@ export function backendEnv(dir: string, db: string): Record<string, string> {
     KASTEN_TEXT_CACHE_PATH: join(dir, "text"),
     KASTEN_RECEIPTS_PATH: join(dir, "receipts"),
     KASTEN_HERDR_SESSIONS_PATH: join(dir, "herdr"),
+    // The browser's zone, so the store's today is the page's today on any runner (#2191).
+    KASTEN_TIMEZONE: Intl.DateTimeFormat().resolvedOptions().timeZone,
   };
 }
 

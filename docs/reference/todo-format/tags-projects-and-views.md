@@ -185,7 +185,7 @@ by five steps, the first that answers winning. The backend works it out and
 The tag is the way to file a todo against its folder: `- [ ] book flights
 #p/japan-honeymoon-2027` in `02 Projects/FDE/plan.md` belongs to Japan
 Honeymoon 2027. Obsidian Tasks filters on it with `tags include #p/x`.
-[HTTP API](/reference/http-api/todos.md#the-project) has the exact rule for reading
+[HTTP API](/reference/todo-format/the-line-reader.md#the-project) has the exact rule for reading
 a tag.
 
 Nothing moves: the link is one Obsidian reads and obsidian-tasks leaves alone.

@@ -11,7 +11,7 @@ status: draft
 
 The routes jobs on the host write the finance records through, and the reads
 the browser and agents use. The records live in Postgres, in the `finance`
-schema, for the reasons in [Finance in Postgres](/explanation/finance-in-postgres.md).
+schema, for the reasons in [Finance in Postgres](/explanation/vault-and-derived-index/finance-in-postgres.md).
 
 Amounts are euros and cents, signed, spending negative. They go out as JSON
 strings (`"-4.20"`) so no float touches them, and come in as strings or numbers

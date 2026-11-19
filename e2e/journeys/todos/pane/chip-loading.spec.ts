@@ -1,5 +1,5 @@
 import type { Locator, Page } from "@playwright/test";
-import { bodyOf, cursorTo, noteText, phone, TODO_ROW, vaultWith } from "../../../harness/app.ts";
+import { cursorTo, phone, TODO_ROW, vaultWith } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
 
 // An assignee chip while GET /api/files has not answered (#2124): it does not know yet
@@ -9,6 +9,15 @@ const CHORES = "02 Projects/Chores.md";
 const YARD = "02 Projects/Yard.md";
 const CHORE_LINES = ["- [ ] buy paint 👤 [[Pascal]]", "- [ ] rake the leaves 👤 [[Nobody]]"];
 const YARD_LINE = "- [ ] sweep the yard 👤 [[Pascal]]";
+
+type Row = { id: string; words: string; state: string; blocked_by: string[] };
+/** The store's todos by their words. */
+async function rows(url: string): Promise<Record<string, Row>> {
+  const all: Row[] = await (await fetch(`${url}/api/todos/rows`)).json();
+  return Object.fromEntries(all.map((row) => [row.words, row]));
+}
+const byWords = (all: Record<string, Row>, words: string) =>
+  Object.values(all).find((row) => row.words.includes(words));
 
 const row = (page: Page, words: string) => page.locator(TODO_ROW, { hasText: words });
 const card = (page: Page, words: string) => page.locator("[data-card]", { hasText: words });
@@ -112,19 +121,18 @@ for (const vim of ["on", "off"])
     stack,
   }) => {
     if (vim === "off") await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
-    await picksAndEnters(page, stack.vault);
+    await picksAndEnters(page, stack.vault, stack.url);
   });
 
-async function picksAndEnters(page: Page, vault: string) {
+async function picksAndEnters(page: Page, vault: string, url: string) {
   const release = await heldList(page, vault);
   await openPane(page, "click");
   await cursorTo(page, "buy paint");
   await page.keyboard.press("b");
   await expect(page.getByTestId("todo-pick")).toBeVisible();
   await row(page, "sweep the yard").locator("[data-person]").click();
-  await expect
-    .poll(async () => bodyOf(await noteText(vault, CHORES)))
-    .toMatch(/buy paint 👤 \[\[Pascal\]\] ⛔ kt-\w{6}\n/);
+  const yard = byWords(await rows(url), "sweep the yard")?.id;
+  await expect.poll(async () => byWords(await rows(url), "buy paint")?.blocked_by).toEqual([yard]);
   await expect(tab(page, "Yard")).toHaveCount(0);
   await cursorTo(page, "rake the leaves");
   await page.keyboard.press("Enter");
@@ -170,6 +178,7 @@ test.describe("on a phone", () => {
   }) => {
     const release = await heldList(page, stack.vault);
     await openPane(page, "tap");
+    const before = await rows(stack.url);
     const pascal = row(page, "buy paint").locator("[data-person]");
     const loading = await waits(pascal);
     await pascal.tap();
@@ -181,7 +190,7 @@ test.describe("on a phone", () => {
     await landed(page, loading);
     await pascal.tap();
     await expect(tab(page, "Pascal")).toBeVisible();
-    expect(bodyOf(await noteText(stack.vault, CHORES))).toBe(`# Chores\n\n${CHORE_LINES.join("\n")}\n`);
+    expect(await rows(stack.url)).toEqual(before);
   });
 
   test("a board card's chip waits for the file list and a tap on it opens no note", async ({

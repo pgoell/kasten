@@ -1,16 +1,13 @@
 import { EditorView } from "@codemirror/view";
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent } from "@testing-library/react";
 import { afterEach } from "vitest";
-import { NoteMissing, type TodoHit } from "@/lib/core/api";
 import { noteBase } from "@/lib/notes/note-base";
 import { cycleTodoAtCursor } from "@/lib/todo/todo-commands";
 import { patchFields, readFields } from "@/lib/todo/todo-fields";
 import { cycleLines } from "@/lib/todo/todo-write";
-import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
-import { pageHooks, renderApp, settle, theRoute, VAULT } from "./home-route-fixture";
+import { pageHooks } from "./home-route-fixture";
 import { open } from "./keybindings-fixture";
-import { COARSE, NARROW, stubMatchMedia } from "./match-media";
 import { TODAY, UNKNOWN } from "./todo-write-fixture";
 
 defineFoliateFake();
@@ -236,42 +233,6 @@ describe("#1027 the name stops at a cut field in the pane", () => {
 
   it("#1027 A2c cycle to open on a waiting line whose blocker sits after the name keeps the words after it", () => {
     expect(setOpen("- [w] a 👤 2026-10-25 Ada ⛔ kt-1 more").get(1)).toBe("- [ ] a ⛔ kt-1 more");
-  });
-});
-
-describe("#1027 the name stops at a cut field by touch", () => {
-  theRoute();
-  beforeEach(() => {
-    vi.mocked(searchNotes).mockResolvedValue([]);
-  });
-
-  it("#1027 I3 by touch, open on a waiting row whose estimate sits after the name keeps the words after it", async () => {
-    stubMatchMedia({ [NARROW]: true, [COARSE]: true });
-    const PATH = "inbox.md";
-    const line = "- [w] a 👤 2026-10-25 Ada ⏲ 2h more";
-    const text = `## TODOs\n${line}`;
-    const written = () =>
-      (saveNote.mock.calls.find(([path]) => path === PATH)?.[1] as string | undefined)?.split("\n");
-    const rows: TodoHit[] = [{ path: PATH, line: 2, text: line, project: null, shared: false }];
-    fetchFiles.mockImplementation(async () => [...Object.keys(VAULT), PATH]);
-    // A note the vault lacks is NoteMissing, as the api answers it, not undefined.
-    fetchNote.mockImplementation(async (path: string) => {
-      if (path === PATH) return text;
-      if (VAULT[path] === undefined) throw new NoteMissing(path);
-      return VAULT[path];
-    });
-    fetchTodos.mockResolvedValue(rows);
-
-    await renderApp();
-    await settle();
-    fireEvent.click(screen.getByRole("button", { name: "Open the todo pane" }));
-    await settle();
-    fireEvent.click(screen.getByLabelText(/^more for /));
-    fireEvent.click(screen.getByLabelText(/^open /));
-    await hashed();
-    await settle();
-
-    expect(written()?.[1]).toBe("- [ ] a ⏲ 2h more");
   });
 });
 

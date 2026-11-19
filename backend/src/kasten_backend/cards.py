@@ -1,6 +1,6 @@
 """Finding the vault lines that could be part of a flashcard.
 
-One rg pass, as `todos.py` does. The backend hands over candidate lines whole and the
+One rg pass, as `todos/lines.py` does. The backend hands over candidate lines whole and the
 browser parses the card format, since two parsers would drift. Code is not skipped:
 the client asks the editor's markdown parser where code blocks are.
 """

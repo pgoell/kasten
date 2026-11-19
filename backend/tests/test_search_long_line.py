@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from backend.tests.todos.lines import old_route
 from kasten_backend import search
 from kasten_backend.search import LONGEST_TEXT, Hit, literal_matcher, scan_vault
 
@@ -77,7 +78,7 @@ async def test_the_todo_list_answers_over_a_todo_past_64_kib(
     (vault / "kyoto.md").write_text("- [ ] in kyoto\n", encoding="utf-8")
 
     async with asyncio.timeout(LIMIT):
-        response = await client.get("/api/todos")
+        response = await old_route.lines(client)
 
     assert response.status_code == 200
     assert sorted((todo["path"], todo["line"]) for todo in response.json()) == [

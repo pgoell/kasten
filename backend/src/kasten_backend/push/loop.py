@@ -25,7 +25,7 @@ from kasten_backend.periodic import daily_path
 from kasten_backend.push import webpush
 from kasten_backend.push.due import LATE, Quiet, reminders, sendable, today_todos, unmet
 from kasten_backend.push.models import PushDevice, PushSent, PushSettings, PushTimer
-from kasten_backend.todos import find_todos
+from kasten_backend.todos import store_hits
 
 if TYPE_CHECKING:
     from kasten_backend.config import Settings
@@ -134,7 +134,7 @@ async def _send_due(
     hours = await session.get(PushSettings, 1) or PushSettings()
     start, end = hours.quiet_start, hours.quiet_end
     quiet = None if start is None or end is None else Quiet(start, end)
-    hits = await find_todos(settings.vault_path, settings.archive_path)
+    hits = await store_hits(session, settings)
     due = [found for found in reminders(hits, zone) if sendable(found.due, now, quiet, zone)]
     morning = _morning(settings, now, hours.morning, quiet, hits)
     sent = await _send_once(session, client, key, morning)

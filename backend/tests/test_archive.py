@@ -14,6 +14,7 @@ a second note in the inbox out of a note the vault already has.
 
 from typing import TYPE_CHECKING
 
+from backend.tests.todos.lines import old_route
 from kasten_backend.config import Settings
 
 if TYPE_CHECKING:
@@ -55,7 +56,7 @@ async def test_todos_leave_the_archive_out(client: AsyncClient, vault: Path) -> 
     write(vault, "projects/kasten.md", "- [ ] ship it\n")
     write(vault, "98 Archive/old.md", "- [ ] a todo nobody is doing\n")
 
-    response = await client.get("/api/todos")
+    response = await old_route.lines(client)
 
     assert [hit["path"] for hit in response.json()] == ["projects/kasten.md"]
 
@@ -66,7 +67,7 @@ async def test_todos_take_the_archive_when_it_is_asked_for(
     write(vault, "projects/kasten.md", "- [ ] ship it\n")
     write(vault, "98 Archive/old.md", "- [ ] a todo nobody is doing\n")
 
-    response = await client.get("/api/todos", params={"archive": "true"})
+    response = await old_route.lines(client, params={"archive": "true"})
 
     assert len(response.json()) == 2
 

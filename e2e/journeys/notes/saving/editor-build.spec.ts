@@ -4,8 +4,8 @@ import {
   hold,
   inbox,
   openApp,
-  openNote,
   opened,
+  openNote,
   phone,
   recordOpens,
   vaultWith,
@@ -268,7 +268,7 @@ for (const vim of ["on", "off"]) {
           for (const [text, target] of IN_MARKS) {
             await press(page, how, text);
             await expect(page.getByRole("tab", { selected: true })).toContainText(target);
-            await page.goto("/?note=Marks.md");
+            await page.goto(`/?note=${encodeURIComponent(MARKS_PATH)}`);
             await park(page, how);
           }
         });
@@ -333,6 +333,8 @@ const ADDRESSES: [string, string?][] = [
   ["esc", "https://x.y/a)b"],
   ["def", "https://x.y/a>b"],
 ];
+// A shared list, so the todo line stays a line and is not taken into the store as an embed.
+const MARKS_PATH = "05 Shared/Marks.md";
 // Each link a paragraph of its own under `intro`, where the cursor parks between presses.
 const MARKS = [
   "intro",
@@ -347,14 +349,14 @@ const MARKS = [
 /** Opens Marks with vim `vim` in a tall window, beside the notes its links name, each window.open recorded. */
 async function openMarks(page: Page, vault: string, vim: string): Promise<void> {
   await vaultWith(vault, {
-    "Marks.md": MARKS,
+    [MARKS_PATH]: MARKS,
     ...Object.fromEntries(IN_MARKS.map(([, n]) => [`${n}.md`, `at ${n}\n`])),
   });
   await page.addInitScript((on) => localStorage.setItem("kasten.vim", on), vim);
   await recordOpens(page);
   // Tall enough that CodeMirror draws every line, so no press scrolls `intro` away.
   await page.setViewportSize({ width: page.viewportSize()?.width ?? 1280, height: 2400 });
-  await page.goto("/?note=Marks.md");
+  await page.goto(`/?note=${encodeURIComponent(MARKS_PATH)}`);
   await expect(page.locator(".cm-content:visible")).toContainText("intro", { timeout: 15_000 });
 }
 

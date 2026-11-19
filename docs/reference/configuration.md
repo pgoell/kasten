@@ -114,6 +114,17 @@ on each press and opens that book, and `GET /agent/reading` answers it.
 Changing a folder setting moves nothing. Notes already in the old folder stay
 there, and the links to them keep working.
 
+## The day plan's caps
+
+| Setting | Default | What it caps |
+| --- | --- | --- |
+| `KASTEN_PLAN_FOCUS_BLOCKS` | `2` | focus blocks in one day's plan |
+| `KASTEN_PLAN_FOCUS_TODOS` | `1` | todos one focus block picks |
+| `KASTEN_WEEK_OUTCOMES` | `5` | outcomes one week names |
+
+Read by [the day plan's routes](/reference/http-api/todos.md#the-day-plan) and
+the agent's `save_day_plan` and `save_week_outcomes`.
+
 ## KASTEN_TYPE_BACKFILL
 
 Whether startup writes `type: Note` into every note that has no `type`.

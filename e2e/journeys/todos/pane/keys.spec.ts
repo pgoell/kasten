@@ -1,8 +1,5 @@
 import type { Page } from "@playwright/test";
-import { writeFile } from "node:fs/promises";
-import { join } from "node:path";
 import {
-  bodyOf,
   cursorTo,
   leader,
   noteText,
@@ -56,8 +53,16 @@ async function threeTabs(page: Page, vault: string) {
   await expect(row(page, "buy milk")).toBeVisible({ timeout: 15_000 });
 }
 
-/** Drops the plumber's line from the note behind the app's back, as a write from elsewhere. */
-const dropPlumber = (vault: string) => writeFile(join(vault, NOTE), note(LINES.slice(1)));
+/**
+ * Deletes the plumber's todo behind the app's back, then writes its note: a store write sends no
+ * event, and a note's write is what makes the pane read the todos again.
+ */
+async function dropPlumber(url: string, vault: string) {
+  const rows: { id: string; words: string }[] = await (await fetch(`${url}/api/todos/rows`)).json();
+  const plumber = rows.find((row) => row.words.includes("call the plumber"));
+  await fetch(`${url}/api/todos/${plumber?.id}`, { method: "DELETE" });
+  await vaultWith(vault, { [NOTE]: `${await noteText(vault, NOTE)}\n` });
+}
 
 test("j moves the cursor down a row and k moves it back up", async ({ page, stack }) => {
   await openPane(page, stack.vault);
@@ -74,7 +79,7 @@ test("Enter opens the note the cursor's todo is on, at its line", async ({ page,
   await openPane(page, stack.vault);
   await cursorTo(page, "wire up the shelf");
   await page.keyboard.press("Enter");
-  await expect(caretLine(page)).toHaveText("wire up the shelf #keys");
+  await expect(caretLine(page)).toContainText("wire up the shelf #keys");
 });
 
 test("the pane takes the focus on the render that opened it", async ({ page, stack }) => {
@@ -103,7 +108,7 @@ test("#1368 a write that redraws the rows leaves the focus in the filter line", 
   await openPane(page, stack.vault);
   await page.keyboard.press("/");
   await expect(filter(page)).toBeFocused();
-  await dropPlumber(stack.vault);
+  await dropPlumber(stack.url, stack.vault);
   await expect(row(page, "call the plumber")).toHaveCount(0, { timeout: 15_000 });
   await expect(filter(page)).toBeFocused();
 });
@@ -115,7 +120,7 @@ test("#1368 a write that redraws the rows leaves the focus outside the pane wher
   await openPane(page, stack.vault);
   const outside = page.getByRole("button", { name: "Welcome", exact: true });
   await outside.focus();
-  await dropPlumber(stack.vault);
+  await dropPlumber(stack.url, stack.vault);
   await expect(row(page, "call the plumber")).toHaveCount(0, { timeout: 15_000 });
   await expect(outside).toBeFocused();
 });
@@ -208,7 +213,7 @@ test("#773 A1 Enter on a focused row that is not the cursor opens that row", asy
   await cursorTo(page, "call the plumber");
   await row(page, "buy milk").focus();
   await page.keyboard.press("Enter");
-  await expect(caretLine(page)).toHaveText("buy milk #home");
+  await expect(caretLine(page)).toContainText("buy milk #home");
 });
 
 for (const vim of ["on", "off"]) {
@@ -244,7 +249,7 @@ test("#773 I1 Enter on the focused cursor row opens its note", async ({ page, st
   await cursorTo(page, "call the plumber");
   await expect(cursorRow(page)).toBeFocused();
   await page.keyboard.press("Enter");
-  await expect(caretLine(page)).toHaveText("call the plumber #keys");
+  await expect(caretLine(page)).toContainText("call the plumber #keys");
 });
 
 test("<leader>q empties the pane of the todo list and leaves the one pane", async ({
@@ -261,13 +266,7 @@ test("#397 a state write the vault refuses leaves the row as it was and says Not
   page,
   stack,
 }) => {
-  await page.route(
-    (url) => decodeURIComponent(url.pathname) === `/api/files/${NOTE}`,
-    (route) =>
-      route.request().method() === "PUT"
-        ? route.fulfill({ status: 500, json: { detail: "refused by the test" } })
-        : route.fallback(),
-  );
+  await page.route("**/api/todos/*/cycle", (route) => route.fulfill({ status: 500, json: {} }));
   await openPane(page, stack.vault);
   const state = row(page, "call the plumber").locator("[data-state]");
   await cursorTo(page, "call the plumber");
@@ -275,59 +274,8 @@ test("#397 a state write the vault refuses leaves the row as it was and says Not
   await page.keyboard.press("x");
   await expect(page.getByTestId("notice")).toHaveText(/^Nothing moved: .*500/);
   await expect(state).toHaveAttribute("data-state", before ?? "");
-  expect(bodyOf(await noteText(stack.vault, NOTE))).toBe(note(LINES));
-});
-
-/** The pane over `lines`, then `moved` written from outside while the stream is held, so the list stays as listed. */
-async function listedThenMoved(
-  page: Page,
-  vault: string,
-  lines: string[],
-  moved: string[],
-  words: string,
-) {
-  await page.route("**/api/events", () => new Promise(() => {}));
-  await vaultWith(vault, { [NOTE]: note(lines) });
-  await openApp(page);
-  await leader(page, "gt");
-  await expect(row(page, words).first()).toBeVisible({ timeout: 15_000 });
-  await vaultWith(vault, { [NOTE]: note(moved) });
-}
-
-test("#529 t on a row whose line has changed since it was listed writes nothing and says so", async ({
-  page,
-  stack,
-}) => {
-  const puts: string[] = [];
-  page.on("request", (request) => request.method() === "PUT" && puts.push(request.url()));
-  const moved = ["- [ ] ring the plumber #keys", ...LINES.slice(1)];
-  await listedThenMoved(page, stack.vault, LINES, moved, "buy milk");
-  await cursorTo(page, "call the plumber");
-  await page.keyboard.press("t");
-  await expect(page.getByTestId("notice")).toHaveText(
-    "Nothing moved: that line has changed since it was listed",
-  );
-  expect(puts).toEqual([]);
-  expect(bodyOf(await noteText(stack.vault, NOTE))).toBe(note(moved));
-});
-
-test("#530 X on the second of two twins sets that twin after a line above shifted both", async ({
-  page,
-  stack,
-}) => {
-  const twins = ["- [ ] water the fern", "- [ ] water the fern"];
-  await listedThenMoved(page, stack.vault, twins, ["- [ ] buy milk", ...twins], "water the fern");
-  await cursorTo(page, "water the fern", 1);
-  await page.keyboard.press("X");
-  await expect
-    .poll(async () =>
-      bodyOf(await noteText(stack.vault, NOTE))
-        .split("\n")
-        .slice(2, 5),
-    )
-    .toEqual([
-      "- [ ] buy milk",
-      "- [ ] water the fern",
-      expect.stringMatching(/^- \[x\] water the fern/),
-    ]);
+  const rows: { words: string; state: string }[] = await (
+    await fetch(`${stack.url}/api/todos/rows`)
+  ).json();
+  expect(rows.find((one) => one.words.includes("call the plumber"))?.state).toBe("open");
 });

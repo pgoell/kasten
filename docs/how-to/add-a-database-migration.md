@@ -78,5 +78,5 @@ and the reading places and agent token record are real.
 ## Related
 
 * [The vault and the derived index](/explanation/vault-and-derived-index.md): why the database holds nothing a note needs
-* [Finance in Postgres](/explanation/finance-in-postgres.md): why throwing the finance schema away is not
+* [Finance in Postgres](/explanation/vault-and-derived-index/finance-in-postgres.md): why throwing the finance schema away is not
 * [Configuration](/reference/configuration.md): which database the commands talk to

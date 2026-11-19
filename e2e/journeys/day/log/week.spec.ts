@@ -169,6 +169,18 @@ test("#807 I3 a week that has not started says so, and draws nothing else", asyn
   await expect(page.locator(".review-tiles")).toHaveCount(0);
 });
 
+/** Tasks as it reads once the `!` typed at the end of the cursor's line lands on the export's embed. */
+async function marked(url: string): Promise<string> {
+  const rows = (await (
+    await fetch(`${url}/api/todos/rows?note=${encodeURIComponent(FDE)}`)
+  ).json()) as {
+    id: string;
+    words: string;
+  }[];
+  const id = (words: string) => rows.find((row) => row.words === words)?.id;
+  return `# tasks\n\n![[${id("ship the export")}]]!\n![[${id("next thing")}]]\n`;
+}
+
 for (const vim of ["on", "off"]) {
   test(`#807 I7 with vim ${vim}, a click on a Done row opens its note at the todo's line`, async ({
     page,
@@ -178,6 +190,8 @@ for (const vim of ["on", "off"]) {
     await openWeek(page, stack.vault, FULL);
     await rows(page, "Done").filter({ hasText: "ship the export" }).click();
     await expect(page.getByRole("tab", { name: "tasks", selected: true })).toBeVisible();
+    // The note opens once its embed's line is read: keys sent before its focus are lost.
+    await expect(page.locator(".cm-content:focus")).toHaveCount(1);
     if (vim === "on") await page.keyboard.type("A!");
     else {
       await page.keyboard.press("End");
@@ -186,7 +200,7 @@ for (const vim of ["on", "off"]) {
     await page.clock.runFor(10_000);
     await expect
       .poll(async () => bodyOf(await noteText(stack.vault, FDE)))
-      .toBe("# tasks\n\n- [x] ship the export ✅ 2026-11-10!\n- [ ] next thing\n");
+      .toBe(await marked(stack.url));
   });
 }
 
@@ -196,15 +210,16 @@ test.describe("on a phone", () => {
   test("#807 I7 a tap on a Done row opens its note at the todo's line", async ({ page, stack }) => {
     await openWeek(page, stack.vault, FULL);
     await rows(page, "Done").filter({ hasText: "ship the export" }).tap();
-    await expect(page.locator(".cm-content")).toContainText("next thing");
+    const editor = page.locator(".cm-content:visible");
+    await expect(editor).toContainText("next thing");
     // A tap leaves the keyboard shut; focus brings back the selection the row set.
-    await page.locator(".cm-content").focus();
+    await editor.focus();
     await page.keyboard.press("End");
     await page.keyboard.type("!");
     await page.clock.runFor(10_000);
     await expect
       .poll(async () => bodyOf(await noteText(stack.vault, FDE)))
-      .toBe("# tasks\n\n- [x] ship the export ✅ 2026-11-10!\n- [ ] next thing\n");
+      .toBe(await marked(stack.url));
   });
 });
 

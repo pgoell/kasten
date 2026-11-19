@@ -385,9 +385,11 @@ test.describe("a todo's due date", () => {
       .evaluateAll((marks) => marks.map((mark) => mark.textContent ?? ""));
 
   async function opened(page: Page, vault: string, vim: boolean): Promise<void> {
-    await vaultWith(vault, { "Due.md": EVERY_SHAPE });
+    // A shared list keeps its todo lines as lines; any other note's go to the store as embeds.
+    await vaultWith(vault, { "05 Shared/Due.md": EVERY_SHAPE });
     if (!vim) await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
     await openApp(page);
+    await page.getByRole("button", { name: "05 Shared", exact: true }).click();
     await openNote(page, "Due");
   }
 

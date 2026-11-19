@@ -19,18 +19,20 @@ take that same sha back; pass none only to create a new note.
 A stale sha is refused, so read before you write. The note's own frontmatter is
 written for you, so never hand-write id, created or modified.
 
-Either write creates a missing note and the folders above it. File a note
+Either write makes a missing note and its folders. File a note
 you were given no path for in "{{inbox}}/00 Agent/".
 There is no delete, no move and no rename.
 
 save_file downloads a PDF, epub, image, svg, sound, video or csv from a URL,
-or writes an HTML page from its text. File a paper beside its note: "x/Paper.md", "x/Paper.pdf".
+or writes an HTML page from its text, beside its note.
 
 dump adds a paragraph to "## Dump" in the user's daily note. A thought
 with no note named goes there, not the inbox. Pass the local date.
 
-list_skills and read_skill read the Claude Code skills in "{{skills}}"
-and nothing else; nothing writes them.
+list_skills and read_skill read the Claude Code skills in
+"{{skills}}"; nothing writes them.
+
+Todos are rows, not lines: use search_todos and its siblings.
 
 Four more guides sit in "{{config}}/01 Agents/": Ontology.md for note
 types and relations, How-To-Index.md, How-To-TODO.md and How-To-Exam.md.

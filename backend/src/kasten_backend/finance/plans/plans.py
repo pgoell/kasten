@@ -10,15 +10,17 @@ from calendar import monthrange
 from dataclasses import dataclass, field
 from decimal import ROUND_UP, Decimal
 
-from kasten_backend import frontmatter, todo_fields, todos
+from kasten_backend import frontmatter, todos
 from kasten_backend.finance.records.ledger import CENT, ZERO, Scope, add_months, months_between
 from kasten_backend.periodic import append_under, section_lines
+from kasten_backend.todos import fields as todo_fields
 
 FORECAST_MONTHS = 12
 DAY = dt.timedelta(days=1)
 # A day-long renewal over three centuries; past it the sum gives up rather than spin.
 MAX_RENEWALS = 100_000
 CANCEL_BY = "## Cancel-by"
+REMINDER = "cancel or renegotiate"
 REMIND_BEFORE = dt.timedelta(weeks=4)
 
 
@@ -462,11 +464,25 @@ def contract_of(content: str) -> Contract | str:
 
 
 def reminder(content: str, name: str, contract: Contract, today: dt.date) -> str | None:
-    """The note with the next cancel-by todo under `## Cancel-by`, or None where it needs none.
+    """The note with the next cancel-by todo under `## Cancel-by`, or None where it needs none."""
+    line = next_reminder(content, name, contract, today)
+    return None if line is None else append_under(content, CANCEL_BY, line)
 
-    An open todo there holds it. Past a done or rejected one, the next comes after that one's date.
+
+def next_reminder(
+    content: str,
+    name: str,
+    contract: Contract,
+    today: dt.date,
+    stored: list[tuple[dt.date, bool]] | None = None,
+) -> str | None:
+    """The next cancel-by todo's line, or None where the note needs none.
+
+    An open todo holds it: a line under `## Cancel-by`, or one in `stored`, the store's todos
+    of the note as due date and open. Past a done or rejected one, the next follows its date.
     """
     dates = [found for line in section_lines(content, CANCEL_BY) if (found := _due(line))]
+    dates += stored or []
     if any(open_ for _, open_ in dates):
         return None
     floor = max([today, *(due + DAY for due, _ in dates)])
@@ -474,11 +490,10 @@ def reminder(content: str, name: str, contract: Contract, today: dt.date) -> str
     if found is None:
         return None
     by, renews = found
-    line = (
-        f"- [ ] cancel or renegotiate {name}, renews {renews.isoformat()}"
+    return (
+        f"- [ ] {REMINDER} {name}, renews {renews.isoformat()}"
         f" 📅 {by.isoformat()} ⏳ {max(today, by - REMIND_BEFORE).isoformat()}"
     )
-    return append_under(content, CANCEL_BY, line)
 
 
 def _due(line: str) -> tuple[dt.date, bool] | None:

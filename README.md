@@ -11,7 +11,7 @@ vault, and nothing that only exists in the database is allowed to matter. It
 holds no index today: search, backlinks and tags read the notes.
 
 One exception: money. The `finance` schema is a system of record, see
-[Finance in Postgres](docs/explanation/finance-in-postgres.md). Two small tables
+[Finance in Postgres](docs/explanation/vault-and-derived-index/finance-in-postgres.md). Two small tables
 outside it do not rebuild from the vault either: `rsvp_places`, whose loss costs
 only where each RSVP run stopped, and `token_action`, whose loss costs the
 request record each agent token shows on `/tokens`. See

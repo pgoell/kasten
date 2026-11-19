@@ -1,9 +1,7 @@
 import type { Page } from "@playwright/test";
 import {
   atDrop,
-  bodyOf,
   leader,
-  noteText,
   openApp,
   plus,
   today,
@@ -26,7 +24,8 @@ const DAILY_LINES = [
   `- [-] drop the logo ❌ ${plus(-1)}`,
 ].join("\n");
 const KASTEN = "[[02 Projects/Kasten/index|Kasten]]";
-// The fixture's own todos, written over so the board holds these cards alone.
+const literal = (text: string) => text.replace(/[[\]|/]/g, "\\$&");
+// The fixture's own notes, written over; their todos are rows, which `board` deletes.
 const QUIET = { "02 Projects/Garden.md": "# Garden\n", "02 Projects/Home.md": "# Home\n" };
 
 const card = (page: Page, words: string) => page.locator("[data-card]", { hasText: words });
@@ -36,10 +35,12 @@ const picker = (page: Page) => page.getByTestId("todo-project-pick");
 const filter = (page: Page) => page.getByLabel("filter todos");
 const region = (page: Page) => page.getByRole("region", { name: "Todos" });
 const caretLine = (page: Page) => page.locator(".cm-activeLine");
-const lineOf = async (vault: string, path: string, words: string) =>
-  bodyOf(await noteText(vault, path))
-    .split("\n")
-    .find((line) => line.includes(words));
+type Stack = { url: string; vault: string };
+/** The todo as `GET /api/todos` renders it from its row, its id and created stamp on it. */
+const lineOf = async (url: string, words: string): Promise<string | undefined> => {
+  const hits: { text: string }[] = await (await fetch(`${url}/api/todos`)).json();
+  return hits.find((hit) => hit.text.includes(words))?.text;
+};
 const focused = (page: Page) =>
   page.evaluate(() => {
     const at = document.activeElement as HTMLElement | null;
@@ -53,13 +54,16 @@ async function press(page: Page, keys: string[]): Promise<void> {
 /** The board over the two notes, opened by the leader (vim on) or the palette (vim off); records each note write from then on. */
 async function board(
   page: Page,
-  vault: string,
+  { url, vault }: Stack,
   vim = "on",
   empty = false,
   split = false,
   notes: Record<string, string> = {},
 ): Promise<string[]> {
   if (vim === "off") await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
+  // The fixture's todos are rows already: writing over their notes leaves them in the store.
+  const rows: { id: string }[] = await (await fetch(`${url}/api/todos/rows`)).json();
+  for (const row of rows) await fetch(`${url}/api/todos/${row.id}`, { method: "DELETE" });
   await vaultWith(vault, {
     ...QUIET,
     "Long note.md": "# Long note\n",
@@ -86,7 +90,7 @@ async function board(
     await expect(page.locator('[data-row*=".md:"]').first()).toBeVisible();
   const writes: string[] = [];
   page.on("request", (request) => {
-    if (["POST", "PUT"].includes(request.method()) && request.url().includes("/api/files/"))
+    if (request.method() !== "GET" && request.url().includes("/api/todos/"))
       writes.push(request.url());
   });
   await page.keyboard.press("c");
@@ -95,28 +99,26 @@ async function board(
 }
 
 test("A6 X moves the card to done, W to waiting, and x cycles it on", async ({ page, stack }) => {
-  await board(page, stack.vault);
-  const invoice = () => lineOf(stack.vault, DAILY, "send the invoice");
+  await board(page, stack);
+  const invoice = () => lineOf(stack.url, "send the invoice");
   await page.keyboard.press("X");
   await expect.poll(invoice).toMatch(new RegExp(`^- \\[x\\] send the invoice .* ✅ ${today()}`));
   // Each card that leaves Open hands the cursor to the next: the deck, then the tap.
   await expect(cursor(page)).toContainText("write the deck");
   await page.keyboard.press("W");
-  await expect
-    .poll(() => lineOf(stack.vault, PLAN, "write the deck"))
-    .toMatch(/^- \[w\] write the deck /);
+  await expect.poll(() => lineOf(stack.url, "write the deck")).toMatch(/^- \[w\] write the deck /);
   await expect(cursor(page)).toContainText("fix the tap");
   await page.keyboard.press("x");
   await expect
-    .poll(() => lineOf(stack.vault, DAILY, "fix the tap"))
-    .toBe("- [/] fix the tap 🆔 kt-000009");
+    .poll(() => lineOf(stack.url, "fix the tap"))
+    .toMatch(/^- \[\/\] fix the tap .*🆔 kt-000009$/);
 });
 
 test("A7 Enter opens the cursor card's line, and a click opens the clicked card's", async ({
   page,
   stack,
 }) => {
-  await board(page, stack.vault);
+  await board(page, stack);
   await page.keyboard.press("Enter");
   await expect(caretLine(page)).toContainText("send the invoice");
   await leader(page, "gt");
@@ -129,7 +131,7 @@ test("A8 p opens the project picker, Escape shuts it writing nothing, and j Ente
   page,
   stack,
 }) => {
-  const writes = await board(page, stack.vault);
+  const writes = await board(page, stack);
   await press(page, ["j", "j"]);
   await expect(cursor(page)).toContainText("fix the tap");
   await page.keyboard.press("p");
@@ -141,15 +143,15 @@ test("A8 p opens the project picker, Escape shuts it writing nothing, and j Ente
   await press(page, ["p", "j", "Enter"]);
   await expect(picker(page)).toHaveCount(0);
   await expect
-    .poll(() => lineOf(stack.vault, DAILY, "fix the tap"))
-    .toBe(`- [ ] fix the tap ${KASTEN} 🆔 kt-000009`);
+    .poll(() => lineOf(stack.url, "fix the tap"))
+    .toMatch(new RegExp(`^- \\[ \\] fix the tap ${literal(KASTEN)} .*🆔 kt-000009$`));
 });
 
 test("A8 a click picks, and a card already filed under the pick writes nothing", async ({
   page,
   stack,
 }) => {
-  const writes = await board(page, stack.vault);
+  const writes = await board(page, stack);
   await page.keyboard.press("p");
   await picker(page).getByRole("button", { name: "FDE" }).click();
   await expect(picker(page)).toHaveCount(0);
@@ -162,7 +164,7 @@ test("A9 h l move between columns and j k between the cards of one, across lanes
   page,
   stack,
 }) => {
-  await board(page, stack.vault);
+  await board(page, stack);
   const walk: [string, string][] = [
     ["l", "draw the chart"],
     ["h", "send the invoice"],
@@ -178,7 +180,7 @@ test("A9 h l move between columns and j k between the cards of one, across lanes
 });
 
 test("A11 the filter line and the views narrow the cards", async ({ page, stack }) => {
-  await board(page, stack.vault);
+  await board(page, stack);
   await filter(page).fill("#client");
   await expect(shown(page)).toHaveCount(1);
   await expect(shown(page)).toContainText(["send the invoice"]);
@@ -195,7 +197,7 @@ for (const vim of ["on", "off"])
     page,
     stack,
   }) => {
-    await board(page, stack.vault, vim);
+    await board(page, stack, vim);
     await expect.poll(() => focused(page)).toContain("send the invoice");
     await watchDrop(page, "send the invoice");
     await page.keyboard.press("X");
@@ -210,7 +212,7 @@ test("I3 an empty board and an empty column draw, and keys on them write and ope
   page,
   stack,
 }) => {
-  const none = await board(page, stack.vault, "on", true);
+  const none = await board(page, stack, "on", true);
   await expect(page.getByText("nothing on the board")).toBeVisible();
   await press(page, ["j", "k", "h", "l", "x", "X", "Enter", "p", "g"]);
   await expect(page.getByText("nothing on the board")).toBeVisible();
@@ -220,7 +222,7 @@ test("I3 an empty board and an empty column draw, and keys on them write and ope
 });
 
 test("I3 keys on a column with no card write, open and pick nothing", async ({ page, stack }) => {
-  const writes = await board(page, stack.vault);
+  const writes = await board(page, stack);
   // Review holds nothing.
   await press(page, ["l", "l", "j", "k", "x", "O", "Enter", "p"]);
   await expect(card(page, "send the invoice")).toBeVisible();
@@ -231,7 +233,7 @@ test("I3 keys on a column with no card write, open and pick nothing", async ({ p
 });
 
 test("I4 a leader sequence, /, Escape and q still work on the board", async ({ page, stack }) => {
-  await board(page, stack.vault, "on", false, true);
+  await board(page, stack, "on", false, true);
   await leader(page, "cd");
   await expect(page.getByRole("dialog", { name: "Capture a thought" })).toBeVisible();
   // The c went to the leader, so the board is still up.
@@ -256,46 +258,46 @@ test("I4 a leader sequence, /, Escape and q still work on the board", async ({ p
 });
 
 test("I5 O on a done card puts it back to open", async ({ page, stack }) => {
-  await board(page, stack.vault);
+  await board(page, stack);
   await press(page, ["l", "l", "l", "l", "l"]);
   await expect(cursor(page)).toContainText("gather numbers");
   await page.keyboard.press("O");
   await expect
-    .poll(() => lineOf(stack.vault, PLAN, "gather numbers"))
-    .toBe("  - [ ] gather numbers");
+    .poll(() => lineOf(stack.url, "gather numbers"))
+    .toMatch(/^ {2}- \[ \] gather numbers ➕/);
 });
 
 test("I6 P and a pick write the very line the vault holds, every mark on it kept", async ({
   page,
   stack,
 }) => {
-  await board(page, stack.vault);
+  await board(page, stack);
   await page.keyboard.press("j");
   await page.keyboard.press("P");
   await expect
-    .poll(() => lineOf(stack.vault, PLAN, "write the deck"))
-    .toBe(DECK.replace("[ ]", "[/]"));
+    .poll(() => lineOf(stack.url, "write the deck"))
+    .toMatch(new RegExp(`^- \\[/\\] write the deck #internal ⏫ .*📅 ${plus(2)}`));
   // The deck left Open, so the cursor sits on the tap below it.
   await expect(cursor(page)).toContainText("fix the tap");
   await press(page, ["p", "Enter"]);
   await expect
-    .poll(() => lineOf(stack.vault, DAILY, "fix the tap"))
-    .toBe("- [ ] fix the tap [[02 Projects/FDE/index|FDE]] 🆔 kt-000009");
+    .poll(() => lineOf(stack.url, "fix the tap"))
+    .toMatch(/^- \[ \] fix the tap \[\[02 Projects\/FDE\/index\|FDE\]\] /);
 });
 
 test("#773 I2 Enter on the focused cursor card picks in the open picker and opens no note", async ({
   page,
   stack,
 }) => {
-  await board(page, stack.vault);
+  await board(page, stack);
   await press(page, ["j", "j", "p", "j"]);
   await expect(picker(page)).toBeVisible();
   await cursor(page).focus();
   await expect(cursor(page)).toContainText("fix the tap");
   await page.keyboard.press("Enter");
   await expect
-    .poll(() => lineOf(stack.vault, DAILY, "fix the tap"))
-    .toBe(`- [ ] fix the tap ${KASTEN} 🆔 kt-000009`);
+    .poll(() => lineOf(stack.url, "fix the tap"))
+    .toMatch(new RegExp(`^- \\[ \\] fix the tap ${literal(KASTEN)} .*🆔 kt-000009$`));
   await expect(caretLine(page)).toHaveCount(0);
   await expect(region(page)).toBeVisible();
 });
@@ -309,7 +311,7 @@ test("A2 A5 #429 seven columns on one row, a todo done over a week ago left out,
   page,
   stack,
 }) => {
-  await board(page, stack.vault);
+  await board(page, stack);
   // Rejected reads as a chevron and its count while folded (#811 F3c).
   const heads = ["Open 3", "Doing 1", "Review 0", "Waiting 0", "Blocked 1", "Done 1", "› 1"];
   await expect(columns(page)).toHaveText(heads);
@@ -335,10 +337,10 @@ test("#429 A4 V moves the card to review, into the Review column after Doing", a
   page,
   stack,
 }) => {
-  await board(page, stack.vault);
+  await board(page, stack);
   await page.keyboard.press("V");
   await expect
-    .poll(() => lineOf(stack.vault, DAILY, "send the invoice"))
+    .poll(() => lineOf(stack.url, "send the invoice"))
     .toMatch(/^- \[r\] send the invoice /);
   await expect(columns(page).nth(2)).toHaveText("Review 1");
   const review = await columns(page).nth(2).boundingBox();
@@ -352,7 +354,7 @@ test("A3 lanes by kind, a part in its parent's, and g lanes by project and back"
   page,
   stack,
 }) => {
-  await board(page, stack.vault);
+  await board(page, stack);
   const kinds = ["#client", "#internal", "#private", "No kind"];
   await expect(lanes(page)).toHaveText(kinds);
   await expect(lane(page, "#internal")).toContainText("draw the chart");
@@ -371,7 +373,7 @@ for (const vim of ["on", "off"])
     page,
     stack,
   }) => {
-    await board(page, stack.vault, vim, false, false, {
+    await board(page, stack, vim, false, false, {
       [DAILY]: `${DAILY_LINES}\n- [ ] post the slides #p/fde\n`,
       "02 Projects/Kasten/plan.md": "- [ ] send the deck #p/fde\n",
     });
@@ -399,25 +401,16 @@ for (const vim of ["on", "off"])
       await expect(cursor(page)).toContainText(words);
     }
     await page.keyboard.press("Enter");
-    await expect(caretLine(page)).toContainText("send the deck");
+    // Vim on draws the embed under the caret as the todo; vim off shows its source there.
+    const id = (await lineOf(stack.url, "send the deck"))?.match(/kt-\w{6}$/)?.[0];
+    await expect(caretLine(page)).toHaveText(new RegExp(`send the deck|^!\\[\\[${id}\\]\\]$`));
   });
-
-test("#541 I4 a card waits on an id two todos carry, though the done twin comes last", async ({
-  page,
-  stack,
-}) => {
-  await board(page, stack.vault, "on", true, false, {
-    [DAILY]:
-      "- [ ] ship the release 🆔 kt-aaaaaa\n- [x] cut the branch 🆔 kt-aaaaaa\n- [b] write the docs ⛔ kt-aaaaaa\n",
-  });
-  await expect(card(page, "write the docs")).toContainText("⛔ kt-aaaaaa");
-});
 
 test("B5 two project folders of one name under two roots draw two lanes", async ({
   page,
   stack,
 }) => {
-  await board(page, stack.vault, "on", true, false, {
+  await board(page, stack, "on", true, false, {
     "02 Projects/Foo/a.md": "- [ ] one\n",
     "03 Areas/Foo/b.md": "- [ ] two\n",
   });
@@ -428,7 +421,7 @@ test("B5 two project folders of one name under two roots draw two lanes", async 
 });
 
 test("I7 the board draws an archived todo once the archive is shown", async ({ page, stack }) => {
-  await board(page, stack.vault, "on", false, false, {
+  await board(page, stack, "on", false, false, {
     "98 Archive/old.md": "- [ ] file the receipt\n",
   });
   await expect(card(page, "send the invoice")).toBeVisible();

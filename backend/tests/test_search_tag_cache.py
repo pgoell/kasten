@@ -10,6 +10,7 @@ import os
 from typing import TYPE_CHECKING, Any
 
 from backend.tests.book_files import pdf
+from backend.tests.todos.lines import old_route
 from kasten_backend import graph, search_meta, tags, todos
 from kasten_backend import vault as on_disk
 
@@ -164,7 +165,7 @@ async def test_1238_i4_a_file_hit_takes_its_note_tags_from_the_cache(
 def count_facets(monkeypatch: pytest.MonkeyPatch) -> dict[str, list[str]]:
     """The notes each reader parses from here on: tags, todos and graph."""
     parsed: dict[str, list[str]] = {"tags": [], "todos": [], "graph": []}
-    for name, module in (("tags", tags), ("todos", todos), ("graph", graph)):
+    for name, module in (("tags", tags), ("todos", todos.lines.read), ("graph", graph)):
         real = module._parse
 
         def counted(path: str, raw: bytes, real: Any = real, name: str = name) -> Any:
@@ -176,12 +177,13 @@ def count_facets(monkeypatch: pytest.MonkeyPatch) -> dict[str, list[str]]:
 
 
 async def read_all(client: AsyncClient) -> dict[str, Any]:
-    """What `/api/tags`, `/api/todos` and `/api/graph` answer, in a shape a test can compare."""
-    found = {}
-    for route in ("tags", "todos", "graph"):
+    """What `/api/tags`, the line reader and `/api/graph` answer, in a shape a test can compare."""
+    found: dict[str, Any] = {}
+    for route in ("tags", "graph"):
         response = await client.get(f"/api/{route}")
         assert response.status_code == 200
         found[route] = response.json()
+    found["todos"] = (await old_route.lines(client)).json()
     graph_answer = found["graph"]
     return {
         "tags": found["tags"],

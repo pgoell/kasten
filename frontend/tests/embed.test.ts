@@ -1,18 +1,50 @@
 import { QueryClient } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const { fetchNote } = vi.hoisted(() => ({ fetchNote: vi.fn() }));
+const { fetchNote, changeTodoLine } = vi.hoisted(() => ({
+  fetchNote: vi.fn(),
+  changeTodoLine: vi.fn(),
+}));
 
-vi.mock("@/lib/core/api", () => ({ fetchNote }));
+vi.mock("@/lib/core/api", () => ({ fetchNote, changeTodoLine }));
 
 import { COLUMN_CAP, cutNote, parseCsv, ROW_CAP } from "@/lib/notes/embeds/csv";
 import { queryEmbedSource } from "@/lib/notes/embeds/embed";
 
 afterEach(() => {
   fetchNote.mockReset();
+  changeTodoLine.mockReset();
 });
 
 describe("queryEmbedSource", () => {
+  /** A client whose todo listing holds `text` as the line of the todo `kt-aaaaaa` in a.md. */
+  const listing = (text: string) => {
+    const client = new QueryClient();
+    const todo = { id: "kt-aaaaaa", version: 1 };
+    client.setQueryData(["todos", false], [{ path: "a.md", line: 3, text, todo }]);
+    return client;
+  };
+
+  it("an embed's @ puts #agent on the listed line and sends it to the store", () => {
+    changeTodoLine.mockResolvedValue([]);
+    const client = listing("- [ ] call 🆔 kt-aaaaaa ➕ 2026-10-01");
+
+    expect(queryEmbedSource(client, vi.fn(), vi.fn()).agentTodo?.("kt-aaaaaa")).toBeNull();
+    expect(changeTodoLine).toHaveBeenCalledWith(
+      "kt-aaaaaa",
+      "- [ ] call #agent 🆔 kt-aaaaaa ➕ 2026-10-01",
+    );
+  });
+
+  it("an embed's @ on client work writes nothing and says why", () => {
+    const client = listing("- [ ] call #client 🆔 kt-aaaaaa");
+
+    expect(queryEmbedSource(client, vi.fn(), vi.fn()).agentTodo?.("kt-aaaaaa")).toBe(
+      "the agent skips client work",
+    );
+    expect(changeTodoLine).not.toHaveBeenCalled();
+  });
+
   it("hands the listener the note's text, and the new text each time the vault's changes", async () => {
     const client = new QueryClient();
     fetchNote.mockResolvedValue("first");

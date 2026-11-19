@@ -28,6 +28,7 @@ import {
 import { minutesWords } from "@/lib/review/review-year";
 import { useWeekReads, type WeekReads, weekDates } from "@/lib/review/use-review-reads";
 import { parseTodo } from "@/lib/todo/todo";
+import { openTodo } from "@/lib/todo/todo-api";
 
 type WeekOf = NonNullable<ReturnType<typeof weeklyWeek>>;
 
@@ -300,7 +301,7 @@ function Rows({
         <ul className="review-rows">
           {hits.map((hit) => (
             <li key={`${hit.path}:${hit.line}`}>
-              <button type="button" className="review-row" onClick={() => open(hit.path, hit.line)}>
+              <button type="button" className="review-row" onClick={() => openTodo(hit, open)}>
                 {parseTodo(hit.text)?.text ?? hit.text}
               </button>
             </li>

@@ -17,8 +17,7 @@ import type { Layout, Pane } from "@/lib/panes/layout/panes";
 import { paneOpeners } from "@/lib/panes/layout/use-pane-commands";
 import { moveHeld } from "@/lib/saving/held-text";
 import { parseTodo } from "@/lib/todo/todo";
-import { addTodoInVault } from "@/lib/todo/todo-api";
-import { addSubtaskInVault } from "@/lib/todo/todo-line-edits";
+import { addSubtaskInVault, addTodoInVault } from "@/lib/todo/todo-api";
 import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
 import type { MoveMode } from "@/lib/vault/move/move";
 
@@ -135,8 +134,8 @@ export function usePrompts({
           ? addTodoInVault(input, today)
           : addSubtaskInVault(parent, input, today);
       void written.then(todosWritten, () => {
-        // The vault refused the write, or the note moved out from under the
-        // row. Nothing on screen moved with it, so there is nothing to put back.
+        // The store refused the line. Nothing on screen moved with it, so
+        // there is nothing to put back.
       });
     },
     [todosWritten, refocusPane, todoPrompt],

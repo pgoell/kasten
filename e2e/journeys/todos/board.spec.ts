@@ -14,7 +14,13 @@ import {
 } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 
-test("dragging a card to the doing column writes its doing mark", async ({ page, stack }) => {
+/** Every todo in the store, as `GET /api/todos` renders each one, a line apiece. */
+async function store(url: string): Promise<string> {
+  const hits = (await (await fetch(`${url}/api/todos`)).json()) as { text: string }[];
+  return hits.map((hit) => hit.text).join("\n");
+}
+
+test("dragging a card to the doing column sets it doing in the store", async ({ page, stack }) => {
   await openApp(page);
   await leader(page, "gt");
   // The list first, so `c` turns a loaded list into the board.
@@ -33,7 +39,7 @@ test("dragging a card to the doing column writes its doing mark", async ({ page,
   await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 10 });
   await page.mouse.up();
   await expect
-    .poll(() => noteText(stack.vault, "02 Projects/Home.md"), { timeout: 15_000 })
+    .poll(() => store(stack.url), { timeout: 15_000 })
     .toMatch(/^- \[\/\] fold the laundry/m);
 });
 
@@ -58,13 +64,9 @@ async function notes(vault: string): Promise<Record<string, string>> {
   return all;
 }
 
-test("folding, the filter, a tag chip, All, the shared lists toggle and c write nothing", async ({
-  page,
-  stack,
-}) => {
+test("folding, the filter, a tag chip, All and c write nothing", async ({ page, stack }) => {
   await vaultWith(stack.vault, {
     "02 Projects/Errands.md": `# Errands\n\n- [ ] call the dentist #client\n- [x] read the spec ✅ ${today()}\n`,
-    "05 Shared/Einkauf.md": "# Einkauf\n\n- [ ] buy eggs\n",
   });
   await openApp(page);
   await leader(page, "gt");
@@ -90,26 +92,18 @@ test("folding, the filter, a tag chip, All, the shared lists toggle and c write 
   await expect(row("buy seed potatoes")).toHaveCount(0);
   await page.getByRole("button", { name: "All", exact: true }).click();
   await expect(row("buy seed potatoes")).toBeVisible();
-  await expect(row("buy eggs")).toHaveCount(0);
-  await page.getByRole("button", { name: /^Shared lists, 1 hidden/ }).click();
-  await expect(row("buy eggs")).toBeVisible();
 
-  // One real tick last: once its line and its done log land, a write the controls sent would have too.
+  // One real tick last: once it lands, a write the controls sent would have too.
   await cursorTo(page, "buy seed potatoes");
   await page.keyboard.press("X");
-  const garden = "02 Projects/Garden.md";
-  const daily = `01 Periodic/00 Daily/${today()}.md`;
   await expect
-    .poll(() => noteText(stack.vault, garden), { timeout: 15_000 })
+    .poll(() => store(stack.url), { timeout: 15_000 })
     .toMatch(/^- \[x\] buy seed potatoes/m);
-  await expect.poll(() => noteText(stack.vault, daily)).toContain("buy seed potatoes");
-  expect(
-    writes.map((write) => decodeURIComponent(write.replace(/ http[^ ]*\/api\//, " "))),
-  ).toEqual([`PUT files/${garden}`, `POST files/${daily}`]);
-  // The tick's own: its line, and the daily note it logs to with the folder listings made for it.
-  const untouched = (all: Record<string, string>) =>
-    Object.entries(all).filter(([path]) => path !== garden && !path.startsWith("01 Periodic/"));
-  expect(untouched(await notes(stack.vault))).toEqual(untouched(before));
+  expect(writes.map((write) => write.replace(/ http[^ ]*\/api\//, " "))).toEqual([
+    expect.stringMatching(/^POST todos\/kt-[0-9a-f]{6}\/state$/),
+  ]);
+  // A store write touches no note.
+  expect(await notes(stack.vault)).toEqual(before);
 });
 
 test.describe("on a phone", () => {
@@ -282,42 +276,37 @@ test.describe("the board's lanes and folds (#811)", () => {
       await expect(laneButton(page, "#client")).toBeDisabled();
       await expect(laneButton(page, "#client")).toHaveAttribute("aria-expanded", "false");
       await expect(laneButton(page, "#internal")).toHaveAttribute("aria-expanded", "true");
-      await expect(page.locator("[data-card]:visible")).toHaveText(["draw the chart"]);
+      await expect(page.locator("[data-card]:visible")).toHaveText([/^draw the chart/]);
     });
   });
 });
 
-test.describe("the list's edit row through a redraw that moves its line (#2087)", () => {
-  const GARDEN = "02 Projects/Garden.md";
-  const garden = (vault: string) => noteText(vault, GARDEN);
+test.describe("the list's edit row through a redraw that moves its row (#2087)", () => {
   const draft = (page: Page) => page.getByLabel("edit line");
 
-  /** Holds every save of Garden.md until the call it returns. */
-  async function heldSaves(page: Page) {
+  /** Holds every cycle sent to the store until the call it returns. */
+  async function heldCycles(page: Page) {
     let release = () => {};
     const gate = new Promise<void>((resolve) => {
       release = resolve;
     });
-    await page.route(
-      (url) => decodeURIComponent(url.pathname) === `/api/files/${GARDEN}`,
-      async (route) => {
-        if (route.request().method() === "PUT") await gate;
-        await route.fallback();
-      },
-    );
+    await page.route(/\/api\/todos\/kt-[0-9a-f]{6}\/cycle$/, async (route) => {
+      await gate;
+      await route.fallback();
+    });
     return release;
   }
 
-  /** The listing that puts the tomatoes off line 5, where the note first had them. */
+  /** The listing that has the tomatoes doing, which moves their row to the doing group. */
   const moved = (page: Page) =>
     page.waitForResponse(async (response) => {
-      if (!response.url().includes("/api/todos")) return false;
-      const hits = (await response.json()) as { path: string; line: number; text: string }[];
-      return hits.some((hit) => hit.path === GARDEN && hit.text.includes("tomatoes") && hit.line !== 5);
+      if (!/\/api\/todos(\?|$)/.test(response.url())) return false;
+      const hits = (await response.json()) as { text: string }[];
+      return hits.some((hit) => hit.text.startsWith("- [/] water the tomatoes"));
     });
 
   /** `x` then `i` on the tomatoes, typing mid-line before and slowly after the redraw, then Enter. */
-  async function typeThroughRedraw(page: Page, vault: string, release: () => void) {
+  async function typeThroughRedraw(page: Page, url: string, release: () => void) {
     await cursorTo(page, "water the tomatoes");
     await page.keyboard.press("x");
     await expect(page.getByRole("button", { name: "doing water the tomatoes" })).toBeVisible();
@@ -333,7 +322,7 @@ test.describe("the list's edit row through a redraw that moves its line (#2087)"
     await page.keyboard.type("ripe ", { delay: 150 });
     await expect(draft(page)).toBeFocused();
     await page.keyboard.press("Enter");
-    await expect.poll(() => garden(vault)).toMatch(/^- \[\/\] water the red ripe tomatoes/m);
+    await expect.poll(() => store(url)).toMatch(/^- \[\/\] water the red ripe tomatoes/m);
     await expect(page.getByTestId("notice")).toHaveCount(0);
   }
 
@@ -341,10 +330,10 @@ test.describe("the list's edit row through a redraw that moves its line (#2087)"
     page,
     stack,
   }) => {
-    const release = await heldSaves(page);
+    const release = await heldCycles(page);
     await openApp(page);
     await leader(page, "gt");
-    await typeThroughRedraw(page, stack.vault, release);
+    await typeThroughRedraw(page, stack.url, release);
   });
 
   test("with vim off, x then i keeps the row through the redraw, and Enter writes it", async ({
@@ -352,83 +341,90 @@ test.describe("the list's edit row through a redraw that moves its line (#2087)"
     stack,
   }) => {
     await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
-    const release = await heldSaves(page);
+    const release = await heldCycles(page);
     await openApp(page);
     await page.keyboard.press("Control+Shift+P");
     await page.getByRole("option", { name: /^Open the todo pane/ }).click();
     await expect(page.getByRole("button", { name: "open water the tomatoes" })).toBeVisible();
-    await typeThroughRedraw(page, stack.vault, release);
+    await typeThroughRedraw(page, stack.url, release);
   });
 
   const EDITS = "02 Projects/Edits.md";
-  const edits = (vault: string) => noteText(vault, EDITS);
   const notice = (page: Page) => page.getByTestId("notice");
+  /** The line edits go to, for a route to stand in for the store. */
+  const LINE_PUT = /\/api\/todos\/kt-[0-9a-f]{6}\/line$/;
 
-  /** `i` on `words` in Edits.md, ` now` typed at its end; answers the note as listed. */
-  async function editing(page: Page, vault: string, lines: string, words: string, nth = 0) {
+  /** `i` on `words` in Edits.md, ` now` typed after the words. */
+  async function editing(page: Page, vault: string, lines: string, words: string) {
     await vaultWith(vault, { [EDITS]: lines });
     await openApp(page);
     await leader(page, "gt");
-    await cursorTo(page, words, nth);
+    await cursorTo(page, words);
     await page.keyboard.press("i");
-    await page.keyboard.press("End");
+    await expect(draft(page)).toBeFocused();
+    await page.keyboard.press("Home");
+    for (const _ of `- [ ] ${words}`) await page.keyboard.press("ArrowRight");
     await page.keyboard.type(" now");
-    return edits(vault);
   }
 
-  test("an edit whose line changed writes nothing, says so, keeps the text, and goes once the line reads as before", async ({
+  test("an edit that fails with a 500 says so and keeps the text for another Enter", async ({
     page,
     stack,
   }) => {
-    const listed = await editing(page, stack.vault, "- [ ] call the plumber\n", "call the plumber");
-    await vaultWith(stack.vault, { [EDITS]: listed.replace("plumber", "plumber today") });
-    await page.keyboard.press("Enter");
-    await expect(notice(page)).toHaveText("Nothing moved: that line has changed since the edit opened");
-    await expect(draft(page)).toHaveValue("- [ ] call the plumber now");
-    await expect(draft(page)).toBeFocused();
-    expect(await edits(stack.vault)).toMatch(/^- \[ \] call the plumber today$/m);
-    await vaultWith(stack.vault, { [EDITS]: listed });
-    await page.keyboard.press("Enter");
-    await expect.poll(() => edits(stack.vault)).toMatch(/^- \[ \] call the plumber now$/m);
-    await expect(notice(page)).toHaveCount(0);
-  });
-
-  test("an edit that fails with a 500 says so and keeps the text for another Enter", async ({ page, stack }) => {
     await editing(page, stack.vault, "- [ ] mend the fence\n", "mend the fence");
-    await page.route(
-      (url) => decodeURIComponent(url.pathname) === `/api/files/${EDITS}`,
-      (route) =>
+    await page.route(LINE_PUT, (route) =>
       route.request().method() === "PUT" ? route.fulfill({ status: 500 }) : route.fallback(),
     );
     await page.keyboard.press("Enter");
     await expect(notice(page)).toContainText("Nothing moved:");
-    await expect(draft(page)).toHaveValue("- [ ] mend the fence now");
+    await expect(draft(page)).toHaveValue(/^- \[ \] mend the fence now/);
     await page.unrouteAll();
     await page.keyboard.press("Enter");
-    await expect.poll(() => edits(stack.vault)).toMatch(/^- \[ \] mend the fence now$/m);
+    await expect.poll(() => store(stack.url)).toMatch(/^- \[ \] mend the fence now /m);
     await expect(notice(page)).toHaveCount(0);
   });
 
-  test("an edit row follows its todo when lines land above it, and Enter writes there", async ({ page, stack }) => {
-    const listed = await editing(page, stack.vault, "- [ ] sweep the porch\n", "sweep the porch");
-    await vaultWith(stack.vault, { [EDITS]: listed.replace("- [ ] sweep", "- [ ] one\n- [ ] two\n- [ ] sweep") });
-    await expect(page.locator(TODO_ROW).filter({ hasText: "two" })).toBeVisible();
-    await page.keyboard.type("!", { delay: 100 });
-    await page.keyboard.press("Enter");
-    await expect.poll(() => edits(stack.vault)).toMatch(/^- \[ \] two\n- \[ \] sweep the porch now!$/m);
-  });
-
-  test("of two twins, an edit row whose twin left closes, keeping its text in the notice, and the keys work again", async ({
+  test("an edit row follows its todo when rows land above it, and Enter writes there", async ({
     page,
     stack,
   }) => {
-    const listed = await editing(page, stack.vault, "- [ ] same\n- [ ] same\n", "same", 1);
-    await vaultWith(stack.vault, { [EDITS]: listed.replace("- [ ] same\n", "") });
-    await expect(notice(page)).toContainText("The edit read: - [ ] same now");
+    await editing(page, stack.vault, "- [ ] sweep the porch\n", "sweep the porch");
+    const note = await noteText(stack.vault, EDITS);
+    await vaultWith(stack.vault, { [EDITS]: `- [ ] one\n- [ ] two\n${note}` });
+    await expect(page.locator(TODO_ROW).filter({ hasText: "two" })).toBeVisible();
+    await page.keyboard.type("!", { delay: 100 });
+    await page.keyboard.press("Enter");
+    await expect.poll(() => store(stack.url)).toMatch(/^- \[ \] sweep the porch now! /m);
+    expect(await store(stack.url)).toMatch(/^- \[ \] two /m);
+  });
+
+  test("an edit row whose todo left the list closes, keeping its text in the notice, and the keys work again", async ({
+    page,
+    stack,
+  }) => {
+    await editing(
+      page,
+      stack.vault,
+      "- [ ] fix the drain\n- [ ] clear the gutter\n",
+      "fix the drain",
+    );
+    const hits = (await (await fetch(`${stack.url}/api/todos`)).json()) as {
+      text: string;
+      todo: { id: string };
+    }[];
+    const id = hits.find((hit) => hit.text.includes("fix the drain"))?.todo.id;
+    await fetch(`${stack.url}/api/todos/${id}/state`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ state: "rejected" }),
+    });
+    // A store write sends no event; a note written beside it makes the pane read the list again.
+    await vaultWith(stack.vault, { "Elsewhere.md": "a write the vault's events carry\n" });
+    await expect(notice(page)).toContainText("The edit read: - [ ] fix the drain now");
     await expect(draft(page)).toHaveCount(0);
-    expect(await edits(stack.vault)).toMatch(/^- \[ \] same$/m);
-    await cursorTo(page, "same");
+    expect(await store(stack.url)).toMatch(/^- \[-\] fix the drain /m);
+    await cursorTo(page, "clear the gutter");
     await page.keyboard.press("x");
-    await expect.poll(() => edits(stack.vault)).toMatch(/^- \[\/\] same/m);
+    await expect.poll(() => store(stack.url)).toMatch(/^- \[\/\] clear the gutter/m);
   });
 });

@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from backend.tests.todos.lines import old_route
+
 if TYPE_CHECKING:
     from httpx import AsyncClient
 
@@ -42,7 +44,7 @@ def projects_vault(vault: Path) -> None:
 
 async def projects(client: AsyncClient, *, archive: bool = False) -> dict[str, str | None]:
     """Each todo line's project, keyed by its text."""
-    response = await client.get("/api/todos", params={"archive": archive})
+    response = await old_route.lines(client, params={"archive": archive})
     assert response.status_code == 200
     return {hit["text"]: hit["project"] for hit in response.json()}
 
@@ -135,7 +137,7 @@ async def test_a1_every_hit_carries_a_project(client: AsyncClient, vault: Path) 
         "- [ ] by link [[02 Projects/Atlas/index]]\n  - [ ] by parent\n- [ ] by nothing\n",
     )
 
-    response = await client.get("/api/todos")
+    response = await old_route.lines(client)
 
     assert sorted((hit["text"], hit["project"]) for hit in response.json()) == [
         ("  - [ ] by parent", "02 Projects/Atlas"),
@@ -379,7 +381,9 @@ async def test_b4_space_is_read_as_the_editor_reads_it(client: AsyncClient, vaul
     assert (await projects(client))[line] == "02 Projects/FDE"
 
 
-PARTS = json.loads((Path(__file__).parent / "fixtures/todo_parts.json").read_text(encoding="utf-8"))
+PARTS = json.loads(
+    (Path(__file__).parents[2] / "fixtures/todo_parts.json").read_text(encoding="utf-8")
+)
 """#1445: what ends a todo's parts, the cases `frontend/tests/todo-view.test.ts` runs too."""
 
 
@@ -390,7 +394,7 @@ async def test_1445_a_part_takes_the_project_only_where_the_writes_end_parts(
     projects_vault(vault)
     write(vault, "case.md", case["note"])
 
-    response = await client.get("/api/todos")
+    response = await old_route.lines(client)
     todos = {
         hit["line"]: hit["project"]
         for hit in response.json()

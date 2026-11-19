@@ -1,14 +1,5 @@
 import type { Page } from "@playwright/test";
-import {
-  bodyOf,
-  leader,
-  noteText,
-  openApp,
-  phone,
-  TODO_ROW,
-  tapHeight,
-  vaultWith,
-} from "../../../harness/app.ts";
+import { leader, openApp, phone, TODO_ROW, tapHeight, vaultWith } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
 
 const NOTE = "01 Notes/Errands.md";
@@ -17,6 +8,12 @@ const button = (page: Page, name: string) => page.getByRole("button", { name, ex
 const cards = (page: Page) => page.locator("[data-card]:visible");
 const filter = (page: Page) => page.getByLabel("filter todos");
 const pressed = (page: Page, name: string) => button(page, name).getAttribute("aria-pressed");
+type Hit = { text: string; todo: { id: string; state: string } };
+/** The store's todo holding `words`, as its line and row. */
+async function todo(url: string, words: string): Promise<Hit | undefined> {
+  const hits: Hit[] = await (await fetch(`${url}/api/todos`)).json();
+  return hits.find((hit) => hit.text.includes(words));
+}
 
 /** The todo pane by keys, its rows drawn; the palette opens it with vim off, where Space types. */
 async function byKeys(page: Page, vault: string, vim = "on") {
@@ -174,8 +171,9 @@ test.describe("by touch (#421)", () => {
     await byTouch(page, stack.vault);
     await page.getByLabel("more for fix the tap").tap();
     await page.getByLabel("agent fix the tap").tap();
-    const tagged = LINES.replace("fix the tap", "fix the tap #agent");
-    await expect.poll(async () => bodyOf(await noteText(stack.vault, NOTE))).toBe(tagged);
+    await expect
+      .poll(async () => (await todo(stack.url, "fix the tap"))?.text)
+      .toMatch(/^- \[ \] fix the tap #agent /);
   });
 
   test("A1 I4 a tap on the strip while a row is edited leaves the edit be, vim on", async ({
@@ -210,10 +208,11 @@ test.describe("by touch (#421)", () => {
       stack,
     }) => {
       await byTouch(page, stack.vault);
+      const before = await todo(stack.url, "fix the tap");
       const writes: string[] = [];
       page.on("request", (request) => {
-        const path = decodeURIComponent(new URL(request.url()).pathname);
-        if (request.method() !== "GET" && path.endsWith(NOTE)) writes.push(path);
+        const path = new URL(request.url()).pathname;
+        if (request.method() !== "GET" && path.startsWith("/api/todos/")) writes.push(path);
       });
       await more(page, "edit");
       await page.getByLabel("edit line").press(key);
@@ -221,9 +220,9 @@ test.describe("by touch (#421)", () => {
 
       await button(page, "board").tap();
       await expect(cards(page)).not.toHaveCount(0);
-      // Enter writes the line as it stands, and Escape writes nothing; the note keeps its text.
+      // Enter writes the line as it stands, and Escape writes nothing; the todo stays as it was.
       await expect.poll(() => writes.length).toBe(key === "Enter" ? 1 : 0);
-      expect(bodyOf(await noteText(stack.vault, NOTE))).toBe(LINES);
+      expect((await todo(stack.url, "fix the tap"))?.text).toBe(before?.text);
     });
   }
 
@@ -294,7 +293,11 @@ test.describe("the board by touch (#394, #429)", () => {
       "send the deck",
     );
     await cards(page).filter({ hasText: "send the deck" }).tap();
-    await expect(page.locator(".cm-activeLine")).toContainText("send the deck");
+    // The caret's line is the todo's embed, drawn as its words or, under the caret, its source.
+    const id = (await todo(stack.url, "send the deck"))?.todo.id;
+    await expect(page.locator(".cm-activeLine")).toHaveText(
+      new RegExp(`send the deck|!\\[\\[${id}\\]\\]`),
+    );
   });
 
   test("#429 A4 the strip names the states in order, sets review on one tap, and the Review tab shows the card", async ({
@@ -313,40 +316,9 @@ test.describe("the board by touch (#394, #429)", () => {
     ).toEqual(states.map((one) => `${one} draw the chart`));
     await page.getByLabel("review draw the chart").tap();
     await expect
-      .poll(async () => bodyOf(await noteText(stack.vault, PLAN)))
-      .toContain("  - [r] draw the chart\n");
+      .poll(async () => (await todo(stack.url, "draw the chart"))?.todo.state)
+      .toBe("review");
     await page.getByRole("tab", { name: "Review 1" }).tap();
     await expect(cards(page)).toHaveText([/draw the chart/]);
-  });
-});
-
-test.describe("twins by touch (#530)", () => {
-  test.use(phone);
-
-  test("done on the strip of the second of two twins sets that twin after a line above shifted both", async ({
-    page,
-    stack,
-  }) => {
-    const twins = "- [ ] water the fern\n- [ ] water the fern\n";
-    // The stream held, so the list stays as listed while the note moves under it.
-    await page.route("**/api/events", () => new Promise(() => {}));
-    await vaultWith(stack.vault, { [NOTE]: `# Errands\n\n${twins}` });
-    await page.goto("/");
-    await page.getByRole("button", { name: "Open the todo pane" }).tap({ timeout: 15_000 });
-    await expect(page.getByLabel("more for water the fern")).toHaveCount(2);
-    await vaultWith(stack.vault, { [NOTE]: `# Errands\n\n- [ ] buy milk\n${twins}` });
-    await page.getByLabel("more for water the fern").nth(1).tap();
-    await page.getByLabel("done water the fern").tap();
-    await expect
-      .poll(async () =>
-        bodyOf(await noteText(stack.vault, NOTE))
-          .split("\n")
-          .slice(2, 5),
-      )
-      .toEqual([
-        "- [ ] buy milk",
-        "- [ ] water the fern",
-        expect.stringMatching(/^- \[x\] water the fern/),
-      ]);
   });
 });

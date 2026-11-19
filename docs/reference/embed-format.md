@@ -35,6 +35,14 @@ same embeds.
 | `![[image.png\|words]]` | the picture, with the words as its alt text |
 | `![[file.pdf]]` | the pdf's pages, in a box that scrolls |
 | `![[file.pdf#page=3]]` | the same, scrolled to page 3 |
+| `![[kt-1a2b3c]]` | the store todo with that id: its box and words |
+
+A target of `kt-` and six hex digits names a todo in the todo store, never a
+note. It marks where the todo's line stood before the store took todos out of
+notes. It draws the todo as the todo list last read it, a press on its box walks
+it on (`POST /api/todos/{id}/cycle`), and one the list does not hold draws as
+its id in muted italics. Following it does nothing, so it never makes a note
+named after the id.
 
 ## How each part is read
 

@@ -8,7 +8,8 @@ a test each. The project each line carries is `test_todo_project.py`'s.
 
 from typing import TYPE_CHECKING
 
-import kasten_backend.todos
+from backend.tests.todos.lines import old_route
+from kasten_backend.todos.lines import read as todo_lines
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -31,7 +32,7 @@ async def test_finds_every_state(client: AsyncClient, vault: Path) -> None:
         "- [w] waiting\n- [r] review\n",
     )
 
-    response = await client.get("/api/todos")
+    response = await old_route.lines(client)
 
     assert response.status_code == 200
     assert response.json() == [
@@ -90,7 +91,7 @@ async def test_finds_every_state(client: AsyncClient, vault: Path) -> None:
 async def test_leaves_an_uppercase_review_box_out(client: AsyncClient, vault: Path) -> None:
     write(vault, "kasten.md", "- [R] shouted\n")
 
-    response = await client.get("/api/todos")
+    response = await old_route.lines(client)
 
     # Only `x` has a capital that counts, because other editors write `[X]`.
     # Nothing writes `[R]`, and the frontend reads it as no todo.
@@ -106,7 +107,7 @@ async def test_tells_a_todo_from_a_bullet_that_only_looks_like_one(
         "- [[borges]] and prose\n1. [ ] ordered\n- 09:12-10:32 wire up the pane kt-3f9a2c\n",
     )
 
-    response = await client.get("/api/todos")
+    response = await old_route.lines(client)
 
     assert response.json() == []
 
@@ -118,7 +119,7 @@ async def test_finds_a_running_session_line(client: AsyncClient, vault: Path) ->
         "## Time\n- 14:03-      wire up the pane kt-3f9a2c\n  - 08:00- a part\n",
     )
 
-    response = await client.get("/api/todos")
+    response = await old_route.lines(client)
 
     assert [hit["text"] for hit in response.json()] == [
         "- 14:03-      wire up the pane kt-3f9a2c",
@@ -133,7 +134,7 @@ async def test_leaves_a_closed_session_line_out(client: AsyncClient, vault: Path
         "## Time\n- 09:12-10:32 wire up the pane [[projects/kasten]] kt-3f9a2c\n",
     )
 
-    response = await client.get("/api/todos")
+    response = await old_route.lines(client)
 
     # The view wants to know what is running. Closed sessions are the one pile
     # in the vault that only grows, and every write refetches this.
@@ -149,7 +150,7 @@ async def test_tells_a_session_line_from_what_only_looks_like_one(
         "- 9:12- one digit hour\n- ✅ 2026-08-10 done log line kt-3f9a2c\n- 09:12 no dash at all\n",
     )
 
-    response = await client.get("/api/todos")
+    response = await old_route.lines(client)
 
     assert response.json() == []
 
@@ -157,7 +158,7 @@ async def test_tells_a_session_line_from_what_only_looks_like_one(
 async def test_finds_a_todo_at_any_indent(client: AsyncClient, vault: Path) -> None:
     write(vault, "kasten.md", "- [ ] parent\n  - [ ] nested\n")
 
-    response = await client.get("/api/todos")
+    response = await old_route.lines(client)
 
     assert [hit["line"] for hit in response.json()] == [1, 2]
 
@@ -167,7 +168,7 @@ async def test_answers_with_nothing_for_a_note_holding_neither(
 ) -> None:
     write(vault, "kasten.md", "# kasten\n\nPostgres holds a derived index.\n")
 
-    response = await client.get("/api/todos")
+    response = await old_route.lines(client)
 
     assert response.status_code == 200
     assert response.json() == []
@@ -179,9 +180,9 @@ async def test_stops_at_the_cap(
     write(vault, "kasten.md", "- [ ] open\n" * 5)
     # `find_todos` reads the constant at call time, so the cap is moved rather
     # than a note written long enough to reach the real one.
-    monkeypatch.setattr(kasten_backend.todos, "MOST_TODOS", 3)
+    monkeypatch.setattr(todo_lines, "MOST_TODOS", 3)
 
-    response = await client.get("/api/todos")
+    response = await old_route.lines(client)
 
     assert len(response.json()) == 3
 
@@ -189,7 +190,7 @@ async def test_stops_at_the_cap(
 async def test_answers_with_nothing_for_a_vault_that_is_not_there(
     client: AsyncClient, missing_vault: Path
 ) -> None:
-    response = await client.get("/api/todos")
+    response = await old_route.lines(client)
 
     assert response.status_code == 200
     assert response.json() == []
@@ -205,7 +206,7 @@ async def test_1445_sends_what_ends_a_part_and_no_fenced_line(
     )
     write(vault, "flat.md", "- [ ] one\n- plain\n## Other\n- [ ] two\n")
 
-    response = await client.get("/api/todos")
+    response = await old_route.lines(client)
 
     assert sorted((hit["path"], hit["line"], hit["text"]) for hit in response.json()) == [
         ("a.md", 2, "- [ ] r"),
@@ -226,7 +227,7 @@ async def test_1555_a_fence_under_a_nested_item_hides_its_todo(
     # Indented code at the margin is no fence, and its todo stays.
     write(vault, "plain.md", "a\n    ```\n- [ ] shown\n")
 
-    response = await client.get("/api/todos")
+    response = await old_route.lines(client)
 
     assert sorted((hit["path"], hit["line"], hit["text"]) for hit in response.json()) == [
         ("crlf.md", 8, "- [ ] kept"),
@@ -242,7 +243,7 @@ async def test_1705_a_crlf_note_answers_the_lines_of_its_lf_twin(
     write(vault, "lf.md", note)
     write(vault, "crlf.md", note.replace("\n", "\r\n"))
 
-    response = await client.get("/api/todos")
+    response = await old_route.lines(client)
 
     hits = {(hit["path"], hit["line"], hit["text"], hit["project"]) for hit in response.json()}
     assert {hit[1:] for hit in hits if hit[0] == "crlf.md"} == {
@@ -254,4 +255,4 @@ async def test_1705_a_crlf_note_answers_the_lines_of_its_lf_twin(
 def test_1555_fenced_lines_reads_an_opener_under_a_nested_item() -> None:
     lines = ["- a", "  - b", "    ```", "    - [ ] not a todo", "    ```"]
 
-    assert kasten_backend.todos.fenced_lines(lines) == {2, 3, 4}
+    assert todo_lines.fenced_lines(lines) == {2, 3, 4}

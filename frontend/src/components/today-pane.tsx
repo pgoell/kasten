@@ -1,15 +1,19 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { TryAgain } from "@/components/review/review-answer";
+import { TodoStateBox } from "@/components/todo/todo-state-box";
 import { TimersRow } from "@/lib/app/push/timers-row";
-import { fetchTodos, type TodoHit } from "@/lib/core/api";
+import { cycleStoreTodo, fetchTodos, type PlanBlock, type TodoHit } from "@/lib/core/api";
 import { readClock } from "@/lib/core/clock";
 import { noteName } from "@/lib/notes/links/note-path";
 import { useReviewLimits } from "@/lib/review/use-review-limits";
 import { useReviewWaiting } from "@/lib/review/use-review-waiting";
 import { useRecentNotes } from "@/lib/search/use-recent-notes";
 import { isOpen, parseTodo, STATE_SYMBOL, type Todo, type TodoState } from "@/lib/todo/todo";
+import { openTodo } from "@/lib/todo/todo-api";
 import { sectionOf } from "@/lib/todo/todo-view";
+import { useDayPlan } from "@/lib/todo/use-day-plan";
+import { absorb } from "@/lib/todo/use-todo-actions";
 
 /** The states that are work somebody has started and not finished, and not due today. */
 const LOOP_STATES: ReadonlySet<TodoState> = new Set(["doing", "waiting", "blocked"]);
@@ -87,6 +91,7 @@ export function TodayPane({
         </button>
       </div>
       <TimersRow />
+      <PlanNow hits={todos.data ?? []} onOpen={onOpen} />
       <div className="mt-8 grid gap-12 @[776px]:grid-cols-3">
         <div data-today-column className="flex min-w-0 flex-col gap-2">
           <h2 className="font-sans text-k-13 text-k-muted tracking-k-label">Today</h2>
@@ -148,6 +153,72 @@ export function TodayPane({
   );
 }
 
+/** `09:00 to 10:30`, a block's span. */
+function spanOf(block: PlanBlock): string {
+  return `${block.starts.slice(0, 5)} to ${block.ends.slice(0, 5)}`;
+}
+
+/** The day plan's block that holds the present minute with its picked todos, and the next block. */
+function PlanNow({
+  hits,
+  onOpen,
+}: {
+  hits: TodoHit[];
+  onOpen: (path: string, line?: number) => void;
+}) {
+  const { now, next } = useDayPlan();
+  const queryClient = useQueryClient();
+  const cycle = useMutation({
+    mutationFn: (id: string) => cycleStoreTodo(id),
+    onSuccess: (rows) => absorb(queryClient, rows),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ["todos"] });
+      void queryClient.invalidateQueries({ queryKey: ["files"] });
+    },
+  });
+  if (now === undefined && next === undefined) return null;
+  const byId = new Map(hits.flatMap((hit) => (hit.todo ? [[hit.todo.id, hit] as const] : [])));
+
+  return (
+    <div data-today-plan className="mt-8 flex flex-col gap-2">
+      {now !== undefined && (
+        <>
+          <h2 className="font-sans text-k-13 text-k-muted tracking-k-label">Now</h2>
+          <p className="flex flex-wrap items-baseline gap-2 px-2 font-sans text-k-15 text-k-ink">
+            <span>{now.title}</span>
+            <span className="text-k-13 text-k-muted">{`${now.kind}, ${spanOf(now)}`}</span>
+          </p>
+          {now.todos.map((id) => {
+            const hit = byId.get(id);
+            if (hit?.todo == null) return null;
+            const row = hit.todo;
+            return (
+              <div key={id} className="flex items-baseline gap-1 px-2">
+                <button
+                  type="button"
+                  aria-label={`Cycle ${row.words}`}
+                  onClick={() => cycle.mutate(id)}
+                  className="self-center pointer-coarse:p-3"
+                >
+                  <TodoStateBox state={row.state} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openTodo(hit, onOpen)}
+                  className="min-w-0 py-1 text-left font-sans text-k-15 text-k-ink transition-colors duration-(--k-hover) hover:text-k-accent pointer-coarse:min-h-11"
+                >
+                  {row.words}
+                </button>
+              </div>
+            );
+          })}
+        </>
+      )}
+      {next !== undefined && <Plain>{`Next: ${next.starts.slice(0, 5)} ${next.title}`}</Plain>}
+    </div>
+  );
+}
+
 function Plain({ children }: { children: ReactNode }) {
   return <p className="px-2 py-1 font-sans text-k-15 text-k-muted">{children}</p>;
 }
@@ -172,7 +243,7 @@ function TodoRow({
   onOpen: (path: string, line?: number) => void;
 }) {
   return (
-    <Row onClick={() => onOpen(hit.path, hit.line)}>
+    <Row onClick={() => openTodo(hit, onOpen)}>
       <span role="img" aria-label={todo.state} className="shrink-0">
         {STATE_SYMBOL[todo.state]}
       </span>

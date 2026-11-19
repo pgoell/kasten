@@ -23,13 +23,14 @@ from kasten_backend.finance.plans import reads
 from kasten_backend.finance.plans.models import Plan
 from kasten_backend.finance.plans.plans import (
     CANCEL_BY,
+    REMINDER,
     Contract,
     cancel_by,
     contract_field,
     contract_of,
     due_in,
     forecast,
-    reminder,
+    next_reminder,
 )
 from kasten_backend.finance.plans.proposals import proposals
 from kasten_backend.finance.records.ledger import SCOPES, add_months
@@ -46,6 +47,8 @@ from kasten_backend.finance.routes.records.records import (  # noqa: TC001  Fast
     Session,
 )
 from kasten_backend.folders import create_note
+from kasten_backend.periodic import append_under
+from kasten_backend.todos import Todo, Writes, placed, values_of
 from kasten_backend.vault import (
     relative_path,
     resolve_folder,
@@ -469,23 +472,39 @@ async def read_contracts(
 
 
 @router.post("/contracts/reminders")
-async def write_reminders(settings: VaultSettings, today: TodayParam) -> list[str]:
-    """Write each contract note's next cancel-by todo where it has none open; the paths written."""
+async def write_reminders(
+    settings: VaultSettings, session: Session, today: TodayParam
+) -> list[str]:
+    """Add each contract note's next cancel-by todo where it has none open; the paths written.
+
+    The todo goes into the store, and its embed under the note's `## Cancel-by` (#2191).
+    """
     _, day = parse_when(today[:7], today)
     written = []
     async with vault_write():
         for path, content in _contract_notes(settings.vault_path):
             terms = contract_of(content)
-            text = (
-                reminder(content, Path(path).stem, terms, day)
-                if isinstance(terms, Contract)
-                else None
-            )
-            note = resolve_note(settings.vault_path, path)
-            if text is None or note is None:
+            if not isinstance(terms, Contract):
                 continue
+            mine = select(Todo).where(Todo.note == path, Todo.words.startswith(REMINDER))
+            stored = [
+                (row.due, row.state not in ("done", "rejected"))
+                for row in (await session.scalars(mine)).all()
+                if row.due is not None
+            ]
+            line = next_reminder(content, Path(path).stem, terms, day, stored)
+            note = resolve_note(settings.vault_path, path)
+            if line is None or note is None:
+                continue
+            writes = Writes(session, "contracts", day)
+            values = values_of(line, None, day, settings.timezone) | {"note": path}
+            values.pop("state")
+            row = await writes.add(await placed(session, settings, values))
+            await writes.done()
             async with vault_change(settings.vault_path, path):
-                write_note(note, frontmatter.stamp(text, content))
+                embedded = append_under(content, CANCEL_BY, f"![[{row.id}]]")
+                write_note(note, frontmatter.stamp(embedded, content))
+            await session.commit()
             written.append(path)
     return written
 

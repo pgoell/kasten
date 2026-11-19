@@ -10,6 +10,7 @@ import {
   type UrlLink,
   urlLinkAt,
 } from "@/lib/markdown/link-reference";
+import { TODO_ID } from "@/lib/notes/embeds/embed";
 import { splitTarget, wikiLinkAt } from "@/lib/notes/links/wikilink";
 import { noteSectionOf } from "@/lib/notes/text/note-section";
 import { highlightAt, mayBeHighlightLine } from "@/lib/takes/highlight";
@@ -51,6 +52,8 @@ export const highlightHandler = Facet.define<HighlightHandler, HighlightHandler 
  */
 function followLink(view: EditorView, target: string) {
   const { name, heading } = splitTarget(target);
+  // Following it would make a note of that name.
+  if (TODO_ID.test(name)) return;
   if (name !== "") {
     view.state.facet(followHandler)?.(target);
     return;

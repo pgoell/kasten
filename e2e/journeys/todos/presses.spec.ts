@@ -3,37 +3,67 @@ import {
   cursorTo,
   hold,
   leader,
-  noteText,
   openApp,
+  plus,
   readAll,
   TODO_ROW,
-  today,
   vaultWith,
 } from "../../harness/app.ts";
-import { expect, test } from "../../harness/stack.ts";
+import { expect, type Stack, test } from "../../harness/stack.ts";
 
-const GARDEN = "02 Projects/Garden.md";
-const HOME = "02 Projects/Home.md";
 const TOMATOES = "water the tomatoes";
 const LAUNDRY = "fold the laundry";
 
-/** Holds every save of `path` until `release`; `arrived` waits for the first to reach the route. */
-async function holdSaves(page: Page, path: string) {
+interface Row {
+  id: string;
+  words: string;
+  state: string;
+  version: number;
+}
+
+/** Every todo the store holds, as rows. */
+async function rows(stack: Stack): Promise<Row[]> {
+  return (await fetch(`${stack.url}/api/todos/rows`)).json();
+}
+
+/** The store's row of the todo whose words are `words`. */
+async function rowOf(stack: Stack, words: string): Promise<Row> {
+  const row = (await rows(stack)).find((each) => each.words === words);
+  if (row === undefined) throw new Error(`no todo says ${words}`);
+  return row;
+}
+
+/** The store's row by its id, read again. */
+const byId = async (stack: Stack, id: string) => (await rows(stack)).find((row) => row.id === id);
+
+/** The running sessions, as the `## Time` lines `GET /api/todos` draws them. */
+async function sessions(stack: Stack): Promise<string[]> {
+  const hits: { line: number; text: string }[] = await (
+    await fetch(`${stack.url}/api/todos`)
+  ).json();
+  return hits.filter((hit) => hit.line > 100_000).map((hit) => hit.text);
+}
+
+/** Whether a request is a store write on the todo `id`. */
+const writesTo = (url: URL, id: string) => url.pathname.startsWith(`/api/todos/${id}/`);
+
+/** Holds every store write on `id` until `release`; `arrived` waits for the first to reach the route. */
+async function holdWrites(page: Page, id: string) {
   let release = () => {};
   const gate = new Promise<void>((resolve) => {
     release = resolve;
   });
-  let saves = 0;
+  let writes = 0;
   await page.route(
-    (url) => decodeURIComponent(url.pathname) === `/api/files/${path}`,
+    (url) => writesTo(url, id),
     async (route) => {
-      if (route.request().method() !== "PUT") return route.fallback();
-      saves += 1;
+      if (route.request().method() === "GET") return route.fallback();
+      writes += 1;
       await gate;
       await route.fallback();
     },
   );
-  return { release, arrived: () => expect.poll(() => saves).toBe(1) };
+  return { release, arrived: () => expect.poll(() => writes).toBe(1) };
 }
 
 const READ = "the list was read";
@@ -49,68 +79,12 @@ async function markListReads(page: Page): Promise<{ arm: () => void }> {
     async (route) => {
       if (!armed || route.request().method() !== "GET") return route.fallback();
       const response = await route.fetch();
-      const rows = await response.json();
-      const marker = { ...rows[0], path: "Marker.md", line: 1, text: `- [ ] ${READ}` };
-      await route.fulfill({ response, json: [...rows, marker] });
+      const hits = await response.json();
+      const marker = { ...hits[0], path: "Marker.md", line: 1, text: `- [ ] ${READ}`, todo: null };
+      await route.fulfill({ response, json: [...hits, marker] });
     },
   );
   return { arm: () => (armed = true) };
-}
-
-/** Holds the answer of every save of `path` until `release`, once the vault has the write. */
-async function holdAnswers(page: Page, path: string) {
-  let release = () => {};
-  let saves = 0;
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  await page.route(
-    (url) => decodeURIComponent(url.pathname) === `/api/files/${path}`,
-    async (route) => {
-      if (route.request().method() !== "PUT") return route.fallback();
-      saves += 1;
-      const response = await route.fetch();
-      await gate;
-      await route.fulfill({ response });
-    },
-  );
-  return { release, arrived: () => expect.poll(() => saves).toBe(1) };
-}
-
-/** Records the path of every vault event the page's stream delivers, as the app hears them. */
-async function hearEvents(page: Page): Promise<() => Promise<string[]>> {
-  await page.addInitScript(() => {
-    const heard: string[] = [];
-    Object.assign(window, { heard });
-    window.EventSource = class extends EventSource {
-      constructor(url: string | URL, init?: EventSourceInit) {
-        super(url, init);
-        this.addEventListener("message", (event) => heard.push(JSON.parse(event.data).path));
-      }
-    };
-  });
-  return () => page.evaluate(() => (window as unknown as { heard: string[] }).heard);
-}
-
-/**
- * From here on, whether the row of `words` was ever drawn without its `state` box: a list
- * read that lands mid-press draws it back, however soon the next one puts it right.
- */
-async function watchLost(page: Page, words: string, state: string): Promise<() => Promise<boolean>> {
-  await page.evaluate(
-    ({ words, state, row }) => {
-      const flag = window as unknown as { lost: boolean };
-      flag.lost = false;
-      new MutationObserver(() => {
-        const drawn = [...document.querySelectorAll(row)].find((each) =>
-          each.textContent?.includes(words),
-        );
-        if (drawn && !drawn.querySelector(`[role="img"][aria-label="${state}"]`)) flag.lost = true;
-      }).observe(document.body, { subtree: true, childList: true, attributes: true });
-    },
-    { words, state, row: TODO_ROW },
-  );
-  return () => page.evaluate(() => (window as unknown as { lost: boolean }).lost);
 }
 
 const stateOf = (page: Page, words: string, state: string) =>
@@ -123,57 +97,62 @@ async function openTodos(page: Page): Promise<void> {
   await expect(page.getByRole("button", { name: `open ${LAUNDRY}` })).toBeVisible();
 }
 
-/** Opens the todo pane with `GET /api/files` held unanswered; the first write to `path` resolves `written`. */
-async function openUnlisted(page: Page, path: string) {
+/** Opens the todo pane with `GET /api/files` held unanswered; the first store write on `id` resolves `written`. */
+async function openUnlisted(page: Page, id: string) {
   const asked = page.waitForRequest((r) => new URL(r.url()).pathname === "/api/files");
   const release = await hold(page, /\/api\/files$/);
-  const written = page.waitForResponse(
-    (r) => decodeURIComponent(new URL(r.url()).pathname) === `/api/files/${path}` && r.request().method() !== "GET",
-  );
+  const written = page.waitForResponse((r) => writesTo(new URL(r.url()), id));
   // Not `openApp`: the home note waits on the listing this holds back.
   await page.goto("/");
   await asked;
   await expect(page.getByRole("button", { name: "Search notes" })).toBeVisible({ timeout: 15_000 });
   await leader(page, "gt");
   await expect(page.getByRole("button", { name: `open ${LAUNDRY}` })).toBeVisible();
-  return { release, sent: async () => `${(await written).request().method()} ${(await written).status()}` };
+  return {
+    release,
+    sent: async () => `${(await written).request().method()} ${(await written).status()}`,
+  };
 }
 
-test("t before the file listing answers starts a session in today's note (#2061)", async ({ page, stack }) => {
-  const unlisted = await openUnlisted(page, HOME);
-  await cursorTo(page, LAUNDRY);
-  await page.keyboard.press("t");
-  expect(await unlisted.sent()).toBe("PUT 200");
-  await expect
-    .poll(() => noteText(stack.vault, `01 Periodic/00 Daily/${today()}.md`).catch(() => ""))
-    .toMatch(/^- \d\d:\d\d-.*fold the laundry/m);
-  await unlisted.release();
-});
-
-test("x before the file listing answers moves the todo in its own note (#2061)", async ({ page, stack }) => {
-  const unlisted = await openUnlisted(page, GARDEN);
-  await cursorTo(page, TOMATOES);
-  await page.keyboard.press("X");
-  expect(await unlisted.sent()).toBe("PUT 200");
-  await expect.poll(() => noteText(stack.vault, GARDEN)).toMatch(/^- \[x\] water the tomatoes/m);
-  await unlisted.release();
-});
-
-test("a press draws the row's new state before the vault has the write", async ({
+test("t before the file listing answers starts a session on the todo (#2061)", async ({
   page,
   stack,
 }) => {
-  const garden = await holdSaves(page, GARDEN);
+  const laundry = await rowOf(stack, LAUNDRY);
+  const unlisted = await openUnlisted(page, laundry.id);
+  await cursorTo(page, LAUNDRY);
+  await page.keyboard.press("t");
+  expect(await unlisted.sent()).toBe("POST 200");
+  await expect
+    .poll(() => sessions(stack))
+    .toEqual([expect.stringMatching(/^- \d\d:\d\d- fold the laundry kt-/)]);
+  await unlisted.release();
+});
+
+test("X before the file listing answers sets the todo done (#2061)", async ({ page, stack }) => {
+  const tomatoes = await rowOf(stack, TOMATOES);
+  const unlisted = await openUnlisted(page, tomatoes.id);
+  await cursorTo(page, TOMATOES);
+  await page.keyboard.press("X");
+  expect(await unlisted.sent()).toBe("POST 200");
+  await expect.poll(async () => (await byId(stack, tomatoes.id))?.state).toBe("done");
+  await unlisted.release();
+});
+
+test("a press draws the row's new state before the store has the write", async ({
+  page,
+  stack,
+}) => {
+  const tomatoes = await rowOf(stack, TOMATOES);
+  const held = await holdWrites(page, tomatoes.id);
   await openTodos(page);
   await cursorTo(page, TOMATOES);
   await page.keyboard.press("X");
-  await garden.arrived();
+  await held.arrived();
   await expect(stateOf(page, TOMATOES, "done")).toBeVisible();
-  expect(await noteText(stack.vault, GARDEN)).toMatch(/^- \[ \] water the tomatoes/m);
-  garden.release();
-  await expect
-    .poll(() => noteText(stack.vault, GARDEN))
-    .toMatch(/^- \[x\] water the tomatoes/m);
+  expect((await byId(stack, tomatoes.id))?.state).toBe("open");
+  held.release();
+  await expect.poll(async () => (await byId(stack, tomatoes.id))?.state).toBe("done");
   await expect(stateOf(page, TOMATOES, "done")).toBeVisible();
 });
 
@@ -181,8 +160,8 @@ test("of two presses, the list is read once the last lands, not when the first d
   page,
   stack,
 }) => {
-  const garden = await holdSaves(page, GARDEN);
-  const home = await holdSaves(page, HOME);
+  const tomatoes = await holdWrites(page, (await rowOf(stack, TOMATOES)).id);
+  const laundry = await holdWrites(page, (await rowOf(stack, LAUNDRY)).id);
   const reads = await markListReads(page);
   const read = page.locator(TODO_ROW, { hasText: READ });
   await openTodos(page);
@@ -192,15 +171,14 @@ test("of two presses, the list is read once the last lands, not when the first d
   await page.keyboard.press("W");
   await expect(stateOf(page, TOMATOES, "done")).toBeVisible();
   await expect(stateOf(page, LAUNDRY, "waiting")).toBeVisible();
-  await garden.arrived();
-  // From here: the first write has read all it reads before its save.
+  await tomatoes.arrived();
   reads.arm();
-  garden.release();
+  tomatoes.release();
   // The second write goes out once the first lands: a list read at that landing is drawn by now.
-  await home.arrived();
+  await laundry.arrived();
   await expect(stateOf(page, LAUNDRY, "waiting")).toBeVisible();
   await expect(read).toHaveCount(0);
-  home.release();
+  laundry.release();
   await expect(read).toHaveCount(1);
   await expect(stateOf(page, LAUNDRY, "waiting")).toBeVisible();
   await page.unrouteAll({ behavior: "ignoreErrors" });
@@ -210,100 +188,33 @@ test("a press of t that lands while a press of x waits leaves the list unread un
   page,
   stack,
 }) => {
-  const garden = await holdSaves(page, GARDEN);
+  const tomatoes = await holdWrites(page, (await rowOf(stack, TOMATOES)).id);
   const reads = await markListReads(page);
   const read = page.locator(TODO_ROW, { hasText: READ });
   await openTodos(page);
-  // `t` first: the writes go in turn, so the timer lands before the x's save goes out.
+  // `t` first: the writes go in turn, so the timer lands before the x's write goes out.
   await cursorTo(page, LAUNDRY);
   await page.keyboard.press("t");
   await cursorTo(page, TOMATOES);
   await page.keyboard.press("X");
-  await garden.arrived();
+  await tomatoes.arrived();
   reads.arm();
   await expect(stateOf(page, TOMATOES, "done")).toBeVisible();
   await expect(read).toHaveCount(0);
-  garden.release();
+  tomatoes.release();
   await expect(read).toHaveCount(1);
   await page.unrouteAll({ behavior: "ignoreErrors" });
 });
 
-test("a press's own event that beats its save's answer leaves a pending press's row as drawn", async ({
-  page,
-  stack,
-}) => {
-  const heard = await hearEvents(page);
-  const garden = await holdAnswers(page, GARDEN);
-  const home = await holdSaves(page, HOME);
-  const reads = await markListReads(page);
-  const read = page.locator(TODO_ROW, { hasText: READ });
-  await openTodos(page);
-  await cursorTo(page, TOMATOES);
-  await page.keyboard.press("X");
-  await cursorTo(page, LAUNDRY);
-  await page.keyboard.press("W");
-  await expect(stateOf(page, LAUNDRY, "waiting")).toBeVisible();
-  await garden.arrived();
-  reads.arm();
-  // The vault has the Garden write and the page its event, while the save still waits on its answer.
-  await expect.poll(heard).toContain(GARDEN);
-  garden.release();
-  // The done log and the Home save go out only once Garden lands: an early list read is drawn by now.
-  await home.arrived();
-  await expect(stateOf(page, LAUNDRY, "waiting")).toBeVisible();
-  await expect(read).toHaveCount(0);
-  home.release();
-  await expect(read).toHaveCount(1);
-  await expect(stateOf(page, LAUNDRY, "waiting")).toBeVisible();
-  await page.unrouteAll({ behavior: "ignoreErrors" });
-});
-
-test("a press that makes today's daily note leaves a pending press's row as drawn (#1998)", async ({
-  page,
-  stack,
-}) => {
-  const daily = `01 Periodic/00 Daily/${today()}.md`;
-  expect(await noteText(stack.vault, daily)).toBe("");
-  const heard = await hearEvents(page);
-  const garden = await holdSaves(page, GARDEN);
-  const home = await holdSaves(page, HOME);
-  const reads = await markListReads(page);
-  const read = page.locator(TODO_ROW, { hasText: READ });
-  await openTodos(page);
-  await cursorTo(page, TOMATOES);
-  await page.keyboard.press("X");
-  await cursorTo(page, LAUNDRY);
-  await page.keyboard.press("W");
-  await expect(stateOf(page, LAUNDRY, "waiting")).toBeVisible();
-  await garden.arrived();
-  reads.arm();
-  const lost = await watchLost(page, LAUNDRY, "waiting");
-  garden.release();
-  // The done log makes the daily note and its folders: their listing and index writes reach the page.
-  await expect.poll(heard).toContain("01 Periodic/index.md");
-  await expect.poll(heard).toContain("01 Periodic/00 Daily/index.md");
-  await home.arrived();
-  home.release();
-  // The read once the last press lands, which comes after any read the events made.
-  await expect(read).toHaveCount(1);
-  await expect(stateOf(page, LAUNDRY, "waiting")).toBeVisible();
-  expect(await lost()).toBe(false);
-  await page.unrouteAll({ behavior: "ignoreErrors" });
-});
-
-/** The note's line that holds `words`, read off disk: a save may add frontmatter above it. */
-async function lineWith(vault: string, path: string, words: string): Promise<string> {
-  return (await noteText(vault, path)).split("\n").find((line) => line.endsWith(` ${words}`)) ?? "";
-}
-
-/** The path and words of the row under the cursor, read off disk; `data-row` counts from 1. */
-async function underCursor(page: Page, vault: string): Promise<{ path: string; words: string }> {
-  const key = (await page.locator(`${TODO_ROW}[tabindex="0"]`).getAttribute("data-row")) ?? "";
-  const path = key.slice(0, key.lastIndexOf(":"));
-  const line = (await noteText(vault, path)).split("\n")[
-    Number(key.slice(key.lastIndexOf(":") + 1)) - 1
-  ];
-  return { path, words: line?.replace(/^- \[ \] /, "") ?? "" };
+/** The store's row under the cursor: `data-row` names the row as `GET /api/todos` lists it. */
+async function underCursor(page: Page, stack: Stack): Promise<Row> {
+  const key = await page.locator(`${TODO_ROW}[tabindex="0"]`).getAttribute("data-row");
+  const hits: { path: string; line: number; todo: Row | null }[] = await (
+    await fetch(`${stack.url}/api/todos`)
+  ).json();
+  const row = hits.find((hit) => `${hit.path}:${hit.line}` === key)?.todo;
+  if (!row) throw new Error(`no todo is listed as ${key}`);
+  return row;
 }
 
 test("x walks the row under the cursor on to doing, and leaves the row above it open", async ({
@@ -311,42 +222,36 @@ test("x walks the row under the cursor on to doing, and leaves the row above it 
   stack,
 }) => {
   await openTodos(page);
-  const first = await underCursor(page, stack.vault);
+  const first = await underCursor(page, stack);
   await page.keyboard.press("j");
   await expect(page.locator(`${TODO_ROW}[tabindex="0"]`)).not.toContainText(first.words);
-  const second = await underCursor(page, stack.vault);
+  const second = await underCursor(page, stack);
   await page.keyboard.press("x");
-  await expect
-    .poll(() => lineWith(stack.vault, second.path, second.words))
-    .toBe(`- [/] ${second.words}`);
+  await expect.poll(async () => (await byId(stack, second.id))?.state).toBe("doing");
   await expect(stateOf(page, second.words, "doing")).toBeVisible();
-  expect(await lineWith(stack.vault, first.path, first.words)).toBe(`- [ ] ${first.words}`);
+  expect((await byId(stack, first.id))?.state).toBe("open");
 });
 
 test("a bare x walks the first row from open to doing, not to done", async ({ page, stack }) => {
   await openTodos(page);
-  const first = await underCursor(page, stack.vault);
+  const first = await underCursor(page, stack);
   await page.keyboard.press("x");
-  await expect
-    .poll(() => lineWith(stack.vault, first.path, first.words))
-    .toBe(`- [/] ${first.words}`);
+  await expect.poll(async () => (await byId(stack, first.id))?.state).toBe("doing");
   await expect(stateOf(page, first.words, "doing")).toBeVisible();
 });
 
-for (const [key, state, mark] of [
-  ["B", "blocked", "b"],
-  ["V", "review", "r"],
+for (const [key, state] of [
+  ["B", "blocked"],
+  ["V", "review"],
 ] as const) {
   test(`${key} sets the row under the cursor to ${state}, which the walk never reaches`, async ({
     page,
     stack,
   }) => {
     await openTodos(page);
-    const first = await underCursor(page, stack.vault);
+    const first = await underCursor(page, stack);
     await page.keyboard.press(key);
-    await expect
-      .poll(() => lineWith(stack.vault, first.path, first.words))
-      .toBe(`- [${mark}] ${first.words}`);
+    await expect.poll(async () => (await byId(stack, first.id))?.state).toBe(state);
     await expect(stateOf(page, first.words, state)).toBeVisible();
   });
 }
@@ -354,21 +259,22 @@ for (const [key, state, mark] of [
 const STATES = "02 Projects/States.md";
 
 /**
- * Opens the todo pane on a note holding every state, on a clock fixed at noon of 2026-08-10, with
- * the list's answer cut to that note so the legend counts its rows alone.
+ * Opens the todo pane on a note holding every state, with the list's answer cut to that note
+ * so the legend counts its rows alone. Dates are off today: the store stamps today's date on them.
  */
 async function openStates(page: Page, vault: string): Promise<void> {
+  const [overdue, day, since] = [plus(-3), plus(0), plus(-7)];
   await vaultWith(vault, {
     [STATES]: [
       "# States",
       "",
-      "- [ ] call the dentist 📅 2026-08-07",
-      "- [b] ship it 📅 2026-08-07",
-      "- [/] wire up the pane 📅 2026-08-10",
-      "- [w] decision record 📅 2026-08-10 👤 2026-08-03 [[Zoe]]",
-      "- [w] hand back the keys 👤 2026-08-03 📅 2026-08-10",
-      "- [r] write the parser 📅 2026-08-10",
-      "- [ ] buy milk 📅 2026-08-10",
+      `- [ ] call the dentist 📅 ${overdue}`,
+      `- [b] ship it 📅 ${overdue}`,
+      `- [/] wire up the pane 📅 ${day}`,
+      `- [w] decision record 📅 ${day} 👤 ${since} [[Zoe]]`,
+      `- [w] hand back the keys 👤 ${since} 📅 ${day}`,
+      `- [r] write the parser 📅 ${day}`,
+      `- [ ] buy milk 📅 ${day}`,
       "",
     ].join("\n"),
   });
@@ -377,11 +283,10 @@ async function openStates(page: Page, vault: string): Promise<void> {
     async (route) => {
       if (route.request().method() !== "GET") return route.fallback();
       const response = await route.fetch();
-      const rows: { path: string }[] = await response.json();
-      await route.fulfill({ response, json: rows.filter((row) => row.path === STATES) });
+      const hits: { path: string }[] = await response.json();
+      await route.fulfill({ response, json: hits.filter((hit) => hit.path === STATES) });
     },
   );
-  await page.clock.setFixedTime(new Date("2026-08-10T12:00:00"));
   await openApp(page);
   await leader(page, "gt");
   await expect(page.locator(TODO_ROW)).toHaveCount(7);
@@ -444,7 +349,7 @@ test.describe("the open list's states", () => {
           field.value.slice(0, field.selectionStart ?? 0),
         ),
       )
-      .toBe("- [w] hand back the keys 👤 2026-08-03");
+      .toBe(`- [w] hand back the keys 👤 ${plus(-7)}`);
   });
 });
 
@@ -455,15 +360,9 @@ for (const held of ["Control+Alt", "Alt"])
     stack,
   }) => {
     await openTodos(page);
-    const row = await underCursor(page, stack.vault);
+    const row = await underCursor(page, stack);
     await page.keyboard.press(`${held}+@`);
-    await expect
-      .poll(async () =>
-        (await noteText(stack.vault, row.path))
-          .split("\n")
-          .some((line) => line.includes(row.words) && line.includes("#agent")),
-      )
-      .toBe(true);
+    await expect.poll(async () => (await byId(stack, row.id))?.words).toContain("#agent");
   });
 
 test("Ctrl+Shift+P in the todo pane opens the palette and sets no row to doing (#2068)", async ({
@@ -471,23 +370,30 @@ test("Ctrl+Shift+P in the todo pane opens the palette and sets no row to doing (
   stack,
 }) => {
   await openTodos(page);
-  const row = await underCursor(page, stack.vault);
+  const row = await underCursor(page, stack);
   await page.keyboard.press("Control+Shift+P");
   await expect(page.getByRole("dialog", { name: "Run a command" })).toBeVisible();
-  expect(await lineWith(stack.vault, row.path, row.words)).toBe(`- [ ] ${row.words}`);
+  expect(await byId(stack, row.id)).toEqual(row);
 });
 
 test("sends every press of x, however fast, and asks nothing", async ({ page, stack }) => {
-  const puts: string[] = [];
+  const tomatoes = await rowOf(stack, TOMATOES);
+  const cycles: string[] = [];
   page.on("request", (r) => {
-    if (r.method() === "PUT" && decodeURIComponent(r.url()).endsWith(GARDEN)) puts.push(r.url());
+    if (r.method() === "POST" && new URL(r.url()).pathname === `/api/todos/${tomatoes.id}/cycle`)
+      cycles.push(r.url());
   });
   await openTodos(page);
   await cursorTo(page, TOMATOES);
-  // Open, doing, done, and out of the cycle to plain words.
+  // Open, doing, done, and back to open: each press one more version of the row.
   for (const _ of [1, 2, 3]) await page.keyboard.press("x");
-  await expect.poll(() => noteText(stack.vault, GARDEN)).toMatch(/^water the tomatoes/m);
-  expect(puts).toHaveLength(3);
+  await expect
+    .poll(async () => {
+      const row = await byId(stack, tomatoes.id);
+      return [row?.state, row?.version];
+    })
+    .toEqual(["open", tomatoes.version + 3]);
+  expect(cycles).toHaveLength(3);
   await expect(page.getByText(/^Nothing moved/)).toHaveCount(0);
   await expect(page.locator("[data-armed]")).toHaveCount(0);
 });

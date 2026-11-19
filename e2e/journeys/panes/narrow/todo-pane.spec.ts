@@ -15,19 +15,41 @@ test.use(phone);
 
 const NOTE = "02 Projects/Taps.md";
 const LINES = "- [ ] buy milk\n- [ ] renew the passport\n- [ ] ship it\n";
-const disk = (vault: string) => noteText(vault, NOTE).then(bodyOf);
+type Row = { id: string; words: string; state: string; blocked_by: string[] };
+/** The store's todos in `note`, where the import put Taps' lines. */
+async function rows(url: string, note = NOTE): Promise<Row[]> {
+  const answer = await fetch(`${url}/api/todos/rows?note=${encodeURIComponent(note)}`);
+  return (await answer.json()) as Row[];
+}
+const states = async (url: string, note = NOTE) =>
+  (await rows(url, note)).map((r) => `${r.state} ${r.words}`);
+const OPEN = ["open buy milk", "open renew the passport", "open ship it"];
+const idOf = async (url: string, words: string) =>
+  (await rows(url)).find((r) => r.words === words)?.id ?? "";
+/** `GET /api/todos`, where a running timer is a `## Time` line. */
+async function listed(url: string): Promise<string[]> {
+  return ((await (await fetch(`${url}/api/todos`)).json()) as { text: string }[]).map(
+    (h) => h.text,
+  );
+}
+/** Adds a todo line to Taps as a write from elsewhere would. */
+async function addElsewhere(vault: string, line: string): Promise<void> {
+  await vaultWith(vault, { [NOTE]: `${await noteText(vault, NOTE)}${line}\n` });
+}
 const more = (page: Page, name: string) => page.getByRole("button", { name: `more for ${name}` });
 const strip = (page: Page, label: string, name: string) =>
   page.getByRole("button", { name: `${label} ${name}`, exact: true });
 const draft = (page: Page) => page.getByLabel("edit line");
+const row = (page: Page, text: string) => page.locator(TODO_ROW, { hasText: text });
+const tab = (page: Page, name: string) => page.getByRole("button", { name, exact: true });
 
-/** The todo pane by touch, over Taps.md, once its rows are drawn; it answers the note writes sent from here on. */
+/** The todo pane by touch, over Taps.md, once its rows are drawn; it answers the writes sent from here on. */
 async function pane(page: Page, vault: string, lines = LINES, last = "ship it") {
   await vaultWith(vault, { [NOTE]: lines });
   const writes: string[] = [];
   page.on("request", (request) => {
-    if (["POST", "PUT"].includes(request.method()) && request.url().includes("/api/files/"))
-      writes.push(request.url());
+    const write = ["POST", "PUT", "PATCH", "DELETE"].includes(request.method());
+    if (write && /\/api\/(files|todos)\//.test(request.url())) writes.push(request.url());
   });
   await page.goto("/");
   await page.getByRole("button", { name: "Open the todo pane" }).tap({ timeout: 15_000 });
@@ -37,9 +59,14 @@ async function pane(page: Page, vault: string, lines = LINES, last = "ship it") 
 
 test("a tap on a row opens its note at that line and sets no state", async ({ page, stack }) => {
   const writes = await pane(page, stack.vault);
-  await page.getByRole("button", { name: "renew the passport", exact: true }).tap();
-  await expect(page.locator(".cm-activeLine")).toContainText("renew the passport");
-  expect([writes, await disk(stack.vault)]).toEqual([[], LINES]);
+  await row(page, "renew the passport").tap();
+  // The note's embed, drawn as its words or, under the cursor, its id.
+  const id = await idOf(stack.url, "renew the passport");
+  expect(id).not.toBe("");
+  await expect(page.locator(".cm-activeLine")).toContainText(
+    new RegExp(`renew the passport|${id}`),
+  );
+  expect([writes, await states(stack.url)]).toEqual([[], OPEN]);
 });
 
 test("the strip opens one row at a time, its buttons out of the tab order, and a second tap closes it", async ({
@@ -71,7 +98,7 @@ test("edit turns the tapped row into its line at 16px, Enter writes it, and edit
   await more(page, "renew the passport").tap();
   await strip(page, "edit", "renew the passport").tap();
   // The row tapped, not the row the cursor is on.
-  await expect(draft(page)).toHaveValue("- [ ] renew the passport");
+  await expect(draft(page)).toHaveValue(/^- \[ \] renew the passport ➕/);
   await expect(draft(page)).toBeFocused();
   // Under 16px Safari zooms into a focused field.
   for (const field of [draft(page), page.getByLabel("filter todos")])
@@ -83,8 +110,8 @@ test("edit turns the tapped row into its line at 16px, Enter writes it, and edit
   await draft(page).press("Enter");
   await expect(draft(page)).toHaveCount(0);
   await expect
-    .poll(() => disk(stack.vault))
-    .toBe("- [ ] buy milk\n- [ ] renew the old passport\n- [ ] ship it\n");
+    .poll(() => states(stack.url))
+    .toEqual(["open buy milk", "open renew the old passport", "open ship it"]);
 });
 
 test("timer starts a session on the strip's row and closes the strip", async ({ page, stack }) => {
@@ -93,7 +120,7 @@ test("timer starts a session on the strip's row and closes the strip", async ({ 
   await strip(page, "timer", "ship it").tap();
   await expect(strip(page, "timer", "ship it")).toHaveCount(0);
   await expect
-    .poll(() => noteText(stack.vault, `01 Periodic/00 Daily/${today()}.md`).catch(() => ""))
+    .poll(async () => (await listed(stack.url)).join("\n"))
     .toMatch(/^- \d\d:\d\d-.*ship it/m);
 });
 
@@ -103,16 +130,16 @@ test("timer tapped before the file listing answers starts a session in today's n
 }) => {
   const asked = page.waitForRequest((r) => new URL(r.url()).pathname === "/api/files");
   const release = await hold(page, /\/api\/files$/);
-  const written = page.waitForResponse(
-    (r) => decodeURIComponent(new URL(r.url()).pathname) === `/api/files/${NOTE}` && r.request().method() !== "GET",
+  const written = page.waitForResponse((r) =>
+    /^\/api\/todos\/kt-\w+\/timer$/.test(new URL(r.url()).pathname),
   );
   await pane(page, stack.vault);
   await asked;
   await more(page, "ship it").tap();
   await strip(page, "timer", "ship it").tap();
-  expect(`${(await written).request().method()} ${(await written).status()}`).toBe("PUT 200");
+  expect(`${(await written).request().method()} ${(await written).status()}`).toBe("POST 200");
   await expect
-    .poll(() => noteText(stack.vault, `01 Periodic/00 Daily/${today()}.md`).catch(() => ""))
+    .poll(async () => (await listed(stack.url)).join("\n"))
     .toMatch(/^- \d\d:\d\d-.*ship it/m);
   await release();
 });
@@ -132,7 +159,7 @@ test("part opens the part prompt under the strip's row and closes the strip", as
 });
 
 test.describe("blocked by", () => {
-  test("then a tap on another row writes ⛔ and its new id into the two lines, and opens nothing", async ({
+  test("then a tap on another row sets the todo blocked by it, and opens nothing", async ({
     page,
     stack,
   }) => {
@@ -140,13 +167,12 @@ test.describe("blocked by", () => {
     await more(page, "ship it").tap();
     await strip(page, "blocked by", "ship it").tap();
     await expect(page.getByTestId("todo-pick")).toContainText("⛔ pick what blocks: ship it");
-    await page.getByRole("button", { name: "renew the passport", exact: true }).first().tap();
+    await row(page, "renew the passport").tap();
     await expect(page.getByTestId("todo-pick")).toHaveCount(0);
+    const renew = await idOf(stack.url, "renew the passport");
     await expect
-      .poll(() => disk(stack.vault))
-      .toMatch(
-        /^- \[ \] buy milk\n- \[ \] renew the passport 🆔 (kt-\w{6})\n- \[.\] ship it ⛔ \1\n$/,
-      );
+      .poll(async () => (await rows(stack.url)).find((r) => r.words === "ship it")?.blocked_by)
+      .toEqual([renew]);
     // The pane is still the todo pane: no note opened over it.
     await expect(more(page, "buy milk")).toBeVisible();
     await expect(page.locator(".cm-activeLine")).toHaveCount(0);
@@ -164,26 +190,8 @@ test.describe("blocked by", () => {
     await expect(page.getByTestId("todo-pick")).toHaveCount(0);
     // A pick would be a tap on a row now; the list is back and takes it as an open.
     await expect(more(page, "buy milk")).toBeVisible();
-    expect([writes, await disk(stack.vault)]).toEqual([[], LINES]);
+    expect([writes, await states(stack.url)]).toEqual([[], OPEN]);
   });
-});
-
-const row = (page: Page, text: string) => page.locator(TODO_ROW, { hasText: text });
-const tab = (page: Page, name: string) => page.getByRole("button", { name, exact: true });
-
-test("#541 #544 a row holds on an id an open and a done todo carry, and not on one both closed todos carry", async ({
-  page,
-  stack,
-}) => {
-  const done = `✅ ${today()}`;
-  await pane(
-    page,
-    stack.vault,
-    `- [ ] ship the release 🆔 kt-aaaaaa\n- [x] cut the branch ${done} 🆔 kt-aaaaaa\n- [b] write the docs ⛔ kt-aaaaaa\n- [x] a ${done} 🆔 kt-bbbbbb\n- [-] a ❌ ${today()} 🆔 kt-bbbbbb\n- [b] chase it ⛔ kt-bbbbbb\n`,
-    "chase it",
-  );
-  await expect(row(page, "write the docs")).toContainText("⛔ kt-aaaaaa");
-  await expect(row(page, "chase it")).not.toContainText("⛔");
 });
 
 test("the row is the only tab stop, its state button out of the tab order", async ({
@@ -255,7 +263,7 @@ test("#773 Enter on a focused state button arms it and opens no note", async ({ 
   await page.keyboard.press("Enter");
   await expect(cycle).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator(".cm-activeLine")).toHaveCount(0);
-  expect([writes, await disk(stack.vault)]).toEqual([[], LINES]);
+  expect([writes, await states(stack.url)]).toEqual([[], OPEN]);
 });
 
 test("two presses of a row's state button straight after each other walk it on to done (#2080)", async ({
@@ -266,72 +274,77 @@ test("two presses of a row's state button straight after each other walk it on t
   const cycle = page.getByRole("button", { name: "cycle buy milk" });
   // Each press is a tap that asks and a tap that writes.
   for (const _ of [1, 2, 3, 4]) await cycle.tap();
-  await expect.poll(() => disk(stack.vault)).toMatch(/^- \[x\] buy milk ✅/m);
+  await expect.poll(() => states(stack.url)).toContain("done buy milk");
   await expect(page.getByText(/^Nothing moved/)).toHaveCount(0);
 });
 
-/** Taps `cycle` once, then a write from elsewhere puts `call mom` on top of `lines` and the list redraws. */
-async function askThenMove(page: Page, vault: string, cycle: Locator, lines: string) {
+/** Taps `cycle` once, then a write from elsewhere adds `call mom` to the note and the list redraws. */
+async function askThenAdd(page: Page, vault: string, cycle: Locator) {
   await cycle.tap();
   await expect(cycle).toHaveAttribute("aria-pressed", "true");
-  await vaultWith(vault, { [NOTE]: `- [ ] call mom\n${lines}` });
+  await addElsewhere(vault, "- [ ] call mom");
   await expect(more(page, "call mom")).toBeVisible();
 }
 
-test("a state button's question follows its todo to the line a write from elsewhere moved it to (#2092)", async ({
+test("a state button's question stays on its todo when a write from elsewhere redraws the list (#2092)", async ({
   page,
   stack,
 }) => {
   const writes = await pane(page, stack.vault);
   const cycle = page.getByRole("button", { name: "cycle buy milk" });
-  await askThenMove(page, stack.vault, cycle, LINES);
+  await askThenAdd(page, stack.vault, cycle);
   await expect(cycle).toHaveAttribute("aria-pressed", "true");
   await cycle.tap();
-  await expect.poll(() => disk(stack.vault)).toBe(`- [ ] call mom\n${LINES.replace("[ ] buy", "[/] buy")}`);
+  await expect.poll(() => states(stack.url)).toContain("doing buy milk");
   expect(writes).toHaveLength(1);
 });
 
-test("of two twins, the question stays on the one tapped when their lines move, and the next tap walks that one", async ({
+test("of two todos alike, the question stays on the one tapped, and the next tap walks it", async ({
   page,
   stack,
 }) => {
-  const twins = "- [ ] buy milk\n- [ ] buy milk\n- [ ] ship it\n";
-  await pane(page, stack.vault, twins);
+  await pane(page, stack.vault, "- [ ] buy milk\n- [ ] buy milk\n- [ ] ship it\n");
   const second = page.getByRole("button", { name: "cycle buy milk" }).nth(1);
-  await askThenMove(page, stack.vault, second, twins);
+  await askThenAdd(page, stack.vault, second);
   await second.tap();
-  await expect.poll(() => disk(stack.vault)).toBe("- [ ] call mom\n- [ ] buy milk\n- [/] buy milk\n- [ ] ship it\n");
+  await expect
+    .poll(async () => (await states(stack.url)).filter((r) => r.endsWith("buy milk")))
+    .toEqual(["open buy milk", "doing buy milk"]);
 });
 
-test("a question leaves with its todo, and the todo now on its line asks at its own first tap", async ({
+test("a question leaves with its todo, and the todo drawn in its place asks at its own first tap", async ({
   page,
   stack,
 }) => {
   const writes = await pane(page, stack.vault);
-  const rest = LINES.replace("- [ ] buy milk\n", "");
-  await askThenMove(page, stack.vault, page.getByRole("button", { name: "cycle buy milk" }), rest);
-  const mom = page.getByRole("button", { name: "cycle call mom" });
-  await expect(mom).toHaveAttribute("aria-pressed", "false");
-  await mom.tap();
-  await expect(mom).toHaveAttribute("aria-pressed", "true");
-  expect([writes, await disk(stack.vault)]).toEqual([[], `- [ ] call mom\n${rest}`]);
+  await page.getByRole("button", { name: "cycle buy milk" }).tap();
+  // Deleted elsewhere: the passport takes its row.
+  const milk = await idOf(stack.url, "buy milk");
+  await fetch(`${stack.url}/api/todos/${milk}`, { method: "DELETE" });
+  const note = await noteText(stack.vault, NOTE);
+  await vaultWith(stack.vault, { [NOTE]: note.replace(`![[${milk}]]\n`, "") });
+  await expect(more(page, "buy milk")).toHaveCount(0);
+  const renew = page.getByRole("button", { name: "cycle renew the passport" });
+  await expect(renew).toHaveAttribute("aria-pressed", "false");
+  await renew.tap();
+  await expect(renew).toHaveAttribute("aria-pressed", "true");
+  expect([writes, await states(stack.url)]).toEqual([[], OPEN.slice(1)]);
 });
 
 test("timer tapped straight after a state press starts a session on the todo it walked (#2084)", async ({
   page,
   stack,
 }) => {
-  // The vault's own note: one written here is stamped before it is listed, so no press moves it.
   const garden = "02 Projects/Garden.md";
   let release = () => {};
   const gate = new Promise<void>((resolve) => {
     release = resolve;
   });
-  // The state press's save waits until the timer is tapped, so the timer reads the row as it was listed.
+  // The state press's write waits until the timer is tapped, so the timer reads the row as it was listed.
   await page.route(
-    (url) => decodeURIComponent(url.pathname) === `/api/files/${garden}`,
+    (url) => /^\/api\/todos\/kt-\w+\/(cycle|state)$/.test(url.pathname),
     async (route) => {
-      if (route.request().method() === "PUT") await gate;
+      await gate;
       await route.fallback();
     },
   );
@@ -344,9 +357,9 @@ test("timer tapped straight after a state press starts a session on the todo it 
   await strip(page, "timer", "water the tomatoes").tap();
   release();
   await expect
-    .poll(() => noteText(stack.vault, `01 Periodic/00 Daily/${today()}.md`).catch(() => ""))
+    .poll(async () => (await listed(stack.url)).join("\n"))
     .toMatch(/^- \d\d:\d\d-.*water the tomatoes/m);
-  expect(await noteText(stack.vault, garden)).toMatch(/^- \[\/\] water the tomatoes 🆔 kt-\w+$/m);
+  await expect.poll(() => states(stack.url, garden)).toContain("doing water the tomatoes");
   await expect(page.getByText(/^Nothing moved/)).toHaveCount(0);
 });
 
@@ -354,16 +367,15 @@ test("edit tapped after a state press keeps the row and every typed key through 
   page,
   stack,
 }) => {
-  // The vault's own note, with no frontmatter: the press's save stamps three lines on top.
   const garden = "02 Projects/Garden.md";
   let release = () => {};
   const gate = new Promise<void>((resolve) => {
     release = resolve;
   });
   await page.route(
-    (url) => decodeURIComponent(url.pathname) === `/api/files/${garden}`,
+    (url) => /^\/api\/todos\/kt-\w+\/(cycle|state)$/.test(url.pathname),
     async (route) => {
-      if (route.request().method() === "PUT") await gate;
+      await gate;
       await route.fallback();
     },
   );
@@ -378,17 +390,15 @@ test("edit tapped after a state press keeps the row and every typed key through 
   await page.keyboard.press("Home");
   for (const _ of "- [/] water the ") await page.keyboard.press("ArrowRight");
   await page.keyboard.type("red ");
-  const moved = page.waitForResponse(async (response) => {
-    if (!response.url().includes("/api/todos")) return false;
-    const hits = (await response.json()) as { path: string; line: number; text: string }[];
-    return hits.some((hit) => hit.path === garden && hit.text.includes("tomatoes") && hit.line !== 5);
-  });
+  const walked = page.waitForResponse((r) =>
+    /^\/api\/todos\/kt-\w+\/(cycle|state)$/.test(new URL(r.url()).pathname),
+  );
   release();
-  await moved;
+  await walked;
   await page.keyboard.type("ripe ", { delay: 150 });
   await expect(draft(page)).toBeFocused();
   await page.keyboard.press("Enter");
-  await expect.poll(() => noteText(stack.vault, garden)).toMatch(/^- \[\/\] water the red ripe tomatoes/m);
+  await expect.poll(() => states(stack.url, garden)).toContain("doing water the red ripe tomatoes");
   await expect(page.getByText(/^Nothing moved/)).toHaveCount(0);
 });
 
@@ -419,19 +429,21 @@ test("a tap on a kind chip narrows the list, a part going with its parent's kind
   await expect(page.locator("[data-card]", { hasText: "fold the laundry" })).toHaveCount(0);
 });
 
-test("edit by touch on a waiting row whose estimate takes the 👤 puts the caret after the wait stamp (#1021)", async ({
+test("edit by touch on a waiting row that names nobody puts the caret after the wait stamp (#1021)", async ({
   page,
   stack,
 }) => {
-  const line = "- [w] kettle ⏲ 👤 2026-10-25 👤 2026-10-25";
-  await page.clock.setFixedTime(new Date("2026-10-25T12:00:00"));
-  await pane(page, stack.vault, `${line}\n`, "kettle 2026-10-25");
-  await more(page, "kettle 2026-10-25").tap();
-  await strip(page, "edit", "kettle 2026-10-25").tap();
-  await expect(draft(page)).toHaveValue(line);
+  await pane(page, stack.vault, "- [w] kettle 👤 2026-10-25\n", "kettle");
+  await more(page, "kettle").tap();
+  await strip(page, "edit", "kettle").tap();
+  await expect(draft(page)).toBeFocused();
   await expect
-    .poll(() => draft(page).evaluate((field: HTMLInputElement) => field.selectionStart))
-    .toBe(line.length);
+    .poll(() =>
+      draft(page).evaluate((field: HTMLInputElement) =>
+        field.value.slice(0, field.selectionStart ?? 0),
+      ),
+    )
+    .toBe("- [w] kettle 👤 2026-10-25");
 });
 
 // Without vim the caret goes past the stamp, so the name typed next follows the date (#2094).
@@ -440,9 +452,11 @@ test("the palette's waiting by touch puts the name typed next after the wait sta
   stack,
 }) => {
   const day = "2026-10-25";
-  await vaultWith(stack.vault, { [NOTE]: `- [ ] kettle ⏲ 👤 ${day}\n- [ ] call the plumber\n` });
+  // A shared list, whose todo lines stay lines the editor's commands act on.
+  const list = "05 Shared/Taps.md";
+  await vaultWith(stack.vault, { [list]: `- [ ] kettle ⏲ 👤 ${day}\n- [ ] call the plumber\n` });
   await page.clock.setFixedTime(new Date(`${day}T12:00:00`));
-  await page.goto(`/?note=${encodeURIComponent(NOTE)}`);
+  await page.goto(`/?note=${encodeURIComponent(list)}`);
   for (const words of ["kettle", "call the plumber"]) {
     await page.locator(".cm-line", { hasText: words }).tap({ timeout: 15_000 });
     await page.getByRole("button", { name: "Run a command by name" }).tap();
@@ -452,6 +466,6 @@ test("the palette's waiting by touch puts the name typed next after the wait sta
     await page.keyboard.type(" Zoe");
   }
   await expect
-    .poll(() => disk(stack.vault), { timeout: 15_000 })
+    .poll(async () => bodyOf(await noteText(stack.vault, list)), { timeout: 15_000 })
     .toContain(`- [w] kettle 👤 ${day} Zoe ⏲ 👤 ${day}\n- [w] call the plumber 👤 ${day} Zoe`);
 });

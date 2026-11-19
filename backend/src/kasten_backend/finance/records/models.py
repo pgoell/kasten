@@ -1,7 +1,7 @@
 """The finance tables: accounts, balances, bookings, splits, and what sorts them into categories.
 
 Every table lives in the `finance` schema and is the only copy of what it holds.
-See docs/explanation/finance-in-postgres.md.
+See docs/explanation/vault-and-derived-index/finance-in-postgres.md.
 """
 
 import datetime as dt  # noqa: TC003  SQLAlchemy reads the annotation at runtime

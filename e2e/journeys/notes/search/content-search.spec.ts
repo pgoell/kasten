@@ -14,8 +14,9 @@ async function vaultHits(route: Route, queries: string[]): Promise<Hit[]> {
   return hits.flat();
 }
 
-// One line in each of two notes: Welcome's front door, then Long note's last todo.
-const twoNotes = (route: Route) => vaultHits(route, ["front door", "far away letter"]);
+// One line in each of two notes: Welcome's front door, then a line near Long note's end; its last
+// line was a todo, which the store holds now and the search no longer finds.
+const twoNotes = (route: Route) => vaultHits(route, ["front door", "Line 240 of filler"]);
 
 const rows = (page: Page) => page.getByRole("option");
 
@@ -31,7 +32,7 @@ test("the arrows walk across notes, and Enter opens the line the highlight lands
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Enter");
   await expect(page.getByRole("tab", { name: "Long note", selected: true })).toBeVisible();
-  await expect(page.locator(".cm-activeLine")).toContainText("reply to the far away letter");
+  await expect(page.locator(".cm-activeLine")).toContainText("Line 240 of filler text");
 });
 
 test("with vim off, the palette opens the search and a click on a row opens its line", async ({
@@ -46,7 +47,7 @@ test("with vim off, the palette opens the search and a click on a row opens its 
   await page.keyboard.type("the");
   await rows(page).nth(1).click();
   await expect(page.getByRole("tab", { name: "Long note", selected: true })).toBeVisible();
-  await expect(page.locator(".cm-activeLine")).toContainText("reply to the far away letter");
+  await expect(page.locator(".cm-activeLine")).toContainText("Line 240 of filler text");
 });
 
 test("each note groups its lines under a serif title, its path in mono, each line number muted, in its place in the entrance", async ({
@@ -204,7 +205,7 @@ test("a click on a bar leaves the focus in the input, and the arrows and Enter o
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Enter");
   await expect(page.getByRole("tab", { name: "Long note", selected: true })).toBeVisible();
-  await expect(page.locator(".cm-activeLine")).toContainText("reply to the far away letter");
+  await expect(page.locator(".cm-activeLine")).toContainText("Line 240 of filler text");
 });
 
 test("the query is set in serif at the display size, an empty status draws no rule, and Enter on a focused bar presses it", async ({
@@ -243,17 +244,17 @@ test("Escape hands the focus back to the editor the search opened over", async (
 test("with two panes, Enter opens the line in the focused pane and leaves the other pane's note", async ({
   page,
 }) => {
-  await answer(page, (route) => vaultHits(route, ["far away letter"]));
+  await answer(page, (route) => vaultHits(route, ["Line 240 of filler"]));
   await openApp(page);
   await openNote(page, "Welcome");
   await leader(page, "%");
   await expect(panes(page)).toHaveCount(2);
   await leader(page, "fg");
-  await page.keyboard.type("letter");
+  await page.keyboard.type("filler");
   await expect(rows(page)).toHaveCount(1);
   await page.keyboard.press("Enter");
   const [left, right] = [panes(page).first(), panes(page).last()];
-  await expect(right.locator(".cm-activeLine")).toContainText("reply to the far away letter");
+  await expect(right.locator(".cm-activeLine")).toContainText("Line 240 of filler text");
   await expect(left.locator(".cm-content")).toContainText("front door");
-  await expect(left.locator(".cm-content")).not.toContainText("far away letter");
+  await expect(left.locator(".cm-content")).not.toContainText("Line 240 of filler");
 });

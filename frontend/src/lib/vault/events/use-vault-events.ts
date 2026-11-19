@@ -94,6 +94,11 @@ function onVaultEvent(
   focused: FocusedNote,
   onDeclined: () => void,
 ): void {
+  // A write to the todo store touches no note: only the todos are stale (#2191).
+  if (event.change === "todos") {
+    refreshTodos(queryClient);
+    return;
+  }
   // A rewritten html page goes to the panes showing it only: no note cache holds it.
   if (event.change === "page") {
     pageWritten(event.path);

@@ -16,8 +16,8 @@ from kasten_backend.code_spans import BLOCK_NAMES, FENCES, WIKILINK, blocks
 from kasten_backend.frontmatter import body_start
 from kasten_backend.links import link_path, trim
 from kasten_backend.search import Hit, rg_lines, rg_order, skipped
-from kasten_backend.todo_fields import SPANS, blank, mask
-from kasten_backend.todo_fields import words as _words
+from kasten_backend.todos.lines.fields import SPANS, blank, mask
+from kasten_backend.todos.lines.fields import words as _words
 from kasten_backend.vault import note_facts
 
 if TYPE_CHECKING:

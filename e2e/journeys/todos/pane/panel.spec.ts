@@ -1,6 +1,5 @@
 import type { Page, Route } from "@playwright/test";
 import {
-  bodyOf,
   cursorTo,
   leader,
   noteText,
@@ -11,11 +10,13 @@ import {
   today,
   vaultWith,
 } from "../../../harness/app.ts";
-import { lineOf, openPanel } from "../../../harness/search.ts";
+import { openPanel } from "../../../harness/search.ts";
 import { expect, test } from "../../../harness/stack.ts";
 
-const TODOS = (potatoes: number) => [
-  { path: "02 Projects/Garden.md", line: potatoes, text: "- [ ] wire up the pane 📅 2026-08-14" },
+type Listed = { path: string; line: number; text: string };
+
+const TODOS = (potatoes: Listed) => [
+  potatoes,
   { path: "02 Projects/Home.md", line: 4, text: "- [/] write the docs" },
   { path: "02 Projects/Home.md", line: 5, text: "- [x] read the spec" },
   // A `## Time` line comes back from the endpoint too, and is no todo.
@@ -26,36 +27,40 @@ test("the todos panel draws the open todos with their state, narrows on the answ
   page,
   stack,
 }) => {
+  const listed: Listed[] = await (await fetch(`${stack.url}/api/todos`)).json();
+  const potatoes = listed.find((hit) => hit.text.includes("buy seed potatoes"));
+  if (potatoes === undefined) throw new Error("the seed vault lists no potatoes todo");
   let asks = 0;
   await page.route("**/api/todos?**", async (route) => {
     asks += 1;
-    const potatoes = await lineOf(stack.vault, "02 Projects/Garden.md", "buy seed potatoes");
     await route.fulfill({ json: TODOS(potatoes) });
   });
   await openApp(page);
   await openPanel(page, "ft", "todos");
   const rows = page.getByRole("dialog", { name: "Todos" }).getByRole("option");
-  await expect(rows).toHaveText([/☐.*wire up the pane.*2026-08-14/, /◐.*write the docs/]);
+  await expect(rows).toHaveText([/☐.*buy seed potatoes/, /◐.*write the docs/]);
   const before = asks;
   await page.keyboard.type("docs");
   // One poll: the list narrows and the vault was not asked again.
   await expect.poll(async () => [await rows.count(), asks]).toEqual([1, before]);
-  await page.keyboard.press("Backspace");
-  await page.keyboard.press("Backspace");
-  await page.keyboard.press("Backspace");
-  await page.keyboard.press("Backspace");
+  for (let i = 0; i < 4; i++) await page.keyboard.press("Backspace");
   await expect(rows).toHaveCount(2);
   await page.keyboard.press("Enter");
   await expect(page.getByRole("tab", { name: "Garden", selected: true })).toBeVisible();
   await expect(page.locator(".cm-activeLine")).toContainText("buy seed potatoes");
 });
 
-/** Opens the todo pane's add prompt, counting the note writes the page sends from here on. */
+/** The store's todos in today's daily note, as lines. */
+const daily = async (url: string): Promise<string[]> =>
+  ((await (await fetch(`${url}/api/todos`)).json()) as { path: string; text: string }[])
+    .filter((hit) => hit.path === `01 Periodic/00 Daily/${today()}.md`)
+    .map((hit) => hit.text);
+
+/** Opens the todo pane's add prompt, counting the note and todo writes the page sends from here on. */
 async function openPrompt(page: Page) {
-  // POST too: the first add of the day creates today's note.
   const writes: string[] = [];
   page.on("request", (request) => {
-    if (["POST", "PUT"].includes(request.method()) && request.url().includes("/api/files/"))
+    if (request.method() !== "GET" && /\/api\/(files|todos)\//.test(request.url()))
       writes.push(request.url());
   });
   await openApp(page);
@@ -69,7 +74,7 @@ async function openPrompt(page: Page) {
 const hints = (page: Page) => page.getByTestId("todo-hint");
 
 test.describe("the todo prompt", () => {
-  test("takes the focus, previews the line the vault gets, and Enter writes it into today's note", async ({
+  test("takes the focus, previews the line the vault gets, and Enter adds it to today's note", async ({
     page,
     stack,
   }) => {
@@ -81,9 +86,14 @@ test.describe("the todo prompt", () => {
     await expect(preview).toHaveText(line);
     await page.keyboard.press("Enter");
     await expect(dialog).toBeHidden();
+    // The store answers its own field order, with the id it gave.
     await expect
-      .poll(() => noteText(stack.vault, `01 Periodic/00 Daily/${today()}.md`).catch(() => ""))
-      .toContain(`## TODOs\n${line}`);
+      .poll(() => daily(stack.url))
+      .toEqual([
+        expect.stringMatching(
+          `^- \\[ \\] call the dentist #health ⏫ ➕ ${today()} 📅 ${plus(3)} 🆔 kt-\\w{6}$`,
+        ),
+      ]);
   });
 
   test("offers the terms the input has not used, writes the one taken, then offers its days", async ({
@@ -146,9 +156,8 @@ test.describe("the todo prompt", () => {
     await page.keyboard.press("a");
     await page.keyboard.type("buy milk");
     await page.keyboard.press("Enter");
-    const daily = () => noteText(stack.vault, `01 Periodic/00 Daily/${today()}.md`).catch(() => "");
-    await expect.poll(daily).toContain("buy milk");
-    expect(await daily()).not.toContain("call the dentist");
+    await expect.poll(async () => (await daily(stack.url)).join("\n")).toContain("buy milk");
+    expect((await daily(stack.url)).join("\n")).not.toContain("call the dentist");
   });
 
   test("is drawn at the narrow prompts' width", async ({ page }) => {
@@ -257,9 +266,10 @@ test("the todo pane counts parts on their todo, indents them under it, names one
     "Today",
     expect.stringMatching(`⏫.*${plus(0).slice(5)}`),
   ]);
+  // The import gives an undated todo its soft due date, two weeks out.
   expect([group("faraway"), group("farther"), text("rone"), text("rthree")]).toEqual([
-    "No date",
-    "No date",
+    "Later",
+    "Later",
     expect.not.stringContaining("0/1"),
     expect.not.stringContaining("0/1"),
   ]);
@@ -410,8 +420,14 @@ async function picker(page: Page, vault: string, lines: string[], on = PICK) {
 }
 
 const BLOCK_LINES = ["- [ ] write the docs", "- [ ] ship the release", "- [ ] tag it"];
-// The body alone: the vault stamps a frontmatter onto the note once it is read.
-const blocks = async (vault: string) => bodyOf(await noteText(vault, BLOCKS));
+type Row = { id: string; words: string; state: string; blocked_by: string[] };
+/** The note's todos in the store, by their words. */
+async function blocks(url: string): Promise<Record<string, Row>> {
+  const rows: Row[] = await (
+    await fetch(`${url}/api/todos/rows?note=${encodeURIComponent(BLOCKS)}`)
+  ).json();
+  return Object.fromEntries(rows.map((row) => [row.words, row]));
+}
 
 test.describe("the todo pane's b picker", () => {
   test("names the row, Enter writes ⛔ and the blocker's new id into the two lines, and opens nothing", async ({
@@ -425,10 +441,11 @@ test.describe("the todo pane's b picker", () => {
     await page.keyboard.press("Enter");
     await expect(pick).toBeHidden();
     await expect
-      .poll(() => blocks(stack.vault))
-      .toMatch(
-        /^- \[.\] write the docs ⛔ (kt-\w{6})\n- \[ \] ship the release 🆔 \1\n- \[ \] tag it\n$/,
-      );
+      .poll(async () => {
+        const rows = await blocks(stack.url);
+        return [rows[PICK]?.blocked_by, rows["tag it"]?.blocked_by];
+      })
+      .toEqual([[(await blocks(stack.url))["ship the release"]?.id], []]);
     // Enter outside the picker opens the row's note in a tab of its own.
     await expect(page.getByRole("tab", { name: "Blocks" })).toHaveCount(0);
   });
@@ -446,8 +463,8 @@ test.describe("the todo pane's b picker", () => {
     // The cycle lands after any write the two presses sent.
     await cursorTo(page, "tag it");
     await page.keyboard.press("x");
-    await expect.poll(() => blocks(stack.vault)).toContain("[/] tag it");
-    expect(await blocks(stack.vault)).not.toMatch(/⛔|🆔/);
+    await expect.poll(async () => (await blocks(stack.url))["tag it"]?.state).toBe("doing");
+    expect(Object.values(await blocks(stack.url)).flatMap((row) => row.blocked_by)).toEqual([]);
   });
 
   test("keeps every key that acts on a row off the picker", async ({ page, stack }) => {
@@ -461,11 +478,14 @@ test.describe("the todo pane's b picker", () => {
     await page.keyboard.press("Escape");
     await cursorTo(page, "tag it");
     await page.keyboard.press("x");
-    await expect.poll(() => blocks(stack.vault)).toContain("[/] tag it");
-    expect(await blocks(stack.vault)).toMatch(
-      /^- \[ \] write the docs\n- \[ \] ship the release\n/,
-    );
-    expect(await noteText(stack.vault, `01 Periodic/00 Daily/${today()}.md`)).toBe("");
+    await expect.poll(async () => (await blocks(stack.url))["tag it"]?.state).toBe("doing");
+    const after = await blocks(stack.url);
+    expect([
+      after[PICK]?.state,
+      after["ship the release"]?.state,
+      Object.keys(after).length,
+    ]).toEqual(["open", "open", 3]);
+    expect(await daily(stack.url)).toEqual([]);
   });
 
   test("offers a todo that cannot start yet, which the list leaves out", async ({

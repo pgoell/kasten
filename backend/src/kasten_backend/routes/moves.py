@@ -1,11 +1,14 @@
 """Routes that move, delete and restore notes and folders, and preview what a move rewrites."""
 
-from datetime import datetime  # noqa: TC003  pydantic reads the annotation at runtime
+from datetime import datetime
 from typing import Annotated
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from starlette.status import HTTP_503_SERVICE_UNAVAILABLE
 
+from kasten_backend import db
 from kasten_backend.change import vault_change, vault_write
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.folders import prune_empty_folders, rename_folder, rename_note
@@ -13,6 +16,7 @@ from kasten_backend.frontmatter import reserved, stamp
 from kasten_backend.indexes import carries, drop_entries, rehome_entry
 from kasten_backend.links import plan_move, relink_move
 from kasten_backend.routes.notes import Note
+from kasten_backend.todos import Writes, follow_move
 from kasten_backend.trash import (
     Entry,
     list_trash,
@@ -86,7 +90,9 @@ class Restored(BaseModel):
 
 @router.patch("/api/files/{path:path}")
 async def move_file(
-    path: str, move: NoteMove, settings: Annotated[Settings, Depends(get_settings)]
+    path: str,
+    move: NoteMove,
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> Note:
     """Give one note a new path, between folders or by a rename; the books beside it go too."""
     async with vault_write():
@@ -120,13 +126,16 @@ async def move_file(
             rehome_entry(settings.vault_path, source, relative)
             # A folder the move emptied is gone, and so is the line naming it.
             drop_entries(settings.vault_path, prune_empty_folders(settings.vault_path, note.parent))
+        await _carry_todos(settings, source, relative, folder=False)
 
     return Note(path=relative, content=target.read_text(encoding="utf-8"))
 
 
 @router.patch("/api/folders/{path:path}")
 async def move_folder(
-    path: str, move: FolderMove, settings: Annotated[Settings, Depends(get_settings)]
+    path: str,
+    move: FolderMove,
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> Folder:
     """Give one folder a new path, and every note under it a new path with it."""
     async with vault_write():
@@ -155,8 +164,25 @@ async def move_folder(
             drop_entries(
                 settings.vault_path, prune_empty_folders(settings.vault_path, folder.parent)
             )
+        await _carry_todos(settings, source, relative, folder=True)
 
     return Folder(path=relative)
+
+
+async def _carry_todos(settings: Settings, source: str, target: str, *, folder: bool) -> None:
+    """The todos of what moved follow it, so their note opens and their project lane holds.
+
+    With no database there is no store to follow, and the move stands without it.
+    """
+    try:
+        async with db.session() as session:
+            writes = Writes(session, "move", datetime.now(ZoneInfo(settings.timezone)).date())
+            await follow_move(writes, source, target, folder=folder)
+            await writes.done()
+            await session.commit()
+    except HTTPException as refused:
+        if refused.status_code != HTTP_503_SERVICE_UNAVAILABLE:
+            raise
 
 
 class MovePreview(BaseModel):

@@ -321,3 +321,13 @@ def test_1905_a_type_reads_as_on_main(line: str, found: str) -> None:
 
     assert match is not None
     assert match[1] == found
+
+
+async def test_draws_no_note_for_a_todo_embedded_where_its_line_was(
+    client: AsyncClient, vault: Path
+) -> None:
+    (vault / "plan.md").write_text("# Plan\n\n![[kt-3f9a2c]]\n[[other]]\n")
+
+    graph = (await client.get("/api/graph")).json()
+
+    assert sorted(node["path"] for node in graph["nodes"]) == ["other.md", "plan.md"]

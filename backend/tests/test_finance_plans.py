@@ -7,6 +7,8 @@ database in test_finance_plans_model.py.
 
 from typing import TYPE_CHECKING, Any
 
+import pytest
+
 from backend.tests.finance_rows import API, GIRO, SAVING, booking, category, post, stored
 from backend.tests.test_finance_budget import own
 
@@ -375,24 +377,27 @@ async def test_contracts_list_by_cancel_by_with_cost_a_year_and_what_is_wrong(
     assert found["yearly"] == "600.00"
 
 
+@pytest.mark.usefixtures("vault", "store")
 async def test_reminders_write_each_cancel_by_todo_once(vault: Path, client: AsyncClient) -> None:
     note = contract_note(vault, "Gym", TERMS)
     contract_note(vault, "Paper", "start: 2024-03-01\n")
     params = {"today": "2026-10-10"}
     first = await client.post(f"{API}/contracts/reminders", params=params)
     assert first.json() == [f"{CONTRACTS}/Gym.md"]
+    rows = (await client.get("/api/todos/rows", params={"note": f"{CONTRACTS}/Gym.md"})).json()
+    assert [(row["words"], row["due"], row["due_hard"], row["planned"]) for row in rows] == [
+        ("cancel or renegotiate Gym, renews 2027-03-01", "2026-11-28", True, "2026-10-31")
+    ]
     text = note.read_text(encoding="utf-8")
-    assert text.endswith(
-        "## Cancel-by\n- [ ] cancel or renegotiate Gym, renews 2027-03-01"
-        " 📅 2026-11-28 ⏳ 2026-10-31\n"
-    )
+    assert text.endswith(f"## Cancel-by\n![[{rows[0]['id']}]]\n")
     assert "\nid: " in text
     assert (await client.post(f"{API}/contracts/reminders", params=params)).json() == []
-    note.write_text(text.replace("- [ ]", "- [x]"), encoding="utf-8")
+    await client.post(f"/api/todos/{rows[0]['id']}/state", json={"state": "done"})
     assert (await client.post(f"{API}/contracts/reminders", params=params)).json() == [
         f"{CONTRACTS}/Gym.md"
     ]
-    assert "📅 2027-11-29 ⏳ 2027-11-01\n" in note.read_text(encoding="utf-8")
+    dues = (await client.get("/api/todos/rows", params={"note": f"{CONTRACTS}/Gym.md"})).json()
+    assert sorted(row["due"] for row in dues) == ["2026-11-28", "2027-11-29"]
 
 
 async def rising_gym(client: AsyncClient, vault: Path, giro: int) -> dict[str, Any]:

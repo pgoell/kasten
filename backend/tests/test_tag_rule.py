@@ -13,11 +13,12 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from kasten_backend import mentions, tags, todo_fields, todos
+from kasten_backend import mentions, tags, todos
 from kasten_backend.config import get_settings
 from kasten_backend.graph import read_graph
 from kasten_backend.graph_query import query_graph
 from kasten_backend.tags import find_tags
+from kasten_backend.todos import fields as todo_fields
 
 if TYPE_CHECKING:
     import pytest
@@ -38,7 +39,7 @@ def write(vault: Path, path: str, text: str) -> None:
 
 
 def todo_tags(text: str) -> list[str]:
-    """The tags `todos.py` reads off a whole line, its spans masked."""
+    """The tags `todos/lines.py` reads off a whole line, its spans masked."""
     return [text[start:end] for start, end in todos.line_tags(text)]
 
 
@@ -97,13 +98,13 @@ async def test_a6_graph_tag_filter_skips_a_hash_in_a_code_span_or_a_link(vault: 
 def test_b_todo_line_opening_with_backticks_is_no_fence() -> None:
     folders = {"x": "02 Projects/x"}
 
-    assert todos._tag_project("```x #p/x", folders) == "02 Projects/x"
+    assert todos.lines.read._tag_project("```x #p/x", folders) == "02 Projects/x"
 
 
 def test_1474_a_todo_comment_holding_dashes_hides_no_tag() -> None:
     folders = {"x": "02 Projects/x"}
 
-    assert todos._tag_project("- [ ] a <!-- y -- #p/x -->", folders) == "02 Projects/x"
+    assert todos.lines.read._tag_project("- [ ] a <!-- y -- #p/x -->", folders) == "02 Projects/x"
 
 
 async def test_b_note_gone_between_scan_and_read_is_skipped(
@@ -213,8 +214,8 @@ async def test_653_b_a_comment_after_a_box_or_mid_line_hides_no_tag(tmp_path: Pa
     folders = {"x": "02 Projects/x"}
 
     assert {
-        "project": todos._tag_project("<!-- x --> #p/x", folders),
-        "words": todos._words("<!-- x --> 📅 2026-10-20 go"),
+        "project": todos.lines.read._tag_project("<!-- x --> #p/x", folders),
+        "words": todos.lines.read._words("<!-- x --> 📅 2026-10-20 go"),
         "tags": await find_tags(tmp_path),
     } == {"project": "02 Projects/x", "words": "<!-- x --> go", "tags": ["#b"]}
 
@@ -289,7 +290,9 @@ def test_657_the_comment_patterns_match_tag_rule_ts() -> None:
 def test_a_long_line_of_brackets_is_masked_in_linear_time() -> None:
     # A child process, since `re` cannot be stopped from inside: a link that may hold `[`
     # rescans the line from every bracket and runs for an hour here.
-    code = "from kasten_backend.todo_fields import mask; mask('[' * 10**6); mask('[](' * 10**6)"
+    code = (
+        "from kasten_backend.todos.lines.fields import mask; mask('[' * 10**6); mask('[](' * 10**6)"
+    )
 
     # The timeout is a hang ceiling: interpreter start is slow on a loaded box.
     subprocess.run([sys.executable, "-c", code], check=True, timeout=60)  # noqa: S603

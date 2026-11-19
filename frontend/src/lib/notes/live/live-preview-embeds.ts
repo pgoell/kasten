@@ -5,7 +5,13 @@ import { noteLanguage } from "@/lib/markdown/note-language";
 import { kastenTheme } from "@/lib/notes/editor/editor-theme";
 import { clipPlayer } from "@/lib/notes/embeds/clip";
 import { showCsv } from "@/lib/notes/embeds/csv";
-import { EMBED_DEPTH, type EmbedSource, embedDepth, embedSource } from "@/lib/notes/embeds/embed";
+import {
+  EMBED_DEPTH,
+  type EmbedSource,
+  embedDepth,
+  embedSource,
+  TODO_ID,
+} from "@/lib/notes/embeds/embed";
 import { imagePaths } from "@/lib/notes/embeds/image";
 import { encodePath } from "@/lib/notes/links/note-path";
 import {
@@ -349,6 +355,59 @@ class EmbedStub extends WidgetType {
   }
 }
 
+/** What stops each todo embed's watch, by its box. */
+const todos = new WeakMap<HTMLElement, () => void>();
+
+/** The box each store state draws with, as the todo pane draws it. */
+const BOXES: Record<string, string> = { done: "☑", rejected: "☒", doing: "◐" };
+
+/** `![[kt-xxxxxx]]`, the store todo drawn as its box and words; a tap on the box walks it on. */
+class TodoEmbed extends WidgetType {
+  private readonly source: EmbedSource;
+  private readonly id: string;
+
+  constructor(source: EmbedSource, id: string) {
+    super();
+    this.source = source;
+    this.id = id;
+  }
+
+  override eq(other: TodoEmbed): boolean {
+    return other.id === this.id;
+  }
+
+  toDOM(): HTMLElement {
+    const box = document.createElement("span");
+    box.className = "cm-todo-embed";
+    const tick = document.createElement("button");
+    tick.type = "button";
+    tick.className = "cm-todo-embed-box";
+    tick.textContent = "☐";
+    const words = document.createElement("span");
+    words.textContent = this.id;
+    box.append(tick, " ", words);
+    // Down, not click: the editor would move the cursor onto the source first.
+    tick.addEventListener("mousedown", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.source.cycleTodo?.(this.id);
+    });
+    const stop = this.source.watchTodo?.(this.id, (row) => {
+      tick.textContent = row === null ? "☐" : (BOXES[row.state] ?? "☐");
+      tick.setAttribute("aria-label", `cycle ${row?.words ?? this.id}`);
+      words.textContent = row?.words ?? this.id;
+      box.classList.toggle("cm-todo-embed-closed", row?.done != null || row?.cancelled != null);
+      box.classList.toggle("cm-todo-embed-gone", row === null);
+    });
+    if (stop !== undefined) todos.set(box, stop);
+    return box;
+  }
+
+  override destroy(dom: HTMLElement): void {
+    todos.get(dom)?.();
+  }
+}
+
 /** The vault path of an embedded pdf, csv or video file, or null for one the vault does not hold. */
 function assetPath(name: string, paths: string[]): string | null {
   const found = resolveIn(name, paths);
@@ -391,6 +450,15 @@ export function drawEmbed(
   const link = node.getChild("WikiLink");
   if (link === null) return;
   const { name, heading, alias } = splitTarget(state.doc.sliceString(link.from + 2, link.to - 2));
+
+  // A todo's place in its note since the store took todos out of notes (#2191).
+  const todoSource = state.facet(embedSource);
+  if (TODO_ID.test(name) && todoSource?.watchTodo !== undefined) {
+    const widget = new TodoEmbed(todoSource, name);
+    decorations.push(Decoration.replace({ widget }).range(node.from, node.to));
+    hidden.push(HIDDEN.range(node.from, node.to));
+    return;
+  }
 
   // Until the listings land the name cannot be found in a folder: on a
   // cold load `![[b]]` would watch the inbox path and call a note in `x/`

@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { openApp, phone, tapHeight } from "../../../harness/app.ts";
+import { openApp, phone, tapHeight, vaultWith } from "../../../harness/app.ts";
 import { answer, bars, daysAgo, type Hit, hit, openSearch } from "../../../harness/search.ts";
 import { expect, test } from "../../../harness/stack.ts";
 
@@ -143,8 +143,11 @@ test.describe("on a phone", () => {
 });
 
 // #1773: the regex and whole word toggles, against the real vault. Quote holds "plant",
-// Home holds "plants".
+// Pots holds "plants": Home's "plants" is a todo, which the store holds and not the note.
 test.describe("the regex and whole word toggles", () => {
+  test.beforeEach(async ({ stack }) => {
+    await vaultWith(stack.vault, { "01 Notes/Pots.md": "Water the plants on the sill.\n" });
+  });
   const search = (page: Page) => page.getByRole("combobox", { name: "search notes" });
   const regex = (page: Page) => page.getByRole("button", { name: "Regular expression" });
   const word = (page: Page) => page.getByRole("button", { name: "Whole word" });
