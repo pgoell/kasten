@@ -8,7 +8,7 @@
 # Debian one: musl and glibc sort text differently, and a data directory moved
 # between them needs every text index rebuilt.
 
-FROM postgres:17.11-alpine3.24@sha256:3540c0362c809df084ffac0ae69fe794515f9de92692f02178bcdce0ef0302ac
+FROM postgres:17.11-alpine3.24@sha256:e5d2edd28b1f8d40a0a6c0c9cdc545b19b56a0d5d88f94bc11a97d970d4700d0
 
 ARG PGVECTOR_VERSION=v0.8.7
 ARG PG_TEXTSEARCH_VERSION=v1.5.1
