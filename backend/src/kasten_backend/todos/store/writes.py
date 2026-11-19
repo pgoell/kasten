@@ -194,6 +194,7 @@ class Writes:
         await self._check_parent(row.id, row.parent_id)
         await self._check_epic(row.id, row.epic_id)
         row.blocked_by = row.blocked_by or []
+        await self._check_blockers(set(row.blocked_by))
         row.tags = tags_of(row.words)
         siblings = select(Todo.position).where(Todo.parent_id == row.parent_id)
         row.position = max((await self.session.scalars(siblings)).all(), default=-1) + 1
@@ -264,13 +265,22 @@ class Writes:
             raise RefusedError(f"{epic} is no epic {id_} can count toward.")
 
     async def delete(self, id_: str) -> None:
-        """Delete a todo and its parts, each recorded; their change rows stay."""
+        """Delete a todo and its parts, each recorded; their change rows stay.
+
+        Each todo they blocked lets go of their ids and opens once nothing holds it (#2219).
+        """
         row = await self.get(id_)
-        for gone in (row, *await self.parts(row)):
-            self._before.setdefault(gone.id, plain(gone))
-            self.session.add(
-                TodoChange(todo_id=gone.id, by=self.by, before=plain(gone), after=None)
-            )
+        gone = [row, *await self.parts(row)]
+        ids = [one.id for one in gone]
+        for one in gone:
+            self._before.setdefault(one.id, plain(one))
+            self.session.add(TodoChange(todo_id=one.id, by=self.by, before=plain(one), after=None))
+        freed = select(Todo).where(Todo.blocked_by.overlap(ids), Todo.id.not_in(ids))
+        for dependent in (await self.session.scalars(freed)).all():
+            self._touch(dependent)
+            dependent.blocked_by = [one for one in dependent.blocked_by if one not in ids]
+            if dependent.state == "blocked" and not await self._held(dependent.blocked_by):
+                dependent.state = "open"
         await self.session.delete(row)
 
     async def cycle(self, id_: str) -> Todo:
@@ -390,12 +400,9 @@ class Writes:
             row.remind_at += timedelta(days=days)
 
     async def _held(self, ids: list[str]) -> bool:
-        """Whether any of `ids` still holds a todo back: open, or no todo at all."""
-        found = select(Todo.id, Todo.state).where(Todo.id.in_(ids))
-        closed = {
-            id_ for id_, state in (await self.session.execute(found)).all() if state in CLOSED
-        }
-        return any(id_ not in closed for id_ in ids)
+        """Whether any of `ids` names a todo still open; an id naming none holds nothing."""
+        found = select(Todo.state).where(Todo.id.in_(ids))
+        return any(state not in CLOSED for state in (await self.session.scalars(found)).all())
 
     async def _follow(self, id_: str) -> None:
         """Move each todo `id_` blocks between open and blocked; other states stay as set."""

@@ -34,6 +34,7 @@ type Row = {
   version: number;
   parent_id: string | null;
   blocked_by: string[];
+  state: string;
 };
 const rowOf = async (url: string, words: string): Promise<Row | undefined> =>
   ((await (await fetch(`${url}/api/todos/rows`)).json()) as Row[]).find((one) =>
@@ -73,9 +74,13 @@ async function threeTabs(page: Page, vault: string) {
  * event, and a note's write is what makes the pane read the todos again.
  */
 async function dropPlumber(url: string, vault: string) {
-  const rows: { id: string; words: string }[] = await (await fetch(`${url}/api/todos/rows`)).json();
-  const plumber = rows.find((row) => row.words.includes("call the plumber"));
-  await fetch(`${url}/api/todos/${plumber?.id}`, { method: "DELETE" });
+  await drop(url, vault, "call the plumber");
+}
+
+/** Deletes the todo with `words` from the store, then writes the note as `dropPlumber` does. */
+async function drop(url: string, vault: string, words: string) {
+  const { id } = (await rowOf(url, words)) as Row;
+  expect((await fetch(`${url}/api/todos/${id}`, { method: "DELETE" })).ok).toBe(true);
   await vaultWith(vault, { [NOTE]: `${await noteText(vault, NOTE)}\n` });
 }
 
@@ -404,6 +409,18 @@ for (const gone of ["row", "blocker"])
     await expect(notice(page)).toHaveText(/^Nothing moved: No todo has the id/);
     expect((await rowOf(stack.url, "wire up the shelf"))?.blocked_by ?? []).toEqual([]);
   });
+
+test("#2219 deleting the todo a row waits on takes its ⛔ off and opens the row", async ({
+  page,
+  stack,
+}) => {
+  await openPane(page, stack.vault);
+  await block(page, "wire up the shelf", "buy milk");
+  await expect(row(page, "wire up the shelf")).toContainText("⛔");
+  await drop(stack.url, stack.vault, "buy milk");
+  await expect(row(page, "wire up the shelf")).not.toContainText("⛔", { timeout: 15_000 });
+  expect((await rowOf(stack.url, "wire up the shelf"))?.state).toBe("open");
+});
 
 test("#2212 a b the store refuses says why", async ({ page, stack }) => {
   await page.route("**/api/todos/*", (route) =>

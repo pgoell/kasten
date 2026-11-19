@@ -236,6 +236,7 @@ Closing or reopening the blocker rewrites every dependent naming it, in
 whichever note each one lives in, so the line says the truth without anything
 having to work it out at read time. The write runs from the blocker's side
 only: a `⛔` typed by hand takes effect the next time its blocker moves.
+Deleting the blocker opens each `[b]` that nothing else holds.
 
 `⛔` on a line hands kasten the choice between `[ ]` and `[b]` there, and
 nothing else. `[/]`, `[x]` and `[-]` are never touched, so a state you set by
@@ -250,9 +251,9 @@ the same write, since no blocker is left whose press could open it. The same
 deletion typed in the editor leaves the `[b]`, which `<leader>so` clears.
 
 A line may carry several `⛔`, and it opens only when every one of them is
-closed. A `⛔` naming an id no note holds changes nothing: an unresolvable
-blocker reads as open, so nothing is opened on a guess and nothing is destroyed
-by a blocker that has been deleted.
+closed. A `⛔` naming an id no todo has holds nothing: the store counts only
+blockers still open, refuses a new `⛔` naming no todo, and takes a deleted
+blocker's id off every todo it held.
 
 One level per write. If A blocks B and B blocks C, closing A opens B, and C is
 opened by the write that closes B rather than by the same pass.

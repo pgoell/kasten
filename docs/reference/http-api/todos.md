@@ -55,8 +55,8 @@ and `version`.
 
 On every write `tags` is read off `words`, and a todo with no parent and no
 shared list left with no due date gets a soft one 14 days on. A `blocked_by`
-naming a todo still open, or no todo, makes an open todo blocked, and taking
-the last one off opens it. A `parent_id` that names no todo, the todo itself or
+naming a todo still open makes an open todo blocked, and taking the last one
+off opens it. An id that names no todo holds nothing. A `parent_id` that names no todo, the todo itself or
 one of its own parts answers `422`, as does an `epic_id` that names no todo
 marked `epic`, or the todo itself. Setting `epic` to false clears `epic_id` on
 every todo that counted toward it.
@@ -93,7 +93,9 @@ left and changes nothing.
 ## POST /api/todos
 
 Adds an open todo, created today, and answers `201` with the row. With no
-`project`, it takes the folder a `#p/x` tag names, else its parent's.
+`project`, it takes the folder a `#p/x` tag names, else its parent's. A
+`blocked_by` id that names no todo answers `422` and writes nothing, here and
+on `POST /api/todos/line`.
 
 ## PATCH /api/todos/{todo_id}
 
@@ -133,7 +135,8 @@ Starts a session, or stops every one running and sums the closed ones into
 ## DELETE /api/todos/{todo_id}
 
 Deletes the todo and its parts, answering `204`. Each one's delete is recorded
-and its history stays.
+and its history stays. Their ids leave the `blocked_by` of every todo they
+held, and a blocked one that nothing else holds opens.
 
 ## GET /api/todos/{todo_id}/history
 

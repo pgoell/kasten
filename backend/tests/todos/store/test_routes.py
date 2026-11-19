@@ -160,19 +160,87 @@ async def test_the_last_blocker_taken_off_opens_the_todo(client: AsyncClient) ->
     assert response.json()[0]["state"] == "open"
 
 
+async def plant(store: AsyncEngine, id_: str, blocked_by: list[str]) -> None:
+    """A `blocked_by` written as rows from before #2219 may hold it, past every check."""
+    async with store.begin() as connection:
+        await connection.exec_driver_sql(
+            "UPDATE todos.todo SET blocked_by = %s WHERE id = %s", (blocked_by, id_)
+        )
+
+
 async def test_a_blocker_that_is_no_todo_is_refused_and_one_kept_from_before_stays(
-    client: AsyncClient,
+    client: AsyncClient, store: AsyncEngine
 ) -> None:
-    gone = await add(client, "ship it")
-    held = await add(client, "write docs", blocked_by=[gone["id"]])
-    await client.delete(f"/api/todos/{gone['id']}")
-    added = {"version": 1, "blocked_by": [gone["id"], "kt-nothere"]}
+    held = await add(client, "write docs")
+    await plant(store, held["id"], ["kt-gone"])
+    added = {"version": 1, "blocked_by": ["kt-gone", "kt-nothere"]}
     refused = await client.patch(f"/api/todos/{held['id']}", json=added)
     kept = await client.patch(f"/api/todos/{held['id']}", json={"version": 1, "words": "docs"})
 
     assert refused.status_code == 422
     assert refused.json()["detail"] == "No todo has the id kt-nothere."
-    assert kept.json()[0]["blocked_by"] == [gone["id"]]
+    assert kept.json()[0]["blocked_by"] == ["kt-gone"]
+
+
+async def test_an_id_that_names_no_todo_holds_nothing(
+    client: AsyncClient, store: AsyncEngine
+) -> None:
+    blocker = await add(client, "ship it")
+    held = await add(client, "write docs", blocked_by=[blocker["id"]])
+    await plant(store, held["id"], [blocker["id"], "kt-gone"])
+    await state(client, blocker["id"], "done")
+
+    assert (await rows(client))["write docs"]["state"] == "open"
+
+
+async def test_deleting_a_blocker_takes_its_id_off_and_opens_what_it_alone_held(
+    client: AsyncClient,
+) -> None:
+    gone = await add(client, "ship it")
+    other = await add(client, "book the room")
+    alone = await add(client, "write docs", blocked_by=[gone["id"]])
+    both = await add(client, "send the mail", blocked_by=[gone["id"], other["id"]])
+    doing = await add(client, "print it", blocked_by=[gone["id"]])
+    await state(client, doing["id"], "doing")
+    await client.delete(f"/api/todos/{gone['id']}")
+    found = await rows(client)
+    stale = await client.patch(f"/api/todos/{alone['id']}", json={"version": 1, "words": "x"})
+    history = (await client.get(f"/api/todos/{alone['id']}/history")).json()
+
+    assert (found["write docs"]["state"], found["write docs"]["blocked_by"]) == ("open", [])
+    assert (found["send the mail"]["state"], found["send the mail"]["blocked_by"]) == (
+        "blocked",
+        [other["id"]],
+    )
+    assert (found["print it"]["state"], found["print it"]["blocked_by"]) == ("doing", [])
+    assert both["state"] == "blocked"
+    assert stale.status_code == 409
+    assert history[-1]["after"]["state"] == "open"
+
+
+async def test_deleting_a_parent_frees_what_its_parts_held(client: AsyncClient) -> None:
+    parent = await add(client, "move house")
+    part = await add(client, "pack books", parent_id=parent["id"])
+    held = await add(client, "sell shelf", blocked_by=[part["id"]])
+    await client.delete(f"/api/todos/{parent['id']}")
+    found = await rows(client)
+
+    assert held["state"] == "blocked"
+    assert (found["sell shelf"]["state"], found["sell shelf"]["blocked_by"]) == ("open", [])
+
+
+@pytest.mark.parametrize("route", ["", "/line"])
+async def test_an_added_blocker_that_is_no_todo_is_refused(client: AsyncClient, route: str) -> None:
+    body = (
+        {"text": "- [ ] write docs ⛔ kt-nothere"}
+        if route
+        else {"words": "write docs", "blocked_by": ["kt-nothere"]}
+    )
+    refused = await client.post(f"/api/todos{route}", json=body)
+
+    assert refused.status_code == 422
+    assert refused.json()["detail"] == "No todo has the id kt-nothere."
+    assert "write docs" not in await rows(client)
 
 
 async def test_ticking_a_repeat_keeps_its_id_and_moves_it_on(client: AsyncClient) -> None:
