@@ -177,7 +177,9 @@ describe("addSubtaskInVault", () => {
     // under whatever now sits at line 3.
     fetchNote.mockResolvedValue(NOTE.replace("- [ ] call the dentist", "- [ ] buy milk"));
 
-    await addSubtaskInVault(HIT, "ring the practice", "2026-08-10");
+    await expect(addSubtaskInVault(HIT, "ring the practice", "2026-08-10")).rejects.toThrow(
+      "that line has changed since it was listed",
+    );
 
     expect(saveNote).not.toHaveBeenCalled();
   });

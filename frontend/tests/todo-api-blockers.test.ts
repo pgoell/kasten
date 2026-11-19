@@ -129,9 +129,13 @@ describe("blockTodoInVault", () => {
     ]);
   });
 
-  it("writes nothing, not even the id, where either note moved under its row", async () => {
-    await blockTodoInVault({ ...DOCS, line: 1 }, SHIP);
-    await blockTodoInVault(DOCS, { ...SHIP, text: "- [ ] ship the release" });
+  it("writes nothing, not even the id, where either note moved under its row, and says which (#2212)", async () => {
+    await expect(
+      blockTodoInVault({ ...DOCS, text: "- [ ] write the old docs" }, SHIP),
+    ).rejects.toThrow("that line has changed since it was listed");
+    await expect(
+      blockTodoInVault(DOCS, { ...SHIP, text: "- [ ] ship the release" }),
+    ).rejects.toThrow("the blocker's line has changed since it was listed");
 
     expect(saveNote).not.toHaveBeenCalled();
   });

@@ -8,6 +8,7 @@ import {
   noteText,
   openApp,
   panes,
+  phone,
   readAll,
   TODO_ROW,
   todoRows,
@@ -330,4 +331,123 @@ test("#530 X on the second of two twins sets that twin after a line above shifte
       "- [ ] water the fern",
       expect.stringMatching(/^- \[x\] water the fern/),
     ]);
+});
+
+const PLUMBER = "call the plumber";
+const RENAMED = ["- [ ] ring the plumber #keys", ...LINES.slice(1)];
+const ABOVE = ["- [ ] feed the cat #home", ...LINES];
+const CHANGED = "Nothing moved: that line has changed since it was listed";
+const BLOCKER_CHANGED = "Nothing moved: the blocker's line has changed since it was listed";
+const prompt = (page: Page) => page.getByRole("dialog", { name: "Add part" }).getByRole("textbox");
+const keysBody = async (vault: string) => bodyOf(await noteText(vault, NOTE));
+
+/** The pane over the Keys rows with the event stream held, so the list stays as listed while the note changes on disk. */
+async function heldPane(page: Page, vault: string, vim: string) {
+  await page.route("**/api/events", () => new Promise(() => {}));
+  if (vim !== "tap") return openPane(page, vault, vim);
+  await vaultWith(vault, { [NOTE]: note(LINES) });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open the todo pane" }).tap({ timeout: 15_000 });
+  await expect(row(page, "buy milk")).toBeVisible({ timeout: 15_000 });
+}
+
+/** `s` on the plumber's row (by key, or the phone's `part`), the note set to `lines` meanwhile, then "kilo" sent. */
+async function partAfter(page: Page, vault: string, vim: string, lines: string[]) {
+  if (vim === "tap") {
+    await page.getByLabel(new RegExp(`^more for ${PLUMBER}`)).tap();
+    await page.getByLabel(new RegExp(`^part ${PLUMBER}`)).tap();
+  } else {
+    await cursorTo(page, PLUMBER);
+    await page.keyboard.press("s");
+  }
+  await vaultWith(vault, { [NOTE]: note(lines) });
+  await prompt(page).fill("kilo");
+  await prompt(page).press("Enter");
+}
+
+/** `b` on the plumber's row (by key, or the phone's `blocked by`), the note set to `lines` meanwhile, then "buy milk" picked. */
+async function blockAfter(page: Page, vault: string, vim: string, lines: string[]) {
+  if (vim === "tap") {
+    await page.getByLabel(new RegExp(`^more for ${PLUMBER}`)).tap();
+    await page.getByLabel(new RegExp(`^blocked by ${PLUMBER}`)).tap();
+    await vaultWith(vault, { [NOTE]: note(lines) });
+    await row(page, "buy milk").tap();
+    return;
+  }
+  await cursorTo(page, PLUMBER);
+  await page.keyboard.press("b");
+  await vaultWith(vault, { [NOTE]: note(lines) });
+  await cursorTo(page, "buy milk");
+  await page.keyboard.press("Enter");
+}
+
+const PART = /call the plumber #keys\n {2}- \[ \] kilo\b/;
+
+for (const vim of ["on", "off", "tap"]) {
+  test.describe(`#2212 a row whose line changed since it was listed, vim ${vim}`, () => {
+    if (vim === "tap") test.use(phone);
+
+    test("s writes nothing, says so, keeps the part, and sends it once the line reads as before", async ({
+      page,
+      stack,
+    }) => {
+      await heldPane(page, stack.vault, vim);
+      await partAfter(page, stack.vault, vim, RENAMED);
+      await expect(page.getByTestId("notice")).toHaveText(CHANGED);
+      await expect(prompt(page)).toHaveValue("kilo");
+      expect(await keysBody(stack.vault)).toBe(note(RENAMED));
+      await vaultWith(stack.vault, { [NOTE]: note(LINES) });
+      await prompt(page).press("Enter");
+      await expect.poll(() => keysBody(stack.vault)).toMatch(PART);
+    });
+
+    test("b writes nothing and says so", async ({ page, stack }) => {
+      await heldPane(page, stack.vault, vim);
+      await blockAfter(page, stack.vault, vim, RENAMED);
+      await expect(page.getByTestId("notice")).toHaveText(CHANGED);
+      expect(await keysBody(stack.vault)).toBe(note(RENAMED));
+    });
+  });
+}
+
+test.describe("#2212 a row that only moved since it was listed", () => {
+  test("s lands the part under it, found by its words", async ({ page, stack }) => {
+    await heldPane(page, stack.vault, "on");
+    await partAfter(page, stack.vault, "on", ABOVE);
+    await expect.poll(() => keysBody(stack.vault)).toMatch(PART);
+    await expect(prompt(page)).toHaveCount(0);
+  });
+
+  test("b lands the blocker on it, found by its words", async ({ page, stack }) => {
+    await heldPane(page, stack.vault, "on");
+    await blockAfter(page, stack.vault, "on", ABOVE);
+    await expect.poll(() => keysBody(stack.vault)).toMatch(/call the plumber #keys ⛔ kt-/);
+  });
+});
+
+test("#2212 b whose blocker's line changed since it was listed writes nothing and says so", async ({
+  page,
+  stack,
+}) => {
+  const moved = [...LINES.slice(0, 2), "- [ ] buy oat milk #home"];
+  await heldPane(page, stack.vault, "on");
+  await cursorTo(page, PLUMBER);
+  await page.keyboard.press("b");
+  await vaultWith(stack.vault, { [NOTE]: note(moved) });
+  await cursorTo(page, "buy milk");
+  await page.keyboard.press("Enter");
+  await expect(page.getByTestId("notice")).toHaveText(BLOCKER_CHANGED);
+  expect(await keysBody(stack.vault)).toBe(note(moved));
+});
+
+test("#2212 an s write the vault refuses says why and keeps the part", async ({ page, stack }) => {
+  await page.route("**/api/files/**", (route) =>
+    route.request().method() === "PUT"
+      ? route.fulfill({ status: 500, body: "" })
+      : route.fallback(),
+  );
+  await heldPane(page, stack.vault, "on");
+  await partAfter(page, stack.vault, "on", LINES);
+  await expect(page.getByTestId("notice")).toHaveText(/^Nothing moved: .*500/);
+  await expect(prompt(page)).toHaveValue("kilo");
 });

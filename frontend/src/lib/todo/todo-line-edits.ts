@@ -8,8 +8,21 @@ import { noteBase } from "@/lib/notes/note-base";
 import { isOpen, newId, parseTodo, patchLine } from "@/lib/todo/todo";
 import { blockLine, type Closed, closedAmong, unblockedEdit } from "@/lib/todo/todo-blocked";
 import { inTurn, landedRow } from "@/lib/todo/todo-press-echo";
+import { lineOf } from "@/lib/todo/todo-refile";
 import { expandShorthand } from "@/lib/todo/todo-shorthand";
 import { insertSubtask, otherTodoWithId } from "@/lib/todo/todo-write";
+
+const CHANGED = "that line has changed since it was listed";
+
+/**
+ * The row where it stands in `text`: where an `x` or a stamp left it, else by its words on exactly
+ * one line, as `t` finds it. Null where no line says it: its words changed, or twins share them (#2212).
+ */
+function rowNow(text: string, hit: SearchHit): SearchHit | null {
+  const { row } = landedRow(text, hit);
+  const line = lineOf(text, row.line, row.text);
+  return line === null ? null : { ...row, line };
+}
 
 /**
  * Put one edited line back where the row found it, with no reformatting. A blocked line
@@ -42,22 +55,23 @@ async function blockTodo(listed: SearchHit, blocker: SearchHit): Promise<void> {
   const blockerText = await fetchNote(blocker.path);
   const blockerLines = blockerText.split("\n");
   const named = parseTodo(blocker.text);
-  if (named === null || blockerLines[blocker.line - 1] !== blocker.text) return;
+  if (named === null) return;
+  const picked = rowNow(blockerText, blocker);
+  if (picked === null) throw new Error("the blocker's line has changed since it was listed");
 
   // One note holding both is read once and written once, the second read
   // being older than the first write otherwise.
   const same = listed.path === blocker.path;
   const text = same ? blockerText : await fetchNote(listed.path);
   const lines = same ? blockerLines : text.split("\n");
-  // The line an `x` just wrote, where the row was read before it landed (#2084).
-  const hit = landedRow(text, listed).row;
-  if (lines[hit.line - 1] !== hit.text) return;
+  const hit = rowNow(text, listed);
+  if (hit === null) throw new Error(CHANGED);
 
   // A blocker whose id another todo line carries too is refused before any
   // write: the `⛔` could not say which of the two it waits on.
   const todos = await fetchTodos();
   if (named.id !== undefined) {
-    const other = otherTodoWithId(named.id, blocker.path, blocker.line, todos, blockerText);
+    const other = otherTodoWithId(named.id, blocker.path, picked.line, todos, blockerText);
     if (other !== null) throw new Error(other);
   }
 
@@ -69,7 +83,7 @@ async function blockTodo(listed: SearchHit, blocker: SearchHit): Promise<void> {
   if (held === null) return;
 
   if (named.id === undefined) {
-    blockerLines[blocker.line - 1] = patchLine(blocker.text, { ...named, id });
+    blockerLines[picked.line - 1] = patchLine(blocker.text, { ...named, id });
     if (!same) await saveNote(blocker.path, blockerLines.join("\n"), false, noteBase(blockerText));
   }
   lines[hit.line - 1] = held;
@@ -81,18 +95,20 @@ async function blockTodo(listed: SearchHit, blocker: SearchHit): Promise<void> {
 /**
  * Put a typed todo into the row's note as a part of it, with the add prompt's shorthand.
  * The parent's line is checked against its row first, since the part hangs off it; in turn, as an `x` before it may move it (#2210).
+ * Throws where the parent's line changed, so the prompt can keep what was typed (#2212).
  */
 export async function addSubtaskInVault(
   hit: SearchHit,
   input: string,
   today: string,
 ): Promise<void> {
-  await inTurn(() =>
+  const written = await inTurn(() =>
     updateNote(hit.path, (text) => {
-      const parent = landedRow(text, hit).row;
-      return text.split("\n")[parent.line - 1] === parent.text
-        ? insertSubtask(text, parent.line, expandShorthand(input, today))
-        : null;
+      const parent = rowNow(text, hit);
+      return parent === null
+        ? null
+        : insertSubtask(text, parent.line, expandShorthand(input, today));
     }),
   );
+  if (written === null) throw new Error(CHANGED);
 }
