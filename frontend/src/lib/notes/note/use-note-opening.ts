@@ -12,7 +12,7 @@ import { createNote, fetchNote, NoteExists, type SearchHit } from "@/lib/core/ap
 import type { FileTarget, FollowWhere } from "@/lib/notes/editor/editor-follow";
 import { queryEmbedSource, TODO_ID } from "@/lib/notes/embeds/embed";
 import { encodePath } from "@/lib/notes/links/note-path";
-import { namesAFile, pdfPage, splitTarget, wikiLinkPath } from "@/lib/notes/links/wikilink";
+import { splitTarget } from "@/lib/notes/links/wikilink";
 import { noteSectionOf } from "@/lib/notes/text/note-section";
 import { type Period, periodicNote } from "@/lib/notes/text/periodic";
 import {
@@ -33,8 +33,8 @@ import {
   splitFocused,
   tabPanes,
 } from "@/lib/panes/layout/panes";
-import { bookNoteOf, fileKind, opensInFilePane } from "@/lib/vault/file-kind";
-import { type LinkPaths, linkPaths, linkTargets } from "@/lib/vault/use-listings";
+import { bookNoteOf, fileKind } from "@/lib/vault/file-kind";
+import { type LinkPaths, landing, linkPaths } from "@/lib/vault/use-listings";
 
 export type NoteOpening = ReturnType<typeof useNoteOpening>;
 
@@ -119,23 +119,6 @@ function waitedFiles(
     ({ files }) => (held() === from ? files : undefined),
     () => undefined,
   );
-}
-
-/**
- * Whether following `target` fills a pane, as `followIn` decides it. An asset no pane shows opens
- * in a browser tab, and a dead file link opens nothing.
- */
-function landsInPane(listed: LinkPaths, target: string, file: FileTarget | undefined): boolean {
-  const { files, html, assets } = listed;
-  const shown = (path: string) =>
-    html.includes(path) ||
-    (assets.includes(path) && (path.toLowerCase().endsWith(".pdf") || opensInFilePane(path)));
-  if (file !== undefined) return shown(file.path);
-  const { name } = splitTarget(target);
-  if (name === "") return false;
-  const path = wikiLinkPath(target, linkTargets(listed));
-  if (html.includes(path) || files.includes(path)) return true;
-  return namesAFile(name) ? shown(path) : true;
 }
 
 /** Where a search hit found its line in a file, which is what the opener goes to. */
@@ -333,57 +316,38 @@ export function useNoteOpening({
       at: string,
       fresh: boolean,
     ) => {
-      const { files: paths, html, assets } = listed;
-      // The one tail a page or an asset takes, from a wikilink or a markdown
-      // link alike. The vault has no write for either, so a link to one nobody
-      // made stays a dead link rather than turning into a note named `.pdf.md`.
-      // One the vault holds opens in a tab of its own, the browser being what
-      // reads a picture. A pdf opens in kasten's own view at the page
-      // `#page=3` names, a phone's viewer ignoring `#page` (#353), and a csv
-      // as a table and a video file as a player, which a tab would only download.
-      // A pane made for the open takes the pdf itself, rather than a second split beside it.
-      const openPdf = (path: string, page: number | undefined) => {
-        if (!fresh) return openPdfInPane(path, page);
-        setLayout((previous) =>
-          atPane(previous, at, (layout) => openPdfInFocused(layout, path, page)),
-        );
-      };
-      const openFile = (path: string, heading: string | null) => {
-        if (html.includes(path)) {
-          void openHtmlInPane(path, heading ?? undefined, at);
+      const landed = landing(listed, target, file);
+      switch (landed.at) {
+        case "nowhere":
           return;
-        }
-        if (!assets.includes(path)) return;
-        if (path.toLowerCase().endsWith(".pdf")) openPdf(path, pdfPage(heading));
-        else if (opensInFilePane(path)) void openImageInPane(path, at);
-        else window.open(`/api/assets/${encodePath(path)}`, "_blank");
-      };
-      // A markdown link has split its path and resolved it from its note's folder
-      // already, so the path opens as it is: no `splitTarget`, and no lookup of a
-      // bare name anywhere in the vault.
-      if (file !== undefined) {
-        openFile(file.path, file.heading);
-        return;
+        case "html":
+          void openHtmlInPane(landed.path, landed.anchor ?? undefined, at);
+          return;
+        case "pdf":
+          // A pane made for the open takes the pdf itself, rather than a second split beside it.
+          if (!fresh) openPdfInPane(landed.path, landed.page);
+          else {
+            setLayout((previous) =>
+              atPane(previous, at, (layout) => openPdfInFocused(layout, landed.path, landed.page)),
+            );
+          }
+          return;
+        case "file":
+          void openImageInPane(landed.path, at);
+          return;
+        case "browser":
+          window.open(`/api/assets/${encodePath(landed.path)}`, "_blank");
+          return;
+        case "note":
+          if (landed.heading === null) return openInPane(landed.path, undefined, at);
+          openAtHeading(
+            { queryClient, layoutNow, focusedNote, openInPane },
+            landed.path,
+            landed.heading,
+            at,
+          );
+          return;
       }
-      const { name, heading } = splitTarget(target);
-      if (name === "") return;
-      const path = wikiLinkPath(target, linkTargets(listed));
-      if (html.includes(path)) {
-        openFile(path, heading);
-        return;
-      }
-      if (paths.includes(path) && heading !== null) {
-        openAtHeading({ queryClient, layoutNow, focusedNote, openInPane }, path, heading, at);
-        return;
-      }
-      if (paths.includes(path)) {
-        return openInPane(path, undefined, at);
-      }
-      if (namesAFile(name)) {
-        openFile(path, heading);
-        return;
-      }
-
       // One write, and the body goes over as it stands. `periodic.ts` owns the
       // block and the blank line after it, because the fence has to be the
       // file's first line for the backend to read it as frontmatter at all.
@@ -393,7 +357,7 @@ export function useNoteOpening({
       // them, so the editor opens what was written rather than reading back a
       // file it just made. A refused path leaves the note on screen open with
       // the link still in it, which is the only place to fix either.
-      return makeNote(queryClient, path, body).then((made) =>
+      return makeNote(queryClient, landed.path, body).then((made) =>
         made === undefined ? false : openInPane(made, undefined, at),
       );
     },
@@ -450,7 +414,8 @@ export function useNoteOpening({
       const from = startPane(layoutNow.current);
       if (where === undefined) return follow(target, file, "", from);
       return withListings(target, from, (listed) => {
-        if (!landsInPane(listed, target, file)) {
+        const { at: lands } = landing(listed, target, file);
+        if (lands === "nowhere" || lands === "browser") {
           return followIn(listed, target, file, "", from, false);
         }
         const id = newPaneId();

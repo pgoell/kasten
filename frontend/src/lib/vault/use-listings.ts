@@ -10,9 +10,10 @@ import {
   fetchTags,
 } from "@/lib/core/api";
 import { ONTOLOGY_NOTE, relationNames } from "@/lib/notes/links/ontology";
+import { namesAFile, pdfPage, splitTarget, wikiLinkPath } from "@/lib/notes/links/wikilink";
 import { visible } from "@/lib/search/archive";
 import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
-import { isTreeFile } from "@/lib/vault/file-kind";
+import { isTreeFile, opensInFilePane } from "@/lib/vault/file-kind";
 
 /** What a list prop gets while its query loads: one array, so the memo built over it holds. */
 const LOADING: string[] = [];
@@ -32,6 +33,42 @@ export const linkTargets = ({ files, html, assets }: LinkPaths): string[] => [
   ...html,
   ...assets,
 ];
+
+/** Where a followed link lands: a pane by kind, a browser tab, a note to make, or nowhere. */
+export type Landing =
+  | { at: "note"; path: string; heading: string | null }
+  | { at: "new"; path: string }
+  | { at: "html"; path: string; anchor: string | null }
+  | { at: "pdf"; path: string; page: number | undefined }
+  | { at: "file"; path: string }
+  | { at: "browser"; path: string }
+  | { at: "nowhere" };
+
+/**
+ * Where `target` lands, or `file`, a markdown link already resolved from its note's folder. A page or
+ * asset nobody made stays a dead link, never a note named `.pdf.md`, and a pdf, csv or video opens in
+ * a pane, since a tab would only download it or ignore a pdf's `#page` (#353).
+ */
+export function landing(
+  listed: LinkPaths,
+  target: string,
+  file?: { path: string; heading: string | null },
+): Landing {
+  const { files, html, assets } = listed;
+  const asFile = (path: string, heading: string | null): Landing => {
+    if (html.includes(path)) return { at: "html", path, anchor: heading };
+    if (!assets.includes(path)) return { at: "nowhere" };
+    if (path.toLowerCase().endsWith(".pdf")) return { at: "pdf", path, page: pdfPage(heading) };
+    return opensInFilePane(path) ? { at: "file", path } : { at: "browser", path };
+  };
+  if (file !== undefined) return asFile(file.path, file.heading);
+  const { name, heading } = splitTarget(target);
+  if (name === "") return { at: "nowhere" };
+  const path = wikiLinkPath(target, linkTargets(listed));
+  if (html.includes(path)) return asFile(path, heading);
+  if (files.includes(path)) return { at: "note", path, heading };
+  return namesAFile(name) ? asFile(path, heading) : { at: "new", path };
+}
 
 /**
  * The listings as the cache holds them at a key press, not as the last render saw them, waiting for any
