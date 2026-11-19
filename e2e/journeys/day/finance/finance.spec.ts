@@ -1,6 +1,6 @@
 import type { Locator, Page } from "@playwright/test";
-import { openApp, today } from "../../harness/app.ts";
-import { expect, test } from "../../harness/stack.ts";
+import { openApp, today } from "../../../harness/app.ts";
+import { expect, test } from "../../../harness/stack.ts";
 
 /** CDP's modifier bits. AltGr reads as Ctrl+Alt on Windows; Option is Alt on a Mac. */
 const ALT = 1;
