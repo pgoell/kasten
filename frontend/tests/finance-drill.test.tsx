@@ -420,6 +420,29 @@ describe("the finance pane's drilldowns", () => {
     expect(screen.getByRole("searchbox", { name: "Text" })).toHaveValue("rewe");
   });
 
+  it("#2232 a drilldown that falls back to its waiting line takes no keys; back, the tab has them", async () => {
+    const gone = { ...CATEGORY, months: [] };
+    api.fetchCategoryDrill.mockResolvedValueOnce(CATEGORY).mockResolvedValue(gone);
+    renderPane();
+    press("T");
+    await screen.findByText("REWE SAGT DANKE");
+    press("Enter");
+    fireEvent.click(await screen.findByRole("button", { name: "Groceries ›" }));
+    await screen.findByRole("list", { name: "Bookings" });
+    press("[");
+    await waitFor(() => expect(screen.queryByRole("list", { name: "Bookings" })).toBeNull());
+    const opened = api.fetchBookingDrill.mock.calls.length;
+
+    press("Enter");
+    expect(api.fetchBookingDrill).toHaveBeenCalledTimes(opened);
+    press("Escape");
+    press("Escape");
+    press("1");
+    await waitFor(() =>
+      expect(api.sortByHand).toHaveBeenCalledWith(expect.objectContaining({ transaction: 9 }), 4),
+    );
+  });
+
   it("#1083 a month's bar keeps the keys in the pane, so Escape still steps back", async () => {
     const [october] = CATEGORY.months;
     const september = { ...october, month: "2026-09", total: "80.00" };

@@ -66,7 +66,7 @@ export function DrillCategory({
   const data = drill.data;
   // The month shown, whose limit the dashed line is; the span's last when it is not in the chart.
   const row = data?.months.find((m) => m.month === month) ?? data?.months.at(-1);
-  if (data === undefined || row === undefined) return <Waiting error={drill.error} />;
+  if (data === undefined || row === undefined) return <Waiting error={drill.error} keys={keys} />;
   const { category } = data;
   const now = data.span.now;
   const income = category.kind === "income";
@@ -206,7 +206,7 @@ export function DrillPayee({
   });
   const data = drill.data;
   const row = data?.months.find((m) => m.month === month) ?? data?.months.at(-1);
-  if (data === undefined || row === undefined) return <Waiting error={drill.error} />;
+  if (data === undefined || row === undefined) return <Waiting error={drill.error} keys={keys} />;
   const { payee } = data;
   // A payee that only pays in, such as an employer, is drawn by what it paid.
   const paysIn = data.months.every((m) => Number(m.spent) === 0);

@@ -200,8 +200,14 @@ export function FinancePane({ commands, focusSignal, onNotice, today }: FinanceP
     tax: () => <FinanceTax today={today} keys={tabKeys} onOpen={open} />,
   };
 
-  // Each tab hands its keys over as it draws; one that is not drawn has none.
-  keys.current = null;
+  // Each view hands its keys over as it draws; one that is not drawn has none. Cleared only when
+  // the view changes: React may run this render and keep the view as it was, keys and all (#2232).
+  const view = `${tab} ${trail.length}-${top === undefined ? "" : stepKey(top)}`;
+  const drawn = useRef(view);
+  if (drawn.current !== view) {
+    drawn.current = view;
+    keys.current = null;
+  }
   return (
     <section
       ref={panel}
