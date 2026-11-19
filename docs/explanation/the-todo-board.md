@@ -229,9 +229,10 @@ tags and its links, and the backend already reads links by a rule both sides
 test against one file of cases, so the cost is small and the answer is one.
 
 Since PR #2205 the project is a column of the row. The import worked it out by
-the order below. A todo added since takes a `#p/x` tag's project, else its
-parent's, else its note's folder's; only a refile or a note move changes it, so
-neither a link nor a tag typed later does (#2249).
+the order below. A todo added since takes the project the add names, else a
+`#p/x` tag's, else its parent's if it has a parent, else its note's folder's.
+After that only an edit that names the project, a refile or a note move changes
+it, so neither a link nor a tag typed later does (#2249).
 
 A `#p/x` tag on a todo comes before every step of that rule, the folder
 included. So the full order is:
