@@ -162,6 +162,23 @@ test.describe("by touch (#421)", () => {
     await expect(page.getByTestId("todo-view")).toHaveCount(0);
   }
 
+  test("#1018 I4 edit on a waiting row past a code span puts the caret after the stamp", async ({
+    page,
+    stack,
+  }) => {
+    const line = "- [w] see `👤 2026-10-25 x` x 👤 2026-10-25";
+    await vaultWith(stack.vault, { [NOTE]: `${line}\n` });
+    await page.goto("/");
+    await page.getByRole("button", { name: "Open the todo pane" }).tap({ timeout: 15_000 });
+    await page.getByLabel(/^more for see /).tap();
+    await page.getByLabel(/^edit see /).tap();
+    const input = page.getByLabel("edit line");
+    await expect(input).toBeFocused();
+    await expect
+      .poll(() => input.evaluate((f: HTMLInputElement) => f.value.slice(0, f.selectionStart ?? 0)))
+      .toBe(line);
+  });
+
   test("A4 the strip stays bare at a tap's height, out of the tab order, on a phone", async ({
     page,
     stack,

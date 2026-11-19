@@ -295,3 +295,25 @@ describe("#809 the assignee in the pane", () => {
     await waitFor(() => expect(pane.rows()).toHaveLength(1));
   });
 });
+
+describe("#1018 the name place is read off the line with spans blanked", () => {
+  const SPANS = {
+    "a code span": "`👤 2026-10-25 x`",
+    "a markdown link": "[👤 2026-10-25 x](x)",
+    "a wikilink": "[[👤 2026-10-25 x]]",
+    "an HTML comment": "<!-- 👤 2026-10-25 -->",
+  };
+  for (const [kind, span] of Object.entries(SPANS)) {
+    it(`#1018 I1 nameAt skips ${kind} holding the stamp`, () => {
+      const line = `- [w] see ${span} x 👤 2026-10-25`;
+
+      expect(nameAt(line)).toBe(line.length);
+    });
+  }
+
+  it("#1018 I2 nameAt skips a span ahead of a stamp typed with the variation selector", () => {
+    const line = "- [w] see `👤 2026-10-25 x` x 👤️ 2026-10-25";
+
+    expect(nameAt(line)).toBe(line.length);
+  });
+});

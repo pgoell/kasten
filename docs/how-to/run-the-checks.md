@@ -62,7 +62,7 @@ are not grouped: each Action bump comes as its own pull request.
 
 `mise run e2e` builds the frontend, then runs the Playwright journeys in `e2e/`
 against it. It needs Docker (Postgres, nginx) and Chromium. Each test gets
-its own copy of the fixture vault, database and backend;
+its own vault copy, database and backend;
 teardown drops the containers. Unlike `fe:e2e`, it stubs no API.
 
 The journeys sit in `e2e/journeys/`: review in `review/` (a sitting, a jotted question, a cloze card, Enter on the overview's rows, the daily limits, the sitting's keys, vim on and off, and unreadable deck notes), panes in
@@ -71,13 +71,13 @@ unsaved text, `:e` and `:e!`, and a conflicted note reopened in `panes/conflict/
 mention links, held text, the editor's build and relation names, live preview and its lists and tables) and content search and an epub opened mid-listing in `notes/search/`, the todo list, board, presses,
 twin ids, a person's card and the shared lists in `todos/` (the panel, keys, taps, held order, edit line, strip, refile and `board/` in `todos/pane/`), capture, the web page import, chat replies, the log and overview, the home screen, the tokens page in `day/`, finance in `day/finance/`, and the book finder, book, video and clip panes and csv and svg files in
 `media/`. `harness.spec.ts` checks the harness. Each journey is a
-daily task; a write checks the disk. 52 files
-run journeys at phone width, 414 px with touch, where vim starts
+daily task; a write checks the disk. 53 files
+run at phone width, 414 px with touch, where vim starts
 off: in `review/`, `sitting`, `jot`, `keys` and `rows`; in `notes/`, `finder`,
 `status-bar`, `search/book-open-listing`, the three `search/content-search-*`, `saving/editor-build`, `saving/edits`,
 `saving/mentions` and `saving/live-preview-blocks`; in `panes/`, `links`, `workspace/reload`,
 `narrow/drawer`, `narrow/phone`, `narrow/key-help`, `narrow/resize` and `narrow/todo-pane`; in `todos/`, `list`,
-`board`, `pane/board/board`, `pane/order`, `pane/chip-loading`, `pane/strip`, `twin-ids`, `person-card` and `lists`; in `day/`, `capture`, `chat`, `finance/drill`, `finance/plans`, each `log/` spec but `pane/events`, and `today`; and in
+`board`, `pane/board/board`, `pane/order`, `pane/chip-loading`, `pane/strip`, `twin-ids`, `person-card` and `lists`; in `day/`, `capture`, `chat`, `finance/drill`, `finance/plans`, `finance/tabs`, each `log/` spec but `pane/events`, and `today`; and in
 `media/`, `book`, `book-finder`, `clip`, `csv`, `svg`, `video/watching`, `video/full-screen`, `video/view`, `video/shield` and `video/close`.
 `git grep -l 'test.use(phone)' e2e/journeys` lists them.
 A runner has no YouTube: the video journeys fake a player per

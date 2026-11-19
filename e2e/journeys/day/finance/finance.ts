@@ -6,6 +6,20 @@ import { expect } from "../../../harness/stack.ts";
 export type Answer = unknown;
 type Reply = (request: Request) => Promise<{ status?: number; json?: unknown }>;
 
+/** CDP's modifier bits. AltGr reads as Ctrl+Alt on Windows; Option is Alt on a Mac. */
+export const ALT = 1;
+export const CTRL = 2;
+
+/** Types `key` the way a German layout does: AltGr+8 or Option+5 for `[`, AltGr+9 or Option+6 for `]`. */
+export async function typeHeld(page: Page, key: "[" | "]", modifiers: number) {
+  const code =
+    modifiers & CTRL ? (key === "[" ? "Digit8" : "Digit9") : key === "[" ? "Digit5" : "Digit6";
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Input.dispatchKeyEvent", { type: "keyDown", key, code, text: key, modifiers });
+  await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", key, code, modifiers });
+  await cdp.detach();
+}
+
 /** Whether the page is a phone's narrow screen, as `phone` in the harness makes it. */
 export const onPhone = (page: Page): boolean => (page.viewportSize()?.width ?? 1280) < 600;
 
