@@ -70,7 +70,7 @@ export function usePrompts({
   // Typed, not picked, so there is nothing to open it on.
   const [clipPrompt, setClipPrompt] = useState(false);
   // The row `s` opened on, which decides which note the typed todo lands in.
-  const [todoPrompt, setTodoPrompt] = useState<{ parent?: SearchHit } | null>(null);
+  const [todoPrompt, setTodoPrompt] = useState<{ parent?: SearchHit; typed?: string } | null>(null);
   const [dumpPrompt, setDumpPrompt] = useState(false);
   // Asked for only while open: the sessions change outside the browser, and nothing else reads them.
   const { data: terminals } = useQuery({
@@ -126,6 +126,7 @@ export function usePrompts({
   const addTodo = useCallback(
     (input: string) => {
       const parent = todoPrompt?.parent;
+      setNotice(undefined);
       setTodoPrompt(null);
       refocusPane();
       const today = readClock(new Date()).date;
@@ -133,12 +134,15 @@ export function usePrompts({
         parent === undefined
           ? addTodoInVault(input, today)
           : addSubtaskInVault(parent, input, today);
-      void written.then(todosWritten, () => {
-        // The store refused the line. Nothing on screen moved with it, so
-        // there is nothing to put back.
+      void written.then(todosWritten, (error: unknown) => {
+        // Nothing landed, so the prompt opens again on what was typed, for Enter to send again (#2212).
+        setNotice(
+          `Nothing moved: ${error instanceof Error ? error.message : "the store refused the write"}`,
+        );
+        setTodoPrompt((open) => open ?? { parent, typed: input });
       });
     },
-    [todosWritten, refocusPane, todoPrompt],
+    [todosWritten, refocusPane, todoPrompt, setNotice],
   );
 
   /**
@@ -275,6 +279,7 @@ export function usePrompts({
       {todoPrompt !== null && (
         <TodoPrompt
           onAdd={addTodo}
+          typed={todoPrompt.typed}
           onClose={() => {
             setTodoPrompt(null);
             refocusPane();

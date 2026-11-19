@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import {
   cursorTo,
+  holdStream,
   leader,
   noteText,
   openApp,
@@ -24,6 +25,20 @@ const row = (page: Page, words: string) => page.locator(TODO_ROW, { hasText: wor
 const cursorRow = (page: Page) => page.locator(`${TODO_ROW}[tabindex="0"]`);
 const filter = (page: Page) => page.getByLabel("filter todos");
 const caretLine = (page: Page) => page.locator(".cm-activeLine");
+const notice = (page: Page) => page.getByTestId("notice");
+const field = (page: Page, what = "part") =>
+  page.getByRole("dialog", { name: `Add ${what}` }).getByRole("textbox");
+type Row = {
+  id: string;
+  words: string;
+  version: number;
+  parent_id: string | null;
+  blocked_by: string[];
+};
+const rowOf = async (url: string, words: string): Promise<Row | undefined> =>
+  ((await (await fetch(`${url}/api/todos/rows`)).json()) as Row[]).find((one) =>
+    one.words.includes(words),
+  );
 const selectedTab = (page: Page) =>
   readAll(page, '[role="tab"]', (tabs) => tabs.findIndex((tab) => tab.ariaSelected === "true"));
 
@@ -278,4 +293,141 @@ test("#397 a state write the vault refuses leaves the row as it was and says Not
     await fetch(`${stack.url}/api/todos/rows`)
   ).json();
   expect(rows.find((one) => one.words.includes("call the plumber"))?.state).toBe("open");
+});
+
+test.afterEach(({ page }) => page.unrouteAll({ behavior: "ignoreErrors" }));
+
+/** The store row behind `words`, deleted or its words changed with the stream held, so the pane still lists it as it was. */
+async function behindTheList(page: Page, url: string, words: string, change: "delete" | "edit") {
+  const { id } = (await rowOf(url, words)) as Row;
+  const edit = { method: "PUT", body: JSON.stringify({ text: `- [ ] ${words} again` }) };
+  const init = change === "delete" ? { method: "DELETE" } : edit;
+  const path = change === "delete" ? id : `${id}/line`;
+  const sent = await fetch(`${url}/api/todos/${path}`, {
+    ...init,
+    headers: { "Content-Type": "application/json" },
+  });
+  expect(sent.ok).toBe(true);
+  await expect(row(page, words)).toBeVisible();
+}
+
+/** `s` on `words`, a part typed and Enter. */
+async function part(page: Page, words: string, typed: string) {
+  await cursorTo(page, words);
+  await page.keyboard.press("s");
+  await field(page).fill(typed);
+  await page.keyboard.press("Enter");
+}
+
+/** `b` on `words`, and `blocker` picked by Enter. */
+async function block(page: Page, words: string, blocker: string) {
+  await cursorTo(page, words);
+  await page.keyboard.press("b");
+  await expect(page.getByTestId("todo-pick")).toBeVisible();
+  await cursorTo(page, blocker);
+  await page.keyboard.press("Enter");
+}
+
+for (const vim of ["on", "off"]) {
+  test(`#2212 an s the store refuses says why and keeps the part for Enter to send again, vim ${vim}`, async ({
+    page,
+    stack,
+  }) => {
+    let refuse = true;
+    await page.route("**/api/todos/line", (route) =>
+      refuse ? route.fulfill({ status: 500, json: {} }) : route.fallback(),
+    );
+    await openPane(page, stack.vault, vim);
+    await part(page, "call the plumber", "ask about the boiler");
+    await expect(notice(page)).toHaveText(/^Nothing moved: .*500/);
+    await expect(field(page)).toHaveValue("ask about the boiler");
+    refuse = false;
+    await page.keyboard.press("Enter");
+    const parent = (await rowOf(stack.url, "call the plumber"))?.id;
+    await expect.poll(async () => (await rowOf(stack.url, "ask about"))?.parent_id).toBe(parent);
+    await expect(notice(page)).toHaveCount(0);
+  });
+
+  test(`#2212 a b on a todo changed since it was listed writes nothing and says so, vim ${vim}`, async ({
+    page,
+    stack,
+  }) => {
+    await holdStream(page);
+    await openPane(page, stack.vault, vim);
+    await behindTheList(page, stack.url, "wire up the shelf", "edit");
+    await block(page, "wire up the shelf", "buy milk");
+    await expect(notice(page)).toHaveText(/^Nothing moved: .*changed since it was read/);
+    expect((await rowOf(stack.url, "wire up the shelf"))?.blocked_by).toEqual([]);
+  });
+}
+
+test("#2212 an s under a todo deleted since it was listed says why, keeps the part and lands nothing", async ({
+  page,
+  stack,
+}) => {
+  await holdStream(page);
+  await openPane(page, stack.vault);
+  await behindTheList(page, stack.url, "call the plumber", "delete");
+  await part(page, "call the plumber", "ask about the boiler");
+  await expect(notice(page)).toHaveText(/^Nothing moved: No todo has the id/);
+  await expect(field(page)).toHaveValue("ask about the boiler");
+  expect(await rowOf(stack.url, "ask about")).toBeUndefined();
+});
+
+test("#2212 an s under a todo changed since it was listed lands the part under it", async ({
+  page,
+  stack,
+}) => {
+  await holdStream(page);
+  await openPane(page, stack.vault);
+  await behindTheList(page, stack.url, "call the plumber", "edit");
+  await part(page, "call the plumber", "ask about the boiler");
+  const parent = (await rowOf(stack.url, "call the plumber"))?.id;
+  await expect.poll(async () => (await rowOf(stack.url, "ask about"))?.parent_id).toBe(parent);
+  await expect(notice(page)).toHaveCount(0);
+});
+
+for (const gone of ["row", "blocker"])
+  test(`#2212 a b whose ${gone} was deleted since it was listed writes nothing and says so`, async ({
+    page,
+    stack,
+  }) => {
+    await holdStream(page);
+    await openPane(page, stack.vault);
+    await behindTheList(
+      page,
+      stack.url,
+      gone === "row" ? "wire up the shelf" : "buy milk",
+      "delete",
+    );
+    await block(page, "wire up the shelf", "buy milk");
+    await expect(notice(page)).toHaveText(/^Nothing moved: No todo has the id/);
+    expect((await rowOf(stack.url, "wire up the shelf"))?.blocked_by ?? []).toEqual([]);
+  });
+
+test("#2212 a b the store refuses says why", async ({ page, stack }) => {
+  await page.route("**/api/todos/*", (route) =>
+    route.request().method() === "PATCH"
+      ? route.fulfill({ status: 500, json: {} })
+      : route.fallback(),
+  );
+  await openPane(page, stack.vault);
+  await block(page, "wire up the shelf", "buy milk");
+  await expect(notice(page)).toHaveText(/^Nothing moved: .*500/);
+});
+
+test("#2212 an a the store refuses says why, keeps the todo, and Escape then writes nothing", async ({
+  page,
+  stack,
+}) => {
+  await page.route("**/api/todos/line", (route) => route.fulfill({ status: 500, json: {} }));
+  await openPane(page, stack.vault);
+  await page.keyboard.press("a");
+  await field(page, "todo").fill("book the boiler service");
+  await page.keyboard.press("Enter");
+  await expect(notice(page)).toHaveText(/^Nothing moved: .*500/);
+  await expect(field(page, "todo")).toHaveValue("book the boiler service");
+  await page.keyboard.press("Escape");
+  await expect(field(page, "todo")).toHaveCount(0);
+  expect(await rowOf(stack.url, "boiler service")).toBeUndefined();
 });

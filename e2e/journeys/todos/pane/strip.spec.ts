@@ -1,5 +1,13 @@
 import type { Page } from "@playwright/test";
-import { leader, openApp, phone, TODO_ROW, tapHeight, vaultWith } from "../../../harness/app.ts";
+import {
+  holdStream,
+  leader,
+  openApp,
+  phone,
+  TODO_ROW,
+  tapHeight,
+  vaultWith,
+} from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
 
 const NOTE = "01 Notes/Errands.md";
@@ -127,7 +135,7 @@ test.describe("by touch (#421)", () => {
     await expect(page.locator(TODO_ROW, { hasText: "fix the tap" })).toBeVisible();
   }
 
-  async function more(page: Page, action: "edit" | "blocked by") {
+  async function more(page: Page, action: "edit" | "blocked by" | "part") {
     await page.getByLabel("more for fix the tap").tap();
     await page.getByLabel(`${action} fix the tap`).tap();
   }
@@ -200,6 +208,45 @@ test.describe("by touch (#421)", () => {
 
     await tapStripUnmoved(page);
     await expect(page.getByTestId("todo-pick")).toBeVisible();
+  });
+
+  test("#2212 a part the store refuses says why and keeps the part for a send again, by tap", async ({
+    page,
+    stack,
+  }) => {
+    let refuse = true;
+    await page.route("**/api/todos/line", (route) =>
+      refuse ? route.fulfill({ status: 500, json: {} }) : route.fallback(),
+    );
+    await byTouch(page, stack.vault);
+    await more(page, "part");
+    const field = page.getByRole("dialog", { name: "Add part" }).getByRole("textbox");
+    await field.fill("buy a washer");
+    await field.press("Enter");
+    await expect(page.getByTestId("notice")).toHaveText(/^Nothing moved: .*500/);
+    await expect(field).toHaveValue("buy a washer");
+    refuse = false;
+    await field.press("Enter");
+    await expect.poll(async () => (await todo(stack.url, "buy a washer"))?.text).toBeTruthy();
+    await expect(page.getByTestId("notice")).toHaveCount(0);
+  });
+
+  test("#2212 a blocked by on a todo changed since it was listed writes nothing and says so, by tap", async ({
+    page,
+    stack,
+  }) => {
+    await holdStream(page);
+    await byTouch(page, stack.vault);
+    const id = (await todo(stack.url, "fix the tap"))?.todo.id;
+    const body = JSON.stringify({ text: "- [ ] fix the tap today" });
+    const headers = { "Content-Type": "application/json" };
+    await fetch(`${stack.url}/api/todos/${id}/line`, { method: "PUT", body, headers });
+    await more(page, "blocked by");
+    await page.locator(TODO_ROW, { hasText: "feed the cat" }).tap();
+    await expect(page.getByTestId("notice")).toHaveText(
+      /^Nothing moved: .*changed since it was read/,
+    );
+    expect((await todo(stack.url, "fix the tap"))?.text).not.toContain("⛔");
   });
 
   for (const key of ["Escape", "Enter"]) {
