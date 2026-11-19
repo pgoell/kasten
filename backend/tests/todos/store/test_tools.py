@@ -56,3 +56,16 @@ async def test_a_store_write_tells_the_open_streams_once_it_commits() -> None:
 
     told = queue.get_nowait()
     assert [(one.change, one.path) for one in told] == [("todos", "")]
+
+
+@pytest.mark.usefixtures("client")
+async def test_a_delete_tells_the_open_streams_too(client: Any) -> None:
+    row = (await tools.add_todo("temp"))[0]
+    queue: asyncio.Queue[Any] = asyncio.Queue()
+    events.TODO_LISTENERS.add(queue)
+    try:
+        await client.delete(f"/api/todos/{row['id']}")
+    finally:
+        events.TODO_LISTENERS.discard(queue)
+
+    assert [one.change for one in queue.get_nowait()] == ["todos"]

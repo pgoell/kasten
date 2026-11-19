@@ -166,7 +166,7 @@ class Writes:
 
         Open event streams hear of it once the session commits.
         """
-        if self.touched and not event.contains(self.session.sync_session, "after_commit", _told):
+        if self._before and not event.contains(self.session.sync_session, "after_commit", _told):
             event.listen(self.session.sync_session, "after_commit", _told, once=True)
         await self.session.flush()
         for id_, row in self.touched.items():
