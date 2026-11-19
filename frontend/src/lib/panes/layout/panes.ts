@@ -50,6 +50,11 @@ function nextId(kind: string): string {
   return `${kind}${made}`;
 }
 
+/** An id for a pane made outside the layout, so an open can name the pane before React draws it. */
+export function newPaneId(): string {
+  return nextId("pane");
+}
+
 export function isSplit(node: PaneNode): node is Split {
   return "dir" in node;
 }
@@ -159,9 +164,9 @@ function insertBeside(node: PaneNode, target: string, made: Pane, dir: Split["di
 }
 
 /** Divide the focused pane, putting an empty one beside it and moving there. */
-export function splitFocused(layout: Layout, dir: Split["dir"]): Layout {
+export function splitFocused(layout: Layout, dir: Split["dir"], id = newPaneId()): Layout {
   const tab = activeTab(layout);
-  const pane: Pane = { id: nextId("pane") };
+  const pane: Pane = { id };
 
   return withTab(layout, {
     ...tab,
@@ -284,8 +289,8 @@ export function toggleZoom(layout: Layout): Layout {
 }
 
 /** Start a tab on one empty pane, and go to it. */
-export function addTab(layout: Layout): Layout {
-  const pane: Pane = { id: nextId("pane") };
+export function addTab(layout: Layout, id = newPaneId()): Layout {
+  const pane: Pane = { id };
 
   return {
     tabs: [...layout.tabs, { id: nextId("tab"), root: pane, focus: pane.id }],

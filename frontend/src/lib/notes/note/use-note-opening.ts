@@ -9,7 +9,7 @@ import {
   useState,
 } from "react";
 import { createNote, fetchNote, NoteExists, type SearchHit } from "@/lib/core/api";
-import type { FileTarget } from "@/lib/notes/editor/editor-follow";
+import type { FileTarget, FollowWhere } from "@/lib/notes/editor/editor-follow";
 import { queryEmbedSource, TODO_ID } from "@/lib/notes/embeds/embed";
 import { encodePath } from "@/lib/notes/links/note-path";
 import { namesAFile, pdfPage, splitTarget, wikiLinkPath } from "@/lib/notes/links/wikilink";
@@ -22,7 +22,16 @@ import {
   openPdfBeside,
   openPdfInFocused,
 } from "@/lib/panes/layout/pane-contents";
-import { activeTab, atPane, fillFocused, type Layout, tabPanes } from "@/lib/panes/layout/panes";
+import {
+  activeTab,
+  addTab,
+  atPane,
+  fillFocused,
+  type Layout,
+  newPaneId,
+  splitFocused,
+  tabPanes,
+} from "@/lib/panes/layout/panes";
 import { bookNoteOf, fileKind, opensInFilePane } from "@/lib/vault/file-kind";
 import { type LinkPaths, linkPaths, linkTargets } from "@/lib/vault/use-listings";
 
@@ -206,8 +215,7 @@ export function useNoteOpening({
    * The focus is raised so the keys follow the picture.
    */
   const openImageInPane = useCallback(
-    async (path: string) => {
-      const at = startPane(layoutNow.current);
+    async (path: string, at = startPane(layoutNow.current)) => {
       if (!(await saveFirst())) return;
 
       setLayout((previous) =>
@@ -297,9 +305,16 @@ export function useNoteOpening({
     [saveFirst, setLayout, setFocusSignal, openHtmlInPane, openEpub, layoutNow],
   );
 
-  /** `follow` once the listings are in hand. */
+  /** `follow` once the listings are in hand. `fresh` says pane `at` was just made for this open. */
   const followIn = useCallback(
-    (listed: LinkPaths, target: string, file: FileTarget | undefined, body: string, at: string) => {
+    (
+      listed: LinkPaths,
+      target: string,
+      file: FileTarget | undefined,
+      body: string,
+      at: string,
+      fresh: boolean,
+    ) => {
       const { files: paths, html, assets } = listed;
       // The one tail a page or an asset takes, from a wikilink or a markdown
       // link alike. The vault has no write for either, so a link to one nobody
@@ -308,14 +323,21 @@ export function useNoteOpening({
       // reads a picture. A pdf opens in kasten's own view at the page
       // `#page=3` names, a phone's viewer ignoring `#page` (#353), and a csv
       // as a table and a video file as a player, which a tab would only download.
+      // A pane made for the open takes the pdf itself, rather than a second split beside it.
+      const openPdf = (path: string, page: number | undefined) => {
+        if (!fresh) return openPdfInPane(path, page);
+        setLayout((previous) =>
+          atPane(previous, at, (layout) => openPdfInFocused(layout, path, page)),
+        );
+      };
       const openFile = (path: string, heading: string | null) => {
         if (html.includes(path)) {
           void openHtmlInPane(path, heading ?? undefined, at);
           return;
         }
         if (!assets.includes(path)) return;
-        if (path.toLowerCase().endsWith(".pdf")) openPdfInPane(path, pdfPage(heading));
-        else if (opensInFilePane(path)) void openImageInPane(path);
+        if (path.toLowerCase().endsWith(".pdf")) openPdf(path, pdfPage(heading));
+        else if (opensInFilePane(path)) void openImageInPane(path, at);
         else window.open(`/api/assets/${encodePath(path)}`, "_blank");
       };
       // A markdown link has split its path and resolved it from its note's folder
@@ -365,7 +387,29 @@ export function useNoteOpening({
       openImageInPane,
       layoutNow,
       focusedNote,
+      setLayout,
     ],
+  );
+
+  /** `follow`, saying whether pane `at` was just made for this open. */
+  const followAt = useCallback(
+    (target: string, file: FileTarget | undefined, body: string, at: string, fresh: boolean) => {
+      // A store todo's name, never a note to make (#2191).
+      if (TODO_ID.test(splitTarget(target).name)) return false;
+      const listed = linkPaths(queryClient);
+      if (!(listed instanceof Promise)) return followIn(listed, target, file, body, at, fresh);
+      // Read off the pane the press came from, as `openAtHeading` does, so a late open never pulls the reader back.
+      const from = tabPanes(layoutNow.current).find((each) => each.id === at)?.path;
+      return listed.then(
+        (loaded) =>
+          focusedNote.current.path === from
+            ? (followIn(loaded, target, file, body, at, fresh) ?? false)
+            : false,
+        // A listing that will not load opens nothing and makes no note.
+        () => false,
+      );
+    },
+    [queryClient, layoutNow, focusedNote, followIn],
   );
 
   /**
@@ -373,23 +417,29 @@ export function useNoteOpening({
    * `body` is empty for links followed by hand. `[[note#heading]]` opens at the heading, and `[[#heading]]` stays in the editor.
    */
   const follow = useCallback(
-    (target: string, file?: FileTarget, body = "", at = startPane(layoutNow.current)) => {
-      // A store todo's name, never a note to make (#2191).
+    (target: string, file?: FileTarget, body = "", at = startPane(layoutNow.current)) =>
+      followAt(target, file, body, at, false),
+    [layoutNow, followAt],
+  );
+
+  /**
+   * Follow a link from an editor: into its own pane, or with `where` (an Alt-click) into a split
+   * beside that pane or a new tab. The pane is made first and named by id, so the open lands in it.
+   */
+  const followTo = useCallback(
+    (target: string, file?: FileTarget, where?: FollowWhere) => {
+      const from = startPane(layoutNow.current);
+      if (where === undefined) return follow(target, file, "", from);
       if (TODO_ID.test(splitTarget(target).name)) return false;
-      const listed = linkPaths(queryClient);
-      if (!(listed instanceof Promise)) return followIn(listed, target, file, body, at);
-      // Read off the pane the press came from, as `openAtHeading` does, so a late open never pulls the reader back.
-      const from = tabPanes(layoutNow.current).find((each) => each.id === at)?.path;
-      return listed.then(
-        (loaded) =>
-          focusedNote.current.path === from
-            ? (followIn(loaded, target, file, body, at) ?? false)
-            : false,
-        // A listing that will not load opens nothing and makes no note.
-        () => false,
+      const id = newPaneId();
+      const made = moveTo((previous) =>
+        where === "tab"
+          ? addTab(previous, id)
+          : atPane(previous, from, (layout) => splitFocused(layout, "row", id)),
       );
+      return made && followAt(target, file, "", id, true);
     },
-    [queryClient, layoutNow, focusedNote, followIn],
+    [layoutNow, follow, followAt, moveTo],
   );
 
   /**
@@ -442,6 +492,7 @@ export function useNoteOpening({
     openPdfFromTree,
     openFile,
     follow,
+    followTo,
     openPassage,
     openPeriodic,
   };

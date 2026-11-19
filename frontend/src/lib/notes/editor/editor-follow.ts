@@ -26,8 +26,14 @@ export interface FileTarget {
   heading: string | null;
 }
 
-/** The target is the note's name, or the file's path when `file` is given. */
-type FollowHandler = (target: string, file?: FileTarget) => void;
+/** Where an Alt-click puts what it opens: a split beside this pane, or a new tab. */
+export type FollowWhere = "split" | "tab";
+
+/**
+ * The target is the note's name, or the file's path when `file` is given.
+ * `where` is unset for the focused pane.
+ */
+export type FollowHandler = (target: string, file?: FileTarget, where?: FollowWhere) => void;
 type HighlightHandler = (quote: string[]) => void;
 
 /**
@@ -50,12 +56,12 @@ export const highlightHandler = Facet.define<HighlightHandler, HighlightHandler 
  * Follows `[[target]]` to the route, or `[[#heading]]` within this note. The heading is found in
  * the text on screen, since the query cache holds only the last save.
  */
-function followLink(view: EditorView, target: string) {
+function followLink(view: EditorView, target: string, where?: FollowWhere) {
   const { name, heading } = splitTarget(target);
   // Following it would make a note of that name.
   if (TODO_ID.test(name)) return;
   if (name !== "") {
-    view.state.facet(followHandler)?.(target);
+    hand(view, [target], where);
     return;
   }
   const { doc } = view.state;
@@ -72,11 +78,18 @@ function followLink(view: EditorView, target: string) {
  * Opens the file a markdown link names, relative to this note's folder.
  * A note with no path, or an address climbing above the vault, follows nothing.
  */
-function followFile(view: EditorView, file: FileLink): void {
+function followFile(view: EditorView, file: FileLink, where?: FollowWhere): void {
   const note = view.state.facet(notePath);
   const path = note === undefined ? null : resolveFrom(note, file.path);
   if (path === null) return;
-  view.state.facet(followHandler)?.(path, { path, heading: file.heading });
+  hand(view, [path, { path, heading: file.heading }], where);
+}
+
+/** Hands a follow on, naming `where` only when an Alt-click set it, so a plain follow keeps its arguments. */
+function hand(view: EditorView, args: [string, FileTarget?], where: FollowWhere | undefined): void {
+  const handler = view.state.facet(followHandler);
+  if (where === undefined) handler?.(...args);
+  else handler?.(args[0], args[1], where);
 }
 
 /**
@@ -139,21 +152,28 @@ Vim.defineAction("kastenFollowLinkOrDown", (cm: CM5EditorInterface) => {
 Vim.mapCommand("<CR>", "action", "kastenFollowLinkOrDown", {}, { context: "normal" });
 
 /**
- * Ctrl+click or cmd+click follows the rendered link, as a browser does. A double-click follows
- * on its first press (#569); a press is a repeat only when the one before followed the same link (#572).
+ * Ctrl+click or cmd+click follows the rendered link, as a browser does; Alt+click opens it in a
+ * split beside, Alt+Shift+click in a new tab. A double-click follows on its first press (#569);
+ * a press is a repeat only when the one before followed the same link (#572).
  */
 export function followOnClick(): Extension {
   watchPresses();
   return EditorView.domEventHandlers({
     mousedown(event, view) {
-      if (!event.ctrlKey && !event.metaKey) return false;
+      if (!event.ctrlKey && !event.metaKey && !event.altKey) return false;
       return clickFollow(event, view);
     },
   });
 }
 
-/** Follows the link a ctrl+click lands on, and whether there was one. */
+/** Follows the link a modified click lands on, and whether there was one. */
 function clickFollow(event: MouseEvent, view: EditorView): boolean {
+  // Alt wins over Ctrl, so Ctrl+Alt is a split too. On a Mac Option is Alt.
+  const where: FollowWhere | undefined = event.altKey
+    ? event.shiftKey
+      ? "tab"
+      : "split"
+    : undefined;
   const target = linkUnder(event, view);
   if (target !== null) {
     // Returning true makes CodeMirror cancel the mousedown, and with it the
@@ -163,7 +183,7 @@ function clickFollow(event: MouseEvent, view: EditorView): boolean {
     // runs inside this call, so the layout hears of it before the open.
     if (!repeats(event, NOTE)) {
       view.focus();
-      followLink(view, target);
+      followLink(view, target, where);
     }
     return true;
   }
@@ -171,7 +191,7 @@ function clickFollow(event: MouseEvent, view: EditorView): boolean {
   if (file !== null) {
     if (!repeats(event, NOTE)) {
       view.focus();
-      followFile(view, file);
+      followFile(view, file, where);
     }
     return true;
   }

@@ -24,7 +24,7 @@ import {
 } from "@/lib/notes/editor/editor-commands";
 import { byName, reloadHandler, save, saveHandler } from "@/lib/notes/editor/editor-ex";
 import {
-  type FileTarget,
+  type FollowHandler,
   followHandler,
   followOnClick,
   followOnTap,
@@ -69,7 +69,7 @@ export interface NoteViewLatest {
   commands?: EditorCommands;
   onChange?: (doc: string) => void;
   onSave?: (doc: string) => void;
-  onFollow?: (target: string, file?: FileTarget) => void;
+  onFollow?: FollowHandler;
   onOpenHighlight?: (quote: string[]) => void;
   onCycleTodo?: CycleHandler;
   elsewhere?: (id: string) => boolean;

@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { memo, type ReactNode, useContext, useRef } from "react";
 import { Editor } from "@/components/editor";
 import { fetchNote, type TodoHit } from "@/lib/core/api";
-import type { FileTarget } from "@/lib/notes/editor/editor-follow";
+import type { FollowHandler } from "@/lib/notes/editor/editor-follow";
 import type { EmbedSource } from "@/lib/notes/embeds/embed";
 import type { Outline } from "@/lib/notes/note/head/note-head";
 import { parseTodo } from "@/lib/todo/todo";
@@ -40,7 +40,7 @@ interface NoteEditorProps {
   /** Asked for the vault's text on `:e`, and can refuse. See `Editor`. */
   onReload?: (force: boolean) => Promise<string | null>;
   /** Called with the note a `[[link]]` names, which only the route can resolve. */
-  onFollow: (target: string, file?: FileTarget) => void;
+  onFollow: FollowHandler;
   /**
    * Called with a highlight block's paragraphs and the note holding them.
    *

@@ -57,6 +57,26 @@ describe("a tap or a press on a link in a table cell opens its own target", () =
     },
   );
 
+  it.each(VIMS)(
+    "an alt press on a wikilink in a cell with vim %s opens its note in a split, not the table",
+    async (vim) => {
+      const follow = vi.fn();
+      const { at, block, element } = await appWith(
+        linkedIn("[[Some note]]").doc,
+        "alt",
+        vim,
+        "tbody .cm-wikilink",
+        { onFollow: follow },
+      );
+      const open = stubOpen();
+
+      await act(element, "alt");
+      await landed(at, block, follow, open);
+      expect.soft(block.isConnected, "the table stays drawn").toBe(true);
+      expect(follow).toHaveBeenCalledExactlyOnceWith("Some note", undefined, "split");
+    },
+  );
+
   // A cell writes the alias bar `\|`, the backslash being the table's, so the
   // target handed on is what `[[note|Shown]]` on a plain line hands on.
   const ALIASED = {

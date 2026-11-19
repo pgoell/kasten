@@ -2,7 +2,7 @@ import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { useContext, useEffect, useLayoutEffect, useRef } from "react";
 import { takeVaultText, writeWatched } from "@/lib/notes/editor/buffer-writes";
-import type { FileTarget } from "@/lib/notes/editor/editor-follow";
+import type { FollowHandler } from "@/lib/notes/editor/editor-follow";
 import { notePosition } from "@/lib/notes/editor/editor-position";
 import {
   createNoteView,
@@ -111,7 +111,7 @@ interface EditorProps {
   /** Called with the whole document on `:w` or ctrl+s. */
   onSave?: (doc: string) => void;
   /** Called with the note a `[[link]]` names when `gf` follows it. */
-  onFollow?: (target: string, file?: FileTarget) => void;
+  onFollow?: FollowHandler;
   /** Called with a highlight block's paragraphs when `gf` lands on one. */
   onOpenHighlight?: (quote: string[]) => void;
   /** Called with the line `<leader>x` cycled, which the done log follows. */
