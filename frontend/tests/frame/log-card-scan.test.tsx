@@ -175,6 +175,7 @@ async function openFood(view: EditorView): Promise<void> {
   // On a desktop the sheet slides in from past the right edge, which widens the page until
   // it lands (#2224). A phone's sheet moves by a spring and has no transition to wait for.
   const sheet = view.dom.querySelector("[role='dialog'][aria-label='Food search']");
+  expect(sheet, "the food sheet").not.toBeNull();
   await Promise.all(sheet?.getAnimations().map((slide) => slide.finished) ?? []);
 }
 
