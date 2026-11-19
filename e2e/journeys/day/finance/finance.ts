@@ -44,9 +44,10 @@ export async function openFinance(page: Page, answers: Record<string, Answer>) {
     return route.fulfill(json === undefined ? { status: status ?? 204 } : { status, json });
   });
   await page.clock.setFixedTime(new Date("2026-10-25T12:00:00"));
-  // A phone has no file tree to wait on: the thumb row's command button opens the palette.
-  await (onPhone(page) ? page.goto("/") : openApp(page));
-  await runCommand(page, /^Open the finance pane/, onPhone(page) ? "finance" : undefined);
+  // A phone has no file tree to wait on.
+  const touch = onPhone(page);
+  await (touch ? page.goto("/") : openApp(page));
+  await runCommand(page, /^Open the finance pane/, touch ? "finance" : undefined);
   const finance = page.getByRole("region", { name: "Finance" });
   await expect(finance).toBeVisible();
   await finance.focus();

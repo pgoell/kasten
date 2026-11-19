@@ -3,7 +3,6 @@ import {
   leader,
   localDate,
   noteText,
-  openApp,
   phone,
   tapHeight,
   today,
@@ -35,10 +34,8 @@ test("a sitting on the desktop writes the FSRS comment after a good rating", asy
   page,
   stack,
 }) => {
-  await openApp(page);
-  await leader(page, "gs");
   // A click focuses the pane; `j` then reaches the deck row and `l` sits it.
-  await page.getByRole("heading", { name: "Review" }).click();
+  await openReview(page);
   await page.keyboard.press("j");
   await page.keyboard.press("l");
   await expect(page.getByText("What is the capital of France?")).toBeVisible();
