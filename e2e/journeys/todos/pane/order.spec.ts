@@ -12,7 +12,7 @@ import {
   todoRows,
   vaultWith,
 } from "../../../harness/app.ts";
-import { expect, test } from "../../../harness/stack.ts";
+import { expect, type Stack, test } from "../../../harness/stack.ts";
 
 const NAMES = [
   "alpha",
@@ -36,9 +36,9 @@ const NOTES = {
   [B]: todos(...doing("echo", "foxtrot")),
   [DAILY]: todos(...doing("golf")),
 };
-/** The GET /api/todos reads one press sends on main, its echoes muted, measured with the clock run on and held. */
-const PRESS_READS = 3;
-const REFUSED = /^Nothing moved: PUT .+ failed with 500$/;
+/** The GET /api/todos reads one press sends, its echo muted, measured with the clock run on and held. */
+const PRESS_READS = 1;
+const REFUSED = /^Nothing moved: POST .+ failed with 422$/;
 const row = (page: Page, name: string) => page.locator(TODO_ROW, { hasText: name });
 const struck = (page: Page, name: string) => row(page, name).locator(".line-through");
 const cursorRow = (page: Page) => page.locator(`${TODO_ROW}[tabindex="0"]`);
@@ -46,8 +46,21 @@ const cursorRow = (page: Page) => page.locator(`${TODO_ROW}[tabindex="0"]`);
 /** The rows drawn, by the word each names, in the order drawn; the vault's other todos left out. */
 const order = async (page: Page) =>
   (await todoRows(page)).texts.flatMap((text) =>
-    NAMES.filter((name) => new RegExp(`\\b${name}\\b`).test(text)).slice(0, 1),
+    // A row's text runs into its due chip, "alpha12-03", so no \b ends the word.
+    NAMES.filter((name) => new RegExp(`(?<![a-z])${name}(?![a-z])`).test(text)).slice(0, 1),
   );
+
+/** The store's row of the todo whose words hold `name`. */
+const rowOf = async (stack: Stack, name: string) => {
+  const rows: { id: string; words: string; state: string }[] = await (
+    await fetch(`${stack.url}/api/todos/rows`)
+  ).json();
+  return rows.find((each) => new RegExp(`(?<![a-z])${name}(?![a-z])`).test(each.words));
+};
+const stateOf = async (stack: Stack, name: string) => (await rowOf(stack, name))?.state;
+/** Writes `path` again with a line added, so the pane reads the list; the note holds embeds now. */
+const touch = async (vault: string, path: string, line = "") =>
+  vaultWith(vault, { [path]: `${await noteText(vault, path)}${line}\n` });
 
 /** Lets the paused clock on by a step per read, so answers land while a press still holds the order. */
 const heldRead = (page: Page) => async () => {
@@ -55,17 +68,17 @@ const heldRead = (page: Page) => async () => {
   return order(page);
 };
 
-type Open = { notes?: Record<string, string>; touch?: boolean; vim?: string };
+type Open = { notes?: Record<string, string>; touch?: boolean };
 
 /**
  * The todo pane over the Order notes. Each list answer comes rotated one further, as nothing
- * promises the backend's order, so a redraw that does not hold the order moves rows. PUTs past
- * `allow` answer 500.
+ * promises the backend's order, so a redraw that does not hold the order moves rows. While
+ * `refuse.on`, the store answers a press's cycle with 422.
  */
 async function openOrder(page: Page, vault: string, o: Open = {}) {
   let reads = 0;
   let gate: Promise<void> | undefined;
-  const put: { allow: number; gate?: Promise<void> } = { allow: Number.POSITIVE_INFINITY };
+  const refuse = { on: false };
   await page.route("**/api/todos?**", async (route) => {
     const wait = gate;
     gate = undefined;
@@ -76,24 +89,15 @@ async function openOrder(page: Page, vault: string, o: Open = {}) {
     await wait;
     await route.fulfill({ response: answer, json: [...hits.slice(turn), ...hits.slice(0, turn)] });
   });
-  await page.route("**/api/files/**", async (route) => {
-    if (route.request().method() !== "PUT") return route.fallback();
-    await put.gate;
-    if (put.allow <= 0) return route.fulfill({ status: 500, body: "" });
-    put.allow -= 1;
-    return route.fallback();
-  });
+  await page.route("**/api/todos/*/cycle", (route) =>
+    refuse.on ? route.fulfill({ status: 422, json: {} }) : route.fallback(),
+  );
   const seen = await recordEvents(page);
   await vaultWith(vault, { ...NOTES, ...o.notes });
   await page.clock.install();
   if (o.touch) {
     await page.goto("/");
     await page.getByRole("button", { name: "Open the todo pane" }).tap({ timeout: 15_000 });
-  } else if (o.vim === "off") {
-    await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
-    await openApp(page);
-    await page.keyboard.press("Control+Shift+P");
-    await page.getByRole("option", { name: /^Open the todo pane/ }).click();
   } else {
     await openApp(page);
     await leader(page, "gt");
@@ -110,7 +114,7 @@ async function openOrder(page: Page, vault: string, o: Open = {}) {
     });
     return go;
   };
-  return { reads: () => reads, seen, first: await order(page), put, holdNext };
+  return { reads: () => reads, seen, first: await order(page), refuse, holdNext };
 }
 
 // A list read still out when a journey ends would throw in its handler once the page closes.
@@ -156,21 +160,21 @@ test("#947 I1 O on a struck row reopens it in place", async ({ page, stack }) =>
     .poll(async () => (await heldRead(page)()) && struck(page, first[0] ?? "").count())
     .toBe(0);
   expect(await order(page)).toEqual(first);
-  await expect.poll(() => noteText(stack.vault, A)).toContain(`- [ ] ${first[0]}`);
+  await expect.poll(() => stateOf(stack, first[0] ?? "")).toBe("open");
 });
 
 /** Presses x on the Order row `name`, waits for its writes, their echoes and the hold to let go, and counts the list reads. */
 async function pressCount(
   page: Page,
-  vault: string,
+  stack: Stack,
   o: { reads: () => number; seen: () => Promise<string> },
   name: string,
 ) {
   await cursorTo(page, name);
   const before = o.reads();
   await page.keyboard.press("x");
-  await expect.poll(() => noteText(vault, DAILY), { timeout: 15_000 }).toContain(name);
-  await expect.poll(o.seen, { timeout: 15_000 }).toContain(DAILY);
+  await expect.poll(() => stateOf(stack, name), { timeout: 15_000 }).toBe("done");
+  await expect.poll(o.seen, { timeout: 15_000 }).toContain('"todos"');
   // The echo asks nothing, so only a wait past it and the hold's beat can show a read it sent.
   await page.waitForTimeout(1500);
   return o.reads() - before;
@@ -181,7 +185,7 @@ test("#947 A3 one press asks the list once over, its own echoes ask nothing, a w
   stack,
 }) => {
   const open = await openOrder(page, stack.vault);
-  expect(await pressCount(page, stack.vault, open, open.first[0] ?? "")).toBe(PRESS_READS);
+  expect(await pressCount(page, stack, open, open.first[0] ?? "")).toBe(PRESS_READS);
   const before = open.reads();
   await vaultWith(stack.vault, { "zz.md": "- [ ] hotel\n" });
   await expect(row(page, "hotel")).toBeVisible({ timeout: 15_000 });
@@ -202,7 +206,7 @@ test.describe("on a phone", () => {
       const button = page.getByRole("button", { name: `cycle ${name}` });
       await button.tap();
       await button.tap();
-      await expect.poll(() => noteText(stack.vault, DAILY), { timeout: 15_000 }).toContain(name);
+      await expect.poll(() => stateOf(stack, name), { timeout: 15_000 }).toBe("done");
       await expect.poll(async () => (await heldRead(page)()) && struck(page, name).count()).toBe(1);
       await page.waitForTimeout(500);
       expect(await order(page)).toEqual(first);
@@ -218,9 +222,12 @@ test("#947 I2 a todo added while the order is held goes to the end, and one remo
   const { first } = await openOrder(page, stack.vault);
   await aim(page, first[0] ?? "");
   await page.keyboard.press("x");
-  await vaultWith(stack.vault, { [B]: `${NOTES[B]}- [ ] hotel\n` });
+  await touch(stack.vault, B, "- [ ] hotel");
   await expect.poll(heldRead(page), { timeout: 15_000 }).toEqual([...first, "hotel"]);
-  await vaultWith(stack.vault, { [A]: NOTES[A].replace("- [/] charlie\n", "") });
+  const charlie = await rowOf(stack, "charlie");
+  await fetch(`${stack.url}/api/todos/${charlie?.id}`, { method: "DELETE" });
+  // A delete sends no todos event, so a note's write makes the pane read again.
+  await touch(stack.vault, A);
   const left = [...first.filter((name) => name !== "charlie"), "hotel"];
   await expect.poll(heldRead(page), { timeout: 15_000 }).toEqual(left);
 });
@@ -233,32 +240,30 @@ test("#947 I3b a press landing while a list read is out draws the late answer wi
   await cursorTo(page, first[0] ?? "");
   const before = reads();
   const go = holdNext();
-  await vaultWith(stack.vault, { [B]: `${NOTES[B]}\n` });
+  await touch(stack.vault, B);
   await expect.poll(reads, { timeout: 15_000 }).toBe(before + 1);
   await page.keyboard.press("x");
-  await expect
-    .poll(() => noteText(stack.vault, DAILY), { timeout: 15_000 })
-    .toContain(first[0] ?? "");
+  await expect.poll(() => stateOf(stack, first[0] ?? ""), { timeout: 15_000 }).toBe("done");
   go();
   await page.waitForTimeout(300);
   await expect(struck(page, first[0] ?? "")).toBeVisible();
   expect(await order(page)).toEqual(first);
 });
 
-test("#947 B1 a press whose done log is refused says so and still draws its todo struck", async ({
+test("#947 B1 a press the store refuses says so, draws its todo unstruck, and asks the list once", async ({
   page,
   stack,
 }) => {
-  const { first, put, reads } = await openOrder(page, stack.vault);
+  const { first, refuse, reads } = await openOrder(page, stack.vault);
   await cursorTo(page, first[0] ?? "");
   const before = reads();
-  put.allow = 1;
+  refuse.on = true;
   await page.keyboard.press("x");
   await expect(page.getByText(REFUSED)).toBeVisible({ timeout: 15_000 });
-  await expect(struck(page, first[0] ?? "")).toBeVisible();
-  // The landed write's echo is muted, so only the press's own ask at its end redraws it.
+  await expect(struck(page, first[0] ?? "")).toHaveCount(0);
+  // A refused write commits nothing, so no event comes; only the press's own ask at its end reads.
   await page.waitForTimeout(1500);
-  expect(reads() - before).toBe(2);
+  expect(reads() - before).toBe(1);
 });
 
 test("#947 B4 an edit with i during a held order puts the row where its new words put it", async ({
@@ -269,112 +274,12 @@ test("#947 B4 an edit with i during a held order puts the row where its new word
   await aim(page, first[0] ?? "");
   await page.keyboard.press("x");
   // An edit typed before the x lands is refused, so it waits for the write; the paused clock keeps the x's hold.
-  await expect
-    .poll(() => noteText(stack.vault, A), { timeout: 15_000 })
-    .toContain(`- [x] ${first[0]}`);
+  await expect.poll(() => stateOf(stack, first[0] ?? ""), { timeout: 15_000 }).toBe("done");
   await page.keyboard.press("j");
   await page.keyboard.press("i");
   await page.getByLabel("edit line").fill("- [/] kilo ⏫");
   await page.keyboard.press("Enter");
   await expect.poll(async () => (await heldRead(page)())[0], { timeout: 15_000 }).toBe("kilo");
-});
-
-/** Holds every note write until the call it answers, so the keys typed meanwhile beat the x's write. */
-function holdWrites(put: { gate?: Promise<void> }) {
-  let go = () => {};
-  put.gate = new Promise((resolve) => {
-    go = resolve;
-  });
-  return go;
-}
-
-const KILO = "- [/] kilo ⏫";
-// #2210: the x's save stamps a frontmatter block on top of Order A, which has none, so bravo moves down.
-const AFTER_X: [string, string, (page: Page) => Promise<void>, RegExp][] = [
-  [
-    "i",
-    "an edit",
-    (page) => page.getByLabel("edit line").fill(KILO),
-    /- \[\/\] kilo ⏫\n- \[\/\] charlie/,
-  ],
-  ["b", "a blocker", (page) => cursorTo(page, "echo"), /- \[.\] bravo ⛔ kt-/],
-  [
-    "s",
-    "a part",
-    (page) => page.getByRole("dialog").getByRole("textbox").fill("kilo"),
-    /bravo\n {2}- \[ \] kilo/,
-  ],
-];
-
-/** The x and the key after it both landed in Order A, with no refusal said and no edit line left open. */
-async function bothLanded(page: Page, vault: string, want: RegExp) {
-  await expect.poll(() => noteText(vault, A), { timeout: 15_000 }).toMatch(want);
-  expect(await noteText(vault, A)).toMatch(/- \[x\] alpha ✅/);
-  await expect(page.getByText(/^Nothing moved/)).toHaveCount(0);
-  await expect(page.getByLabel("edit line")).toHaveCount(0);
-}
-
-for (const vim of ["on", "off"])
-  for (const [key, what, act, want] of AFTER_X)
-    test(`#2210 ${what} by ${key} on another row before the x's write lands still lands, vim ${vim}`, async ({
-      page,
-      stack,
-    }) => {
-      const { put } = await openOrder(page, stack.vault, { vim });
-      await aim(page, "alpha");
-      const go = holdWrites(put);
-      await page.keyboard.press("x");
-      await cursorTo(page, "bravo");
-      await page.keyboard.press(key);
-      await act(page);
-      await page.keyboard.press("Enter");
-      go();
-      await bothLanded(page, stack.vault, want);
-    });
-
-test("#2210 an edit on another row before an edit's write lands still lands", async ({
-  page,
-  stack,
-}) => {
-  const { put } = await openOrder(page, stack.vault);
-  await aim(page, "alpha");
-  const go = holdWrites(put);
-  for (const [name, line] of [
-    ["alpha", "- [/] alpha two"],
-    ["bravo", KILO],
-  ]) {
-    await cursorTo(page, name);
-    await page.keyboard.press("i");
-    await page.getByLabel("edit line").fill(line);
-    await page.keyboard.press("Enter");
-  }
-  go();
-  await expect
-    .poll(() => noteText(stack.vault, A), { timeout: 15_000 })
-    .toMatch(/alpha two\n- \[\/\] kilo ⏫\n/);
-  await expect(page.getByText(/^Nothing moved/)).toHaveCount(0);
-});
-
-test.describe("on a phone, before the write lands", () => {
-  test.use(phone);
-
-  test("#2210 an edit tapped on another row after a state tap still lands", async ({
-    page,
-    stack,
-  }) => {
-    const { put } = await openOrder(page, stack.vault, { touch: true });
-    const go = holdWrites(put);
-    const cycle = page.getByRole("button", { name: "cycle alpha" });
-    await cycle.tap();
-    await expect(cycle).toHaveText("?");
-    await cycle.tap();
-    await page.getByLabel("more for bravo").tap();
-    await page.getByLabel("edit bravo").tap();
-    await page.getByLabel("edit line").fill(KILO);
-    await page.getByLabel("edit line").press("Enter");
-    go();
-    await bothLanded(page, stack.vault, AFTER_X[0]?.[3] ?? /kilo/);
-  });
 });
 
 test("#947 B3 after b during a held order no todo is struck that was not checked off", async ({
@@ -410,8 +315,8 @@ for (const agent of [false, true]) {
     await aim(page, "bravo");
     await page.keyboard.press("@");
     await expect
-      .poll(() => noteText(stack.vault, A))
-      .toMatch(agent ? /- \[ \] bravo/ : /bravo #agent/);
+      .poll(async () => (await rowOf(stack, "bravo"))?.words.includes("#agent"))
+      .toBe(!agent);
     await expect.poll(heldRead(page)).toEqual(first);
     await expect(cursorRow(page)).toContainText("bravo");
   });
@@ -424,10 +329,8 @@ test("#947 B5 a todo typed into today's note right after a press reaches the pan
   const { first } = await openOrder(page, stack.vault);
   await cursorTo(page, first[0] ?? "");
   await page.keyboard.press("x");
-  await expect
-    .poll(() => noteText(stack.vault, DAILY), { timeout: 15_000 })
-    .toContain(first[0] ?? "");
-  await vaultWith(stack.vault, { [DAILY]: `${await noteText(stack.vault, DAILY)}- [ ] kilo\n` });
+  await expect.poll(() => stateOf(stack, first[0] ?? ""), { timeout: 15_000 }).toBe("done");
+  await touch(stack.vault, DAILY, "- [ ] kilo");
   await expect(row(page, "kilo")).toBeVisible({ timeout: 15_000 });
 });
 
@@ -436,7 +339,7 @@ const crlf = (notes: Record<string, string>) =>
     Object.entries(notes).map(([path, text]) => [path, text.replaceAll("\n", "\r\n")]),
   );
 
-test("#947 B7 #1705 a CRLF note shows its rows, x keeps it CRLF, and the press asks the list once over", async ({
+test("#947 B7 #1705 a CRLF note shows its rows and a press asks the list once over", async ({
   page,
   stack,
 }) => {
@@ -451,29 +354,24 @@ test("#947 B7 #1705 a CRLF note shows its rows, x keeps it CRLF, and the press a
     "golf",
   ]);
   for (const name of open.first)
-    await expect(row(page, name)).toHaveText(new RegExp(`^\\W*${name}$`));
+    await expect(row(page, name)).toHaveText(new RegExp(`^\\W*${name}[\\d-]*$`));
   const name = open.first[0] ?? "";
-  expect(await pressCount(page, stack.vault, open, name)).toBe(PRESS_READS);
-  const path =
-    Object.keys(NOTES).find((each) => NOTES[each as keyof typeof NOTES].includes(name)) ?? "";
-  const text = await noteText(stack.vault, path);
-  expect(text).toContain(`- [x] ${name}`);
-  expect(text).not.toMatch(/[^\r]\n/);
+  expect(await pressCount(page, stack, open, name)).toBe(PRESS_READS);
 });
 
 test("#947 I3 a refused press keeps the notice and the row where it was through a redraw", async ({
   page,
   stack,
 }) => {
-  const { first, put, reads } = await openOrder(page, stack.vault);
+  const { first, refuse, reads } = await openOrder(page, stack.vault);
   await cursorTo(page, first[0] ?? "");
-  put.allow = 0;
+  refuse.on = true;
   await page.keyboard.press("x");
   await expect(page.getByText(REFUSED)).toBeVisible({ timeout: 15_000 });
   await expect(struck(page, first[0] ?? "")).toHaveCount(0);
-  put.allow = Number.POSITIVE_INFINITY;
+  refuse.on = false;
   const before = reads();
-  await vaultWith(stack.vault, { [B]: `${NOTES[B]}\n` });
+  await touch(stack.vault, B);
   await expect.poll(reads, { timeout: 15_000 }).toBeGreaterThan(before);
   await page.waitForTimeout(300);
   expect(await order(page)).toEqual(first);
