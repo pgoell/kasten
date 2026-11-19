@@ -1,9 +1,16 @@
-import { ensureSyntaxTree, forceParsing, syntaxTree } from "@codemirror/language";
+import {
+  ensureSyntaxTree,
+  forceParsing,
+  syntaxTree,
+  syntaxTreeAvailable,
+} from "@codemirror/language";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { noteLanguage } from "@/lib/markdown/note-language";
-import { wikiLinkAt } from "@/lib/notes/links/wikilink";
-import { renderedMarkdown } from "@/lib/notes/live/live-preview";
+import { vimKeys } from "@/lib/notes/editor/vim-mode";
+import { vaultPaths, wikiLinkAt } from "@/lib/notes/links/wikilink";
+import { livePreview, renderedMarkdown } from "@/lib/notes/live/live-preview";
+import { stalled } from "./live-preview-fixture";
 
 /** Whether some decoration replaces the range with a widget. */
 function drawn(view: EditorView, from: number, to: number): boolean {
@@ -78,6 +85,60 @@ describe("a note longer than the first parse", () => {
     // any wait; this lands the tree as the empty transaction a slice sends.
     forceParsing(view, doc.length, 10_000);
     expect(drawn(view, from, doc.length)).toBe(true);
+    view.destroy();
+  });
+});
+
+describe("a drawing kept past a parse that ran out", () => {
+  /** The ranges drawn with `name`, by their offsets. */
+  function marked(view: EditorView, name: string): string[] {
+    const found: string[] = [];
+    for (const source of view.state.facet(EditorView.decorations)) {
+      const set = typeof source === "function" ? source(view) : source;
+      set.between(0, view.state.doc.length, (from, to, value) => {
+        if (String(value.spec.class ?? "").includes(name)) found.push(`${from}-${to}`);
+      });
+    }
+    return found;
+  }
+
+  /** On a clock that jumps `by` at every read, so each parse step runs out of its 20ms. */
+  function starved(doc: string, by: number): EditorView {
+    let now = Date.now();
+    const clock = vi.spyOn(Date, "now").mockImplementation(() => (now += by));
+    try {
+      const extensions = [
+        noteLanguage(),
+        vimKeys.of(false),
+        livePreview(),
+        vaultPaths.of(["b.md"]),
+      ];
+      return new EditorView({
+        state: EditorState.create({ doc, extensions }),
+        parent: document.body,
+      });
+    } finally {
+      clock.mockRestore();
+    }
+  }
+
+  it("draws a link past the first parse's reach once, however often the cursor moves (#2227)", () => {
+    const doc = "intro\n\nsee [[b|Bee]] now\n";
+    // 12ms a read lets the first parse take two steps: the tree holds the link, its reach does not.
+    const view = starved(doc, 12);
+    const at = doc.indexOf("Bee");
+    expect([marked(view, "cm-wikilink"), syntaxTreeAvailable(view.state, at)]).toEqual([
+      [`${at}-${at + 3}`],
+      false,
+    ]);
+    // Every range, the hidden `[[b|` and `]]` among them, which the cursor's nudge reads.
+    const ranges = marked(view, "");
+    for (const anchor of [1, 0, 2, 1]) stalled(() => view.dispatch({ selection: { anchor } }));
+
+    expect(syntaxTreeAvailable(view.state, at)).toBe(false);
+    expect(marked(view, "cm-wikilink")).toEqual([`${at}-${at + 3}`]);
+    expect(marked(view, "")).toEqual(ranges);
+    expect(view.dom.querySelectorAll(".cm-wikilink")).toHaveLength(1);
     view.destroy();
   });
 });

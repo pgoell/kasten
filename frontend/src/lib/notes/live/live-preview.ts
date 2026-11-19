@@ -280,11 +280,16 @@ function keepPastParse(value: Live, tr: Transaction, fresh: Live): Live {
     });
     return !touched && !selection.ranges.some((range) => onLines(range.from, range.to));
   };
-  const old = <T extends Decoration>(set: RangeSet<T>) =>
-    (tr.docChanged ? set.map(tr.changes) : set).update({ filter: keep });
+  // One source per range: a stopped tree can hold nodes past the reach, so the fresh drawing
+  // may hold what the old one keeps, and joined, each rebuild nests another mark (#2227).
+  const both = <T extends Decoration>(now: RangeSet<T>, before: RangeSet<T>) =>
+    RangeSet.join([
+      now.update({ filter: (from, to) => !keep(from, to) }),
+      (tr.docChanged ? before.map(tr.changes) : before).update({ filter: keep }),
+    ]);
   return {
-    decorations: RangeSet.join([fresh.decorations, old(value.decorations)]),
-    hidden: RangeSet.join([fresh.hidden, old(value.hidden)]),
+    decorations: both(fresh.decorations, value.decorations),
+    hidden: both(fresh.hidden, value.hidden),
   };
 }
 
