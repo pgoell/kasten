@@ -62,10 +62,10 @@ export const test = base.extend<{ stack: Stack }, { warm: string }>({
       proxy?.closeAllConnections();
       proxy?.close();
       await stop(backend);
-      await dropDatabase(db);
       if (testInfo.status !== testInfo.expectedStatus) {
         await testInfo.attach("backend.log", { body: log.join(""), contentType: "text/plain" });
       }
+      await dropDatabase(db);
       await rm(dir, { recursive: true, force: true });
     }
   },

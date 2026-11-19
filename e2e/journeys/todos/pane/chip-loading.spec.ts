@@ -1,5 +1,5 @@
 import type { Locator, Page } from "@playwright/test";
-import { cursorTo, phone, TODO_ROW, vaultWith } from "../../../harness/app.ts";
+import { cursorTo, phone, runCommand, TODO_ROW, vaultWith } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
 
 // An assignee chip while GET /api/files has not answered (#2124): it does not know yet
@@ -64,8 +64,7 @@ async function reopen(page: Page, by: "click" | "tap") {
     await button.tap({ timeout: 15_000 });
     return;
   }
-  await page.keyboard.press("Control+Shift+P");
-  await page.getByRole("option", { name: /^Open the todo pane/ }).click();
+  await runCommand(page, /^Open the todo pane/);
 }
 
 /** A chip that waits: no dash, no fill, not the link colour, and no person note to open. */

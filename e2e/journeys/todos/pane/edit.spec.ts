@@ -6,6 +6,7 @@ import {
   noteText,
   openApp,
   plus,
+  runCommand,
   TODO_ROW,
   today,
   vaultWith,
@@ -39,11 +40,8 @@ async function onDentist(page: Page, vault: string, vim = "on") {
   await vaultWith(vault, { [NOTE]: note(LINE, NEXT) });
   await openApp(page);
   if (vim === "on") await leader(page, "gt");
-  else {
-    // Space is a letter with vim off, so the palette opens the pane.
-    await page.keyboard.press("Control+Shift+P");
-    await page.getByRole("option", { name: /^Open the todo pane/ }).click();
-  }
+  // Space is a letter with vim off, so the palette opens the pane.
+  else await runCommand(page, /^Open the todo pane/);
   await expect(page.locator(TODO_ROW, { hasText: "book the checkup" })).toBeVisible();
   await cursorTo(page, "call the dentist");
 }
@@ -263,10 +261,8 @@ test.describe("@ sends the cursor's todo to the agent (#523)", () => {
     if (o.vim === "off") await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
     await vaultWith(vault, { [AT]: text(lines) });
     await openApp(page);
-    if (o.vim === "off") {
-      await page.keyboard.press("Control+Shift+P");
-      await page.getByRole("option", { name: /^Open the todo pane/ }).click();
-    } else await leader(page, "gt");
+    if (o.vim === "off") await runCommand(page, /^Open the todo pane/);
+    else await leader(page, "gt");
     await expect(row(page, words).first()).toBeVisible({ timeout: 15_000 });
     if (o.held) await page.route("**/api/todos*", () => new Promise(() => {}));
     await cursorTo(page, words);
