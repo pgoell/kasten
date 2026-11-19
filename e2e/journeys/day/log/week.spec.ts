@@ -190,6 +190,8 @@ for (const vim of ["on", "off"]) {
     await openWeek(page, stack.vault, FULL);
     await rows(page, "Done").filter({ hasText: "ship the export" }).click();
     await expect(page.getByRole("tab", { name: "tasks", selected: true })).toBeVisible();
+    // The note opens once its embed's line is read: keys sent before its focus are lost.
+    await expect(page.locator(".cm-content:focus")).toHaveCount(1);
     if (vim === "on") await page.keyboard.type("A!");
     else {
       await page.keyboard.press("End");
@@ -208,9 +210,10 @@ test.describe("on a phone", () => {
   test("#807 I7 a tap on a Done row opens its note at the todo's line", async ({ page, stack }) => {
     await openWeek(page, stack.vault, FULL);
     await rows(page, "Done").filter({ hasText: "ship the export" }).tap();
-    await expect(page.locator(".cm-content")).toContainText("next thing");
+    const editor = page.locator(".cm-content:visible");
+    await expect(editor).toContainText("next thing");
     // A tap leaves the keyboard shut; focus brings back the selection the row set.
-    await page.locator(".cm-content").focus();
+    await editor.focus();
     await page.keyboard.press("End");
     await page.keyboard.type("!");
     await page.clock.runFor(10_000);
