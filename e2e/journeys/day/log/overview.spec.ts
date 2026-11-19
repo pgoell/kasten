@@ -8,6 +8,7 @@ import {
   phone,
   plus,
   recordEvents,
+  runCommand,
   today,
   vaultWith,
 } from "../../../harness/app.ts";
@@ -40,10 +41,7 @@ test.describe("on a phone", () => {
     stack,
   }) => {
     await page.goto("/");
-    const commands = page.getByRole("toolbar", { name: "Commands" });
-    await expect(commands).toBeVisible({ timeout: 15_000 });
-    await commands.getByRole("button", { name: "Run a command by name" }).tap();
-    await page.getByRole("option", { name: /^Open the log/ }).tap();
+    await runCommand(page, /^Open the log/);
     const pane = page.getByRole("region", { name: "Log" });
     await pane.getByRole("button", { name: "Log alcohol" }).tap();
     await expect(pane.getByRole("button", { name: "🍺 1", exact: true })).toBeVisible();
@@ -203,9 +201,7 @@ test.describe("the overview's words", () => {
       }) => {
         if (width === "phone") {
           await page.goto("/");
-          const commands = page.getByRole("toolbar", { name: "Commands" });
-          await commands.getByRole("button", { name: "Run a command by name" }).tap();
-          await page.getByRole("option", { name: /^Open the overview/ }).tap();
+          await runCommand(page, /^Open the overview/);
         } else await overview(page);
         for (const name of ["Food", "Water"]) {
           await expect(card(page, name).locator(".overview-caption")).toHaveText(
@@ -292,10 +288,7 @@ async function overviewWith(page: Page, vim: string): Promise<void> {
   if (vim === "off") await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
   await openApp(page);
   if (vim === "on") await leader(page, "ga");
-  else {
-    await page.keyboard.press("Control+Shift+P");
-    await page.getByRole("option", { name: /^Open the overview/ }).click();
-  }
+  else await runCommand(page, /^Open the overview/);
   await expect(card(page, "Food")).toBeVisible({ timeout: 15_000 });
 }
 
@@ -335,8 +328,7 @@ test.describe("the overview's keys", () => {
       await openApp(page);
       if (vim === "off") {
         // Vim off, the editor takes no leader, so it starts from the log pane the palette opens.
-        await page.keyboard.press("Control+Shift+P");
-        await page.getByRole("option", { name: /^Open the log/ }).click();
+        await runCommand(page, /^Open the log/);
         await expect(page.getByRole("region", { name: "Log" })).toBeVisible();
       }
       await leader(page, "ga");

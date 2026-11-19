@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import { leader, noteText, openApp, openNote, unstamped, vaultWith } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
+import { openReview } from "../../review/review.ts";
 
 /** A note whose `---` on line 1 nothing closes. */
 const UNCLOSED = "---\nref: x #abc\n\n#real";
@@ -164,9 +165,7 @@ test("review draws the escapes in a card's side and a cloze's answer as the impo
   await vaultWith(stack.vault, {
     "03 Flashcards/Capitals.md": "#flashcards/capitals\n\na\\\\-b::back\n\nMark::==a\\\\::b==\n",
   });
-  await openApp(page);
-  await leader(page, "gs");
-  await page.getByRole("heading", { name: "Review" }).click();
+  await openReview(page);
   await page.keyboard.press("j");
   await page.keyboard.press("l");
   const question = page.getByTestId("review-question");

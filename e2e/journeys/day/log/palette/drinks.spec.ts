@@ -8,6 +8,7 @@ import {
   openApp,
   openNote,
   phone,
+  runCommand,
   vaultWith,
 } from "../../../../harness/app.ts";
 import { expect, test } from "../../../../harness/stack.ts";
@@ -150,9 +151,7 @@ test.describe("on a phone", () => {
   }) => {
     await vaultWith(stack.vault, { [DAILY]: DAY_TEXT, [CONFIG_PATH]: TEA });
     await page.goto(`/?note=${encodeURIComponent(DAILY)}`);
-    const commands = page.getByRole("toolbar", { name: "Commands" });
-    await commands.getByRole("button", { name: "Run a command by name" }).tap({ timeout: 15_000 });
-    await row(page, "Log tea").tap();
+    await runCommand(page, /^Log tea/);
     await expect.poll(() => written(stack.vault)).toContain("## Log\n- 🍵 1 cup");
   });
 });

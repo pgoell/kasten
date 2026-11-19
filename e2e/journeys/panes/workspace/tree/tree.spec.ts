@@ -3,6 +3,7 @@ import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { findNote, leader, openApp, vaultWith } from "../../../../harness/app.ts";
 import { expect, test } from "../../../../harness/stack.ts";
+import { prompt, row, tree } from "./tree.ts";
 
 // The note `02 Projects/Garden.md` and the folder `02 Projects/Garden/` share a name on purpose: the vault allows both.
 const BEDS = "02 Projects/Garden/Beds.md";
@@ -12,16 +13,13 @@ const PNG = Buffer.from(
   "base64",
 );
 
-const tree = (page: Page) => page.getByRole("navigation", { name: "Vault" });
-const panel = (page: Page) => page.locator("aside").filter({ has: tree(page) });
-const row = (page: Page, name: string) => tree(page).getByRole("button", { name, exact: true });
+const treePanel = (page: Page) => page.locator("aside").filter({ has: tree(page) });
 const folder = (page: Page, name: string) => row(page, name).and(page.locator("[aria-expanded]"));
 /** The list item a folder's row sits in, which holds its rows once it is unfolded. */
 const inside = (page: Page, name: string) => folder(page, name).locator("xpath=..");
 const grip = (page: Page) => page.getByRole("separator", { name: "Resize file tree" });
-const width = (page: Page) => panel(page).evaluate((aside) => aside.getBoundingClientRect().width);
-const newNote = (page: Page) =>
-  page.getByRole("dialog", { name: "New note" }).getByRole("combobox");
+const width = (page: Page) =>
+  treePanel(page).evaluate((aside) => aside.getBoundingClientRect().width);
 
 /** Loads the app with the extra rows these journeys need. */
 async function opened(page: Page, vault: string): Promise<void> {
@@ -59,10 +57,10 @@ async function unfoldsProjects(page: Page): Promise<void> {
 
 /** Clicks New note in the panel's header, reads the folder its prompt starts in, and shuts it. */
 async function startsIn(page: Page): Promise<string> {
-  await panel(page).getByRole("button", { name: "New note" }).click();
-  const value = await newNote(page).inputValue();
+  await treePanel(page).getByRole("button", { name: "New note" }).click();
+  const value = await prompt(page, "New note").inputValue();
   await page.keyboard.press("Escape");
-  await expect(newNote(page)).toBeHidden();
+  await expect(prompt(page, "New note")).toBeHidden();
   return value;
 }
 
@@ -279,7 +277,7 @@ test("a note opened by a click on its row while the tree holds the focus takes t
 test.describe("a reader while the vault moves under it", () => {
   const PRIMER = "04 Books/Primer.md";
   const reader = (page: Page) => page.locator("[data-book-pane]");
-  const prompt = (page: Page, name: string) => page.getByRole("dialog", { name });
+  const dialog = (page: Page, name: string) => page.getByRole("dialog", { name });
 
   /** Opens Primer with its book beside it; answers the notes whose book the browser read, in order. */
   async function reading(page: Page, vault: string): Promise<string[]> {
@@ -302,9 +300,9 @@ test.describe("a reader while the vault moves under it", () => {
     for (let step = 0; step < steps; step += 1) await page.keyboard.press("j");
     await expect(row(page, name)).toBeFocused();
     await page.keyboard.press("r");
-    await prompt(page, kind).getByRole("combobox").fill(to);
+    await prompt(page, kind).fill(to);
     await page.keyboard.press("Enter");
-    await expect(prompt(page, kind)).toHaveCount(0);
+    await expect(dialog(page, kind)).toHaveCount(0);
   }
 
   /** The reader is drawn on its first page and shows no alert. */
@@ -354,7 +352,7 @@ test.describe("a reader while the vault moves under it", () => {
     // Back to the note's own pane: rf renames the focused pane's note.
     await leader(page, "o");
     await leader(page, "rf");
-    await prompt(page, "Rename note").getByRole("combobox").fill("04 Books/Basics.md");
+    await prompt(page, "Rename note").fill("04 Books/Basics.md");
     await page.keyboard.press("Enter");
     await expect.poll(() => reads).toEqual([PRIMER, "04 Books/Basics.md"]);
     await stillReads(page);
@@ -373,7 +371,7 @@ test.describe("a reader while the vault moves under it", () => {
     await page.keyboard.press("G");
     await expect(row(page, "Welcome")).toBeFocused();
     await page.keyboard.press("r");
-    await prompt(page, "Rename note").getByRole("combobox").fill("Hello.md");
+    await prompt(page, "Rename note").fill("Hello.md");
     await page.keyboard.press("Enter");
     await expect(row(page, "Hello")).toBeVisible();
     await stillReads(page);

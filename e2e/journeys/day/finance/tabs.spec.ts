@@ -1,5 +1,5 @@
 import type { Locator, Page } from "@playwright/test";
-import { leader, phone } from "../../../harness/app.ts";
+import { leader, onPhone, phone } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
 import {
   ALT,
@@ -9,7 +9,6 @@ import {
   CTRL,
   crumbs,
   never,
-  onPhone,
   openFinance,
   typeHeld,
 } from "./finance.ts";

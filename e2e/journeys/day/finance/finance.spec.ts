@@ -1,5 +1,5 @@
 import type { Locator, Page } from "@playwright/test";
-import { openApp, today } from "../../../harness/app.ts";
+import { openApp, runCommand, today } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
 import { ALT, CTRL, typeHeld } from "./finance.ts";
 
@@ -9,8 +9,7 @@ for (const vim of ["on", "off"]) {
   }) => {
     await page.addInitScript((mode) => localStorage.setItem("kasten.vim", mode), vim);
     await openApp(page);
-    await page.keyboard.press("Control+Shift+P");
-    await page.getByRole("option", { name: /^Open the finance pane/ }).click();
+    await runCommand(page, /^Open the finance pane/);
     const finance = page.getByRole("region", { name: "Finance" });
     const month = finance.getByRole("heading", { name: /^\w+ \d{4}$/ });
     await expect(month).toBeVisible();
@@ -116,8 +115,7 @@ async function toSort(page: Page, orders: unknown[] = []) {
     },
   );
   await openApp(page);
-  await page.keyboard.press("Control+Shift+P");
-  await page.getByRole("option", { name: /^Open the finance pane/ }).click();
+  await runCommand(page, /^Open the finance pane/);
   const finance = page.getByRole("region", { name: "Finance" });
   await finance.getByRole("tab", { name: /^To sort/ }).click();
   await expect(finance.getByText("Cable")).toBeVisible();
@@ -288,8 +286,7 @@ async function taxRoutes(page: Page, queue: unknown[] = [], tax: unknown = {}, c
 /** Opens the Tax tab by its key, and from it booking 5's tax card. */
 async function taxCard(page: Page) {
   await openApp(page);
-  await page.keyboard.press("Control+Shift+P");
-  await page.getByRole("option", { name: /^Open the finance pane/ }).click();
+  await runCommand(page, /^Open the finance pane/);
   const finance = page.getByRole("region", { name: "Finance" });
   await finance.focus();
   await page.keyboard.press("X");
@@ -305,8 +302,7 @@ test("#1040 the Tax tab shows each line's year, what is over the allowance and m
 }) => {
   const { years } = await taxRoutes(page);
   await openApp(page);
-  await page.keyboard.press("Control+Shift+P");
-  await page.getByRole("option", { name: /^Open the finance pane/ }).click();
+  await runCommand(page, /^Open the finance pane/);
   const finance = page.getByRole("region", { name: "Finance" });
   await finance.focus();
   const year = Number(today().slice(0, 4));
@@ -433,8 +429,7 @@ async function spending(page: Page, totals: number[]) {
     route.fulfill({ json: { months, categories: [], totals: totals.map(String), limits } });
   });
   await openApp(page);
-  await page.keyboard.press("Control+Shift+P");
-  await page.getByRole("option", { name: /^Open the finance pane/ }).click();
+  await runCommand(page, /^Open the finance pane/);
   const finance = page.getByRole("region", { name: "Finance" });
   const chart = finance.getByRole("img", {
     name: `spending per month over ${totals.length} months`,

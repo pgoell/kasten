@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
-import { phone } from "../../../harness/app.ts";
+import { onPhone, phone } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
-import { ACCOUNT, onPhone, openPlans, PLAN, PROPOSAL, WEDDING } from "./finance.ts";
+import { ACCOUNT, openPlans, PLAN, PROPOSAL, WEDDING } from "./finance.ts";
 
 test.afterEach(({ page }) => page.unrouteAll({ behavior: "ignoreErrors" }));
 

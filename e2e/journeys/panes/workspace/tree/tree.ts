@@ -9,7 +9,7 @@ export const row = (page: Page, name: string) =>
 export const cursor = (page: Page) => tree(page).locator('[data-row][tabindex="0"]');
 export const prompt = (page: Page, name: string) =>
   page.getByRole("dialog", { name }).getByRole("combobox");
-export const panel = (page: Page) => page.getByRole("dialog", { name: "Leader keys" });
+export const leaderPanel = (page: Page) => page.getByRole("dialog", { name: "Leader keys" });
 
 /** The cursor sits on the row of this name. */
 export async function at(page: Page, name: string): Promise<void> {

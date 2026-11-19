@@ -10,6 +10,7 @@ import {
   walkBackoff,
 } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
+import { openReview } from "./review.ts";
 
 const DUE = "<!--SR:!2020-01-01,3,250-->";
 const TRIVIA = {
@@ -19,13 +20,6 @@ const TRIVIA = {
     "New one?::a\n\nNew two?::a\n\nNew three?::a\n",
 };
 const LIMITS = { "99 Misc/01 Config/decks.md": "trivia: 1 new, 2 reviews\n" };
-
-/** Opens the review pane on its overview, with the focus in it. */
-async function openReview(page: Page): Promise<void> {
-  await openApp(page);
-  await leader(page, "gs");
-  await page.getByRole("heading", { name: "Review" }).click();
-}
 
 test("a deck under a daily limit asks the due and new cards its row promised, then stops", async ({
   page,

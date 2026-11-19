@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
-import { bodyOf, leader, noteText, openApp, phone, vaultWith } from "../../../harness/app.ts";
+import { bodyOf, noteText, phone, vaultWith } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
+import { openDecks } from "../review.ts";
 
 const NOT_YET = "<!--SR:!2026-11-05,4,250-->";
 /** Two decks with a card to go and one with nothing waiting; the fixture's own deck is emptied. */
@@ -21,22 +22,12 @@ const press = async (page: Page, keys: string) => {
   for (const key of keys) await page.keyboard.press(key);
 };
 
-/** Opens the review pane on its overview over `notes`, with the focus in it, on 24 October 2026. */
-async function openReview(page: Page, vault: string, notes: Record<string, string>) {
-  await vaultWith(vault, { "03 Flashcards/Capitals.md": "# Capitals\n", ...notes });
-  await page.clock.setFixedTime(new Date(2026, 9, 24, 12));
-  await openApp(page);
-  await leader(page, "gs");
-  await expect(page.locator("button[data-deck]").last()).toBeVisible();
-  await page.getByRole("heading", { name: "Review" }).click();
-}
-
 test.describe("the deck overview's keys", () => {
   test("j and k walk the decks, stop at both ends and never land on a deck with nothing waiting", async ({
     page,
     stack,
   }) => {
-    await openReview(page, stack.vault, DECKS);
+    await openDecks(page, stack.vault, DECKS);
     await expect(deck(page, "zeta")).toBeDisabled();
     await press(page, "k");
     await expect(deck(page, "alpha")).toBeFocused();
@@ -54,7 +45,7 @@ test.describe("the deck overview's keys", () => {
     page,
     stack,
   }) => {
-    await openReview(page, stack.vault, DECKS);
+    await openDecks(page, stack.vault, DECKS);
     await press(page, "jjl");
     await expect(question(page)).toHaveText("beta question");
     // The row it pressed has gone with the overview; without the hand-over the focus falls to the body.
@@ -67,7 +58,7 @@ test.describe("the deck overview's keys", () => {
     page,
     stack,
   }) => {
-    await openReview(page, stack.vault, {
+    await openDecks(page, stack.vault, {
       "03 Flashcards/alpha.md": "#flashcards/alpha\n\na::b\n",
       "03 Flashcards/g.md": "#flashcards/trivia/geography\n\nc::d\n\ne::f\n",
       "99 Misc/01 Config/decks.md": "trivia: 0 new, 0 reviews\ntrivia/geography: 5 new\n",
@@ -92,7 +83,7 @@ test.describe("the deck overview's rows", () => {
     page,
     stack,
   }) => {
-    await openReview(page, stack.vault, {
+    await openDecks(page, stack.vault, {
       "03 Flashcards/pg.md": "#flashcards/databases/postgres\n\npg q::p\n",
     });
     await expect(summary(page)).toHaveText("1 card to go today in 1 deck.");
@@ -111,7 +102,7 @@ test.describe("the deck overview's rows", () => {
     page,
     stack,
   }) => {
-    await openReview(page, stack.vault, {
+    await openDecks(page, stack.vault, {
       "03 Flashcards/a.md": "#flashcards/alpha\n\na::b\n\nc::d !suspended\n",
       "03 Flashcards/b.md": "#flashcards/beta\n\ne::f !suspended\n",
     });
@@ -126,7 +117,7 @@ test.describe("the deck overview's rows", () => {
     page,
     stack,
   }) => {
-    await openReview(page, stack.vault, {
+    await openDecks(page, stack.vault, {
       "03 Flashcards/g.md": "#flashcards/trivia/geography\n\na::b\n\nc::d\n",
       "03 Flashcards/h.md": "#flashcards/trivia/history\n\ne::f\n\ng::h\n",
       "99 Misc/01 Config/decks.md": "trivia: 3 new\ntrivia/geography: 1 new\n",
@@ -143,7 +134,7 @@ test.describe("the parked screen's keys", () => {
   const parkedRow = (page: Page) => page.locator("button[data-parked]");
 
   async function openParked(page: Page, vault: string) {
-    await openReview(page, vault, { [CLOUDS]: CLOUDS_TEXT });
+    await openDecks(page, vault, { [CLOUDS]: CLOUDS_TEXT });
     await press(page, "p");
     await expect(page.getByText("What is a VPC?")).toBeVisible();
   }
