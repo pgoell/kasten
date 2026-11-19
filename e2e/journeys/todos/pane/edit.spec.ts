@@ -374,8 +374,8 @@ test.describe("@ sends the cursor's todo to the agent (#523)", () => {
     await expect.poll(() => disk(stack.vault)).toBe(text([SEND]));
   });
 
-  // Fails on main: the second and third press are refused (#2188).
-  test.fail("B1 three quick @ on two rows of the same words each press their own todo", async ({ page, stack }) => {
+  // The first press's frontmatter stamp moved both twins; #2210's stamp record reads them where they went (#2188).
+  test("B1 three quick @ on two rows of the same words each press their own todo", async ({ page, stack }) => {
     let open = () => {};
     const gate = new Promise<void>((resolve) => {
       open = resolve;

@@ -55,7 +55,7 @@ const heldRead = (page: Page) => async () => {
   return order(page);
 };
 
-type Open = { notes?: Record<string, string>; touch?: boolean };
+type Open = { notes?: Record<string, string>; touch?: boolean; vim?: string };
 
 /**
  * The todo pane over the Order notes. Each list answer comes rotated one further, as nothing
@@ -65,7 +65,7 @@ type Open = { notes?: Record<string, string>; touch?: boolean };
 async function openOrder(page: Page, vault: string, o: Open = {}) {
   let reads = 0;
   let gate: Promise<void> | undefined;
-  const put = { allow: Number.POSITIVE_INFINITY };
+  const put: { allow: number; gate?: Promise<void> } = { allow: Number.POSITIVE_INFINITY };
   await page.route("**/api/todos?**", async (route) => {
     const wait = gate;
     gate = undefined;
@@ -78,6 +78,7 @@ async function openOrder(page: Page, vault: string, o: Open = {}) {
   });
   await page.route("**/api/files/**", async (route) => {
     if (route.request().method() !== "PUT") return route.fallback();
+    await put.gate;
     if (put.allow <= 0) return route.fulfill({ status: 500, body: "" });
     put.allow -= 1;
     return route.fallback();
@@ -88,6 +89,11 @@ async function openOrder(page: Page, vault: string, o: Open = {}) {
   if (o.touch) {
     await page.goto("/");
     await page.getByRole("button", { name: "Open the todo pane" }).tap({ timeout: 15_000 });
+  } else if (o.vim === "off") {
+    await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
+    await openApp(page);
+    await page.keyboard.press("Control+Shift+P");
+    await page.getByRole("option", { name: /^Open the todo pane/ }).click();
   } else {
     await openApp(page);
     await leader(page, "gt");
@@ -271,6 +277,104 @@ test("#947 B4 an edit with i during a held order puts the row where its new word
   await page.getByLabel("edit line").fill("- [/] kilo ⏫");
   await page.keyboard.press("Enter");
   await expect.poll(async () => (await heldRead(page)())[0], { timeout: 15_000 }).toBe("kilo");
+});
+
+/** Holds every note write until the call it answers, so the keys typed meanwhile beat the x's write. */
+function holdWrites(put: { gate?: Promise<void> }) {
+  let go = () => {};
+  put.gate = new Promise((resolve) => {
+    go = resolve;
+  });
+  return go;
+}
+
+const KILO = "- [/] kilo ⏫";
+// #2210: the x's save stamps a frontmatter block on top of Order A, which has none, so bravo moves down.
+const AFTER_X: [string, string, (page: Page) => Promise<void>, RegExp][] = [
+  [
+    "i",
+    "an edit",
+    (page) => page.getByLabel("edit line").fill(KILO),
+    /- \[\/\] kilo ⏫\n- \[\/\] charlie/,
+  ],
+  ["b", "a blocker", (page) => cursorTo(page, "echo"), /- \[.\] bravo ⛔ kt-/],
+  [
+    "s",
+    "a part",
+    (page) => page.getByRole("dialog").getByRole("textbox").fill("kilo"),
+    /bravo\n {2}- \[ \] kilo/,
+  ],
+];
+
+/** The x and the key after it both landed in Order A, with no refusal said and no edit line left open. */
+async function bothLanded(page: Page, vault: string, want: RegExp) {
+  await expect.poll(() => noteText(vault, A), { timeout: 15_000 }).toMatch(want);
+  expect(await noteText(vault, A)).toMatch(/- \[x\] alpha ✅/);
+  await expect(page.getByText(/^Nothing moved/)).toHaveCount(0);
+  await expect(page.getByLabel("edit line")).toHaveCount(0);
+}
+
+for (const vim of ["on", "off"])
+  for (const [key, what, act, want] of AFTER_X)
+    test(`#2210 ${what} by ${key} on another row before the x's write lands still lands, vim ${vim}`, async ({
+      page,
+      stack,
+    }) => {
+      const { put } = await openOrder(page, stack.vault, { vim });
+      await aim(page, "alpha");
+      const go = holdWrites(put);
+      await page.keyboard.press("x");
+      await cursorTo(page, "bravo");
+      await page.keyboard.press(key);
+      await act(page);
+      await page.keyboard.press("Enter");
+      go();
+      await bothLanded(page, stack.vault, want);
+    });
+
+test("#2210 an edit on another row before an edit's write lands still lands", async ({
+  page,
+  stack,
+}) => {
+  const { put } = await openOrder(page, stack.vault);
+  await aim(page, "alpha");
+  const go = holdWrites(put);
+  for (const [name, line] of [
+    ["alpha", "- [/] alpha two"],
+    ["bravo", KILO],
+  ]) {
+    await cursorTo(page, name);
+    await page.keyboard.press("i");
+    await page.getByLabel("edit line").fill(line);
+    await page.keyboard.press("Enter");
+  }
+  go();
+  await expect
+    .poll(() => noteText(stack.vault, A), { timeout: 15_000 })
+    .toMatch(/alpha two\n- \[\/\] kilo ⏫\n/);
+  await expect(page.getByText(/^Nothing moved/)).toHaveCount(0);
+});
+
+test.describe("on a phone, before the write lands", () => {
+  test.use(phone);
+
+  test("#2210 an edit tapped on another row after a state tap still lands", async ({
+    page,
+    stack,
+  }) => {
+    const { put } = await openOrder(page, stack.vault, { touch: true });
+    const go = holdWrites(put);
+    const cycle = page.getByRole("button", { name: "cycle alpha" });
+    await cycle.tap();
+    await expect(cycle).toHaveText("?");
+    await cycle.tap();
+    await page.getByLabel("more for bravo").tap();
+    await page.getByLabel("edit bravo").tap();
+    await page.getByLabel("edit line").fill(KILO);
+    await page.getByLabel("edit line").press("Enter");
+    go();
+    await bothLanded(page, stack.vault, AFTER_X[0]?.[3] ?? /kilo/);
+  });
 });
 
 test("#947 B3 after b during a held order no todo is struck that was not checked off", async ({
