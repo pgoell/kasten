@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test";
 import {
+  beforeCaret,
   holdStream,
   leader,
   openApp,
@@ -174,9 +175,7 @@ test.describe("by touch (#421)", () => {
     await page.getByLabel(/^edit see /).tap();
     const input = page.getByLabel("edit line");
     await expect(input).toBeFocused();
-    await expect
-      .poll(() => input.evaluate((f: HTMLInputElement) => f.value.slice(0, f.selectionStart ?? 0)))
-      .toBe(line);
+    await expect.poll(() => beforeCaret(input)).toBe(line);
   });
 
   test("A4 the strip stays bare at a tap's height, out of the tab order, on a phone", async ({

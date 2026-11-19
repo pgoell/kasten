@@ -17,6 +17,19 @@
   }
 }
 
+/* The readout and its hidden copies share one cell, so it is as tall as its longest text. */
+.finance-sankey-readout {
+  display: grid;
+}
+
+.finance-sankey-readout > * {
+  grid-area: 1 / 1;
+}
+
+.finance-sankey-size {
+  visibility: hidden;
+}
+
 /* A shadow at an edge says more of the chart lies past it. Each shadow stays at its edge
    while a patch of the card's colour moves with the chart's ends and covers it there, so a
    shadow shows only where there is more to scroll to, with no script. */

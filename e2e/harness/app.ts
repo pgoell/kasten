@@ -391,3 +391,7 @@ export const barsOf = (chart: Locator, slots: number) =>
       .map((box) => ({ ago: n - 1 - Math.floor(box.x / slot), stub: box.height <= 1 }))
       .sort((a, b) => a.ago - b.ago);
   }, slots);
+
+/** An edit field's text before its caret. */
+export const beforeCaret = (input: Locator) =>
+  input.evaluate((field: HTMLInputElement) => field.value.slice(0, field.selectionStart ?? 0));

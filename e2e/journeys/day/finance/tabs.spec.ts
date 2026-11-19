@@ -310,17 +310,14 @@ test("#1036 a failed read of the bank job shows as an alert", async ({ page }) =
   ).toBeVisible();
 });
 
-const readout = (finance: Locator) => finance.locator(".finance-sankey .finance-trend-readout");
+const readout = (finance: Locator) =>
+  finance.locator(".finance-sankey .finance-trend-readout[aria-live]");
 
 /** The sankey's category node, by click or, on a phone, by tap; the drilldown's read and crumbs follow. */
 async function intoGroceries(page: Page, finance: Locator, sentTo: (start: string) => string[]) {
   const groceries = finance.getByRole("button", { name: /^Groceries, 400\s€.*open the category$/ });
-  if (onPhone(page)) {
-    // The first tap only names the node: its words grow the readout, so the click lands below (#2236).
-    await groceries.tap();
-    await expect(readout(finance)).toHaveText(/^Groceries, 400\s€, 13% of the money in$/);
-    await groceries.tap();
-  } else await groceries.click();
+  if (onPhone(page)) await groceries.tap();
+  else await groceries.click();
   await expect
     .poll(() => sentTo("GET /api/finance/drill/categories/4?").join())
     .toMatch(/month=2026-10&from=2026-10/);
@@ -344,11 +341,45 @@ test("#1082 the sankey says where the money went, and a category opens its drill
   await intoGroceries(page, finance, sentTo);
 });
 
+test("#2236 a hover names a sankey node, and Enter opens a category", async ({ page }) => {
+  const { finance, sentTo } = await open(page);
+  const left = /^Left over from Mine, 2.600\s€, 87% of the money in$/;
+  await finance.getByRole("button", { name: left }).hover();
+  await expect(readout(finance)).toHaveText(left);
+
+  await finance.getByRole("button", { name: /^Groceries, 400\s€.*open the category$/ }).focus();
+  await page.keyboard.press("Enter");
+  await expect
+    .poll(() => sentTo("GET /api/finance/drill/categories/4?").join())
+    .toMatch(/month=2026-10&from=2026-10/);
+  await expect(crumbs(page)).toHaveText(["October 2026", "Groceries"]);
+});
+
 test.describe("on a phone", () => {
   test.use(phone);
 
   test("#1082 a sankey category opens its drilldown by tap", async ({ page }) => {
     const { finance, sentTo } = await open(page);
+    await intoGroceries(page, finance, sentTo);
+  });
+
+  test("#2236 a tap names a sankey node, the chart stays put, and one more tap opens a category", async ({
+    page,
+  }) => {
+    const { finance, sentTo } = await open(page);
+    const plot = finance.locator(".finance-sankey-plot");
+    // From the figure's top, so the page scrolling the node into view does not count.
+    const top = () =>
+      plot.evaluate(
+        (el) =>
+          el.getBoundingClientRect().top - (el.closest("figure")?.getBoundingClientRect().top ?? 0),
+      );
+    const before = await top();
+    const left = /^Left over from Mine, 2.600\s€, 87% of the money in$/;
+    await finance.getByRole("button", { name: left }).tap();
+    await expect(readout(finance)).toHaveText(left);
+    expect(await top()).toBe(before);
+
     await intoGroceries(page, finance, sentTo);
   });
 });
