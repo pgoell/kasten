@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { useState } from "react";
 import { amountOf } from "@/components/finance/finance-budget-tab";
 import { madeOf } from "@/components/finance/finance-overview";
 import { FinancePane } from "@/components/finance/finance-pane";
@@ -29,6 +30,20 @@ vi.mock("@/lib/panes/finance/finance-api", () => ({
   sortByHand: api.sortByHand,
   sortPayee: api.sortPayee,
 }));
+// A seam into the pane's own state: a same-value update makes React run the pane and keep its
+// tab as drawn (#2232).
+const pane = vi.hoisted(() => ({ poke: (_: number) => {} }));
+vi.mock("@/lib/panes/finance/use-category-sort", async (original) => {
+  const real = await original<typeof import("@/lib/panes/finance/use-category-sort")>();
+  return {
+    ...real,
+    useCategorySort: (onNotice: (text: string | undefined) => void) => {
+      const [, poke] = useState(0);
+      pane.poke = poke;
+      return real.useCategorySort(onNotice);
+    },
+  };
+});
 // The goals card on the overview; its own tests are in finance-plans-tab.test.tsx.
 vi.mock("@/lib/panes/finance/finance-plans-api", () => ({
   fetchGoals: () => Promise.resolve({ goals: [], accounts: [] }),
@@ -321,6 +336,24 @@ describe("the finance pane's overview, budget and transactions", () => {
     );
     expect(api.fetchTransactions).toHaveBeenCalledWith(
       expect.objectContaining({ month: "2026-10" }),
+    );
+  });
+
+  it("#2232 the to-sort keys still move and sort after React runs the pane and keeps its tab", async () => {
+    const rewe = { ...BOOKING, id: 10, counterparty_name: "Rewe", payee_id: null };
+    api.fetchToSort.mockResolvedValue({ total: 2, bookings: [BOOKING, rewe] });
+    renderPane();
+    press("S");
+    await screen.findByText("Rewe");
+
+    // The first update changes the state; the second, the same value, runs the pane alone.
+    act(() => pane.poke(1));
+    act(() => pane.poke(1));
+    press("j");
+    press("1");
+
+    await waitFor(() =>
+      expect(api.sortByHand).toHaveBeenCalledWith(expect.objectContaining({ transaction: 10 }), 4),
     );
   });
 

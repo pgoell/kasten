@@ -147,8 +147,18 @@ export function categoryNames(sorter: CategorySort): Map<number, string> {
   return new Map((sorter.categories.data ?? []).map((category) => [category.id, category.name]));
 }
 
-/** What a drilldown shows before its answer is in, or when the answer failed. */
-export function Waiting({ error }: { error: Error | null }) {
+/**
+ * What a drilldown shows before its answer is in, or when the answer failed. Given `keys`, it hands
+ * over none, so the list it stands in for takes no key.
+ */
+export function Waiting({
+  error,
+  keys,
+}: {
+  error: Error | null;
+  keys?: RefObject<TabKeys | null>;
+}) {
+  if (keys) keys.current = null;
   return error ? (
     <p role="alert">{error.message}</p>
   ) : (

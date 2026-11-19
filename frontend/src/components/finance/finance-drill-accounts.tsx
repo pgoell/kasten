@@ -34,7 +34,7 @@ export function DrillScope({
   });
   const data = drill.data;
   const row = data?.span.now;
-  if (data === undefined || row === undefined) return <Waiting error={drill.error} />;
+  if (data === undefined || row === undefined) return <Waiting error={drill.error} keys={keys} />;
   const name = scope === "mine" ? "Mine" : "Household";
   const parts = partsOf(scope).filter(({ key }) => Number(row[key]) !== 0);
   const left = Number(row.left);
@@ -182,7 +182,7 @@ export function DrillAccount({
     placeholderData: (previous) => previous,
   });
   const data = drill.data;
-  if (data === undefined) return <Waiting error={drill.error} />;
+  if (data === undefined) return <Waiting error={drill.error} keys={keys} />;
   const rows = data.months;
   return (
     <div className="finance-drill">
