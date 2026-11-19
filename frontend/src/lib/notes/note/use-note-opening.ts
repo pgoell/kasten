@@ -26,10 +26,10 @@ import {
   activeTab,
   addTab,
   atPane,
+  dropPane,
   fillFocused,
   type Layout,
   newPaneId,
-  removeFocused,
   splitFocused,
   tabPanes,
 } from "@/lib/panes/layout/panes";
@@ -463,7 +463,7 @@ export function useNoteOpening({
         const opened = followIn(listed, target, file, "", id, true);
         // A note the vault refused to make leaves the pane empty, so it goes again.
         void Promise.resolve(opened).then((ok) => {
-          if (ok === false) setLayout((previous) => atPane(previous, id, removeFocused));
+          if (ok === false) setLayout((previous) => dropPane(previous, id, from));
         });
         return opened;
       });

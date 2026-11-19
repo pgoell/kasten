@@ -330,6 +330,21 @@ export function closeTab(layout: Layout, index: number): Layout {
   return { tabs, active };
 }
 
+/**
+ * Takes away pane `id`, which an open made and then left empty, with its tab when it was alone
+ * there, and goes back to the tab holding pane `from`.
+ */
+export function dropPane(layout: Layout, id: string, from: string): Layout {
+  const holds = (target: string) => (tab: Tab) =>
+    panesOf(tab.root).some((pane) => pane.id === target);
+  const at = layout.tabs.findIndex(holds(id));
+  const tab = layout.tabs[at];
+  if (tab === undefined) return layout;
+  const dropped = isSplit(tab.root) ? atPane(layout, id, removeFocused) : closeTab(layout, at);
+  const back = dropped.tabs.findIndex(holds(from));
+  return back === -1 ? dropped : { ...dropped, active: back };
+}
+
 /** Go to the first tab that is one empty pane, or start a new tab when there is none. */
 export function homeTab(layout: Layout): Layout {
   const at = layout.tabs.findIndex(isEmptyTab);

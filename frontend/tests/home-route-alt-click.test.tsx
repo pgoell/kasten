@@ -169,7 +169,7 @@ pageHooks();
 describe("alt+click on a link", () => {
   const PLAN = "rehearse/my plan.pdf";
   const NOTES: Record<string, string> = {
-    "index.md": "pane one\n[[target]]\n[[my plan.pdf]]\n[[gone.pdf]]\n[[song.mp3]]\n",
+    "index.md": "pane one\n[[target]]\n[[my plan.pdf]]\n[[gone.pdf]]\n[[song.mp3]]\n[[fresh]]\n",
     "target.md": "target body\n",
   };
 
@@ -289,6 +289,22 @@ describe("alt+click on a link", () => {
     expect(app.tabs()).toBe(1);
     expect(drawn()).toHaveLength(1);
     expect(window.open).toHaveBeenCalledWith("/api/assets/song.mp3", "_blank");
+  });
+
+  it.each([
+    ["alt", { altKey: true }],
+    ["alt+shift", { altKey: true, shiftKey: true }],
+  ])("%s+click on a link to a note the vault refuses to make leaves no pane", async (_, held) => {
+    createNote.mockRejectedValue(new Error("refused"));
+    const app = await opened();
+
+    fireEvent.mouseDown(links()[4] as HTMLElement, held);
+    await settle();
+
+    expect(createNote).toHaveBeenCalled();
+    expect(app.tabs()).toBe(1);
+    expect(drawn()).toHaveLength(1);
+    expect(paneText(0)).toContain("pane one");
   });
 
   it("a plain click opens nothing", async () => {
