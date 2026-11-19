@@ -274,20 +274,24 @@ test.describe("the RSVP reader over a note", () => {
 
   test("a page that never hands over its text says why", async ({ page, stack }) => {
     await vaultWith(stack.vault, { "mute.html": "<p>Hello world</p>" });
-    // Served bare, without kasten's page script, so no answer to the ask for its text comes.
+    // Served without kasten's page script: it shows that the reader asked for its text, and never answers.
+    const body = `<p>Hello world</p><script>addEventListener("message", (e) => {
+      if (e.data?.kasten === "text") document.body.append("Asked for its text");
+    });</script>`;
     await page.route("**/api/html/mute.html*", (route) =>
-      route.fulfill({ contentType: "text/html", body: "<p>Hello world</p>" }),
+      route.fulfill({ contentType: "text/html", body }),
     );
     await page.clock.install();
     await openApp(page);
     await page.getByRole("button", { name: "mute.html", exact: true }).click();
-    await expect(
-      page.frameLocator("[data-html-pane] iframe").getByText("Hello world"),
-    ).toBeVisible();
+    const frame = page.frameLocator("[data-html-pane] iframe");
+    await expect(frame.getByText("Hello world")).toBeVisible();
     await page.locator("[data-html-pane] header").getByText("mute.html").click();
     await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100));
     await leader(page, "rr");
     await expect(reader(page)).toBeVisible();
+    // The reader draws before its effect arms the give-up, and asks only once armed (#2110).
+    await expect(frame.getByText("Asked for its text")).toBeVisible();
     await page.clock.runFor(5000);
     await expect(reader(page).getByText("The page did not hand over its text")).toBeVisible();
   });
