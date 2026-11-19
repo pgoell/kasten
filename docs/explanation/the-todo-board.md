@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: The todo board
-description: Why the board is a view over todos that keep the note they were typed in, why a todo's project is read off its note's folder or a link on its line, and how a dragged card moves.
+description: Why the board is a view over todos that keep the note they were typed in, why a todo's project comes from a `#p/x` tag, its parent or its note's folder, and how a dragged card moves.
 tags: [design, todos, board, projects]
 status: draft
 ---
@@ -185,7 +185,8 @@ Every frame asked for a cheap way to give a todo its project from where it
 was typed. `p` on a card lists the folders under `02 Projects`, and picking one adds a
 link to that folder's `index.md` into the todo's words, through the write the
 pane's `i` makes. One press of the user's own. This is option C's
-refile without the move: the todo keeps its note, and the board files it.
+refile without the move: the todo keeps its note. Since PR #2205 the store
+reads no link for the project, so the card keeps its lane (#2249).
 
 ### Lanes by kind first
 
@@ -227,8 +228,10 @@ two parsers in two languages drift. This rule needs only a todo's indent, its
 tags and its links, and the backend already reads links by a rule both sides
 test against one file of cases, so the cost is small and the answer is one.
 
-Since PR #2205 the project is a column of the row, worked out when the todo is
-added and changed by a refile.
+Since PR #2205 the project is a column of the row. The import worked it out by
+the order below. A todo added since takes a `#p/x` tag's project, else its
+parent's, else its note's folder's; only a refile or a note move changes it, so
+neither a link nor a tag typed later does (#2249).
 
 A `#p/x` tag on a todo comes before every step of that rule, the folder
 included. So the full order is:
