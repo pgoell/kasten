@@ -283,7 +283,8 @@ async def _project_of_edit(
 ) -> list[Todo]:
     """Give the todo the project its edited words name, where they name another (#2249).
 
-    Answers the parts that had its old project, which follow it as the board's rule has them.
+    Answers the parts that took its old project from it, which follow it; a part that names
+    a project of its own keeps it, as the board's order has it.
     """
     paths = vault.list_markdown_files(settings.vault_path)
     named = read.named_project(values["words"], row.note, paths)
@@ -291,7 +292,11 @@ async def _project_of_edit(
         return []
     parent = None if row.parent_id is None else await writes.get(row.parent_id)
     values["project"] = named or (parent.project if parent else None)
-    return [part for part in await writes.parts(row) if part.project == row.project]
+    return [
+        part
+        for part in await writes.parts(row)
+        if part.project == row.project and read.named_project(part.words, part.note, paths) is None
+    ]
 
 
 @router.put("/{todo_id}/line")

@@ -156,8 +156,11 @@ async def test_2249_a_link_or_tag_typed_into_a_line_files_the_todo_and_its_parts
     }
     assert part["project"] is None
     assert tag.json()[0]["project"] == KASTEN
+    own = (await post_line(client, "send the deck #p/kasten", parent_id=tagged["id"]))[0]
     untagged = await put_line(client, tag.json()[0], "- [ ] post the slides")
+    after = {one["words"]: one["project"] for one in (await client.get("/api/todos/rows")).json()}
     assert untagged.json()[0]["project"] is None
+    assert (own["project"], after["send the deck #p/kasten"]) == (KASTEN, KASTEN)
 
 
 async def test_2249_the_note_folder_beats_a_link_and_an_edit_naming_nothing_new_keeps_a_project(
