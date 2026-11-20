@@ -159,6 +159,8 @@ describe("#2257 an open edit row whose todo leaves its note", () => {
       { ...TWO, line: 1 },
       { ...ONE, path: "b.md" },
     ]);
+    // react-query hands the answer to the pane on a timeout of 0.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
     pane.send("Enter");
 
     expect(pane.onEdit).toHaveBeenCalledTimes(1);
