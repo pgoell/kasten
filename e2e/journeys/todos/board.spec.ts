@@ -418,8 +418,6 @@ test.describe("the list's edit row through a redraw that moves its row (#2087)",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ state: "rejected" }),
     });
-    // A note written beside the store write makes the pane read the list again, as its event does.
-    await vaultWith(stack.vault, { "Elsewhere.md": "a write the vault's events carry\n" });
     await expect(notice(page)).toContainText("The edit read: - [ ] fix the drain now");
     await expect(draft(page)).toHaveCount(0);
     expect(await store(stack.url)).toMatch(/^- \[-\] fix the drain /m);
