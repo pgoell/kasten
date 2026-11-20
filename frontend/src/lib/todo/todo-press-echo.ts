@@ -1,7 +1,4 @@
-/**
- * The todo presses running now, the turn todo writes take one at a time, and where an `x`
- * left its todo for the next key.
- */
+/** The todo presses running now, the turn todo writes take one at a time, and the row an open edit follows. */
 
 /** Presses running now. A press can start before the last one has settled. */
 let running = 0;
@@ -36,8 +33,8 @@ const TURN_WAIT_MS = 10_000;
 let turns: Promise<unknown> = Promise.resolve();
 
 /**
- * Run `work` once the todo write before it has settled. Each reads a note and saves it back,
- * so two at once would race, and a key after an `x` must read the line the `x` wrote (#2084).
+ * Run `work` once the todo write before it has settled. Two at once would race on a row's version,
+ * and a key after an `x` must reach the todo as the `x` left it (#2084).
  */
 export function inTurn<T>(work: () => Promise<T>): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -52,22 +49,6 @@ export function inTurn<T>(work: () => Promise<T>): Promise<T> {
   return turn;
 }
 
-/** Where an `x` left a row's todo, by the row as listed and as drawn, for a press read before it landed (#2080). */
-const landed = new Map<string, { row: Row; at: number }>();
-const keyOf = (hit: Row) => `${hit.path}\n${hit.line}\n${hit.text}`;
-
-/** Point every key in `old`, and keys naming their line, at `to`, where an `x` left the todo. */
-export function keepLanded(old: Row[], to: Row): void {
-  const keys = new Set(old.map(keyOf));
-  const now = Date.now();
-  // Swept here, read only within one turn's wait, by which the list has redrawn.
-  for (const [key, each] of landed) {
-    if (now - each.at > TURN_WAIT_MS) landed.delete(key);
-    else if (keys.has(keyOf(each.row))) keys.add(key);
-  }
-  for (const key of keys) landed.set(key, { row: to, at: now });
-}
-
 /** The lines of `at`'s note that say its words, by line, and which of them is `at`: how an edit tells twins apart. */
 export function twinsOf(at: Row, rows: Row[]): { nth: number; of: number } {
   const same = rows
@@ -80,7 +61,7 @@ export function twinsOf(at: Row, rows: Row[]): { nth: number; of: number } {
 
 /**
  * The row an open edit of `at` (its words as typed over) is drawn on after a redraw: the same one of the lines
- * saying them while their count holds, else where an `x` left it. Null where twins cannot be told apart, or none is left (#2087).
+ * saying them while their count holds, else its own line. Null where twins cannot be told apart, or none is left (#2087).
  * `onLine` keeps it on its own line once its words have changed there; a question does not, as another todo may hold that line.
  */
 export function followRow<R extends Row>(
@@ -94,9 +75,6 @@ export function followRow<R extends Row>(
     .filter((row) => row.text === at.text)
     .sort((one, other) => one.line - other.line);
   if (same.length > 0) return same.length === twins.of ? (same[twins.nth] ?? null) : null;
-  const kept = landed.get(keyOf(at));
-  const fresh = kept !== undefined && Date.now() - kept.at <= TURN_WAIT_MS;
-  const went = fresh ? here.find((row) => keyOf(row) === keyOf(kept.row)) : undefined;
   // Its words changed on its own line: the edit stays there, and the write refuses it.
-  return went ?? (onLine ? here.find((row) => row.line === at.line) : undefined) ?? null;
+  return (onLine ? here.find((row) => row.line === at.line) : undefined) ?? null;
 }

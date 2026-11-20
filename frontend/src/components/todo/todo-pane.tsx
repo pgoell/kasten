@@ -52,8 +52,8 @@ interface TodoPaneProps {
   commands: EditorCommands;
   onOpen: (path: string, line?: number) => void;
   /**
-   * Cycles the row's todo in the vault, or sets the state a key named. Takes the
-   * hit, not the todo: the write re-reads the note and finds the line by its path and line.
+   * Cycles the row's todo in the store, or sets the state a key named. Takes the
+   * hit, not the todo: the write names the todo by the id of the row behind it.
    */
   onCycle: (hit: SearchHit, state?: TodoState, twins?: number[]) => void;
   /** Open the prompt that writes a todo into today's note. */
