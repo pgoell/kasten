@@ -26,7 +26,7 @@ dependencies = [
     "numpy>=2.3",
     "onnxruntime>=1.23",
     "pgvector>=0.4",
-    "psycopg[binary]>=3.3.8",
+    "psycopg[binary]>=3.3.9",
     "pydantic-settings>=2.7",
     "pypdfium2>=4.30",
     "recipe-scrapers==15.13.0",
