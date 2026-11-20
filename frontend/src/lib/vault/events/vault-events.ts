@@ -21,7 +21,7 @@ export async function digestOf(text: string): Promise<string> {
 }
 
 /** The kinds this build acts on. A backend saying anything else is ignored. */
-const KINDS: ReadonlySet<string> = new Set(["written", "removed", "listing", "page"]);
+const KINDS: ReadonlySet<string> = new Set(["written", "removed", "listing", "page", "todos"]);
 
 /** One SSE payload, or null when it is not an event this build understands. */
 export function parseVaultEvent(data: string): VaultEvent | null {

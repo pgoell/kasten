@@ -351,8 +351,9 @@ test.describe("the terminal prompt", () => {
   }) => {
     await ask(page, stack.vault, SESSIONS);
     await page.keyboard.type("s");
+    // Every session name holds an s; a one-time read before they draw finds fewer (#2252).
+    await expect(prompt(page).getByRole("option")).toHaveCount(SESSIONS.length);
     const rows = await prompt(page).getByRole("option").allTextContents();
-    expect(rows.length).toBeGreaterThan(2);
     await expect(picked(page)).toHaveText(rows[0]);
     await page.keyboard.press("ArrowDown");
     await expect(picked(page)).toHaveText(rows[1]);

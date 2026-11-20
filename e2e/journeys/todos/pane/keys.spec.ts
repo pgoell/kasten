@@ -68,8 +68,8 @@ async function threeTabs(page: Page, vault: string) {
 }
 
 /**
- * Deletes the plumber's todo behind the app's back, then writes its note: a store write sends no
- * event, and a note's write is what makes the pane read the todos again.
+ * Deletes the plumber's todo behind the app's back, then writes its note, whose event makes the
+ * pane read the todos again as the store's own does.
  */
 async function dropPlumber(url: string, vault: string) {
   await drop(url, vault, "call the plumber");
