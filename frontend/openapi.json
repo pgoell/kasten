@@ -8481,7 +8481,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Line"
+                "$ref": "#/components/schemas/EditedLine"
               }
             }
           }
@@ -12713,6 +12713,27 @@
         "title": "Edit",
         "description": "The words one line is to read, and the digest of the list the caller read."
       },
+      "EditedLine": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Text"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text",
+          "version"
+        ],
+        "title": "EditedLine",
+        "description": "A todo's edited line, typed over the todo read at `version`; a stale one answers 409."
+      },
       "Entry": {
         "properties": {
           "line": {
@@ -14691,22 +14712,6 @@
         ],
         "title": "LimitsIn",
         "description": "Every limit the setup sets, all from one month on."
-      },
-      "Line": {
-        "properties": {
-          "text": {
-            "type": "string",
-            "maxLength": 2000,
-            "minLength": 1,
-            "title": "Text"
-          }
-        },
-        "type": "object",
-        "required": [
-          "text"
-        ],
-        "title": "Line",
-        "description": "A todo line as typed, `- [ ] words \ud83d\udcc5 2026-12-01`; a bare line of words is open."
       },
       "LineHit": {
         "properties": {

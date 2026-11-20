@@ -12,9 +12,11 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kasten_backend import vault
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.db import get_session
 from kasten_backend.todos import hits, importer
+from kasten_backend.todos.lines import read
 from kasten_backend.todos.store.models import Todo, TodoChange, TodoSession
 from kasten_backend.todos.store.search import Filters, Sort, search
 from kasten_backend.todos.store.writes import (
@@ -270,9 +272,53 @@ async def add_line(body: NewLine, session: Session, settings: VaultSettings) -> 
     return await _write(session, settings, run)
 
 
+class EditedLine(Line):
+    """A todo's edited line, typed over the todo read at `version`; a stale one answers 409."""
+
+    version: int
+
+
+async def _project_of_edit(
+    writes: Writes, settings: Settings, row: Todo, values: dict[str, Any]
+) -> list[tuple[Todo, str | None]]:
+    """Give the todo the project the board's order reads off its edited line, if it changes (#2249).
+
+    Answers each part whose project that order gave it and now gives another, with the new one.
+    """
+    paths = vault.list_markdown_files(settings.vault_path)
+    tagged, parent, up = None, None, row.parent_id
+    while up is not None:
+        above = await writes.get(up)
+        parent, up = parent or above, above.parent_id
+        tagged = tagged or read.tag_project(above.words, paths)
+    inherited = (tagged, parent.project if parent else None)
+    was = read.named_project(row.words, row.note, paths, inherited)
+    now = read.named_project(values["words"], row.note, paths, inherited)
+    if was == now:
+        return []
+    values["project"] = now
+    own = (read.tag_project(row.words, paths), read.tag_project(values["words"], paths))
+    tags = {row.id: (own[0] or tagged, own[1] or tagged)}
+    projects = {row.id: (row.project, now)}
+    moved: list[tuple[Todo, str | None]] = []
+    for part in await writes.parts(row):
+        tag, project = tags[part.parent_id or ""], projects[part.parent_id or ""]
+        old, new = (
+            read.named_project(part.words, part.note, paths, (tag[at], project[at]))
+            for at in (0, 1)
+        )
+        follows = part.project == old != new
+        if follows:
+            moved.append((part, new))
+        own_tag = read.tag_project(part.words, paths)
+        tags[part.id] = (own_tag or tag[0], own_tag or tag[1])
+        projects[part.id] = (part.project, new if follows else part.project)
+    return moved
+
+
 @router.put("/{todo_id}/line")
 async def change_line(
-    todo_id: str, body: Line, session: Session, settings: VaultSettings
+    todo_id: str, body: EditedLine, session: Session, settings: VaultSettings
 ) -> list[TodoOut]:
     """Change a todo to what its edited line says: words, fields, and the state its box names."""
 
@@ -280,7 +326,10 @@ async def change_line(
         row = await writes.get(todo_id)
         values = hits.values_of(body.text, row, writes.today, settings.timezone)
         state, was = values.pop("state"), row.state
-        await writes.edit(todo_id, row.version, values)
+        parts = await _project_of_edit(writes, settings, row, values)
+        await writes.edit(todo_id, body.version, values)
+        for part, project in parts:
+            await writes.edit(part.id, part.version, {"project": project})
         # Against the state read, not the edited one: a box left as it was changes nothing.
         if state != was:
             await writes.set_state(todo_id, state)

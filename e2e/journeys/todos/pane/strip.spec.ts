@@ -18,7 +18,7 @@ const button = (page: Page, name: string) => page.getByRole("button", { name, ex
 const cards = (page: Page) => page.locator("[data-card]:visible");
 const filter = (page: Page) => page.getByLabel("filter todos");
 const pressed = (page: Page, name: string) => button(page, name).getAttribute("aria-pressed");
-type Hit = { text: string; todo: { id: string; state: string } };
+type Hit = { text: string; todo: { id: string; state: string; version: number } };
 /** The store's todo holding `words`, as its line and row. */
 async function todo(url: string, words: string): Promise<Hit | undefined> {
   const hits: Hit[] = await (await fetch(`${url}/api/todos`)).json();
@@ -251,8 +251,9 @@ test.describe("by touch (#421)", () => {
   }) => {
     await holdStream(page);
     await byTouch(page, stack.vault);
-    const id = (await todo(stack.url, "fix the tap"))?.todo.id;
-    const body = JSON.stringify({ text: "- [ ] fix the tap today" });
+    const row = (await todo(stack.url, "fix the tap"))?.todo;
+    const id = row?.id;
+    const body = JSON.stringify({ text: "- [ ] fix the tap today", version: row?.version });
     const headers = { "Content-Type": "application/json" };
     await fetch(`${stack.url}/api/todos/${id}/line`, { method: "PUT", body, headers });
     await more(page, "blocked by");

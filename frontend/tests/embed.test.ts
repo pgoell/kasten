@@ -33,6 +33,7 @@ describe("queryEmbedSource", () => {
     expect(changeTodoLine).toHaveBeenCalledWith(
       "kt-aaaaaa",
       "- [ ] call #agent 🆔 kt-aaaaaa ➕ 2026-10-01",
+      1,
     );
   });
 

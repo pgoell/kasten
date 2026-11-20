@@ -4892,6 +4892,16 @@ export interface components {
             sha: string;
         };
         /**
+         * EditedLine
+         * @description A todo's edited line, typed over the todo read at `version`; a stale one answers 409.
+         */
+        EditedLine: {
+            /** Text */
+            text: string;
+            /** Version */
+            version: number;
+        };
+        /**
          * Entry
          * @description One log line that parsed: its kind, and the fields the line gives and no others.
          */
@@ -5625,14 +5635,6 @@ export interface components {
             from: string;
             /** Limits */
             limits: components["schemas"]["LimitRowIn"][];
-        };
-        /**
-         * Line
-         * @description A todo line as typed, `- [ ] words 📅 2026-12-01`; a bare line of words is open.
-         */
-        Line: {
-            /** Text */
-            text: string;
         };
         /**
          * LineHit
@@ -13401,7 +13403,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Line"];
+                "application/json": components["schemas"]["EditedLine"];
             };
         };
         responses: {

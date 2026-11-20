@@ -123,12 +123,12 @@ export function addTodoLine(text: string, parentId?: string): Promise<TodoRow[]>
   return touched("POST /api/todos/line", client.POST("/api/todos/line", { body }));
 }
 
-/** Change a todo to what its edited line says, its box included. */
-export function changeTodoLine(id: string, text: string): Promise<TodoRow[]> {
+/** Change a todo read at `version` to what its edited line says, box included; a stale version is refused. */
+export function changeTodoLine(id: string, text: string, version: number): Promise<TodoRow[]> {
   const params = { path: { todo_id: id } };
   return touched(
     "PUT /api/todos/line",
-    client.PUT("/api/todos/{todo_id}/line", { params, body: { text } }),
+    client.PUT("/api/todos/{todo_id}/line", { params, body: { text, version } }),
   );
 }
 

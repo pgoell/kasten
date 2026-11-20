@@ -22,7 +22,14 @@ const hints = (page: Page) => page.getByTestId("todo-hint");
 const cursorRow = (page: Page) => page.locator(`${TODO_ROW}[tabindex="0"]`);
 const note = (...lines: string[]) => `# Dentist\n\n${lines.join("\n")}\n`;
 
-type Row = { id: string; words: string; state: string; tags: string[]; planned: string | null };
+type Row = {
+  id: string;
+  words: string;
+  state: string;
+  tags: string[];
+  planned: string | null;
+  version: number;
+};
 /** Every todo in the store, as the pane's writes leave it. */
 const rows = async (url: string): Promise<Row[]> => (await fetch(`${url}/api/todos/rows`)).json();
 /** The store's todo whose words hold `words`. */
@@ -79,6 +86,43 @@ test("Enter writes the edited line into the store and draws a row again", async 
   expect(await stateOf(stack.url, "book the checkup")).toBe("open");
   await expect(draft(page)).toHaveCount(0);
   await expect(page.locator(TODO_ROW, { hasText: "call the dentist at nine" })).toBeVisible();
+});
+
+test("#2247 Enter over a todo changed since i opened writes nothing, says so and keeps the line; Enter again writes it", async ({
+  page,
+  stack,
+}) => {
+  const edited = "- [ ] call the dentist at ten 📅 2026-01-07 ⏫ #health";
+  await onDentist(page, stack.vault);
+  await page.keyboard.press("i");
+  const read = (await rowOf(stack.url, "call the dentist")) as Row;
+  // Changed elsewhere, as by another tab; the list reads it again under the open edit.
+  const relisted = page.waitForResponse(
+    (answer) => new URL(answer.url()).pathname === "/api/todos" && answer.status() === 200,
+  );
+  const change = JSON.stringify({ version: read.version, planned: plus(1) });
+  const headers = { "Content-Type": "application/json" };
+  const sent = await fetch(`${stack.url}/api/todos/${read.id}`, {
+    method: "PATCH",
+    body: change,
+    headers,
+  });
+  expect(sent.status, await sent.text()).toBe(200);
+  // The store's own event never reaches the page (#2250); a note's write makes the list read.
+  await vaultWith(stack.vault, { "zz.md": "# zz\n" });
+  await relisted;
+  await draft(page).fill(edited);
+  await page.keyboard.press("Enter");
+  await expect(page.getByTestId("notice")).toHaveText(
+    /^Nothing moved: kt-[0-9a-f]{6} changed since it was read/,
+  );
+  await expect(draft(page)).toHaveValue(edited);
+  const kept = (await rowOf(stack.url, "call the dentist")) as Row;
+  expect([kept.words, kept.planned]).toEqual(["call the dentist #health", plus(1)]);
+  await page.keyboard.press("Enter");
+  await expect
+    .poll(async () => (await rowOf(stack.url, "dentist"))?.words)
+    .toBe("call the dentist at ten #health");
 });
 
 test("Escape writes nothing and gives the keys back to the list: j moves, x walks that row", async ({
