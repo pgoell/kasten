@@ -96,13 +96,20 @@ test("#2247 Enter over a todo changed since i opened writes nothing, says so and
   await onDentist(page, stack.vault);
   await page.keyboard.press("i");
   const read = (await rowOf(stack.url, "call the dentist")) as Row;
-  // Changed elsewhere, as by another tab: the list reads the todo again under the open edit.
+  // Changed elsewhere, as by another tab; the list reads it again under the open edit.
   const relisted = page.waitForResponse(
     (answer) => new URL(answer.url()).pathname === "/api/todos" && answer.status() === 200,
   );
   const change = JSON.stringify({ version: read.version, planned: plus(1) });
   const headers = { "Content-Type": "application/json" };
-  await fetch(`${stack.url}/api/todos/${read.id}`, { method: "PATCH", body: change, headers });
+  const sent = await fetch(`${stack.url}/api/todos/${read.id}`, {
+    method: "PATCH",
+    body: change,
+    headers,
+  });
+  expect(sent.status, await sent.text()).toBe(200);
+  // The store's own event never reaches the page (#2250); a note's write makes the list read.
+  await vaultWith(stack.vault, { "zz.md": "# zz\n" });
   await relisted;
   await draft(page).fill(edited);
   await page.keyboard.press("Enter");
@@ -111,11 +118,11 @@ test("#2247 Enter over a todo changed since i opened writes nothing, says so and
   );
   await expect(draft(page)).toHaveValue(edited);
   const kept = (await rowOf(stack.url, "call the dentist")) as Row;
-  expect([kept.words, kept.planned]).toEqual(["call the dentist", plus(1)]);
+  expect([kept.words, kept.planned]).toEqual(["call the dentist #health", plus(1)]);
   await page.keyboard.press("Enter");
   await expect
     .poll(async () => (await rowOf(stack.url, "dentist"))?.words)
-    .toBe("call the dentist at ten");
+    .toBe("call the dentist at ten #health");
 });
 
 test("Escape writes nothing and gives the keys back to the list: j moves, x walks that row", async ({
