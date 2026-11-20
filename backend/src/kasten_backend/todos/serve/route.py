@@ -280,23 +280,40 @@ class EditedLine(Line):
 
 async def _project_of_edit(
     writes: Writes, settings: Settings, row: Todo, values: dict[str, Any]
-) -> list[Todo]:
-    """Give the todo the project its edited words name, where they name another (#2249).
+) -> list[tuple[Todo, str | None]]:
+    """Give the todo the project the board's order reads off its edited line, if it changes (#2249).
 
-    Answers the parts that took its old project from it, which follow it; a part that names
-    a project of its own keeps it, as the board's order has it.
+    Answers each part whose project that order gave it and now gives another, with the new one.
     """
     paths = vault.list_markdown_files(settings.vault_path)
-    named = read.named_project(values["words"], row.note, paths)
-    if named == read.named_project(row.words, row.note, paths):
+    tagged, parent, up = None, None, row.parent_id
+    while up is not None:
+        above = await writes.get(up)
+        parent, up = parent or above, above.parent_id
+        tagged = tagged or read.tag_project(above.words, paths)
+    inherited = (tagged, parent.project if parent else None)
+    was = read.named_project(row.words, row.note, paths, inherited)
+    now = read.named_project(values["words"], row.note, paths, inherited)
+    if was == now:
         return []
-    parent = None if row.parent_id is None else await writes.get(row.parent_id)
-    values["project"] = named or (parent.project if parent else None)
-    return [
-        part
-        for part in await writes.parts(row)
-        if part.project == row.project and read.named_project(part.words, part.note, paths) is None
-    ]
+    values["project"] = now
+    own = (read.tag_project(row.words, paths), read.tag_project(values["words"], paths))
+    tags = {row.id: (own[0] or tagged, own[1] or tagged)}
+    projects = {row.id: (row.project, now)}
+    moved: list[tuple[Todo, str | None]] = []
+    for part in await writes.parts(row):
+        tag, project, mine = tags[part.parent_id or ""], projects[part.parent_id or ""], None
+        old, new = (
+            read.named_project(part.words, part.note, paths, (tag[at], project[at]))
+            for at in (0, 1)
+        )
+        if part.project == old != new:
+            moved.append((part, new))
+            mine = new
+        own_tag = read.tag_project(part.words, paths)
+        tags[part.id] = (own_tag or tag[0], own_tag or tag[1])
+        projects[part.id] = (part.project, mine or part.project)
+    return moved
 
 
 @router.put("/{todo_id}/line")
@@ -311,8 +328,8 @@ async def change_line(
         state, was = values.pop("state"), row.state
         parts = await _project_of_edit(writes, settings, row, values)
         await writes.edit(todo_id, body.version, values)
-        for part in parts:
-            await writes.edit(part.id, part.version, {"project": values["project"]})
+        for part, project in parts:
+            await writes.edit(part.id, part.version, {"project": project})
         # Against the state read, not the edited one: a box left as it was changes nothing.
         if state != was:
             await writes.set_state(todo_id, state)

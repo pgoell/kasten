@@ -178,6 +178,24 @@ async def test_2249_the_note_folder_beats_a_link_and_an_edit_naming_nothing_new_
     assert worded.json()[0]["project"] == KASTEN
 
 
+async def test_2249_a_parents_tag_comes_before_the_note_folder_for_its_parts(
+    client: AsyncClient, vault: Path
+) -> None:
+    projects(vault)
+    plan = (await post_line(client, "plan", note="02 Projects/FDE/plan.md"))[0]
+    hall = (await post_line(client, "book the hall", parent_id=plan["id"]))[0]
+    tagged = await put_line(client, plan, "- [ ] plan #p/kasten")
+    own = (await post_line(client, "print the menu #p/fde", parent_id=plan["id"]))[0]
+    untagged = await put_line(client, own, "- [ ] print the menu")
+
+    assert (hall["project"], own["project"]) == ("02 Projects/FDE", "02 Projects/FDE")
+    assert {one["words"]: one["project"] for one in tagged.json()} == {
+        "plan #p/kasten": KASTEN,
+        "book the hall": KASTEN,
+    }
+    assert untagged.json()[0]["project"] == KASTEN
+
+
 async def test_2247_a_line_typed_over_a_todo_changed_since_is_refused_and_writes_nothing(
     client: AsyncClient,
 ) -> None:

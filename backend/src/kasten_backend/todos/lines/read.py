@@ -375,13 +375,22 @@ def _link_project(text: str, paths: list[str]) -> str | None:
     return None
 
 
-def named_project(words: str, note: str | None, paths: list[str]) -> str | None:
-    """The project a todo's words and note name: a `#p/x` tag, its note's folder, else a link.
+def tag_project(words: str, paths: list[str]) -> str | None:
+    """The project a `#p/x` tag in a todo's words names, if a folder by that name exists."""
+    return _tag_project(words, project_folders(paths))
 
-    `projects_of`'s order without the parent, which a caller takes after it.
+
+def named_project(
+    words: str, note: str | None, paths: list[str], above: tuple[str | None, str | None]
+) -> str | None:
+    """The project `projects_of`'s order gives a todo, from its words, its note and `above`.
+
+    `above` is the nearest tag's project over it and its parent's project, the steps a caller
+    reads off the store rather than the note's lines.
     """
     folder = None if note is None else project_in(note, PROJECT_ROOTS)
-    return _tag_project(words, project_folders(paths)) or folder or _link_project(words, paths)
+    tagged = tag_project(words, paths) or above[0]
+    return tagged or folder or _link_project(words, paths) or above[1]
 
 
 def project_folders(paths: list[str]) -> dict[str, str]:
