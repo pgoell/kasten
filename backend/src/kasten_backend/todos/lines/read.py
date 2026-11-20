@@ -389,8 +389,14 @@ def named_project(
     reads off the store rather than the note's lines.
     """
     folder = None if note is None else project_in(note, PROJECT_ROOTS)
-    tagged = tag_project(words, paths) or above[0]
-    return tagged or folder or _link_project(words, paths) or above[1]
+    return _first(tag_project(words, paths) or above[0], folder, words, paths, above[1])
+
+
+def _first(
+    tagged: str | None, folder: str | None, words: str, paths: list[str], parent: str | None
+) -> str | None:
+    """The board's order, kept here once: a tag, the note's folder, a link, the parent."""
+    return tagged or folder or _link_project(words, paths) or parent
 
 
 def project_folders(paths: list[str]) -> dict[str, str]:
@@ -437,8 +443,7 @@ def projects_of(hits: list[Hit], paths: list[str]) -> list[str | None]:
             words = _words(todo[2] or "")
             tagged = _tag_project(words, folders) or tags.get(parent)
             above = None if parent is None else found.get((note, parent))
-            project = tagged or folder or _link_project(words, paths) or above
-            found[(note, hit.line)] = project
+            found[(note, hit.line)] = _first(tagged, folder, words, paths, above)
             tags[hit.line] = tagged
 
     return [found.get((hit.path, hit.line)) for hit in hits]

@@ -121,12 +121,18 @@ function rowNamed(rowOf: RowOf, id: string): TodoRow {
 
 /** Each `id@version` a write from here produced, so an edit read before one is not refused for it. */
 const ours = new Set<string>();
+/** Far above the writes out during one edit; dropping on the event would refuse an edit opened before it. */
+const KEPT = 200;
 
 /** Run one store write in turn, noting the versions it produced. */
 function ownTurn(work: () => Promise<TodoRow[]>): Promise<TodoRow[]> {
   return inTurn(async () => {
     const rows = await work();
     for (const row of rows) ours.add(`${row.id}@${row.version}`);
+    for (const old of ours) {
+      if (ours.size <= KEPT) break;
+      ours.delete(old);
+    }
     return rows;
   });
 }

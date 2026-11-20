@@ -89,6 +89,19 @@ describe("the todo writes", () => {
     );
   });
 
+  it("forgets its own written versions once 200 newer ones came after", async () => {
+    const listed = { ...hit("- [ ] a 🆔 kt-eeeeee"), todo: { ...ROW, id: "kt-eeeeee" } };
+    api.cycleStoreTodo.mockResolvedValueOnce([{ ...ROW, id: "kt-eeeeee", version: 2 }]);
+    await cycleTodoInVault(listed);
+    await editTodoInVault(listed, "- [ ] b 🆔 kt-eeeeee", 1);
+    for (let n = 0; n < 200; n += 1) {
+      api.cycleStoreTodo.mockResolvedValueOnce([{ ...ROW, id: `kt-f${n}`, version: 1 }]);
+      await cycleTodoInVault(hit(`- [ ] f 🆔 kt-f${n}`));
+    }
+    await editTodoInVault(listed, "- [ ] c 🆔 kt-eeeeee", 1);
+    expect(api.changeTodoLine.mock.calls.map((call) => call[2])).toEqual([2, 1]);
+  });
+
   it("takes the id off the row before the line, which a press drawn early can leave plain", async () => {
     await cycleTodoInVault({ ...hit("a ✅ 2026-08-10"), todo: ROW });
     expect(api.cycleStoreTodo).toHaveBeenCalledExactlyOnceWith("kt-aaaaaa");

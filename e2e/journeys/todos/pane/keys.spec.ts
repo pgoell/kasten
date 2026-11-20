@@ -3,7 +3,6 @@ import {
   cursorTo,
   holdStream,
   leader,
-  noteText,
   openApp,
   panes,
   readAll,
@@ -67,19 +66,10 @@ async function threeTabs(page: Page, vault: string) {
   await expect(row(page, "buy milk")).toBeVisible({ timeout: 15_000 });
 }
 
-/**
- * Deletes the plumber's todo behind the app's back, then writes its note, whose event makes the
- * pane read the todos again as the store's own does.
- */
-async function dropPlumber(url: string, vault: string) {
-  await drop(url, vault, "call the plumber");
-}
-
-/** Deletes the todo with `words` from the store, then writes the note as `dropPlumber` does. */
-async function drop(url: string, vault: string, words: string) {
+/** Deletes the todo with `words` behind the app's back; the store's own event redraws the pane. */
+async function drop(url: string, words: string) {
   const { id } = (await rowOf(url, words)) as Row;
   expect((await fetch(`${url}/api/todos/${id}`, { method: "DELETE" })).ok).toBe(true);
-  await vaultWith(vault, { [NOTE]: `${await noteText(vault, NOTE)}\n` });
 }
 
 test("j moves the cursor down a row and k moves it back up", async ({ page, stack }) => {
@@ -126,7 +116,7 @@ test("#1368 a write that redraws the rows leaves the focus in the filter line", 
   await openPane(page, stack.vault);
   await page.keyboard.press("/");
   await expect(filter(page)).toBeFocused();
-  await dropPlumber(stack.url, stack.vault);
+  await drop(stack.url, "call the plumber");
   await expect(row(page, "call the plumber")).toHaveCount(0, { timeout: 15_000 });
   await expect(filter(page)).toBeFocused();
 });
@@ -138,7 +128,7 @@ test("#1368 a write that redraws the rows leaves the focus outside the pane wher
   await openPane(page, stack.vault);
   const outside = page.getByRole("button", { name: "Welcome", exact: true });
   await outside.focus();
-  await dropPlumber(stack.url, stack.vault);
+  await drop(stack.url, "call the plumber");
   await expect(row(page, "call the plumber")).toHaveCount(0, { timeout: 15_000 });
   await expect(outside).toBeFocused();
 });
@@ -415,7 +405,7 @@ test("#2219 deleting the todo a row waits on takes its ⛔ off and opens the row
   await openPane(page, stack.vault);
   await block(page, "wire up the shelf", "buy milk");
   await expect(row(page, "wire up the shelf")).toContainText("⛔");
-  await drop(stack.url, stack.vault, "buy milk");
+  await drop(stack.url, "buy milk");
   await expect(row(page, "wire up the shelf")).not.toContainText("⛔", { timeout: 15_000 });
   expect((await rowOf(stack.url, "wire up the shelf"))?.state).toBe("open");
 });
