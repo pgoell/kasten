@@ -302,17 +302,17 @@ async def _project_of_edit(
     projects = {row.id: (row.project, now)}
     moved: list[tuple[Todo, str | None]] = []
     for part in await writes.parts(row):
-        tag, project, mine = tags[part.parent_id or ""], projects[part.parent_id or ""], None
+        tag, project = tags[part.parent_id or ""], projects[part.parent_id or ""]
         old, new = (
             read.named_project(part.words, part.note, paths, (tag[at], project[at]))
             for at in (0, 1)
         )
-        if part.project == old != new:
+        follows = part.project == old != new
+        if follows:
             moved.append((part, new))
-            mine = new
         own_tag = read.tag_project(part.words, paths)
         tags[part.id] = (own_tag or tag[0], own_tag or tag[1])
-        projects[part.id] = (part.project, mine or part.project)
+        projects[part.id] = (part.project, new if follows else part.project)
     return moved
 
 

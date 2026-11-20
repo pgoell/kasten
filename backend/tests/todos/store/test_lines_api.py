@@ -157,9 +157,12 @@ async def test_2249_a_link_or_tag_typed_into_a_line_files_the_todo_and_its_parts
     assert part["project"] is None
     assert tag.json()[0]["project"] == KASTEN
     own = (await post_line(client, "send the deck #p/kasten", parent_id=tagged["id"]))[0]
+    below = (await post_line(client, "print the slides", parent_id=tagged["id"]))[0]
+    await post_line(client, "buy paper", parent_id=below["id"])
     untagged = await put_line(client, tag.json()[0], "- [ ] post the slides")
     after = {one["words"]: one["project"] for one in (await client.get("/api/todos/rows")).json()}
     assert untagged.json()[0]["project"] is None
+    assert (after["print the slides"], after["buy paper"]) == (None, None)
     assert (own["project"], after["send the deck #p/kasten"]) == (KASTEN, KASTEN)
 
 
