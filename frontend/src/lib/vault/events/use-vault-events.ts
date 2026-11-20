@@ -5,7 +5,7 @@ import { reloadLogConfig } from "@/lib/log/log-card";
 import type { useAutosave } from "@/lib/notes/note/use-autosave";
 import { dailyDate, weeklyWeek, yearlyYear } from "@/lib/notes/text/periodic";
 import { pageWritten } from "@/lib/panes/html/page-written";
-import { pressEcho, pressRunning } from "@/lib/todo/todo-press-echo";
+import { pressRunning } from "@/lib/todo/todo-press-echo";
 import { parseVaultEvent, type VaultEvent } from "@/lib/vault/events/vault-events";
 
 type Autosave = ReturnType<typeof useAutosave>;
@@ -52,11 +52,8 @@ function refreshWritten(
   } else {
     onDeclined();
   }
-  // Todos reach the pane without a reload, but not the echo of its own press (the digest
-  // tells it apart). The answer comes a turn later, hence the promise.
-  void pressEcho(event.path, event.digest).then((echo) => {
-    if (!echo) refreshTodos(queryClient);
-  });
+  // Todos reach the pane without a reload.
+  refreshTodos(queryClient);
   // Any write can move a link, so the graph asks again; background graphs just go stale.
   queryClient.invalidateQueries({ queryKey: ["graph"] }, { cancelRefetch: false });
 }
