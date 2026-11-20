@@ -1,4 +1,5 @@
 import { act, waitFor } from "@testing-library/react";
+import { followRow, twinsOf } from "@/lib/todo/todo-turns";
 import { paneHooks, renderPane, TODOS } from "./todo-pane-fixture";
 
 // The doubles, the same in every todo-pane file: see todo-pane-fixture.tsx.
@@ -114,6 +115,58 @@ describe("the todo pane", () => {
     pane.press("d");
 
     await waitFor(() => expect(pane.rows()).toHaveLength(6));
+  });
+});
+
+describe("#2257 an open edit row whose todo leaves its note", () => {
+  // Both at version 1, as every todo no write has touched: a write aimed at the wrong one would land.
+  const ONE = {
+    path: "a.md",
+    line: 1,
+    text: "- [ ] one 🆔 kt-000011",
+    todo: { id: "kt-000011", version: 1 },
+  };
+  const TWO = {
+    path: "a.md",
+    line: 2,
+    text: "- [ ] two 🆔 kt-000012",
+    todo: { id: "kt-000012", version: 1 },
+  };
+
+  async function editingOne() {
+    const pane = renderPane([ONE, TWO]);
+    await pane.loaded();
+    pane.press("i");
+    expect((pane.draft() as HTMLInputElement).value).toBe(ONE.text);
+    pane.write("- [ ] one more 🆔 kt-000011");
+    return pane;
+  }
+
+  it("closes, keeping the typed text in the notice, when the todo is deleted and the next takes its line", async () => {
+    const pane = await editingOne();
+    pane.answer([{ ...TWO, line: 1 }]);
+
+    await waitFor(() => expect(pane.draft()).toBeNull());
+    expect(pane.onNotice).toHaveBeenCalledWith(
+      "Nothing moved: that line left the list while it was edited. The edit read: - [ ] one more 🆔 kt-000011",
+    );
+    expect(pane.onEdit).not.toHaveBeenCalled();
+  });
+
+  it("stays on its own todo moved to another note, and Enter writes that todo, never the one left on its line", async () => {
+    const pane = await editingOne();
+    pane.answer([
+      { ...TWO, line: 1 },
+      { ...ONE, path: "b.md" },
+    ]);
+    pane.send("Enter");
+
+    expect(pane.onEdit).toHaveBeenCalledTimes(1);
+    expect(pane.onEdit.mock.calls[0]?.[0]).toMatchObject({ text: ONE.text, todo: ONE.todo });
+  });
+
+  it("a tapped state button's question never moves onto the todo that took its line", () => {
+    expect(followRow(ONE, twinsOf(ONE, [ONE, TWO]), [{ ...TWO, line: 1 }])).toBeNull();
   });
 });
 
