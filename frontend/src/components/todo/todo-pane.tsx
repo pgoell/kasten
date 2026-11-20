@@ -6,9 +6,9 @@ import { TodoHeader } from "@/components/todo/todo-header";
 import { type Editing, TodoList } from "@/components/todo/todo-list";
 import { fetchTodos, type SearchHit, type TodoHit } from "@/lib/core/api";
 import type { TodoState } from "@/lib/todo/todo";
-import { noteLineOf } from "@/lib/todo/todo-api";
+import { noteLineOf, todoIdIn } from "@/lib/todo/todo-api";
 import { aimAgain, aimOf, cursorAfter } from "@/lib/todo/todo-hold";
-import { followRow, twinsOf } from "@/lib/todo/todo-turns";
+import { followEdit, twinsOf } from "@/lib/todo/todo-turns";
 import { useArmed } from "@/lib/todo/use-armed";
 import { useBlockerPick } from "@/lib/todo/use-blocker-pick";
 import { useTodoFilter } from "@/lib/todo/use-todo-filter";
@@ -30,12 +30,19 @@ function editAt(editing: Editing) {
   };
 }
 
+/** Where an open edit is drawn after a redraw, and the edit as the list draws it: none in the render its todo left. */
+function followed(editing: Editing | null, hits: SearchHit[]) {
+  if (editing === null) return { edited: undefined, shown: null };
+  const edited = followEdit(editAt(editing), editing, hits, todoIdIn);
+  return { edited, shown: edited === null ? null : editing };
+}
+
 function editOf(hit: SearchHit, line: string, rows: Row[], version?: number): Editing {
   const twins = twinsOf(
     hit,
     rows.map((row) => row.hit),
   );
-  return { key: rowKey(hit), line, from: hit.text, twins, version };
+  return { key: rowKey(hit), line, from: hit.text, twins, id: todoIdIn(hit), version };
 }
 
 /** One empty list for every render, so a row that compares its props sees no change. */
@@ -223,15 +230,11 @@ export function TodoPane({
   const cursorKey = at === undefined ? "" : rowKey(at.hit);
   drawn.current = { rows, cursor, open: groupRows.length };
 
-  // An open edit stays on its todo when a redraw moves its line, or closes keeping its text in the notice (#2087).
-  const edited =
-    editing === null
-      ? undefined
-      : followRow(
-          editAt(editing),
-          editing.twins,
-          rows.map((row) => row.hit),
-        );
+  // An open edit stays on its todo when a redraw moves it, or closes keeping its text in the notice (#2087, #2257).
+  const { edited, shown } = followed(
+    editing,
+    rows.map((row) => row.hit),
+  );
   if (editing !== null && edited && rowKey(edited) !== editing.key) {
     setEditing({ ...editing, key: rowKey(edited) });
   }
@@ -526,7 +529,7 @@ export function TodoPane({
           today={today}
           coarse={coarse}
           picking={blocker.picking !== null}
-          editing={editing}
+          editing={shown}
           onEditing={setEditing}
           draft={draft}
           armed={armed.armed}

@@ -52,6 +52,8 @@ export interface Editing {
   line: string;
   from: string;
   twins: { nth: number; of: number };
+  /** The todo it opened on, which it follows by id (#2257); none for a row that names no todo. */
+  id?: string;
   /** The todo's version as the edit opened, which Enter sends (#2247); none sends the row's at Enter. */
   version?: number;
 }

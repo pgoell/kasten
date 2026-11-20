@@ -48,9 +48,14 @@ type Listed = SearchHit & { todo?: TodoRow | null };
  * plain words; else the `🆔` every todo line carries, or a timer line's id.
  */
 export function todoIdOf(hit: Listed): string {
-  const id = hit.todo?.id ?? parseTodo(hit.text)?.id ?? parseSession(hit.text)?.id;
+  const id = todoIdIn(hit);
   if (id === undefined) throw new Error("that line names no todo");
   return id;
+}
+
+/** As `todoIdOf`, with nothing for a row that names no todo. */
+export function todoIdIn(hit: Listed): string | undefined {
+  return hit.todo?.id ?? parseTodo(hit.text)?.id ?? parseSession(hit.text)?.id;
 }
 
 /**

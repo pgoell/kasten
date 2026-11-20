@@ -60,21 +60,31 @@ export function twinsOf(at: Row, rows: Row[]): { nth: number; of: number } {
 }
 
 /**
- * The row an open edit of `at` (its words as typed over) is drawn on after a redraw: the same one of the lines
- * saying them while their count holds, else its own line. Null where twins cannot be told apart, or none is left (#2087).
- * `onLine` keeps it on its own line once its words have changed there; a question does not, as another todo may hold that line.
+ * The row `at` (its words when taken) is drawn on after a redraw: the same one of the lines saying them while their
+ * count holds. Null where twins cannot be told apart, or none is left; never the row now on its line, as a listed
+ * line counts todos and the next one takes it (#2257).
  */
 export function followRow<R extends Row>(
   at: Row,
   twins: { nth: number; of: number },
   rows: R[],
-  onLine = true,
 ): R | null {
-  const here = rows.filter((row) => row.path === at.path);
-  const same = here
-    .filter((row) => row.text === at.text)
+  const same = rows
+    .filter((row) => row.path === at.path && row.text === at.text)
     .sort((one, other) => one.line - other.line);
-  if (same.length > 0) return same.length === twins.of ? (same[twins.nth] ?? null) : null;
-  // Its words changed on its own line: the edit stays there, and the write refuses it.
-  return (onLine ? here.find((row) => row.line === at.line) : undefined) ?? null;
+  return same.length === twins.of ? (same[twins.nth] ?? null) : null;
+}
+
+/**
+ * The row an open edit is drawn on after a redraw: its own todo by id, wherever it now sits, or null once it has
+ * left the list (#2257). A row that names no todo is followed by its words.
+ */
+export function followEdit<R extends Row>(
+  at: Row,
+  edit: { id?: string; twins: { nth: number; of: number } },
+  rows: R[],
+  idOf: (row: R) => string | undefined,
+): R | null {
+  if (edit.id === undefined) return followRow(at, edit.twins, rows);
+  return rows.find((row) => idOf(row) === edit.id) ?? null;
 }

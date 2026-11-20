@@ -25,7 +25,7 @@ export function useArmed(rows: SearchHit[]) {
   }, [asked]);
 
   // It follows its todo to a new line (a save stamping frontmatter, #2092), never onto another todo.
-  const at = asked === null ? null : followRow(asked.at, asked.twins, rows, false);
+  const at = asked === null ? null : followRow(asked.at, asked.twins, rows);
   const armed = at === null ? null : `${rowKey(at)}\n${at.text}`;
 
   return {
