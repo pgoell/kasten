@@ -20,7 +20,7 @@ const { log, pressing } = vi.hoisted(() => ({
   pressing: { value: false },
 }));
 vi.mock("@/lib/log/log-card", () => ({ reloadLogConfig: () => log.push("reloadLogConfig") }));
-vi.mock("@/lib/todo/todo-press-echo", () => ({ pressRunning: () => pressing.value }));
+vi.mock("@/lib/todo/todo-turns", () => ({ pressRunning: () => pressing.value }));
 
 class FakeStream {
   static last: FakeStream | undefined;

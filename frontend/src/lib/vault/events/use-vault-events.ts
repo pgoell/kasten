@@ -5,7 +5,7 @@ import { reloadLogConfig } from "@/lib/log/log-card";
 import type { useAutosave } from "@/lib/notes/note/use-autosave";
 import { dailyDate, weeklyWeek, yearlyYear } from "@/lib/notes/text/periodic";
 import { pageWritten } from "@/lib/panes/html/page-written";
-import { pressRunning } from "@/lib/todo/todo-press-echo";
+import { pressRunning } from "@/lib/todo/todo-turns";
 import { parseVaultEvent, type VaultEvent } from "@/lib/vault/events/vault-events";
 
 type Autosave = ReturnType<typeof useAutosave>;

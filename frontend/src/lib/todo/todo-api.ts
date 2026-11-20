@@ -35,9 +35,9 @@ import {
 import { agentPress } from "@/lib/todo/todo-agent";
 import { applyBlocked, type Closed, closedAmong, unblockedEdit } from "@/lib/todo/todo-blocked";
 import type { TodoCycle } from "@/lib/todo/todo-commands";
-import { inTurn } from "@/lib/todo/todo-press-echo";
 import { expandShorthand } from "@/lib/todo/todo-shorthand";
 import { parseSession } from "@/lib/todo/todo-time";
+import { inTurn } from "@/lib/todo/todo-turns";
 import { doneLogWrites, otherTodoWithId } from "@/lib/todo/todo-write";
 
 /** A listed line, with the store row behind it where the listing sent one. */

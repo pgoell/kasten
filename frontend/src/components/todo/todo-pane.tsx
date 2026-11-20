@@ -8,7 +8,7 @@ import { fetchTodos, type SearchHit, type TodoHit } from "@/lib/core/api";
 import type { TodoState } from "@/lib/todo/todo";
 import { noteLineOf } from "@/lib/todo/todo-api";
 import { aimAgain, aimOf, cursorAfter } from "@/lib/todo/todo-hold";
-import { followRow, twinsOf } from "@/lib/todo/todo-press-echo";
+import { followRow, twinsOf } from "@/lib/todo/todo-turns";
 import { useArmed } from "@/lib/todo/use-armed";
 import { useBlockerPick } from "@/lib/todo/use-blocker-pick";
 import { useTodoFilter } from "@/lib/todo/use-todo-filter";
