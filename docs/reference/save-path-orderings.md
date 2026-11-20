@@ -65,7 +65,7 @@ The table splits by theme. Rows keep their numbers on every page, so "As 82" poi
 * [Reopened buffers and held text](/reference/save-path-orderings/reopened-buffers-and-held-text.md): rows 82 to 91.
 * [Live conflicts and leaving the route](/reference/save-path-orderings/conflicts-and-leaving-the-route.md): rows 92 to 106, and 136.
 * [Panels, history restores and CRLF notes](/reference/save-path-orderings/panels-history-and-crlf.md): rows 107 to 116.
-* [Moving a todo between notes, and the edit row](/reference/save-path-orderings/todo-pane-moves.md): rows 117 to 123 and 149 to 154.
+* [Moving a todo between notes, and the edit row](/reference/save-path-orderings/todo-pane-moves.md): rows 117 to 123 and 149 to 156.
 * [Presses on a todo row](/reference/save-path-orderings/todo-row-presses.md): rows 124 to 129, 135 and 146 to 148.
 * [Agent tags and the editor's todo shortcut](/reference/save-path-orderings/todo-agent-tags.md): rows 130 to 134.
 * [The review sitting's writes and undo](/reference/save-path-orderings/review-sitting-undo.md): rows U1 to U6, R1 to R7, P1 to P5, G1 to G6 and H1 to H6.
