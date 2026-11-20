@@ -52,6 +52,8 @@ export interface Editing {
   line: string;
   from: string;
   twins: { nth: number; of: number };
+  /** The todo's version as the edit opened, which Enter sends (#2247); none sends the row's at Enter. */
+  version?: number;
 }
 
 /**

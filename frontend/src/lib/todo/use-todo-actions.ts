@@ -203,7 +203,8 @@ export function useTodoActions({
 
   /** Change the todo to an edited line, from the pane's `i`. Answers whether it wrote, so the pane can keep the text (#2087). */
   const editTodo = useCallback(
-    (hit: SearchHit, line: string): Promise<boolean> => press(() => editTodoInVault(hit, line)),
+    (hit: SearchHit, line: string, read?: number): Promise<boolean> =>
+      press(() => editTodoInVault(hit, line, read)),
     [press],
   );
 

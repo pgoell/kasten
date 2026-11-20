@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: The todo board
-description: Why the board is a view over todos that keep the note they were typed in, why a todo's project comes from a `#p/x` tag, its parent or its note's folder, and how a dragged card moves.
+description: Why the board is a view over todos that keep the note they were typed in, why a todo's project comes from a `#p/x` tag, its note's folder or a link on it, and how a dragged card moves.
 tags: [design, todos, board, projects]
 status: draft
 ---
@@ -185,8 +185,9 @@ Every frame asked for a cheap way to give a todo its project from where it
 was typed. `p` on a card lists the folders under `02 Projects`, and picking one adds a
 link to that folder's `index.md` into the todo's words, through the write the
 pane's `i` makes. One press of the user's own. This is option C's
-refile without the move: the todo keeps its note. Since PR #2205 the store
-reads no link for the project, so the card keeps its lane (#2249).
+refile without the move: the todo keeps its note, and the board files it.
+A todo whose note sits in a project folder keeps that folder's project, since
+the folder comes before a link.
 
 ### Lanes by kind first
 
@@ -231,8 +232,9 @@ test against one file of cases, so the cost is small and the answer is one.
 Since PR #2205 the project is a column of the row. The import worked it out by
 the order below. A todo added since takes the project the add names, else a
 `#p/x` tag's, else its parent's if it has a parent, else its note's folder's.
-After that only an edit that names the project, a refile or a note move changes
-it, so neither a link nor a tag typed later does (#2249).
+An edit of its line whose tag or link names another project than before gives
+it the project the order below reads, and its parts that had the old one take
+the new one too. A refile, a lane drop and a note move change it as well.
 
 A `#p/x` tag on a todo comes before every step of that rule, the folder
 included. So the full order is:

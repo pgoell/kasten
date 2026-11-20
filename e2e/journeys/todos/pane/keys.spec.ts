@@ -302,8 +302,8 @@ test.afterEach(({ page }) => page.unrouteAll({ behavior: "ignoreErrors" }));
 
 /** The store row behind `words`, deleted or its words changed with the stream held, so the pane still lists it as it was. */
 async function behindTheList(page: Page, url: string, words: string, change: "delete" | "edit") {
-  const { id } = (await rowOf(url, words)) as Row;
-  const edit = { method: "PUT", body: JSON.stringify({ text: `- [ ] ${words} again` }) };
+  const { id, version } = (await rowOf(url, words)) as Row;
+  const edit = { method: "PUT", body: JSON.stringify({ text: `- [ ] ${words} again`, version }) };
   const init = change === "delete" ? { method: "DELETE" } : edit;
   const path = change === "delete" ? id : `${id}/line`;
   const sent = await fetch(`${url}/api/todos/${path}`, {

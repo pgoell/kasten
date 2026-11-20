@@ -30,12 +30,12 @@ function editAt(editing: Editing) {
   };
 }
 
-function editOf(hit: SearchHit, line: string, rows: Row[]): Editing {
+function editOf(hit: SearchHit, line: string, rows: Row[], version?: number): Editing {
   const twins = twinsOf(
     hit,
     rows.map((row) => row.hit),
   );
-  return { key: rowKey(hit), line, from: hit.text, twins };
+  return { key: rowKey(hit), line, from: hit.text, twins, version };
 }
 
 /** One empty list for every render, so a row that compares its props sees no change. */
@@ -64,7 +64,7 @@ interface TodoPaneProps {
    * Puts the row's line back in its note, edited. The one press that carries text:
    * what the input holds is what the vault gets. Answers whether it wrote.
    */
-  onEdit: (hit: SearchHit, line: string) => Promise<boolean>;
+  onEdit: (hit: SearchHit, line: string, read?: number) => Promise<boolean>;
   /**
    * Says the first row's todo waits for the second's. The write puts a `⛔` on one
    * line and may put an id on the other.
@@ -343,17 +343,17 @@ export function TodoPane({
    * `i`: the row becomes its line, by the row's own key so a tap need not move the cursor.
    * Not while another row is edited: a tap that got through would drop that draft unwritten.
    */
-  function edit(hit: SearchHit) {
+  function edit(hit: TodoHit) {
     if (editing !== null) return;
     // An edited line may change its words, and a held row would take it as a new todo
     // at the group's end, so the list is drawn fresh.
     release();
-    setEditing(editOf(hit, hit.text, rows));
+    setEditing(editOf(hit, hit.text, rows, hit.todo?.version));
   }
 
   /** Enter on the edit row. A refused or failed edit opens the row again on what was typed (#2087). */
   function write(hit: SearchHit, line: string) {
-    void onEdit(hit, line).then((wrote) => {
+    void onEdit(hit, line, editing?.version).then((wrote) => {
       if (!wrote) setEditing((open) => open ?? editOf(hit, line, drawn.current.rows));
     });
   }

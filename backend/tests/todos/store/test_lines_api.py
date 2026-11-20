@@ -10,7 +10,7 @@ from kasten_backend.todos import hits, importer
 from kasten_backend.todos.store.models import Todo
 
 if TYPE_CHECKING:
-    from httpx import AsyncClient
+    from httpx import AsyncClient, Response
 
 pytestmark = pytest.mark.usefixtures("vault", "store")
 READS = json.loads((Path(__file__).parents[2] / "fixtures/todo_reads.json").read_text("utf-8"))
@@ -53,15 +53,21 @@ async def test_a_typed_line_adds_a_todo_and_reads_back_as_its_line(client: Async
     assert [hit["line"] for hit in answer] == [1, 2]
 
 
+async def put_line(client: AsyncClient, row: dict[str, Any], text: str) -> Response:
+    """Send `text` as the edited line of `row`, at the version `row` was read at."""
+    return await client.put(
+        f"/api/todos/{row['id']}/line", json={"text": text, "version": row["version"]}
+    )
+
+
 async def test_an_edited_line_changes_fields_and_state_and_keeps_a_soft_due_soft(
     client: AsyncClient,
 ) -> None:
     row = (await post_line(client, "draft memo"))[0]
     line = (await client.get("/api/todos")).json()[0]["text"]
-    kept = await client.put(f"/api/todos/{row['id']}/line", json={"text": line + " #work"})
-    ticked = await client.put(
-        f"/api/todos/{row['id']}/line",
-        json={"text": line.replace("[ ]", "[x]").replace("draft memo", "draft the memo")},
+    kept = await put_line(client, row, line + " #work")
+    ticked = await put_line(
+        client, kept.json()[0], line.replace("[ ]", "[x]").replace("draft memo", "draft the memo")
     )
 
     assert (kept.json()[0]["tags"], kept.json()[0]["due_hard"]) == (["#work"], False)
@@ -122,3 +128,70 @@ async def test_a_moved_note_and_folder_take_their_todos_along(
     row = (await client.get("/api/todos/rows")).json()[0]
 
     assert (row["note"], row["project"]) == ("02 Projects/Other/plan.md", "02 Projects/Other")
+
+
+KASTEN = "02 Projects/Kasten"
+
+
+def projects(vault: Path) -> None:
+    for folder in (KASTEN, "02 Projects/FDE"):
+        (vault / folder).mkdir(parents=True)
+        (vault / folder / "index.md").write_text("# index\n")
+
+
+async def test_2249_a_link_or_tag_typed_into_a_line_files_the_todo_and_its_parts(
+    client: AsyncClient, vault: Path
+) -> None:
+    projects(vault)
+    tapped = (await post_line(client, "fix the tap"))[0]
+    part = (await post_line(client, "buy a washer", parent_id=tapped["id"]))[0]
+    tagged = (await post_line(client, "post the slides"))[0]
+    linked = await put_line(client, tapped, "- [ ] fix the tap [[02 Projects/Kasten/index|Kasten]]")
+    tag = await put_line(client, tagged, "- [ ] post the slides #p/kasten")
+
+    assert linked.status_code == 200, linked.text
+    assert {one["words"]: one["project"] for one in linked.json()} == {
+        "fix the tap [[02 Projects/Kasten/index|Kasten]]": KASTEN,
+        "buy a washer": KASTEN,
+    }
+    assert part["project"] is None
+    assert tag.json()[0]["project"] == KASTEN
+    untagged = await put_line(client, tag.json()[0], "- [ ] post the slides")
+    assert untagged.json()[0]["project"] is None
+
+
+async def test_2249_the_note_folder_beats_a_link_and_an_edit_naming_nothing_new_keeps_a_project(
+    client: AsyncClient, vault: Path
+) -> None:
+    projects(vault)
+    planned = (await post_line(client, "write the deck", note="02 Projects/FDE/plan.md"))[0]
+    moved = (await post_line(client, "call the bank"))[0]
+    change = {"version": 1, "project": KASTEN}
+    moved = (await client.patch(f"/api/todos/{moved['id']}", json=change)).json()[0]
+    linked = await put_line(client, planned, "- [ ] write the deck [[02 Projects/Kasten/index]]")
+    worded = await put_line(client, moved, "- [ ] call the bank about the loan")
+
+    assert linked.json()[0]["project"] == "02 Projects/FDE"
+    assert worded.json()[0]["project"] == KASTEN
+
+
+async def test_2247_a_line_typed_over_a_todo_changed_since_is_refused_and_writes_nothing(
+    client: AsyncClient,
+) -> None:
+    read_at = (await post_line(client, "call the bank"))[0]
+    changed = await client.patch(
+        f"/api/todos/{read_at['id']}", json={"version": read_at["version"], "priority": "high"}
+    )
+    stale = await put_line(client, read_at, "- [ ] call the bank about the loan")
+    unversioned = await client.put(
+        f"/api/todos/{read_at['id']}/line", json={"text": "- [ ] call the bank today"}
+    )
+    after = (await client.get("/api/todos/rows")).json()
+
+    assert changed.status_code == 200
+    assert stale.status_code == 409
+    assert stale.json()["detail"] == f"{read_at['id']} changed since it was read: read it again."
+    assert unversioned.status_code == 422
+    assert [(one["words"], one["priority"]) for one in after] == [("call the bank", "high")]
+    fresh = await put_line(client, changed.json()[0], "- [ ] call the bank about the loan ⏫")
+    assert fresh.json()[0]["words"] == "call the bank about the loan"

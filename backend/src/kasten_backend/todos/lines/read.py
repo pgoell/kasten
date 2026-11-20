@@ -375,6 +375,15 @@ def _link_project(text: str, paths: list[str]) -> str | None:
     return None
 
 
+def named_project(words: str, note: str | None, paths: list[str]) -> str | None:
+    """The project a todo's words and note name: a `#p/x` tag, its note's folder, else a link.
+
+    `projects_of`'s order without the parent, which a caller takes after it.
+    """
+    folder = None if note is None else project_in(note, PROJECT_ROOTS)
+    return _tag_project(words, project_folders(paths)) or folder or _link_project(words, paths)
+
+
 def project_folders(paths: list[str]) -> dict[str, str]:
     """Each project folder something is filed in, keyed by the name a `#p/x` tag spells.
 

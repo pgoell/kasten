@@ -12,9 +12,11 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kasten_backend import vault
 from kasten_backend.config import Settings, get_settings
 from kasten_backend.db import get_session
 from kasten_backend.todos import hits, importer
+from kasten_backend.todos.lines import read
 from kasten_backend.todos.store.models import Todo, TodoChange, TodoSession
 from kasten_backend.todos.store.search import Filters, Sort, search
 from kasten_backend.todos.store.writes import (
@@ -270,9 +272,31 @@ async def add_line(body: NewLine, session: Session, settings: VaultSettings) -> 
     return await _write(session, settings, run)
 
 
+class EditedLine(Line):
+    """A todo's edited line, typed over the todo read at `version`; a stale one answers 409."""
+
+    version: int
+
+
+async def _project_of_edit(
+    writes: Writes, settings: Settings, row: Todo, values: dict[str, Any]
+) -> list[Todo]:
+    """Give the todo the project its edited words name, where they name another (#2249).
+
+    Answers the parts that had its old project, which follow it as the board's rule has them.
+    """
+    paths = vault.list_markdown_files(settings.vault_path)
+    named = read.named_project(values["words"], row.note, paths)
+    if named == read.named_project(row.words, row.note, paths):
+        return []
+    parent = None if row.parent_id is None else await writes.get(row.parent_id)
+    values["project"] = named or (parent.project if parent else None)
+    return [part for part in await writes.parts(row) if part.project == row.project]
+
+
 @router.put("/{todo_id}/line")
 async def change_line(
-    todo_id: str, body: Line, session: Session, settings: VaultSettings
+    todo_id: str, body: EditedLine, session: Session, settings: VaultSettings
 ) -> list[TodoOut]:
     """Change a todo to what its edited line says: words, fields, and the state its box names."""
 
@@ -280,7 +304,10 @@ async def change_line(
         row = await writes.get(todo_id)
         values = hits.values_of(body.text, row, writes.today, settings.timezone)
         state, was = values.pop("state"), row.state
-        await writes.edit(todo_id, row.version, values)
+        parts = await _project_of_edit(writes, settings, row, values)
+        await writes.edit(todo_id, body.version, values)
+        for part in parts:
+            await writes.edit(part.id, part.version, {"project": values["project"]})
         # Against the state read, not the edited one: a box left as it was changes nothing.
         if state != was:
             await writes.set_state(todo_id, state)
