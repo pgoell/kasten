@@ -108,8 +108,6 @@ test("#2247 Enter over a todo changed since i opened writes nothing, says so and
     headers,
   });
   expect(sent.status, await sent.text()).toBe(200);
-  // The store's own event never reaches the page (#2250); a note's write makes the list read.
-  await vaultWith(stack.vault, { "zz.md": "# zz\n" });
   await relisted;
   await draft(page).fill(edited);
   await page.keyboard.press("Enter");
