@@ -13,12 +13,12 @@ requires-python = ">=3.14"
 dependencies = [
     "alembic>=1.20.1",
     "curl-cffi==0.17.0",
-    "fastapi[standard]>=0.162.2",
+    "fastapi[standard]>=0.162.7",
     # Reached for directly by `/api/fetch`, and not only through the test
     # client fastapi's standard extra brings it in for.
     "httpcore>=1.0",
     "httpx>=0.28",
-    "justhtml==3.16.0",
+    "justhtml==3.17.0",
     "markdown-it-py>=3.0",
     # Pinned exactly, so a bump is its own pull request, where `test_mcp.py`'s
     # round trip catches the SDK's renames before production does.
@@ -26,7 +26,7 @@ dependencies = [
     "numpy>=2.3",
     "onnxruntime>=1.23",
     "pgvector>=0.4",
-    "psycopg[binary]>=3.3.8",
+    "psycopg[binary]>=3.3.9",
     "pydantic-settings>=2.7",
     "pypdfium2>=4.30",
     "recipe-scrapers==15.13.0",
@@ -37,5 +37,5 @@ dependencies = [
 ]
 
 [build-system]
-requires = ["uv_build>=0.13.7,<0.14.0"]
+requires = ["uv_build>=0.13.8,<0.14.0"]
 build-backend = "uv_build"
