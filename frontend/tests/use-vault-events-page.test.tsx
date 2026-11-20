@@ -15,19 +15,12 @@ import { useVaultEvents } from "@/lib/vault/events/use-vault-events";
 import type { VaultEvent } from "@/lib/vault/events/vault-events";
 
 // Every call the hook makes lands in one log, so a case reads as the order it happened in.
-const { log, echo, pressing } = vi.hoisted(() => ({
+const { log, pressing } = vi.hoisted(() => ({
   log: [] as string[],
-  echo: { value: false },
   pressing: { value: false },
 }));
 vi.mock("@/lib/log/log-card", () => ({ reloadLogConfig: () => log.push("reloadLogConfig") }));
-vi.mock("@/lib/todo/todo-press-echo", () => ({
-  pressEcho: async () => {
-    log.push("pressEcho");
-    return echo.value;
-  },
-  pressRunning: () => pressing.value,
-}));
+vi.mock("@/lib/todo/todo-press-echo", () => ({ pressRunning: () => pressing.value }));
 
 class FakeStream {
   static last: FakeStream | undefined;
@@ -113,7 +106,7 @@ const written = (path: string): VaultEvent => ({ path, change: "written", digest
 const removed = (path: string): VaultEvent => ({ path, change: "removed", digest: null });
 
 /** The calls one event makes, each invalidation by its key, in order. */
-async function heard(event: () => VaultEvent, focus: Focus = {}, echoed = false, press = false) {
+async function heard(event: () => VaultEvent, focus: Focus = {}, press = false) {
   const client = new QueryClient();
   client.setQueryData(["files"], ["a.md", DAILY]);
   render(
@@ -121,7 +114,6 @@ async function heard(event: () => VaultEvent, focus: Focus = {}, echoed = false,
       <Focused {...focus} />
     </QueryClientProvider>,
   );
-  echo.value = echoed;
   pressing.value = press;
   log.length = 0;
   vi.spyOn(client, "invalidateQueries").mockImplementation(async (filters) => {
@@ -138,90 +130,73 @@ describe("the calls each vault event makes, in order", () => {
       "a write to a listed note no pane shows",
       () => written("a.md"),
       {},
-      false,
-      ["note:a.md", "pressEcho", "graph", "tags", "library", "written-notes", "todos"],
+      ["note:a.md", "todos", "graph", "tags", "library", "written-notes"],
     ],
     [
       "a write to a note the listing lacks",
       () => written("new.md"),
       {},
-      false,
-      ["note:new.md", "pressEcho", "graph", "tags", "library", "written-notes", "files", "todos"],
+      ["note:new.md", "todos", "graph", "tags", "library", "written-notes", "files"],
     ],
     [
       "a write the focused pane takes",
       () => written("a.md"),
       { path: "a.md" },
-      false,
       [
         "isConflicted",
         "reconcile",
         "note:a.md",
-        "pressEcho",
+        "todos",
         "graph",
         "tags",
         "library",
         "written-notes",
-        "todos",
       ],
     ],
     [
       "a write the focused pane refuses",
       () => written("a.md"),
       { path: "a.md", reconciles: false },
-      false,
       [
         "isConflicted",
         "reconcile",
         "declined",
-        "pressEcho",
+        "todos",
         "graph",
         "tags",
         "library",
         "written-notes",
-        "todos",
       ],
     ],
     [
       "a write to the focused pane's conflicted note",
       () => written("a.md"),
       { path: "a.md", conflicted: true },
-      false,
       [
         "isConflicted",
         "reconcile",
         "note:a.md",
         "declined",
-        "pressEcho",
+        "todos",
         "graph",
         "tags",
         "library",
         "written-notes",
-        "todos",
       ],
-    ],
-    [
-      "a write whose todos are the pane's own press",
-      () => written("a.md"),
-      {},
-      true,
-      ["note:a.md", "pressEcho", "graph", "tags", "library", "written-notes"],
     ],
     [
       "a write to a daily note",
       () => written(DAILY),
       {},
-      false,
-      [`note:${DAILY}`, "pressEcho", "graph", "tags", "library", "log", "written-notes", "todos"],
+      [`note:${DAILY}`, "todos", "graph", "tags", "library", "log", "written-notes"],
     ],
     [
       "a write to log.md",
       () => written(LOG_NOTE),
       {},
-      false,
       [
         `note:${LOG_NOTE}`,
-        "pressEcho",
+        "todos",
         "graph",
         "tags",
         "library",
@@ -229,59 +204,51 @@ describe("the calls each vault event makes, in order", () => {
         "written-notes",
         "reloadLogConfig",
         "files",
-        "todos",
       ],
     ],
     [
       "a write to a model-use note",
       () => written(MODEL()),
       {},
-      false,
       [
         `note:${MODEL()}`,
-        "pressEcho",
+        "todos",
         "graph",
         "tags",
         "library",
         "written-notes",
         "model-use",
         "files",
-        "todos",
       ],
     ],
     [
       "a write to a weekly note",
       () => written(WEEKLY),
       {},
-      false,
-      [`note:${WEEKLY}`, "pressEcho", "graph", "tags", "library", "files", "todos"],
+      [`note:${WEEKLY}`, "todos", "graph", "tags", "library", "files"],
     ],
     [
       "a write to a yearly note",
       () => written(YEARLY),
       {},
-      false,
-      [`note:${YEARLY}`, "pressEcho", "graph", "tags", "library", "files", "todos"],
+      [`note:${YEARLY}`, "todos", "graph", "tags", "library", "files"],
     ],
     [
       "a removed note",
       () => removed("a.md"),
       {},
-      false,
       ["todos", "tags", "library", "written-notes", "files"],
     ],
     [
       "a removed daily note",
       () => removed(DAILY),
       {},
-      false,
       ["todos", "tags", "library", "log", "written-notes", "files"],
     ],
     [
       "a removed log.md",
       () => removed(LOG_NOTE),
       {},
-      false,
       [
         "todos",
         "tags",
@@ -297,11 +264,10 @@ describe("the calls each vault event makes, in order", () => {
       "a listing",
       () => ({ path: "", change: "listing", digest: null }) as VaultEvent,
       {},
-      false,
       ["todos", "images", "html", "assets", "tags", "library", "files"],
     ],
-  ] as const)("%s", async (_name, event, focus, echoed, calls) => {
-    expect(await heard(event, focus, echoed)).toEqual(calls);
+  ] as const)("%s", async (_name, event, focus, calls) => {
+    expect(await heard(event, focus)).toEqual(calls);
   });
 });
 
@@ -310,20 +276,12 @@ describe("while a press runs, no event asks for the todos: the press's end does 
     [
       "a folder index the press's new daily note made",
       () => written("01 Periodic/00 Daily/index.md"),
-      [
-        "note:01 Periodic/00 Daily/index.md",
-        "pressEcho",
-        "graph",
-        "tags",
-        "library",
-        "written-notes",
-        "files",
-      ],
+      ["note:01 Periodic/00 Daily/index.md", "graph", "tags", "library", "written-notes", "files"],
     ],
     [
       "another writer's note",
       () => written("a.md"),
-      ["note:a.md", "pressEcho", "graph", "tags", "library", "written-notes"],
+      ["note:a.md", "graph", "tags", "library", "written-notes"],
     ],
     ["a removed note", () => removed("a.md"), ["tags", "library", "written-notes", "files"]],
     [
@@ -332,6 +290,6 @@ describe("while a press runs, no event asks for the todos: the press's end does 
       ["images", "html", "assets", "tags", "library", "files"],
     ],
   ] as const)("%s", async (_name, event, calls) => {
-    expect(await heard(event, {}, false, true)).toEqual(calls);
+    expect(await heard(event, {}, true)).toEqual(calls);
   });
 });

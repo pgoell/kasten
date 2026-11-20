@@ -1,28 +1,11 @@
-import { digestOf } from "@/lib/vault/events/vault-events";
-
 /**
- * The vault's echo of a todo press, which the pane need not hear twice. An event is an echo
- * only when its digest matches a text this press wrote; anybody else's edit still asks.
- * Below: the turn todo writes take one at a time, and where an `x` left its todo for the next key.
+ * The todo presses running now, the turn todo writes take one at a time, and where an `x`
+ * left its todo for the next key.
  */
-
-/** How long after a press the echo of its writes may still arrive. */
-const ECHO_MS = 3000;
 
 /** Presses running now. A press can start before the last one has settled. */
 let running = 0;
-/** The digests of the texts each path was written with, by the presses that wrote it. */
-const written = new Map<string, Promise<string | null>[]>();
-/** Paths the running presses wrote, which take an expiry once the last one ends. */
-const fresh = new Set<string>();
-/** When the echo of a path's writes stops being one, once no press runs. */
-const expiry = new Map<string, number>();
-/** Each path's press saves still out, whose event can beat the answer `pressWrote` reads (#1994). */
-const sending = new Map<string, Set<Promise<void>>>();
-/** Per note, the lines a press's save stamped on top (a frontmatter block) and when (#2210). */
-const stamps = new Map<string, { shift: number; at: number }>();
 
-/** A press has begun. Every write until its `endPress` is the press's own. */
 export function beginPress(): void {
   running += 1;
 }
@@ -32,83 +15,8 @@ export function pressRunning(): boolean {
   return running > 0;
 }
 
-/** A press has settled. Once none is running, what it wrote is an echo for a while. */
 export function endPress(): void {
   running -= 1;
-  if (running > 0) return;
-  const until = Date.now() + ECHO_MS;
-  for (const path of fresh) expiry.set(path, until);
-  fresh.clear();
-}
-
-/** Forget the writes whose echo has passed, so the record does not grow with the session. */
-function prune(): void {
-  const now = Date.now();
-  for (const [path, until] of expiry) {
-    if (until > now) continue;
-    expiry.delete(path);
-    written.delete(path);
-  }
-}
-
-/**
- * A note a press has just written, and the text it now holds: what landed on
- * disk, which is the digest `/api/events` reports for the write. `sent` is what the press sent.
- */
-export function pressWrote(path: string, content: string, sent: string): void {
-  if (running === 0) return;
-  const shift = content.split("\n").length - sent.split("\n").length;
-  if (shift > 0) stamps.set(path, { shift, at: Date.now() });
-  fresh.add(path);
-  // Written again by a press, so the expiry of an earlier one no longer bounds
-  // it: pruning it then would drop the digest this press is about to echo.
-  expiry.delete(path);
-  // The vault keeps the note's own line endings, and the save answers with the
-  // text it was sent, so a CRLF note echoes the digest of the CRLF text.
-  const crlf = content.replace(/(?<!\r)\n/g, "\r\n");
-  // A digest needs `crypto.subtle`, which a page off a secure origin lacks. A
-  // failed digest matches nothing, so the list is asked for as it was before.
-  const digests = [content, crlf].map((text) =>
-    digestOf(text).then(
-      (digest): string | null => digest,
-      (): string | null => null,
-    ),
-  );
-  written.set(path, [...(written.get(path) ?? []), ...digests]);
-}
-
-/**
- * A press's save of `path` goes out now. The digest is known only from the answer, since the
- * backend restamps `modified`, so `pressEcho` waits on it: call the settle once it answers or fails.
- */
-export function pressSending(path: string): () => void {
-  if (running === 0) return () => {};
-  let settle = () => {};
-  const answered = new Promise<void>((resolve) => {
-    settle = resolve;
-  });
-  const out = sending.get(path) ?? new Set();
-  out.add(answered);
-  sending.set(path, out);
-  return () => {
-    out.delete(answered);
-    if (out.size === 0) sending.delete(path);
-    settle();
-  };
-}
-
-/**
- * Whether a write event for `path` with `digest` echoes a press: the digest is one of the
- * texts a press wrote there, and the echo window is open (a press runs, or `ECHO_MS` after).
- * Asked only once the path's press saves still out have answered.
- */
-export async function pressEcho(path: string, digest: string | null): Promise<boolean> {
-  if (digest === null) return false;
-  await Promise.all(sending.get(path) ?? []);
-  prune();
-  const digests = written.get(path);
-  if (digests === undefined) return false;
-  return (await Promise.all(digests)).includes(digest);
 }
 
 /** A todo row as the list names it. */
@@ -158,36 +66,6 @@ export function keepLanded(old: Row[], to: Row): void {
     else if (keys.has(keyOf(each.row))) keys.add(key);
   }
   for (const key of keys) landed.set(key, { row: to, at: now });
-}
-
-/**
- * The row a press reads: the line the last `x` wrote, for a row the note has moved past
- * (by its line, or its twins' count) while that line still says it; else, for a row whose line
- * a press's stamp moved, that many lines down; else the row as listed.
- */
-export function landedRow<R extends Row>(
-  text: string,
-  hit: R,
-  twins?: number[],
-): { row: R; twins: number[] | undefined } {
-  const lines = text.split("\n");
-  const kept = landed.get(keyOf(hit));
-  // A todo listed since at the row's old line goes as listed.
-  const stale =
-    lines[hit.line - 1] !== hit.text ||
-    (twins !== undefined && lines.filter((each) => each === hit.text).length !== twins.length);
-  const fresh =
-    kept && Date.now() - kept.at <= TURN_WAIT_MS && lines[kept.row.line - 1] === kept.row.text;
-  if (stale && fresh) {
-    return { row: { ...hit, line: kept.row.line, text: kept.row.text }, twins: undefined };
-  }
-  const stamp = stamps.get(hit.path);
-  const shift = stamp && Date.now() - stamp.at <= TURN_WAIT_MS ? stamp.shift : 0;
-  // Listed before a press stamped the note (#2210): its line no longer says it, the moved one does.
-  if (shift > 0 && lines[hit.line - 1] !== hit.text && lines[hit.line - 1 + shift] === hit.text) {
-    return { row: { ...hit, line: hit.line + shift }, twins: twins?.map((line) => line + shift) };
-  }
-  return { row: hit, twins };
 }
 
 /** The lines of `at`'s note that say its words, by line, and which of them is `at`: how an edit tells twins apart. */
