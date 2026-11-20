@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: The todo board
-description: Why the board is a view over todo lines that stay where they were typed, why a todo's project is read off its note's folder or a link on its line, and how a dragged card moves.
+description: Why the board is a view over todos that keep the note they were typed in, why a todo's project comes from a `#p/x` tag, its parent or its note's folder, and how a dragged card moves.
 tags: [design, todos, board, projects]
 status: draft
 ---
@@ -29,7 +29,10 @@ The question underneath: what makes a todo belong to a project when it does
 not live in the project's note, and should a todo move there, be mirrored
 there, or stay where it was typed?
 
-Four limits hold for every option:
+Four limits held for every option when the board was designed, while each todo
+was a line in a note. They are history: since PR #2205 a todo is a row in a
+table and its note holds an embed
+([Todos in Postgres](/explanation/vault-and-derived-index/todos-in-postgres.md)).
 
 * The line is the only source. No board file, no table, no second copy.
 * Obsidian Tasks still reads every todo.
@@ -174,17 +177,16 @@ In this order:
 4. Else no project, a lane drawn first, as the inbox is in Things: it is the
    pile still to sort.
 
-Nothing moves and nothing is mirrored. The link is a link Obsidian already
-reads and Tasks ignores, so both still read the line as before.
+Nothing moves and nothing is mirrored: the link is part of the todo's words.
 
 ### One key to sort a todo
 
 Every frame asked for a cheap way to give a todo its project from where it
 was typed. `p` on a card lists the folders under `02 Projects`, and picking one adds a
 link to that folder's `index.md` into the todo's words, through the write the
-pane's `i` makes. One line, the user's own press, so no limit breaks. This is
-option C's refile without the move: the todo stays in the daily note, and
-the board files it.
+pane's `i` makes. One press of the user's own. This is option C's
+refile without the move: the todo keeps its note. Since PR #2205 the store
+reads no link for the project, so the card keeps its lane (#2249).
 
 ### Lanes by kind first
 
@@ -207,7 +209,7 @@ keys make, so done runs the completion walk with no second copy of it.
   shows the words, the priority, the due date, the parts count and what it
   waits for.
 * `h` `l` move between columns and `j` `k` between cards, Enter opens the
-  line, and `O` `P` `V` `W` `B` `X` `R` move the card. The filter line and the
+  todo's note, and `O` `P` `V` `W` `B` `X` `R` move the card. The filter line and the
   views narrow the board as they narrow the list.
 * On a phone the board shows one column at a time, with a tab per column.
   A tap on a card opens it; its `⋯` holds the states and `project`.
@@ -226,9 +228,14 @@ two parsers in two languages drift. This rule needs only a todo's indent, its
 tags and its links, and the backend already reads links by a rule both sides
 test against one file of cases, so the cost is small and the answer is one.
 
+Since PR #2205 the project is a column of the row. The import worked it out by
+the order below. A todo added since takes the project the add names, else a
+`#p/x` tag's, else its parent's if it has a parent, else its note's folder's.
+After that only an edit that names the project, a refile or a note move changes
+it, so neither a link nor a tag typed later does (#2249).
+
 A `#p/x` tag on a todo comes before every step of that rule, the folder
-included, and Obsidian Tasks can filter on it with `tags include #p/x`. So the
-full order is:
+included. So the full order is:
 
 1. A `#p/x` tag on the todo, else on the nearest todo it is a part of. A part
    is the same work as the todo above it, as it already is for a kind tag.
@@ -288,14 +295,13 @@ to move a card; the keys and the strip stay as they are.
   on the todo names, writes nothing either, since the tag would draw the
   card back where it was. With lanes by kind only the column counts: a drop
   writes no kind tag.
-* Order inside a column is not kept. The board has no stored order, the
-  cards follow the vault, and a position written into the note would be a
-  second source of truth beside the line.
+* Order inside a column is not kept. The board stores no order of its
+  own, and a second one beside the todos' own would drift.
 * On a phone a long press picks the card up. A finger that moves before
   then swipes the column, and lifts nothing. The card drops on a column's tab
   or on a lane of the column shown.
 * A write that fails leaves the card where it was, since the board draws the
-  vault and not the drag, and the notice says so.
+  store and not the drag, and the notice says so.
 
 ### Why the phone board swipes
 

@@ -27,7 +27,7 @@ the files are the truth and anything else is derived. A graph kept in Postgres
 would be one more thing to rebuild, and one more place that could say a link
 exists after you deleted the line holding it. The memory cache passes the same test: a
 restart empties it and the first request reads every note again. Search, the
-todo list, the review and the tag completion all read the vault per request for
+review and the tag completion all read the vault per request for
 the same reason, and
 the graph is one more reader of the same kind.
 

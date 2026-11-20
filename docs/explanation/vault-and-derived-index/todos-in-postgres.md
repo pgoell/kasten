@@ -12,14 +12,14 @@ status: draft
 kasten has [one rule](/explanation/vault-and-derived-index.md): the vault is the
 source of truth, and Postgres holds nothing a note needs. Money was the first
 exception ([Finance in Postgres](/explanation/vault-and-derived-index/finance-in-postgres.md)). Todos
-are the second. They will live in a `todos` schema as the system of record, and
-the vault will no longer rebuild them.
+are the second. They live in a `todos` schema as the system of record, and
+the vault does not rebuild them.
 
 This page records the decisions behind the move, taken in
 [#2191](https://github.com/pgoell/kasten/issues/2191). Migration `0019` makes the tables, `todos:import` fills them, and
 [the store's routes](/reference/http-api/todos.md#the-store) read and write
-them. The app does not call those routes yet: the line reader still answers
-`GET /api/todos` until the readers move, as [The cutover](#the-cutover) says.
+them. The app writes through those routes, and `GET /api/todos` answers from
+the rows, as [The cutover](#the-cutover) says.
 
 ## Why the line stops being enough
 
@@ -153,8 +153,8 @@ move.
 ## The import
 
 One import moves every todo line of the vault into the tables and writes the
-embeds in the same pass. It reads lines with the reader that serves
-`GET /api/todos` today and the field parser held to the editor's by fixtures,
+embeds in the same pass. It reads lines with the reader that served
+`GET /api/todos` before the switch and the field parser held to the editor's by fixtures,
 so a line reads the same in the import as in the pane.
 
 - `⏳` becomes the planned date and `🛫` hold off until. On a `[w]` line `🛫`

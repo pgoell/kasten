@@ -18,7 +18,7 @@ kasten has one design rule, and the rest of the system falls out of it.
 The rule has two exceptions. The `finance` schema holds money as a system of
 record and does not rebuild from the vault;
 [Finance in Postgres](/explanation/vault-and-derived-index/finance-in-postgres.md)
-says why. The `todos` schema will hold todos the same way, once they leave the
+says why. The `todos` schema holds todos the same way, since they left the
 note lines; [Todos in Postgres](/explanation/vault-and-derived-index/todos-in-postgres.md)
 says why and what replaces their history and backup. Two small tables bend the
 rule too, the RSVP reading places and the agent token record, as
@@ -35,7 +35,7 @@ to export from.
 **Backup is a solved problem for notes.** Make the vault a git repository and
 push it. That is backup and file history in one, and it costs nothing, because
 the vault is already plain text. The notes need no database dump job; the
-`finance` schema does, and has one, and the `todos` schema will, as
+`finance` schema does, and has one, and the `todos` schema too, as
 [Finance in Postgres](/explanation/vault-and-derived-index/finance-in-postgres.md#what-backing-up-now-means)
 and [Back up and restore](/how-to/back-up-and-restore.md#the-finance-dump-on-the-maintainers-server)
 say.
@@ -69,7 +69,7 @@ moment ago may not be in them yet, and each answer says how many notes the
 index holds beside how many the vault has. See
 [HTTP API: finding](/reference/http-api/finding.md#get-apiranked).
 
-The tag list, the todos and the graph keep each note's tags, todo lines, links
+The tag list and the graph keep each note's tags, links
 and type in memory, parsed again only when the note's stamp moves (#1758). That
 is no index: nothing is stored, a restart empties it, and each request walks the
 vault and checks every note's stamp, so it cannot go stale either.
