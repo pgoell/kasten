@@ -8,7 +8,7 @@ import { fetchTodos, type SearchHit, type TodoHit } from "@/lib/core/api";
 import type { TodoState } from "@/lib/todo/todo";
 import { noteLineOf } from "@/lib/todo/todo-api";
 import { aimAgain, aimOf, cursorAfter } from "@/lib/todo/todo-hold";
-import { followRow, twinsOf } from "@/lib/todo/todo-press-echo";
+import { followRow, twinsOf } from "@/lib/todo/todo-turns";
 import { useArmed } from "@/lib/todo/use-armed";
 import { useBlockerPick } from "@/lib/todo/use-blocker-pick";
 import { useTodoFilter } from "@/lib/todo/use-todo-filter";
@@ -52,8 +52,8 @@ interface TodoPaneProps {
   commands: EditorCommands;
   onOpen: (path: string, line?: number) => void;
   /**
-   * Cycles the row's todo in the vault, or sets the state a key named. Takes the
-   * hit, not the todo: the write re-reads the note and finds the line by its path and line.
+   * Cycles the row's todo in the store, or sets the state a key named. Takes the
+   * hit, not the todo: the write names the todo by the id of the row behind it.
    */
   onCycle: (hit: SearchHit, state?: TodoState, twins?: number[]) => void;
   /** Open the prompt that writes a todo into today's note. */

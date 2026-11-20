@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { SearchHit } from "@/lib/core/api";
-import { followRow, twinsOf } from "@/lib/todo/todo-press-echo";
+import { followRow, twinsOf } from "@/lib/todo/todo-turns";
 import { rowKey } from "@/lib/todo/use-todo-rows";
 
 /** How long a tapped state button keeps asking before it takes the question back. */
