@@ -233,8 +233,8 @@ Since PR #2205 the project is a column of the row. The import worked it out by
 the order below. A todo added since takes the project the add names, else a
 `#p/x` tag's, else its parent's if it has a parent, else its note's folder's.
 An edit of its line whose tag or link names another project than before gives
-it the project the order below reads, and its parts that had the old one take
-the new one too. A refile, a lane drop and a note move change it as well.
+it the project the order below reads, and each part whose project that order
+gave it takes the one the order now gives. A refile, a lane drop and a note move change it as well.
 
 A `#p/x` tag on a todo comes before every step of that rule, the folder
 included. So the full order is:

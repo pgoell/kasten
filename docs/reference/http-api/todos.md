@@ -83,8 +83,8 @@ runs the state change with all it stamps and drags along. A due date the line
 keeps as it was stays soft if it was soft. Stamps (`➕`, `✅`, `❌`) and the
 worked time stay the store's. A line whose `#p/x` tag or project link names
 another project than before sets the todo's project by
-[the board's order](/explanation/the-todo-board.md), and its parts that had the
-old project follow. Answers every row it touched.
+[the board's order](/explanation/the-todo-board.md), and each part whose project
+that order gave it follows. Answers every row it touched.
 
 ## POST /api/todos/import
 
