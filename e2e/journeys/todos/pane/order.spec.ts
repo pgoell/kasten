@@ -231,6 +231,16 @@ test.describe("on a phone", () => {
   });
 });
 
+/** Adds a todo by the store, from elsewhere: one write, one `todos` event. */
+async function add(stack: Stack, words: string) {
+  const answer = await fetch(`${stack.url}/api/todos`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ words }),
+  });
+  expect(answer.ok).toBe(true);
+}
+
 test("#947 I2 a todo added while the order is held goes to the end, and one removed goes", async ({
   page,
   stack,
@@ -240,13 +250,9 @@ test("#947 I2 a todo added while the order is held goes to the end, and one remo
   const before = reads();
   await page.keyboard.press("x");
   // From elsewhere, by the store: a todo line in a note is two writes, as the import rewrites it (#2269).
-  // Each waits for the list read out: an event landing during one asks nothing more (#2273).
+  // Each waits for the list read out, so the held order meets one write at a time.
   await expect.poll(() => reads() > before && idle()).toBe(true);
-  await fetch(`${stack.url}/api/todos`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ words: "hotel" }),
-  });
+  await add(stack, "hotel");
   await expect.poll(heldRead(page), { timeout: 15_000 }).toEqual([...first, "hotel"]);
   const charlie = await rowOf(stack, "charlie");
   await expect.poll(idle).toBe(true);
@@ -254,14 +260,6 @@ test("#947 I2 a todo added while the order is held goes to the end, and one remo
   const left = [...first.filter((name) => name !== "charlie"), "hotel"];
   await expect.poll(heldRead(page), { timeout: 15_000 }).toEqual(left);
 });
-
-/** Adds a todo by the store, from elsewhere: one write, one `todos` event. */
-const add = (stack: Stack, words: string) =>
-  fetch(`${stack.url}/api/todos`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ words }),
-  });
 
 /** Holds a list read out while two todos come from elsewhere, then lets it land: both show, by one read more. */
 async function addWhileHeld(page: Page, stack: Stack, touch: boolean) {

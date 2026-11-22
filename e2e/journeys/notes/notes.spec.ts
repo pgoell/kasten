@@ -14,8 +14,6 @@ import {
 import { gardenBacklinks, hit, lineOf, openPanel } from "../../harness/search.ts";
 import { expect, test } from "../../harness/stack.ts";
 
-/** The caret's line on screen: the note Enter left keeps its editor, hidden, for a task (#2271). */
-
 test("a new note made from the note prompt is written to disk with the typed line", async ({
   page,
   stack,
