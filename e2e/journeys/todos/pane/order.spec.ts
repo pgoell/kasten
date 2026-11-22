@@ -77,9 +77,11 @@ type Open = { notes?: Record<string, string>; touch?: boolean };
  */
 async function openOrder(page: Page, vault: string, o: Open = {}) {
   let reads = 0;
+  let out = 0;
   let gate: Promise<void> | undefined;
   const refuse = { on: false };
   await page.route("**/api/todos?**", async (route) => {
+    out += 1;
     const wait = gate;
     gate = undefined;
     const answer = await route.fetch();
@@ -88,6 +90,7 @@ async function openOrder(page: Page, vault: string, o: Open = {}) {
     const turn = reads % Math.max(hits.length, 1);
     await wait;
     await route.fulfill({ response: answer, json: [...hits.slice(turn), ...hits.slice(0, turn)] });
+    out -= 1;
   });
   await page.route("**/api/todos/*/cycle", (route) =>
     refuse.on ? route.fulfill({ status: 422, json: {} }) : route.fallback(),
@@ -114,7 +117,14 @@ async function openOrder(page: Page, vault: string, o: Open = {}) {
     });
     return go;
   };
-  return { reads: () => reads, seen, first: await order(page), refuse, holdNext };
+  return {
+    reads: () => reads,
+    idle: () => out === 0,
+    seen,
+    first: await order(page),
+    refuse,
+    holdNext,
+  };
 }
 
 // A list read still out when a journey ends would throw in its handler once the page closes.
@@ -225,15 +235,22 @@ test("#947 I2 a todo added while the order is held goes to the end, and one remo
   page,
   stack,
 }) => {
-  const { first } = await openOrder(page, stack.vault);
+  const { first, reads, idle } = await openOrder(page, stack.vault);
   await aim(page, first[0] ?? "");
+  const before = reads();
   await page.keyboard.press("x");
-  await touch(stack.vault, B, "- [ ] hotel");
+  // From elsewhere, by the store: a todo line in a note is two writes, as the import rewrites it (#2269).
+  // Each waits for the list read out: an event landing during one asks nothing more (#2273).
+  await expect.poll(() => reads() > before && idle()).toBe(true);
+  await fetch(`${stack.url}/api/todos`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ words: "hotel" }),
+  });
   await expect.poll(heldRead(page), { timeout: 15_000 }).toEqual([...first, "hotel"]);
   const charlie = await rowOf(stack, "charlie");
+  await expect.poll(idle).toBe(true);
   await fetch(`${stack.url}/api/todos/${charlie?.id}`, { method: "DELETE" });
-  // A delete sends no todos event, so a note's write makes the pane read again.
-  await touch(stack.vault, A);
   const left = [...first.filter((name) => name !== "charlie"), "hotel"];
   await expect.poll(heldRead(page), { timeout: 15_000 }).toEqual(left);
 });
