@@ -236,9 +236,12 @@ describe("a press redraws only the row it changed", () => {
 
   it("a row kept from an earlier render calls the handler of the latest one", () => {
     const row = rowOf("- [ ] wire the pane");
+    // One groups and one files for both renders, so the memo keeps the row drawn first.
+    const groups = [{ heading: "Later", rows: [row] }];
+    const files: string[] = [];
     const props = (onRow: () => void) =>
       ({
-        groups: [{ heading: "Later", rows: [row] }],
+        groups,
         empty: null,
         cursorKey: "",
         facts: FACTS,
@@ -251,7 +254,7 @@ describe("a press redraws only the row it changed", () => {
         armed: null,
         onArm: vi.fn(),
         onRow,
-        files: [],
+        files,
         onPerson: vi.fn(),
         onWrite: vi.fn(),
         onCycle: vi.fn(),

@@ -104,7 +104,7 @@ test("#811 a row draws its state box, words and meta line, its date by the clock
       out.push(getComputedStyle(node).backgroundColor);
     return [...out, getComputedStyle(date.closest("[data-row]") as Element).backgroundColor];
   });
-  expect(grounds).not.toContain(await token(page, "surface").then((c) => c));
+  expect(grounds).not.toContain(await token(page, "surface"));
 
   // The cursor row carries an outline and no tint; the others carry neither.
   const looks = await readAll(page, TODO_ROW, (all) =>
