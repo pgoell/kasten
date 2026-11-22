@@ -5,6 +5,7 @@ It imports nothing from `lines.py`, which reads it.
 """
 
 import re
+import string
 
 # The fields `readFields` takes off a todo's words, in the editor's order, since one taken first
 # moves where a free-text one ends. `[0-9]` and `\^` stand in for the editor's ASCII `\d` and `\w`.
@@ -43,10 +44,28 @@ _RECURRENCE_END = (
 ID = re.compile("🆔" + _VS + _ONE_WORD)
 """The id field `🆔 kt-…`: a `🆔` whose next word is no marker."""
 RECURRENCE = re.compile("🔁" + _VS + r"[ \t]+(.+?)" + _RECURRENCE_END)
-BLOCK_ID = re.compile(r"(?:^|(?<![ \t])[ \t]+)\^[A-Za-z0-9_-]+$")
-"""A trailing block id, as the editor's `withoutBlockId` takes it. `[\\w-]` there is ASCII.
+_ID_CHARS = frozenset(string.ascii_letters + string.digits + "_-")
 
-The lookbehind starts the gap at its first blank only, so a long run of blanks is linear."""
+
+def block_id(text: str) -> slice | None:
+    """A trailing `^block` id and the blanks before it, as the editor's `withoutBlockId` takes it.
+
+    String code, as code scanning reads any blank run in a regex as a backtrack (#38).
+    """
+    end = len(text) - 1 if text.endswith("\n") else len(text)
+    mark = text.rfind("^", 0, end)
+    if mark < 0 or mark + 1 == end or not _ID_CHARS.issuperset(text[mark + 1 : end]):
+        return None
+    start = len(text[:mark].rstrip(" \t"))
+    return None if 0 < start == mark else slice(start, end)
+
+
+def without_block_id(text: str) -> str:
+    """`text` with its trailing block id and the blanks before it taken out."""
+    span = block_id(text)
+    return text if span is None else text[: span.start] + text[span.stop :]
+
+
 FIELDS = (
     re.compile("(?:📅|📆|🗓)" + _VS + _DATE),
     re.compile("⏳" + _VS + _DATE),

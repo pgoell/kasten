@@ -25,7 +25,7 @@ const DAILY_LINES = [
   `- [-] drop the logo ❌ ${plus(-1)}`,
 ].join("\n");
 const KASTEN = "[[02 Projects/Kasten/index|Kasten]]";
-const literal = (text: string) => text.replace(/[[\]|/]/g, "\\$&");
+const literal = (text: string) => text.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
 // The fixture's own notes, written over; their todos are rows, which `board` deletes.
 const QUIET = { "02 Projects/Garden.md": "# Garden\n", "02 Projects/Home.md": "# Home\n" };
 

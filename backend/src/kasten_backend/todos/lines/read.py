@@ -200,12 +200,13 @@ The lookahead wants one character of the run that is no number, so `#1on1` is a 
 """
 
 LINE = re.compile(
-    r"([ \t]*)- \[[ /xXbwr-]\](?:[ \t]([^\r\n\N{LINE SEPARATOR}\N{PARAGRAPH SEPARATOR}]*))?"
+    r"^([ \t]*)- \[[ /xXbwr-]\](?:[ \t]([^\r\n\N{LINE SEPARATOR}\N{PARAGRAPH SEPARATOR}]*))?"
 )
 """A todo as the editor's `parseTodo` takes one, the words after the box captured.
 
 Narrower than `TODO_LINE`: the editor's `.` matches no carriage return, U+2028 or U+2029,
 so a line holding one is no todo here either. rg matches it all the same.
+The `^` tells code scanning there is one start, as with `match` (#37, #39).
 """
 
 HTML_OPENER = (

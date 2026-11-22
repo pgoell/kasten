@@ -251,7 +251,7 @@ async def test_810_a10_assign_writes_every_row_of_the_case_table(
         for box in (" ", "x")
     }
     assert reads == {
-        (case["id"], box): (todo_fields.BLOCK_ID.sub("", case["text"]), case["assignee"])
+        (case["id"], box): (todo_fields.without_block_id(case["text"]), case["assignee"])
         for case in CASES
         if "from" in case
         for box in (" ", "x")

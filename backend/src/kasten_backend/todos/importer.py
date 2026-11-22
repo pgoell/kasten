@@ -118,7 +118,7 @@ def row_of(rest: str, box: str, today: date) -> dict[str, Any]:
     remind = None if alarm is None else f"{alarm[1]}T{alarm[2]}"
     if alarm is not None:
         text = text[: alarm.start()] + text[alarm.end() :]
-    words = " ".join(fields.BLOCK_ID.sub("", text).split())
+    words = " ".join(fields.without_block_id(text).split())
     state = STATES[box]
     due = _day(_first(found, DUE))
     start = _day(_first(found, START))
@@ -157,10 +157,11 @@ def row_of(rest: str, box: str, today: date) -> dict[str, Any]:
 def _embed(line: str, id_: str) -> str:
     """The line an embed of `id_` takes, the todo's indent and trailing `^block` id kept."""
     ending = "\r" if line.endswith("\r") else ""
-    todo = LINE.fullmatch(line.removesuffix("\r"))
+    line = line.removesuffix("\r")
+    todo = LINE.fullmatch(line)
     indent = todo[1] if todo else ""
-    block = fields.BLOCK_ID.search(line.removesuffix("\r"))
-    return f"{indent}![[{id_}]]{block[0] if block else ''}{ending}"
+    block = fields.block_id(line)
+    return f"{indent}![[{id_}]]{line[block] if block else ''}{ending}"
 
 
 def _sessions(root: Path, settings: Settings, today: date) -> list[dict[str, Any]]:
