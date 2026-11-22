@@ -1,5 +1,13 @@
 import type { Page } from "@playwright/test";
-import { findNote, leader, openApp, phone, plus, vaultWith } from "../../../../harness/app.ts";
+import {
+  caretLine,
+  findNote,
+  leader,
+  openApp,
+  phone,
+  plus,
+  vaultWith,
+} from "../../../../harness/app.ts";
 import { expect, test } from "../../../../harness/stack.ts";
 import {
   CONFIG,
@@ -137,7 +145,7 @@ test("#624 o opens the day's note at the entry's line", async ({ page, stack }) 
   await page.keyboard.press("j");
   await page.keyboard.press("o");
   await expect(page.getByRole("tab", { name: TODAY, selected: true })).toBeVisible();
-  await expect(page.locator(".cm-activeLine:visible")).toContainText("☕ 2");
+  await expect(caretLine(page)).toContainText("☕ 2");
 });
 
 for (const how of ["leader", "palette"] as const) {

@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { leader, openApp, vaultWith } from "../../harness/app.ts";
+import { caretLine, leader, openApp, vaultWith } from "../../harness/app.ts";
 import { answer, hit } from "../../harness/search.ts";
 import { expect, test } from "../../harness/stack.ts";
 
@@ -42,26 +42,26 @@ test.describe("a search hit", () => {
     page,
   }) => {
     await openHit(page, "three");
-    await expect(page.locator(".cm-activeLine")).toHaveText("three");
+    await expect(caretLine(page)).toHaveText("three");
     await page.keyboard.press("Escape");
     await openHit(page, "two");
-    await expect(page.locator(".cm-activeLine")).toHaveText("two");
+    await expect(caretLine(page)).toHaveText("two");
   });
 
   test("the gutter counts each line's distance from the line the hit opens at, and recounts as j moves the cursor", async ({
     page,
   }) => {
     await openHit(page, "three");
-    await expect(page.locator(".cm-activeLine")).toHaveText("three");
+    await expect(caretLine(page)).toHaveText("three");
     await expect.poll(() => gutter(page)).toEqual(["2", "1", "3", "1"]);
     await page.keyboard.press("j");
-    await expect(page.locator(".cm-activeLine")).toHaveText("four");
+    await expect(caretLine(page)).toHaveText("four");
     await expect.poll(() => gutter(page)).toEqual(["3", "2", "1", "4"]);
   });
 
   test("past the note's end opens it with the cursor on its last line", async ({ page }) => {
     await openHit(page, "gone");
-    await expect(page.locator(".cm-activeLine")).toHaveText("four");
+    await expect(caretLine(page)).toHaveText("four");
   });
 });
 /**
@@ -73,7 +73,7 @@ async function startLine(page: Page, vault: string, body: string, vim = true) {
   if (!vim) await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
   await page.goto(`/?note=${encodeURIComponent("Start.md")}`);
   await expect(page.locator(".cm-content")).toBeFocused({ timeout: 15_000 });
-  await expect(page.locator(".cm-activeLine")).toHaveCount(1);
+  await expect(caretLine(page)).toHaveCount(1);
   return page.locator(".cm-content").evaluate((content) => {
     const lines = [...content.querySelectorAll(".cm-line")];
     const at = lines.findIndex((line) => line.classList.contains("cm-activeLine"));

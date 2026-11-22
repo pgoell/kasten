@@ -2,6 +2,7 @@ import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import {
+  caretLine,
   cursorTo,
   leader,
   openApp,
@@ -102,7 +103,7 @@ test("clicking a todo opens its note on the todo's embed", async ({ page }) => {
   await page.getByRole("button", { name: "open reply to the far away letter" }).click();
   const line = page.locator(".cm-line", { hasText: "reply to the far away letter" });
   await expect(line).toBeInViewport();
-  await expect(page.locator(".cm-activeLine")).toContainText("reply to the far away letter");
+  await expect(caretLine(page)).toContainText("reply to the far away letter");
 });
 
 test("checking off three todos in a row keeps the rows in their order, then they leave", async ({

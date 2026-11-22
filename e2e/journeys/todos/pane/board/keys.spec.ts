@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import {
   atDrop,
+  caretLine,
   leader,
   openApp,
   plus,
@@ -35,7 +36,6 @@ const shown = (page: Page) => page.locator("[data-card]:visible");
 const picker = (page: Page) => page.getByTestId("todo-project-pick");
 const filter = (page: Page) => page.getByLabel("filter todos");
 const region = (page: Page) => page.getByRole("region", { name: "Todos" });
-const caretLine = (page: Page) => page.locator(".cm-activeLine");
 type Stack = { url: string; vault: string };
 /** The todo as `GET /api/todos` renders it from its row, its id and created stamp on it. */
 const lineOf = async (url: string, words: string): Promise<string | undefined> => {

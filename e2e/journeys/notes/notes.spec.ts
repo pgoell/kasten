@@ -2,6 +2,7 @@ import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import type { Locator, Page } from "@playwright/test";
 import {
+  caretLine,
   findNote,
   inbox,
   leader,
@@ -14,7 +15,6 @@ import { gardenBacklinks, hit, lineOf, openPanel } from "../../harness/search.ts
 import { expect, test } from "../../harness/stack.ts";
 
 /** The caret's line on screen: the note Enter left keeps its editor, hidden, for a task (#2271). */
-const caret = (page: Page) => page.locator(".cm-activeLine:visible");
 
 test("a new note made from the note prompt is written to disk with the typed line", async ({
   page,
@@ -153,7 +153,7 @@ test("Tab, Shift+Tab, the arrows, Ctrl+N and Ctrl+P walk the backlinks, Escape c
   await page.keyboard.press("Tab");
   await page.keyboard.press("Enter");
   await expect(page.getByRole("tab", { name: "Reading", selected: true })).toBeVisible();
-  await expect(caret(page)).toContainText("reading habit");
+  await expect(caretLine(page)).toContainText("reading habit");
 });
 
 test("a note nothing links to says so, and Tab keeps the focus in the panel", async ({ page }) => {
@@ -233,7 +233,7 @@ test("Enter opens the backlink drawn first and ArrowDown walks to the one drawn 
   await expect(backlinks(page)).toHaveCount(2);
   await page.keyboard.press("Enter");
   await expect(page.getByRole("tab", { name: "Reading", selected: true })).toBeVisible();
-  await expect(caret(page)).toContainText("reading habit");
+  await expect(caretLine(page)).toContainText("reading habit");
   await findNote(page, "Garden");
   await openPanel(page, "gb", "backlinks");
   await expect(backlinks(page)).toHaveCount(2);
@@ -241,7 +241,7 @@ test("Enter opens the backlink drawn first and ArrowDown walks to the one drawn 
   await expect(backlinks(page).nth(1)).toHaveAttribute("aria-selected", "true");
   await page.keyboard.press("Enter");
   await expect(page.getByRole("tab", { name: "Welcome", selected: true })).toBeVisible();
-  await expect(caret(page)).toContainText("front door");
+  await expect(caretLine(page)).toContainText("front door");
 });
 
 const preview = (page: Page) => page.getByTestId("preview");

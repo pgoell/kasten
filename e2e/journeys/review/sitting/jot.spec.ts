@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import {
   bodyOf,
+  caretLine,
   noteText,
   phone,
   plus,
@@ -193,7 +194,7 @@ test.describe("the sitting's screens", () => {
   }) => {
     await sitAws(page, stack.vault, held(4), true);
     await page.getByRole("button", { name: "aws, line 3" }).click();
-    await expect(page.locator(".cm-activeLine")).toContainText("What does S3 stand for?");
+    await expect(caretLine(page)).toContainText("What does S3 stand for?");
   });
 
   test("a whole note's source link names the note alone and opens it", async ({ page, stack }) => {
@@ -265,7 +266,7 @@ test.describe("the sitting's screens", () => {
       await page.locator('button[data-deck="aws"]').tap();
       await page.getByRole("button", { name: "Show the answer" }).tap();
       await page.getByRole("button", { name: "aws, line 3" }).tap();
-      await expect(page.locator(".cm-activeLine")).toContainText("What does S3 stand for?");
+      await expect(caretLine(page)).toContainText("What does S3 stand for?");
     });
 
     test("#600 A11 Undo and Center work by tap", async ({ page, stack }) => {

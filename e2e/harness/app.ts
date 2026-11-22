@@ -409,6 +409,9 @@ export const barsOf = (chart: Locator, slots: number) =>
       .sort((a, b) => a.ago - b.ago);
   }, slots);
 
+/** The caret's line in the editor on screen: a note a pane leaves keeps its editor, hidden, for a task (#2271). */
+export const caretLine = (page: Page): Locator => page.locator(".cm-activeLine:visible");
+
 /** An edit field's text before its caret. */
 export const beforeCaret = (input: Locator) =>
   input.evaluate((field: HTMLInputElement) => field.value.slice(0, field.selectionStart ?? 0));
