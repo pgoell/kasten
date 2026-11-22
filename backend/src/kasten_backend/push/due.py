@@ -64,7 +64,7 @@ def _spoken(rest: str) -> str:
     found = ALARM.search(todo_fields.mask(rest))
     if found is not None:
         rest = rest[: found.start()] + rest[found.end() :]
-    return " ".join(todo_fields.words(todo_fields.BLOCK_ID.sub("", rest)).split())
+    return " ".join(todo_fields.words(todo_fields.without_block_id(rest)).split())
 
 
 def put_off(line: str, today: dt.date) -> str | None:

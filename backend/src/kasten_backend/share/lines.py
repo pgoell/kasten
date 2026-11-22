@@ -22,7 +22,7 @@ CLOSED = "xX-"
 
 def words(rest: str) -> str:
     """The words of an item with every field out, and no trailing block id."""
-    return todo_fields.BLOCK_ID.sub("", todo_fields.words(rest).strip())
+    return todo_fields.without_block_id(todo_fields.words(rest).strip())
 
 
 def key(rest: str) -> str:
@@ -101,9 +101,9 @@ def ticked(rest: str, today: date, *, named: bool = True) -> str:
     A new id is made otherwise. A part a parent's tick takes along is not `named` (state-changes).
     """
     rest = undone(rest)
-    block = todo_fields.BLOCK_ID.search(rest)
-    tail = "" if block is None else block[0]
-    body = rest if block is None else rest[: block.start()]
+    block = todo_fields.block_id(rest)
+    tail = "" if block is None else rest[block]
+    body = rest if block is None else rest[: block.start]
     found = todo_fields.place(body, todo_fields.ID)
     if found is not None:
         head, mark = body[: found[0]].rstrip(), f" {body[found[0] :]}"
@@ -136,10 +136,10 @@ def retext(rest: str, text: str) -> str:
 
     Words between fields, such as a tag after the assignee, are words too, so they go with the rest.
     """
-    block = todo_fields.BLOCK_ID.search(rest)
-    body = rest if block is None else rest[: block.start()]
+    block = todo_fields.block_id(rest)
+    body = rest if block is None else rest[: block.start]
     fields = [body[start:end] for start, end in todo_fields.field_spans(body)]
-    return " ".join([one_line(text), *fields]) + ("" if block is None else block[0])
+    return " ".join([one_line(text), *fields]) + ("" if block is None else rest[block])
 
 
 NEW_FIELD_AT = re.compile(
@@ -177,9 +177,9 @@ def _with_new_assignee(rest: str, assignee: str) -> str:
     if marker is not None:
         return f"{rest[: marker.start()]}{field} {rest[marker.start() :]}"
 
-    block = todo_fields.BLOCK_ID.search(rest)
-    if block is not None and block.start() > 0:
-        return f"{rest[: block.start()]} {field}{rest[block.start() :]}"
+    block = todo_fields.block_id(rest)
+    if block is not None and block.start > 0:
+        return f"{rest[: block.start]} {field}{rest[block.start :]}"
 
     end = len(rest.rstrip(" \t"))
     return f"{rest[:end]} {field}{rest[end:]}"

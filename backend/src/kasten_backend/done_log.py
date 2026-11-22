@@ -44,7 +44,7 @@ def done_line(rest: str, note_path: str, daily_path: str, today: str) -> str:
 
     `rest` is the line after `- [x] `. Fields go and tags stay, as in the pane.
     """
-    parts = [LOGGED, today, todo_fields.BLOCK_ID.sub("", todo_fields.words(rest).strip())]
+    parts = [LOGGED, today, todo_fields.without_block_id(todo_fields.words(rest).strip())]
     # A note pointing at itself records nothing.
     if note_path != daily_path:
         parts.append(f"[[{note_path.removesuffix('.md')}]]")
