@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test";
 import {
+  caretLine,
   cursorTo,
   holdStream,
   leader,
@@ -24,7 +25,6 @@ const region = (page: Page) => page.getByRole("region", { name: "Todos" });
 const row = (page: Page, words: string) => page.locator(TODO_ROW, { hasText: words });
 const cursorRow = (page: Page) => page.locator(`${TODO_ROW}[tabindex="0"]`);
 const filter = (page: Page) => page.getByLabel("filter todos");
-const caretLine = (page: Page) => page.locator(".cm-activeLine");
 const notice = (page: Page) => page.getByTestId("notice");
 const field = (page: Page, what = "part") =>
   page.getByRole("dialog", { name: `Add ${what}` }).getByRole("textbox");

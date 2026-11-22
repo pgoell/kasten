@@ -5,7 +5,7 @@
  * asks for the file lists.
  */
 
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, QueryObserver } from "@tanstack/react-query";
 import { render } from "@testing-library/react";
 import { useRef } from "react";
 import { LOG_NOTE, MODEL_USE_FOLDER } from "@/lib/core/layout";
@@ -291,5 +291,52 @@ describe("while a press runs, no event asks for the todos: the press's end does 
     ],
   ] as const)("%s", async (_name, event, calls) => {
     expect(await heard(event, {}, true)).toEqual(calls);
+  });
+});
+
+/** The todo reads sent when `events` land while the first read is out, then every read lets go; `held` false lets the first go before. */
+async function todoReads(events: VaultEvent[], held = true) {
+  pressing.value = false;
+  const client = new QueryClient();
+  const out: (() => void)[] = [];
+  let reads = 0;
+  const queryFn = () => {
+    reads += 1;
+    return new Promise<number>((resolve) => out.push(() => resolve(reads)));
+  };
+  const stop = new QueryObserver(client, { queryKey: ["todos", "pane"], queryFn }).subscribe(
+    () => {},
+  );
+  render(
+    <QueryClientProvider client={client}>
+      <Route />
+    </QueryClientProvider>,
+  );
+  const settle = async () => {
+    for (let go = out.shift(); go; go = out.shift()) {
+      go();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+  };
+  if (!held) await settle();
+  for (const event of events) FakeStream.last?.send(event);
+  await settle();
+  stop();
+  return reads;
+}
+
+describe("an event while a todo read is out asks once more when it lands, as that read may predate the write (#2273)", () => {
+  const todos: VaultEvent = { path: "", change: "todos", digest: null };
+  it.each([
+    ["a todos event", [todos], 2],
+    ["a note write", [written("a.md")], 2],
+    ["three events, one read more", [todos, written("a.md"), todos], 2],
+    ["no event", [], 1],
+  ] as const)("%s", async (_name, events, reads) => {
+    expect(await todoReads([...events])).toBe(reads);
+  });
+
+  it("with no read out, an event asks at once", async () => {
+    expect(await todoReads([todos], false)).toBe(2);
   });
 });

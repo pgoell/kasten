@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import {
   beforeCaret,
+  caretLine,
   holdStream,
   leader,
   openApp,
@@ -357,9 +358,7 @@ test.describe("the board by touch (#394, #429)", () => {
     await cards(page).filter({ hasText: "send the deck" }).tap();
     // The caret's line is the todo's embed, drawn as its words or, under the caret, its source.
     const id = (await todo(stack.url, "send the deck"))?.todo.id;
-    await expect(page.locator(".cm-activeLine")).toHaveText(
-      new RegExp(`send the deck|!\\[\\[${id}\\]\\]`),
-    );
+    await expect(caretLine(page)).toHaveText(new RegExp(`send the deck|!\\[\\[${id}\\]\\]`));
   });
 
   test("#429 A4 the strip names the states in order, sets review on one tap, and the Review tab shows the card", async ({

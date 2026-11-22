@@ -27,12 +27,29 @@ function dailySet(paths: string[] | undefined): string | undefined {
     .join("\n");
 }
 
+/** The clients waiting for a todo read that is out to land, so each asks once more however many events came. */
+const askAfterRead = new WeakSet<QueryClient>();
+
+/** Ask for the todos again once no read of them is out: one sent before a write lacks it (#2273). */
+function askAgain(queryClient: QueryClient): void {
+  if (askAfterRead.has(queryClient)) return;
+  askAfterRead.add(queryClient);
+  const unsubscribe = queryClient.getQueryCache().subscribe(() => {
+    if (queryClient.isFetching({ queryKey: ["todos"] }) > 0) return;
+    unsubscribe();
+    askAfterRead.delete(queryClient);
+    refreshTodos(queryClient);
+  });
+}
+
 /**
  * Ask for the todos, unless a press runs. Its end asks once its last write lands, and an answer
  * before that draws a still pending press back: a note it made brings index writes no press wrote (#1998).
  */
 function refreshTodos(queryClient: QueryClient, fresh = false): void {
   if (pressRunning()) return;
+  // A read already out joins this ask and may predate the write, so ask again when it lands (#2273).
+  if (!fresh && queryClient.isFetching({ queryKey: ["todos"] }) > 0) askAgain(queryClient);
   queryClient.invalidateQueries({ queryKey: ["todos"] }, { cancelRefetch: fresh });
 }
 

@@ -1,5 +1,6 @@
 import type { Page, Route } from "@playwright/test";
 import {
+  caretLine,
   cursorTo,
   leader,
   noteText,
@@ -47,7 +48,7 @@ test("the todos panel draws the open todos with their state, narrows on the answ
   await expect(rows).toHaveCount(2);
   await page.keyboard.press("Enter");
   await expect(page.getByRole("tab", { name: "Garden", selected: true })).toBeVisible();
-  await expect(page.locator(".cm-activeLine")).toContainText("buy seed potatoes");
+  await expect(caretLine(page)).toContainText("buy seed potatoes");
 });
 
 /** The store's todos in today's daily note, as lines. */

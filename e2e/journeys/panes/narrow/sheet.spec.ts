@@ -1,5 +1,5 @@
 import type { Locator, Page } from "@playwright/test";
-import { findNote, leader, openApp, openNote, vaultWith } from "../../../harness/app.ts";
+import { caretLine, findNote, leader, openApp, openNote, vaultWith } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
 
 /** A panel over the app: its dialog's name, the leader keys that open it, and whether its field is a draft. */
@@ -269,7 +269,7 @@ test.describe("a note's links: the margin of a wide pane, the Local graph sheet 
       await rows(margin(page), 1).first().click();
 
       await expect(page.getByRole("tab", { name: "Borges", selected: true })).toBeVisible();
-      await expect(page.locator(".cm-activeLine")).toHaveText(/^See (\[\[)?Margin(\]\])?\.$/);
+      await expect(caretLine(page)).toHaveText(/^See (\[\[)?Margin(\]\])?\.$/);
     });
   }
 

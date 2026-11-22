@@ -1,5 +1,6 @@
 import type { Page, Route } from "@playwright/test";
 import {
+  caretLine,
   cursorTo,
   holdStream,
   leader,
@@ -391,7 +392,7 @@ test.describe("@ sends the cursor's todo to the agent (#523)", () => {
       .click();
     await expect.poll(() => deck(stack.url)).toEqual(["open", true]);
     await page.keyboard.press("Enter");
-    await expect(page.locator(".cm-activeLine")).toContainText("send the deck");
+    await expect(caretLine(page)).toContainText("send the deck");
     await page.keyboard.press("Escape");
     await leader(page, ":");
     await expect(page.getByRole("option", { name: /^Send this todo to the agent/ })).toHaveCount(1);

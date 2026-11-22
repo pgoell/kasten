@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import {
   atDrop,
+  caretLine,
   cursorTo,
   leader,
   openApp,
@@ -382,7 +383,7 @@ test.describe("the list's state button by touch", () => {
     await page.locator(TODO_ROW, { hasText: "ship it" }).tap();
     // The embed under the caret shows its source with vim off.
     const id = (await lineOf(stack.url, "ship it"))?.match(/kt-\w{6}$/)?.[0];
-    await expect(page.locator(".cm-activeLine:visible")).toHaveText(`![[${id}]]`);
+    await expect(caretLine(page)).toHaveText(`![[${id}]]`);
     expect(writes).toEqual([]);
   });
 
