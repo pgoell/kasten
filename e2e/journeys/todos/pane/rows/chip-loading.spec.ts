@@ -1,6 +1,6 @@
 import type { Locator, Page } from "@playwright/test";
-import { cursorTo, phone, runCommand, TODO_ROW, vaultWith } from "../../../harness/app.ts";
-import { expect, test } from "../../../harness/stack.ts";
+import { cursorTo, phone, runCommand, TODO_ROW, vaultWith } from "../../../../harness/app.ts";
+import { expect, test } from "../../../../harness/stack.ts";
 
 // An assignee chip while GET /api/files has not answered (#2124): it does not know yet
 // whether its name has a note, so it neither looks like "no note" nor opens the row's note.

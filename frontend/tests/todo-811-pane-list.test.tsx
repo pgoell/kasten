@@ -1,6 +1,8 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
+import { TodoList } from "@/components/todo/todo-list";
+import { TodoRow } from "@/components/todo/todo-row";
 import type { TodoHit } from "@/lib/core/api";
-import { parseTodo } from "@/lib/todo/todo";
+import { parseTodo, type Todo } from "@/lib/todo/todo";
 import {
   cursorAfter,
   type HeldGroup,
@@ -8,7 +10,9 @@ import {
   identities,
   sameOrder,
 } from "@/lib/todo/todo-hold";
-import type { Row } from "@/lib/todo/use-todo-rows";
+import { waitOf } from "@/lib/todo/todo-view";
+import { useArmed } from "@/lib/todo/use-armed";
+import { type Row, type RowFacts, rowKey } from "@/lib/todo/use-todo-rows";
 import { paneHooks, renderPane } from "./todo-pane-fixture";
 
 // The doubles, the same in every todo-pane file: see todo-pane-fixture.tsx.
@@ -19,6 +23,11 @@ const { fetchTodos, fetchNote, fetchFiles, createNote } = vi.hoisted(() => ({
   createNote: vi.fn(),
 }));
 vi.mock("@/lib/core/api", () => ({ fetchTodos, fetchNote, fetchFiles, createNote }));
+// Spied, so a test can tell a row that drew again from one that kept its last drawing.
+vi.mock("@/lib/todo/todo-view", async (original) => {
+  const real = await original<typeof import("@/lib/todo/todo-view")>();
+  return { ...real, waitOf: vi.fn(real.waitOf) };
+});
 
 paneHooks();
 
@@ -180,5 +189,115 @@ describe("a held row the list drops while a press holds the order (#2003)", () =
     const done = row(hit(3, "- [x] read the plan ✅ 2026-11-13"), true);
     expect(sameOrder(held(row(read)), held(done))).toBe(false);
     expect(sameOrder(held(done), held(done))).toBe(true);
+  });
+});
+
+// What no screen shows: how often a row draws, which handler a kept row calls, and the
+// question's own clock through a redraw (#2092).
+const HIT: TodoHit = {
+  path: "a.md",
+  line: 1,
+  text: "- [ ] wire the pane",
+  project: null,
+  shared: false,
+};
+const rowOf = (text: string): Row => ({ hit: { ...HIT, text }, todo: parseTodo(text) as Todo });
+const FACTS: RowFacts = {
+  running: new Map(),
+  links: { named: new Map(), closed: () => undefined, dependents: new Map() },
+  progress: new Map(),
+};
+
+describe("a press redraws only the row it changed", () => {
+  it("a row read anew with the same line keeps its drawing, and a changed line draws again", () => {
+    // One list for every render, as the pane hands it: a fresh one is a change.
+    const files: string[] = [];
+    const draw = (text: string) => (
+      <TodoRow
+        row={rowOf(text)}
+        facts={FACTS}
+        today="2026-10-25"
+        cursor={false}
+        muted={false}
+        coarse={false}
+        indent={{ paddingLeft: "0.75rem" }}
+        files={files}
+        onClick={vi.fn()}
+        onPerson={vi.fn()}
+      />
+    );
+    const { rerender } = render(draw("- [ ] wire the pane"));
+    const drawn = vi.mocked(waitOf).mock.calls.length;
+    rerender(draw("- [ ] wire the pane"));
+    expect(vi.mocked(waitOf).mock.calls.length).toBe(drawn);
+    rerender(draw("- [x] wire the pane ✅ 2026-10-25"));
+    expect(vi.mocked(waitOf).mock.calls.length).toBe(drawn + 1);
+  });
+
+  it("a row kept from an earlier render calls the handler of the latest one", () => {
+    const row = rowOf("- [ ] wire the pane");
+    // One groups and one files for both renders, so the memo keeps the row drawn first.
+    const groups = [{ heading: "Later", rows: [row] }];
+    const files: string[] = [];
+    const props = (onRow: () => void) =>
+      ({
+        groups,
+        empty: null,
+        cursorKey: "",
+        facts: FACTS,
+        today: "2026-10-25",
+        coarse: false,
+        picking: false,
+        editing: null,
+        onEditing: vi.fn(),
+        draft: { current: null },
+        armed: null,
+        onArm: vi.fn(),
+        onRow,
+        files,
+        onPerson: vi.fn(),
+        onWrite: vi.fn(),
+        onCycle: vi.fn(),
+        actions: () => [],
+        doneWeek: [],
+        doneOpen: false,
+        onDoneFold: vi.fn(),
+      }) as Parameters<typeof TodoList>[0];
+    const first = vi.fn();
+    const latest = vi.fn();
+    const { rerender } = render(<TodoList {...props(first)} />);
+    rerender(<TodoList {...props(latest)} />);
+    fireEvent.click(screen.getByTitle(rowKey(row.hit)));
+    expect(first).not.toHaveBeenCalled();
+    expect(latest).toHaveBeenCalledWith(row.hit);
+  });
+});
+
+describe("#2092 a state button's question through a redraw", () => {
+  const milk = rowOf("- [/] buy milk").hit;
+  const asking = (hit: TodoHit) => `${rowKey(hit)}\n${hit.text}`;
+
+  it("follows its todo to a new line, and is taken back four seconds after its tap, a redraw between", () => {
+    vi.useFakeTimers();
+    const { result, rerender } = renderHook((rows: TodoHit[]) => useArmed(rows), {
+      initialProps: [milk],
+    });
+    act(() => result.current.arm(milk));
+    act(() => vi.advanceTimersByTime(3000));
+    const moved = { ...milk, line: 7 };
+    rerender([moved]);
+    expect(result.current.armed).toBe(asking(moved));
+    act(() => vi.advanceTimersByTime(1000));
+    expect(result.current.armed).toBeNull();
+    vi.useRealTimers();
+  });
+
+  it("leaves another todo that takes its line unasked", () => {
+    const { result, rerender } = renderHook((rows: TodoHit[]) => useArmed(rows), {
+      initialProps: [milk],
+    });
+    act(() => result.current.arm(milk));
+    rerender([{ ...milk, text: "- [ ] call mom" }]);
+    expect(result.current.armed).toBeNull();
   });
 });

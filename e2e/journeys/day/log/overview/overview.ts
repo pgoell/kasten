@@ -1,5 +1,5 @@
 import type { Locator, Page } from "@playwright/test";
-import { leader, openApp } from "../../../../harness/app.ts";
+import { leader, openApp, runCommand } from "../../../../harness/app.ts";
 import { expect } from "../../../../harness/stack.ts";
 
 export const daily = (date: string) => `01 Periodic/00 Daily/${date}.md`;
@@ -19,10 +19,16 @@ export const words = (page: Page, name: string) => card(page, name).locator(".ov
 export const captions = (page: Page) =>
   page.getByRole("region", { name: "Overview" }).locator(".overview-caption");
 
-/** Opens the overview from the editor and waits for its Food card. */
-export async function overview(page: Page): Promise<void> {
-  await openApp(page);
-  await leader(page, "ga");
+/** Opens the overview, by the leader or by touch from the palette, and waits for its Food card; `pin` fixes the clock at NOW first. */
+export async function overview(page: Page, { pin = false, touch = false } = {}): Promise<void> {
+  if (pin) await page.clock.setFixedTime(NOW);
+  if (touch) {
+    await page.goto("/");
+    await runCommand(page, /^Open the overview/);
+  } else {
+    await openApp(page);
+    await leader(page, "ga");
+  }
   await expect(card(page, "Food")).toBeVisible({ timeout: 15_000 });
 }
 
