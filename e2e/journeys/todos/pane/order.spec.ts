@@ -190,9 +190,12 @@ test("#947 A3 one press asks the list once over, its own echoes ask nothing, a w
   const open = await openOrder(page, stack.vault);
   expect(await pressCount(page, stack, open, open.first[0] ?? "")).toBe(PRESS_READS);
   const before = open.reads();
-  await vaultWith(stack.vault, { "zz.md": "- [ ] hotel\n" });
-  await expect(row(page, "hotel")).toBeVisible({ timeout: 15_000 });
-  expect(open.reads() - before).toBe(1);
+  const writes = async () => (await open.seen()).split(`"${A}"`).length;
+  const was = await writes();
+  // No new todo line, so the import writes nothing back: one write, one event. A new line made two (#2266).
+  await touch(stack.vault, A);
+  await expect.poll(writes, { timeout: 15_000 }).toBeGreaterThan(was);
+  await expect.poll(() => open.reads() - before, { timeout: 15_000 }).toBe(1);
 });
 
 test.describe("on a phone", () => {

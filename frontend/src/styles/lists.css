@@ -193,6 +193,10 @@ button:not(.words, .menu button):active:not(:disabled) {
   color: var(--k-muted);
 }
 
+.status.idle {
+  visibility: hidden;
+}
+
 .pill {
   display: block;
   width: max-content;

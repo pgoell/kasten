@@ -146,10 +146,13 @@ describe("#2257 an open edit row whose todo leaves its note", () => {
     const pane = await editingOne();
     pane.answer([{ ...TWO, line: 1 }]);
 
-    await waitFor(() => expect(pane.draft()).toBeNull());
-    expect(pane.onNotice).toHaveBeenCalledWith(
-      "Nothing moved: that line left the list while it was edited. The edit read: - [ ] one more 🆔 kt-000011",
+    // The row leaves in the render its todo leaves; the notice goes out in an effect a commit later (#2264).
+    await waitFor(() =>
+      expect(pane.onNotice).toHaveBeenCalledWith(
+        "Nothing moved: that line left the list while it was edited. The edit read: - [ ] one more 🆔 kt-000011",
+      ),
     );
+    expect(pane.draft()).toBeNull();
     expect(pane.onEdit).not.toHaveBeenCalled();
   });
 

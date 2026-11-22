@@ -50,6 +50,11 @@ export function ListsApp() {
   return store ? <Lists store={store} /> : null;
 }
 
+/** Kept in the layout while hidden, so no row moves under a finger as a write goes out and lands (#2267). */
+function Sending({ shown }: { shown: boolean }) {
+  return <p className={shown ? "status" : "status idle"}>Wird gesendet</p>;
+}
+
 function Lists({ store }: { store: ListsStore }) {
   const snap = useSyncExternalStore(store.subscribe, store.snapshot);
   const [current, setCurrent] = useState<string>("Einkauf");
@@ -247,7 +252,7 @@ function Lists({ store }: { store: ListsStore }) {
         </div>
         {!snap.online && <p className="status pill">Offline, wird gesendet</p>}
         {snap.signIn && <p className="status pill">Anmelden nötig</p>}
-        {snap.online && snap.queue.length > 0 && <p className="status">Wird gesendet</p>}
+        <Sending shown={snap.online && snap.queue.length > 0} />
       </header>
 
       {snap.errors.length > 0 && (
