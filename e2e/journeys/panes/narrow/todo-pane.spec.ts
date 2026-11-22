@@ -1,6 +1,7 @@
 import type { Locator, Page } from "@playwright/test";
 import {
   bodyOf,
+  caretLine,
   hold,
   noteText,
   PANE,
@@ -63,9 +64,7 @@ test("a tap on a row opens its note at that line and sets no state", async ({ pa
   // The note's embed, drawn as its words or, under the cursor, its id.
   const id = await idOf(stack.url, "renew the passport");
   expect(id).not.toBe("");
-  await expect(page.locator(".cm-activeLine")).toContainText(
-    new RegExp(`renew the passport|${id}`),
-  );
+  await expect(caretLine(page)).toContainText(new RegExp(`renew the passport|${id}`));
   expect([writes, await states(stack.url)]).toEqual([[], OPEN]);
 });
 

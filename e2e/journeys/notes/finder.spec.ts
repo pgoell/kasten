@@ -2,6 +2,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import {
+  caretLine,
   findNote,
   leader,
   openApp,
@@ -171,7 +172,7 @@ test("a content search opens the note on the line it matches", async ({ page }) 
   await expect(page.getByRole("tab", { name: "Long note", selected: true })).toBeVisible();
   const line = page.locator(".cm-line", { hasText: "Line 240 of filler" });
   await expect(line).toBeInViewport();
-  await expect(page.locator(".cm-activeLine")).toContainText("Line 240 of filler");
+  await expect(caretLine(page)).toContainText("Line 240 of filler");
 });
 
 /**
