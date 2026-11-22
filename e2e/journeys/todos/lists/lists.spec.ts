@@ -13,8 +13,8 @@ import {
   phone,
   TODO_ROW,
   vaultWith,
-} from "../../harness/app.ts";
-import { expect, test } from "../../harness/stack.ts";
+} from "../../../harness/app.ts";
+import { expect, test } from "../../../harness/stack.ts";
 
 const box = (at: Page | Locator, name: string) => at.getByRole("checkbox", { name, exact: true });
 const group = (page: Page, name: string) => page.getByRole("region", { name });
