@@ -1,4 +1,4 @@
-import type { Locator, Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import {
   barsOf,
   findNote,
@@ -11,8 +11,9 @@ import {
   runCommand,
   today,
   vaultWith,
-} from "../../../harness/app.ts";
-import { expect, test } from "../../../harness/stack.ts";
+} from "../../../../harness/app.ts";
+import { expect, test } from "../../../../harness/stack.ts";
+import { captions, card, daily, logged, overview, warned } from "./overview.ts";
 
 const dailyText = (vault: string) => noteText(vault, `01 Periodic/00 Daily/${today()}.md`);
 
@@ -97,34 +98,6 @@ test.describe("the palette's Log weight", () => {
     expect(await dailyText(stack.vault)).not.toContain("⚖");
   });
 });
-
-const daily = (date: string) => `01 Periodic/00 Daily/${date}.md`;
-const logged = (...lines: string[]) => `# Day\n\n## Log\n${lines.join("\n")}\n`;
-const card = (page: Page, name: string) =>
-  page.getByRole("region", { name: "Overview" }).locator("article", {
-    has: page.getByRole("heading", { name: new RegExp(`^${name}, open `) }),
-  });
-const captions = (page: Page) =>
-  page.getByRole("region", { name: "Overview" }).locator(".overview-caption");
-
-/** Opens the overview from the editor and waits for its Food card. */
-async function overview(page: Page): Promise<void> {
-  await openApp(page);
-  await leader(page, "ga");
-  await expect(card(page, "Food")).toBeVisible({ timeout: 15_000 });
-}
-
-/** How many of a chart's bars draw in the theme's warning colour, which marks a goal passed. */
-const warned = (chart: Locator) =>
-  chart.evaluate((svg) => {
-    const probe = document.createElement("i");
-    probe.style.color = "var(--k-warn)";
-    document.body.append(probe);
-    const warn = getComputedStyle(probe).color;
-    probe.remove();
-    return [...svg.querySelectorAll("rect")].filter((bar) => getComputedStyle(bar).fill === warn)
-      .length;
-  });
 
 test.describe("the overview's words", () => {
   test("each chart has a line saying what it shows, and each ring names its macro and grams", async ({

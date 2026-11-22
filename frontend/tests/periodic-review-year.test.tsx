@@ -1,9 +1,15 @@
 import { NoteMissing } from "@/lib/core/api";
-import { applyLayout } from "@/lib/core/layout";
+import {
+  ARCHIVE,
+  applyLayout,
+  IMAGE_FOLDER,
+  INBOX,
+  type Layout,
+  PERIODIC,
+} from "@/lib/core/layout";
 import { hashed } from "./digests";
 import { defineFoliateFake } from "./foliate-fake";
 import { FakeEventSource, pageHooks, renderApp, settle, stream, VAULT } from "./home-route-fixture";
-import { DEFAULT_LAYOUT } from "./home-route-overview-fixture";
 import {
   barsIn,
   CARDS,
@@ -28,6 +34,15 @@ import {
   YEAR_TEXT,
   YEAR_TODOS,
 } from "./periodic-review-fixture";
+
+/** The layout the defaults make, read before any test moves it. */
+const DEFAULT_LAYOUT: Layout = {
+  inbox: INBOX,
+  periodic: PERIODIC,
+  archive: ARCHIVE,
+  images: IMAGE_FOLDER,
+  config: "99 Misc/01 Config",
+};
 
 defineFoliateFake();
 

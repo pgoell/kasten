@@ -55,8 +55,8 @@ GitHub mails the failure to whoever last changed its cron. Run the same
 commands locally to see the list, or start it by hand from the Actions tab.
 On the same day Dependabot opens one pull request per ecosystem (uv, bun,
 docker) with the minor and patch bumps, and one of its own for each major
-bump, except postgres, whose major moves by hand with `pg_upgrade`. Actions
-are not grouped: each Action bump comes as its own pull request.
+bump, except postgres, whose major moves by hand with `pg_upgrade`. Each Action
+bump comes as its own pull request.
 
 ## Run the end-to-end journeys
 
@@ -69,9 +69,9 @@ The journeys sit in `e2e/journeys/`: review in `review/` (a sitting, a jotted qu
 `panes/` (layout, the top bar, the pane and tab keys, pane moves while a write is held, links to pages and assets; a note changed on disk under
 unsaved text, `:e` and `:e!`, and a conflicted note reopened in `panes/conflict/`; the workspace over a reload, held text in a restored pane, a URL over it, the tree panel and keys in `tree/`, the leader keys and gf to a highlight's book in `panes/workspace/`; the drawer, phone toolbar, key help, AltGr, a resized window, sheets, the link margin and todo pane taps in `panes/narrow/`), notes, the finder, a tree row dragged, the new note prompt's folder rows, where a note opens and the bar's save sign in `notes/`, with saving in `notes/saving/` (edits,
 mention links, held text, the editor's build and relation names, live preview and its lists and tables) and content search and an epub opened mid-listing in `notes/search/`, the todo list, board, presses,
-twin ids, a person's card and the shared lists in `todos/` (the panel, keys, taps, held order, edit line, strip, refile and `board/` in `todos/pane/`), capture, the web page import, chat replies, the log and overview, the home screen, the tokens page in `day/`, finance in `day/finance/`, and the book finder, book, video and clip panes and csv and svg files in
+twin ids, a person's card and the shared lists in `todos/` (the panel, keys, taps, held order, edit line, strip, refile and `board/` in `todos/pane/`), capture, the web page import, chat replies, the log (the overview in `log/overview/`), the home screen, the tokens page in `day/`, finance in `day/finance/`, and the book finder, book, video and clip panes and csv and svg files in
 `media/`. `harness.spec.ts` checks the harness. Each journey is a
-daily task; a write checks the disk. 55 files
+daily task; a write checks the disk. 57 files
 run at 414 px with touch, vim off: in `review/`, `sitting/sitting`, `sitting/jot`, `keys`, `overview/rows` and `overview/decks`; in `notes/`, `finder`,
 `status-bar`, `search/book-open-listing`, `search/content-search-*`, `saving/editor-build`, `saving/edits`,
 `saving/mentions` and `saving/live-preview-blocks`; in `panes/`, `links`, `workspace/reload`, `workspace/tree/edits`,
@@ -100,7 +100,7 @@ cd e2e && mise exec -- bunx playwright test journeys/<file>
 A failure writes a trace and screenshot to `e2e/test-results/`. Open
 a trace from `e2e/` with `bunx playwright show-trace <zip>`.
 
-CI's E2E jobs run the same journeys on every pull request, split in two by
+CI's E2E jobs run the journeys on every pull request, split in two by
 `E2E_SHARD=1/2` and `2/2`, each on 3 workers where a local run takes 4. Set
 `E2E_SHARD` to run one slice locally. They are not required checks
 yet. Each slice's `e2e-results-<n>` artifact holds its traces and screenshots.
