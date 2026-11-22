@@ -2,7 +2,6 @@ import type { components } from "@/lib/api-types";
 import { client, postFile, reason, refused } from "@/lib/core/api-client";
 import { applyLayout, type Layout } from "@/lib/core/layout";
 import { noteBase } from "@/lib/notes/note-base";
-import { pressSending, pressWrote } from "@/lib/todo/todo-press-echo";
 
 /** One note as the vault holds it: where it lives, and what is in it. */
 export type Note = components["schemas"]["Note"];
@@ -123,12 +122,12 @@ export function addTodoLine(text: string, parentId?: string): Promise<TodoRow[]>
   return touched("POST /api/todos/line", client.POST("/api/todos/line", { body }));
 }
 
-/** Change a todo to what its edited line says, its box included. */
-export function changeTodoLine(id: string, text: string): Promise<TodoRow[]> {
+/** Change a todo read at `version` to what its edited line says, box included; a stale version is refused. */
+export function changeTodoLine(id: string, text: string, version: number): Promise<TodoRow[]> {
   const params = { path: { todo_id: id } };
   return touched(
     "PUT /api/todos/line",
-    client.PUT("/api/todos/{todo_id}/line", { params, body: { text } }),
+    client.PUT("/api/todos/{todo_id}/line", { params, body: { text, version } }),
   );
 }
 
@@ -332,25 +331,19 @@ export class NoteExists extends Error {
  * `content` goes under the frontmatter, and is empty for a note the reader writes. Passing it here beats saving after: a second save is a second `/api/events` event, which reads as another writer.
  */
 export async function createNote(path: string, content = ""): Promise<Note> {
-  const answered = pressSending(path);
-  try {
-    const { data, response } = await client.POST("/api/files/{path}", {
-      params: { path: { path } },
-      body: { content },
-    });
+  const { data, response } = await client.POST("/api/files/{path}", {
+    params: { path: { path } },
+    body: { content },
+  });
 
-    if (response.status === 409) throw new NoteExists(path);
-    if (!data) {
-      throw new Error(`POST /api/files/${path} failed with ${response.status}`);
-    }
-
-    // The whole note, so writers and movers seed one cache from one answer.
-    // The path is the vault's spelling: `daily/./note.md` comes back as `daily/note.md`, which `?note=` takes.
-    pressWrote(data.path, data.content, data.content);
-    return data;
-  } finally {
-    answered();
+  if (response.status === 409) throw new NoteExists(path);
+  if (!data) {
+    throw new Error(`POST /api/files/${path} failed with ${response.status}`);
   }
+
+  // The whole note, so writers and movers seed one cache from one answer.
+  // The path is the vault's spelling: `daily/./note.md` comes back as `daily/note.md`, which `?note=` takes.
+  return data;
 }
 
 /** A save refused because someone wrote the note since its base. The autosave reads it as a conflict. */
@@ -376,26 +369,20 @@ export async function saveNote(
   const body: components["schemas"]["NoteSave"] = { content };
   if (base !== undefined) body.base = base;
   if (restoredFrom !== undefined) body.restored_from = restoredFrom;
-  const answered = pressSending(path);
-  try {
-    const { data, response } = await client.PUT("/api/files/{path}", {
-      params: { path: { path } },
-      body,
-      keepalive,
+  const { data, response } = await client.PUT("/api/files/{path}", {
+    params: { path: { path } },
+    body,
+    keepalive,
+  });
+
+  if (response.status === 409) throw new ChangedOnDisk();
+  if (!data) {
+    throw new Error(`PUT /api/files/${path} failed with ${response.status}`, {
+      cause: response.status,
     });
-
-    if (response.status === 409) throw new ChangedOnDisk();
-    if (!data) {
-      throw new Error(`PUT /api/files/${path} failed with ${response.status}`, {
-        cause: response.status,
-      });
-    }
-
-    pressWrote(data.path, data.content, content);
-    return data;
-  } finally {
-    answered();
   }
+
+  return data;
 }
 
 /**

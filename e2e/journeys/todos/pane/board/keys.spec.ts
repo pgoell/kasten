@@ -4,6 +4,7 @@ import {
   leader,
   openApp,
   plus,
+  runCommand,
   today,
   vaultWith,
   watchDrop,
@@ -81,10 +82,7 @@ async function board(
   // A pane beside, so an editor stays on screen for Escape to hand the focus to.
   if (split) await leader(page, "%");
   if (vim === "on") await leader(page, "gt");
-  else {
-    await page.keyboard.press("Control+Shift+P");
-    await page.getByRole("option", { name: /^Open the todo pane/ }).click();
-  }
+  else await runCommand(page, /^Open the todo pane/);
   await expect(region(page)).toBeVisible({ timeout: 15_000 });
   if (!empty || Object.keys(notes).length)
     await expect(page.locator('[data-row*=".md:"]').first()).toBeVisible();
@@ -145,6 +143,9 @@ test("A8 p opens the project picker, Escape shuts it writing nothing, and j Ente
   await expect
     .poll(() => lineOf(stack.url, "fix the tap"))
     .toMatch(new RegExp(`^- \\[ \\] fix the tap ${literal(KASTEN)} .*🆔 kt-000009$`));
+  // The pick gives the todo its project, so lanes by project draw it under Kasten (#2249).
+  await page.keyboard.press("g");
+  await expect(lane(page, "Kasten")).toContainText("fix the tap");
 });
 
 test("A8 a click picks, and a card already filed under the pick writes nothing", async ({

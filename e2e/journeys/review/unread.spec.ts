@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
-import { gateway, leader, openApp, vaultWith, walkBackoff } from "../../harness/app.ts";
+import { gateway, vaultWith, walkBackoff } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
+import { openReview } from "./review.ts";
 
 const ALPHA = "03 Flashcards/alpha.md";
 const DECKS = {
@@ -8,13 +9,6 @@ const DECKS = {
   "03 Flashcards/beta.md": "#flashcards/beta\n\nc::d\n",
 };
 const LINE = `These notes could not be read, so their cards are not counted: ${ALPHA}`;
-
-/** Opens the review pane on its overview, with the focus in it. */
-async function openReview(page: Page): Promise<void> {
-  await openApp(page);
-  await leader(page, "gs");
-  await page.getByRole("heading", { name: "Review" }).click();
-}
 
 /** The line naming the notes that could not be read. */
 const unreadLine = (page: Page) => page.getByRole("alert").filter({ hasText: "could not be read" });

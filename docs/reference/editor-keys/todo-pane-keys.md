@@ -181,7 +181,9 @@ cycle. Escape puts the row back and writes nothing, Enter writes and puts it
 back, and an input left empty writes nothing either, deleting a todo not being
 what this key is. A new line kasten writes in one order; a line edited here
 keeps whatever order you leave it in, and a press that changes its state moves
-none of it.
+none of it. A todo changed elsewhere since `i` opened writes nothing: the notice
+says it changed since it was read, and the line opens again on what you typed,
+so a second Enter writes it over the todo as it now stands.
 
 The note is read again first and the line checked against the words the edit
 was typed over, so an edit onto a line that has changed since writes nothing

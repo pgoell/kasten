@@ -32,6 +32,14 @@ describe("parseVaultEvent", () => {
     });
   });
 
+  it("#2250 reads a write to the todo store, which names no note", () => {
+    expect(parseVaultEvent('{"path": "", "change": "todos", "digest": null}')).toEqual({
+      path: "",
+      change: "todos",
+      digest: null,
+    });
+  });
+
   it("refuses a kind it does not know", () => {
     // A newer backend saying something this build has no answer for. Quiet is
     // the right answer: the client acts on the kinds it understands and lets

@@ -55,17 +55,51 @@ describe("the todo writes", () => {
     expect(api.toggleTodoTimer).toHaveBeenCalledExactlyOnceWith("kt-bbbbbb");
   });
 
-  it("puts an edited line as typed", async () => {
-    await editTodoInVault(hit("- [ ] a 🆔 kt-aaaaaa"), "- [ ] b ⏫ 🆔 kt-aaaaaa");
+  it("puts an edited line as typed, at the version its row is listed at", async () => {
+    await editTodoInVault({ ...hit("- [ ] a 🆔 kt-aaaaaa"), todo: ROW }, "- [ ] b ⏫ 🆔 kt-aaaaaa");
     expect(api.changeTodoLine).toHaveBeenCalledExactlyOnceWith(
       "kt-aaaaaa",
       "- [ ] b ⏫ 🆔 kt-aaaaaa",
+      4,
     );
   });
 
   it("sends a blocked line whose last ⛔ the edit took off as open", async () => {
-    await editTodoInVault(hit("- [b] a ⛔ kt-bbbbbb 🆔 kt-aaaaaa"), "- [b] a 🆔 kt-aaaaaa");
-    expect(api.changeTodoLine).toHaveBeenCalledExactlyOnceWith("kt-aaaaaa", "- [ ] a 🆔 kt-aaaaaa");
+    await editTodoInVault(hit("- [b] a ⛔ kt-bbbbbb 🆔 kt-aaaaaa"), "- [b] a 🆔 kt-aaaaaa", 4);
+    expect(api.changeTodoLine).toHaveBeenCalledExactlyOnceWith(
+      "kt-aaaaaa",
+      "- [ ] a 🆔 kt-aaaaaa",
+      4,
+    );
+  });
+
+  it("#2247 sends the version the edit read, past a press from here but not past a change from elsewhere", async () => {
+    const listed = {
+      ...hit("- [ ] a 🆔 kt-cccccc"),
+      todo: { ...ROW, id: "kt-cccccc", version: 9 },
+    };
+    await editTodoInVault(listed, "- [ ] b 🆔 kt-cccccc", 7);
+    api.cycleStoreTodo.mockResolvedValueOnce([{ ...ROW, id: "kt-cccccc", version: 8 }]);
+    const pressed = cycleTodoInVault(listed);
+    await editTodoInVault(listed, "- [ ] c 🆔 kt-cccccc", 7);
+    await pressed;
+    expect(api.changeTodoLine.mock.calls.map((call) => call[2])).toEqual([7, 8]);
+    await expect(editTodoInVault(hit("- [ ] d 🆔 kt-dddddd"), "- [ ] e")).rejects.toThrow(
+      "that todo is not in the list yet",
+    );
+  });
+
+  it("forgets its own written versions once 200 newer ones came after", async () => {
+    const listed = { ...hit("- [ ] a 🆔 kt-eeeeee"), todo: { ...ROW, id: "kt-eeeeee" } };
+    api.cycleStoreTodo.mockResolvedValueOnce([{ ...ROW, id: "kt-eeeeee", version: 2 }]);
+    await cycleTodoInVault(listed);
+    await editTodoInVault(listed, "- [ ] b 🆔 kt-eeeeee", 1);
+    for (let n = 0; n < 200; n += 1) {
+      api.cycleStoreTodo.mockResolvedValueOnce([{ ...ROW, id: `kt-f${n}`, version: 1 }]);
+      await cycleTodoInVault(hit(`- [ ] f 🆔 kt-f${n}`));
+    }
+    await editTodoInVault(listed, "- [ ] c 🆔 kt-eeeeee", 1);
+    expect(api.changeTodoLine.mock.calls.map((call) => call[2])).toEqual([2, 1]);
   });
 
   it("takes the id off the row before the line, which a press drawn early can leave plain", async () => {
@@ -117,6 +151,7 @@ describe("the todo writes", () => {
     expect(api.changeTodoLine).toHaveBeenCalledExactlyOnceWith(
       "kt-aaaaaa",
       "- [/] a #agent 🆔 kt-aaaaaa",
+      4,
     );
   });
 });

@@ -84,8 +84,8 @@ links have to appear.
 
 ## Nothing was indexed to build it
 
-There is no table behind this. The card asks `GET /api/todos` for every checkbox
-line in the vault and `GET /api/search` for every line carrying the person's
+No person table stands behind this. The card asks `GET /api/todos` for every todo, each
+written out as its line, and `GET /api/search` for every line carrying the person's
 name, which are the two answers the todo pane and the backlinks panel already
 hold in the query cache, and it does the reading in the browser.
 

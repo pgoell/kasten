@@ -375,6 +375,30 @@ def _link_project(text: str, paths: list[str]) -> str | None:
     return None
 
 
+def tag_project(words: str, paths: list[str]) -> str | None:
+    """The project a `#p/x` tag in a todo's words names, if a folder by that name exists."""
+    return _tag_project(words, project_folders(paths))
+
+
+def named_project(
+    words: str, note: str | None, paths: list[str], above: tuple[str | None, str | None]
+) -> str | None:
+    """The project `projects_of`'s order gives a todo, from its words, its note and `above`.
+
+    `above` is the nearest tag's project over it and its parent's project, the steps a caller
+    reads off the store rather than the note's lines.
+    """
+    folder = None if note is None else project_in(note, PROJECT_ROOTS)
+    return _first(tag_project(words, paths) or above[0], folder, words, paths, above[1])
+
+
+def _first(
+    tagged: str | None, folder: str | None, words: str, paths: list[str], parent: str | None
+) -> str | None:
+    """The board's order, kept here once: a tag, the note's folder, a link, the parent."""
+    return tagged or folder or _link_project(words, paths) or parent
+
+
 def project_folders(paths: list[str]) -> dict[str, str]:
     """Each project folder something is filed in, keyed by the name a `#p/x` tag spells.
 
@@ -419,8 +443,7 @@ def projects_of(hits: list[Hit], paths: list[str]) -> list[str | None]:
             words = _words(todo[2] or "")
             tagged = _tag_project(words, folders) or tags.get(parent)
             above = None if parent is None else found.get((note, parent))
-            project = tagged or folder or _link_project(words, paths) or above
-            found[(note, hit.line)] = project
+            found[(note, hit.line)] = _first(tagged, folder, words, paths, above)
             tags[hit.line] = tagged
 
     return [found.get((hit.path, hit.line)) for hit in hits]

@@ -3,13 +3,13 @@ import {
   leader,
   localDate,
   noteText,
-  openApp,
   phone,
   tapHeight,
   today,
   vaultWith,
-} from "../../harness/app.ts";
-import { expect, test } from "../../harness/stack.ts";
+} from "../../../harness/app.ts";
+import { expect, test } from "../../../harness/stack.ts";
+import { openReview } from "../review.ts";
 
 const FRANCE = "What is the capital of France?::Paris";
 
@@ -34,10 +34,8 @@ test("a sitting on the desktop writes the FSRS comment after a good rating", asy
   page,
   stack,
 }) => {
-  await openApp(page);
-  await leader(page, "gs");
-  // A click focuses the pane; `j` then reaches the deck row and `l` sits it.
-  await page.getByRole("heading", { name: "Review" }).click();
+  // openReview leaves the focus in the pane; `j` reaches the deck row and `l` sits it.
+  await openReview(page);
   await page.keyboard.press("j");
   await page.keyboard.press("l");
   await expect(page.getByText("What is the capital of France?")).toBeVisible();
@@ -57,9 +55,7 @@ test("in a split, the keys grade the card of the focused review pane and leave t
   page,
   stack,
 }) => {
-  await openApp(page);
-  await leader(page, "gs");
-  await page.getByRole("heading", { name: "Review" }).click();
+  await openReview(page);
   await leader(page, "%");
   await leader(page, "gs");
   const reviews = page.getByLabel("review", { exact: true });
@@ -87,9 +83,7 @@ test("in a split, the keys grade the card of the focused review pane and leave t
 test("? in the review pane lists each review key beside its label, under In review", async ({
   page,
 }) => {
-  await openApp(page);
-  await leader(page, "gs");
-  await page.getByRole("heading", { name: "Review" }).click();
+  await openReview(page);
   await page.keyboard.press("?");
   const help = page.getByRole("dialog", { name: "Keyboard shortcuts" });
   // s, h, n and u answer in other groups too, so each row is read inside this one.
@@ -143,9 +137,7 @@ test("Center centres the card both ways, off puts it back, a reload keeps it, an
   await vaultWith(stack.vault, {
     "03 Flashcards/Capitals.md": `#flashcards/capitals\n\n${FRANCE}\n\n${long}::Tokyo\n`,
   });
-  await openApp(page);
-  await leader(page, "gs");
-  await page.getByRole("heading", { name: "Review" }).click();
+  await openReview(page);
   await page.keyboard.press("j");
   await page.keyboard.press("l");
   const france = page.getByText("What is the capital of France?");
@@ -266,13 +258,6 @@ async function twoParked(vault: string): Promise<void> {
     [PARKED_A]: `#flashcards/aws\n\nQ A?::answer A !suspended ${SR}\n`,
     [PARKED_B]: `#flashcards/aws\n\nQ B?::answer B !suspended ${SR}\n`,
   });
-}
-
-/** Opens the review pane on its overview, with the focus in it. */
-async function openReview(page: Page): Promise<void> {
-  await openApp(page);
-  await leader(page, "gs");
-  await page.getByRole("heading", { name: "Review" }).click();
 }
 
 /**

@@ -83,7 +83,7 @@ def put_off(line: str, today: dt.date) -> str | None:
 
 
 def reminders(hits: list[Hit], zone: ZoneInfo) -> list[Reminder]:
-    """Every reminder among the todo lines `find_todos` answers with."""
+    """Every reminder among the todo lines `store_hits` answers with."""
     return [found for hit in hits if "⏰" in hit.text and (found := reminder_of(hit, zone))]
 
 

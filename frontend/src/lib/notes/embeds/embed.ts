@@ -161,7 +161,7 @@ export function queryEmbedSource(
         .getQueriesData<TodoHit[]>({ queryKey: ["todos"] })
         .flatMap(([, hits]) => hits ?? [])
         .find((each) => each.todo?.id === id);
-      if (hit === undefined) return "that todo is not listed";
+      if (hit?.todo == null) return "that todo is not listed";
       const pressed = agentPress(
         listedLines(client, hit),
         hit.line,
@@ -169,7 +169,7 @@ export function queryEmbedSource(
         newId(),
       );
       if ("why" in pressed) return pressed.why;
-      relist(changeTodoLine(id, pressed.line.trimStart()));
+      relist(changeTodoLine(id, pressed.line.trimStart(), hit.todo.version));
       return null;
     },
     // A pdf goes to kasten's own viewer, since phone viewers ignore `#page` (#353), and a csv or a

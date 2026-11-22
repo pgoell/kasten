@@ -75,11 +75,16 @@ note. Answers `201` with every row it wrote.
 
 ## PUT /api/todos/{todo_id}/line
 
-Changes a todo to what its edited line says: `{"text": "…"}`. Words and fields
+Changes a todo to what its edited line says: `{"text": "…", "version": 3}`,
+`version` being the one the line was read at. A stale version answers `409`
+and writes nothing, as `PATCH` does. Words and fields
 take the line's values, a field left off is cleared, and a box that changed
 runs the state change with all it stamps and drags along. A due date the line
 keeps as it was stays soft if it was soft. Stamps (`➕`, `✅`, `❌`) and the
-worked time stay the store's. Answers every row it touched.
+worked time stay the store's. A line whose `#p/x` tag or project link names
+another project than before sets the todo's project by
+[the board's order](/explanation/the-todo-board.md), and each part whose project
+that order gave it follows. Answers every row it touched.
 
 ## POST /api/todos/import
 

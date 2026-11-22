@@ -31,8 +31,8 @@ So they go in the file, in a comment beside the card:
 What does S3 stand for?::Simple Storage Service <!--SR:!fsrs,2026-11-20T00:00:00.000Z,8,8.30,1.00,2,1,0,0,2026-11-12T00:00:00.000Z-->
 ```
 
-The cost is a write to a note per answer, and it is not much of a cost: the todo
-pane already writes a note per keypress. What it buys is that a deck reviewed on
+The cost is a write to a note per answer, and it is not much of a cost: the editor
+already writes a note a moment after you stop typing. What it buys is that a deck reviewed on
 the phone this morning is a deck whose progress is in the git history, in the jj
 repo, in the Obsidian vault, and in the backup you already have because the
 vault is text.

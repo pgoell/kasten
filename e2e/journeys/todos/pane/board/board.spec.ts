@@ -6,6 +6,7 @@ import {
   openApp,
   phone,
   plus,
+  runCommand,
   TODO_ROW,
   today,
   vaultWith,
@@ -21,12 +22,16 @@ const PLAN_LINES = `# Plan\n\n- [ ] write the deck #internal\n  - [/] draw the c
 const SEND = "- [ ] send the invoice [[02 Projects/FDE/index|FDE]] #client";
 const ERRAND_LINES = `# Errands\n\n${SEND}\n- [b] ship it\n- [ ] fix the tap\n- [-] drop the logo ❌ ${today()}\n`;
 /** Every todo as `GET /api/todos` renders it from its row, with the row beside it. */
-const hits = async (url: string): Promise<{ text: string; todo: { note: string | null } }[]> =>
+const hits = async (
+  url: string,
+): Promise<{ text: string; project: string | null; todo: { note: string | null } }[]> =>
   (await fetch(`${url}/api/todos`)).json();
 const lineOf = async (url: string, words: string) =>
   (await hits(url)).find((hit) => hit.text.includes(words))?.text;
 const noteOf = async (url: string, words: string) =>
   (await hits(url)).find((hit) => hit.text.includes(words))?.todo.note;
+const projectOf = async (url: string, words: string) =>
+  (await hits(url)).find((hit) => hit.text.includes(words))?.project;
 const card = (page: Page, words: string) => page.locator("[data-card]", { hasText: words });
 const cursorCard = (page: Page) => page.locator('[data-card][tabindex="0"]');
 const shown = (page: Page) => page.locator("[data-card]:visible");
@@ -130,7 +135,7 @@ test.describe("on a phone", () => {
     expect(writes).toHaveLength(2);
   });
 
-  test("B4 cancel shuts the project picker, writes nothing and hands the focus back to the card under the cursor", async ({
+  test("B4 cancel shuts the project picker, writes nothing and hands the focus back to the card under the cursor; a pick files it", async ({
     page,
     stack,
   }) => {
@@ -147,6 +152,12 @@ test.describe("on a phone", () => {
     await strip(page, "doing", "fix the tap").tap();
     await expect.poll(() => lineOf(stack.url, "fix the tap")).toMatch(/^- \[\/\] fix the tap /);
     expect(writes).toHaveLength(1);
+    // A project picked, not cancelled, is the todo's own (#2249).
+    await page.getByRole("tab", { name: /^Doing / }).tap();
+    await page.getByRole("button", { name: "more for fix the tap" }).tap();
+    await strip(page, "project", "fix the tap").tap();
+    await page.getByRole("button", { name: "Kasten" }).tap();
+    await expect.poll(() => projectOf(stack.url, "fix the tap")).toBe("02 Projects/Kasten");
   });
 
   test("#1515 a card the strip moved to done leaves the focus on the next card, in the change that drops it", async ({
@@ -203,10 +214,7 @@ async function byKeys(page: Page, vault: string, vim: string): Promise<string[]>
   if (vim === "off") await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
   await openApp(page);
   if (vim === "on") await leader(page, "gt");
-  else {
-    await page.keyboard.press("Control+Shift+P");
-    await page.getByRole("option", { name: /^Open the todo pane/ }).click();
-  }
+  else await runCommand(page, /^Open the todo pane/);
   await expect(page.locator(TODO_ROW, { hasText: "fix the tap" })).toBeVisible();
   return writes;
 }

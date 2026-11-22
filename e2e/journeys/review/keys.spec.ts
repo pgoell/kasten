@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
-import { bodyOf, noteText, openApp, phone, tapHeight, vaultWith } from "../../harness/app.ts";
+import { bodyOf, noteText, phone, tapHeight, vaultWith } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
+import { openReview } from "./review.ts";
 
 const BETA = "03 Flashcards/beta.md";
 const NOTE = "#flashcards/beta\n\nc::d\n\ne::f\n";
@@ -29,9 +30,7 @@ const failBeta = (page: Page) =>
  */
 async function sitBeta(page: Page, vault: string, failing = false): Promise<void> {
   await vaultWith(vault, { [BETA]: NOTE });
-  await openApp(page);
-  await page.keyboard.press("Control+Shift+P");
-  await page.getByRole("option", { name: /^Open the review pane/ }).click();
+  await openReview(page, { palette: true });
   const beta = page.locator('button[data-deck="beta"]');
   await expect(beta).toBeEnabled();
   if (failing) await failBeta(page);
@@ -264,11 +263,7 @@ test.describe("folding the deck list (#517)", () => {
   /** Opens the decks from the palette, which vim off reaches too, with the focus in the pane. */
   async function openDecks(page: Page, vault: string, notes: Record<string, string> = TREE) {
     await vaultWith(vault, notes);
-    await openApp(page);
-    await page.keyboard.press("Control+Shift+P");
-    await page.getByRole("option", { name: /^Open the review pane/ }).click();
-    await expect(page.locator("button[data-deck]").last()).toBeVisible();
-    await page.getByRole("heading", { name: "Review" }).click();
+    await openReview(page, { palette: true, settled: true });
   }
   /** Starts with `databases` unfolded, as a fold the pane stored. */
   const unfolded = (page: Page) =>

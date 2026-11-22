@@ -1,22 +1,7 @@
 import type { Page } from "@playwright/test";
-import {
-  bodyOf,
-  leader,
-  noteText,
-  openApp,
-  phone,
-  readAll,
-  tapHeight,
-  vaultWith,
-} from "../../harness/app.ts";
-import { expect, test } from "../../harness/stack.ts";
-
-/** Opens the review pane on its overview, with the focus in it. */
-async function openReview(page: Page): Promise<void> {
-  await openApp(page);
-  await leader(page, "gs");
-  await page.getByRole("heading", { name: "Review" }).click();
-}
+import { bodyOf, noteText, phone, readAll, tapHeight, vaultWith } from "../../../harness/app.ts";
+import { expect, test } from "../../../harness/stack.ts";
+import { openDecks, openReview } from "../review.ts";
 
 test.describe("Enter on the review pane's rows (#1166)", () => {
   test("Enter on a deck row reached by j sits that deck, and the next Enter shows the answer", async ({
@@ -92,13 +77,6 @@ test.describe("the review overview's words and rows", () => {
     "03 Flashcards/aardvark.md": "#flashcards/aardvark\n\nparked question::a !suspended\n",
   };
   const summary = (page: Page) => page.getByRole("heading", { name: "Review" }).locator("+ p");
-
-  /** Saturday the 24th of October 2026 at noon, with the fixture's own deck emptied, so the counts are these decks'. */
-  async function openDecks(page: Page, vault: string, decks: Record<string, string>) {
-    await vaultWith(vault, { "03 Flashcards/Capitals.md": "# Capitals\n", ...decks });
-    await page.clock.setFixedTime(new Date(2026, 9, 24, 12));
-    await openReview(page);
-  }
 
   test("counts what goes today, draws the decks with nothing due last, and opens the parked cards from their link", async ({
     page,

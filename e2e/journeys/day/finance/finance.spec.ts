@@ -1,20 +1,7 @@
 import type { Locator, Page } from "@playwright/test";
-import { openApp, today } from "../../harness/app.ts";
-import { expect, test } from "../../harness/stack.ts";
-
-/** CDP's modifier bits. AltGr reads as Ctrl+Alt on Windows; Option is Alt on a Mac. */
-const ALT = 1;
-const CTRL = 2;
-
-/** Types `key` the way a German layout does: AltGr+8 or Option+5 for `[`, AltGr+9 or Option+6 for `]`. */
-async function typeHeld(page: Page, key: "[" | "]", modifiers: number) {
-  const code =
-    modifiers & CTRL ? (key === "[" ? "Digit8" : "Digit9") : key === "[" ? "Digit5" : "Digit6";
-  const cdp = await page.context().newCDPSession(page);
-  await cdp.send("Input.dispatchKeyEvent", { type: "keyDown", key, code, text: key, modifiers });
-  await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", key, code, modifiers });
-  await cdp.detach();
-}
+import { openApp, runCommand, today } from "../../../harness/app.ts";
+import { expect, test } from "../../../harness/stack.ts";
+import { ALT, CTRL, typeHeld } from "./finance.ts";
 
 for (const vim of ["on", "off"]) {
   test(`[ and ] typed through AltGr or Option step the finance pane's month, vim ${vim}`, async ({
@@ -22,8 +9,7 @@ for (const vim of ["on", "off"]) {
   }) => {
     await page.addInitScript((mode) => localStorage.setItem("kasten.vim", mode), vim);
     await openApp(page);
-    await page.keyboard.press("Control+Shift+P");
-    await page.getByRole("option", { name: /^Open the finance pane/ }).click();
+    await runCommand(page, /^Open the finance pane/);
     const finance = page.getByRole("region", { name: "Finance" });
     const month = finance.getByRole("heading", { name: /^\w+ \d{4}$/ });
     await expect(month).toBeVisible();
@@ -129,8 +115,7 @@ async function toSort(page: Page, orders: unknown[] = []) {
     },
   );
   await openApp(page);
-  await page.keyboard.press("Control+Shift+P");
-  await page.getByRole("option", { name: /^Open the finance pane/ }).click();
+  await runCommand(page, /^Open the finance pane/);
   const finance = page.getByRole("region", { name: "Finance" });
   await finance.getByRole("tab", { name: /^To sort/ }).click();
   await expect(finance.getByText("Cable")).toBeVisible();
@@ -301,8 +286,7 @@ async function taxRoutes(page: Page, queue: unknown[] = [], tax: unknown = {}, c
 /** Opens the Tax tab by its key, and from it booking 5's tax card. */
 async function taxCard(page: Page) {
   await openApp(page);
-  await page.keyboard.press("Control+Shift+P");
-  await page.getByRole("option", { name: /^Open the finance pane/ }).click();
+  await runCommand(page, /^Open the finance pane/);
   const finance = page.getByRole("region", { name: "Finance" });
   await finance.focus();
   await page.keyboard.press("X");
@@ -318,8 +302,7 @@ test("#1040 the Tax tab shows each line's year, what is over the allowance and m
 }) => {
   const { years } = await taxRoutes(page);
   await openApp(page);
-  await page.keyboard.press("Control+Shift+P");
-  await page.getByRole("option", { name: /^Open the finance pane/ }).click();
+  await runCommand(page, /^Open the finance pane/);
   const finance = page.getByRole("region", { name: "Finance" });
   await finance.focus();
   const year = Number(today().slice(0, 4));
@@ -446,8 +429,7 @@ async function spending(page: Page, totals: number[]) {
     route.fulfill({ json: { months, categories: [], totals: totals.map(String), limits } });
   });
   await openApp(page);
-  await page.keyboard.press("Control+Shift+P");
-  await page.getByRole("option", { name: /^Open the finance pane/ }).click();
+  await runCommand(page, /^Open the finance pane/);
   const finance = page.getByRole("region", { name: "Finance" });
   const chart = finance.getByRole("img", {
     name: `spending per month over ${totals.length} months`,

@@ -7,6 +7,7 @@ import {
   noteText,
   openApp,
   phone,
+  runCommand,
   TODO_ROW,
   tapHeight,
   today,
@@ -343,8 +344,7 @@ test.describe("the list's edit row through a redraw that moves its row (#2087)",
     await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
     const release = await heldCycles(page);
     await openApp(page);
-    await page.keyboard.press("Control+Shift+P");
-    await page.getByRole("option", { name: /^Open the todo pane/ }).click();
+    await runCommand(page, /^Open the todo pane/);
     await expect(page.getByRole("button", { name: "open water the tomatoes" })).toBeVisible();
     await typeThroughRedraw(page, stack.url, release);
   });
@@ -418,8 +418,6 @@ test.describe("the list's edit row through a redraw that moves its row (#2087)",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ state: "rejected" }),
     });
-    // A store write sends no event; a note written beside it makes the pane read the list again.
-    await vaultWith(stack.vault, { "Elsewhere.md": "a write the vault's events carry\n" });
     await expect(notice(page)).toContainText("The edit read: - [ ] fix the drain now");
     await expect(draft(page)).toHaveCount(0);
     expect(await store(stack.url)).toMatch(/^- \[-\] fix the drain /m);

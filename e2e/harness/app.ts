@@ -45,6 +45,23 @@ export async function openFromTree(page: Page, name: string): Promise<void> {
 
 /** A phone as `test.use` takes it: 414 px wide, a finger for a pointer, so vim starts off. */
 export const phone = { viewport: { width: 414, height: 896 }, hasTouch: true, isMobile: true };
+/** Whether the page is a phone's narrow screen, as `phone` makes it. */
+export const onPhone = (page: Page): boolean => (page.viewportSize()?.width ?? 1280) < 600;
+
+/**
+ * Runs the palette row `option`: on a phone by a tap on the Commands toolbar's run button, else
+ * by Ctrl+Shift+P and a click. `search`, when given, is typed into the palette first.
+ */
+export async function runCommand(page: Page, option: RegExp, search?: string): Promise<void> {
+  const touch = onPhone(page);
+  if (touch) {
+    const commands = page.getByRole("toolbar", { name: "Commands" });
+    await commands.getByRole("button", { name: "Run a command by name" }).tap({ timeout: 15_000 });
+  } else await page.keyboard.press("Control+Shift+P");
+  if (search !== undefined) await page.getByRole("combobox").fill(search);
+  const row = page.getByRole("option", { name: option });
+  await (touch ? row.tap() : row.click());
+}
 
 /**
  * A box's height to the 1/64 px the browser lays out in. A translated box's corners come back as float32,
@@ -391,3 +408,7 @@ export const barsOf = (chart: Locator, slots: number) =>
       .map((box) => ({ ago: n - 1 - Math.floor(box.x / slot), stub: box.height <= 1 }))
       .sort((a, b) => a.ago - b.ago);
   }, slots);
+
+/** An edit field's text before its caret. */
+export const beforeCaret = (input: Locator) =>
+  input.evaluate((field: HTMLInputElement) => field.value.slice(0, field.selectionStart ?? 0));

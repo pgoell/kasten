@@ -1,5 +1,5 @@
 import type { Locator, Page } from "@playwright/test";
-import { leader, noteText, openApp, phone, today } from "../../harness/app.ts";
+import { leader, noteText, openApp, phone, runCommand, today } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 
 const THOUGHT = "call the plumber about the tap";
@@ -163,11 +163,7 @@ test.describe("on a phone", () => {
   }) => {
     // A phone has no file tree to wait on, so the thumb row is what shows the app is up.
     await page.goto("/");
-    const commands = page.getByRole("toolbar", { name: "Commands" });
-    await expect(commands).toBeVisible({ timeout: 15_000 });
-    await commands.getByRole("button", { name: "Run a command by name" }).tap();
-    await page.getByRole("combobox").fill("capture");
-    await page.getByRole("option", { name: /Capture a thought/ }).tap();
+    await runCommand(page, /Capture a thought/, "capture");
     const prompt = page.getByRole("dialog", { name: "Capture a thought" });
     await expect(prompt).toBeVisible();
     await prompt.getByLabel("dump").fill(THOUGHT);

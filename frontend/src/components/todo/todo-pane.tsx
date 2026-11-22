@@ -6,9 +6,9 @@ import { TodoHeader } from "@/components/todo/todo-header";
 import { type Editing, TodoList } from "@/components/todo/todo-list";
 import { fetchTodos, type SearchHit, type TodoHit } from "@/lib/core/api";
 import type { TodoState } from "@/lib/todo/todo";
-import { noteLineOf } from "@/lib/todo/todo-api";
+import { noteLineOf, todoIdIn } from "@/lib/todo/todo-api";
 import { aimAgain, aimOf, cursorAfter } from "@/lib/todo/todo-hold";
-import { followRow, twinsOf } from "@/lib/todo/todo-press-echo";
+import { followEdit, twinsOf } from "@/lib/todo/todo-turns";
 import { useArmed } from "@/lib/todo/use-armed";
 import { useBlockerPick } from "@/lib/todo/use-blocker-pick";
 import { useTodoFilter } from "@/lib/todo/use-todo-filter";
@@ -30,12 +30,19 @@ function editAt(editing: Editing) {
   };
 }
 
-function editOf(hit: SearchHit, line: string, rows: Row[]): Editing {
+/** Where an open edit is drawn after a redraw, and the edit as the list draws it: none in the render its todo left. */
+function followed(editing: Editing | null, hits: SearchHit[]) {
+  if (editing === null) return { edited: undefined, shown: null };
+  const edited = followEdit(editAt(editing), editing, hits, todoIdIn);
+  return { edited, shown: edited === null ? null : editing };
+}
+
+function editOf(hit: SearchHit, line: string, rows: Row[], version?: number): Editing {
   const twins = twinsOf(
     hit,
     rows.map((row) => row.hit),
   );
-  return { key: rowKey(hit), line, from: hit.text, twins };
+  return { key: rowKey(hit), line, from: hit.text, twins, id: todoIdIn(hit), version };
 }
 
 /** One empty list for every render, so a row that compares its props sees no change. */
@@ -52,8 +59,8 @@ interface TodoPaneProps {
   commands: EditorCommands;
   onOpen: (path: string, line?: number) => void;
   /**
-   * Cycles the row's todo in the vault, or sets the state a key named. Takes the
-   * hit, not the todo: the write re-reads the note and finds the line by its path and line.
+   * Cycles the row's todo in the store, or sets the state a key named. Takes the
+   * hit, not the todo: the write names the todo by the id of the row behind it.
    */
   onCycle: (hit: SearchHit, state?: TodoState, twins?: number[]) => void;
   /** Open the prompt that writes a todo into today's note. */
@@ -64,7 +71,7 @@ interface TodoPaneProps {
    * Puts the row's line back in its note, edited. The one press that carries text:
    * what the input holds is what the vault gets. Answers whether it wrote.
    */
-  onEdit: (hit: SearchHit, line: string) => Promise<boolean>;
+  onEdit: (hit: SearchHit, line: string, read?: number) => Promise<boolean>;
   /**
    * Says the first row's todo waits for the second's. The write puts a `⛔` on one
    * line and may put an id on the other.
@@ -223,15 +230,11 @@ export function TodoPane({
   const cursorKey = at === undefined ? "" : rowKey(at.hit);
   drawn.current = { rows, cursor, open: groupRows.length };
 
-  // An open edit stays on its todo when a redraw moves its line, or closes keeping its text in the notice (#2087).
-  const edited =
-    editing === null
-      ? undefined
-      : followRow(
-          editAt(editing),
-          editing.twins,
-          rows.map((row) => row.hit),
-        );
+  // An open edit stays on its todo when a redraw moves it, or closes keeping its text in the notice (#2087, #2257).
+  const { edited, shown } = followed(
+    editing,
+    rows.map((row) => row.hit),
+  );
   if (editing !== null && edited && rowKey(edited) !== editing.key) {
     setEditing({ ...editing, key: rowKey(edited) });
   }
@@ -343,17 +346,17 @@ export function TodoPane({
    * `i`: the row becomes its line, by the row's own key so a tap need not move the cursor.
    * Not while another row is edited: a tap that got through would drop that draft unwritten.
    */
-  function edit(hit: SearchHit) {
+  function edit(hit: TodoHit) {
     if (editing !== null) return;
     // An edited line may change its words, and a held row would take it as a new todo
     // at the group's end, so the list is drawn fresh.
     release();
-    setEditing(editOf(hit, hit.text, rows));
+    setEditing(editOf(hit, hit.text, rows, hit.todo?.version));
   }
 
   /** Enter on the edit row. A refused or failed edit opens the row again on what was typed (#2087). */
   function write(hit: SearchHit, line: string) {
-    void onEdit(hit, line).then((wrote) => {
+    void onEdit(hit, line, editing?.version).then((wrote) => {
       if (!wrote) setEditing((open) => open ?? editOf(hit, line, drawn.current.rows));
     });
   }
@@ -526,7 +529,7 @@ export function TodoPane({
           today={today}
           coarse={coarse}
           picking={blocker.picking !== null}
-          editing={editing}
+          editing={shown}
           onEditing={setEditing}
           draft={draft}
           armed={armed.armed}

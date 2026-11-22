@@ -65,6 +65,7 @@ export const test = base.extend<{ stack: Stack }, { warm: string }>({
       if (testInfo.status !== testInfo.expectedStatus) {
         await testInfo.attach("backend.log", { body: log.join(""), contentType: "text/plain" });
       }
+      await dropDatabase(db);
       await rm(dir, { recursive: true, force: true });
     }
   },
@@ -158,6 +159,24 @@ export function fork(socket: string, cwd: string, env: Record<string, string>): 
     forked.emit("exit", forked.exitCode, forked.signalCode);
   });
   return forked;
+}
+
+// The db service keeps each database on a tmpfs, which a shard's worth of them filled (#2244).
+async function dropDatabase(name: string): Promise<void> {
+  const sql = `DROP DATABASE IF EXISTS ${name} WITH (FORCE)`;
+  await compose(
+    process.env.E2E_PROJECT ?? "",
+    "exec",
+    "-T",
+    "db",
+    "psql",
+    "-U",
+    "kasten",
+    "-d",
+    "kasten_dev",
+    "-c",
+    sql,
+  );
 }
 
 // Two copies of one template at the same moment can meet "being accessed by other users".

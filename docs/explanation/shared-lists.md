@@ -15,11 +15,10 @@ This page says why the lists are built the way they are.
 ## The lists are notes
 
 Each list is a note in `05 Shared`: `Einkauf.md` and `Todo.md`. An item is a
-plain checkbox line, `- [ ] Milch`, the same line the
-[todo board](/explanation/the-todo-board.md) and Obsidian Tasks read. So a
+plain checkbox line, `- [ ] Milch`, the same line Obsidian Tasks reads. So a
 list needs no table, no database and no second copy. A tick writes the line
 the way [the todo format](/reference/todo-format/state-changes.md) does, with a
-done date, so the board and Obsidian still count it done.
+done date, so Obsidian still counts it done.
 
 A note keeps its history in the vault's jj repository. Every change to a list
 is one more step back, and nothing the app does is final.
@@ -91,8 +90,8 @@ lists the item the same way it lists any todo that links them.
 
 ## Who ticked
 
-A done line names nobody. The line stays the todo line that the board and
-Obsidian read, with no extra field for a person. The history records each save
+A done line names nobody. The line stays the todo line that
+Obsidian reads, with no extra field for a person. The history records each save
 instead. A write through the share routes names its person there: the gate sends
 the signed-in address as `X-Auth-Request-Email`,
 [`KASTEN_SHARE_PEOPLE`](/reference/configuration.md) maps it to a name, and the

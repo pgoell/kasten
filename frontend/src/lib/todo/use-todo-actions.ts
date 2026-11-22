@@ -15,8 +15,8 @@ import {
   toggleTimerInVault,
 } from "@/lib/todo/todo-api";
 import type { TodoCycle } from "@/lib/todo/todo-commands";
-import { beginPress, endPress } from "@/lib/todo/todo-press-echo";
 import { projectNote } from "@/lib/todo/todo-refile";
+import { beginPress, endPress } from "@/lib/todo/todo-turns";
 import { pressedLine } from "@/lib/todo/todo-write";
 
 export type TodoActions = ReturnType<typeof useTodoActions>;
@@ -203,7 +203,8 @@ export function useTodoActions({
 
   /** Change the todo to an edited line, from the pane's `i`. Answers whether it wrote, so the pane can keep the text (#2087). */
   const editTodo = useCallback(
-    (hit: SearchHit, line: string): Promise<boolean> => press(() => editTodoInVault(hit, line)),
+    (hit: SearchHit, line: string, read?: number): Promise<boolean> =>
+      press(() => editTodoInVault(hit, line, read)),
     [press],
   );
 

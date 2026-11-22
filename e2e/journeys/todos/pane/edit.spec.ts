@@ -6,6 +6,7 @@ import {
   noteText,
   openApp,
   plus,
+  runCommand,
   TODO_ROW,
   today,
   vaultWith,
@@ -21,7 +22,14 @@ const hints = (page: Page) => page.getByTestId("todo-hint");
 const cursorRow = (page: Page) => page.locator(`${TODO_ROW}[tabindex="0"]`);
 const note = (...lines: string[]) => `# Dentist\n\n${lines.join("\n")}\n`;
 
-type Row = { id: string; words: string; state: string; tags: string[]; planned: string | null };
+type Row = {
+  id: string;
+  words: string;
+  state: string;
+  tags: string[];
+  planned: string | null;
+  version: number;
+};
 /** Every todo in the store, as the pane's writes leave it. */
 const rows = async (url: string): Promise<Row[]> => (await fetch(`${url}/api/todos/rows`)).json();
 /** The store's todo whose words hold `words`. */
@@ -39,11 +47,8 @@ async function onDentist(page: Page, vault: string, vim = "on") {
   await vaultWith(vault, { [NOTE]: note(LINE, NEXT) });
   await openApp(page);
   if (vim === "on") await leader(page, "gt");
-  else {
-    // Space is a letter with vim off, so the palette opens the pane.
-    await page.keyboard.press("Control+Shift+P");
-    await page.getByRole("option", { name: /^Open the todo pane/ }).click();
-  }
+  // Space is a letter with vim off, so the palette opens the pane.
+  else await runCommand(page, /^Open the todo pane/);
   await expect(page.locator(TODO_ROW, { hasText: "book the checkup" })).toBeVisible();
   await cursorTo(page, "call the dentist");
 }
@@ -81,6 +86,41 @@ test("Enter writes the edited line into the store and draws a row again", async 
   expect(await stateOf(stack.url, "book the checkup")).toBe("open");
   await expect(draft(page)).toHaveCount(0);
   await expect(page.locator(TODO_ROW, { hasText: "call the dentist at nine" })).toBeVisible();
+});
+
+test("#2247 Enter over a todo changed since i opened writes nothing, says so and keeps the line; Enter again writes it", async ({
+  page,
+  stack,
+}) => {
+  const edited = "- [ ] call the dentist at ten 📅 2026-01-07 ⏫ #health";
+  await onDentist(page, stack.vault);
+  await page.keyboard.press("i");
+  const read = (await rowOf(stack.url, "call the dentist")) as Row;
+  // Changed elsewhere, as by another tab; the list reads it again under the open edit.
+  const relisted = page.waitForResponse(
+    (answer) => new URL(answer.url()).pathname === "/api/todos" && answer.status() === 200,
+  );
+  const change = JSON.stringify({ version: read.version, planned: plus(1) });
+  const headers = { "Content-Type": "application/json" };
+  const sent = await fetch(`${stack.url}/api/todos/${read.id}`, {
+    method: "PATCH",
+    body: change,
+    headers,
+  });
+  expect(sent.status, await sent.text()).toBe(200);
+  await relisted;
+  await draft(page).fill(edited);
+  await page.keyboard.press("Enter");
+  await expect(page.getByTestId("notice")).toHaveText(
+    /^Nothing moved: kt-[0-9a-f]{6} changed since it was read/,
+  );
+  await expect(draft(page)).toHaveValue(edited);
+  const kept = (await rowOf(stack.url, "call the dentist")) as Row;
+  expect([kept.words, kept.planned]).toEqual(["call the dentist #health", plus(1)]);
+  await page.keyboard.press("Enter");
+  await expect
+    .poll(async () => (await rowOf(stack.url, "dentist"))?.words)
+    .toBe("call the dentist at ten #health");
 });
 
 test("Escape writes nothing and gives the keys back to the list: j moves, x walks that row", async ({
@@ -263,10 +303,8 @@ test.describe("@ sends the cursor's todo to the agent (#523)", () => {
     if (o.vim === "off") await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
     await vaultWith(vault, { [AT]: text(lines) });
     await openApp(page);
-    if (o.vim === "off") {
-      await page.keyboard.press("Control+Shift+P");
-      await page.getByRole("option", { name: /^Open the todo pane/ }).click();
-    } else await leader(page, "gt");
+    if (o.vim === "off") await runCommand(page, /^Open the todo pane/);
+    else await leader(page, "gt");
     await expect(row(page, words).first()).toBeVisible({ timeout: 15_000 });
     if (o.held) await page.route("**/api/todos*", () => new Promise(() => {}));
     await cursorTo(page, words);

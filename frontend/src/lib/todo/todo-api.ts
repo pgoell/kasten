@@ -35,9 +35,9 @@ import {
 import { agentPress } from "@/lib/todo/todo-agent";
 import { applyBlocked, type Closed, closedAmong, unblockedEdit } from "@/lib/todo/todo-blocked";
 import type { TodoCycle } from "@/lib/todo/todo-commands";
-import { inTurn } from "@/lib/todo/todo-press-echo";
 import { expandShorthand } from "@/lib/todo/todo-shorthand";
 import { parseSession } from "@/lib/todo/todo-time";
+import { inTurn } from "@/lib/todo/todo-turns";
 import { doneLogWrites, otherTodoWithId } from "@/lib/todo/todo-write";
 
 /** A listed line, with the store row behind it where the listing sent one. */
@@ -48,9 +48,14 @@ type Listed = SearchHit & { todo?: TodoRow | null };
  * plain words; else the `🆔` every todo line carries, or a timer line's id.
  */
 export function todoIdOf(hit: Listed): string {
-  const id = hit.todo?.id ?? parseTodo(hit.text)?.id ?? parseSession(hit.text)?.id;
+  const id = todoIdIn(hit);
   if (id === undefined) throw new Error("that line names no todo");
   return id;
+}
+
+/** As `todoIdOf`, with nothing for a row that names no todo. */
+export function todoIdIn(hit: Listed): string | undefined {
+  return hit.todo?.id ?? parseTodo(hit.text)?.id ?? parseSession(hit.text)?.id;
 }
 
 /**
@@ -119,9 +124,35 @@ function rowNamed(rowOf: RowOf, id: string): TodoRow {
   return row;
 }
 
+/** Each `id@version` a write from here produced, so an edit read before one is not refused for it. */
+const ours = new Set<string>();
+/** Far above the writes out during one edit; dropping on the event would refuse an edit opened before it. */
+const KEPT = 200;
+
+/** Run one store write in turn, noting the versions it produced. */
+function ownTurn(work: () => Promise<TodoRow[]>): Promise<TodoRow[]> {
+  return inTurn(async () => {
+    const rows = await work();
+    for (const row of rows) ours.add(`${row.id}@${row.version}`);
+    for (const old of ours) {
+      if (ours.size <= KEPT) break;
+      ours.delete(old);
+    }
+    return rows;
+  });
+}
+
+/** The version a line read at `read` is sent at: past each change since that a write from here made. */
+function sentAt(id: string, read: number | undefined): number {
+  if (read === undefined) throw new Error("that todo is not in the list yet");
+  let at = read;
+  while (ours.has(`${id}@${at + 1}`)) at += 1;
+  return at;
+}
+
 /** Put what was typed into today's note. */
 export function addTodoInVault(input: string, today: string): Promise<TodoRow[]> {
-  return inTurn(() => addTodoLine(formatTodo(expandShorthand(input, today))));
+  return ownTurn(() => addTodoLine(formatTodo(expandShorthand(input, today))));
 }
 
 /** Put a typed todo under the row's todo as a part of it. */
@@ -130,12 +161,12 @@ export function addSubtaskInVault(
   input: string,
   today: string,
 ): Promise<TodoRow[]> {
-  return inTurn(() => addTodoLine(formatTodo(expandShorthand(input, today)), todoIdOf(hit)));
+  return ownTurn(() => addTodoLine(formatTodo(expandShorthand(input, today)), todoIdOf(hit)));
 }
 
 /** Walk one todo on, or set the state a key named; a state it is in already sends nothing. */
 export function cycleTodoInVault(hit: Listed, state?: TodoState): Promise<TodoRow[]> {
-  return inTurn(async () => {
+  return ownTurn(async () => {
     const id = todoIdOf(hit);
     if (state === undefined) return cycleStoreTodo(id);
     if (parseTodo(hit.text)?.state === state) return [];
@@ -145,15 +176,22 @@ export function cycleTodoInVault(hit: Listed, state?: TodoState): Promise<TodoRo
 
 /** Start a session on one todo, or close the ones it has running. */
 export function toggleTimerInVault(hit: SearchHit): Promise<TodoRow[]> {
-  return inTurn(() => toggleTodoTimer(todoIdOf(hit)));
+  return ownTurn(() => toggleTodoTimer(todoIdOf(hit)));
 }
 
 /**
- * Change the todo to what the edited line says, box and fields included. A `[b]` whose last
- * `⛔` the edit took off goes as open, or the store would block it again by its box.
+ * Change the todo to what the edited line says, box and fields included, as read at `read`. A `[b]`
+ * whose last `⛔` the edit took off goes as open, or the store would block it again by its box.
  */
-export function editTodoInVault(hit: SearchHit, line: string): Promise<TodoRow[]> {
-  return inTurn(() => changeTodoLine(todoIdOf(hit), unblockedEdit(hit.text, line)));
+export function editTodoInVault(
+  hit: Listed,
+  line: string,
+  read = hit.todo?.version,
+): Promise<TodoRow[]> {
+  return ownTurn(async () => {
+    const id = todoIdOf(hit);
+    return changeTodoLine(id, unblockedEdit(hit.text, line), sentAt(id, read));
+  });
 }
 
 /** Make the row's todo wait on the blocker picked. */
@@ -162,7 +200,7 @@ export function blockTodoInVault(
   blocker: SearchHit,
   rowOf: RowOf,
 ): Promise<TodoRow[]> {
-  return inTurn(async () => {
+  return ownTurn(async () => {
     const row = rowNamed(rowOf, todoIdOf(hit));
     const by = todoIdOf(blocker);
     if (row.blocked_by.includes(by)) return [];
@@ -176,7 +214,7 @@ export function moveTodoInVault(
   move: { project: string; note: string },
   rowOf: RowOf,
 ): Promise<TodoRow[]> {
-  return inTurn(async () => {
+  return ownTurn(async () => {
     const row = rowNamed(rowOf, todoIdOf(hit));
     const parent = row.parent_id === null ? {} : { parent_id: null };
     return patchTodo(row.id, { version: row.version, ...move, ...parent });
@@ -188,22 +226,23 @@ export function moveTodoInVault(
  * row's note as listed, so a client tag on a todo above it counts.
  */
 export function agentTodoInVault(
-  hit: SearchHit,
+  hit: Listed,
   lines: string[],
   today: string,
   rowOf: RowOf,
   sent?: (line: string) => void,
 ): Promise<TodoRow[]> {
-  return inTurn(async () => {
+  return ownTurn(async () => {
     const id = todoIdOf(hit);
     // The line sends its box, and an `x` just before may have moved the todo past the one drawn (#2084).
-    const state = rowOf(id)?.state;
+    const row = rowOf(id);
+    const state = row?.state;
     const read = [...lines];
     read[hit.line - 1] = state === undefined ? hit.text : setStateOn(hit.text, state, today, id);
     const pressed = agentPress(read, hit.line, today, newId());
     if ("why" in pressed) throw new Error(pressed.why);
     sent?.(pressed.line);
-    return changeTodoLine(id, pressed.line.trimStart());
+    return changeTodoLine(id, pressed.line.trimStart(), sentAt(id, (row ?? hit.todo)?.version));
   });
 }
 

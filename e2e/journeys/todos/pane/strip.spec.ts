@@ -1,9 +1,11 @@
 import type { Page } from "@playwright/test";
 import {
+  beforeCaret,
   holdStream,
   leader,
   openApp,
   phone,
+  runCommand,
   TODO_ROW,
   tapHeight,
   vaultWith,
@@ -16,7 +18,7 @@ const button = (page: Page, name: string) => page.getByRole("button", { name, ex
 const cards = (page: Page) => page.locator("[data-card]:visible");
 const filter = (page: Page) => page.getByLabel("filter todos");
 const pressed = (page: Page, name: string) => button(page, name).getAttribute("aria-pressed");
-type Hit = { text: string; todo: { id: string; state: string } };
+type Hit = { text: string; todo: { id: string; state: string; version: number } };
 /** The store's todo holding `words`, as its line and row. */
 async function todo(url: string, words: string): Promise<Hit | undefined> {
   const hits: Hit[] = await (await fetch(`${url}/api/todos`)).json();
@@ -29,10 +31,7 @@ async function byKeys(page: Page, vault: string, vim = "on") {
   await vaultWith(vault, { [NOTE]: LINES });
   await openApp(page);
   if (vim === "on") await leader(page, "gt");
-  else {
-    await page.keyboard.press("Control+Shift+P");
-    await page.getByRole("option", { name: /^Open the todo pane/ }).click();
-  }
+  else await runCommand(page, /^Open the todo pane/);
   await expect(page.locator(TODO_ROW, { hasText: "fix the tap" })).toBeVisible();
 }
 
@@ -162,6 +161,21 @@ test.describe("by touch (#421)", () => {
     await expect(page.getByTestId("todo-view")).toHaveCount(0);
   }
 
+  test("#1018 I4 edit on a waiting row past a code span puts the caret after the stamp", async ({
+    page,
+    stack,
+  }) => {
+    const line = "- [w] see `👤 2026-10-25 x` x 👤 2026-10-25";
+    await vaultWith(stack.vault, { [NOTE]: `${line}\n` });
+    await page.goto("/");
+    await page.getByRole("button", { name: "Open the todo pane" }).tap({ timeout: 15_000 });
+    await page.getByLabel(/^more for see /).tap();
+    await page.getByLabel(/^edit see /).tap();
+    const input = page.getByLabel("edit line");
+    await expect(input).toBeFocused();
+    await expect.poll(() => beforeCaret(input)).toBe(line);
+  });
+
   test("A4 the strip stays bare at a tap's height, out of the tab order, on a phone", async ({
     page,
     stack,
@@ -237,8 +251,9 @@ test.describe("by touch (#421)", () => {
   }) => {
     await holdStream(page);
     await byTouch(page, stack.vault);
-    const id = (await todo(stack.url, "fix the tap"))?.todo.id;
-    const body = JSON.stringify({ text: "- [ ] fix the tap today" });
+    const row = (await todo(stack.url, "fix the tap"))?.todo;
+    const id = row?.id;
+    const body = JSON.stringify({ text: "- [ ] fix the tap today", version: row?.version });
     const headers = { "Content-Type": "application/json" };
     await fetch(`${stack.url}/api/todos/${id}/line`, { method: "PUT", body, headers });
     await more(page, "blocked by");

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { SearchHit } from "@/lib/core/api";
-import { followRow, twinsOf } from "@/lib/todo/todo-press-echo";
+import { followRow, twinsOf } from "@/lib/todo/todo-turns";
 import { rowKey } from "@/lib/todo/use-todo-rows";
 
 /** How long a tapped state button keeps asking before it takes the question back. */
@@ -25,7 +25,7 @@ export function useArmed(rows: SearchHit[]) {
   }, [asked]);
 
   // It follows its todo to a new line (a save stamping frontmatter, #2092), never onto another todo.
-  const at = asked === null ? null : followRow(asked.at, asked.twins, rows, false);
+  const at = asked === null ? null : followRow(asked.at, asked.twins, rows);
   const armed = at === null ? null : `${rowKey(at)}\n${at.text}`;
 
   return {

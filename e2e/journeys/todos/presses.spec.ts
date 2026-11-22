@@ -1,8 +1,13 @@
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import {
+  beforeCaret,
+  bodyOf,
   cursorTo,
   hold,
   leader,
+  noteText,
   openApp,
   plus,
   readAll,
@@ -396,4 +401,72 @@ test("sends every press of x, however fast, and asks nothing", async ({ page, st
   expect(cycles).toHaveLength(3);
   await expect(page.getByText(/^Nothing moved/)).toHaveCount(0);
   await expect(page.locator("[data-armed]")).toHaveCount(0);
+});
+
+// The 👤 inside each span is the span's, so the name goes after the stamp at the line's end.
+test.describe("#1018 the name place past a span holding a wait stamp", () => {
+  const DAY = "2026-10-25";
+  const SPANS = { alpha: `\`👤 ${DAY} x\``, beta: `[👤 ${DAY} x](x)`, gamma: `[[👤 ${DAY} x]]` };
+  const NOTE = "02 Projects/Spans.md";
+  const bodyNow = async (vault: string) => bodyOf(await noteText(vault, NOTE));
+
+  /** Spans.md with an open todo past each span, past the import so the lines stay text. */
+  async function spans(page: Page, vault: string, vim: string) {
+    const lines = Object.entries(SPANS).map(([words, span]) => `- [ ] see ${span} ${words}`);
+    await writeFile(join(vault, NOTE), `${lines.join("\n")}\n`);
+    await page.addInitScript((mode) => localStorage.setItem("kasten.vim", mode), vim);
+    await page.clock.setFixedTime(new Date(`${DAY}T12:00:00`));
+    await page.goto(`/?note=${encodeURIComponent(NOTE)}`);
+  }
+  const named = Object.entries(SPANS).map(([w, span]) => `- [w] see ${span} ${w} 👤 ${DAY} Zoe`);
+
+  test("A1 A3 A5 Space s w past each span puts the cursor after the stamp it wrote", async ({
+    page,
+    stack,
+  }) => {
+    await spans(page, stack.vault, "on");
+    for (const words of Object.keys(SPANS)) {
+      await page.locator(".cm-line", { hasText: words }).click({ timeout: 15_000 });
+      await page.keyboard.press("Escape");
+      await leader(page, "sw");
+      await page.keyboard.type("a Zoe");
+      await page.keyboard.press("Escape");
+    }
+    await expect.poll(() => bodyNow(stack.vault), { timeout: 15_000 }).toContain(named.join("\n"));
+  });
+
+  test("I3 vim off, the palette's waiting past each span puts the cursor after the stamp", async ({
+    page,
+    stack,
+  }) => {
+    await spans(page, stack.vault, "off");
+    for (const words of Object.keys(SPANS)) {
+      await page.locator(".cm-line", { hasText: words }).click({ timeout: 15_000 });
+      await page.keyboard.press("Control+Shift+P");
+      await page.keyboard.type("Set this todo to waiting on somebody");
+      await page.keyboard.press("Enter");
+      await page.keyboard.type(" Zoe");
+    }
+    await expect.poll(() => bodyNow(stack.vault), { timeout: 15_000 }).toContain(named.join("\n"));
+  });
+
+  test("A2 A4 A6 the pane opens the edit past each span with the cursor after the stamp", async ({
+    page,
+    stack,
+  }) => {
+    const lines = Object.entries(SPANS).map(([w, span]) => `- [w] see ${span} ${w} 👤 ${DAY}`);
+    // No fixed clock: a day before the store's look-again day hides the row.
+    await vaultWith(stack.vault, { [NOTE]: `${lines.join("\n")}\n` });
+    await openApp(page);
+    await leader(page, "gt");
+    const input = page.getByLabel("edit line");
+    for (const want of lines) {
+      await cursorTo(page, want.split(" ").at(-3) ?? "");
+      await page.keyboard.press("i");
+      await expect(input).toBeFocused();
+      // The store writes its own fields after the stamp; the caret stops before them.
+      await expect.poll(() => beforeCaret(input)).toBe(want);
+      await page.keyboard.press("Escape");
+    }
+  });
 });
