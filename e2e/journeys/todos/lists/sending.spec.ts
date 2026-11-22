@@ -25,10 +25,13 @@ test.describe("on a phone", () => {
       await route.continue();
     });
     const sending = page.getByText("Wird gesendet");
+    const banner = page.getByRole("banner");
     await expect(sending).toBeHidden();
+    const idle = await banner.boundingBox();
 
     await box(page, "Brot").tap();
     await expect(sending).toBeVisible();
+    expect((await banner.boundingBox())?.height).toBe(idle?.height);
     const eier = await box(page, "Eier").boundingBox();
     if (eier === null) throw new Error("Eier's tick is not on screen");
     land();
