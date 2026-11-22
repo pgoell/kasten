@@ -1,19 +1,10 @@
 import type { Page } from "@playwright/test";
 import { holdStream, leader, phone, runCommand } from "../../../../harness/app.ts";
 import { expect, test } from "../../../../harness/stack.ts";
-import { card, figure, NOW, overview, serve, words } from "./overview.ts";
+import { card, figure, overview, serve, words } from "./overview.ts";
 
 const NAMES = ["Food", "Today", "Weight", "Water", "Flashcards", "Todos", "Writing", "This year"];
 const region = (page: Page) => page.getByRole("region", { name: "Overview" });
-
-/** Opens the overview on the pinned day, by the leader or on a phone by the palette. */
-async function pinned(page: Page, touch = false): Promise<void> {
-  await page.clock.setFixedTime(NOW);
-  if (!touch) return overview(page);
-  await page.goto("/");
-  await runCommand(page, /^Open the overview/);
-  await expect(card(page, "Food")).toBeVisible({ timeout: 15_000 });
-}
 
 for (const width of ["desktop", "phone"]) {
   test.describe(width, () => {
@@ -23,7 +14,7 @@ for (const width of ["desktop", "phone"]) {
     test("#806 A3 the overview shows the cards in order, each with a heading, a figure, words and a chart a screen reader can name", async ({
       page,
     }) => {
-      await pinned(page, touch);
+      await overview(page, { pin: true, touch });
       const cards = () =>
         region(page).evaluate((pane) =>
           [...pane.querySelectorAll("article")].map((article) => ({
@@ -48,7 +39,7 @@ for (const width of ["desktop", "phone"]) {
         ["Flashcards, open the review pane", "review"],
         ["Todos, open the todo pane", "Todos"],
       ];
-      await pinned(page, touch);
+      await overview(page, { pin: true, touch });
       for (const [name, pane] of panes) {
         const button = page.getByRole("button", { name });
         await (touch ? button.tap() : button.click());
@@ -61,7 +52,7 @@ for (const width of ["desktop", "phone"]) {
     });
 
     test("#806 A4 Writing opens today's note, This year opens this year's", async ({ page }) => {
-      await pinned(page, touch);
+      await overview(page, { pin: true, touch });
       const writing = page.getByRole("button", { name: "Writing, open today's note" });
       await (touch ? writing.tap() : writing.click());
       await expect(page.getByRole("tab", { name: "2026-10-20", selected: true })).toBeVisible();
@@ -94,7 +85,7 @@ test("#806 A5 the overview reads log, todos, cards and written once each and wri
   const answered = ["/api/log", "/api/todos", "/api/cards", "/api/written"].map((path) =>
     page.waitForResponse((response) => new URL(response.url()).pathname === path),
   );
-  await pinned(page);
+  await overview(page, { pin: true });
   await Promise.all(answered);
   await expect(words(page, "Writing")).toHaveText(/today$/);
   expect(asked.sort()).toEqual([
@@ -111,7 +102,7 @@ test("#806 I1 with nothing logged, no goals, no weight kind, no cards rated, no 
 }) => {
   // The e2e vault holds todos; its notes date by mtime, after the pinned day, so none counts as written.
   await serve(page, "/api/todos", []);
-  await pinned(page);
+  await overview(page, { pin: true });
   const said = {
     Food: "nothing logged",
     Today: "no kcal goal",
@@ -136,7 +127,7 @@ test("#806 I2 a failed log read shows its message on the log cards and the other
   page,
 }) => {
   await serve(page, "/api/log", { detail: "down" }, 500);
-  await pinned(page);
+  await overview(page, { pin: true });
   const message = "GET /api/log failed with 500";
   for (const name of ["Food", "Today", "Weight", "Water"]) {
     await expect(card(page, name).getByRole("alert")).toHaveText(message);
@@ -153,7 +144,7 @@ test.describe("written", () => {
   test("#806 I6 a created instant counts on the reader's local day", async ({ page }) => {
     // Half past midnight on the 20th in Berlin, which UTC reads as the 19th.
     await serve(page, "/api/written", ["2026-10-19T22:30:00.000Z"]);
-    await pinned(page);
+    await overview(page, { pin: true });
     await expect(words(page, "Writing")).toHaveText("notes in 7 days, 1 today");
     await expect(words(page, "This year")).toHaveText("notes on 1 of 293 days");
   });
@@ -163,7 +154,7 @@ test.describe("written", () => {
   }) => {
     const days = ["2026-10-20", "2026-10-20", "2026-10-14", "2026-03-02", "2025-12-30"];
     await serve(page, "/api/written", days);
-    await pinned(page);
+    await overview(page, { pin: true });
     await expect(figure(page, "Writing")).toHaveText("3");
     await expect(words(page, "Writing")).toHaveText("notes in 7 days, 2 today");
     await expect(figure(page, "This year")).toHaveText("4");

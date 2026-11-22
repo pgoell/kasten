@@ -29,7 +29,7 @@ async function sitTwo(page: Page, vault: string, notes = {}): Promise<() => numb
   return puts;
 }
 
-/** Sits deck ab, card A in x.md and card B in y.md, by tap on a phone; rates A Good and waits for B. */
+/** Sits deck ab, card A in x.md and card B in y.md, by taps when `tap` is set; rates A Good and waits for B. */
 async function sitAB(page: Page, vault: string, tap = false): Promise<() => number> {
   const puts = countPuts(page, X, Y);
   const notes = {

@@ -9,7 +9,7 @@ import {
   vaultWith,
 } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
-import { sitDeck } from "../review.ts";
+import { countPuts, sitDeck } from "../review.ts";
 
 // One deck over two notes, so the note a question goes to is the shown card's and no other.
 const NOTES: Record<string, string> = {
@@ -25,17 +25,6 @@ async function sitJot(page: Page, vault: string): Promise<{ question: string; no
   const question = (await card.textContent())?.includes("VPC") ? "What is a VPC?" : "What is S3?";
   const note = Object.keys(NOTES).find((path) => NOTES[path]?.includes(question)) ?? "";
   return { question, note };
-}
-
-/** Counts the PUTs that write `path`, from here on. */
-function countPuts(page: Page, path: string): () => number {
-  let puts = 0;
-  page.on("request", (request) => {
-    const url = new URL(request.url());
-    if (request.method() === "PUT" && decodeURIComponent(url.pathname) === `/api/files/${path}`)
-      puts += 1;
-  });
-  return () => puts;
 }
 
 const jotButton = (page: Page) => page.getByRole("button", { name: "Write a new question" });

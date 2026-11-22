@@ -1,5 +1,4 @@
-import type { Page } from "@playwright/test";
-import { leader, onPhone, phone, runCommand, vaultWith } from "../../../../harness/app.ts";
+import { leader, onPhone, phone, vaultWith } from "../../../../harness/app.ts";
 import { expect, test } from "../../../../harness/stack.ts";
 import { tile } from "../log.ts";
 import {
@@ -9,22 +8,12 @@ import {
   figure,
   GOALS,
   logged,
-  NOW,
   overview,
   warned,
   words,
 } from "./overview.ts";
 
 const kcal = (n: number) => logged(`- 🍽 🔥 ${n} kcal`);
-
-/** Writes the notes, pins the clock to the 20th and opens the overview, on a phone by the palette. */
-async function over(page: Page, vault: string, notes: Record<string, string>): Promise<void> {
-  await vaultWith(vault, notes);
-  await page.clock.setFixedTime(NOW);
-  if (!onPhone(page)) return overview(page);
-  await page.goto("/");
-  await runCommand(page, /^Open the overview/);
-}
 
 /** A deck note of these flashcard lines, each its own paragraph. */
 const deck = (...lines: string[]) => ({
@@ -43,7 +32,7 @@ test.describe("the food streak", () => {
         stack,
       }) => {
         // Three days within the goal, a gap on the 16th, then more days. Today has no log yet.
-        await over(page, stack.vault, {
+        await vaultWith(stack.vault, {
           [CONFIG_PATH]: GOALS,
           [daily("2026-10-19")]: kcal(1500),
           [daily("2026-10-18")]: kcal(2000),
@@ -51,6 +40,7 @@ test.describe("the food streak", () => {
           [daily("2026-10-15")]: kcal(1000),
           [daily("2026-10-14")]: kcal(1100),
         });
+        await overview(page, { pin: true, touch: onPhone(page) });
         await expect(figure(page, "Food")).toHaveText("3 days");
         await expect(words(page, "Food")).toHaveText("in a row within at most 2,200 kcal");
       });
@@ -62,13 +52,14 @@ test.describe("the food streak", () => {
     stack,
   }) => {
     // Today and the 18th have drinks only. The 19th and 17th have food within the goal.
-    await over(page, stack.vault, {
+    await vaultWith(stack.vault, {
       [CONFIG_PATH]: GOALS,
       [daily("2026-10-20")]: logged("- 💧 250 ml"),
       [daily("2026-10-19")]: kcal(1500),
       [daily("2026-10-18")]: logged("- 💧 250 ml"),
       [daily("2026-10-17")]: kcal(1500),
     });
+    await overview(page, { pin: true, touch: onPhone(page) });
     await expect(figure(page, "Food")).toHaveText("1 day");
     await leader(page, "gf");
     const pane = page.getByRole("region", { name: "Trends" });
@@ -82,12 +73,13 @@ test.describe("the food chart", () => {
     page,
     stack,
   }) => {
-    await over(page, stack.vault, {
+    await vaultWith(stack.vault, {
       [CONFIG_PATH]: GOALS,
       [daily("2026-10-19")]: kcal(2500),
       [daily("2026-10-18")]: kcal(2300),
       [daily("2026-10-17")]: kcal(2000),
     });
+    await overview(page, { pin: true, touch: onPhone(page) });
     const chart = card(page, "Food").getByRole("img", {
       name: "kcal per day over 14 days, goal at most 2,200 kcal, 2 days over the goal",
     });
@@ -99,11 +91,12 @@ test.describe("the food chart", () => {
   });
 
   test("#806 I3 a floor goal never warns", async ({ page, stack }) => {
-    await over(page, stack.vault, {
+    await vaultWith(stack.vault, {
       [CONFIG_PATH]: "- 🍽 food: kcal min 1800\n",
       [daily("2026-10-19")]: kcal(1000),
       [daily("2026-10-18")]: kcal(900),
     });
+    await overview(page, { pin: true, touch: onPhone(page) });
     const chart = card(page, "Food").getByRole("img", {
       name: "kcal per day over 14 days, goal at least 1,800 kcal",
       exact: true,
@@ -120,8 +113,7 @@ test.describe("the flashcard streak", () => {
     stack,
   }) => {
     // A review on each of the 20th, 19th, 18th and 17th, none on the 16th, one on the 15th.
-    await over(
-      page,
+    await vaultWith(
       stack.vault,
       deck(
         "Q :: A <!--SR:!2026-10-24,4,270-->",
@@ -132,14 +124,14 @@ test.describe("the flashcard streak", () => {
         "Q5 :: A <!--SR:!2026-10-20,5,270-->",
       ),
     );
+    await overview(page, { pin: true, touch: onPhone(page) });
     await expect(figure(page, "Flashcards")).toHaveText("4 days");
     await expect(words(page, "Flashcards")).toHaveText("in a row with a review, 2 today");
   });
 
   test("#806 I8 a line with two cloze schedules counts on both days", async ({ page, stack }) => {
     // The 20th from one cloze schedule and the 17th from its other, with a review on each of the 19th and 18th.
-    await over(
-      page,
+    await vaultWith(
       stack.vault,
       deck(
         "{{c1::p}} and {{c2::q}} <!--SR:c1!2026-10-22,2,250--> <!--SR:c2!2026-10-19,2,250-->",
@@ -147,6 +139,7 @@ test.describe("the flashcard streak", () => {
         "Q3 :: A <!--SR:!2026-10-22,4,270-->",
       ),
     );
+    await overview(page, { pin: true, touch: onPhone(page) });
     await expect(figure(page, "Flashcards")).toHaveText("4 days");
     await expect(words(page, "Flashcards")).toHaveText("in a row with a review, 1 today");
   });
@@ -155,8 +148,7 @@ test.describe("the flashcard streak", () => {
     page,
     stack,
   }) => {
-    await over(
-      page,
+    await vaultWith(
       stack.vault,
       deck(
         `Q :: A ${fsrs("", "2026-10-20T00:00:00.000Z")}`,
@@ -165,6 +157,7 @@ test.describe("the flashcard streak", () => {
         `Q4 :: A ${fsrs("", "-")}`,
       ),
     );
+    await overview(page, { pin: true, touch: onPhone(page) });
     await expect(figure(page, "Flashcards")).toHaveText("4 days");
     await expect(words(page, "Flashcards")).toHaveText("in a row with a review, 1 today");
   });
