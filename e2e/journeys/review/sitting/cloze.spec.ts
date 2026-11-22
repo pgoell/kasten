@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
 import { bodyOf, leader, noteText, vaultWith } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
-import { sitDeck } from "../review.ts";
+import { countPuts, rate as rateOn, sitDeck } from "../review.ts";
 
 const NOTE = "03 Flashcards/cloze.md";
 const LINE = "The capital of {{c1::France}} is {{c2::Paris::a city}}.";
@@ -214,31 +214,14 @@ test.describe("Undo in a sitting (#600)", () => {
   const disk = async (vault: string) => bodyOf(await noteText(vault, TWO_NOTE));
   const rating = (page: Page, name: string) => page.getByRole("button", { name, exact: true });
 
-  /** Counts the PUTs that write the note, from here on. */
-  function countPuts(page: Page): () => number {
-    let puts = 0;
-    page.on("request", (r) => {
-      if (r.method() === "PUT" && decodeURIComponent(r.url()).endsWith(TWO_NOTE)) puts += 1;
-    });
-    return () => puts;
-  }
-
   /** Sits deck two beside `notes`; returns the count of PUTs that write its note. */
   async function sitTwo(page: Page, vault: string, notes = {}): Promise<() => number> {
-    const puts = countPuts(page);
+    const puts = countPuts(page, TWO_NOTE);
     await sitDeck(page, vault, { [TWO_NOTE]: TWO, ...notes }, "two");
     return puts;
   }
 
-  /** Turns the card and rates it, then waits for the write's answer. */
-  async function rate(page: Page, name: string): Promise<void> {
-    const landed = page.waitForResponse(
-      (r) => r.request().method() === "PUT" && decodeURIComponent(r.url()).endsWith(TWO_NOTE),
-    );
-    await page.getByRole("button", { name: "Show the answer" }).click();
-    await rating(page, name).click();
-    await landed;
-  }
+  const rate = (page: Page, name: string) => rateOn(page, TWO_NOTE, name);
 
   /** Aborts each PUT of the note while `down.on`. */
   async function cutWrites(page: Page, down: { on: boolean }) {
