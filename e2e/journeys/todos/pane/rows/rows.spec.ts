@@ -112,11 +112,14 @@ test("#811 a row draws its state box, words and meta line, its date by the clock
       node.getAttribute("tabindex"),
       getComputedStyle(node).outlineStyle,
       getComputedStyle(node).backgroundColor,
+      getComputedStyle(node).outlineColor,
     ]),
   );
   const cursor = looks.filter(([tab]) => tab === "0");
   expect(cursor).toHaveLength(1);
-  expect(cursor[0]?.[1]).not.toBe("none");
+  // Solid in the accent: a focused button with no outline of its own still gets the browser's ring.
+  expect(cursor[0]?.[1]).toBe("solid");
+  expect(cursor[0]?.[3]).toBe(await token(page, "accent"));
   expect(looks.map(([, , ground]) => ground)).toEqual(looks.map(() => "rgba(0, 0, 0, 0)"));
   expect(looks.filter(([tab, outline]) => tab !== "0" && outline !== "none")).toEqual([]);
 
