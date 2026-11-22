@@ -23,6 +23,39 @@ export async function openDecks(page: Page, vault: string, notes: Record<string,
   await openReview(page, { settled: true });
 }
 
+/** Counts the PUTs that write one of `notes`, from here on. */
+export function countPuts(page: Page, ...notes: string[]): () => number {
+  let puts = 0;
+  page.on("request", (r) => {
+    const path = decodeURIComponent(r.url());
+    if (r.method() === "PUT" && notes.some((note) => path.endsWith(note))) puts += 1;
+  });
+  return () => puts;
+}
+
+/** Turns the card and rates it `name`, then waits for the answer to the PUT of `note`. */
+export async function rate(page: Page, note: string, name: string): Promise<void> {
+  const landed = page.waitForResponse(
+    (r) => r.request().method() === "PUT" && decodeURIComponent(r.url()).endsWith(note),
+  );
+  await page.getByRole("button", { name: "Show the answer" }).click();
+  await page.getByRole("button", { name, exact: true }).click();
+  await landed;
+}
+
+/** Writes `notes` and taps into `deck` from the home screen, as a phone gets there. */
+export async function tapDeck(
+  page: Page,
+  vault: string,
+  notes: Record<string, string>,
+  deck: string,
+) {
+  await vaultWith(vault, notes);
+  await page.goto("/");
+  await page.getByRole("button", { name: /cards? waiting$/ }).tap();
+  await page.locator(`button[data-deck="${deck}"]`).tap();
+}
+
 /** Writes `notes`, opens the review pane and sits `deck`, waiting for its first card. */
 export async function sitDeck(
   page: Page,

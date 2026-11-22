@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
 import { bodyOf, noteText, phone, tapHeight, vaultWith } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
-import { openReview } from "./review.ts";
+import { openReview, tapDeck } from "./review.ts";
 
 const BETA = "03 Flashcards/beta.md";
 const NOTE = "#flashcards/beta\n\nc::d\n\ne::f\n";
@@ -177,13 +177,6 @@ test.describe("on a phone", () => {
     await expect(page.getByTestId("review-question")).toHaveText("c");
   });
 
-  /** Taps into the deck from the home screen, as a phone gets there. */
-  async function tapDeck(page: Page, vault: string, notes: Record<string, string>, deck: string) {
-    await vaultWith(vault, notes);
-    await page.goto("/");
-    await page.getByRole("button", { name: /cards? waiting$/ }).tap();
-    await page.locator(`button[data-deck="${deck}"]`).tap();
-  }
   const tapGood = async (page: Page) => {
     await page.getByRole("button", { name: "Show the answer" }).tap();
     await page.getByRole("button", { name: "Good", exact: true }).tap();
