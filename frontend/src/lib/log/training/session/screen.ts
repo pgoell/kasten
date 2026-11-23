@@ -39,6 +39,7 @@ import {
   trainingLines,
 } from "@/lib/log/training/training-lines";
 import type { Edit } from "@/lib/notes/text/note-section";
+import { focusBack } from "@/lib/ui/focus-trap";
 
 export const REST_SECONDS = 120;
 export const REST_MORE = 30;
@@ -136,7 +137,7 @@ export function openSession(view: EditorView, day: string): () => void {
     awake.release();
     document.removeEventListener("keydown", keys, true);
     root.remove();
-    opener?.focus();
+    focusBack(opener);
   };
   const head = element("div", "k-train-head");
   head.append(button("k-train-close", "Done", close), lock);

@@ -4,7 +4,7 @@ import { FOLLOW, FORMAT, INDENT, LEADER_EDITS, readable } from "@/lib/notes/edit
 import { useVim } from "@/lib/notes/editor/vim-setting";
 import { FINANCE_PANE } from "@/lib/panes/finance/finance-keys";
 import { VIDEO_PANE } from "@/lib/panes/video/video-keys";
-import { trapTab } from "@/lib/ui/focus-trap";
+import { focusBack, trapTab } from "@/lib/ui/focus-trap";
 import { useViewport } from "@/lib/ui/input/use-viewport";
 import {
   ANYWHERE,
@@ -140,7 +140,7 @@ export function KeyHelp({ onClose }: { onClose: () => void }) {
     const opener = first?.isConnected ? first : document.activeElement;
     field.current?.focus();
     return () => {
-      if (opener instanceof HTMLElement) opener.focus();
+      focusBack(opener);
     };
   }, [first]);
 

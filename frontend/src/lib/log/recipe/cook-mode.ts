@@ -13,6 +13,7 @@ import {
   stepIngredients,
   stepSeconds,
 } from "@/lib/log/recipe/recipe-steps";
+import { focusBack } from "@/lib/ui/focus-trap";
 
 export interface CookInput {
   title: string;
@@ -69,7 +70,7 @@ export function openCookMode({ title, recipe, servings }: CookInput): () => void
     clearInterval(tick);
     awake.release();
     root.remove();
-    opener?.focus();
+    focusBack(opener);
   };
 
   const lock = element("span", "k-cook-lock", "Asking to keep the screen on…");
