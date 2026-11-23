@@ -21,8 +21,10 @@ Upcoming, Inbox, All and Board, then a filter, the grouping and New.
   grouped by day: one group for each of the next seven days, then one for the
   week after. Above them a strip draws the seven days, each with how many todos
   it holds, their estimates added up, and a bar that fills at six hours; a flag
-  marks a day with a hard due date. A press on a day scrolls to its group. Each
-  day group's heading says its hard due dates and the time planned on it, and
+  marks a day with a hard due date. A todo counts on the day it is filed under,
+  so one planned on Monday and due on Wednesday counts on Monday, where its
+  deadline does not fall, and flags neither day. A press on a day scrolls to
+  its group. Each day group's heading says its hard due dates and the time planned on it, and
   its `+` plans the new todo on that day.
 * **Inbox** lists the todos with no project, no planned day and no parent.
 * **All** lists every open todo, those held off until a later day included.
