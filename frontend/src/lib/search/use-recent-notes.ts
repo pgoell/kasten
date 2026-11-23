@@ -1,4 +1,4 @@
-import { type QueryClient, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { type SearchHit, searchNotes } from "@/lib/core/api";
 import { readClock, shiftDay } from "@/lib/core/clock";
@@ -37,15 +37,17 @@ export function recentKeys(archive: boolean, today: string): [RecentKey, RecentK
   ];
 }
 
-function useRecentSearches(archive: boolean) {
+function useRecentSearches(archive: boolean, refetchOnMount?: "always") {
   const [thisKey, priorKey] = recentKeys(archive, readClock(new Date()).date);
   const thisMonth = useQuery({
     queryKey: thisKey,
     queryFn: () => searchNotes(thisKey[1], archive),
+    refetchOnMount,
   });
   const priorMonth = useQuery({
     queryKey: priorKey,
     queryFn: () => searchNotes(priorKey[1], archive),
+    refetchOnMount,
   });
   return [thisMonth, priorMonth];
 }
@@ -59,25 +61,16 @@ export function useRecentNotes(archive: boolean): { path: string; stamp: string 
 }
 
 /**
- * As `useRecentNotes`, but undefined until both searches have answered or failed since the
- * caller mounted, so a stale answer never draws before the fresh one (#2301). Once drawn it stays.
+ * As `useRecentNotes`, but asked afresh on mount, so it holds a note written a moment ago (#1971),
+ * and undefined until both answers are in or failed, so a stale one never draws first (#2301).
+ * Once drawn it stays.
  */
 export function useRecentList(archive: boolean): { path: string; stamp: string }[] | undefined {
-  const searches = useRecentSearches(archive);
+  const searches = useRecentSearches(archive, "always");
   const settled = searches.every(
     (search) => !search.isFetching && (search.data !== undefined || search.isError),
   );
   const [drawn, setDrawn] = useState(false);
   if (settled && !drawn) setDrawn(true);
   return drawn || settled ? recentOf(searches.flatMap((search) => search.data ?? [])) : undefined;
-}
-
-/** Marks the Recent searches stale after a write, so the next list shows the note it wrote (#1971). */
-export function refreshRecent(client: QueryClient): void {
-  const today = readClock(new Date()).date;
-  for (const archive of [false, true]) {
-    for (const queryKey of recentKeys(archive, today)) {
-      void client.invalidateQueries({ queryKey, exact: true });
-    }
-  }
 }

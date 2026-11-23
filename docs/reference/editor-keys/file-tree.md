@@ -121,7 +121,7 @@ writes the passage under `## Highlights` in a note you pick from the eight
 written last, one line each with the whole name on hover; in a short pane the
 list scrolls and the note stays inside the pane. Until both of the list's
 reads have answered, or one has failed, it says `Loading recent notes…`, and
-each list asks afresh after a take, so it holds the note the take just wrote.
+it asks afresh each time it opens, so it holds the note a take just wrote.
 The note fades after five
 seconds. A take
 still waiting to be sent has no Undo, and the note says so. The passage's

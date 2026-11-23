@@ -1,8 +1,6 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useCallback, useLayoutEffect, useRef, useState } from "react";
 import { TakeToast } from "@/components/takes/take-toast";
 import { noteName } from "@/lib/notes/links/note-path";
-import { refreshRecent } from "@/lib/search/use-recent-notes";
 import { writePassage } from "@/lib/takes/page-highlight";
 import { type Undo, undoPassage } from "@/lib/takes/page-undo";
 
@@ -62,7 +60,6 @@ export function useTakeToast(o: TakeToastOptions): {
   /** The toast, or null; the pane renders it inside its wrapper. */
   toast: ReactNode;
 } {
-  const queryClient = useQueryClient();
   const [toast, setToast] = useState<Toast | null>(null);
   const toastId = useRef(0);
   // Read through a ref, so a pane's new callbacks are the ones called. Written in
@@ -83,8 +80,6 @@ export function useTakeToast(o: TakeToastOptions): {
 
   function show(title: string, taking: ToastTaking, undo?: Undo) {
     toastId.current += 1;
-    // A toast follows the take's write, so the list it opens must ask again.
-    refreshRecent(queryClient);
     const { text, linkIn, source, top, line } = taking;
     setToast({ id: toastId.current, title, text, linkIn, source, top, line, undo });
   }
@@ -110,11 +105,10 @@ export function useTakeToast(o: TakeToastOptions): {
   /** Write the passage under `## Highlights` in a note the reader picked. The take stays where it is. */
   function putInto(id: number, notePath: string, taken: Toast) {
     void writePassage(notePath, taken.text, taken.linkIn(notePath)).then(
-      () => {
+      () =>
         setToast((current) =>
           current?.id === id ? { ...current, title: `Put into ${noteName(notePath)}` } : current,
-        );
-      },
+        ),
       (error: unknown) =>
         setToast((current) =>
           current?.id === id
