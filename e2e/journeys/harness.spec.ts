@@ -245,6 +245,17 @@ async function setUpRun(after: string) {
   return { runner, project };
 }
 
+/** `ps -aq`, but a container removed between compose's list and its inspect makes the poll ask again (#2304). */
+const listed = (project: string) =>
+  compose(project, "ps", "-aq").catch((error: { stderr?: string }) => {
+    if (!error.stderr?.includes("No such container")) throw error;
+    return error.stderr;
+  });
+
+plainTest("a compose ps that fails for any other reason fails its poll at once", async () => {
+  await plainExpect(listed("No Such Project!")).rejects.toThrow(/compose/);
+});
+
 const watching = (project: string) =>
   new Promise<boolean>((done) =>
     spawn("pgrep", ["-f", project]).on("exit", (code) => done(code === 0)),
@@ -265,7 +276,7 @@ plainTest.describe("a run's compose project (#2284)", () => {
       const { runner, project } = await setUpRun("setInterval(() => stop, 1 << 30);");
       plainExpect(await compose(project, "ps", "-q")).not.toBe("");
       killGroup(runner.pid ?? 0, "SIGKILL");
-      await plainExpect.poll(() => compose(project, "ps", "-aq"), { timeout: 60_000 }).toBe("");
+      await plainExpect.poll(() => listed(project), { timeout: 60_000 }).toBe("");
       await plainExpect.poll(() => watching(project), { timeout: 10_000 }).toBe(false);
       plainExpect(await compose(process.env.E2E_PROJECT ?? "", "ps", "-q")).not.toBe("");
     },
