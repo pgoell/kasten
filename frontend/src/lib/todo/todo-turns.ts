@@ -5,6 +5,8 @@ let running = 0;
 
 /** Presses' store writes landed less the `todos` events seen since: one above 0 is an echo still on its way. */
 let echoes = 0;
+/** Presses running when a stream opened afresh: their echoes may have gone to the old stream, so they owe none. */
+let unowed = 0;
 
 export function beginPress(): void {
   running += 1;
@@ -18,7 +20,8 @@ export function pressRunning(): boolean {
 /** Ends a press; `wrote` when the store took its write, whose `todos` event may land before or after this. */
 export function endPress(wrote: boolean): void {
   running -= 1;
-  if (wrote) echoes += 1;
+  if (unowed > 0) unowed -= 1;
+  else if (wrote) echoes += 1;
   // Events past a press's own echoes came from elsewhere, and the last press's end read covers them.
   if (running === 0) echoes = Math.max(echoes, 0);
 }
@@ -36,6 +39,7 @@ export function pressEcho(): boolean {
 /** A stream opened afresh reads the list anew, and echoes sent before it never come. */
 export function forgetEchoes(): void {
   echoes = 0;
+  unowed = running;
 }
 
 /** A todo row as the list names it. */

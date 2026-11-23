@@ -133,19 +133,21 @@ export function useTodoActions({
     (write: () => Promise<TodoRow[]>): Promise<boolean> => {
       setNotice(undefined);
       begun();
-      return write().then(
-        (rows) => {
-          absorb(queryClient, rows);
-          // An empty answer sent no write, as a state the todo already has.
-          settled(rows.length > 0);
-          return true;
-        },
-        (error: unknown) => {
-          setNotice(nothingMoved(error));
-          settled(false);
-          return false;
-        },
-      );
+      let wrote = false;
+      return write()
+        .then(
+          (rows) => {
+            // An empty answer sent no write, as a state the todo already has.
+            wrote = rows.length > 0;
+            absorb(queryClient, rows);
+            return true;
+          },
+          (error: unknown) => {
+            setNotice(nothingMoved(error));
+            return false;
+          },
+        )
+        .finally(() => settled(wrote));
     },
     [queryClient, settled, setNotice, begun],
   );

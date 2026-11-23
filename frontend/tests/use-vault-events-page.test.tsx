@@ -371,4 +371,12 @@ describe("a press's own todos event asks nothing, before or after its end read i
     };
     expect(await todoReads([pressed(true), reopen, todos], false)).toBe(3);
   });
+
+  it("a press running when a stream opens afresh owes no echo once it ends, so a later event asks", async () => {
+    const reopen = async (settle: () => Promise<void>) => {
+      FakeStream.last?.onopen?.();
+      await settle();
+    };
+    expect(await todoReads([beginPress, reopen, () => endPress(true), todos], false)).toBe(2);
+  });
 });
