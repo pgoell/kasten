@@ -15,6 +15,9 @@ export const HIDDEN = Decoration.replace({});
 /** A folded callout's body, told apart from `HIDDEN` by `skipHidden`. */
 export const FOLDED = Decoration.replace({});
 
+/** Text a link drawn short hides: a cursor stays on it, and the link then shows its source (#1973). */
+export const NAME = Decoration.replace({});
+
 /**
  * Normal and replace mode read; insert and visual mode write.
  * An unknown mode renders, so a vim submode nobody thought of hides its marks.
@@ -35,6 +38,14 @@ export function isLineRevealed(state: EditorState, line: Line): boolean {
 export function isNodeRevealed(state: EditorState, from: number, to: number): boolean {
   if (!revealsSource(editingMode(state))) return false;
   return state.selection.ranges.some((range) => range.from <= to && range.to >= from);
+}
+
+/** Whether a cursor rests on `[from, to)`, which a read-only preview never has. */
+export function isCursorOn(state: EditorState, from: number, to: number): boolean {
+  return (
+    !state.readOnly &&
+    state.selection.ranges.some((range) => range.empty && range.head >= from && range.head < to)
+  );
 }
 
 /**
@@ -67,8 +78,8 @@ export class Walk {
     this.state = state;
   }
 
-  hide(from: number, to: number): void {
-    const range = HIDDEN.range(from, to);
+  hide(from: number, to: number, kind = HIDDEN): void {
+    const range = kind.range(from, to);
     this.decorations.push(range);
     this.hidden.push(range);
   }
@@ -120,6 +131,7 @@ function skipHidden(start: number, bias: number, hidden: RangeSet<Decoration>, d
   for (;;) {
     let moved = false;
     hidden.between(pos - 1, pos + 1, (from, to, value) => {
+      if (value === NAME) return;
       const next =
         value === FOLDED
           ? outOfFold(pos, from, to, direction, doc)

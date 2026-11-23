@@ -42,6 +42,10 @@ Visual mode reveals for a narrower reason. You are about to act on a stretch of
 text, and the highlight would otherwise cover ranges you cannot see, so `y`
 would copy asterisks that were never on the screen.
 
+One construct reveals in normal mode too: a wikilink drawn shorter than its
+source, once the cursor lands on the text it hides.
+[A link's hidden name is text](#a-links-hidden-name-is-text) says why.
+
 A mode the code does not recognise renders. If vim grows a submode nobody here
 thought about, it hides its marks rather than leaking them.
 
@@ -103,6 +107,23 @@ The filter is also why the decorations live in a `StateField` rather than the
 `ViewPlugin` that CodeMirror's documentation reaches for first. A transaction
 filter runs at state level and can only read state. Decorations in a view plugin
 would be invisible to it, and the filter would have nothing to consult.
+
+## A link's hidden name is text
+
+A wikilink drawn shorter than its source, `[[note|alias]]` as `alias` or
+`[[folder/note]]` as `note`, hides more than marks: it hides the name the link
+points at. Vim's motions read the raw text, so `0`, `f|` or `$` can land on
+it, and Obsidian lets them: the cursor reaches the bar and `i` writes into the
+name. Walked out past the bar, the cursor could never get there, and `i` wrote
+into the alias (#1973).
+
+So the walk stops short of that text. A cursor that rests on it stays, and the
+link shows its source while it does, in normal mode as in insert mode. Once the
+cursor leaves the hidden part, onto the alias or to another line, the link
+draws short again. A preview pane has no cursor and always draws it short.
+
+A link that hides only its brackets, `[[note]]`, still walks the cursor off
+them, as `##` and `**` do: nothing there is worth landing on.
 
 ## A drawn marker leaves with the text it stands in for
 

@@ -232,3 +232,82 @@ describe("#968 the cursor steps out of hidden marks", () => {
     expect(moved?.main.head).toBe(4);
   });
 });
+
+describe("#1973 a vim motion reaches the hidden part of a link drawn short", () => {
+  const press = (container: HTMLElement, keys: string[]) => {
+    const editor = container.querySelector(".cm-content") as HTMLElement;
+    for (const key of keys) fireEvent.keyDown(editor, { key });
+  };
+  const view = (container: HTMLElement) =>
+    EditorView.findFromDOM(container.querySelector(".cm-editor") as HTMLElement) as EditorView;
+  const LINK = "intro\n\n[[bor|Jo]]";
+  const AT = LINK.indexOf("[[");
+
+  for (const motion of [
+    ["0", "f", "|"],
+    ["$", "F", "|"],
+  ]) {
+    it(`enters insert mode before the bar after G ${motion.join(" ")} i`, async () => {
+      const { container } = renderEditor(<Editor initialDoc={LINK} />);
+      press(container, ["G", ...motion, "i"]);
+      await waitFor(() => expect(content(container)).toContain("[[bor|Jo]]"));
+      expect(view(container).state.selection.main.head).toBe(AT + 5);
+    });
+  }
+
+  it("shows the link's source while the normal-mode cursor is on its hidden part, so x deletes what shows", async () => {
+    const { container } = renderEditor(<Editor initialDoc={LINK} />);
+    press(container, ["G", "0"]);
+    await waitFor(() => expect(content(container)).toContain("[[bor|Jo]]"));
+    press(container, ["f", "|", "x"]);
+    expect(view(container).state.doc.toString()).toBe("intro\n\n[[borJo]]");
+  });
+
+  it("shows the link's source while the cursor rests on its closing brackets after $", async () => {
+    const { container } = renderEditor(<Editor initialDoc={LINK} />);
+    press(container, ["G", "$"]);
+    await waitFor(() => expect(content(container)).toContain("[[bor|Jo]]"));
+    press(container, ["x"]);
+    expect(view(container).state.doc.toString()).toBe("intro\n\n[[bor|Jo]");
+  });
+
+  it("hides the link again once the cursor leaves its hidden part", async () => {
+    const { container } = renderEditor(<Editor initialDoc={LINK} />);
+    press(container, ["G", "0", "f", "|"]);
+    await waitFor(() => expect(content(container)).toContain("[[bor|Jo]]"));
+    press(container, ["l"]);
+    await waitFor(() => expect(content(container)).toBe("introJo"));
+    press(container, ["x"]);
+    expect(view(container).state.doc.toString()).toBe("intro\n\n[[bor|o]]");
+    press(container, ["F", "|"]);
+    await waitFor(() => expect(content(container)).toContain("[[bor|o]]"));
+    press(container, ["k"]);
+    await waitFor(() => expect(content(container)).toBe("introo"));
+  });
+
+  it("keeps the cursor in the name when escape leaves insert mode there", async () => {
+    const { container } = renderEditor(<Editor initialDoc={LINK} />);
+    press(container, ["G", "0", "f", "|", "i"]);
+    await waitFor(() => expect(view(container).state.selection.main.head).toBe(AT + 5));
+    press(container, ["Escape"]);
+    await waitFor(() => expect(view(container).state.selection.main.head).toBe(AT + 4));
+    await waitFor(() => expect(content(container)).toContain("[[bor|Jo]]"));
+  });
+
+  it("reaches the folder of a link drawn as its last part", async () => {
+    const { container } = renderEditor(<Editor initialDoc={"intro\n\n[[folder/note]]"} />);
+    press(container, ["G", "0", "f", "/", "i"]);
+    await waitFor(() => expect(view(container).state.selection.main.head).toBe(AT + 8));
+  });
+
+  it("still walks the cursor off a link that hides only its brackets", () => {
+    const { container } = renderEditor(<Editor initialDoc={"intro\n\n[[note]]"} />);
+    press(container, ["G", "0", "x"]);
+    expect(view(container).state.doc.toString()).toBe("intro\n\n[[ote]]");
+  });
+
+  it("draws a link at a preview's start rendered", () => {
+    const { container } = render(<NotePreview text={"[[bor|Jo]] after"} />);
+    expect(content(container)).toBe("Jo after");
+  });
+});
