@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
-import { caretLine, leader, openApp, vaultWith } from "../../harness/app.ts";
-import { answer, hit } from "../../harness/search.ts";
-import { expect, test } from "../../harness/stack.ts";
+import { caretLine, leader, openApp, vaultWith } from "../../../harness/app.ts";
+import { answer, hit } from "../../../harness/search.ts";
+import { expect, test } from "../../../harness/stack.ts";
 
 const LINES = "one\ntwo\nthree\nfour";
 

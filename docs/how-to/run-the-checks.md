@@ -67,12 +67,12 @@ dropped after. It stubs no API.
 
 The journeys sit in `e2e/journeys/`: review in `review/` (a sitting, a jotted question, a cloze card and undo in `sitting/`, the daily limits, the sitting's keys, vim on and off, unreadable deck notes, and the overview in `overview/`), panes in
 `panes/` (layout, the top bar, the pane and tab keys, pane moves while a write is held, links to pages and assets; a note changed on disk under
-unsaved text, `:e` and `:e!`, and a conflicted note reopened in `panes/conflict/`; the workspace over a reload, held text in a restored pane, a URL over it, the tree panel and keys in `tree/`, the leader keys and gf to a highlight's book in `panes/workspace/`; the drawer, phone toolbar, key help, AltGr, a resized window, sheets, the link margin and todo pane taps in `panes/narrow/`), notes, the finder, a tree row dragged, the new note prompt's folder rows, where a note opens and the bar's save sign in `notes/`, with saving in `notes/saving/` (edits,
+unsaved text, `:e` and `:e!`, and a conflicted note reopened in `panes/conflict/`; the workspace over a reload, held text in a restored pane, a URL over it, the tree panel and keys in `tree/`, the leader keys and gf to a highlight's book in `panes/workspace/`; the drawer, phone toolbar, key help, AltGr, a resized window, sheets, the link margin and todo pane taps in `panes/narrow/`), notes, the finder, a tree row dragged, the new note prompt's folder rows and the bar's save sign in `notes/`, where a note opens and the vim setting in `notes/editor/`, with saving in `notes/saving/` (edits,
 mention links, held text, the editor's build and relation names, live preview and its lists and tables) and content search and an epub opened mid-listing in `notes/search/`, the todo list, board, presses,
 twin ids, a person's card and the shared lists in `todos/` (the panel, keys, taps, held order, edit line, strip, refile, `board/` and `rows/` in `todos/pane/`), capture, the web page import, chat replies, the log (the overview in `log/overview/`), the home screen, the tokens page in `day/`, finance in `day/finance/`, and the book finder, book, video and clip panes and csv and svg files in
 `media/`. `harness.spec.ts` checks the harness. Each journey is a
-daily task; a write checks the disk. 59 files
-run at 414 px with touch, vim off: in `review/`, `sitting/sitting`, `sitting/jot`, `sitting/undo`, `keys`, `overview/rows` and `overview/decks`; in `notes/`, `finder`,
+daily task; a write checks the disk. 60 files
+run at 414 px with touch, vim off: in `review/`, `sitting/sitting`, `sitting/jot`, `sitting/undo`, `keys`, `overview/rows` and `overview/decks`; in `notes/`, `editor/vim`, `finder`,
 `status-bar`, `search/book-open-listing`, `search/content-search-*`, `saving/editor-build`, `saving/edits`,
 `saving/mentions` and `saving/live-preview-blocks`; in `panes/`, `links`, `workspace/reload`, `workspace/tree/edits`,
 `narrow/drawer`, `narrow/phone`, `narrow/key-help`, `narrow/resize` and `narrow/todo-pane`; in `todos/`, `list`,
@@ -101,7 +101,7 @@ A failure writes a trace and screenshot to `e2e/test-results/`. Open
 a trace from `e2e/` with `bunx playwright show-trace <zip>`.
 
 CI's E2E jobs run the journeys on every pull request, split in two by
-`E2E_SHARD=1/2` and `2/2`, each on 3 workers where a local run takes 4. Set
+`E2E_SHARD=1/2` and `2/2`, each on 3 workers (4 locally). Set
 `E2E_SHARD` to run one slice locally. They are not required checks
 yet. Each slice's `e2e-results-<n>` artifact holds its traces and screenshots.
 
@@ -109,12 +109,11 @@ yet. Each slice's `e2e-results-<n>` artifact holds its traces and screenshots.
 
 Lefthook runs some of this for you, from `.config/lefthook.yaml`:
 
-* `pre-commit` runs `mise run lint`, kept fast on purpose, and the file
+* `pre-commit` runs `mise run lint` and the file
   and folder size checks on the staged files.
 * `pre-push` runs `mise run test` and `mise run fe:typecheck`.
 
-Anything slow enough to make you reach for `--no-verify` belongs in pre-push,
-not pre-commit.
+Anything slow enough to tempt `--no-verify` belongs in pre-push.
 
 ## Get a backend function past the complexity rules
 
@@ -130,7 +129,7 @@ tests included, to these limits, all set in the root `pyproject.toml`:
 * `TID252`: no relative import, the sibling kind (`from .x import y`)
   included; import by the package name.
 
-When one fires, make the function simpler rather than silencing it: lift a
+When one fires, simplify the function rather than silence it: lift a
 closure or a loop with a job of its own into a module function, give each
 branch of a long `elif` chain its own method, or pass two values that travel
 together as one tuple. Use `# noqa` only where the function reads better whole,
