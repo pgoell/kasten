@@ -154,6 +154,7 @@ test.describe("the todo prompt", () => {
     await expect(dialog).toBeHidden();
     expect(writes).toEqual([]);
     // A todo added next lands after any write the Escape sent, so its line shows none came.
+    await page.locator("section[aria-label='Todos'] section[aria-label='Todos']").focus();
     await page.keyboard.press("a");
     await page.keyboard.type("buy milk");
     await page.keyboard.press("Enter");
