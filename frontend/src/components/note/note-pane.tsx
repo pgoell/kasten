@@ -164,19 +164,12 @@ export function NotePane({
     // ponytail: text typed into one goes nowhere, and closing the
     // pane discards it. Give it a scratch path in the vault if
     // that ever costs anybody real writing.
-    // Below 768 px the whole pane scrolls as one, so Today's last section is
-    // reachable and the editor's first line is never under it. From 768 up,
-    // Today takes at most 70% and the editor keeps what is left.
-    <div className="flex h-full min-h-0 flex-col overflow-y-auto">
-      <div className="shrink-0 md:max-h-[70%] md:overflow-y-auto">
-        <TodayPane
-          archive={archive}
-          onOpen={(path, line) => void openInPane(path, line)}
-          onReview={() => commands.openReview()}
-          onOverview={() => commands.openOverview()}
-        />
-      </div>
-      <div className="min-h-[40%] flex-1">
+    <TodayPane
+      archive={archive}
+      onOpen={(path, line) => void openInPane(path, line)}
+      onReview={() => commands.openReview()}
+      onOverview={() => commands.openOverview()}
+      editor={
         <Editor
           initialDoc=""
           commands={commands}
@@ -189,8 +182,8 @@ export function NotePane({
           onFollow={followTo}
           embeds={embeds}
         />
-      </div>
-    </div>
+      }
+    />
   ) : (
     // A column rather than the editor alone, so a person's note
     // can carry their card at its foot. `PersonFooter` draws

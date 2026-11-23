@@ -25,22 +25,30 @@ export function recentOf(hits: SearchHit[]): { path: string; stamp: string }[] {
     .slice(0, RECENT);
 }
 
+/** The keys of the two searches the Recent column reads: this month's stamps and last month's. */
+type RecentKey = [string, string, boolean];
+export function recentKeys(archive: boolean, today: string): [RecentKey, RecentKey] {
+  const month = today.slice(0, 7);
+  const lastMonth = shiftDay(`${month}-01`, -1).slice(0, 7);
+  return [
+    ["search", `${STAMP}${month}`, archive],
+    ["search", `${STAMP}${lastMonth}`, archive],
+  ];
+}
+
 /**
  * The notes written lately, newest first, from the search the home screen runs
  * for its Recent column. The same keys, so a pane that asks shares the answer.
  */
 export function useRecentNotes(archive: boolean): { path: string; stamp: string }[] {
-  const today = readClock(new Date()).date;
-  const month = today.slice(0, 7);
-  const lastMonth = shiftDay(`${month}-01`, -1).slice(0, 7);
-
+  const [thisKey, priorKey] = recentKeys(archive, readClock(new Date()).date);
   const thisMonth = useQuery({
-    queryKey: ["search", `${STAMP}${month}`, archive],
-    queryFn: () => searchNotes(`${STAMP}${month}`, archive),
+    queryKey: thisKey,
+    queryFn: () => searchNotes(thisKey[1], archive),
   });
   const priorMonth = useQuery({
-    queryKey: ["search", `${STAMP}${lastMonth}`, archive],
-    queryFn: () => searchNotes(`${STAMP}${lastMonth}`, archive),
+    queryKey: priorKey,
+    queryFn: () => searchNotes(priorKey[1], archive),
   });
   return recentOf([...(thisMonth.data ?? []), ...(priorMonth.data ?? [])]);
 }

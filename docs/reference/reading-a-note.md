@@ -203,3 +203,9 @@ A column with nothing in it says so in one line: "Nothing for today.",
 "Nothing written lately." or "Nothing due." A column whose read fails shows its
 line and no error, but for the review's daily limits: when those cannot be read,
 Due says the cards could not be counted, in a row that opens the review.
+
+Until every read the page draws from has answered, or failed once, the page
+shows "Loading today…" under the date and nothing more, and the pane's editor
+below stays unseen and takes no tap. Then all of it draws at once, so no answer
+that lands later moves a card or the editor under a finger. Once drawn, the
+page never goes back to waiting.
