@@ -97,9 +97,11 @@ export function addTodo(queryClient: QueryClient, todo: NewTodo): Promise<TodoRo
     throw new Error(
       reason(error as { detail?: unknown }) ?? `POST /api/todos failed with ${response.status}`,
     );
-  }).then((rows) => {
+  }).then(async (rows) => {
     const row = rows[0];
     if (row === undefined) throw new Error("the store answered no todo");
+    // `absorb` only replaces listed rows, and the caller opens the new one from the listing.
+    await queryClient.refetchQueries({ queryKey: ["todos"] });
     return row;
   });
 }

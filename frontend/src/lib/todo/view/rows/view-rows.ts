@@ -14,6 +14,8 @@ import {
   dayOf,
   LAST_AHEAD,
   plannedOf,
+  type WeekDay,
+  weekStrip,
 } from "@/lib/todo/view/rows/upcoming";
 
 export type Tab = "today" | "upcoming" | "inbox" | "all";
@@ -227,4 +229,11 @@ function projectGroups(kept: TodoRow[], children: Map<string, TodoRow[]>): Group
 export function countOf(rows: TodoRow[], tab: Tab, today: string): number {
   const byId = new Map(rows.map((row) => [row.id, row]));
   return rows.filter((row) => listed(tab, row, today, byId)).length;
+}
+
+/** The week strip over the rows Upcoming lists, so a day's count matches its group below. */
+export function upcomingWeek(rows: TodoRow[], today: string): WeekDay[] {
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  const kept = rows.filter((row) => listed("upcoming", row, today, byId));
+  return weekStrip(kept, byId, today);
 }

@@ -124,6 +124,21 @@ describe("the todo view", () => {
     ]);
   });
 
+  it("reads the list again after a stale version and sends the change once more", async () => {
+    renderView();
+    fireEvent.click(await screen.findByText("write the parser tests"));
+    store = store.map((each) => (each.id === "kt-000001" ? { ...each, version: 7 } : each));
+    api.patchTodo.mockRejectedValueOnce(new Error("that todo changed since it was read"));
+    fireEvent.change(screen.getByRole("combobox", { name: "Priority" }), {
+      target: { value: "high" },
+    });
+    await act(() => vi.advanceTimersByTimeAsync(50));
+    expect(api.patchTodo.mock.calls.map(([, change]) => change)).toEqual([
+      { priority: "high", version: 3 },
+      { priority: "high", version: 7 },
+    ]);
+  });
+
   it("ticks the cursor's todo on x and adds a new one from its words on a", async () => {
     renderView();
     const pane = await screen.findByRole("region", { name: "Todos" });
@@ -224,5 +239,37 @@ describe("the todo view", () => {
       description: "[[02 Projects/Kasten/index]]",
       version: 1,
     });
+  });
+
+  it("opens the todo Enter added, once the list holds it", async () => {
+    renderView();
+    const pane = await screen.findByRole("region", { name: "Todos" });
+    await screen.findByText("write the parser tests");
+    post.mockImplementationOnce(async () => {
+      store = [...store, row("kt-000003", "call the landlord")];
+      const slow = hits(store);
+      api.fetchTodos.mockImplementationOnce(
+        () => new Promise((done) => setTimeout(done, 300, slow)),
+      );
+      return { data: row("kt-000003", "call the landlord"), response: new Response() };
+    });
+    fireEvent.keyDown(pane, { key: "a" });
+    const words = screen.getByRole("textbox", { name: "Words" });
+    fireEvent.change(words, { target: { value: "call the landlord" } });
+    fireEvent.keyDown(words, { key: "Enter" });
+    await act(() => vi.advanceTimersByTimeAsync(50));
+    // Until the slow refetch lands, the new todo's panel stays rather than vanishing.
+    expect(screen.getByRole("textbox", { name: "Words" })).toBeInTheDocument();
+    await act(() => vi.advanceTimersByTimeAsync(400));
+    expect(screen.getByRole("textbox", { name: "Words" })).toHaveValue("call the landlord");
+    expect(screen.getByRole("textbox", { name: "Description" })).toBeInTheDocument();
+  });
+
+  it("leaves Enter on a focused button to the button", async () => {
+    renderView();
+    fireEvent.click(await screen.findByText("write the parser tests"));
+    const close = screen.getByRole("button", { name: "Close" });
+    expect(fireEvent.keyDown(close, { key: "Enter" })).toBe(true);
+    expect(fireEvent.keyDown(close, { key: " " })).toBe(true);
   });
 });
