@@ -253,7 +253,8 @@ for (const vim of ["on", "off"]) {
           for (let i = 0; i < 5; i++) await page.keyboard.press("ArrowRight");
         }
         await expect(lineOf(page, source)).toHaveText(shown[n] || source);
-        expect(await drawn(page)).toContain("<R:depends-on::> <L:borges>");
+        // A poll: on a slow runner the first parse may not have reached the relation's line yet (#2309).
+        await expect.poll(() => drawn(page)).toContain("<R:depends-on::> <L:borges>");
       }
     });
 

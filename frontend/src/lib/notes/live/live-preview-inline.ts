@@ -98,6 +98,7 @@ export function drawRuby(walk: Walk, from: number, line: Line, revealed: boolean
 /**
  * A task's box parses as a link, which the bullet's symbol must match on a revealed line.
  * Told apart by the `(` mark rather than the URL: `[a]()` is a link to nowhere (#441).
+ * A cursor rests on the hidden `](url)` or `][label]`, and the link then shows its source (#2306).
  */
 export function drawLink(walk: Walk, node: SyntaxNode, line: Line, revealed: boolean): void {
   const { state, decorations } = walk;
@@ -123,8 +124,10 @@ export function drawLink(walk: Walk, node: SyntaxNode, line: Line, revealed: boo
     decorations.push(Decoration.mark({ class: "cm-link" }).range(open.to, close.from));
   }
   if (revealed) return;
+  const address = node.to > close.to;
+  if (address && isCursorOn(state, close.from, node.to)) return;
   walk.hide(open.from, open.to);
-  walk.hide(close.from, node.to);
+  walk.hide(close.from, node.to, address ? NAME : HIDDEN);
 }
 
 /**
