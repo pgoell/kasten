@@ -89,7 +89,8 @@ export function TodoView(props: TodoViewProps) {
   const panelOpen = panel?.kind === "new" || shown !== undefined;
 
   useEffect(() => {
-    if (props.focusSignal) pane.current?.focus();
+    // The board's own pane takes the focus first; pulling it up to the view would orphan its keys.
+    if (props.focusSignal && !pane.current?.contains(document.activeElement)) pane.current?.focus();
   }, [props.focusSignal, pane]);
 
   const openTodo = (id: string) => {
