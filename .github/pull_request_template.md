@@ -2,9 +2,18 @@
 
 Closes #
 
+## Decisions
+
+<!-- What the change decided that the issue did not: a default, a name, a
+trade, a case left out. "None" when it decided nothing. -->
+
 ## Testing
 
-<!-- The tests or scripted runs that prove each change. Name them. -->
+<!-- The tests or scripted runs that prove each change. Name them. Then the
+command you ran (the verify skill's run.sh for a change in behaviour) and the
+last lines of its output. -->
+
+Not checked: <!-- what no test or run here covers, and why -->
 
 ## Risk
 
