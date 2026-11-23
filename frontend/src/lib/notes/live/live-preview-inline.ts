@@ -4,7 +4,7 @@ import type { SyntaxNode } from "@lezer/common";
 import { linkAddress, unescaped } from "@/lib/markdown/link-reference";
 import { readRelation } from "@/lib/notes/links/relation";
 import { splitTarget, vaultPaths, wikiLinkLands } from "@/lib/notes/links/wikilink";
-import { HIDDEN, type Walk } from "@/lib/notes/live/live-preview-hidden";
+import { HIDDEN, isCursorOn, NAME, type Walk } from "@/lib/notes/live/live-preview-hidden";
 import { parseTodo } from "@/lib/todo/todo";
 
 /**
@@ -143,6 +143,28 @@ export function markRelation(walk: Walk, from: number, line: Line): void {
   }
 }
 
+/**
+ * Draws a wikilink as the part of its name in `[shown, end)`, unless a cursor rests on the text it hides.
+ * That text holds the name, so a vim motion may land there, and the link then shows its source (#1973).
+ */
+function drawShort(
+  walk: Walk,
+  className: string,
+  open: { from: number; to: number },
+  close: { from: number; to: number },
+  shown: number,
+  end: number,
+): void {
+  const { state, decorations } = walk;
+  if (isCursorOn(state, open.from, shown) || isCursorOn(state, end, close.to)) {
+    decorations.push(Decoration.mark({ class: className }).range(open.to, close.from));
+    return;
+  }
+  decorations.push(Decoration.mark({ class: className }).range(shown, end));
+  walk.hide(open.from, shown, NAME);
+  walk.hide(end, close.to, NAME);
+}
+
 /** Classes what the marks enclose; true when an alias drew it and hid the marks already. */
 function drawContent(
   walk: Walk,
@@ -166,10 +188,7 @@ function drawContent(
   // the alias still finds the link around it.
   const alias = node.name === "WikiLink" ? splitTarget(target).alias : null;
   if (alias !== null && !revealed) {
-    const shown = open.to + target.indexOf("|") + 1;
-    decorations.push(Decoration.mark({ class: className }).range(shown, close.from));
-    walk.hide(open.from, shown);
-    walk.hide(close.from, close.to);
+    drawShort(walk, className, open, close, open.to + target.indexOf("|") + 1, close.from);
     return true;
   }
   // `[[folder/note]]` reads as its last part, as the tree names it; the cursor shows the path.
@@ -181,10 +200,7 @@ function drawContent(
   const short = slash !== -1 || end < close.from;
   // A link with no name to draw, `[[|]]` or `[[/]]`, keeps its source rather than drawing as nothing.
   if (node.name === "WikiLink" && short && named.slice(slash + 1).trim() !== "" && !revealed) {
-    const shown = open.to + slash + 1;
-    decorations.push(Decoration.mark({ class: className }).range(shown, end));
-    walk.hide(open.from, shown);
-    walk.hide(end, close.to);
+    drawShort(walk, className, open, close, open.to + slash + 1, end);
     return true;
   }
   decorations.push(Decoration.mark({ class: className }).range(open.to, close.from));
