@@ -1,6 +1,7 @@
 import { isolateHistory } from "@codemirror/commands";
 import { ensureSyntaxTree } from "@codemirror/language";
 import {
+  type ChangeDesc,
   type ChangeSpec,
   EditorState,
   type Extension,
@@ -40,6 +41,15 @@ interface Mark {
   id: number;
   at: number;
   before: string;
+}
+
+/**
+ * Where a mark lands after `changes`: the start of its line. Text put in on the mark goes above
+ * the table, as the frontmatter a note's first save stamps on top does (#2288).
+ */
+function follow(changes: ChangeDesc, at: number, doc: Text): number | null {
+  const to = changes.mapPos(at, 1, MapMode.TrackDel);
+  return to === null ? null : doc.lineAt(to).from;
 }
 
 /** The text of a table's lines, as the document holds them. */
@@ -142,7 +152,7 @@ const edited = StateField.define<Mark[]>({
     let next: Mark[] = [];
     for (const mark of marks) {
       if (lost.has(mark.id) || forgotten.has(mark.id)) continue;
-      const at = tr.changes.mapPos(mark.at, -1, MapMode.TrackDel);
+      const at = follow(tr.changes, mark.at, tr.newDoc);
       if (at !== null) next.push({ id: mark.id, at, before: mark.before });
     }
     if (!isTyping(tr)) return next;
@@ -257,7 +267,7 @@ function leave(
   changes: ChangeSpec[],
 ): StateEffect<{ id: number; at: number }> | null {
   const doc = tr.newDoc;
-  const at = tr.changes.mapPos(mark.at, -1, MapMode.TrackDel);
+  const at = follow(tr.changes, mark.at, doc);
   if (at === null) return null;
   // No table on the mark's line any more, so the table is gone and so is the mark.
   const opened = tableAt(tr.startState.doc, tr.startState.doc.lineAt(mark.at).number);
