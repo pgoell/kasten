@@ -1,16 +1,7 @@
-import type { Page } from "@playwright/test";
-import { bodyOf, caretLine, noteText, openApp, phone, vaultWith } from "../../../harness/app.ts";
+import { bodyOf, caretLine, noteText, phone, vaultWith } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
 import { beside, layout, load, seed } from "../../panes/workspace/stored.ts";
-import { LINED, onDisk, RAGGED, rowEnd, TYPED_C, typeInLast, type Vim } from "./table.ts";
-
-const SAVE: Record<Vim, (page: Page) => Promise<void>> = {
-  off: (page) => page.keyboard.press("Control+s"),
-  on: async (page) => {
-    await page.keyboard.type(":w");
-    await page.keyboard.press("Enter");
-  },
-};
+import { LINED, onDisk, RAGGED, rowEnd, SAVE, stamped, TYPED_C, typeInLast } from "./table.ts";
 
 /** The trimmed cells of one row, split on the walls a backslash does not escape. */
 const cellsOf = (line: string) =>
@@ -260,21 +251,31 @@ test("a row with fewer or more cells than the head keeps every cell through the 
 test.describe("on a phone", () => {
   test.use(phone);
 
-  test("a table typed into after a tap is lined up when the cursor leaves it", async ({
-    page,
-    stack,
-  }) => {
-    await vaultWith(stack.vault, { "Table.md": RAGGED });
-    await page.goto("/?note=Table.md");
-    await page.locator(".cm-content:visible").getByText("after", { exact: true }).tap();
-    await expect(caretLine(page)).toHaveText("after");
-    // Arrows from below a drawn table enter it at its head, so go round by the top.
-    await page.keyboard.press("Control+Home");
-    for (let step = 0; step < 2; step++) await page.keyboard.press("ArrowDown");
-    await page.keyboard.press("End");
-    await typeInLast(page, "c", "off");
-    // By key: a tap out of the table leaves it ragged (#2288).
-    await page.keyboard.press("Control+End");
-    await onDisk(stack.vault, LINED);
-  });
+  for (const vim of ["off", "on"] as const) {
+    test(`a table typed into with vim ${vim} is lined up when a tap leaves it (#2288)`, async ({
+      page,
+      stack,
+    }) => {
+      await page.addInitScript((mode) => localStorage.setItem("kasten.vim", mode), vim);
+      await vaultWith(stack.vault, { "Table.md": RAGGED });
+      await page.goto("/?note=Table.md");
+      const after = page.locator(".cm-content:visible").getByText("after", { exact: true });
+      await after.tap();
+      await expect(caretLine(page)).toHaveText("after");
+      if (vim === "on") {
+        await page.keyboard.type("3G$");
+      } else {
+        // Arrows from below a drawn table enter it at its head, so go round by the top.
+        await page.keyboard.press("Control+Home");
+        for (let step = 0; step < 2; step++) await page.keyboard.press("ArrowDown");
+        await page.keyboard.press("End");
+      }
+      await typeInLast(page, "c", vim);
+      // A finger is slower than the first save, whose frontmatter lands on top of the table.
+      await stamped(page);
+      await after.tap();
+      await expect(caretLine(page)).toHaveText("after");
+      await onDisk(stack.vault, LINED);
+    });
+  }
 });

@@ -38,6 +38,19 @@ export async function typeInLast(page: Page, text: string, vim: Vim) {
   await page.keyboard.type(text);
 }
 
+/** Saves the note by vim's way or the plain one. */
+export const SAVE: Record<Vim, (page: Page) => Promise<void>> = {
+  off: (page) => page.keyboard.press("Control+s"),
+  on: async (page) => {
+    await page.keyboard.type(":w");
+    await page.keyboard.press("Enter");
+  },
+};
+
+/** Waits for the first save's frontmatter to reach the editor, when the head names the note's type. */
+export const stamped = (page: Page) =>
+  expect(page.locator('[data-head="meta"]:visible')).toContainText("Note", { timeout: 15_000 });
+
 /** Polls the note below its frontmatter until it reads `text`. */
 export const onDisk = (vault: string, text: string) =>
   expect
