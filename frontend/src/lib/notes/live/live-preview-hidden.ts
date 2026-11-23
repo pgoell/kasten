@@ -40,10 +40,6 @@ export function isNodeRevealed(state: EditorState, from: number, to: number): bo
   return state.selection.ranges.some((range) => range.from <= to && range.to >= from);
 }
 
-/**
- * Whether a block the cursor is inside shows its source, in any mode.
- * Not mode alone: `j` and `k` step over a whole widget, so insert mode would leave a table nothing could open.
- */
 /** Whether a cursor rests on `[from, to)`, which a read-only preview never has. */
 export function isCursorOn(state: EditorState, from: number, to: number): boolean {
   return (
@@ -52,6 +48,10 @@ export function isCursorOn(state: EditorState, from: number, to: number): boolea
   );
 }
 
+/**
+ * Whether a block the cursor is inside shows its source, in any mode.
+ * Not mode alone: `j` and `k` step over a whole widget, so insert mode would leave a table nothing could open.
+ */
 export function isBlockRevealed(state: EditorState, from: number, to: number): boolean {
   return (
     !state.readOnly && state.selection.ranges.some((range) => range.from <= to && range.to >= from)
