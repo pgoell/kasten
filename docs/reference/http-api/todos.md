@@ -46,7 +46,8 @@ and records each row before and after under `by: browser`. An unknown id
 answers `404`.
 
 A row carries `id`, `words` (tags where typed), `description` (free text under
-the words, whose `[[links]]` are the notes the todo links to), `state`, `tags`, `note`,
+the words; the todo view reads its `[[links]]` as the notes the todo links to, and
+renaming a note does not rewrite them), `state`, `tags`, `note`,
 `shared_list`, `project`, `parent_id`, `position`, `round_of`, `epic`,
 `epic_id`, `blocked_by`, `repeat`, `on_completion`, `priority`, `planned`,
 `hold_until`, `due`, `due_hard`,

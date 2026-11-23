@@ -89,8 +89,13 @@ async def test_a_description_is_kept_apart_from_the_words(client: AsyncClient) -
         f"/api/todos/{row['id']}", json={"version": 1, "description": "#later"}
     )
 
+    cleared = await client.patch(
+        f"/api/todos/{row['id']}", json={"version": 2, "description": None}
+    )
+
     assert (row["description"], row["tags"]) == ("start with [[The line reader]]", [])
     assert (changed.json()[0]["description"], changed.json()[0]["tags"]) == ("#later", [])
+    assert cleared.json()[0]["description"] is None
 
 
 async def test_clearing_a_deadline_gives_a_soft_one_again(client: AsyncClient) -> None:
