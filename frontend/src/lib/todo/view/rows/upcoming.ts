@@ -54,7 +54,7 @@ export interface WeekDay {
   day: string;
   count: number;
   minutes: number;
-  /** A hard due date falls on it. */
+  /** A todo filed on it is hard due on it, the rule its group's heading counts by. */
   deadline: boolean;
   /** How full the day is, 0 to 1. */
   load: number;
@@ -66,7 +66,7 @@ export function weekStrip(listed: TodoRow[], byId: Map<string, TodoRow>, today: 
     const day = shiftDay(today, at + 1);
     const on = listed.filter((row) => dayOf(row, byId) === day);
     const minutes = on.reduce((sum, row) => sum + (row.estimate ?? 0), 0);
-    const deadline = listed.some((row) => row.due_hard && row.due === day);
+    const deadline = on.some((row) => row.due_hard && row.due === day);
     const load = Math.min(1, Math.max(minutes / FULL_DAY_MINUTES, on.length * 0.06));
     return { day, count: on.length, minutes, deadline, load };
   });

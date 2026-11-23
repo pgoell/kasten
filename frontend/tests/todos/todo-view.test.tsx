@@ -190,6 +190,17 @@ describe("the todo view", () => {
     });
   });
 
+  it("opens no popover for a cursor whose row is not drawn", async () => {
+    renderView();
+    const pane = await screen.findByRole("region", { name: "Todos" });
+    await screen.findByText("write the parser tests");
+    fireEvent.keyDown(pane, { key: "j" });
+    fireEvent.click(screen.getByRole("button", { name: "Upcoming" }));
+    fireEvent.keyDown(pane, { key: "s" });
+    fireEvent.keyDown(pane, { key: "d" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
   it("sets a hard due date from the panel's Due field, on the popover's Due tab", async () => {
     renderView();
     fireEvent.click(await screen.findByText("file the report"));

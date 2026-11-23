@@ -148,7 +148,11 @@ export function TodoView(props: TodoViewProps) {
       add: () => newIn(),
       filter: () => filter.current?.focus(),
       goToNote: () => atCursor?.note && props.onOpen(atCursor.note),
-      pick: (kind) => atCursor && setPop({ kind, id: atCursor.id }),
+      // Only on a row drawn now: a popover with no row to sit by would take keys unseen.
+      pick: (kind) =>
+        atCursor &&
+        pane.current?.querySelector(`[data-todo="${atCursor.id}"]`) &&
+        setPop({ kind, id: atCursor.id }),
       close() {
         if (panel === null) return false;
         close();

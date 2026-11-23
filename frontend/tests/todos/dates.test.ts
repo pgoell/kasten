@@ -14,6 +14,8 @@ const ROWS = [
   row("kt-000007", "done already", { planned: "2026-11-24", state: "done" }),
   // A soft due date is the store's fallback, not a day the todo was given.
   row("kt-000008", "undated", { due: "2026-11-25" }),
+  // Planned on one day and hard due on another: counted where it is filed, flagged on neither.
+  row("kt-000011", "split day", { planned: "2026-11-23", due: "2026-11-25", due_hard: true }),
   // Held past its planned day, so Upcoming leaves it out, strip included.
   row("kt-000010", "held", {
     planned: "2026-11-24",
@@ -35,7 +37,7 @@ describe("the Upcoming tab", () => {
         group.deadlines,
       ]),
     ).toEqual([
-      ["Tomorrow", "Mon 23 Nov", 2, 120, 0],
+      ["Tomorrow", "Mon 23 Nov", 3, 120, 0],
       ["Friday", "Fri 27 Nov", 2, 0, 1],
       ["The week after", "30 Nov to 6 Dec", 1, 0, 0],
     ]);
@@ -57,9 +59,10 @@ describe("the Upcoming tab", () => {
       "2026-11-28",
       "2026-11-29",
     ]);
-    expect(week[0]).toMatchObject({ count: 2, minutes: 120, deadline: false });
+    expect(week[0]).toMatchObject({ count: 3, minutes: 120, deadline: false });
     expect(week[0]?.load).toBeCloseTo(120 / 360);
     expect(week[1]).toMatchObject({ count: 0, load: 0, deadline: false });
+    expect(week[2]).toMatchObject({ count: 0, deadline: false });
     expect(week[4]).toMatchObject({ count: 2, deadline: true });
   });
 
