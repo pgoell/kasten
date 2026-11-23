@@ -25,13 +25,14 @@ export async function leader(page: Page, keys: string): Promise<void> {
  * The todo view's Board tab and `c`: the list the todo journeys were written against, which the
  * Board tab keeps beside the board. Nothing where the Board tab is already open.
  */
+/** The old todo list: under Board it is a region called Todos inside the todo view's own. */
+export const todoList = (page: Page) => page.getByRole("region", { name: "Todos" }).last();
+
 export async function toTodoList(page: Page): Promise<void> {
   const tab = page.getByRole("button", { name: "Board", exact: true });
   if ((await tab.getAttribute("aria-pressed")) === "true") return;
   await tab.click();
-  await expect(
-    page.locator("section[aria-label='Todos'] section[aria-label='Todos']"),
-  ).toBeFocused();
+  await expect(todoList(page)).toBeFocused();
   await page.keyboard.press("c");
 }
 

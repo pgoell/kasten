@@ -10,6 +10,7 @@ import {
   readAll,
   runCommand,
   TODO_ROW,
+  todoList,
   todoRows,
   toTodoList,
   vaultWith,
@@ -23,8 +24,7 @@ const LINES = [
   "- [ ] buy milk #home",
 ];
 const note = (lines: string[]) => `# Keys\n\n${lines.join("\n")}\n`;
-// The old list sits inside the todo view under Board; both are regions called Todos.
-const region = (page: Page) => page.getByRole("region", { name: "Todos" }).last();
+const region = todoList;
 const row = (page: Page, words: string) => page.locator(TODO_ROW, { hasText: words });
 const cursorRow = (page: Page) => page.locator(`${TODO_ROW}[tabindex="0"]`);
 const filter = (page: Page) => page.getByLabel("filter todos");

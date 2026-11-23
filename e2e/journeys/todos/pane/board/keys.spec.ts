@@ -8,6 +8,7 @@ import {
   plus,
   runCommand,
   today,
+  todoList,
   toTodoList,
   vaultWith,
   watchDrop,
@@ -37,8 +38,7 @@ const cursor = (page: Page) => page.locator('[data-card][tabindex="0"]');
 const shown = (page: Page) => page.locator("[data-card]:visible");
 const picker = (page: Page) => page.getByTestId("todo-project-pick");
 const filter = (page: Page) => page.getByLabel("filter todos");
-// The old list sits inside the todo view under Board; both are regions called Todos.
-const region = (page: Page) => page.getByRole("region", { name: "Todos" }).last();
+const region = todoList;
 type Stack = { url: string; vault: string };
 /** The todo as `GET /api/todos` renders it from its row, its id and created stamp on it. */
 const lineOf = async (url: string, words: string): Promise<string | undefined> => {
