@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { TodoView } from "@/components/todo/view/todo-view";
 import type { TodoHit, TodoRow } from "@/lib/core/api";
 import { stubCommands } from "../stub-commands";
@@ -40,20 +41,23 @@ const hits = (rows: TodoRow[]): TodoHit[] =>
     todo: each,
   }));
 
-function renderView() {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
+function viewOf(client: QueryClient, focusSignal = 0, board: ReactNode = null) {
+  return (
     <QueryClientProvider client={client}>
       <TodoView
         commands={stubCommands()}
         onOpen={vi.fn()}
         onNotice={vi.fn()}
-        focusSignal={0}
+        focusSignal={focusSignal}
         today={TODAY}
-        board={null}
+        board={board}
       />
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
+}
+
+function renderView() {
+  return render(viewOf(new QueryClient({ defaultOptions: { queries: { retry: false } } })));
 }
 
 /** The store as the fakes keep it, so a refetch after a write reads the write. */
@@ -80,6 +84,16 @@ afterEach(() => {
 });
 
 describe("the todo view", () => {
+  it("leaves the focus where it is when the pane gains it inside the view", async () => {
+    const client = new QueryClient();
+    const card = <button type="button">card</button>;
+    const view = render(viewOf(client, 0, card));
+    fireEvent.click(await screen.findByRole("button", { name: "Board" }));
+    screen.getByRole("button", { name: "card" }).focus();
+    view.rerender(viewOf(client, 1, card));
+    expect(screen.getByRole("button", { name: "card" })).toHaveFocus();
+  });
+
   it("groups today's todos by state", async () => {
     renderView();
     expect(await screen.findByRole("region", { name: "Doing" })).toHaveTextContent(
