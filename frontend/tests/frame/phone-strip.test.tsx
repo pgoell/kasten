@@ -11,6 +11,7 @@ import { cdp } from "vitest/browser";
 import { noteName } from "@/lib/notes/links/note-path";
 import { openInFocused } from "@/lib/panes/layout/pane-contents";
 import { addTab, emptyLayout, goToTab, type Layout } from "@/lib/panes/layout/panes";
+import { tapBox } from "../match-media";
 import {
   DESKTOP,
   leader,
@@ -176,7 +177,7 @@ describe("#793 the phone strip", () => {
     const mounted = await mountTabs(TOUCH, "light", twoTabs());
     try {
       const { host } = mounted;
-      const plus = newNoteOf(host).getBoundingClientRect();
+      const plus = tapBox(newNoteOf(host));
 
       expect(plus.width).toBeGreaterThanOrEqual(44);
       expect(plus.height).toBeGreaterThanOrEqual(44);

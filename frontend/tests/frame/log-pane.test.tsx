@@ -17,7 +17,7 @@ import { shiftDay } from "@/lib/core/clock";
 import type { LogDay } from "@/lib/log/food-api";
 import { periodicNote } from "@/lib/notes/text/periodic";
 import { routeTree } from "@/routeTree.gen";
-import { COARSE, NARROW, stubMatchMedia } from "../match-media";
+import { COARSE, NARROW, stubMatchMedia, tapBox } from "../match-media";
 import { shot } from "./shots";
 import "@/styles/app.css";
 
@@ -226,7 +226,7 @@ function savedToday(): string | undefined {
 function smallButtons(): string[] {
   return [...(pane()?.querySelectorAll<HTMLElement>("button") ?? [])]
     .filter((one) => one.getClientRects().length > 0)
-    .map((one) => ({ one, box: one.getBoundingClientRect() }))
+    .map((one) => ({ one, box: tapBox(one) }))
     .filter(({ box }) => box.height < 44 || box.width < 44)
     .map(({ one, box }) => `${one.textContent} ${Math.round(box.width)}x${Math.round(box.height)}`);
 }

@@ -7,6 +7,7 @@
  * dump it sends lands in the stubbed API the html take tests read too.
  */
 
+import { tapBox } from "../match-media";
 import "./pdf-take-api";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook } from "@testing-library/react";
@@ -157,9 +158,8 @@ describe("the pdf pane takes a passage from its text layer", () => {
     const button = await buttonOver();
 
     const words = range.getBoundingClientRect();
-    const box = button.getBoundingClientRect();
-    expect(box.top).toBeGreaterThanOrEqual(words.bottom);
-    expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(button.getBoundingClientRect().top).toBeGreaterThanOrEqual(words.bottom);
+    expect(tapBox(button).height).toBeGreaterThanOrEqual(44);
     expect(inside(button, paneOf(PATH))).toBe(true);
 
     await userEvent.click(button);

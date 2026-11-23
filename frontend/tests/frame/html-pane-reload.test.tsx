@@ -444,17 +444,18 @@ it("pageServed answers at once for a path no route serves", async () => {
 
 it("pageServed waits for a page's second answer when asked for two", async () => {
   await browser.servePage("twice.html", report("twice"));
-  await fetch("/api/html/twice.html");
-  await fetch("/api/html/twice.html");
+  // A 502 is the dev server's answer: the fetch went past the route (#2225).
+  expect((await fetch("/api/html/twice.html")).status).toBe(200);
+  expect((await fetch("/api/html/twice.html")).status).toBe(200);
   await expect(browser.pageServed("/api/html/twice.html", 2)).resolves.toBeUndefined();
 });
 
 // Served again, as `swap` does, the page counts its answers from none.
 it("pageServed names the path and the shortfall of a page answered fewer times than asked", async () => {
   await browser.servePage("once.html", report("before"));
-  await fetch("/api/html/once.html");
+  expect((await fetch("/api/html/once.html")).status).toBe(200);
   await browser.servePage("once.html", report("once"));
-  await fetch("/api/html/once.html");
+  expect((await fetch("/api/html/once.html")).status).toBe(200);
   await expect(browser.pageServed("/api/html/once.html", 2)).rejects.toThrow(
     "pageServed: /api/html/once.html was not answered within 10000 ms (answered 1 of 2 times)",
   );

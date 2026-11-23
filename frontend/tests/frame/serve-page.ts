@@ -46,7 +46,8 @@ function nextAnswer(answers: Answers) {
  * here rather than through the dev server, which proxies `/api` to a backend
  * these tests do not start.
  */
-async function routePage({ context }: BrowserCommandContext, pagePath: string, file: string) {
+async function routePage(command: BrowserCommandContext, pagePath: string, file: string) {
+  const { context } = command;
   const pathname = `/api/html/${encodeURI(pagePath)}`;
   const answers: Answers = { count: 0, next: Promise.resolve(), settle: () => {} };
   nextAnswer(answers);
@@ -89,6 +90,28 @@ async function routePage({ context }: BrowserCommandContext, pagePath: string, f
       settle();
     },
   );
+  await untilRouted(command);
+}
+
+/** A path only `untilRouted` asks for, so no page's answer count moves. */
+const LIVE = "/api/html/.kasten-route-live";
+
+/**
+ * Chromium turns interception on in the test's frame a moment after `context.route`
+ * resolves, so the first fetch after `unservePages` turned it off could reach the dev
+ * server and get its 502 (#2225). Asks until the route answers, so the test's first does.
+ */
+async function untilRouted({ context, frame }: BrowserCommandContext) {
+  await context.route(
+    (url) => url.pathname === LIVE,
+    (route) => route.fulfill({ status: 204 }),
+  );
+  const test = await frame();
+  for (let tries = 1; tries <= 50; tries += 1) {
+    const status = await test.evaluate((live) => fetch(live).then((answer) => answer.status), LIVE);
+    if (status === 204) return;
+  }
+  throw new Error(`servePage: the route was not live in the test's frame after 50 tries`);
 }
 
 /** Under the frame project's 15 s test timeout, so a page never asked for fails with its path named. */

@@ -4,6 +4,7 @@ import type {} from "@vitest/browser-playwright";
 import { cdp, commands, page } from "vitest/browser";
 import { ListsApp } from "@/lists/lists-app";
 import { fakeShare, type Seed } from "../lists-fixture";
+import { tapBox } from "../match-media";
 
 const SEED: Record<string, Seed[]> = {
   Einkauf: [
@@ -100,7 +101,7 @@ describe("the lists app in a browser, by touch, keys and mouse", () => {
     );
     expect(targets.length).toBeGreaterThan(0);
     for (const target of targets) {
-      expect(target.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+      expect(tapBox(target).height).toBeGreaterThanOrEqual(44);
     }
     expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(
       document.documentElement.clientWidth,

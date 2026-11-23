@@ -10,7 +10,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { commands, page, userEvent } from "vitest/browser";
 import { routeTree } from "@/routeTree.gen";
-import { COARSE, NARROW, stubMatchMedia } from "../match-media";
+import { COARSE, NARROW, stubMatchMedia, tapBox } from "../match-media";
 import "@/styles/app.css";
 
 const REDUCED = "(prefers-reduced-motion: reduce)";
@@ -173,7 +173,7 @@ it("#806 A9 at 390x844 by touch the cards stand in one column, nothing scrolls s
 it("#806 I7 every card's button is at least 44 px tall on touch", async () => {
   await openPhone();
 
-  const heights = buttons().map((button) => button.getBoundingClientRect().height);
+  const heights = buttons().map((button) => tapBox(button).height);
   expect(heights).toHaveLength(9);
   for (const height of heights) expect(height).toBeGreaterThanOrEqual(44);
 });

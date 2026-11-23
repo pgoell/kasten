@@ -18,6 +18,7 @@ import { HtmlPane } from "@/components/html-pane";
 import { KeyHelp } from "@/components/key-help";
 import { Toolbar } from "@/components/toolbar";
 import { WhichKey } from "@/components/which-key";
+import { tapBox } from "../match-media";
 import "@/styles/app.css";
 import { stubCommands } from "../stub-commands";
 
@@ -327,5 +328,5 @@ it("at 390x844 with touch, the page's links are 44 px tall", async () => {
   expect(panelOf()).toBeNull();
   const link = host.querySelector("[data-html-pane] a");
   expect(link).not.toBeNull();
-  expect((link as HTMLElement).getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+  expect(tapBox(link).height).toBeGreaterThanOrEqual(44);
 });

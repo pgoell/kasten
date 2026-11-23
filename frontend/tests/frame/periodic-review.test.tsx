@@ -7,6 +7,7 @@
  */
 
 import { userEvent } from "vitest/browser";
+import { tapBox } from "../match-media";
 import {
   answerModelUse,
   cursorLine,
@@ -136,7 +137,7 @@ it("#807 I7 at 390x844 by touch every row of the week review is 44 px tall and a
     const rows = [...host.querySelectorAll<HTMLElement>(".review-row")];
     expect(rows.length, "the done and carried over rows").toBeGreaterThanOrEqual(3);
     for (const row of rows) {
-      expect(row.getBoundingClientRect().height, row.textContent ?? "").toBeGreaterThanOrEqual(44);
+      expect(tapBox(row).height, row.textContent ?? "").toBeGreaterThanOrEqual(44);
     }
 
     await tap(rowNamed(host, "ship the export"));

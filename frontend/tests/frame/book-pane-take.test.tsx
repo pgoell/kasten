@@ -5,6 +5,7 @@
  * touch, and two panes side by side.
  */
 
+import { tapBox } from "../match-media";
 import "./html-take-api";
 import { renderHook } from "@testing-library/react";
 import { commands as browser, page, userEvent } from "vitest/browser";
@@ -114,7 +115,7 @@ describe("the take out of a book pane", () => {
       expect(found).not.toBeNull();
       return found as HTMLElement;
     });
-    expect(button.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+    expect(tapBox(button).height).toBeGreaterThanOrEqual(44);
 
     await userEvent.click(button);
     await until(() => api.notes[NOTE]?.includes(PARA) ?? false, 5_000);

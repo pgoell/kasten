@@ -8,6 +8,7 @@
 import { commands, page } from "vitest/browser";
 import { DEFAULT_VIEWS } from "@/lib/todo/todo-view";
 import { applyTheme, PALETTE_KEY, PALETTES, THEME_KEY, type Theme } from "@/lib/ui/theme";
+import { tapBox } from "../match-media";
 import {
   FILES,
   HITS,
@@ -131,7 +132,7 @@ function overdueDate(host: Element, selector: string): string {
 function tooSmall(host: Element): string[] {
   return [...host.querySelectorAll<HTMLElement>("section[aria-label='Todos'] button")]
     .filter((button) => button.getClientRects().length > 0)
-    .map((button) => ({ button, height: button.getBoundingClientRect().height }))
+    .map((button) => ({ button, height: tapBox(button).height }))
     .filter(({ height }) => height < 44)
     .map(({ button, height }) => `${button.textContent?.trim() || button.ariaLabel}: ${height}`);
 }

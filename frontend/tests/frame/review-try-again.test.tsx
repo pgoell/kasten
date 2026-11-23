@@ -10,6 +10,7 @@
  */
 
 // The three faces `main.tsx` loads, so the pictures show the app's type.
+import { tapBox } from "../match-media";
 import "@fontsource-variable/newsreader/opsz.css";
 import "@fontsource-variable/instrument-sans/index.css";
 import "@fontsource-variable/jetbrains-mono/index.css";
@@ -93,9 +94,7 @@ function limitsDown() {
 it("#1163 I5 at phone width 414 Try again is a tap target at least 44 px high", async () => {
   const { host, root } = await mountAt(PHONE);
   try {
-    await expect
-      .poll(() => tryAgain(host)?.getBoundingClientRect().height ?? 0)
-      .toBeGreaterThanOrEqual(44);
+    await expect.poll(() => tapBox(tryAgain(host)).height).toBeGreaterThanOrEqual(44);
     if (SHOTS) await shot(host, "review-try-again-414");
   } finally {
     root.unmount();
@@ -107,9 +106,7 @@ it("#1167 I5 at phone width 414 the limits Try again is a tap target at least 44
   limitsDown();
   const { host, root } = await mountAt(PHONE);
   try {
-    await expect
-      .poll(() => tryAgain(host)?.getBoundingClientRect().height ?? 0)
-      .toBeGreaterThanOrEqual(44);
+    await expect.poll(() => tapBox(tryAgain(host)).height).toBeGreaterThanOrEqual(44);
     if (SHOTS) await shot(host, "review-limits-try-again-414");
   } finally {
     root.unmount();
