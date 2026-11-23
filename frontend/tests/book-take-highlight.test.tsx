@@ -150,6 +150,8 @@ describe("the take toast's list of recent notes", () => {
     searchNotes.mockReturnValue(new Promise(() => {}));
     // Not awaited: the reread never answers.
     act(() => void client.invalidateQueries());
+    await waitFor(() => expect(searchNotes).toHaveBeenCalledTimes(4));
+    await act(async () => {});
 
     expect({ asked: searchNotes.mock.calls.length, list: result.current }).toEqual({
       asked: 4,
