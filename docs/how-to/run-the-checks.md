@@ -48,40 +48,38 @@ package past it whose licence you have read and accept, add it to `ACCEPTED`
 in `.github/deps/new_dependencies.py` with the reason; that file is a code
 owner's path, so pgoell reviews the line.
 
-Every Monday the `Audit` workflow checks every package already locked, not
+Every Monday the `Audit` workflow checks every locked package, not
 only new ones, against the advisories: `uv audit` on `uv.lock`, `bun audit`
 on `frontend/bun.lock` and `e2e/bun.lock`. It fails on any known hole, and
 GitHub mails the failure to whoever last changed its cron. Run the same
-commands locally to see the list, or start it by hand from the Actions tab.
+commands locally for the list, or start it by hand from the Actions tab.
 On the same day Dependabot opens one pull request per ecosystem (uv, bun,
 docker) with the minor and patch bumps, and one of its own for each major
-bump, except postgres, whose major moves by hand with `pg_upgrade`. Each Action
+bump, but postgres, whose major moves by hand with `pg_upgrade`. Each Action
 bump comes as its own pull request.
 
 ## Run the end-to-end journeys
 
 `mise run e2e` builds the frontend and runs the Playwright journeys in `e2e/`
-against it. It needs Docker and Chromium. Each test gets
-its own vault, database and backend,
-dropped after. It stubs no API.
+against it, with Docker and Chromium. Each test gets its own vault,
+database and backend, dropped after. It stubs no API.
 
 The journeys sit in `e2e/journeys/`: review in `review/` (a sitting, a jotted question, a cloze card and undo in `sitting/`, the daily limits, the sitting's keys, vim on and off, unreadable deck notes, and the overview in `overview/`), panes in
 `panes/` (layout, the top bar, the pane and tab keys, pane moves while a write is held, links to pages and assets; a note changed on disk under
-unsaved text, `:e` and `:e!`, and a conflicted note reopened in `panes/conflict/`; the workspace over a reload, held text in a restored pane, a URL over it, the tree panel and keys in `tree/`, the leader keys and gf to a highlight's book in `panes/workspace/`; the drawer, phone toolbar, key help, AltGr, a resized window, sheets, the link margin and todo pane taps in `panes/narrow/`), notes, the finder, a tree row dragged, the new note prompt's folder rows and the bar's save sign in `notes/`, where a note opens and the vim setting in `notes/editor/`, with saving in `notes/saving/` (edits,
+unsaved text, `:e` and `:e!`, and a conflicted note reopened in `panes/conflict/`; the workspace over a reload, held text in a restored pane, a URL over it, the tree panel and keys in `tree/`, the leader keys and gf to a highlight's book in `panes/workspace/`; the drawer, phone toolbar, key help, AltGr, a resized window, sheets, the link margin and todo pane taps in `panes/narrow/`), notes, the finder, a tree row dragged, the new note prompt's folder rows and the bar's save sign in `notes/`, where a note opens, the vim setting and the table line-up in `notes/editor/`, with saving in `notes/saving/` (edits,
 mention links, held text, the editor's build and relation names, live preview and its lists and tables) and content search and an epub opened mid-listing in `notes/search/`, the todo list, board, presses,
 twin ids, a person's card and the shared lists in `todos/` (the panel, keys, taps, held order, edit line, strip, refile, `board/` and `rows/` in `todos/pane/`), capture, the web page import, chat replies, the log (the overview in `log/overview/`), the home screen, the tokens page in `day/`, finance in `day/finance/`, and the book finder, book, video and clip panes and csv and svg files in
 `media/`. `harness.spec.ts` checks the harness. Each journey is a
-daily task; a write checks the disk. 60 files
-run at 414 px with touch, vim off: in `review/`, `sitting/sitting`, `sitting/jot`, `sitting/undo`, `keys`, `overview/rows` and `overview/decks`; in `notes/`, `editor/vim`, `finder`,
+daily task; a write checks the disk. 62 files
+run at 414 px with touch, vim off: in `review/`, `sitting/sitting`, `sitting/jot`, `sitting/undo`, `keys`, `overview/rows` and `overview/decks`; in `notes/`, `editor/vim`, `editor/table-lineup`, `finder`,
 `status-bar`, `search/book-open-listing`, `search/content-search-*`, `saving/editor-build`, `saving/edits`,
 `saving/mentions` and `saving/live-preview-blocks`; in `panes/`, `links`, `workspace/reload`, `workspace/tree/edits`,
 `narrow/drawer`, `narrow/phone`, `narrow/key-help`, `narrow/resize` and `narrow/todo-pane`; in `todos/`, `list`,
-`board`, `pane/board/board`, `pane/order`, `pane/rows/*`, `pane/strip`, `twin-ids`, `person-card` and `lists`; in `day/`, `capture`, `chat`, `finance/drill`, `finance/plans`, `finance/tabs`, each `log/` spec but `pane/events`, and `today`; and in
+`board`, `pane/board/board`, `pane/order`, `pane/rows/*`, `pane/strip`, `twin-ids`, `person-card` and `lists/*`; in `day/`, `capture`, `chat`, `finance/drill`, `finance/plans`, `finance/tabs`, each `log/` spec but `pane/events`, and `today`; and in
 `media/`, `book`, `book-finder`, `clip`, `csv`, `svg`, `video/watching`, `video/full-screen`, `video/view`, `video/shield` and `video/close`.
 `git grep -l 'test.use(phone)' e2e/journeys` lists them.
-A runner has no YouTube: video journeys fake a player
-(`fakeYouTube` in `e2e/harness/youtube.ts`) and abort requests
-leaving the box.
+Video journeys fake YouTube, which a runner lacks (`fakeYouTube` in
+`e2e/harness/youtube.ts`), and abort requests leaving the box.
 The journeys block the service worker: Chromium crashed closing a context mid-install
 (#1606). `mise run fe:e2e` checks the offline worker.
 
@@ -97,8 +95,8 @@ To run one journey:
 cd e2e && mise exec -- bunx playwright test journeys/<file>
 ```
 
-A failure writes a trace and screenshot to `e2e/test-results/`. Open
-a trace from `e2e/` with `bunx playwright show-trace <zip>`.
+A failure writes a trace and screenshot to `e2e/test-results/`; open
+one from `e2e/` with `bunx playwright show-trace <zip>`.
 
 CI's E2E jobs run the journeys on every pull request, split in two by
 `E2E_SHARD=1/2` and `2/2`, each on 3 workers (4 locally). Set

@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import {
+  bodyOf,
   noteText,
   openApp,
   openFromTree,
@@ -10,6 +11,7 @@ import {
   vaultWith,
 } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
+import { LINED, onDisk, pad, RAGGED, rowEnd, TYPED_C } from "../editor/table.ts";
 
 const TYPED = "A line typed by the e2e test.";
 
@@ -40,10 +42,6 @@ test("an edit with vim off reaches the file on disk", async ({ page, stack }) =>
     .toContain(TYPED);
 });
 
-/** The note below its frontmatter, which each save restamps. */
-const body = (text: string) =>
-  text.startsWith("---\n") ? text.slice(text.indexOf("\n---\n") + 5) : text;
-
 test("u after an edit puts the old text back on disk", async ({ page, stack }) => {
   const before = await noteText(stack.vault, "Welcome.md");
   await openApp(page);
@@ -62,7 +60,7 @@ test("u after an edit puts the old text back on disk", async ({ page, stack }) =
     .poll(() => noteText(stack.vault, "Welcome.md"), { timeout: 15_000 })
     .not.toContain(TYPED);
   // Byte for byte, so the blank line `o` opened goes too (#1662).
-  expect(body(await noteText(stack.vault, "Welcome.md"))).toBe(body(before));
+  expect(bodyOf(await noteText(stack.vault, "Welcome.md"))).toBe(bodyOf(before));
 });
 
 // An emoji outside the BMP in the second row puts every cell after it one UTF-16 unit off in code points.
@@ -106,34 +104,6 @@ for (const vim of ["off", "on"] as const) {
     });
   });
 }
-
-// A ragged table as typed by hand, then with `c` typed after its `b`, then that lined up.
-const RAGGED = "| a | longer |\n| - | - |\n| xx | b |\n\nafter";
-const TYPED_C = RAGGED.replace("| xx | b |", "| xx | bc |");
-const LINED = "| a   | longer |\n| --- | ------ |\n| xx  | bc     |\n\nafter";
-
-/** Opens `Table.md` holding `text`, the cursor at the end of line `row` (from 0). */
-async function rowEnd(page: Page, vault: string, text: string, row: number, vim: "on" | "off") {
-  await page.addInitScript((mode) => localStorage.setItem("kasten.vim", mode), vim);
-  await vaultWith(vault, { "Table.md": text });
-  await openApp(page);
-  await openNote(page, "Table");
-  await page.locator(".cm-content").getByText("after", { exact: true }).click();
-  if (vim === "on") {
-    await page.keyboard.press("Escape");
-    await page.keyboard.type(`${row + 1}G$`);
-    return;
-  }
-  await page.keyboard.press("Control+Home");
-  for (let step = 0; step < row; step++) await page.keyboard.press("ArrowDown");
-  await page.keyboard.press("End");
-}
-
-/** Polls the note below its frontmatter until it reads `text`. */
-const onDisk = (vault: string, text: string) =>
-  expect
-    .poll(async () => body(await noteText(vault, "Table.md")), { timeout: 15_000 })
-    .toBe(text);
 
 test.describe("the table line-up takes only what the reader typed into (#792)", () => {
   test("Enter at the end of the last row, vim off, leaves the table as it is", async ({
@@ -207,10 +177,6 @@ test.describe("the table line-up takes only what the reader typed into (#792)", 
     await onDisk(stack.vault, lined);
   });
 });
-
-// Each cell padded to its column, as the line-up writes a table.
-const pad = (rows: string[][]) =>
-  rows.map((row) => `| ${row.map((cell, n) => cell.padEnd([3, 6, 3][n] ?? 3)).join(" | ")} |`);
 
 test.describe("the table line-up takes what a paste, a yank or a rebuilt table changes (#792)", () => {
   test("a row pasted under a table is lined up on save, vim off", async ({ page, stack }) => {
