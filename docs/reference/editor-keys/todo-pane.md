@@ -17,7 +17,7 @@ Upcoming, Inbox, All and Board, then a filter, the grouping and New.
 * **Today** lists what is on now: a todo planned for today or before, one due
   today or overdue, one being done or in review, and one waiting on somebody.
   A part counts with its parent's planned day.
-* **Upcoming** lists the todos planned, or else due, in the next fourteen days,
+* **Upcoming** lists the todos planned, or else hard due, in the next fourteen days,
   grouped by day: one group for each of the next seven days, then one for the
   week after. Above them a strip draws the seven days, each with how many todos
   it holds, their estimates added up, and a bar that fills at six hours; a flag

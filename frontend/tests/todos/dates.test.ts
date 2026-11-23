@@ -1,6 +1,6 @@
 import { changeFor, optionsFor } from "@/components/todo/view/pick/date-pick";
-import { dayHeading, weekStrip } from "@/lib/todo/view/rows/upcoming";
-import { groupsOf } from "@/lib/todo/view/rows/view-rows";
+import { dayHeading } from "@/lib/todo/view/rows/upcoming";
+import { groupsOf, upcomingWeek } from "@/lib/todo/view/rows/view-rows";
 import { row, TODAY } from "./rows";
 
 // TODAY is Sunday 22 Nov 2026.
@@ -14,6 +14,13 @@ const ROWS = [
   row("kt-000007", "done already", { planned: "2026-11-24", state: "done" }),
   // A soft due date is the store's fallback, not a day the todo was given.
   row("kt-000008", "undated", { due: "2026-11-25" }),
+  // Held past its planned day, so Upcoming leaves it out, strip included.
+  row("kt-000010", "held", {
+    planned: "2026-11-24",
+    hold_until: "2026-11-25",
+    due: "2026-11-24",
+    due_hard: true,
+  }),
 ];
 
 describe("the Upcoming tab", () => {
@@ -40,7 +47,7 @@ describe("the Upcoming tab", () => {
   });
 
   it("draws seven days with how full each is and where a hard due date falls", () => {
-    const week = weekStrip(ROWS, TODAY);
+    const week = upcomingWeek(ROWS, TODAY);
     expect(week.map((day) => day.day)).toEqual([
       "2026-11-23",
       "2026-11-24",
@@ -52,7 +59,7 @@ describe("the Upcoming tab", () => {
     ]);
     expect(week[0]).toMatchObject({ count: 2, minutes: 120, deadline: false });
     expect(week[0]?.load).toBeCloseTo(120 / 360);
-    expect(week[1]).toMatchObject({ count: 0, load: 0 });
+    expect(week[1]).toMatchObject({ count: 0, load: 0, deadline: false });
     expect(week[4]).toMatchObject({ count: 2, deadline: true });
   });
 

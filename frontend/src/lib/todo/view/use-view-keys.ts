@@ -15,11 +15,19 @@ export interface ViewKeyActions {
   close(): boolean;
 }
 
-/** Typing in a field, or a chord, is not the table's: `j` in the title is a letter. */
+/**
+ * Typing in a field, or a chord, is not the table's: `j` in the title is a letter. Enter and
+ * Space on a focused button or link are its click.
+ */
 function leftAlone(event: React.KeyboardEvent): boolean {
   const target = event.target as HTMLElement;
+  const clicking = (event.key === "Enter" || event.key === " ") && target.closest("button, a");
   return (
-    target.matches("input, textarea, select") || event.ctrlKey || event.metaKey || event.altKey
+    target.matches("input, textarea, select") ||
+    Boolean(clicking) ||
+    event.ctrlKey ||
+    event.metaKey ||
+    event.altKey
   );
 }
 

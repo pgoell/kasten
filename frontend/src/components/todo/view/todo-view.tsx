@@ -165,7 +165,7 @@ export function TodoView(props: TodoViewProps) {
       data={data}
       today={today}
       onClose={close}
-      onNew={() => newIn()}
+      onNew={(preset) => setPanel({ kind: "new", preset })}
       onOpenTodo={openTodo}
       onOpenNote={props.onOpen}
       onNotice={onNotice}
@@ -282,7 +282,7 @@ function PanelSlot(props: {
   data: ReturnType<typeof useTodoData>;
   today: string;
   onClose: () => void;
-  onNew: () => void;
+  onNew: (preset: Preset) => void;
   onOpenTodo: (id: string) => void;
   onOpenNote: (path: string) => void;
   onNotice: (text: string) => void;
@@ -296,7 +296,7 @@ function PanelSlot(props: {
         dailyNote={periodicNote("daily", new Date()).path}
         preset={panel.preset}
         onClose={props.onClose}
-        onAdded={(row, next) => (next ? props.onNew() : props.onOpenTodo(row.id))}
+        onAdded={(row, next) => (next ? props.onNew(panel.preset) : props.onOpenTodo(row.id))}
         onNotice={props.onNotice}
       />
     );

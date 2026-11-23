@@ -60,17 +60,13 @@ export interface WeekDay {
   load: number;
 }
 
-/** Each day of the week ahead with the open todos on it and the time they are given. */
-export function weekStrip(rows: TodoRow[], today: string): WeekDay[] {
-  const byId = new Map(rows.map((row) => [row.id, row]));
-  const open = rows.filter(
-    (row) => row.state !== "done" && row.state !== "rejected" && row.round_of === null,
-  );
+/** Each day of the week ahead with the todos Upcoming lists on it and the time they are given. */
+export function weekStrip(listed: TodoRow[], byId: Map<string, TodoRow>, today: string): WeekDay[] {
   return Array.from({ length: DAYS_AHEAD }, (_, at) => {
     const day = shiftDay(today, at + 1);
-    const on = open.filter((row) => dayOf(row, byId) === day);
+    const on = listed.filter((row) => dayOf(row, byId) === day);
     const minutes = on.reduce((sum, row) => sum + (row.estimate ?? 0), 0);
-    const deadline = open.some((row) => row.due_hard && row.due === day);
+    const deadline = listed.some((row) => row.due_hard && row.due === day);
     const load = Math.min(1, Math.max(minutes / FULL_DAY_MINUTES, on.length * 0.06));
     return { day, count: on.length, minutes, deadline, load };
   });

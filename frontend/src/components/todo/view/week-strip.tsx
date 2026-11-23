@@ -1,7 +1,8 @@
 import { Icon } from "@/components/todo/view/view-icons";
 import type { TodoRow } from "@/lib/core/api";
 import { minutes } from "@/lib/todo/view/rows/row-facts";
-import { type WeekDay, weekdayName, weekStrip } from "@/lib/todo/view/rows/upcoming";
+import { type WeekDay, weekdayName } from "@/lib/todo/view/rows/upcoming";
+import { upcomingWeek } from "@/lib/todo/view/rows/view-rows";
 
 /** `3 · 2h30m`, the count alone with no time given, or free. */
 function loadText(day: WeekDay): string {
@@ -23,7 +24,7 @@ export function WeekStrip(props: {
       aria-label="The week ahead"
       className="grid shrink-0 grid-cols-[repeat(7,minmax(84px,1fr))] overflow-x-auto border-k-rule border-b"
     >
-      {weekStrip(props.rows, props.today).map((day) => (
+      {upcomingWeek(props.rows, props.today).map((day) => (
         <li key={day.day} className="min-w-0 border-k-rule border-r last:border-r-0">
           <button
             type="button"

@@ -8,11 +8,16 @@ import {
   ProjectPick,
   StatePick,
 } from "@/components/todo/view/panel/panel-fields";
-import { readMinutes } from "@/components/todo/view/panel/todo-panel";
 import { Icon } from "@/components/todo/view/view-icons";
 import type { TodoRow } from "@/lib/core/api";
 import type { TodoState } from "@/lib/todo/todo";
-import { newTodoOf, type QuickFields, readQuick, settled } from "@/lib/todo/view/rows/quick-words";
+import {
+  newTodoOf,
+  type QuickFields,
+  readMinutes,
+  readQuick,
+  settled,
+} from "@/lib/todo/view/rows/quick-words";
 import { longDay, minutes } from "@/lib/todo/view/rows/row-facts";
 import { addTodo, stateTodo } from "@/lib/todo/view/todo-store";
 
