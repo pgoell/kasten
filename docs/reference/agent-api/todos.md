@@ -17,7 +17,7 @@ pane's writes run and is recorded in the todo's history as `agent`'s. Dates are
 
 | Tool | Reads only | Arguments |
 |---|---|---|
-| `search_todos` | yes | `words`, `state` (list), `tag`, `kind` (`client`, `internal`, `private`), `project`, `epic` (id), `parent` (id), `priority` (list, `none` for unset), `due_by`, `planned_on`, `look_again_by`, `waiting`, `shown_on`, `archive`, `sort` (`priority`, `due`, `planned`, `created`, `place`), `limit` (default 50, at most 500) |
+| `search_todos` | yes | `words`, `state` (list), `tag`, `kind` (`client`, `internal`, `private`), `project`, `epic` (id), `parent` (id), `priority` (list, `none` for unset), `due_by`, `planned_on`, `look_again_by`, `waiting`, `shown_on`, `done_from`, `done_to`, `archive`, `sort` (`priority`, `due`, `planned`, `created`, `place`), `limit` (default 50, at most 500) |
 | `add_todo` | no | `words` (required; tags typed in it), `description`, `due`, `due_hard`, `planned`, `hold_until`, `priority`, `parent_id`, `epic_id`, `epic`, `project`, `note`, `repeat`, `estimate` (minutes) |
 | `change_todo` | no | `id`, `version` (both required), then any of `words`, `description`, `due`, `due_hard`, `planned`, `hold_until`, `priority`, `parent_id`, `epic_id`, `epic`, `project`, `blocked_by`, `repeat`, `estimate`, and `clear`, a list of fields to empty |
 | `set_todo_state` | no | `id`, `state` (`open`, `doing`, `review`, `done`, `blocked`, `waiting`, `rejected`), `look_again`, `waiting_on` |
@@ -33,6 +33,8 @@ and a repeating todo's finished round comes back as a row of its own.
 * `search_todos` sorts by priority unless told otherwise, a todo with none
   between medium and low. `shown_on` leaves out what no list shows that day: a
   todo held off past it and a wait whose look-again day is still ahead.
+  `done_from` and `done_to` keep the todos done in that range, both ends
+  counted: what got done on a day or in a week.
 * `add_todo` with no `due` gives a soft due date 14 days out, unless the todo is
   a part. With no `note` it goes in its parent's note, else today's daily note.
 * `change_todo` refuses a `version` that is not the todo's current one: search

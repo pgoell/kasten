@@ -38,6 +38,8 @@ class Filters:
     waiting: bool | None = None
     look_again_by: date | None = None
     shown_on: date | None = None
+    done_from: date | None = None
+    done_to: date | None = None
     note: str | None = None
     shared_list: str | None = None
     archive: str | None = None
@@ -114,6 +116,10 @@ def _days(filters: Filters) -> list[ColumnElement[bool]]:
         found.append(Todo.hold_until <= filters.hold_until_by)
     if filters.look_again_by:
         found.append(and_(Todo.state == "waiting", Todo.look_again <= filters.look_again_by))
+    if filters.done_from:
+        found.append(Todo.done >= filters.done_from)
+    if filters.done_to:
+        found.append(Todo.done <= filters.done_to)
     if day := filters.shown_on:
         # Held off, or waiting with its look-again day still ahead: no list shows it yet.
         found.append(or_(Todo.hold_until.is_(None), Todo.hold_until <= day))

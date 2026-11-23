@@ -131,8 +131,10 @@ lifts a typed checkbox into the store is not built yet.
 
 **Done.** The `## Done` section stops growing. A finished todo's `done` day is
 on its row, so "what got done on a day" is a query, and the daily note can show
-it without a copy. A repeating todo keeps its id when ticked: the finished round
-becomes a done row of its own whose `round_of` names the todo, and the todo
+it without a copy: the brief's `done` lists the day before, and a search with
+`done_from` and `done_to` answers any range. A repeating todo keeps its id when
+ticked: the finished round becomes a done row of its own whose `round_of` names
+the todo, and the todo
 moves on to its next dates. So the embed in a note, a `⛔` naming it and a day
 plan's pick all still name the live todo, and the history of a series is its
 rounds. The `## Done` lines already in old daily notes stay as text.

@@ -72,3 +72,13 @@ async def test_priority_filter_and_order_put_none_between_medium_and_low(
     assert await found(client, sort="priority") == ["a", "d", "b", "c"]
     assert sorted(await found(client, priority=["none", "low"])) == ["b", "c"]
     assert await found(client, sort="priority", limit=2) == ["a", "d"]
+
+
+async def test_done_from_and_to_keep_the_todos_done_in_the_range(client: AsyncClient) -> None:
+    done = await add(client, "filed")
+    await add(client, "still open")
+    ticked = await client.post(f"/api/todos/{done['id']}/state", json={"state": "done"})
+    day = ticked.json()[0]["done"]
+
+    assert await found(client, done_from=day, done_to=day) == ["filed"]
+    assert await found(client, done_to="2000-01-01") == []

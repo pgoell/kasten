@@ -66,7 +66,8 @@ every todo that counted toward it.
 ## GET /api/todos/rows
 
 Every todo, in note, parent and position order. The archive's only with
-`archive=true`.
+`archive=true`. It takes the filters `search_todos` takes; `done_from` and
+`done_to` keep the todos done in that range, both ends counted.
 
 ## POST /api/todos/line
 
@@ -185,6 +186,9 @@ What a planning talk for the day starts from:
 
 * `last_plan`: the latest plan before the day, each pick with its words and
   whether it got done (done or in review), and the counts `picked` and `done`
+* `done`: every todo done on the day before, picked or not, a repeat's
+  finished round included, each with `id`, `words`, `tags`, `project` and
+  `round_of`. Shared list items are left out.
 * `look_again`: waiting todos whose look-again day has come
 * `due_soon`: todos with a hard due date in the next 14 days
 * `outcomes`: the week's outcomes

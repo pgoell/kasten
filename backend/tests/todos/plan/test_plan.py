@@ -101,3 +101,20 @@ async def test_a_picked_todo_left_undone_keeps_its_dates_and_is_counted_once(
 
     assert (found["due"], found["planned"], found["picked"]) == ("2026-12-10", DAY.isoformat(), 1)
     assert found.get("why") is None
+
+
+async def test_the_brief_lists_every_todo_done_the_day_before_picked_or_not(
+    client: AsyncClient,
+) -> None:
+    ticked = await add(client, "paid the bill #private")
+    await add(client, "left open")
+    await client.post(f"/api/todos/{ticked['id']}/state", json={"state": "done"})
+    today = datetime.now(ZoneInfo("Europe/Berlin")).date()
+
+    after = (await client.get(f"/api/brief/{(today + timedelta(days=1)).isoformat()}")).json()
+    same = (await client.get(f"/api/brief/{today.isoformat()}")).json()
+
+    assert [(row["id"], row["words"]) for row in after["done"]] == [
+        (ticked["id"], "paid the bill #private")
+    ]
+    assert same["done"] == []

@@ -7901,6 +7901,40 @@
             }
           },
           {
+            "name": "done_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Done From"
+            }
+          },
+          {
+            "name": "done_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Done To"
+            }
+          },
+          {
             "name": "note",
             "in": "query",
             "required": false,
@@ -8273,6 +8307,40 @@
                 }
               ],
               "title": "Shown On"
+            }
+          },
+          {
+            "name": "done_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Done From"
+            }
+          },
+          {
+            "name": "done_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Done To"
             }
           },
           {

@@ -41,7 +41,8 @@ curl -s -X POST "$KASTEN_API/api/todos/kt-3f9a2c/state" -H 'Content-Type: applic
 
 `GET /api/todos/rows` takes `state`, `words`, `tag`, `kind`, `project`, `epic`,
 `parent`, `priority`, `due_by`, `planned_on`, `look_again_by`, `waiting`,
-`shown_on`, `archive`, `sort` and `limit`. A change is
+`shown_on`, `done_from`, `done_to`, `archive`, `sort` and `limit`. What got done
+in a week is `state=done&done_from=<monday>&done_to=<sunday>`. A change is
 `PATCH /api/todos/<id>` with the `version` a read gave and the fields to set.
 
 ## The states
