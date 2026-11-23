@@ -1,5 +1,13 @@
 import type { Locator, Page } from "@playwright/test";
-import { caretLine, findNote, leader, openApp, openNote, vaultWith } from "../../../harness/app.ts";
+import {
+  caretLine,
+  findNote,
+  leader,
+  openApp,
+  openNote,
+  toTodoList,
+  vaultWith,
+} from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
 
 /** A panel over the app: its dialog's name, the leader keys that open it, and whether its field is a draft. */
@@ -27,6 +35,7 @@ async function open(page: Page, { name, keys }: Panel) {
   await page.keyboard.press("Escape");
   await leader(page, keys);
   if (name === "Add todo") {
+    await toTodoList(page);
     await expect(page.getByRole("button", { name: "open water the tomatoes" })).toBeVisible();
     await page.keyboard.press("a");
   }
