@@ -7,7 +7,7 @@ import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { expect as plainExpect, test as plainTest } from "@playwright/test";
-import { fixtureVault, root } from "../harness/paths.ts";
+import { compose, fixtureVault, root } from "../harness/paths.ts";
 import {
   type Backend,
   backendEnv,
@@ -224,3 +224,53 @@ plainTest("killing a process group that already left throws nothing", async () =
   await once(gone, "exit");
   plainExpect(() => killGroup(gone.pid ?? 0, "SIGTERM")).not.toThrow();
 });
+
+/** Runs the global setup in a process of its own, as a runner would, and answers its project. */
+async function setUpRun(after: string) {
+  const setup = JSON.stringify(join(root, "e2e/harness/global-setup.ts"));
+  const script = `import setup from ${setup}; const stop = await setup(); console.log(process.env.E2E_PROJECT); ${after}`;
+  const runner = spawn(process.execPath, ["--input-type=module", "-e", script], {
+    detached: true,
+    stdio: ["ignore", "pipe", "inherit"],
+  });
+  const [out] = await once(runner.stdout, "data");
+  return { runner, project: String(out).trim() };
+}
+
+const watching = (project: string) =>
+  new Promise<boolean>((done) =>
+    spawn("pgrep", ["-f", project]).on("exit", (code) => done(code === 0)),
+  );
+
+plainTest(
+  "a run killed after its setup, as a shell timeout kills, leaves its compose project down and no other (#2284)",
+  async () => {
+    // Setup starts Postgres and nginx and migrates; the watcher's down takes some seconds more.
+    plainTest.setTimeout(120_000);
+    const { runner, project } = await setUpRun("setInterval(() => stop, 1 << 30);");
+    try {
+      plainExpect(await compose(project, "ps", "-q")).not.toBe("");
+      killGroup(runner.pid ?? 0, "SIGKILL");
+      await plainExpect.poll(() => compose(project, "ps", "-aq"), { timeout: 60_000 }).toBe("");
+      await plainExpect.poll(() => watching(project), { timeout: 10_000 }).toBe(false);
+      plainExpect(await compose(process.env.E2E_PROJECT ?? "", "ps", "-q")).not.toBe("");
+    } finally {
+      await compose(project, "down", "-v", "--remove-orphans");
+    }
+  },
+);
+
+plainTest(
+  "a run that ends on its own takes its project down by its teardown and leaves no watcher (#2284)",
+  async () => {
+    plainTest.setTimeout(120_000);
+    const { runner, project } = await setUpRun("await stop();");
+    try {
+      await once(runner, "exit");
+      plainExpect(await compose(project, "ps", "-aq")).toBe("");
+      await plainExpect.poll(() => watching(project), { timeout: 5_000 }).toBe(false);
+    } finally {
+      await compose(project, "down", "-v", "--remove-orphans");
+    }
+  },
+);
