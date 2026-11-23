@@ -15,7 +15,9 @@ tests.
 Use the e2e harness first. `e2e/harness/global-setup.ts` starts Postgres and
 nginx as a compose project named `kasten-e2e-<8 hex>` on ports Docker picks, and
 each journey gets its own vault copy, database and backend. It cannot collide
-with the dev stack or another session's run.
+with the dev stack or a run in another checkout. Keep to one run per checkout:
+`run.sh`'s cleanup takes this checkout's `kasten-e2e-*` projects that came up
+during its run, so a second run here at the same time would lose its own.
 
 ```sh
 .claude/skills/verify/run.sh                                  # the always-flows

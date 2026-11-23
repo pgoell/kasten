@@ -2,7 +2,8 @@
 
 The flows of kasten that must always work, one file each. `run.sh` reads the
 `- Journey:` line of each file and runs those journeys; it fails unless each
-title matches exactly one test and every one passes.
+title matches exactly one test in its own file, the titles together match only
+those tests, and every one passes.
 
 ## Baseline preconditions
 

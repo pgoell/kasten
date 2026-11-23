@@ -37,12 +37,21 @@ while IFS= read -r line; do
   titles+=("${line#* › }")
 done < <(sed -n 's/^- Journey: //p' "$here"/features/*.md)
 
-grep=$(printf '%s\n' "${titles[@]}" | sed 's/[][\.*^$+?(){}|/]/\\&/g' | paste -sd '|')
+escape() { sed 's/[][\.*^$+?(){}|/]/\\&/g'; }
+count() { { bunx playwright test "$@" --list 2>&1 || true; } | sed -n 's/^Total: \([0-9]*\) test.*/\1/p'; }
+grep=$(printf '%s\n' "${titles[@]}" | escape | paste -sd '|')
 cd "$root/e2e"
 
-listed=$(bunx playwright test "${files[@]}" -g "$grep" --list | sed -n 's/^Total: \([0-9]*\) test.*/\1/p')
+for i in "${!titles[@]}"; do
+  listed=$(count "${files[$i]}" -g "$(printf '%s' "${titles[$i]}" | escape)")
+  if [ "$listed" != 1 ]; then
+    echo "verify: ${files[$i]} has ${listed:-0} tests titled \"${titles[$i]}\"; fix its - Journey: line" >&2
+    exit 1
+  fi
+done
+listed=$(count "${files[@]}" -g "$grep")
 if [ "$listed" != "${#titles[@]}" ]; then
-  echo "verify: the map names ${#titles[@]} journeys but $listed tests match; fix a renamed - Journey: line" >&2
+  echo "verify: the map names ${#titles[@]} journeys but $listed tests match them across the files" >&2
   exit 1
 fi
 
