@@ -1,13 +1,18 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
+import type { SearchHit } from "@/lib/core/api";
 import { useGuardedWrites } from "@/lib/saving/use-guarded-writes";
+import { useRecentList } from "@/lib/search/use-recent-notes";
 import type { Passage } from "@/lib/takes/highlight";
 
-const { updateNote } = vi.hoisted(() => ({ updateNote: vi.fn() }));
+const { updateNote, searchNotes } = vi.hoisted(() => ({
+  updateNote: vi.fn(),
+  searchNotes: vi.fn(),
+}));
 vi.mock("@/lib/core/api", () => {
   class ChangedOnDisk extends Error {}
-  return { updateNote, saveNote: vi.fn(), ChangedOnDisk };
+  return { updateNote, searchNotes, saveNote: vi.fn(), ChangedOnDisk };
 });
 
 const NOTE = "20 Literature/DDIA.md";
@@ -125,5 +130,30 @@ describe("a book's highlight, written", () => {
     await take(NOTE, { text: "cell one\tcell two", chapter: "One" });
 
     expect(written[0]?.split("\n")[4]).toBe("> cell one cell two");
+  });
+});
+
+describe("the take toast's list of recent notes", () => {
+  it("keeps the notes it drew while a later reread is out (#2301)", async () => {
+    const hit = { path: "01 Notes/Talk.md", line: 2, text: "modified: 2026-11-20T10:00:00+01:00" };
+    searchNotes.mockResolvedValue([hit as SearchHit]);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+    const { result } = renderHook(() => useRecentList(false), { wrapper });
+    expect(result.current).toBeUndefined();
+    await waitFor(() =>
+      expect(result.current).toEqual([{ path: hit.path, stamp: hit.text.slice(10) }]),
+    );
+
+    searchNotes.mockReturnValue(new Promise(() => {}));
+    // Not awaited: the reread never answers.
+    act(() => void client.invalidateQueries());
+
+    expect({ asked: searchNotes.mock.calls.length, list: result.current }).toEqual({
+      asked: 4,
+      list: [{ path: hit.path, stamp: hit.text.slice(10) }],
+    });
   });
 });

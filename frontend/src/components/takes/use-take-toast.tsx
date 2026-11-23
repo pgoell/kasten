@@ -111,7 +111,6 @@ export function useTakeToast(o: TakeToastOptions): {
   function putInto(id: number, notePath: string, taken: Toast) {
     void writePassage(notePath, taken.text, taken.linkIn(notePath)).then(
       () => {
-        refreshRecent(queryClient);
         setToast((current) =>
           current?.id === id ? { ...current, title: `Put into ${noteName(notePath)}` } : current,
         );
