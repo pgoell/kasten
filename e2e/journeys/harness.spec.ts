@@ -129,8 +129,9 @@ plainTest("a warm parent that died fails the next start, and its stop returns", 
   await once(parent, "exit");
   const dir = await mkdtemp(join(tmpdir(), "kasten-e2e-"));
   const orphan = fork(socket, dir, backendEnv(dir, "t_never_made"));
+  // Refused before the connect, reset after it, EPIPE when it dies between the connect and the first write (#2297).
   await plainExpect(listening(orphan, [])).rejects.toThrow(
-    /warm backend: \w+ ECONN(REFUSED|RESET)/,
+    /warm backend: \w+ (ECONNREFUSED|ECONNRESET|EPIPE)/,
   );
   await plainExpect(stop(orphan).then(() => "stopped")).resolves.toBe("stopped");
   await plainExpect(endWarm(parent).then(() => "ended")).resolves.toBe("ended");

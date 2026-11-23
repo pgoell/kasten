@@ -21,7 +21,8 @@ type Runner = {
   asked: number;
   streams: ServerResponse[];
   open: number;
-  say: (...events: object[]) => void;
+  /** Waits for an open stream first: a pane shows before its stream reaches the runner (#2298). */
+  say: (...events: object[]) => Promise<void>;
 };
 
 async function runner(page: Page): Promise<Runner> {
@@ -34,7 +35,8 @@ async function runner(page: Page): Promise<Runner> {
     asked: 0,
     streams: [],
     open: 0,
-    say: (...events) => {
+    say: async (...events) => {
+      await expect.poll(() => it.open).toBeGreaterThan(0);
       for (const res of it.streams.filter((stream) => !stream.writableEnded && !stream.destroyed))
         for (const e of events) res.write(`data: ${JSON.stringify(e)}\n\n`);
     },
@@ -216,7 +218,7 @@ test.describe("the chat pane and its runner", () => {
   }) => {
     const it = await runner(page);
     const pane = await openChat(page);
-    it.say(
+    await it.say(
       { type: "user", text: "/close-day" },
       { type: "tool", id: "t1", name: "Bash", input: { command: "rg todo /vault" } },
       { type: "tool_result", id: "t1", text: "3 matches", error: false },
@@ -235,9 +237,9 @@ test.describe("the chat pane and its runner", () => {
   test("C5 Stop shows only during a run, and New always", async ({ page }) => {
     const it = await runner(page);
     const pane = await openChat(page);
-    it.say({ type: "user", text: "hi" });
+    await it.say({ type: "user", text: "hi" });
     await pane.getByRole("button", { name: "Stop" }).click();
-    it.say({ type: "done", error: "Stopped." });
+    await it.say({ type: "done", error: "Stopped." });
 
     await expect(pane.getByText("Stopped.")).toBeVisible();
     await expect(pane.getByRole("button", { name: "Stop" })).toHaveCount(0);
@@ -250,7 +252,7 @@ test.describe("the chat pane and its runner", () => {
   }) => {
     const it = await runner(page);
     const pane = await openChat(page);
-    it.say({ type: "user", text: "/close-day" }, ASK);
+    await it.say({ type: "user", text: "/close-day" }, ASK);
     const send = pane.getByRole("button", { name: "Answer" });
 
     await expect(send).toBeDisabled();
