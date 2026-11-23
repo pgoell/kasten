@@ -112,6 +112,7 @@ export const FORMAT: readonly FormatBinding[] = [
 /** Display only: `indentWithTab` carries the binding, and this lists it for the panel and docs. */
 export const INDENT: readonly { key: string; label: string }[] = [
   { key: "Tab", label: "Indent the line, nesting a list item" },
+  { key: "Tab, at a checkbox line's end", label: "Make the line a store todo" },
   { key: "Shift Tab", label: "Lift the line back out" },
 ];
 

@@ -206,4 +206,23 @@ describe("the todo view", () => {
       body: { words: "fit the lamp", planned: "2026-11-26" },
     });
   });
+
+  it("links a note into the description from the picker n opens in the panel", async () => {
+    renderView();
+    fireEvent.click(await screen.findByText("file the report"));
+    await screen.findByRole("button", { name: /Link a note/ });
+    fireEvent.keyDown(screen.getByRole("complementary", { name: "Todo" }), { key: "n" });
+    const picker = screen.getByRole("dialog", { name: "Link a note" });
+    const find = within(picker).getByRole("textbox", { name: "Find a note" });
+    fireEvent.change(find, { target: { value: "kasten" } });
+    fireEvent.keyDown(find, { key: "Enter" });
+    expect(screen.getByRole("textbox", { name: "Description" })).toHaveValue(
+      "[[02 Projects/Kasten/index]]",
+    );
+    await act(() => vi.advanceTimersByTimeAsync(500));
+    expect(api.patchTodo).toHaveBeenLastCalledWith("kt-000002", {
+      description: "[[02 Projects/Kasten/index]]",
+      version: 1,
+    });
+  });
 });

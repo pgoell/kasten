@@ -4,15 +4,8 @@ import { TodoStateBox } from "@/components/todo/todo-state-box";
 import { Icon } from "@/components/todo/view/view-icons";
 import type { TodoRow } from "@/lib/core/api";
 import { noteName } from "@/lib/notes/links/note-path";
-import { wikiLinkPath, wikiLinkTargets } from "@/lib/notes/links/wikilink";
+import { linkedNotes } from "@/lib/todo/view/rows/note-links";
 import { addTodo, stateTodo } from "@/lib/todo/view/todo-store";
-
-/** Every note a todo's text links to, once each, in order, whether or not it is written yet. */
-function linkedNotes(text: string, files: string[]): string[] {
-  return [...new Set(wikiLinkTargets(text).map((target) => wikiLinkPath(target, files)))].filter(
-    Boolean,
-  );
-}
 
 /** The panel's Notes: the note the todo lives in, then each note its words or description link to. */
 export function PanelNotes(props: {
@@ -21,6 +14,7 @@ export function PanelNotes(props: {
   description: string;
   files: string[] | undefined;
   onOpenNote: (path: string) => void;
+  onLink: (anchor: HTMLElement) => void;
 }) {
   const { row, files = [] } = props;
   const linked = linkedNotes(`${props.words}\n${props.description}`, files).filter(
@@ -44,9 +38,16 @@ export function PanelNotes(props: {
           onOpen={props.onOpenNote}
         />
       ))}
-      {count === 0 && (
-        <p className="py-1 text-k-muted text-sm">Type [[ in the description to link a note.</p>
-      )}
+      <button
+        type="button"
+        data-link-note
+        onClick={(event) => props.onLink(event.currentTarget)}
+        className="flex min-h-9 items-center gap-2.5 text-k-ink-soft hover:text-k-ink"
+      >
+        <Icon name="plus" className="text-k-muted" />
+        Link a note
+        <kbd className="rounded border border-k-rule px-1.5 font-mono text-k-muted text-xs">n</kbd>
+      </button>
     </section>
   );
 }

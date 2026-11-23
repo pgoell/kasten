@@ -203,6 +203,7 @@ the first line into it.
 | Key | Does |
 | --- | --- |
 | Tab | Indent the line, which nests a list item under the one above |
+| Tab, at a checkbox line's end | Make the line a store todo |
 | Shift+Tab | Lift the line back out |
 
 Both act on the line rather than the cursor, so the indent goes in at the front
@@ -212,6 +213,11 @@ takes that away, which is what `<leader>e` is for.
 
 The unit is two spaces. Neither key is a list key: they indent a plain line the
 same way, and an ordered list the same way as a bulleted one.
+
+Tab with the cursor at the end of an open checkbox line with words on it,
+`- [ ] ask Jonas for the room`, adds that todo to the store in this note, its
+fields read off the line as a typed todo line is, and the line becomes the
+todo's embed, `![[kt-…]]`. Anywhere else, Tab indents.
 
 ## Lists
 

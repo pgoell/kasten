@@ -10,8 +10,10 @@ import {
 } from "@/components/todo/view/panel/panel-fields";
 import { PanelNotes, PanelParts } from "@/components/todo/view/panel/panel-sections";
 import { DatePick, type Which } from "@/components/todo/view/pick/date-pick";
+import { NotePick } from "@/components/todo/view/pick/note-pick";
 import { Icon } from "@/components/todo/view/view-icons";
 import type { TodoRow } from "@/lib/core/api";
+import { linkTo } from "@/lib/todo/view/rows/note-links";
 import { longDay, minutes } from "@/lib/todo/view/rows/row-facts";
 import { deleteTodo, stateTodo, timerTodo } from "@/lib/todo/view/todo-store";
 import { usePanelSave } from "@/lib/todo/view/use-panel-save";
@@ -55,12 +57,41 @@ export function TodoPanel(props: PanelProps) {
   const [repeat, setRepeat] = useState(row.repeat ?? "");
   const [deleting, setDeleting] = useState(false);
   const [dates, setDates] = useState<{ which: Which; anchor: HTMLElement } | null>(null);
+  const [linking, setLinking] = useState<HTMLElement | null>(null);
+  const describe = (text: string) => {
+    setDescription(text);
+    save({ description: text === "" ? null : text });
+  };
+  // A `[[` just typed is where the link goes; otherwise it starts a line of its own.
+  const linkNote = (path: string) => {
+    const link = linkTo(path, props.files ?? []);
+    if (description.endsWith("[[")) describe(`${description.slice(0, -2)}${link}`);
+    else describe(description.trim() === "" ? link : `${description.trimEnd()}\n${link}`);
+  };
   const failed = (error: unknown) =>
     onNotice(`Not saved: ${error instanceof Error ? error.message : error}`);
   const worked = row.worked ?? 0;
 
   return (
-    <aside aria-label="Todo" className="flex h-full min-h-0 flex-col bg-k-bg">
+    <aside
+      aria-label="Todo"
+      onKeyDown={(event) => {
+        const typing = (event.target as HTMLElement).matches("input, textarea, select");
+        if (event.key !== "n" || typing || event.ctrlKey || event.metaKey || event.altKey) return;
+        event.preventDefault();
+        event.stopPropagation();
+        setLinking(event.currentTarget.querySelector<HTMLElement>("[data-link-note]"));
+      }}
+      className="flex h-full min-h-0 flex-col bg-k-bg"
+    >
+      {linking !== null && (
+        <NotePick
+          anchor={linking}
+          files={props.files ?? []}
+          onPick={linkNote}
+          onClose={() => setLinking(null)}
+        />
+      )}
       {dates !== null && (
         <DatePick
           anchor={dates.anchor}
@@ -124,8 +155,8 @@ export function TodoPanel(props: PanelProps) {
           value={description}
           placeholder="Add a description, [[ links a note"
           onChange={(event) => {
-            setDescription(event.target.value);
-            save({ description: event.target.value === "" ? null : event.target.value });
+            describe(event.target.value);
+            if (event.target.value.endsWith("[[")) setLinking(event.target);
           }}
           className="field-sizing-content mt-3 min-h-12 w-full resize-none rounded-md border border-k-rule bg-k-paper px-3 py-2 text-[15px] text-k-ink leading-relaxed outline-none placeholder:text-k-muted focus:border-k-rule-strong"
         />
@@ -202,6 +233,7 @@ export function TodoPanel(props: PanelProps) {
           description={description}
           files={props.files}
           onOpenNote={props.onOpenNote}
+          onLink={setLinking}
         />
         <PanelParts
           parent={row}

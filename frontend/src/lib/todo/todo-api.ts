@@ -161,7 +161,9 @@ export function addSubtaskInVault(
   input: string,
   today: string,
 ): Promise<TodoRow[]> {
-  return ownTurn(() => addTodoLine(formatTodo(expandShorthand(input, today)), todoIdOf(hit)));
+  return ownTurn(() =>
+    addTodoLine(formatTodo(expandShorthand(input, today)), { parent_id: todoIdOf(hit) }),
+  );
 }
 
 /** Walk one todo on, or set the state a key named; a state it is in already sends nothing. */

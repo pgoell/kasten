@@ -64,7 +64,15 @@ Saved as you type.
   runs the timer.
 * Tags are read off the words, so a `#tag` typed in the words adds one.
 * Notes lists the note the todo lives in, then each note a `[[link]]` in the
-  words or description names; a click opens it.
+  words or description names; a click opens it. Link a note, or `n` anywhere in
+  the panel outside a field, or `[[` typed in the description, opens a picker of
+  the vault's notes: type part of a name, and Enter or a click writes its link
+  into the description, in place of the `[[` that opened it or on a line of its
+  own. A note named alike in two folders is linked by its path.
+* A note that a todo's words or description link to lists that todo at its foot
+  under **Todos that link here**, open ones first; its box ticks it and its
+  note's name opens where it lives. A todo living in the note is left out, as
+  the note draws it where it sits.
 * Parts lists the todo's parts, each box ticking it and each name opening it in
   the panel, and Add part adds one on Enter.
 * The `⋯` asks once more, then deletes the todo and its parts.

@@ -39,7 +39,7 @@ does not provide.
 * [Reading word by word](/reference/editor-keys/rsvp.md): the RSVP reader over a note, a page, a pdf or a book, its keys, its settings and the place it keeps.
 * [Videos in the player](/reference/editor-keys/video-pane.md): the video pane, its chapters, the video view and its takes, its player keys, and the transcript written into a note.
 * [Links and people](/reference/editor-keys/links.md): the person card, wikilinks and the link panels.
-* [Completion lists](/reference/editor-keys/completing.md): the lists offered for a link, a tag and a todo field.
+* [Completion lists](/reference/editor-keys/completing.md): the lists offered for a link, a todo to embed, a tag and a todo field.
 * [Editing text](/reference/editor-keys/editing.md): formatting, copying, tables, backticks, indenting and lists.
 * [Images](/reference/editor-keys/images.md): pasting, drawing and toggling images.
 * [Saving and reloading](/reference/editor-keys/saving.md): writing and rereading a note, and the changed-on-disk states.

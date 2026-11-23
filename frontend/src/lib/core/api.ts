@@ -116,9 +116,12 @@ async function touched(
   );
 }
 
-/** Add the todo a typed line says; with no note and no parent it lands in today's daily note. */
-export function addTodoLine(text: string, parentId?: string): Promise<TodoRow[]> {
-  const body = parentId === undefined ? { text } : { text, parent_id: parentId };
+/** Add the todo a typed line says, in a note or under a parent; with neither, in today's daily note. */
+export function addTodoLine(
+  text: string,
+  place: { parent_id?: string; note?: string } = {},
+): Promise<TodoRow[]> {
+  const body = { text, ...place };
   return touched("POST /api/todos/line", client.POST("/api/todos/line", { body }));
 }
 

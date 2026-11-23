@@ -112,7 +112,7 @@ describe("the todo writes", () => {
     await addSubtaskInVault(hit("- [ ] a 🆔 kt-aaaaaa"), "buy card", "2026-08-10");
     expect(api.addTodoLine.mock.calls).toEqual([
       [expect.stringMatching(/^- \[ \] call mum/)],
-      ["- [ ] buy card ➕ 2026-08-10", "kt-aaaaaa"],
+      ["- [ ] buy card ➕ 2026-08-10", { parent_id: "kt-aaaaaa" }],
     ]);
   });
 

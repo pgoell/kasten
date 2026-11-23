@@ -15,6 +15,7 @@ import { PersonFooter } from "@/components/person-card";
 import { Rsvp } from "@/components/rsvp";
 import { Sheet } from "@/components/sheet";
 import { TodayPane } from "@/components/today-pane";
+import { LinkedTodos } from "@/components/todo/view/linked-todos";
 import type { Outline as OutlineState } from "@/lib/notes/note/head/note-head";
 import type { useAutosave } from "@/lib/notes/note/use-autosave";
 import type { BufferSync } from "@/lib/notes/note/use-buffer-sync";
@@ -318,6 +319,7 @@ export function NotePane({
           </div>
         </Sheet>
       </div>
+      <LinkedTodos path={shown.path} onOpen={(path) => void openInPane(path)} onNotice={onNotice} />
       <PersonFooter
         path={shown.path}
         paths={data}
