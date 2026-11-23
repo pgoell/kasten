@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { type SearchHit, searchNotes } from "@/lib/core/api";
 import { readClock, shiftDay } from "@/lib/core/clock";
 
@@ -36,19 +37,36 @@ export function recentKeys(archive: boolean, today: string): [RecentKey, RecentK
   ];
 }
 
+function useRecentSearches(archive: boolean, refetchOnMount?: "always") {
+  const [thisKey, priorKey] = recentKeys(archive, readClock(new Date()).date);
+  const thisMonth = useQuery({
+    queryKey: thisKey,
+    queryFn: () => searchNotes(thisKey[1], archive),
+    refetchOnMount,
+  });
+  const priorMonth = useQuery({
+    queryKey: priorKey,
+    queryFn: () => searchNotes(priorKey[1], archive),
+    refetchOnMount,
+  });
+  return [thisMonth, priorMonth];
+}
+
 /**
  * The notes written lately, newest first, from the search the home screen runs
  * for its Recent column. The same keys, so a pane that asks shares the answer.
  */
 export function useRecentNotes(archive: boolean): { path: string; stamp: string }[] {
-  const [thisKey, priorKey] = recentKeys(archive, readClock(new Date()).date);
-  const thisMonth = useQuery({
-    queryKey: thisKey,
-    queryFn: () => searchNotes(thisKey[1], archive),
-  });
-  const priorMonth = useQuery({
-    queryKey: priorKey,
-    queryFn: () => searchNotes(priorKey[1], archive),
-  });
-  return recentOf([...(thisMonth.data ?? []), ...(priorMonth.data ?? [])]);
+  return recentOf(useRecentSearches(archive).flatMap((search) => search.data ?? []));
+}
+
+/** Asked afresh on mount (#1971); undefined until both searches settle, then kept once drawn (#2301). */
+export function useRecentList(archive: boolean): { path: string; stamp: string }[] | undefined {
+  const searches = useRecentSearches(archive, "always");
+  const settled = searches.every(
+    (search) => !search.isFetching && (search.data !== undefined || search.isError),
+  );
+  const [drawn, setDrawn] = useState(false);
+  if (settled && !drawn) setDrawn(true);
+  return drawn || settled ? recentOf(searches.flatMap((search) => search.data ?? [])) : undefined;
 }
