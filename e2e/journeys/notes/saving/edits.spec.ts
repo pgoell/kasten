@@ -11,7 +11,7 @@ import {
   vaultWith,
 } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
-import { LINED, onDisk, pad, RAGGED, rowEnd, TYPED_C } from "../editor/table.ts";
+import { LINED, onDisk, pad, RAGGED, rowEnd, TYPED_C, typeInLast } from "../editor/table.ts";
 
 const TYPED = "A line typed by the e2e test.";
 
@@ -138,8 +138,7 @@ test.describe("the table line-up takes only what the reader typed into (#792)", 
 
   test("type, u, then leave, vim on, keeps the table byte for byte", async ({ page, stack }) => {
     await rowEnd(page, stack.vault, RAGGED, 2, "on");
-    await page.keyboard.type("hic");
-    await page.keyboard.press("Escape");
+    await typeInLast(page, "c", "on");
     await page.keyboard.type("u");
     // Out of the table, then an edit below it, so a save provably lands after the leave.
     await page.keyboard.type("GA!");
@@ -152,9 +151,7 @@ test.describe("the table line-up takes only what the reader typed into (#792)", 
     stack,
   }) => {
     await rowEnd(page, stack.vault, RAGGED, 2, "off");
-    await page.keyboard.press("ArrowLeft");
-    await page.keyboard.press("ArrowLeft");
-    await page.keyboard.type("c");
+    await typeInLast(page, "c", "off");
     await page.keyboard.press("ArrowDown");
     await onDisk(stack.vault, LINED);
     await page.keyboard.press("Control+z");
@@ -168,9 +165,7 @@ test.describe("the table line-up takes only what the reader typed into (#792)", 
   }) => {
     const listed = RAGGED.replace("| xx | b |\n", "| xx | b |\n- note | x\n");
     await rowEnd(page, stack.vault, listed, 2, "off");
-    await page.keyboard.press("ArrowLeft");
-    await page.keyboard.press("ArrowLeft");
-    await page.keyboard.type("c");
+    await typeInLast(page, "c", "off");
     await page.keyboard.press("Control+End");
     await page.keyboard.press("Control+s");
     const lined = LINED.replace("| xx  | bc     |\n", "| xx  | bc     |\n- note | x\n");
