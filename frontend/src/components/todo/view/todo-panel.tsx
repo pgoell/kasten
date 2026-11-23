@@ -11,19 +11,10 @@ import {
 import { PanelNotes, PanelParts } from "@/components/todo/view/panel-sections";
 import { Icon } from "@/components/todo/view/view-icons";
 import type { TodoRow } from "@/lib/core/api";
+import { readMinutes } from "@/lib/todo/view/quick-words";
 import { longDay, minutes } from "@/lib/todo/view/row-facts";
 import { deleteTodo, stateTodo, timerTodo } from "@/lib/todo/view/todo-store";
 import { usePanelSave } from "@/lib/todo/view/use-panel-save";
-
-/** `2h`, `45m`, `1h30m` or a bare number of minutes; null for nothing typed. */
-export function readMinutes(text: string): number | null | undefined {
-  const typed = text.trim().replace(/\s+/g, "");
-  if (typed === "") return null;
-  if (/^\d+$/.test(typed)) return Number(typed);
-  const found = /^(?:(\d+)h)?(?:(\d+)m)?$/.exec(typed);
-  if (found === null || (found[1] === undefined && found[2] === undefined)) return undefined;
-  return Number(found[1] ?? 0) * 60 + Number(found[2] ?? 0);
-}
 
 export interface PanelProps {
   row: TodoRow;

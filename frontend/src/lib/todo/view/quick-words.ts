@@ -135,3 +135,13 @@ export function newTodoOf(quick: Quick, fields: QuickFields, description: string
     ...(description.trim() === "" ? {} : { description }),
   };
 }
+
+/** `2h`, `45m`, `1h30m` or a bare number of minutes; null for nothing typed. */
+export function readMinutes(text: string): number | null | undefined {
+  const typed = text.trim().replace(/\s+/g, "");
+  if (typed === "") return null;
+  if (/^\d+$/.test(typed)) return Number(typed);
+  const found = /^(?:(\d+)h)?(?:(\d+)m)?$/.exec(typed);
+  if (found === null || (found[1] === undefined && found[2] === undefined)) return undefined;
+  return Number(found[1] ?? 0) * 60 + Number(found[2] ?? 0);
+}
