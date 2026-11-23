@@ -24,6 +24,7 @@ import {
   weekRange,
 } from "@/lib/search/search-weeks";
 import { isMention, useSearchHits } from "@/lib/search/use-search-hits";
+import { focusBack } from "@/lib/ui/focus-trap";
 import { useViewport } from "@/lib/ui/input/use-viewport";
 import { useEntrance } from "@/lib/ui/motion/stagger";
 import { BACKDROP, closeOnBackdrop, TAP } from "@/lib/ui/overlay-styles";
@@ -328,7 +329,7 @@ export function ContentSearch({
     field.current?.focus();
     return () => {
       if (opening.current) return;
-      if (opener instanceof HTMLElement) opener.focus();
+      focusBack(opener);
     };
   }, []);
 

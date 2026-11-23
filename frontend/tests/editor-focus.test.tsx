@@ -1,5 +1,8 @@
+import { EditorState } from "@codemirror/state";
+import { EditorView } from "@codemirror/view";
 import { fireEvent, render } from "@testing-library/react";
 import { Editor } from "@/components/editor";
+import { focusBack } from "@/lib/ui/focus-trap";
 
 describe("the editor focus", () => {
   /** Somewhere else on the page that can hold the focus, as the tree does. */
@@ -87,6 +90,47 @@ describe("coming back to the tab", () => {
     leaveAndComeBack();
 
     expect(container.querySelector(".cm-content")).not.toHaveFocus();
+    expect(document.body).toHaveFocus();
+  });
+});
+
+describe("the focus a dialog gives back (#2311)", () => {
+  function note() {
+    const parent = document.createElement("div");
+    document.body.append(parent);
+    const state = EditorState.create({ doc: "# Walk\n\nThe walk:", selection: { anchor: 17 } });
+    return new EditorView({ state, parent });
+  }
+
+  it("goes to a note through its view, which keeps its own caret", () => {
+    const view = note();
+    const focus = vi.spyOn(view, "focus");
+
+    focusBack(view.contentDOM);
+
+    expect(focus).toHaveBeenCalledOnce();
+    expect(view.contentDOM).toHaveFocus();
+    expect(view.state.selection.main.head).toBe(17);
+    view.destroy();
+  });
+
+  it("goes to any other opener by its own focus", () => {
+    const button = document.createElement("button");
+    document.body.append(button);
+
+    focusBack(button);
+
+    expect(button).toHaveFocus();
+    button.remove();
+  });
+
+  it("is a no-op for a note closed while the dialog was open, or no opener at all", () => {
+    const view = note();
+    view.destroy();
+    view.dom.remove();
+
+    expect(() => focusBack(view.contentDOM)).not.toThrow();
+    expect(() => focusBack(null)).not.toThrow();
     expect(document.body).toHaveFocus();
   });
 });
