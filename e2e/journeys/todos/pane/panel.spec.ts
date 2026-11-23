@@ -9,6 +9,7 @@ import {
   readAll,
   TODO_ROW,
   today,
+  todoList,
   vaultWith,
 } from "../../../harness/app.ts";
 import { openPanel } from "../../../harness/search.ts";
@@ -154,7 +155,7 @@ test.describe("the todo prompt", () => {
     await expect(dialog).toBeHidden();
     expect(writes).toEqual([]);
     // A todo added next lands after any write the Escape sent, so its line shows none came.
-    await page.locator("section section[aria-label='Todos']").focus();
+    await todoList(page).focus();
     await page.keyboard.press("a");
     await page.keyboard.type("buy milk");
     await page.keyboard.press("Enter");

@@ -12,6 +12,7 @@ import {
   tapHeight,
   tapTodoList,
   today,
+  todoList,
   toTodoList,
   vaultWith,
 } from "../../harness/app.ts";
@@ -94,8 +95,7 @@ test("folding, the filter, a tag chip, All and c write nothing", async ({ page, 
   await page.getByRole("button", { name: "#client", exact: true }).click();
   await expect(row("buy seed potatoes")).toHaveCount(0);
   // The old list's chip, not the todo view's All tab around it.
-  const list = page.locator("section[aria-label='Todos'] section[aria-label='Todos']");
-  await list.getByRole("button", { name: "All", exact: true }).click();
+  await todoList(page).getByRole("button", { name: "All", exact: true }).click();
   await expect(row("buy seed potatoes")).toBeVisible();
 
   // One real tick last: once it lands, a write the controls sent would have too.
