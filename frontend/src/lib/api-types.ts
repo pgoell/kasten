@@ -4478,6 +4478,8 @@ export interface components {
          * @description A change to a todo read at `version`; a stale version answers 409.
          */
         Change: {
+            /** Description */
+            description?: string | null;
             /** Priority */
             priority?: ("highest" | "high" | "medium" | "low" | "lowest") | null;
             /** Planned */
@@ -5943,6 +5945,8 @@ export interface components {
          * @description A todo to add: its words, and any field it starts with.
          */
         NewTodo: {
+            /** Description */
+            description?: string | null;
             /** Priority */
             priority?: ("highest" | "high" | "medium" | "low" | "lowest") | null;
             /** Planned */
@@ -7494,6 +7498,8 @@ export interface components {
             id: string;
             /** Words */
             words: string;
+            /** Description */
+            description: string | null;
             /**
              * State
              * @enum {string}
