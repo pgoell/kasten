@@ -80,6 +80,7 @@ export function TodoView(props: TodoViewProps) {
   const [cursor, setCursor] = useState<string | null>(null);
   const [panel, setPanel] = useState<Panel>(null);
   const [pop, setPop] = useState<{ kind: PickKind; id: string } | null>(null);
+  const [linkAsk, setLinkAsk] = useState(0);
   const [day, setDay] = useState<string | null>(null);
   const filter = useRef<HTMLInputElement>(null);
   const board = useRef<HTMLDivElement>(null);
@@ -149,6 +150,7 @@ export function TodoView(props: TodoViewProps) {
       add: () => newIn(),
       filter: () => filter.current?.focus(),
       goToNote: () => atCursor?.note && props.onOpen(atCursor.note),
+      linkNote: () => shown !== undefined && setLinkAsk((asked) => asked + 1),
       // Only on a row drawn now: a popover with no row to sit by would take keys unseen.
       pick: (kind) =>
         atCursor &&
@@ -171,6 +173,7 @@ export function TodoView(props: TodoViewProps) {
       today={today}
       onClose={close}
       onNew={(preset) => setPanel({ kind: "new", preset })}
+      linkAsk={linkAsk}
       onOpenTodo={openTodo}
       onOpenNote={props.onOpen}
       onNotice={onNotice}
@@ -288,6 +291,7 @@ function PanelSlot(props: {
   today: string;
   onClose: () => void;
   onNew: (preset: Preset) => void;
+  linkAsk: number;
   onOpenTodo: (id: string) => void;
   onOpenNote: (path: string) => void;
   onNotice: (text: string) => void;
@@ -316,6 +320,7 @@ function PanelSlot(props: {
       files={data.files}
       today={today}
       running={data.running.has(shown.id)}
+      linkAsk={props.linkAsk}
       onClose={props.onClose}
       onOpenTodo={props.onOpenTodo}
       onOpenNote={props.onOpenNote}

@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   DateButton,
   FieldRow,
@@ -10,8 +10,10 @@ import {
 } from "@/components/todo/view/panel/panel-fields";
 import { PanelNotes, PanelParts } from "@/components/todo/view/panel/panel-sections";
 import { DatePick, type Which } from "@/components/todo/view/pick/date-pick";
+import { NotePick } from "@/components/todo/view/pick/note-pick";
 import { Icon } from "@/components/todo/view/view-icons";
 import type { TodoRow } from "@/lib/core/api";
+import { linkTo } from "@/lib/todo/view/rows/note-links";
 import { readMinutes } from "@/lib/todo/view/rows/quick-words";
 import { longDay, minutes } from "@/lib/todo/view/rows/row-facts";
 import { deleteTodo, stateTodo, timerTodo } from "@/lib/todo/view/todo-store";
@@ -24,6 +26,8 @@ export interface PanelProps {
   files: string[] | undefined;
   today: string;
   running: boolean;
+  /** Counts the view's `n` presses; each new count opens the note picker. */
+  linkAsk: number;
   onClose: () => void;
   onOpenTodo: (id: string) => void;
   onOpenNote: (path: string) => void;
@@ -46,12 +50,44 @@ export function TodoPanel(props: PanelProps) {
   const [repeat, setRepeat] = useState(row.repeat ?? "");
   const [deleting, setDeleting] = useState(false);
   const [dates, setDates] = useState<{ which: Which; anchor: HTMLElement } | null>(null);
+  const [linking, setLinking] = useState<HTMLElement | null>(null);
+  const describe = (text: string) => {
+    setDescription(text);
+    save({ description: text === "" ? null : text });
+  };
+  // Where a `[[` was just typed: the link replaces it there. Without one it starts a line.
+  const linkAt = useRef<number | null>(null);
+  const linkNote = (path: string) => {
+    const link = linkTo(path, props.files ?? []);
+    const at = linkAt.current;
+    linkAt.current = null;
+    if (at !== null && description.slice(at - 2, at) === "[[")
+      describe(`${description.slice(0, at - 2)}${link}${description.slice(at)}`);
+    else describe(description.trim() === "" ? link : `${description.trimEnd()}\n${link}`);
+  };
+  const aside = useRef<HTMLElement>(null);
+  const firstAsk = useRef(props.linkAsk);
+  useEffect(() => {
+    if (props.linkAsk === firstAsk.current) return;
+    setLinking(aside.current?.querySelector<HTMLElement>("[data-link-note]") ?? null);
+  }, [props.linkAsk]);
   const failed = (error: unknown) =>
     onNotice(`Not saved: ${error instanceof Error ? error.message : error}`);
   const worked = row.worked ?? 0;
 
   return (
-    <aside aria-label="Todo" className="flex h-full min-h-0 flex-col bg-k-bg">
+    <aside ref={aside} aria-label="Todo" className="flex h-full min-h-0 flex-col bg-k-bg">
+      {linking !== null && (
+        <NotePick
+          anchor={linking}
+          files={props.files ?? []}
+          onPick={linkNote}
+          onClose={() => {
+            linkAt.current = null;
+            setLinking(null);
+          }}
+        />
+      )}
       {dates !== null && (
         <DatePick
           anchor={dates.anchor}
@@ -115,8 +151,11 @@ export function TodoPanel(props: PanelProps) {
           value={description}
           placeholder="Add a description, [[ links a note"
           onChange={(event) => {
-            setDescription(event.target.value);
-            save({ description: event.target.value === "" ? null : event.target.value });
+            const { value, selectionStart: at } = event.target;
+            const typed = value.length > description.length && value.slice(at - 2, at) === "[[";
+            describe(value);
+            linkAt.current = typed ? at : null;
+            if (typed) setLinking(event.target);
           }}
           className="field-sizing-content mt-3 min-h-12 w-full resize-none rounded-md border border-k-rule bg-k-paper px-3 py-2 text-[15px] text-k-ink leading-relaxed outline-none placeholder:text-k-muted focus:border-k-rule-strong"
         />
@@ -193,6 +232,7 @@ export function TodoPanel(props: PanelProps) {
           description={description}
           files={props.files}
           onOpenNote={props.onOpenNote}
+          onLink={setLinking}
         />
         <PanelParts
           parent={row}

@@ -11,6 +11,7 @@ import {
   type QueryObserverResult,
 } from "@tanstack/react-query";
 import {
+  addTodoLine,
   changeTodoLine,
   cycleStoreTodo,
   fetchNote,
@@ -44,6 +45,10 @@ export interface EmbedSource {
   setTodoState?(id: string, state: TodoRow["state"]): void;
   /** Toggles `#agent` on that todo in the store; answers why nothing moved, or null. */
   agentTodo?(id: string): string | null;
+  /** Every todo listed now, for `[[todo` to pick from. */
+  todos?(): TodoRow[];
+  /** Adds the todo a typed line says to the note at `note`; answers its id. */
+  addTodo?(note: string, line: string): Promise<string>;
 }
 
 /**
@@ -151,6 +156,20 @@ export function queryEmbedSource(
     },
     cycleTodo(id) {
       relist(cycleStoreTodo(id));
+    },
+    todos() {
+      const rows = new Map<string, TodoRow>();
+      for (const [, hits] of client.getQueriesData<TodoHit[]>({ queryKey: ["todos"] })) {
+        for (const hit of hits ?? []) if (hit.todo) rows.set(hit.todo.id, hit.todo);
+      }
+      return [...rows.values()];
+    },
+    async addTodo(note, line) {
+      const added = addTodoLine(line, { note });
+      relist(added);
+      const [row] = await added;
+      if (row === undefined) throw new Error("the store answered no todo");
+      return row.id;
     },
     setTodoState(id, state) {
       relist(setTodoState(id, state));

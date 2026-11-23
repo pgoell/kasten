@@ -41,12 +41,12 @@ const hits = (rows: TodoRow[]): TodoHit[] =>
     todo: each,
   }));
 
-function viewOf(client: QueryClient, focusSignal = 0, board: ReactNode = null) {
+function viewOf(client: QueryClient, focusSignal = 0, board: ReactNode = null, onOpen = vi.fn()) {
   return (
     <QueryClientProvider client={client}>
       <TodoView
         commands={stubCommands()}
-        onOpen={vi.fn()}
+        onOpen={onOpen}
         onNotice={vi.fn()}
         focusSignal={focusSignal}
         today={TODAY}
@@ -56,8 +56,9 @@ function viewOf(client: QueryClient, focusSignal = 0, board: ReactNode = null) {
   );
 }
 
-function renderView() {
-  return render(viewOf(new QueryClient({ defaultOptions: { queries: { retry: false } } })));
+function renderView(onOpen = vi.fn()) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(viewOf(client, 0, null, onOpen));
 }
 
 /** The store as the fakes keep it, so a refetch after a write reads the write. */
@@ -245,6 +246,60 @@ describe("the todo view", () => {
     expect(post).toHaveBeenLastCalledWith("/api/todos", {
       body: { words: "fit the lamp", planned: "2026-11-26" },
     });
+  });
+
+  it("leaves g then n to open the cursor's note, with the focus in the panel", async () => {
+    const onOpen = vi.fn();
+    renderView(onOpen);
+    fireEvent.click(await screen.findByText("write the parser tests"));
+    const close = screen.getByRole("button", { name: "Close" });
+    fireEvent.keyDown(close, { key: "g" });
+    fireEvent.keyDown(close, { key: "n" });
+    expect(onOpen).toHaveBeenCalled();
+    expect(screen.queryByRole("dialog", { name: "Link a note" })).toBeNull();
+  });
+
+  it("links a note into the description from the picker n opens in the panel", async () => {
+    renderView();
+    fireEvent.click(await screen.findByText("file the report"));
+    await screen.findByRole("button", { name: /Link a note/ });
+    fireEvent.keyDown(screen.getByRole("complementary", { name: "Todo" }), { key: "n" });
+    const picker = screen.getByRole("dialog", { name: "Link a note" });
+    const find = within(picker).getByRole("textbox", { name: "Find a note" });
+    fireEvent.change(find, { target: { value: "kasten" } });
+    fireEvent.keyDown(find, { key: "Enter" });
+    expect(screen.getByRole("textbox", { name: "Description" })).toHaveValue(
+      "[[02 Projects/Kasten/index]]",
+    );
+    await act(() => vi.advanceTimersByTimeAsync(500));
+    expect(api.patchTodo).toHaveBeenLastCalledWith("kt-000002", {
+      description: "[[02 Projects/Kasten/index]]",
+      version: 1,
+    });
+  });
+
+  it("puts the picked link where [[ was typed, and opens no picker on an edit elsewhere", async () => {
+    renderView();
+    fireEvent.click(await screen.findByText("file the report"));
+    const description = screen.getByRole("textbox", { name: "Description" });
+    fireEvent.change(description, { target: { value: "call  then" } });
+    fireEvent.change(description, { target: { value: "call [[ then", selectionStart: 7 } });
+    const find = screen.getByRole("textbox", { name: "Find a note" });
+    fireEvent.change(find, { target: { value: "kasten" } });
+    fireEvent.keyDown(find, { key: "Enter" });
+    expect(description).toHaveValue("call [[02 Projects/Kasten/index]] then");
+
+    fireEvent.change(description, { target: { value: "ends in " } });
+    fireEvent.change(description, { target: { value: "ends in [[", selectionStart: 10 } });
+    fireEvent.keyDown(screen.getByRole("textbox", { name: "Find a note" }), { key: "Escape" });
+    fireEvent.change(description, { target: { value: "xends in [[", selectionStart: 1 } });
+    expect(screen.queryByRole("textbox", { name: "Find a note" })).toBeNull();
+    // The button's link goes on a line of its own, not into the [[ an Escape left behind.
+    fireEvent.click(screen.getByRole("button", { name: /Link a note/ }));
+    const again = screen.getByRole("textbox", { name: "Find a note" });
+    fireEvent.change(again, { target: { value: "kasten" } });
+    fireEvent.keyDown(again, { key: "Enter" });
+    expect(description).toHaveValue("xends in [[\n[[02 Projects/Kasten/index]]");
   });
 
   it("opens the todo Enter added, once the list holds it", async () => {

@@ -34,6 +34,14 @@ finder](/reference/editor-keys/finding.md#the-note-finder) does by hand and one 
 a note's name rather than prose, so nothing in it is parsed as markdown, and a
 link that runs past the end of its line is not a link.
 
+## Picking a todo
+
+Type `[[todo` and the store's todos are offered above the notes, open ones
+first and then the most recently changed, filtered by what follows:
+`[[todo offer` finds "draft the offer for Ada". Taking one, with Tab or Enter,
+puts in its embed, `![[kt-…]]`, in place of the `[[todo` and what was typed,
+so the todo is drawn and ticked where it now sits as well as where it lives.
+
 ## Completing a tag
 
 Type `#` and the tags the vault already holds are offered, filtered as you go.

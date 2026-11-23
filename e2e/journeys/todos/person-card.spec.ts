@@ -231,7 +231,10 @@ test.describe("the person card", () => {
     test("every row of the card is at least 44 px tall", async ({ page, stack }) => {
       const { todos } = await maxCard(page, stack.vault);
       await expect(todos).toBeVisible({ timeout: 15_000 });
-      const rows = page.locator("section[aria-label] button");
+      // The card's own sections; the note's "Todos that link here" list is not the card.
+      const rows = page
+        .getByRole("region", { name: /^(Open todos|Last meetings|Recently done)$/ })
+        .getByRole("button");
       await expect(rows).toHaveCount(3);
       for (const row of await rows.all()) expect(await tapHeight(row)).toBeGreaterThanOrEqual(44);
     });
