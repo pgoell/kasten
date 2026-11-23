@@ -9,9 +9,9 @@ import {
   phone,
   readAll,
   TODO_ROW,
+  tapTodoList,
   today,
   todoRows,
-  toTodoList,
   vaultWith,
 } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
@@ -457,8 +457,7 @@ test.describe("on a phone", () => {
       const files = page.waitForResponse((answer) => answer.url().endsWith("/api/files"));
       await page.goto("/");
       await files;
-      await page.getByRole("button", { name: "Open the todo pane" }).tap();
-      await toTodoList(page);
+      await tapTodoList(page);
     });
     // The first tap asks, the second cycles.
     const box = page.getByRole("button", { name: "cycle read the plan" });
@@ -485,8 +484,7 @@ test.describe("on a phone", () => {
     stack,
   }) => {
     await page.goto("/");
-    await page.getByRole("button", { name: "Open the todo pane" }).tap();
-    await toTodoList(page);
+    await tapTodoList(page);
     await page.getByRole("button", { name: "more for fold the laundry" }).tap();
     await page.getByRole("button", { name: "done fold the laundry" }).tap();
     await expect

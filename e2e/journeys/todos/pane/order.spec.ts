@@ -8,9 +8,9 @@ import {
   plus,
   recordEvents,
   TODO_ROW,
+  tapTodoList,
   today,
   todoRows,
-  toTodoList,
   vaultWith,
 } from "../../../harness/app.ts";
 import { expect, type Stack, test } from "../../../harness/stack.ts";
@@ -101,8 +101,7 @@ async function openOrder(page: Page, vault: string, o: Open = {}) {
   await page.clock.install();
   if (o.touch) {
     await page.goto("/");
-    await page.getByRole("button", { name: "Open the todo pane" }).tap({ timeout: 15_000 });
-    await toTodoList(page);
+    await tapTodoList(page);
   } else {
     await openApp(page);
     await openTodoList(page);

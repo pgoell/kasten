@@ -13,7 +13,7 @@ import {
   phone,
   TODO_ROW,
   tapHeight,
-  toTodoList,
+  tapTodoList,
   vaultWith,
 } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
@@ -71,13 +71,11 @@ test.describe("on a phone", () => {
   test("a tap on a board card's assignee chip opens the person note", async ({ page, stack }) => {
     const { chip, writes } = await chippedCard(page, stack.vault);
     await page.goto("/");
-    await page.getByRole("button", { name: "Open the todo pane" }).tap();
-    await toTodoList(page);
+    await tapTodoList(page);
     await page.getByRole("button", { name: "board", exact: true }).tap();
     await chip.tap();
     await opensPascal(page, stack.url, writes, async () => {
-      await page.getByRole("button", { name: "Open the todo pane" }).tap();
-      await toTodoList(page);
+      await tapTodoList(page);
       await page.getByRole("button", { name: "more for fix the tap" }).tap();
       await page.getByRole("button", { name: "done fix the tap" }).tap();
     });
@@ -346,15 +344,13 @@ test.describe("the assignee chip on a todo pane row", () => {
           writes.push(request.url());
       });
       await page.goto("/");
-      await page.getByRole("button", { name: "Open the todo pane" }).tap({ timeout: 15_000 });
-      await toTodoList(page);
+      await tapTodoList(page);
       await linked("buy paint");
       await chip("buy paint").tap();
       await expect(page.getByRole("tab", { name: "Pascal", selected: true })).toBeVisible();
       await expect(page.getByRole("tab", { name: "Chores" })).toHaveCount(0);
       // One real tick last: todo writes go in turn, so a write the tap sent would land first.
-      await page.getByRole("button", { name: "Open the todo pane" }).tap();
-      await toTodoList(page);
+      await tapTodoList(page);
       await page.getByRole("button", { name: "more for rake the leaves" }).tap();
       await page.getByRole("button", { name: "done rake the leaves" }).tap();
       await expect

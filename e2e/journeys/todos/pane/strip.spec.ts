@@ -9,6 +9,7 @@ import {
   runCommand,
   TODO_ROW,
   tapHeight,
+  tapTodoList,
   toTodoList,
   vaultWith,
 } from "../../../harness/app.ts";
@@ -135,8 +136,7 @@ test.describe("by touch (#421)", () => {
     const listed = page.waitForResponse((r) => new URL(r.url()).pathname === "/api/files");
     await page.goto("/");
     await listed;
-    await page.getByRole("button", { name: "Open the todo pane" }).tap({ timeout: 15_000 });
-    await toTodoList(page);
+    await tapTodoList(page);
     await expect(page.locator(TODO_ROW, { hasText: "fix the tap" })).toBeVisible();
   }
 
@@ -174,8 +174,7 @@ test.describe("by touch (#421)", () => {
     const line = "- [w] see `👤 2026-10-25 x` x 👤 2026-10-25";
     await vaultWith(stack.vault, { [NOTE]: `${line}\n` });
     await page.goto("/");
-    await page.getByRole("button", { name: "Open the todo pane" }).tap({ timeout: 15_000 });
-    await toTodoList(page);
+    await tapTodoList(page);
     await page.getByLabel(/^more for see /).tap();
     await page.getByLabel(/^edit see /).tap();
     const input = page.getByLabel("edit line");
@@ -330,8 +329,7 @@ test.describe("the board by touch (#394, #429)", () => {
       "02 Projects/Kasten/plan.md": "- [ ] send the deck #p/fde\n",
     });
     await page.goto("/");
-    await page.getByRole("button", { name: "Open the todo pane" }).tap({ timeout: 15_000 });
-    await toTodoList(page);
+    await tapTodoList(page);
     await expect(page.locator(TODO_ROW, { hasText: "send the deck" })).toBeVisible();
     await button(page, "board").tap();
     await expect(cards(page).first()).toBeVisible();

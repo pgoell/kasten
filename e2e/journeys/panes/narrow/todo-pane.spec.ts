@@ -7,8 +7,8 @@ import {
   PANE,
   phone,
   TODO_ROW,
+  tapTodoList,
   today,
-  toTodoList,
   vaultWith,
 } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
@@ -54,8 +54,7 @@ async function pane(page: Page, vault: string, lines = LINES, last = "ship it") 
     if (write && /\/api\/(files|todos)\//.test(request.url())) writes.push(request.url());
   });
   await page.goto("/");
-  await page.getByRole("button", { name: "Open the todo pane" }).tap({ timeout: 15_000 });
-  await toTodoList(page);
+  await tapTodoList(page);
   await expect(more(page, last)).toBeVisible();
   return writes;
 }
@@ -350,8 +349,7 @@ test("timer tapped straight after a state press starts a session on the todo it 
     },
   );
   await page.goto("/");
-  await page.getByRole("button", { name: "Open the todo pane" }).tap({ timeout: 15_000 });
-  await toTodoList(page);
+  await tapTodoList(page);
   const cycle = page.getByRole("button", { name: "cycle water the tomatoes" });
   await cycle.tap();
   await cycle.tap();
@@ -382,8 +380,7 @@ test("edit tapped after a state press keeps the row and every typed key through 
     },
   );
   await page.goto("/");
-  await page.getByRole("button", { name: "Open the todo pane" }).tap({ timeout: 15_000 });
-  await toTodoList(page);
+  await tapTodoList(page);
   const cycle = page.getByRole("button", { name: "cycle water the tomatoes" });
   await cycle.tap();
   await cycle.tap();

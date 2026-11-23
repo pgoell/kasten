@@ -6,7 +6,7 @@ import {
   plus,
   readAll,
   TODO_ROW,
-  toTodoList,
+  tapTodoList,
   vaultWith,
 } from "../../../../harness/app.ts";
 import { expect, test } from "../../../../harness/stack.ts";
@@ -162,8 +162,7 @@ test.describe("on a phone", () => {
       ...DONE,
     ]);
     await page.goto("/");
-    await page.getByRole("button", { name: "Open the todo pane" }).tap();
-    await toTodoList(page);
+    await tapTodoList(page);
 
     const state = page.getByRole("button", { name: "cycle write the parser" });
     await expect(state.locator('svg[data-state="review"]')).toHaveCount(1);

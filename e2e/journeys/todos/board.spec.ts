@@ -10,6 +10,7 @@ import {
   runCommand,
   TODO_ROW,
   tapHeight,
+  tapTodoList,
   today,
   toTodoList,
   vaultWith,
@@ -115,8 +116,7 @@ test.describe("on a phone", () => {
     page,
   }) => {
     await page.goto("/");
-    await page.getByRole("button", { name: "Open the todo pane" }).tap();
-    await toTodoList(page);
+    await tapTodoList(page);
     await page.getByRole("button", { name: "board", exact: true }).tap();
     const card = page.locator("[data-card]", { hasText: "fold the laundry" });
     await expect(card).toBeVisible();
@@ -270,8 +270,7 @@ test.describe("the board's lanes and folds (#811)", () => {
           "# Plan\n\n- [ ] write the deck #internal\n- [/] draw the chart #internal\n- [ ] send the invoice #client\n",
       });
       await page.goto("/");
-      await page.getByRole("button", { name: "Open the todo pane" }).tap();
-      await toTodoList(page);
+      await tapTodoList(page);
       await page.getByRole("button", { name: "board", exact: true }).tap();
       await expect(card(page, "send the invoice")).toBeVisible();
 

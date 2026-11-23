@@ -35,6 +35,12 @@ export async function toTodoList(page: Page): Promise<void> {
   await page.keyboard.press("c");
 }
 
+/** The phone's todo button, then the list under the todo view's Board tab. */
+export async function tapTodoList(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "Open the todo pane" }).tap({ timeout: 15_000 });
+  await toTodoList(page);
+}
+
 /** `<leader>gt`, then the list under the todo view's Board tab. */
 export async function openTodoList(page: Page): Promise<void> {
   await leader(page, "gt");
