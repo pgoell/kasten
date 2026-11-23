@@ -72,8 +72,9 @@ Reach a change as its user does. Two ways:
   (the `phone` helper) where the flow exists on one.
 - **A browser on the dev frontend** at `http://127.0.0.1:5173` (loopback, so no
   login). For a picture:
-  `cd e2e && bunx playwright screenshot --wait-for-selector .cm-content http://127.0.0.1:5173/ ../.verify/dev.png`,
-  and `--device "Pixel 7"` for a phone. Every write there lands in the dev
+  `cd e2e && bunx playwright screenshot --wait-for-selector 'role=button[name="02 Projects"]' http://127.0.0.1:5173/ ../.verify/dev.png`
+  (wait for a row of the file tree, a folder or note of the dev vault; the
+  editor draws before the listing lands), and `--device "Pixel 7"` for a phone. Every write there lands in the dev
   vault other sessions use, so keep to reading; write in a journey instead.
 
 The flows that must always work are in [the feature map](features/README.md),
