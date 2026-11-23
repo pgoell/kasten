@@ -30,13 +30,13 @@ export function trapTab(event: KeyboardEvent | React.KeyboardEvent, box: HTMLEle
 }
 
 /**
- * Gives the focus back to what held it before a dialog, a note through its own view: a bare focus
- * on a phone reads the DOM's caret, at the note's start (#2094, #1976, #2311). No keyboardUnasked():
- * the dialog's field raised the keyboard, and the follow-up types (#2312).
+ * Gives the focus back to what held it before a dialog, a note through its own view, which never
+ * scrolls: a bare focus on a phone reads the DOM's caret, at the note's start (#2094, #1976, #2311).
+ * No keyboardUnasked(): a caller that must keep the keyboard down asks for that itself (#2312).
  */
-export function focusBack(opener: Element | null): void {
+export function focusBack(opener: Element | null, options?: FocusOptions): void {
   if (!(opener instanceof HTMLElement)) return;
   const view = EditorView.findFromDOM(opener);
-  if (view === null) opener.focus();
+  if (view === null) opener.focus(options);
   else view.focus();
 }

@@ -13,7 +13,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { trapTab } from "@/lib/ui/focus-trap";
+import { focusBack, trapTab } from "@/lib/ui/focus-trap";
 import { axis, backdrop, closes, follow, type Sample, speed } from "@/lib/ui/motion/sheet-math";
 import { afterRelease, SPRINGS, Spring, type SpringConfig } from "@/lib/ui/motion/spring";
 
@@ -249,7 +249,7 @@ export function Sheet({
     const back = returnTo.current;
     returnTo.current = null;
     if (restore.current && back instanceof HTMLElement && back.isConnected)
-      back.focus({ preventScroll: true });
+      focusBack(back, { preventScroll: true });
   }
 
   // A close the sheet makes itself, so it tells the parent once it is gone.
