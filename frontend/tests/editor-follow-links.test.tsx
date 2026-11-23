@@ -136,6 +136,22 @@ describe("Editor", () => {
     expect(onFollow).toHaveBeenCalledWith("borges", undefined, where);
   });
 
+  it("does not follow a link the finger only scrolled from", () => {
+    const onFollow = vi.fn();
+    const { container } = renderStarved(
+      <Editor initialDoc={"intro\n\nsee [[reading/borges]]"} onFollow={onFollow} />,
+    );
+    finishParsing(container);
+    const link = container.querySelector(".cm-wikilink") as HTMLElement;
+
+    // No browser sends this click after a scroll, so no journey reaches it; nothing may wait for it.
+    fireEvent.pointerDown(link, { pointerType: "touch" });
+    fireEvent.pointerCancel(link, { pointerType: "touch" });
+    fireEvent.click(link);
+
+    expect(onFollow).not.toHaveBeenCalled();
+  });
+
   it("leaves a plain click on a wikilink to the cursor", () => {
     // Clicking a link to put the cursor in it is how it gets edited, so the
     // modifier is what tells the two apart.

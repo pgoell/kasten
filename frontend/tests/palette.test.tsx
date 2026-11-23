@@ -123,6 +123,13 @@ describe("an insert", () => {
 });
 
 describe("the palette", () => {
+  it("lists no row of vim's own keys over a view that is not a note's editor", () => {
+    // Every editor a pane hands the palette carries those rows, so no journey reaches this.
+    const labels = paletteEntries(stubCommands(), new EditorView()).map((row) => row.label);
+
+    expect(labels).not.toContain("Write the note");
+  });
+
   it("lists only the route's commands without an editor", () => {
     const labels = paletteEntries(stubCommands(), null).map((entry) => entry.label);
     expect(labels).toContain("Find a note");
