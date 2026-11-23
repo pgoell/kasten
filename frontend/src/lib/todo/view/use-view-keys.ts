@@ -12,6 +12,8 @@ export interface ViewKeyActions {
   goToNote(): void;
   /** Open the date, state or priority popover on the cursor's row. */
   pick(kind: "date" | "state" | "priority"): void;
+  /** Open the note picker in the todo panel, when one is open. */
+  linkNote(): void;
   close(): boolean;
 }
 
@@ -64,6 +66,7 @@ export function useViewKeys(commands: EditorCommands, act: ViewKeyActions, idle:
       d: () => act.pick("date"),
       s: () => act.pick("state"),
       p: () => act.pick("priority"),
+      n: act.linkNote,
       g: () => {
         afterG.current = true;
       },

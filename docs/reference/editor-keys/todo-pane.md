@@ -66,8 +66,8 @@ Saved as you type.
   runs the timer.
 * Tags are read off the words, so a `#tag` typed in the words adds one.
 * Notes lists the note the todo lives in, then each note a `[[link]]` in the
-  words or description names; a click opens it. Link a note, or `n` anywhere in
-  the panel outside a field, or `[[` typed in the description, opens a picker of
+  words or description names; a click opens it. Link a note, or `n` with the panel
+  open and the focus outside a field, or `[[` typed in the description, opens a picker of
   the vault's notes: type part of a name, and Enter or a click writes its link
   into the description, in place of the `[[` that opened it or on a line of its
   own. A note named alike in two folders is linked by its path.
@@ -114,6 +114,7 @@ Enter adds it and starts the next, Escape cancels.
 | `s` | Pick the cursor's todo's state |
 | `p` | Pick the cursor's todo's priority |
 | `a` | Start a new todo in the panel |
+| `n` | With the panel open, link a note into its description |
 | `g` `n` | Open the note the cursor's todo lives in |
 | `/` | Filter the table by its words |
 | Escape | Close the panel |

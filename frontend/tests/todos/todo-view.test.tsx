@@ -40,13 +40,13 @@ const hits = (rows: TodoRow[]): TodoHit[] =>
     todo: each,
   }));
 
-function renderView() {
+function renderView(onOpen = vi.fn()) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
       <TodoView
         commands={stubCommands()}
-        onOpen={vi.fn()}
+        onOpen={onOpen}
         onNotice={vi.fn()}
         focusSignal={0}
         today={TODAY}
@@ -231,6 +231,17 @@ describe("the todo view", () => {
     expect(post).toHaveBeenLastCalledWith("/api/todos", {
       body: { words: "fit the lamp", planned: "2026-11-26" },
     });
+  });
+
+  it("leaves g then n to open the cursor's note, with the focus in the panel", async () => {
+    const onOpen = vi.fn();
+    renderView(onOpen);
+    fireEvent.click(await screen.findByText("write the parser tests"));
+    const close = screen.getByRole("button", { name: "Close" });
+    fireEvent.keyDown(close, { key: "g" });
+    fireEvent.keyDown(close, { key: "n" });
+    expect(onOpen).toHaveBeenCalled();
+    expect(screen.queryByRole("dialog", { name: "Link a note" })).toBeNull();
   });
 
   it("links a note into the description from the picker n opens in the panel", async () => {

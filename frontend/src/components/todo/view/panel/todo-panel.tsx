@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   DateButton,
   FieldRow,
@@ -26,6 +26,8 @@ export interface PanelProps {
   files: string[] | undefined;
   today: string;
   running: boolean;
+  /** Counts the view's `n` presses; each new count opens the note picker. */
+  linkAsk: number;
   onClose: () => void;
   onOpenTodo: (id: string) => void;
   onOpenNote: (path: string) => void;
@@ -59,22 +61,18 @@ export function TodoPanel(props: PanelProps) {
     if (description.endsWith("[[")) describe(`${description.slice(0, -2)}${link}`);
     else describe(description.trim() === "" ? link : `${description.trimEnd()}\n${link}`);
   };
+  const aside = useRef<HTMLElement>(null);
+  const firstAsk = useRef(props.linkAsk);
+  useEffect(() => {
+    if (props.linkAsk === firstAsk.current) return;
+    setLinking(aside.current?.querySelector<HTMLElement>("[data-link-note]") ?? null);
+  }, [props.linkAsk]);
   const failed = (error: unknown) =>
     onNotice(`Not saved: ${error instanceof Error ? error.message : error}`);
   const worked = row.worked ?? 0;
 
   return (
-    <aside
-      aria-label="Todo"
-      onKeyDown={(event) => {
-        const typing = (event.target as HTMLElement).matches("input, textarea, select");
-        if (event.key !== "n" || typing || event.ctrlKey || event.metaKey || event.altKey) return;
-        event.preventDefault();
-        event.stopPropagation();
-        setLinking(event.currentTarget.querySelector<HTMLElement>("[data-link-note]"));
-      }}
-      className="flex h-full min-h-0 flex-col bg-k-bg"
-    >
+    <aside ref={aside} aria-label="Todo" className="flex h-full min-h-0 flex-col bg-k-bg">
       {linking !== null && (
         <NotePick
           anchor={linking}
