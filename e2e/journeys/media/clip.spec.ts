@@ -153,7 +153,7 @@ test.describe("on a phone", () => {
   // With a touch: no finger is this quick, but a touchstart alone opens CodeMirror's 300 ms
   // window, inside which a bare refocus would hand it the DOM's caret at the note's top (#1976).
   for (const [vim, touch] of [
-    ["on", false],
+    ["off", false],
     ["on", true],
     ["off", true],
   ] as const) {
