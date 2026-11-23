@@ -9,6 +9,16 @@
 
 import { act } from "@testing-library/react";
 
+/**
+ * An element's box as the layout draws it, for a tap target's 44 px floor. Chrome lays out in
+ * 1/64 px, and a box mid-slide reads a float step short of that, 43.99999 for 44 (#2280).
+ */
+export function tapBox(element: Element | null | undefined): { width: number; height: number } {
+  const box = element?.getBoundingClientRect();
+  const step = (size = 0) => Math.round(size * 64) / 64;
+  return { width: step(box?.width), height: step(box?.height) };
+}
+
 /** The two queries `useViewport` asks, spelled here so a change to either fails loudly. */
 export const NARROW = "(width < 48rem)";
 export const COARSE = "(pointer: coarse)";

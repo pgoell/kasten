@@ -9,6 +9,7 @@
 
 import { syntaxTreeAvailable } from "@codemirror/language";
 import { EditorView } from "@codemirror/view";
+import { tapBox } from "../match-media";
 import "./html-take-api";
 import { commands as browser, page, userEvent } from "vitest/browser";
 import type { Passage } from "@/lib/takes/highlight";
@@ -184,7 +185,7 @@ describe("the video pane", () => {
 
     await expect.poll(() => pane.querySelector<HTMLElement>("[data-take]")).not.toBeNull();
     const button = pane.querySelector<HTMLElement>("[data-take]") as HTMLElement;
-    expect(button.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+    expect(tapBox(button).height).toBeGreaterThanOrEqual(44);
     const bounds = pane.getBoundingClientRect();
     const box = button.getBoundingClientRect();
     expect(box.left >= bounds.left && box.right <= bounds.right).toBe(true);

@@ -17,6 +17,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { cdp, page } from "vitest/browser";
 import { NoteFinder } from "@/components/finder/note-finder";
+import { tapBox } from "../match-media";
 import { shot } from "./shots";
 import "@/styles/app.css";
 
@@ -140,7 +141,7 @@ describe("the book finder on a phone (#502)", () => {
     const parts = [...(dune?.querySelectorAll("span") ?? [])].map((span) => span.textContent);
     expect.soft(parts).toEqual(["Dune", `${BOOKS}/Science Fiction`]);
     // A row a thumb can hit.
-    expect.soft(dune?.getBoundingClientRect().height ?? 0).toBeGreaterThanOrEqual(44);
+    expect.soft(tapBox(dune).height).toBeGreaterThanOrEqual(44);
 
     if (dune) await tap(dune);
     // The note's path, which is what the book pane takes, once.

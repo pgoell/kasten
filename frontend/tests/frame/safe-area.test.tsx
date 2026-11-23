@@ -25,6 +25,7 @@ import { FileExplorer } from "@/components/file-explorer";
 import { StatusBar } from "@/components/status-bar";
 import { Toolbar } from "@/components/toolbar";
 import type { EditorCommands, TreeCommands } from "@/lib/ui/keys/key-bindings";
+import { tapBox } from "../match-media";
 import "@/styles/app.css";
 
 interface Insets {
@@ -135,7 +136,7 @@ describe("the safe area on a phone", () => {
     // One row: every button shares the first one's top edge.
     expect(new Set(buttons.map((button) => button.getBoundingClientRect().top)).size).toBe(1);
     for (const button of buttons) {
-      const rect = button.getBoundingClientRect();
+      const rect = tapBox(button);
       const name = button.getAttribute("aria-label") ?? undefined;
       expect(rect.width, name).toBeGreaterThanOrEqual(44);
       expect(rect.height, name).toBeGreaterThanOrEqual(44);

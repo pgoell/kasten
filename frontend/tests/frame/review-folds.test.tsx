@@ -10,6 +10,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRoot } from "react-dom/client";
 import { page } from "vitest/browser";
 import { ReviewDecks } from "@/components/review/review-decks";
+import { tapBox } from "../match-media";
 import { shot } from "./shots";
 import "@/styles/app.css";
 
@@ -72,7 +73,7 @@ it.each([
 
       const toggle = host.querySelector('button[data-fold="trivia"]');
       expect(toggle, "no fold toggle beside the trivia row").not.toBeNull();
-      const box = (toggle as Element).getBoundingClientRect();
+      const box = tapBox(toggle);
       expect(box.width, "toggle width").toBeGreaterThanOrEqual(44);
       expect(box.height, "toggle height").toBeGreaterThanOrEqual(44);
 

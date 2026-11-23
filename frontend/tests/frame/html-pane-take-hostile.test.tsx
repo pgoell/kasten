@@ -5,6 +5,7 @@
  * may take. The touch case puts the button under the words and taps it.
  */
 
+import { tapBox } from "../match-media";
 import "./html-take-api";
 import { vi } from "vitest";
 import { commands as browser, page, userEvent } from "vitest/browser";
@@ -185,7 +186,7 @@ it("at 390x844 with touch, the button sits below the selection and a tap takes i
   // Measured before the tap: a take takes the button off the page, so a box read after it is empty.
   expect({
     gap: button.getBoundingClientRect().top >= below - 1,
-    tall: button.getBoundingClientRect().height >= 44,
+    tall: tapBox(button).height >= 44,
     inside: inside(button, frame),
   }).toEqual({ gap: true, tall: true, inside: true });
 

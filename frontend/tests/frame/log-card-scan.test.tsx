@@ -11,6 +11,7 @@ import { fetchNote, NoteMissing } from "@/lib/core/api";
 import { readBarcode } from "@/lib/log/food-api";
 import { logCard } from "@/lib/log/log-card";
 import { notePath } from "@/lib/todo/todo-commands";
+import { tapBox } from "../match-media";
 import { shot } from "./shots";
 import "@/styles/app.css";
 
@@ -256,10 +257,7 @@ async function refusesCamera(width: number, label: string): Promise<void> {
     expect(view.dom.querySelector(".cm-log-food-why")?.textContent ?? "").toMatch(/not allowed/i);
 
     const scan = scanButton(view);
-    expect(
-      scan?.getBoundingClientRect().height ?? 0,
-      "the scan button's height",
-    ).toBeGreaterThanOrEqual(44);
+    expect(tapBox(scan).height, "the scan button's height").toBeGreaterThanOrEqual(44);
     const card = view.dom.querySelector<HTMLElement>(".cm-log");
     expect(card, "the log card").not.toBeNull();
     expect(card?.scrollWidth ?? 0, "the card scrolls sideways").toBeLessThanOrEqual(
@@ -313,10 +311,7 @@ it("#765 the torch button at 414 sits beside Scan finger-sized and the card does
 
     const torch = torchButton(view);
     const scan = scanButton(view);
-    expect(
-      torch?.getBoundingClientRect().height ?? 0,
-      "the torch button's height",
-    ).toBeGreaterThanOrEqual(44);
+    expect(tapBox(torch).height, "the torch button's height").toBeGreaterThanOrEqual(44);
     expect(
       Math.abs(
         (torch?.getBoundingClientRect().top ?? 0) - (scan?.getBoundingClientRect().top ?? 0),

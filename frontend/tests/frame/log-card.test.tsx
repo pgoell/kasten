@@ -9,6 +9,7 @@ import { page } from "vitest/browser";
 import { fetchNote, NoteMissing } from "@/lib/core/api";
 import { logCard } from "@/lib/log/log-card";
 import { notePath } from "@/lib/todo/todo-commands";
+import { tapBox } from "../match-media";
 import { shot } from "./shots";
 import "@/styles/app.css";
 
@@ -82,10 +83,7 @@ it("#620 a phone's buttons are finger-sized and the page does not scroll sideway
     const { host, view } = await mount(414, 896);
 
     for (const button of view.dom.querySelectorAll<HTMLElement>(".cm-log button")) {
-      expect(
-        button.getBoundingClientRect().height,
-        button.textContent ?? "",
-      ).toBeGreaterThanOrEqual(44);
+      expect(tapBox(button).height, button.textContent ?? "").toBeGreaterThanOrEqual(44);
     }
     const field = view.dom.querySelector<HTMLInputElement>(".cm-log-amount");
     expect(field).not.toBeNull();
@@ -113,10 +111,7 @@ it("#620 the card lays out on a desktop without scrolling sideways", async () =>
     const { host, view } = await mount(1200, 900);
 
     for (const button of view.dom.querySelectorAll<HTMLElement>(".cm-log button")) {
-      expect(
-        button.getBoundingClientRect().height,
-        button.textContent ?? "",
-      ).toBeGreaterThanOrEqual(44);
+      expect(tapBox(button).height, button.textContent ?? "").toBeGreaterThanOrEqual(44);
     }
     const field = view.dom.querySelector(".cm-log-amount") as HTMLInputElement;
     expect(getComputedStyle(field).fontSize).toBe("16px");
@@ -195,7 +190,7 @@ function expectFingerSized(view: EditorView): void {
   ].filter((control) => control.getClientRects().length > 0);
   expect(shown.length).toBeGreaterThan(0);
   for (const control of shown) {
-    expect(control.getBoundingClientRect().height, control.className).toBeGreaterThanOrEqual(44);
+    expect(tapBox(control).height, control.className).toBeGreaterThanOrEqual(44);
     if (control.tagName !== "BUTTON") {
       expect(getComputedStyle(control).fontSize, control.className).toBe("16px");
     }
@@ -324,10 +319,7 @@ async function checkGoalsCard(width: number, height: number, name: string): Prom
       .not.toBeNull();
 
     for (const button of view.dom.querySelectorAll<HTMLElement>(".cm-log button")) {
-      expect(
-        button.getBoundingClientRect().height,
-        button.textContent ?? "",
-      ).toBeGreaterThanOrEqual(44);
+      expect(tapBox(button).height, button.textContent ?? "").toBeGreaterThanOrEqual(44);
     }
     expectInsideCard(view);
     const edge = view.dom.getBoundingClientRect().right;
