@@ -62,6 +62,8 @@ vi.mock("@/lib/core/api", () => ({
   setTodoState: () => Promise.resolve([]),
   changeTodoLine: () => Promise.resolve([]),
   fetchTodos: () => Promise.resolve([]),
+  // Tab on a checkbox line in the preview's editor adds its todo through this.
+  addTodoLine: () => Promise.resolve([]),
 }));
 
 /**
