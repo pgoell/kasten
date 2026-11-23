@@ -82,7 +82,10 @@ export function TodoPanel(props: PanelProps) {
           anchor={linking}
           files={props.files ?? []}
           onPick={linkNote}
-          onClose={() => setLinking(null)}
+          onClose={() => {
+            linkAt.current = null;
+            setLinking(null);
+          }}
         />
       )}
       {dates !== null && (
@@ -151,9 +154,8 @@ export function TodoPanel(props: PanelProps) {
             const { value, selectionStart: at } = event.target;
             const typed = value.length > description.length && value.slice(at - 2, at) === "[[";
             describe(value);
-            if (!typed) return;
-            linkAt.current = at;
-            setLinking(event.target);
+            linkAt.current = typed ? at : null;
+            if (typed) setLinking(event.target);
           }}
           className="field-sizing-content mt-3 min-h-12 w-full resize-none rounded-md border border-k-rule bg-k-paper px-3 py-2 text-[15px] text-k-ink leading-relaxed outline-none placeholder:text-k-muted focus:border-k-rule-strong"
         />

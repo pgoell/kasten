@@ -279,6 +279,12 @@ describe("the todo view", () => {
     fireEvent.keyDown(screen.getByRole("textbox", { name: "Find a note" }), { key: "Escape" });
     fireEvent.change(description, { target: { value: "xends in [[", selectionStart: 1 } });
     expect(screen.queryByRole("textbox", { name: "Find a note" })).toBeNull();
+    // The button's link goes on a line of its own, not into the [[ an Escape left behind.
+    fireEvent.click(screen.getByRole("button", { name: /Link a note/ }));
+    const again = screen.getByRole("textbox", { name: "Find a note" });
+    fireEvent.change(again, { target: { value: "kasten" } });
+    fireEvent.keyDown(again, { key: "Enter" });
+    expect(description).toHaveValue("xends in [[\n[[02 Projects/Kasten/index]]");
   });
 
   it("opens the todo Enter added, once the list holds it", async () => {
