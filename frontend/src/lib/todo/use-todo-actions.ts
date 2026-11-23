@@ -113,12 +113,15 @@ export function useTodoActions({
   /** Presses not yet settled, of every kind, so they share the one refetch below. */
   const unsettled = useRef(0);
 
-  const settled = useCallback(() => {
-    unsettled.current -= 1;
-    // Asked once the last press lands: an earlier answer would draw a later press back.
-    if (unsettled.current === 0) todosWritten();
-    endPress();
-  }, [todosWritten]);
+  const settled = useCallback(
+    (wrote: boolean) => {
+      unsettled.current -= 1;
+      // Asked once the last press lands: an earlier answer would draw a later press back.
+      if (unsettled.current === 0) todosWritten();
+      endPress(wrote);
+    },
+    [todosWritten],
+  );
 
   const begun = useCallback(() => {
     unsettled.current += 1;
@@ -130,18 +133,19 @@ export function useTodoActions({
     (write: () => Promise<TodoRow[]>): Promise<boolean> => {
       setNotice(undefined);
       begun();
-      return write()
-        .then(
-          (rows) => {
-            absorb(queryClient, rows);
-            return true;
-          },
-          (error: unknown) => {
-            setNotice(nothingMoved(error));
-            return false;
-          },
-        )
-        .finally(settled);
+      return write().then(
+        (rows) => {
+          absorb(queryClient, rows);
+          // An empty answer sent no write, as a state the todo already has.
+          settled(rows.length > 0);
+          return true;
+        },
+        (error: unknown) => {
+          setNotice(nothingMoved(error));
+          settled(false);
+          return false;
+        },
+      );
     },
     [queryClient, settled, setNotice, begun],
   );

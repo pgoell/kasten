@@ -11,16 +11,13 @@ import { useRef } from "react";
 import { LOG_NOTE, MODEL_USE_FOLDER } from "@/lib/core/layout";
 import { periodicNote } from "@/lib/notes/text/periodic";
 import { onPageWritten } from "@/lib/panes/html/page-written";
+import { beginPress, endPress, forgetEchoes } from "@/lib/todo/todo-turns";
 import { useVaultEvents } from "@/lib/vault/events/use-vault-events";
 import type { VaultEvent } from "@/lib/vault/events/vault-events";
 
 // Every call the hook makes lands in one log, so a case reads as the order it happened in.
-const { log, pressing } = vi.hoisted(() => ({
-  log: [] as string[],
-  pressing: { value: false },
-}));
+const { log } = vi.hoisted(() => ({ log: [] as string[] }));
 vi.mock("@/lib/log/log-card", () => ({ reloadLogConfig: () => log.push("reloadLogConfig") }));
-vi.mock("@/lib/todo/todo-turns", () => ({ pressRunning: () => pressing.value }));
 
 class FakeStream {
   static last: FakeStream | undefined;
@@ -114,13 +111,14 @@ async function heard(event: () => VaultEvent, focus: Focus = {}, press = false) 
       <Focused {...focus} />
     </QueryClientProvider>,
   );
-  pressing.value = press;
+  if (press) beginPress();
   log.length = 0;
   vi.spyOn(client, "invalidateQueries").mockImplementation(async (filters) => {
     log.push((filters?.queryKey ?? []).join(":"));
   });
   FakeStream.last?.send(event());
   await new Promise((resolve) => setTimeout(resolve, 0));
+  if (press) endPress(false);
   return [...log];
 }
 
@@ -294,9 +292,12 @@ describe("while a press runs, no event asks for the todos: the press's end does 
   });
 });
 
-/** The todo reads sent when `events` land while the first read is out, then every read lets go; `held` false lets the first go before. */
-async function todoReads(events: VaultEvent[], held = true) {
-  pressing.value = false;
+/** The todo reads sent when `events` land (a step runs in between) while the first read is out, then every read lets go; `held` false lets the first go before. */
+async function todoReads(
+  events: (VaultEvent | ((settle: () => Promise<void>) => unknown))[],
+  held = true,
+) {
+  forgetEchoes();
   const client = new QueryClient();
   const out: (() => void)[] = [];
   let reads = 0;
@@ -319,7 +320,10 @@ async function todoReads(events: VaultEvent[], held = true) {
     }
   };
   if (!held) await settle();
-  for (const event of events) FakeStream.last?.send(event);
+  for (const event of events) {
+    if (typeof event === "function") await event(settle);
+    else FakeStream.last?.send(event);
+  }
   await settle();
   stop();
   return reads;
@@ -338,5 +342,33 @@ describe("an event while a todo read is out asks once more when it lands, as tha
 
   it("with no read out, an event asks at once", async () => {
     expect(await todoReads([todos], false)).toBe(2);
+  });
+});
+
+describe("a press's own todos event asks nothing, before or after its end read is asked (#2283)", () => {
+  const todos: VaultEvent = { path: "", change: "todos", digest: null };
+  const pressed = (wrote: boolean) => () => {
+    beginPress();
+    endPress(wrote);
+  };
+  it.each([
+    ["its echo after its end", [pressed(true), todos], 1],
+    [
+      "a todos event during it, then one after its end",
+      [beginPress, todos, () => endPress(true), todos],
+      2,
+    ],
+    ["a refused press, then a write from elsewhere", [pressed(false), todos], 2],
+    ["its echo and a write from elsewhere, both after its end", [pressed(true), todos, todos], 2],
+  ] as const)("%s", async (_name, events, reads) => {
+    expect(await todoReads([...events])).toBe(reads);
+  });
+
+  it("a stream opened afresh owes no echo, so a later event asks", async () => {
+    const reopen = async (settle: () => Promise<void>) => {
+      FakeStream.last?.onopen?.();
+      await settle();
+    };
+    expect(await todoReads([pressed(true), reopen, todos], false)).toBe(3);
   });
 });
