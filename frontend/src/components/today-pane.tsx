@@ -1,5 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import { type QueryKey, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { type ReactNode, useState, useSyncExternalStore } from "react";
 import { TryAgain } from "@/components/review/review-answer";
 import { TodoStateBox } from "@/components/todo/todo-state-box";
 import { TimersRow } from "@/lib/app/push/timers-row";
@@ -8,7 +8,7 @@ import { readClock } from "@/lib/core/clock";
 import { noteName } from "@/lib/notes/links/note-path";
 import { useReviewLimits } from "@/lib/review/use-review-limits";
 import { useReviewWaiting } from "@/lib/review/use-review-waiting";
-import { useRecentNotes } from "@/lib/search/use-recent-notes";
+import { recentKeys, useRecentNotes } from "@/lib/search/use-recent-notes";
 import { isOpen, parseTodo, STATE_SYMBOL, type Todo, type TodoState } from "@/lib/todo/todo";
 import { openTodo } from "@/lib/todo/todo-api";
 import { sectionOf } from "@/lib/todo/todo-view";
@@ -33,17 +33,58 @@ function dayOf(stamp: string): string {
 }
 
 /**
+ * Whether every read under `keys` has answered or failed once, and for the cards whether any has
+ * failed once. A failed read counts, so a backend that drops reads still gets the editor.
+ */
+function useAnswered(keys: QueryKey[]): { all: boolean; cardsFailed: boolean } {
+  const cache = useQueryClient().getQueryCache();
+  const answered = useSyncExternalStore(
+    (change) => cache.subscribe(change),
+    () =>
+      keys.every((queryKey) => {
+        const state = cache.find({ queryKey, exact: true })?.state;
+        return state !== undefined && (state.data !== undefined || state.fetchFailureCount > 0);
+      }),
+  );
+  const cardsFailed = useSyncExternalStore(
+    (change) => cache.subscribe(change),
+    () => cache.findAll({ queryKey: ["cards"] }).some((query) => query.state.fetchFailureCount > 0),
+  );
+  return { all: answered, cardsFailed };
+}
+
+/**
+ * Whether the home view may draw below its date: every read above the editor has answered, so no
+ * answer landing later moves a card or the editor under a finger (#2296). Once true it stays.
+ */
+function useReady(archive: boolean, today: string, review: number | null | undefined): boolean {
+  const answered = useAnswered([
+    ["todos", archive],
+    ...recentKeys(archive, today),
+    ["timers"],
+    ["push"],
+    ["plan", today],
+  ]);
+  const [drawn, setDrawn] = useState(false);
+  const ready = drawn || (answered.all && (review !== undefined || answered.cardsFailed));
+  if (ready && !drawn) setDrawn(true);
+  return ready;
+}
+
+/**
  * The home screen an empty pane shows: the date, the timers, then what is today,
- * what was written lately, and what is due. Every column reads an answer the app already
- * asks for, under the same keys, so opening a pane costs no new request.
+ * what was written lately, and what is due, with the pane's editor below. Every column reads an
+ * answer the app already asks for, under the same keys, so opening a pane costs no new request.
  */
 export function TodayPane({
   archive,
+  editor,
   onOpen,
   onReview,
   onOverview,
 }: {
   archive: boolean;
+  editor: ReactNode;
   onOpen: (path: string, line?: number) => void;
   onReview: () => void;
   onOverview: () => void;
@@ -71,85 +112,113 @@ export function TodayPane({
   // row says so, and "Nothing due." would be a lie about the cards not counted.
   const unread = review === null;
   const reviewing = review !== undefined && review !== null && review > 0;
-  const nothingDue = !unread && !reviewing && overdue.length === 0 && loops.length === 0;
+  const nothingDue = review === 0 && overdue.length === 0 && loops.length === 0;
 
+  const ready = useReady(archive, today, review);
+
+  // Below 768 px the whole pane scrolls as one, so Today's last section is reachable and the
+  // editor's first line is never under it. From 768 up, Today takes at most 70% and the editor keeps what is left.
   return (
-    <section
-      data-today
-      aria-label="Today"
-      className="@container mx-auto w-full max-w-[1100px] px-4 py-6 md:px-12"
-    >
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="font-serif text-k-36 text-k-ink">{headingOf(now, clock.weekday)}</h1>
-        {/* Quiet, so the date stays the heading. Taller on a touch screen, where a finger needs it. */}
-        <button
-          type="button"
-          onClick={onOverview}
-          className="font-sans text-k-13 text-k-muted transition-colors duration-(--k-hover) hover:text-k-accent pointer-coarse:min-h-11 pointer-coarse:px-2"
+    <div className="flex h-full min-h-0 flex-col overflow-y-auto">
+      <div className="shrink-0 md:max-h-[70%] md:overflow-y-auto">
+        <section
+          data-today
+          aria-label="Today"
+          className="@container mx-auto w-full max-w-[1100px] px-4 py-6 md:px-12"
         >
-          Overview
-        </button>
-      </div>
-      <TimersRow />
-      <PlanNow hits={todos.data ?? []} onOpen={onOpen} />
-      <div className="mt-8 grid gap-12 @[776px]:grid-cols-3">
-        <div data-today-column className="flex min-w-0 flex-col gap-2">
-          <h2 className="font-sans text-k-13 text-k-muted tracking-k-label">Today</h2>
-          {todayTodos.length === 0 && <Plain>Nothing for today.</Plain>}
-          {todayTodos.map(({ hit, todo }) => (
-            <TodoRow key={`${hit.path}:${hit.line}`} hit={hit} todo={todo} onOpen={onOpen} />
-          ))}
-        </div>
-
-        <div data-today-column className="flex min-w-0 flex-col gap-2">
-          <h2 className="font-sans text-k-13 text-k-muted tracking-k-label">Recent</h2>
-          {recent.length === 0 && <Plain>Nothing written lately.</Plain>}
-          {recent.map(({ path, stamp }) => (
-            <Row key={path} between onClick={() => onOpen(path)}>
-              <span className="min-w-0 truncate">{noteName(path)}</span>
-              <span className="shrink-0 font-sans text-k-13 text-k-muted">{dayOf(stamp)}</span>
-            </Row>
-          ))}
-        </div>
-
-        <div data-today-column className="flex min-w-0 flex-col gap-2">
-          <h2 className="font-sans text-k-13 text-k-muted tracking-k-label">Due</h2>
-          {reviewing && (
-            <Group label="Review">
-              <Row onClick={onReview}>
-                <span>{`${review} ${review === 1 ? "card" : "cards"} waiting`}</span>
-              </Row>
-            </Group>
-          )}
-          {unread && (
-            <Group label="Review">
-              <Row onClick={onReview}>
-                <span>Cards could not be counted: the daily limits could not be read</span>
-              </Row>
-              {/* Wrapped, so the column's flex does not stretch it to the full width. */}
-              <div className="px-2">
-                <TryAgain onClick={retryLimits} />
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h1 className="font-serif text-k-36 text-k-ink">{headingOf(now, clock.weekday)}</h1>
+            {/* Quiet, so the date stays the heading. Taller on a touch screen, where a finger needs it. */}
+            <button
+              type="button"
+              onClick={onOverview}
+              className="font-sans text-k-13 text-k-muted transition-colors duration-(--k-hover) hover:text-k-accent pointer-coarse:min-h-11 pointer-coarse:px-2"
+            >
+              Overview
+            </button>
+          </div>
+          {!ready && <Plain>Loading today…</Plain>}
+          {/* Mounted while hidden, so the reads it waits on are asked. */}
+          <div hidden={!ready}>
+            <TimersRow />
+            <PlanNow hits={todos.data ?? []} onOpen={onOpen} />
+            <div className="mt-8 grid gap-12 @[776px]:grid-cols-3">
+              <div data-today-column className="flex min-w-0 flex-col gap-2">
+                <h2 className="font-sans text-k-13 text-k-muted tracking-k-label">Today</h2>
+                {todayTodos.length === 0 && <Plain>Nothing for today.</Plain>}
+                {todayTodos.map(({ hit, todo }) => (
+                  <TodoRow key={`${hit.path}:${hit.line}`} hit={hit} todo={todo} onOpen={onOpen} />
+                ))}
               </div>
-            </Group>
-          )}
-          {overdue.length > 0 && (
-            <Group label="Overdue">
-              {overdue.map(({ hit, todo }) => (
-                <TodoRow key={`${hit.path}:${hit.line}`} hit={hit} todo={todo} onOpen={onOpen} />
-              ))}
-            </Group>
-          )}
-          {loops.length > 0 && (
-            <Group label="Open loops">
-              {loops.map(({ hit, todo }) => (
-                <TodoRow key={`${hit.path}:${hit.line}`} hit={hit} todo={todo} onOpen={onOpen} />
-              ))}
-            </Group>
-          )}
-          {nothingDue && <Plain>Nothing due.</Plain>}
-        </div>
+
+              <div data-today-column className="flex min-w-0 flex-col gap-2">
+                <h2 className="font-sans text-k-13 text-k-muted tracking-k-label">Recent</h2>
+                {recent.length === 0 && <Plain>Nothing written lately.</Plain>}
+                {recent.map(({ path, stamp }) => (
+                  <Row key={path} between onClick={() => onOpen(path)}>
+                    <span className="min-w-0 truncate">{noteName(path)}</span>
+                    <span className="shrink-0 font-sans text-k-13 text-k-muted">
+                      {dayOf(stamp)}
+                    </span>
+                  </Row>
+                ))}
+              </div>
+
+              <div data-today-column className="flex min-w-0 flex-col gap-2">
+                <h2 className="font-sans text-k-13 text-k-muted tracking-k-label">Due</h2>
+                {reviewing && (
+                  <Group label="Review">
+                    <Row onClick={onReview}>
+                      <span>{`${review} ${review === 1 ? "card" : "cards"} waiting`}</span>
+                    </Row>
+                  </Group>
+                )}
+                {unread && (
+                  <Group label="Review">
+                    <Row onClick={onReview}>
+                      <span>Cards could not be counted: the daily limits could not be read</span>
+                    </Row>
+                    {/* Wrapped, so the column's flex does not stretch it to the full width. */}
+                    <div className="px-2">
+                      <TryAgain onClick={retryLimits} />
+                    </div>
+                  </Group>
+                )}
+                {overdue.length > 0 && (
+                  <Group label="Overdue">
+                    {overdue.map(({ hit, todo }) => (
+                      <TodoRow
+                        key={`${hit.path}:${hit.line}`}
+                        hit={hit}
+                        todo={todo}
+                        onOpen={onOpen}
+                      />
+                    ))}
+                  </Group>
+                )}
+                {loops.length > 0 && (
+                  <Group label="Open loops">
+                    {loops.map(({ hit, todo }) => (
+                      <TodoRow
+                        key={`${hit.path}:${hit.line}`}
+                        hit={hit}
+                        todo={todo}
+                        onOpen={onOpen}
+                      />
+                    ))}
+                  </Group>
+                )}
+                {nothingDue && <Plain>Nothing due.</Plain>}
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
-    </section>
+      {/* Mounted at once, so a fresh pane takes keys; unseen and untouchable until it stops moving. */}
+      <div className={`min-h-[40%] flex-1 ${ready ? "" : "pointer-events-none opacity-0"}`}>
+        {editor}
+      </div>
+    </div>
   );
 }
 

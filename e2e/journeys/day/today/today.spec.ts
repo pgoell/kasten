@@ -12,8 +12,8 @@ import {
   tapHeight,
   vaultWith,
   walkBackoff,
-} from "../../harness/app.ts";
-import { expect, test } from "../../harness/stack.ts";
+} from "../../../harness/app.ts";
+import { expect, test } from "../../../harness/stack.ts";
 
 const UNREAD = "Cards could not be counted: the daily limits could not be read";
 
