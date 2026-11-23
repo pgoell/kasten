@@ -249,9 +249,8 @@ test("I4 a leader sequence, /, Escape and q still work on the board", async ({ p
   await leader(page, "ct");
   await expect(page.getByRole("tab")).toHaveCount(2);
   await page.getByRole("tab").first().click();
-  // The tab drew the pane afresh, as the list.
-  await page.locator('[data-row*=".md:"]').first().focus();
-  await page.keyboard.press("c");
+  // The tab drew the pane afresh, as the todo view.
+  await toTodoList(page);
   await card(page, "send the invoice").focus();
   await page.keyboard.press("/");
   await expect(filter(page)).toBeFocused();
