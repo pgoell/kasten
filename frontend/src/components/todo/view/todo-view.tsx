@@ -164,7 +164,10 @@ export function TodoView(props: TodoViewProps) {
         onTab={(next) => {
           setTab(next);
           // The board takes its keys at once, as the list did when `<leader>gt` opened it.
-          if (next === "board") requestAnimationFrame(() => board.current?.querySelector<HTMLElement>("section")?.focus());
+          if (next === "board")
+            requestAnimationFrame(() =>
+              board.current?.querySelector<HTMLElement>("section")?.focus(),
+            );
         }}
         counts={(each) => countOf(data.rows, each, today)}
         filter={filter}
