@@ -154,7 +154,7 @@ test.describe("the todo prompt", () => {
     await expect(dialog).toBeHidden();
     expect(writes).toEqual([]);
     // A todo added next lands after any write the Escape sent, so its line shows none came.
-    await page.locator("section[aria-label='Todos'] section[aria-label='Todos']").focus();
+    await page.locator("section section[aria-label='Todos']").focus();
     await page.keyboard.press("a");
     await page.keyboard.type("buy milk");
     await page.keyboard.press("Enter");
@@ -234,7 +234,7 @@ test("the todo pane counts parts on their todo, indents them under it, names one
   await openApp(page);
   await openTodoList(page);
   await expect(page.locator(TODO_ROW, { hasText: "farther" })).toBeVisible();
-  // Each row by its own words (the last known word in it), with its text, group and indent, read at once.
+  // Each row by its own words, with its text, group and indent, read at once.
   const rows = await readAll(
     page,
     '[data-row*="Parts.md:"]',
