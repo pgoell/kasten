@@ -99,6 +99,8 @@ call may run. Watch it with `gh pr checks <n> --watch` as
 
 [Cut a release](../docs/how-to/cut-a-release.md).
 
+Run the [verify skill](skills/verify/SKILL.md) before a commit that changes behaviour.
+
 ## Coding standards
 
 - **No bare catchalls.** No untyped `catch` in TypeScript, no bare `except:` in

@@ -50,6 +50,19 @@ something still works may hold on the base branch; that alone is a finding
 only where the PR body says it fails there. It is Important, a thread, only
 where the PR body names that test as the proof for a checklist box; else a Nit.
 
+## Checks by trigger
+
+Bugs that got past review once. Check only the rows whose trigger the diff
+matches; a diff that fails its row's check is Important.
+
+| Trigger in the diff | Check | Behind it |
+| --- | --- | --- |
+| A route or client call that changes a stored todo or note | It sends the version it read, and the route answers 409 on a stale one | #2247, fixed in #2251 |
+| A new `change` kind on `/api/events`, or a new branch in `onVaultEvent` | The kind is in `KINDS` in `frontend/src/lib/vault/events/vault-events.ts`, or the parser drops it | #2250, fixed in #2253 |
+| A delete of a record others name by id, such as a todo in `blocked_by` | The delete frees every record that named it, and a write naming an id that is no record is refused | #2219 and #2220, fixed in #2221 |
+| A new dynamic import, or a change to `frontend/sw/` or a vite plugin | Every path the service worker precaches is in the build output | #1619, fixed in #1624 |
+| A backend reader of note lines (rg output, a regex `fullmatch` on a line) | A line ending in CRLF reads as the same line ending in LF | #1703, fixed in #1706 |
+
 ## What not to flag
 
 - Formatting and the rules ruff, Biome, ty and tsc already enforce.
