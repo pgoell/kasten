@@ -14,6 +14,17 @@ async function load(page: Page) {
   await expect(page.locator(".cm-content").first()).toBeVisible({ timeout: 15_000 });
 }
 
+/**
+ * Waits for the home view's cards above today's editor to draw their answers. Each lands late and
+ * moves the editor down, so a tap aimed before then lands on a card instead (#2292).
+ */
+async function settled(page: Page) {
+  const recent = page.locator("[data-today-column]").filter({ hasText: "Recent" });
+  await expect(recent.getByRole("button").first()).toBeVisible();
+  await expect(page.getByRole("button", { name: /cards waiting$/ })).toBeVisible();
+  await expect(page.getByText("Remind me to drink water")).toBeVisible();
+}
+
 /** A finger on the strip of sheet above a panel, its way out; whatever lies there takes the tap. */
 async function tapSheet(page: Page) {
   await page.touchscreen.tap(207, 40);
@@ -154,6 +165,7 @@ test.describe("on a phone", () => {
     page,
   }) => {
     await load(page);
+    await settled(page);
     const editor = page.locator(".cm-content").first();
     await editor.tap();
     await expect(editor).toBeFocused();
