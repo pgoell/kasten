@@ -11,7 +11,7 @@ import { useRef } from "react";
 import { LOG_NOTE, MODEL_USE_FOLDER } from "@/lib/core/layout";
 import { periodicNote } from "@/lib/notes/text/periodic";
 import { onPageWritten } from "@/lib/panes/html/page-written";
-import { beginPress, endPress, forgetEchoes } from "@/lib/todo/todo-turns";
+import { beginPress, endPress, forgetEchoes, pressEcho } from "@/lib/todo/todo-turns";
 import { useVaultEvents } from "@/lib/vault/events/use-vault-events";
 import type { VaultEvent } from "@/lib/vault/events/vault-events";
 
@@ -111,14 +111,14 @@ async function heard(event: () => VaultEvent, focus: Focus = {}, press = false) 
       <Focused {...focus} />
     </QueryClientProvider>,
   );
-  if (press) beginPress();
+  const began = press ? beginPress() : 0;
   log.length = 0;
   vi.spyOn(client, "invalidateQueries").mockImplementation(async (filters) => {
     log.push((filters?.queryKey ?? []).join(":"));
   });
   FakeStream.last?.send(event());
   await new Promise((resolve) => setTimeout(resolve, 0));
-  if (press) endPress(false);
+  if (press) endPress(began, false);
   return [...log];
 }
 
@@ -347,17 +347,15 @@ describe("an event while a todo read is out asks once more when it lands, as tha
 
 describe("a press's own todos event asks nothing, before or after its end read is asked (#2283)", () => {
   const todos: VaultEvent = { path: "", change: "todos", digest: null };
-  const pressed = (wrote: boolean) => () => {
-    beginPress();
-    endPress(wrote);
+  const pressed = (wrote: boolean) => () => endPress(beginPress(), wrote);
+  const running = { began: 0 };
+  const begin = () => {
+    running.began = beginPress();
   };
+  const end = (wrote: boolean) => () => endPress(running.began, wrote);
   it.each([
     ["its echo after its end", [pressed(true), todos], 1],
-    [
-      "a todos event during it, then one after its end",
-      [beginPress, todos, () => endPress(true), todos],
-      2,
-    ],
+    ["a todos event during it, then one after its end", [begin, todos, end(true), todos], 2],
     ["a refused press, then a write from elsewhere", [pressed(false), todos], 2],
     ["its echo and a write from elsewhere, both after its end", [pressed(true), todos, todos], 2],
   ] as const)("%s", async (_name, events, reads) => {
@@ -377,6 +375,15 @@ describe("a press's own todos event asks nothing, before or after its end read i
       FakeStream.last?.onopen?.();
       await settle();
     };
-    expect(await todoReads([beginPress, reopen, () => endPress(true), todos], false)).toBe(2);
+    expect(await todoReads([begin, reopen, end(true), todos], false)).toBe(2);
+  });
+
+  it("a press begun after a reopen and ended first leaves the older press owing no echo", () => {
+    forgetEchoes();
+    const older = beginPress();
+    forgetEchoes();
+    endPress(beginPress(), false);
+    endPress(older, true);
+    expect(pressEcho()).toBe(false);
   });
 });

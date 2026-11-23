@@ -7,7 +7,7 @@ import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { expect as plainExpect, test as plainTest } from "@playwright/test";
-import { compose, fixtureVault, root } from "../harness/paths.ts";
+import { compose, DOWN, fixtureVault, root } from "../harness/paths.ts";
 import {
   type Backend,
   backendEnv,
@@ -225,8 +225,9 @@ plainTest("killing a process group that already left throws nothing", async () =
   plainExpect(() => killGroup(gone.pid ?? 0, "SIGTERM")).not.toThrow();
 });
 
-/** Runners these tests started, so a test that times out leaves none behind with its project up. */
+/** Runners these tests started and their projects, so a test that fails or times out leaves none up. */
 const runners: ChildProcess[] = [];
+const projects: string[] = [];
 
 /** Runs the global setup in a process of its own, as a runner would, and answers its project. */
 async function setUpRun(after: string) {
@@ -238,7 +239,9 @@ async function setUpRun(after: string) {
   });
   runners.push(runner);
   const [out] = await once(runner.stdout, "data");
-  return { runner, project: String(out).trim() };
+  const project = String(out).trim();
+  projects.push(project);
+  return { runner, project };
 }
 
 const watching = (project: string) =>
@@ -249,9 +252,10 @@ const watching = (project: string) =>
 plainTest.describe("a run's compose project (#2284)", () => {
   // Setup starts Postgres and nginx and migrates; the watcher's down takes some seconds more.
   plainTest.describe.configure({ timeout: 120_000 });
-  // A runner killed here leaves its project to its watcher, the code under test.
-  plainTest.afterEach(() => {
+  // After the test's own checks, so a watcher that failed them still leaves no project up.
+  plainTest.afterEach(async () => {
     for (const runner of runners.splice(0)) killGroup(runner.pid ?? 0, "SIGKILL");
+    for (const project of projects.splice(0)) await compose(project, ...DOWN);
   });
 
   plainTest(

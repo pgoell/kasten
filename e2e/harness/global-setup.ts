@@ -1,7 +1,7 @@
 import { execFile, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { promisify } from "node:util";
-import { compose, composeFiles, databaseUrl, root } from "./paths.ts";
+import { compose, composeFiles, DOWN, databaseUrl, root } from "./paths.ts";
 
 const run = promisify(execFile);
 
@@ -11,7 +11,7 @@ export default async function globalSetup() {
   process.env.E2E_PROJECT = project;
   const watcher = watch(project);
   const stop = async () => {
-    await compose(project, "down", "-v", "--remove-orphans");
+    await compose(project, ...DOWN);
     watcher.kill();
   };
   try {
@@ -34,7 +34,7 @@ export default async function globalSetup() {
 // Teardown runs only if the runner ends on its own; a SIGKILL'd runner would leave the project up
 // for good (#2284). This watcher sits in its own session, so a kill of the runner's group spares it.
 function watch(project: string) {
-  const down = `docker compose -p "$2" ${composeFiles.join(" ")} down -v --remove-orphans`;
+  const down = `docker compose -p "$2" ${[...composeFiles, ...DOWN].join(" ")}`;
   const watcher = spawn(
     "sh",
     [

@@ -114,25 +114,25 @@ export function useTodoActions({
   const unsettled = useRef(0);
 
   const settled = useCallback(
-    (wrote: boolean) => {
+    (began: number, wrote: boolean) => {
       unsettled.current -= 1;
       // Asked once the last press lands: an earlier answer would draw a later press back.
       if (unsettled.current === 0) todosWritten();
-      endPress(wrote);
+      endPress(began, wrote);
     },
     [todosWritten],
   );
 
   const begun = useCallback(() => {
     unsettled.current += 1;
-    beginPress();
+    return beginPress();
   }, []);
 
   /** Run one store write as a press: its rows go into the cache, a refusal into the notice. */
   const press = useCallback(
     (write: () => Promise<TodoRow[]>): Promise<boolean> => {
       setNotice(undefined);
-      begun();
+      const began = begun();
       let wrote = false;
       return write()
         .then(
@@ -147,7 +147,7 @@ export function useTodoActions({
             return false;
           },
         )
-        .finally(() => settled(wrote));
+        .finally(() => settled(began, wrote));
     },
     [queryClient, settled, setNotice, begun],
   );
