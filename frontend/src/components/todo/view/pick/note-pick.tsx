@@ -72,7 +72,7 @@ export function NotePick(props: {
               <Icon name="doc" className="text-k-muted" />
               <span className="truncate text-k-ink">{noteName(path)}</span>
               <span className="ml-auto truncate text-k-muted text-sm">
-                {path.slice(0, path.lastIndexOf("/"))}
+                {path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : ""}
               </span>
             </button>
           </li>

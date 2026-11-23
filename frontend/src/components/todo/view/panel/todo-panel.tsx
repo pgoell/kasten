@@ -55,10 +55,14 @@ export function TodoPanel(props: PanelProps) {
     setDescription(text);
     save({ description: text === "" ? null : text });
   };
-  // A `[[` just typed is where the link goes; otherwise it starts a line of its own.
+  // Where a `[[` was just typed: the link replaces it there. Without one it starts a line.
+  const linkAt = useRef<number | null>(null);
   const linkNote = (path: string) => {
     const link = linkTo(path, props.files ?? []);
-    if (description.endsWith("[[")) describe(`${description.slice(0, -2)}${link}`);
+    const at = linkAt.current;
+    linkAt.current = null;
+    if (at !== null && description.slice(at - 2, at) === "[[")
+      describe(`${description.slice(0, at - 2)}${link}${description.slice(at)}`);
     else describe(description.trim() === "" ? link : `${description.trimEnd()}\n${link}`);
   };
   const aside = useRef<HTMLElement>(null);
@@ -144,8 +148,12 @@ export function TodoPanel(props: PanelProps) {
           value={description}
           placeholder="Add a description, [[ links a note"
           onChange={(event) => {
-            describe(event.target.value);
-            if (event.target.value.endsWith("[[")) setLinking(event.target);
+            const { value, selectionStart: at } = event.target;
+            const typed = value.length > description.length && value.slice(at - 2, at) === "[[";
+            describe(value);
+            if (!typed) return;
+            linkAt.current = at;
+            setLinking(event.target);
           }}
           className="field-sizing-content mt-3 min-h-12 w-full resize-none rounded-md border border-k-rule bg-k-paper px-3 py-2 text-[15px] text-k-ink leading-relaxed outline-none placeholder:text-k-muted focus:border-k-rule-strong"
         />

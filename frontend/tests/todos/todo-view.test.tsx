@@ -263,6 +263,24 @@ describe("the todo view", () => {
     });
   });
 
+  it("puts the picked link where [[ was typed, and opens no picker on an edit elsewhere", async () => {
+    renderView();
+    fireEvent.click(await screen.findByText("file the report"));
+    const description = screen.getByRole("textbox", { name: "Description" });
+    fireEvent.change(description, { target: { value: "call  then" } });
+    fireEvent.change(description, { target: { value: "call [[ then", selectionStart: 7 } });
+    const find = screen.getByRole("textbox", { name: "Find a note" });
+    fireEvent.change(find, { target: { value: "kasten" } });
+    fireEvent.keyDown(find, { key: "Enter" });
+    expect(description).toHaveValue("call [[02 Projects/Kasten/index]] then");
+
+    fireEvent.change(description, { target: { value: "ends in " } });
+    fireEvent.change(description, { target: { value: "ends in [[", selectionStart: 10 } });
+    fireEvent.keyDown(screen.getByRole("textbox", { name: "Find a note" }), { key: "Escape" });
+    fireEvent.change(description, { target: { value: "xends in [[", selectionStart: 1 } });
+    expect(screen.queryByRole("textbox", { name: "Find a note" })).toBeNull();
+  });
+
   it("opens the todo Enter added, once the list holds it", async () => {
     renderView();
     const pane = await screen.findByRole("region", { name: "Todos" });
