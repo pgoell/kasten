@@ -36,9 +36,10 @@ logger = logging.getLogger(__name__)
 State = Literal["open", "doing", "review", "done", "blocked", "waiting", "rejected"]
 Priority = Literal["highest", "high", "medium", "low", "lowest"]
 SHOWN = (
-    *("id", "words", "state", "tags", "priority", "due", "due_hard", "planned", "hold_until"),
-    *("look_again", "waiting_on", "waiting_since", "project", "note", "parent_id", "epic"),
-    *("epic_id", "blocked_by", "repeat", "estimate", "worked", "created", "done", "version"),
+    *("id", "words", "description", "state", "tags", "priority", "due", "due_hard", "planned"),
+    *("hold_until", "look_again", "waiting_on", "waiting_since", "project", "note", "parent_id"),
+    *("epic", "epic_id", "blocked_by", "repeat", "estimate", "worked", "created", "done"),
+    "version",
 )
 
 
@@ -127,6 +128,7 @@ async def _found(session: AsyncSession, filters: Filters) -> list[dict[str, Any]
 
 async def add_todo(  # noqa: PLR0913, PLR0917  one argument per field a model may set
     words: str,
+    description: Annotated[str | None, Field(description="Text under the words.")] = None,
     due: Annotated[date | None, Field(description="Must be done by; soft unless due_hard.")] = None,
     due_hard: bool = False,
     planned: Annotated[date | None, Field(description="The day you mean to do it.")] = None,
@@ -147,6 +149,7 @@ async def add_todo(  # noqa: PLR0913, PLR0917  one argument per field a model ma
     """
     values = {
         "words": words,
+        "description": description,
         "due": due,
         "due_hard": due_hard and due is not None,
         "planned": planned,
@@ -171,6 +174,7 @@ async def change_todo(  # noqa: PLR0913, PLR0917  one argument per field a model
     id: str,
     version: int,
     words: str | None = None,
+    description: str | None = None,
     due: date | None = None,
     due_hard: bool | None = None,
     planned: date | None = None,
@@ -193,6 +197,7 @@ async def change_todo(  # noqa: PLR0913, PLR0917  one argument per field a model
     """
     passed = {
         "words": words,
+        "description": description,
         "due": due,
         "due_hard": due_hard,
         "planned": planned,

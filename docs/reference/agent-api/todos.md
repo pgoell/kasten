@@ -18,12 +18,12 @@ pane's writes run and is recorded in the todo's history as `agent`'s. Dates are
 | Tool | Reads only | Arguments |
 |---|---|---|
 | `search_todos` | yes | `words`, `state` (list), `tag`, `kind` (`client`, `internal`, `private`), `project`, `epic` (id), `parent` (id), `priority` (list, `none` for unset), `due_by`, `planned_on`, `look_again_by`, `waiting`, `shown_on`, `archive`, `sort` (`priority`, `due`, `planned`, `created`, `place`), `limit` (default 50, at most 500) |
-| `add_todo` | no | `words` (required; tags typed in it), `due`, `due_hard`, `planned`, `hold_until`, `priority`, `parent_id`, `epic_id`, `epic`, `project`, `note`, `repeat`, `estimate` (minutes) |
-| `change_todo` | no | `id`, `version` (both required), then any of `words`, `due`, `due_hard`, `planned`, `hold_until`, `priority`, `parent_id`, `epic_id`, `epic`, `project`, `blocked_by`, `repeat`, `estimate`, and `clear`, a list of fields to empty |
+| `add_todo` | no | `words` (required; tags typed in it), `description`, `due`, `due_hard`, `planned`, `hold_until`, `priority`, `parent_id`, `epic_id`, `epic`, `project`, `note`, `repeat`, `estimate` (minutes) |
+| `change_todo` | no | `id`, `version` (both required), then any of `words`, `description`, `due`, `due_hard`, `planned`, `hold_until`, `priority`, `parent_id`, `epic_id`, `epic`, `project`, `blocked_by`, `repeat`, `estimate`, and `clear`, a list of fields to empty |
 | `set_todo_state` | no | `id`, `state` (`open`, `doing`, `review`, `done`, `blocked`, `waiting`, `rejected`), `look_again`, `waiting_on` |
 | `complete_todo` | no | `id` |
 
-Every tool answers todos with `id`, `words`, `state`, `tags`, `priority`,
+Every tool answers todos with `id`, `words`, `description`, `state`, `tags`, `priority`,
 `due`, `due_hard`, `planned`, `hold_until`, `look_again`, `waiting_on`,
 `waiting_since`, `project`, `note`, `parent_id`, `epic`, `epic_id`,
 `blocked_by`, `repeat`, `estimate`, `worked`, `created`, `done` and `version`.

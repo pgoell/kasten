@@ -40,6 +40,7 @@ CYCLE = {
 EDITABLE = frozenset(
     {
         "words",
+        "description",
         "priority",
         "planned",
         "hold_until",

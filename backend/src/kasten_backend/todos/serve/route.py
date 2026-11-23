@@ -44,6 +44,7 @@ class Fields(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    description: str | None = None
     priority: Priority | None = None
     planned: date | None = None
     hold_until: date | None = None
@@ -90,6 +91,7 @@ class TodoOut(BaseModel):
 
     id: str
     words: str
+    description: str | None
     state: State
     tags: list[str]
     note: str | None

@@ -49,6 +49,8 @@ class Todo(Base):
 
     id: Mapped[str] = mapped_column(Text, primary_key=True)
     words: Mapped[str] = mapped_column(Text, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    """Free text under the words; its `[[links]]` are the notes the todo links to."""
     state: Mapped[str] = mapped_column(Text, nullable=False)
     tags: Mapped[list[str]] = mapped_column(
         ARRAY(Text), nullable=False, server_default=text("'{}'")

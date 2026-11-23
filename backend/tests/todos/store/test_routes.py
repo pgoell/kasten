@@ -83,6 +83,16 @@ async def test_a_change_needs_the_version_it_read(client: AsyncClient) -> None:
     assert stale.status_code == 409
 
 
+async def test_a_description_is_kept_apart_from_the_words(client: AsyncClient) -> None:
+    row = await add(client, "write the tests", description="start with [[The line reader]]")
+    changed = await client.patch(
+        f"/api/todos/{row['id']}", json={"version": 1, "description": "#later"}
+    )
+
+    assert (row["description"], row["tags"]) == ("start with [[The line reader]]", [])
+    assert (changed.json()[0]["description"], changed.json()[0]["tags"]) == ("#later", [])
+
+
 async def test_clearing_a_deadline_gives_a_soft_one_again(client: AsyncClient) -> None:
     row = await add(client, "file taxes", due="2027-05-31", due_hard=True)
     changed = await client.patch(f"/api/todos/{row['id']}", json={"version": 1, "due": None})
