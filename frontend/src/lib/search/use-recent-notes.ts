@@ -60,11 +60,7 @@ export function useRecentNotes(archive: boolean): { path: string; stamp: string 
   return recentOf(useRecentSearches(archive).flatMap((search) => search.data ?? []));
 }
 
-/**
- * As `useRecentNotes`, but asked afresh on mount, so it holds a note written a moment ago (#1971),
- * and undefined until both answers are in or failed, so a stale one never draws first (#2301).
- * Once drawn it stays.
- */
+/** Asked afresh on mount (#1971); undefined until both searches settle, then kept once drawn (#2301). */
 export function useRecentList(archive: boolean): { path: string; stamp: string }[] | undefined {
   const searches = useRecentSearches(archive, "always");
   const settled = searches.every(
