@@ -324,19 +324,18 @@ describe("a tap or a press on a picture inside a link (#558)", () => {
     await phone();
     const at = mount(NOTE, true, 896);
     const [, end] = range(NOTE, LINKED);
-    // The link's end, the one place in it a cursor rests with vim reading:
-    // every character of the link is hidden, and `skipHidden` walks a cursor
-    // forward off a hidden one.
+    // The link's end: the cursor rests there, or on the hidden address (#2306),
+    // which a tap on the picture lands on, the link then showing its source as with vim off.
+    // `skipHidden` walks it off every other hidden character of the link.
     at.dispatch({ selection: { anchor: end } });
     const image = await loaded(at.dom);
     const open = stubOpen();
     const before = at.state;
 
     await tap(image);
-    // The cursor the tap puts on the picture walks to the same end, so the
-    // move shows as a new state rather than a new head.
+    // The cursor the tap puts on the picture rests at its end, where the address begins.
     await expect.poll(() => at.state, { message: "a state after the tap" }).not.toBe(before);
-    expect(at.state.selection.main.head).toBe(end);
+    expect(at.state.selection.main.head).toBe(end - `](${SITE})`.length);
     await settled();
     expect(open).not.toHaveBeenCalled();
   });

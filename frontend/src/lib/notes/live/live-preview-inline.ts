@@ -112,7 +112,7 @@ export function drawLink(walk: Walk, node: SyntaxNode, line: Line, revealed: boo
 
   // A link carries four marks, `[`, `]`, `(` and `)`. The first two
   // bracket the text worth showing; everything from the second to the end
-  // of the node is `](url)`, or a reference's `][label]`, and goes.
+  // of the node is `](url)`, or a reference's `][label]`.
   const marks: { from: number; to: number }[] = [];
   for (let child = node.firstChild; child; child = child.nextSibling) {
     if (child.name === "LinkMark") marks.push({ from: child.from, to: child.to });

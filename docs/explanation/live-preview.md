@@ -17,7 +17,7 @@ picked over an option that looks more obvious.
 
 Each part has a page of its own:
 
-* [Cursor and marks in live preview](/explanation/live-preview/cursor-and-marks.md): why the vim mode decides what shows as source, why the cursor never rests on hidden text, why a drawn marker leaves with its text, and why the gutter counts from the cursor
+* [Cursor and marks in live preview](/explanation/live-preview/cursor-and-marks.md): why the vim mode decides what shows as source, why the cursor rests on a link's hidden name or address but no other hidden text, why a drawn marker leaves with its text, and why the gutter counts from the cursor
 * [The three blocks in live preview](/explanation/live-preview/the-three-blocks.md): why an image, a code block, a table, a diagram and a math block flip whole, and why the cursor decides for them
 * [Tags, colour and embeds in live preview](/explanation/live-preview/embeds-and-the-rest.md): why a tag has no mark to hide, why each inline construct has its own colour, and why an embed is a read-only note
 
