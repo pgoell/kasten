@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { noteName } from "@/lib/notes/links/note-path";
-import { useRecentNotes } from "@/lib/search/use-recent-notes";
+import { useRecentList } from "@/lib/search/use-recent-notes";
 
 /** How long the toast stays up before it starts to fade. */
 const SHOWN_MS = 5000;
@@ -122,7 +122,12 @@ export function TakeToast({
  * open, so the search it reads is asked for then and not while the toast waits.
  */
 function RecentNotes({ archive, onPick }: { archive: boolean; onPick: (path: string) => void }) {
-  const recent = useRecentNotes(archive);
+  const recent = useRecentList(archive);
+  if (recent === undefined) {
+    return (
+      <p className="font-sans text-k-13 text-k-muted take-row:basis-full">Loading recent notes…</p>
+    );
+  }
   if (recent.length === 0) {
     return (
       <p className="font-sans text-k-13 text-k-muted take-row:basis-full">

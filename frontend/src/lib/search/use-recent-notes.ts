@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { type QueryClient, useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { type SearchHit, searchNotes } from "@/lib/core/api";
 import { readClock, shiftDay } from "@/lib/core/clock";
 
@@ -36,11 +37,7 @@ export function recentKeys(archive: boolean, today: string): [RecentKey, RecentK
   ];
 }
 
-/**
- * The notes written lately, newest first, from the search the home screen runs
- * for its Recent column. The same keys, so a pane that asks shares the answer.
- */
-export function useRecentNotes(archive: boolean): { path: string; stamp: string }[] {
+function useRecentSearches(archive: boolean) {
   const [thisKey, priorKey] = recentKeys(archive, readClock(new Date()).date);
   const thisMonth = useQuery({
     queryKey: thisKey,
@@ -50,5 +47,37 @@ export function useRecentNotes(archive: boolean): { path: string; stamp: string 
     queryKey: priorKey,
     queryFn: () => searchNotes(priorKey[1], archive),
   });
-  return recentOf([...(thisMonth.data ?? []), ...(priorMonth.data ?? [])]);
+  return [thisMonth, priorMonth];
+}
+
+/**
+ * The notes written lately, newest first, from the search the home screen runs
+ * for its Recent column. The same keys, so a pane that asks shares the answer.
+ */
+export function useRecentNotes(archive: boolean): { path: string; stamp: string }[] {
+  return recentOf(useRecentSearches(archive).flatMap((search) => search.data ?? []));
+}
+
+/**
+ * As `useRecentNotes`, but undefined until both searches have answered or failed since the
+ * caller mounted, so a stale answer never draws before the fresh one (#2301). Once drawn it stays.
+ */
+export function useRecentList(archive: boolean): { path: string; stamp: string }[] | undefined {
+  const searches = useRecentSearches(archive);
+  const settled = searches.every(
+    (search) => !search.isFetching && (search.data !== undefined || search.isError),
+  );
+  const [drawn, setDrawn] = useState(false);
+  if (settled && !drawn) setDrawn(true);
+  return drawn || settled ? recentOf(searches.flatMap((search) => search.data ?? [])) : undefined;
+}
+
+/** Marks the Recent searches stale after a write, so the next list shows the note it wrote (#1971). */
+export function refreshRecent(client: QueryClient): void {
+  const today = readClock(new Date()).date;
+  for (const archive of [false, true]) {
+    for (const queryKey of recentKeys(archive, today)) {
+      void client.invalidateQueries({ queryKey, exact: true });
+    }
+  }
 }
