@@ -150,30 +150,39 @@ test.describe("on a phone", () => {
     await playAndSeek(page.locator("[data-clip] video"));
   });
 
-  test("run, then the pick row, opens the picker on that tap and lands the file at the cursor", async ({
-    page,
-    stack,
-  }) => {
-    await seeded(stack.vault);
-    await openClips(page);
-    // A click, not a tap: within 300 ms of a touch on the editor, CodeMirror takes the caret the
-    // palette's refocus leaves at the note's top for the user's (#1975). No finger is that quick.
-    await page.getByText("The walk:").click();
-    await page.getByRole("button", { name: "Run a command by name" }).tap();
-    await page.keyboard.type("pick");
-    const row = page.getByRole("option", { name: ROW });
-    await expect(row).toBeVisible();
-    await shoot(page, "pick-phone");
+  // With a touch: no finger is this quick, but a touchstart alone opens CodeMirror's 300 ms
+  // window, inside which a bare refocus would hand it the DOM's caret at the note's top (#1976).
+  for (const [vim, touch] of [
+    ["on", false],
+    ["on", true],
+    ["off", true],
+  ] as const) {
+    test(`run, then the pick row, opens the picker on that tap and lands the file at the cursor, vim ${vim}${touch ? ", a touch just before (#1976)" : ""}`, async ({
+      page,
+      stack,
+    }) => {
+      await page.addInitScript((mode) => localStorage.setItem("kasten.vim", mode), vim);
+      await seeded(stack.vault);
+      await openClips(page);
+      // A click, not a tap: a tap moves the page's selection and not CodeMirror's (#1975).
+      await page.getByText("The walk:").click();
+      await page.getByRole("button", { name: "Run a command by name" }).tap();
+      await page.keyboard.type("pick");
+      const row = page.getByRole("option", { name: ROW });
+      await expect(row).toBeVisible();
+      if (!touch) await shoot(page, "pick-phone");
 
-    // Fires only for a picker the browser would really show, so it proves the tap's activation.
-    const chooser = page.waitForEvent("filechooser");
-    await row.tap();
-    const picker = await chooser;
-    expect(picker.isMultiple()).toBe(true);
-    await picker.setFiles(join(import.meta.dirname, "clips", "swim.webm"));
+      // Fires only for a picker the browser would really show, so it proves the tap's activation.
+      const chooser = page.waitForEvent("filechooser");
+      if (touch) await page.locator(".cm-content").dispatchEvent("touchstart");
+      await row.tap();
+      const picker = await chooser;
+      expect(picker.isMultiple()).toBe(true);
+      await picker.setFiles(join(import.meta.dirname, "clips", "swim.webm"));
 
-    await landed(stack.vault, "The walk:![[swim 1.webm]]");
-  });
+      await landed(stack.vault, "The walk:![[swim 1.webm]]");
+    });
+  }
 });
 
 const ROW = "Pick an image or video file into this note";
