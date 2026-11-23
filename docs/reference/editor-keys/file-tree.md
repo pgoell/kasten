@@ -119,7 +119,10 @@ in the lower half, so the passage stays in sight. Undo takes the line back out
 of the daily note, as long as the note has not changed since. Put it in a note
 writes the passage under `## Highlights` in a note you pick from the eight
 written last, one line each with the whole name on hover; in a short pane the
-list scrolls and the note stays inside the pane. The note fades after five
+list scrolls and the note stays inside the pane. Until both of the list's
+reads have answered, or one has failed, it says `Loading recent notes…`, and
+each list asks afresh after a take, so it holds the note the take just wrote.
+The note fades after five
 seconds. A take
 still waiting to be sent has no Undo, and the note says so. The passage's
 marks stay on the page while it is open. The
