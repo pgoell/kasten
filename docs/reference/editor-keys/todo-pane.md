@@ -1,17 +1,94 @@
 ---
 type: Reference
 title: Editor keys, the todo pane
-description: The todo pane, its rows, groups and sorting, and the keys that act on its list.
+description: The todo pane, its table and side panel, the list and board under its Board tab, and the keys that act on each.
 tags: [editor, keyboard, todos, todo-pane, frontend]
 status: stable
 ---
 
 # The todo list
 
+## The todo view
+
+`<leader>gt` fills the focused pane with the todo view: a table of todos with a
+side panel where every todo is edited. Across the top run the tabs Today,
+Upcoming, Inbox, All and Board, then a filter, the grouping and New.
+
+* **Today** lists what is on now: a todo planned for today or before, one due
+  today or overdue, one being done or in review, and one waiting on somebody.
+  A part counts with its parent's planned day.
+* **Upcoming** lists the todos planned, or else due, in the next seven days.
+* **Inbox** lists the todos with no project, no planned day and no parent.
+* **All** lists every open todo, those held off until a later day included.
+* **Board** draws [the todo pane](#the-todo-pane) below on its board, as it was.
+
+Today, Upcoming and Inbox leave out a todo held off until a later day, and a
+waiting one before its look-again day. Today and All end in **Done today**,
+the todos finished today.
+
+The table groups by state (Doing, Review, Open, Waiting, Blocked) or, picked
+from **Group**, by project. A heading names its group and how many it holds,
+and its `+` starts a new todo in that state or project. Each row shows the
+priority as bars, the state box, the words with the tags after them, the parts
+done of all, then one detail (who it waits on and for how many days, the todo
+that blocks it, the time worked of the estimate, or how it repeats), the
+project, how many notes it touches (the note it lives in and each `[[link]]` in
+its words or description), and the day: a hard due date with its flag, red once
+past, else the planned day, else a soft due date two days out or nearer. A part
+sits under its parent when both are in the group. On a pane narrower than about
+600 pixels a row takes two lines, the words over the project and the day.
+
+A click on the state box ticks the todo done, or opens a finished one again. A
+click on the rest of the row opens it in the panel.
+
+### The side panel
+
+The panel sits to the right of the table, or in its place on a pane narrower
+than 900 pixels. It holds the project, the words, a description, the fields
+State, Priority, Planned, Due, Time, Repeat and Tags, the notes and the parts.
+Everything saves as it is typed: changes rest 0.4 seconds, then go to the store
+as one change. A change the store refuses because the todo moved since it was
+read is read again and sent once more. The foot of the panel says Saving… or
+Saved as you type.
+
+* The project and each field is a picker; an empty day clears it. Clearing the
+  due date gives back the soft one the store keeps 14 days out.
+* Time takes an estimate as `2h`, `45m`, `1h30m` or minutes, and Start or Stop
+  runs the timer.
+* Tags are read off the words, so a `#tag` typed in the words adds one.
+* Notes lists the note the todo lives in, then each note a `[[link]]` in the
+  words or description names; a click opens it.
+* Parts lists the todo's parts, each box ticking it and each name opening it in
+  the panel, and Add part adds one on Enter.
+* The `⋯` asks once more, then deletes the todo and its parts.
+
+### A new todo
+
+New or `a` opens the panel empty. Words in the title fill the fields as they are
+typed, and are marked where they sit: `today`, `tomorrow`, a weekday or a
+`YYYY-MM-DD` plan the day, `due:` with one of those sets the due date, `p1` to
+`p4` the priority from highest to low, `#Name` the project of that name, `30m`
+or `2h` the estimate, and `daily`, `weekly`, `monthly` or `yearly` the repeat.
+Each field filled that way says "from the words", and a field picked by hand
+wins. The todo lands in today's daily note. Enter adds it and opens it, Shift
+Enter adds it and starts the next, Escape cancels.
+
+| Key | Does |
+| --- | --- |
+| `j` / `k` | Move the cursor down or up; with the panel open, it follows |
+| Enter | Edit the cursor's todo in the panel |
+| `x` | Tick the cursor's todo done, or open it again |
+| `a` | Start a new todo in the panel |
+| `g` `n` | Open the note the cursor's todo lives in |
+| `/` | Filter the table by its words |
+| Escape | Close the panel |
+| Space | The leader |
+
 ## The todo pane
 
-`<leader>gt` fills the focused pane with every open todo in the vault, grouped
-by when it is due, under Overdue, Today, This week, Later and No date. An empty
+The todo view's Board tab holds this pane, on its board; `c` turns it into the
+list this section describes. The list holds every open todo in the vault,
+grouped by when it is due, under Overdue, Today, This week, Later and No date. An empty
 group draws no heading. Done this week comes last and stays folded, see
 [Done this week](#done-this-week).
 

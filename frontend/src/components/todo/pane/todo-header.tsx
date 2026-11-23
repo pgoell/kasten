@@ -1,7 +1,7 @@
 import type { RefObject } from "react";
 import type { SearchHit } from "@/lib/core/api";
+import { KINDS } from "@/lib/todo/board/todo-board";
 import { parseTodo } from "@/lib/todo/todo";
-import { KINDS } from "@/lib/todo/todo-board";
 import type { Mode } from "@/lib/todo/use-todo-rows";
 import { INPUT, LABEL } from "@/lib/ui/overlay-styles";
 

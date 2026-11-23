@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
+import { TodoMore } from "@/components/todo/pane/todo-more";
+import { TodoRow } from "@/components/todo/pane/todo-row";
 import { TodoHints } from "@/components/todo/todo-hints";
-import { TodoMore } from "@/components/todo/todo-more";
-import { TodoRow } from "@/components/todo/todo-row";
 import { TodoStateBox } from "@/components/todo/todo-state-box";
 import type { SearchHit, TodoHit } from "@/lib/core/api";
 import { cycleLine, parseTodo, type TodoState } from "@/lib/todo/todo";

@@ -1,9 +1,9 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { TodoFooter } from "@/components/todo/pane/todo-footer";
+import { TodoHeader } from "@/components/todo/pane/todo-header";
+import { type Editing, TodoList } from "@/components/todo/pane/todo-list";
 import { type BoardKeys, TodoBoard } from "@/components/todo/todo-board";
-import { TodoFooter } from "@/components/todo/todo-footer";
-import { TodoHeader } from "@/components/todo/todo-header";
-import { type Editing, TodoList } from "@/components/todo/todo-list";
 import { fetchTodos, type SearchHit, type TodoHit } from "@/lib/core/api";
 import type { TodoState } from "@/lib/todo/todo";
 import { noteLineOf, todoIdIn } from "@/lib/todo/todo-api";
@@ -108,6 +108,8 @@ interface TodoPaneProps {
   focusSignal: number;
   /** Today, as `YYYY-MM-DD`. The route reads the clock; this stays pure of it. */
   today: string;
+  /** Open on the board rather than the list, as the todo view's Board tab does. */
+  initialBoard?: boolean;
 }
 
 /**
@@ -130,6 +132,7 @@ export function TodoPane({
   focusSignal,
   today,
   archive = false,
+  initialBoard = false,
 }: TodoPaneProps) {
   const queryClient = useQueryClient();
   /** Opens a row's note on its todo's embed: a listed line counts the note's todos. */
@@ -148,7 +151,7 @@ export function TodoPane({
   /** Which list is drawn: the open todos, `d`'s finished ones, or `n`'s actions. */
   const [mode, setMode] = useState<Mode>("open");
   /** `c`: the todos drawn as a board rather than as the list. */
-  const [board, setBoard] = useState(false);
+  const [board, setBoard] = useState(initialBoard);
   /**
    * The Done this week fold, closed at the start so the list reads as what is left.
    * `j` and `k` walk its rows only while it is open.

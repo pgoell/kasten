@@ -1,0 +1,229 @@
+import { useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import {
+  DayPick,
+  FieldRow,
+  InlineText,
+  PriorityPick,
+  ProjectPick,
+  StatePick,
+} from "@/components/todo/view/panel-fields";
+import { PanelNotes, PanelParts } from "@/components/todo/view/panel-sections";
+import { Icon } from "@/components/todo/view/view-icons";
+import type { TodoRow } from "@/lib/core/api";
+import { longDay, minutes } from "@/lib/todo/view/row-facts";
+import { deleteTodo, stateTodo, timerTodo } from "@/lib/todo/view/todo-store";
+import { usePanelSave } from "@/lib/todo/view/use-panel-save";
+
+/** `2h`, `45m`, `1h30m` or a bare number of minutes; null for nothing typed. */
+export function readMinutes(text: string): number | null | undefined {
+  const typed = text.trim().replace(/\s+/g, "");
+  if (typed === "") return null;
+  if (/^\d+$/.test(typed)) return Number(typed);
+  const found = /^(?:(\d+)h)?(?:(\d+)m)?$/.exec(typed);
+  if (found === null || (found[1] === undefined && found[2] === undefined)) return undefined;
+  return Number(found[1] ?? 0) * 60 + Number(found[2] ?? 0);
+}
+
+export interface PanelProps {
+  row: TodoRow;
+  parts: TodoRow[];
+  projects: string[];
+  files: string[] | undefined;
+  today: string;
+  running: boolean;
+  onClose: () => void;
+  onOpenTodo: (id: string) => void;
+  onOpenNote: (path: string) => void;
+  onNotice: (text: string) => void;
+}
+
+/**
+ * One todo in the side panel, every field editable and saved as it is typed. Keyed by the
+ * todo's id, so what is typed belongs to the todo it was typed on.
+ */
+export function TodoPanel(props: PanelProps) {
+  const { row, today, onNotice } = props;
+  const queryClient = useQueryClient();
+  const { save, state: saving } = usePanelSave(row.id, (why) => onNotice(`Not saved: ${why}`));
+  const [words, setWords] = useState(row.words);
+  const [description, setDescription] = useState(row.description ?? "");
+  const [estimate, setEstimate] = useState(
+    row.estimate === null ? "" : minutes(row.estimate).replace(/ /g, ""),
+  );
+  const [repeat, setRepeat] = useState(row.repeat ?? "");
+  const [deleting, setDeleting] = useState(false);
+  const failed = (error: unknown) =>
+    onNotice(`Not saved: ${error instanceof Error ? error.message : error}`);
+  const worked = row.worked ?? 0;
+
+  return (
+    <aside aria-label="Todo" className="flex h-full min-h-0 flex-col bg-k-bg">
+      <div className="flex items-center gap-2 px-6 pt-4">
+        <ProjectPick
+          project={row.project}
+          projects={props.projects}
+          onPick={(project) => save({ project }, true)}
+        />
+        <span className="ml-auto" />
+        {deleting ? (
+          <button
+            type="button"
+            onClick={() => void deleteTodo(queryClient, row.id).then(props.onClose, failed)}
+            className="rounded bg-k-danger px-2 py-0.5 text-k-bg text-sm"
+          >
+            Delete it and its parts
+          </button>
+        ) : (
+          <button
+            type="button"
+            aria-label="Delete todo"
+            onClick={() => setDeleting(true)}
+            className="rounded p-1 text-k-muted hover:bg-k-inset hover:text-k-ink"
+          >
+            <Icon name="more" />
+          </button>
+        )}
+        <button
+          type="button"
+          aria-label="Close"
+          onClick={props.onClose}
+          className="rounded p-1 text-k-muted hover:bg-k-inset hover:text-k-ink"
+        >
+          <Icon name="x" />
+        </button>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-4">
+        <textarea
+          aria-label="Words"
+          data-panel-title
+          rows={1}
+          value={words}
+          onChange={(event) => {
+            const typed = event.target.value.replace(/\n/g, " ");
+            setWords(typed);
+            if (typed.trim() !== "") save({ words: typed.trim() });
+          }}
+          className="field-sizing-content mt-2 w-full resize-none border-k-accent border-b-2 bg-transparent pb-1 font-serif text-[28px] text-k-ink leading-tight outline-none"
+        />
+        <textarea
+          aria-label="Description"
+          value={description}
+          placeholder="Add a description, [[ links a note"
+          onChange={(event) => {
+            setDescription(event.target.value);
+            save({ description: event.target.value === "" ? null : event.target.value });
+          }}
+          className="field-sizing-content mt-3 min-h-12 w-full resize-none rounded-md border border-k-rule bg-k-paper px-3 py-2 text-[15px] text-k-ink leading-relaxed outline-none placeholder:text-k-muted focus:border-k-rule-strong"
+        />
+
+        <div className="mt-3 border-k-rule border-t pt-3">
+          <FieldRow icon="check" label="State">
+            <StatePick
+              state={row.state}
+              onPick={(next) => void stateTodo(queryClient, row.id, next).catch(failed)}
+            />
+          </FieldRow>
+          <FieldRow icon="bars" label="Priority">
+            <PriorityPick
+              priority={row.priority}
+              onPick={(priority) => save({ priority: priority as TodoRow["priority"] }, true)}
+            />
+          </FieldRow>
+          <FieldRow icon="sun" label="Planned">
+            <DayPick
+              label="Planned"
+              day={row.planned}
+              shown={row.planned === null ? "" : longDay(row.planned, today)}
+              empty="Plan a day"
+              onPick={(planned) => save({ planned }, true)}
+            />
+          </FieldRow>
+          <FieldRow icon="flag" label="Due">
+            <DayPick
+              label="Due"
+              day={row.due_hard ? row.due : null}
+              shown={row.due === null ? "" : longDay(row.due, today)}
+              empty="Set a due date"
+              onPick={(due) => save({ due, due_hard: due !== null }, true)}
+            />
+          </FieldRow>
+          <FieldRow icon="clock" label="Time">
+            {worked > 0 && <span className="shrink-0 text-k-ink">{minutes(worked)} of</span>}
+            <InlineText
+              label="Estimate"
+              value={estimate}
+              placeholder="Estimate, as 2h or 45m"
+              onText={(text) => {
+                setEstimate(text);
+                const read = readMinutes(text);
+                if (read !== undefined) save({ estimate: read });
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => void timerTodo(queryClient, row.id).catch(failed)}
+              className="flex shrink-0 items-center gap-1 rounded-full bg-k-inset px-2.5 py-0.5 text-k-ink-soft text-sm hover:text-k-ink"
+            >
+              <Icon name={props.running ? "x" : "play"} className="size-3" />
+              {props.running ? "Stop" : "Start"}
+            </button>
+          </FieldRow>
+          <FieldRow icon="repeat" label="Repeat">
+            <InlineText
+              label="Repeat"
+              value={repeat}
+              placeholder="Never"
+              onText={(text) => {
+                setRepeat(text);
+                save({ repeat: text.trim() === "" ? null : text.trim() });
+              }}
+            />
+          </FieldRow>
+          <FieldRow icon="tag" label="Tags">
+            {row.tags.length === 0 ? (
+              <span className="text-k-muted">Type a #tag in the words</span>
+            ) : (
+              row.tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-full bg-k-inset px-2.5 py-0.5 text-k-ink-soft text-sm"
+                >
+                  {tag}
+                </span>
+              ))
+            )}
+          </FieldRow>
+        </div>
+
+        <PanelNotes
+          row={row}
+          words={words}
+          description={description}
+          files={props.files}
+          onOpenNote={props.onOpenNote}
+        />
+        <PanelParts
+          parent={row}
+          parts={props.parts}
+          onOpenTodo={props.onOpenTodo}
+          onNotice={onNotice}
+        />
+      </div>
+
+      <div className="flex items-center gap-3 border-k-rule border-t px-6 py-3 text-k-muted text-sm">
+        <span aria-live="polite">
+          {saving === "saving"
+            ? "Saving…"
+            : saving === "failed"
+              ? "Not saved"
+              : "Saved as you type"}
+        </span>
+        <span className="ml-auto">
+          <kbd className="rounded border border-k-rule px-1 font-mono text-xs">Esc</kbd> close
+        </span>
+      </div>
+    </aside>
+  );
+}

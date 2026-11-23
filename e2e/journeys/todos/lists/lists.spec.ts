@@ -10,6 +10,7 @@ import {
   openApp,
   openLists,
   openNote,
+  openTodoList,
   phone,
   TODO_ROW,
   vaultWith,
@@ -162,7 +163,7 @@ const toggle = (page: Page, name: string) => page.getByRole("button", { name, ex
 async function todoPane(page: Page, vault: string): Promise<void> {
   await vaultWith(vault, SCOPE);
   await openApp(page);
-  await leader(page, "gt");
+  await openTodoList(page);
   await expect(row(page, "call the client")).toBeVisible();
 }
 

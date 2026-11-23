@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import type { Column } from "@/lib/todo/todo-board";
-import type { Spot } from "@/lib/todo/todo-drag";
+import type { Column } from "@/lib/todo/board/todo-board";
+import type { Spot } from "@/lib/todo/board/todo-drag";
 
 /** How far, in pixels, a pressed pointer may wander and still be a click or a tap. */
 const SLOP = 5;

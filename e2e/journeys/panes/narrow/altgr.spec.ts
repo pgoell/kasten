@@ -5,6 +5,7 @@ import {
   openApp,
   runCommand,
   TODO_ROW,
+  toTodoList,
   unstamped,
   vaultWith,
 } from "../../../harness/app.ts";
@@ -102,6 +103,7 @@ test.describe("@ typed through AltGr or Option (#2071)", () => {
     await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
     await openApp(page);
     await runCommand(page, /^Open the todo pane/);
+    await toTodoList(page);
     const cursor = page.locator(`${TODO_ROW}[tabindex="0"]`);
     await cursor.focus();
     for (const layout of ["windows", "linux", "mac"] as const) {

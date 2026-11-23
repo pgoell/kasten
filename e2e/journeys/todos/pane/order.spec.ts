@@ -1,15 +1,16 @@
 import type { Page } from "@playwright/test";
 import {
   cursorTo,
-  leader,
   noteText,
   openApp,
+  openTodoList,
   phone,
   plus,
   recordEvents,
   TODO_ROW,
   today,
   todoRows,
+  toTodoList,
   vaultWith,
 } from "../../../harness/app.ts";
 import { expect, type Stack, test } from "../../../harness/stack.ts";
@@ -101,9 +102,10 @@ async function openOrder(page: Page, vault: string, o: Open = {}) {
   if (o.touch) {
     await page.goto("/");
     await page.getByRole("button", { name: "Open the todo pane" }).tap({ timeout: 15_000 });
+    await toTodoList(page);
   } else {
     await openApp(page);
-    await leader(page, "gt");
+    await openTodoList(page);
   }
   await expect(row(page, "golf")).toBeVisible({ timeout: 15_000 });
   await expect(row(page, "alpha")).toBeVisible();

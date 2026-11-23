@@ -4,9 +4,11 @@ import {
   caretLine,
   leader,
   openApp,
+  openTodoList,
   plus,
   runCommand,
   today,
+  toTodoList,
   vaultWith,
   watchDrop,
 } from "../../../../harness/app.ts";
@@ -81,8 +83,11 @@ async function board(
   await openApp(page);
   // A pane beside, so an editor stays on screen for Escape to hand the focus to.
   if (split) await leader(page, "%");
-  if (vim === "on") await leader(page, "gt");
-  else await runCommand(page, /^Open the todo pane/);
+  if (vim === "on") await openTodoList(page);
+  else {
+    await runCommand(page, /^Open the todo pane/);
+    await toTodoList(page);
+  }
   await expect(region(page)).toBeVisible({ timeout: 15_000 });
   if (!empty || Object.keys(notes).length)
     await expect(page.locator('[data-row*=".md:"]').first()).toBeVisible();
@@ -119,7 +124,7 @@ test("A7 Enter opens the cursor card's line, and a click opens the clicked card'
   await board(page, stack);
   await page.keyboard.press("Enter");
   await expect(caretLine(page)).toContainText("send the invoice");
-  await leader(page, "gt");
+  await openTodoList(page);
   await page.keyboard.press("c");
   await page.locator(`[data-card="${PLAN}:1"]`).click();
   await expect(caretLine(page)).toContainText("write the deck");

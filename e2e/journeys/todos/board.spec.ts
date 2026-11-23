@@ -3,14 +3,15 @@ import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import {
   cursorTo,
-  leader,
   noteText,
   openApp,
+  openTodoList,
   phone,
   runCommand,
   TODO_ROW,
   tapHeight,
   today,
+  toTodoList,
   vaultWith,
 } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
@@ -23,7 +24,7 @@ async function store(url: string): Promise<string> {
 
 test("dragging a card to the doing column sets it doing in the store", async ({ page, stack }) => {
   await openApp(page);
-  await leader(page, "gt");
+  await openTodoList(page);
   // The list first, so `c` turns a loaded list into the board.
   await expect(page.locator('[data-row*=".md:"]', { hasText: "fold the laundry" })).toBeVisible();
   await page.keyboard.press("c");
@@ -46,7 +47,7 @@ test("dragging a card to the doing column sets it doing in the store", async ({ 
 
 test("c flips the todo pane from the list to the board and back", async ({ page }) => {
   await openApp(page);
-  await leader(page, "gt");
+  await openTodoList(page);
   const rows = page.locator(TODO_ROW);
   const cards = page.locator("[data-card]");
   await expect(rows.filter({ hasText: "fold the laundry" })).toBeVisible();
@@ -70,7 +71,7 @@ test("folding, the filter, a tag chip, All and c write nothing", async ({ page, 
     "02 Projects/Errands.md": `# Errands\n\n- [ ] call the dentist #client\n- [x] read the spec ✅ ${today()}\n`,
   });
   await openApp(page);
-  await leader(page, "gt");
+  await openTodoList(page);
   const row = (text: string) => page.locator(TODO_ROW, { hasText: text });
   await expect(row("call the dentist")).toBeVisible();
   const before = await notes(stack.vault);
@@ -115,6 +116,7 @@ test.describe("on a phone", () => {
   }) => {
     await page.goto("/");
     await page.getByRole("button", { name: "Open the todo pane" }).tap();
+    await toTodoList(page);
     await page.getByRole("button", { name: "board", exact: true }).tap();
     const card = page.locator("[data-card]", { hasText: "fold the laundry" });
     await expect(card).toBeVisible();
@@ -142,7 +144,7 @@ async function board(page: Page, vault: string): Promise<void> {
     [PLAN]: `# Plan\n\n- [ ] write the deck #internal\n- [/] draw the chart #internal\n- [ ] send the invoice #client\n- [-] drop the logo ❌ ${today()}\n`,
   });
   await openApp(page);
-  await leader(page, "gt");
+  await openTodoList(page);
   await expect(page.locator(TODO_ROW, { hasText: "write the deck" })).toBeVisible();
   await page.keyboard.press("c");
   await expect(page.locator("[data-card]", { hasText: "write the deck" })).toBeVisible();
@@ -269,6 +271,7 @@ test.describe("the board's lanes and folds (#811)", () => {
       });
       await page.goto("/");
       await page.getByRole("button", { name: "Open the todo pane" }).tap();
+      await toTodoList(page);
       await page.getByRole("button", { name: "board", exact: true }).tap();
       await expect(card(page, "send the invoice")).toBeVisible();
 
@@ -333,7 +336,7 @@ test.describe("the list's edit row through a redraw that moves its row (#2087)",
   }) => {
     const release = await heldCycles(page);
     await openApp(page);
-    await leader(page, "gt");
+    await openTodoList(page);
     await typeThroughRedraw(page, stack.url, release);
   });
 
@@ -345,6 +348,7 @@ test.describe("the list's edit row through a redraw that moves its row (#2087)",
     const release = await heldCycles(page);
     await openApp(page);
     await runCommand(page, /^Open the todo pane/);
+    await toTodoList(page);
     await expect(page.getByRole("button", { name: "open water the tomatoes" })).toBeVisible();
     await typeThroughRedraw(page, stack.url, release);
   });
@@ -358,7 +362,7 @@ test.describe("the list's edit row through a redraw that moves its row (#2087)",
   async function editing(page: Page, vault: string, lines: string, words: string) {
     await vaultWith(vault, { [EDITS]: lines });
     await openApp(page);
-    await leader(page, "gt");
+    await openTodoList(page);
     await cursorTo(page, words);
     await page.keyboard.press("i");
     await expect(draft(page)).toBeFocused();

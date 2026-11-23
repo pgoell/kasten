@@ -1,6 +1,6 @@
 import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
-import { TodoList } from "@/components/todo/todo-list";
-import { TodoRow } from "@/components/todo/todo-row";
+import { TodoList } from "@/components/todo/pane/todo-list";
+import { TodoRow } from "@/components/todo/pane/todo-row";
 import type { TodoHit } from "@/lib/core/api";
 import { parseTodo, type Todo } from "@/lib/todo/todo";
 import {

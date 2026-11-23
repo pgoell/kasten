@@ -2,8 +2,8 @@ import { replaceEqualDeep } from "@tanstack/react-query";
 import { memo } from "react";
 import { chipNote, PersonChip } from "@/components/person-chip";
 import { TodoStateBox } from "@/components/todo/todo-state-box";
+import { laneName } from "@/lib/todo/board/todo-board";
 import { isOpen, PRIORITY_SYMBOL, type Todo } from "@/lib/todo/todo";
-import { laneName } from "@/lib/todo/todo-board";
 import { isClient, waitOf, waitsFor } from "@/lib/todo/todo-view";
 import { type Row, type RowFacts, rowKey } from "@/lib/todo/use-todo-rows";
 

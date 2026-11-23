@@ -196,7 +196,8 @@ export async function renderApp(entry = "/") {
     focusPane: (index: number) =>
       (container.querySelectorAll<HTMLElement>(".cm-content")[index] as HTMLElement).focus(),
     /** The todo pane, while a pane is holding one. */
-    todoPane: () => container.querySelector("[aria-label='Todos']"),
+    /** The innermost todo pane: the board under the todo view's Board tab, once it shows. */
+    todoPane: () => [...container.querySelectorAll("[aria-label='Todos']")].at(-1) ?? null,
     /** The image pane, while a pane is holding one. */
     imagePane: () => container.querySelector("[data-image-pane]"),
     /** The reader, while a pane is holding one. */

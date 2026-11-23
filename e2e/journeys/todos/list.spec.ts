@@ -4,13 +4,14 @@ import type { Page } from "@playwright/test";
 import {
   caretLine,
   cursorTo,
-  leader,
   openApp,
+  openTodoList,
   phone,
   readAll,
   TODO_ROW,
   today,
   todoRows,
+  toTodoList,
   vaultWith,
 } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
@@ -33,7 +34,7 @@ async function store(url: string): Promise<string> {
 
 test("checking off a todo in the todo pane changes it in the store", async ({ page, stack }) => {
   await openApp(page);
-  await leader(page, "gt");
+  await openTodoList(page);
   await expect(page.getByRole("button", { name: "open water the tomatoes" })).toBeVisible();
   // The first row starts under the cursor; X sets it done.
   await page.keyboard.press("X");
@@ -48,7 +49,7 @@ test("with a mouse the todo pane draws no touch buttons, and each press of x wal
 }) => {
   const garden = () => store(stack.url);
   await openApp(page);
-  await leader(page, "gt");
+  await openTodoList(page);
   await expect(page.getByRole("button", { name: "open water the tomatoes" })).toBeVisible();
   for (const name of ["add todo", /^cycle /, /^more for /]) {
     await expect(page.getByRole("button", { name })).toHaveCount(0);
@@ -70,7 +71,7 @@ test("two x presses straight after each other walk the row on to done (#2080)", 
   stack,
 }) => {
   await openApp(page);
-  await leader(page, "gt");
+  await openTodoList(page);
   await expect(page.getByRole("button", { name: "open water the tomatoes" })).toBeVisible();
   await page.keyboard.press("x");
   await page.keyboard.press("x");
@@ -85,7 +86,7 @@ test("t straight after an x starts a session on the todo the x walked (#2084)", 
   stack,
 }) => {
   await openApp(page);
-  await leader(page, "gt");
+  await openTodoList(page);
   await expect(page.getByRole("button", { name: "open water the tomatoes" })).toBeVisible();
   await page.keyboard.press("x");
   await page.keyboard.press("t");
@@ -99,7 +100,7 @@ test("t straight after an x starts a session on the todo the x walked (#2084)", 
 
 test("clicking a todo opens its note on the todo's embed", async ({ page }) => {
   await openApp(page);
-  await leader(page, "gt");
+  await openTodoList(page);
   await page.getByRole("button", { name: "open reply to the far away letter" }).click();
   const line = page.locator(".cm-line", { hasText: "reply to the far away letter" });
   await expect(line).toBeInViewport();
@@ -111,7 +112,7 @@ test("checking off three todos in a row keeps the rows in their order, then they
   stack,
 }) => {
   await openApp(page);
-  await leader(page, "gt");
+  await openTodoList(page);
   // A checked row stays put, struck through, while presses follow each other (#947),
   // so each row is found again by its words.
   for (const name of HOME_TODOS.slice(0, 3)) {
@@ -153,7 +154,7 @@ test("a list read in one step holds one render, where a read in two steps mixes 
     await route.fulfill({ json: held });
   });
   await openApp(page);
-  await leader(page, "gt");
+  await openTodoList(page);
   const rows = page.locator(TODO_ROW);
   const named = (texts: (string | null)[]) =>
     texts.map((text) => WORDS.find((word) => text?.includes(word)));
@@ -182,7 +183,7 @@ test("marking a recurring todo done keeps it open on its next date and writes th
     "02 Projects/Cat.md": "- [ ] feed the cat 📅 2026-11-10 🔁 every week\n",
   });
   await openApp(page);
-  await leader(page, "gt");
+  await openTodoList(page);
   await cursorTo(page, "feed the cat");
   await page.keyboard.press("X");
   await expect
@@ -193,7 +194,7 @@ test("marking a recurring todo done keeps it open on its next date and writes th
 
 test("setting a todo to waiting marks it in the store and on its row", async ({ page, stack }) => {
   await openApp(page);
-  await leader(page, "gt");
+  await openTodoList(page);
   await cursorTo(page, "ask the landlord about the boiler");
   await page.keyboard.press("W");
   await expect
@@ -233,7 +234,7 @@ test("the filter narrows to a tag or away from it with parts beside their parent
         .sort((a, b) => a - b);
     }, `${note}:`);
   await openApp(page);
-  await leader(page, "gt");
+  await openTodoList(page);
   await expect.poll(lines).toEqual([1, 2, 3, 4, 5, 6, 7]);
   const filter = page.getByLabel("filter todos");
   await filter.fill("#client");
@@ -260,7 +261,7 @@ async function openFold(page: Page, vault: string): Promise<() => void> {
   });
   await page.clock.install();
   await openApp(page);
-  await leader(page, "gt");
+  await openTodoList(page);
   await page.getByRole("button", { name: /^Done this week/ }).click();
   await expect(page.locator(TODO_ROW, { hasText: "read the spec" })).toBeVisible();
   await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100));
@@ -345,7 +346,7 @@ test("an open row checked off while the fold is open and the press holds is draw
 
 test("the legend is drawn on the open list, and not on d's or n's", async ({ page }) => {
   await openApp(page);
-  await leader(page, "gt");
+  await openTodoList(page);
   const legend = page.getByRole("list", { name: "legend" });
   await expect(legend).toBeVisible();
   await page.keyboard.press("d");
@@ -407,7 +408,7 @@ test("in an open group, an x after the one that made a row done cycles that row 
 }) => {
   const base = await openPlan(page, stack.vault, async () => {
     await openApp(page);
-    await leader(page, "gt");
+    await openTodoList(page);
   });
   await cursorTo(page, "read the plan");
   for (const [step, line] of ROUND.entries()) {
@@ -430,7 +431,7 @@ test("once the hold lets go, a row made done leaves its open group (#2003)", asy
 }) => {
   const base = await openPlan(page, stack.vault, async () => {
     await openApp(page);
-    await leader(page, "gt");
+    await openTodoList(page);
   });
   await cursorTo(page, "read the plan");
   for (const [step, line] of ROUND.entries()) {
@@ -457,6 +458,7 @@ test.describe("on a phone", () => {
       await page.goto("/");
       await files;
       await page.getByRole("button", { name: "Open the todo pane" }).tap();
+      await toTodoList(page);
     });
     // The first tap asks, the second cycles.
     const box = page.getByRole("button", { name: "cycle read the plan" });
@@ -484,6 +486,7 @@ test.describe("on a phone", () => {
   }) => {
     await page.goto("/");
     await page.getByRole("button", { name: "Open the todo pane" }).tap();
+    await toTodoList(page);
     await page.getByRole("button", { name: "more for fold the laundry" }).tap();
     await page.getByRole("button", { name: "done fold the laundry" }).tap();
     await expect

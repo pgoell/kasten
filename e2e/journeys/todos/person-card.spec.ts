@@ -9,9 +9,11 @@ import {
   noteText,
   openApp,
   openNote,
+  openTodoList,
   phone,
   TODO_ROW,
   tapHeight,
+  toTodoList,
   vaultWith,
 } from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
@@ -70,10 +72,12 @@ test.describe("on a phone", () => {
     const { chip, writes } = await chippedCard(page, stack.vault);
     await page.goto("/");
     await page.getByRole("button", { name: "Open the todo pane" }).tap();
+    await toTodoList(page);
     await page.getByRole("button", { name: "board", exact: true }).tap();
     await chip.tap();
     await opensPascal(page, stack.url, writes, async () => {
       await page.getByRole("button", { name: "Open the todo pane" }).tap();
+      await toTodoList(page);
       await page.getByRole("button", { name: "more for fix the tap" }).tap();
       await page.getByRole("button", { name: "done fix the tap" }).tap();
     });
@@ -115,12 +119,12 @@ async function opensPascal(page: Page, url: string, writes: string[], tick: () =
 test("a click on a board card's assignee chip opens the person note", async ({ page, stack }) => {
   const { chip, writes } = await chippedCard(page, stack.vault);
   await openApp(page);
-  await leader(page, "gt");
+  await openTodoList(page);
   await expect(page.locator(TODO_ROW, { hasText: "send the invoice" })).toBeVisible();
   await page.keyboard.press("c");
   await chip.click();
   await opensPascal(page, stack.url, writes, async () => {
-    await leader(page, "gt");
+    await openTodoList(page);
     await cursorTo(page, "fix the tap");
     await page.keyboard.press("X");
   });
@@ -132,7 +136,7 @@ test("a drag that starts on a board card's chip moves the card and opens no note
 }) => {
   const { card, chip } = await chippedCard(page, stack.vault);
   await openApp(page);
-  await leader(page, "gt");
+  await openTodoList(page);
   await expect(page.locator(TODO_ROW, { hasText: "send the invoice" })).toBeVisible();
   await page.keyboard.press("c");
   const lane = await card.evaluate((el) => el.closest("[data-column]")?.getAttribute("data-lane"));
@@ -270,7 +274,7 @@ test.describe("the assignee chip on a todo pane row", () => {
   }) => {
     const { row, chip } = await chorePane(page, stack.vault);
     await openApp(page);
-    await leader(page, "gt");
+    await openTodoList(page);
     await expect(chip("buy paint")).toHaveText("Pascal");
     await expect(chip("mend the fence")).toHaveText("Alicia");
     await expect(chip("hang the door")).toHaveText("Pascal");
@@ -292,7 +296,7 @@ test.describe("the assignee chip on a todo pane row", () => {
     const { row, chip, linked } = await chorePane(page, stack.vault);
     await openApp(page);
     const opens = async (click: () => Promise<void>, tab: string, line?: string) => {
-      await leader(page, "gt");
+      await openTodoList(page);
       await click();
       await expect(page.getByRole("tab", { name: tab, selected: true })).toBeVisible();
       if (line) await expect(page.locator(".cm-content:focus .cm-activeLine")).toContainText(line);
@@ -316,7 +320,7 @@ test.describe("the assignee chip on a todo pane row", () => {
   }) => {
     const { chip } = await chorePane(page, stack.vault);
     await openApp(page);
-    await leader(page, "gt");
+    await openTodoList(page);
     await cursorTo(page, "buy paint");
     await page.keyboard.press("b");
     await expect(page.getByTestId("todo-pick")).toBeVisible();
@@ -343,12 +347,14 @@ test.describe("the assignee chip on a todo pane row", () => {
       });
       await page.goto("/");
       await page.getByRole("button", { name: "Open the todo pane" }).tap({ timeout: 15_000 });
+      await toTodoList(page);
       await linked("buy paint");
       await chip("buy paint").tap();
       await expect(page.getByRole("tab", { name: "Pascal", selected: true })).toBeVisible();
       await expect(page.getByRole("tab", { name: "Chores" })).toHaveCount(0);
       // One real tick last: todo writes go in turn, so a write the tap sent would land first.
       await page.getByRole("button", { name: "Open the todo pane" }).tap();
+      await toTodoList(page);
       await page.getByRole("button", { name: "more for rake the leaves" }).tap();
       await page.getByRole("button", { name: "done rake the leaves" }).tap();
       await expect
@@ -450,7 +456,7 @@ test.describe("the name place after a field that takes the 👤 (#1021)", () => 
     // No fixed clock: a day before the store's look-again day hides the row.
     await vaultWith(stack.vault, { [PLACE]: `${stamped}\n` });
     await openApp(page);
-    await leader(page, "gt");
+    await openTodoList(page);
     const input = page.getByLabel("edit line");
     await cursorTo(page, "kettle");
     await page.keyboard.press("i");

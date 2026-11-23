@@ -5,11 +5,13 @@ import {
   holdStream,
   leader,
   openApp,
+  openTodoList,
   panes,
   readAll,
   runCommand,
   TODO_ROW,
   todoRows,
+  toTodoList,
   vaultWith,
 } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
@@ -48,8 +50,11 @@ async function openPane(page: Page, vault: string, vim = "on") {
   if (vim === "off") await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
   await vaultWith(vault, { [NOTE]: note(LINES) });
   await openApp(page);
-  if (vim === "on") await leader(page, "gt");
-  else await runCommand(page, /^Open the todo pane/);
+  if (vim === "on") await openTodoList(page);
+  else {
+    await runCommand(page, /^Open the todo pane/);
+    await toTodoList(page);
+  }
   await expect(row(page, "buy milk")).toBeVisible({ timeout: 15_000 });
 }
 
@@ -62,7 +67,7 @@ async function threeTabs(page: Page, vault: string) {
   await expect(page.getByRole("tab")).toHaveCount(3);
   await leader(page, "1");
   await expect.poll(() => selectedTab(page)).toBe(0);
-  await leader(page, "gt");
+  await openTodoList(page);
   await expect(row(page, "buy milk")).toBeVisible({ timeout: 15_000 });
 }
 

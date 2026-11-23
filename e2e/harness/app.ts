@@ -22,6 +22,26 @@ export async function leader(page: Page, keys: string): Promise<void> {
 }
 
 /**
+ * The todo view's Board tab and `c`: the list the todo journeys were written against, which the
+ * Board tab keeps beside the board. Nothing where the Board tab is already open.
+ */
+export async function toTodoList(page: Page): Promise<void> {
+  const tab = page.getByRole("button", { name: "Board", exact: true });
+  if ((await tab.getAttribute("aria-pressed")) === "true") return;
+  await tab.click();
+  await expect(
+    page.locator("section[aria-label='Todos'] section[aria-label='Todos']"),
+  ).toBeFocused();
+  await page.keyboard.press("c");
+}
+
+/** `<leader>gt`, then the list under the todo view's Board tab. */
+export async function openTodoList(page: Page): Promise<void> {
+  await leader(page, "gt");
+  await toTodoList(page);
+}
+
+/**
  * Opens the note finder, types the name, and opens the first row once the finder has listed it.
  * Returns once the note's tab is selected and an editor holds the focus: keys sent sooner are lost on a loaded box (#1615).
  */

@@ -1,14 +1,14 @@
 import type { ReactNode } from "react";
 import { chipNote, PersonChip } from "@/components/person-chip";
+import { wordsOf } from "@/components/todo/pane/todo-row";
 import type { Card } from "@/components/todo/todo-board";
-import { wordsOf } from "@/components/todo/todo-row";
 import type { SearchHit, TodoHit } from "@/lib/core/api";
+import { columnOf } from "@/lib/todo/board/todo-board";
+import { cardKey } from "@/lib/todo/board/use-board-lanes";
+import type { CardDrag } from "@/lib/todo/board/use-card-drag";
 import { isOpen, PRIORITY_SYMBOL, type Todo, type TodoState } from "@/lib/todo/todo";
 import type { Closed } from "@/lib/todo/todo-blocked";
-import { columnOf } from "@/lib/todo/todo-board";
 import { type Placed, waitsFor } from "@/lib/todo/todo-view";
-import { cardKey } from "@/lib/todo/use-board-lanes";
-import type { CardDrag } from "@/lib/todo/use-card-drag";
 
 /** The state each shifted key names, as the list's own table spells it. */
 export const SET: Record<string, TodoState> = {

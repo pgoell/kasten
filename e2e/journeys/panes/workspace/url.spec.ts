@@ -12,6 +12,8 @@ test.describe("a stored workspace on load", () => {
   test("a todo pane beside a note comes back holding the vault's todos", async ({ page }) => {
     await seed(page, layout([beside({ path: "Welcome.md" }, { todos: true })]));
     await load(page);
+    // The garden todo has a project and no day, so only the All tab lists it.
+    await todos(page).getByRole("button", { name: "All", exact: true }).click();
     await expect
       .poll(async () => [
         await panes(page).count(),

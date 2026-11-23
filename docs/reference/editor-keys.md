@@ -47,7 +47,7 @@ does not provide.
 * [Finding and dating notes](/reference/editor-keys/finding.md): the note prompt, the note finder, the note search, the ranked search and the periodic notes.
 * [Todos in the editor](/reference/editor-keys/todos.md): cycling and stamping a todo, and the todo overlay.
 * [The review pane](/reference/editor-keys/review-pane.md): the keys for a flashcard sitting, folds, parking and undo.
-* [The todo list](/reference/editor-keys/todo-pane.md): the todo pane, its rows and groups, and its key table.
+* [The todo list](/reference/editor-keys/todo-pane.md): the todo view, its table and side panel, the list and board under its Board tab, and their key tables.
 * [The todo list, key by key](/reference/editor-keys/todo-pane-keys.md): edit, timers, blockers, moves, the add prompt and saved views.
 * [The todo board](/reference/editor-keys/todo-board.md): the board's columns, lanes, keys and drag.
 

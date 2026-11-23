@@ -9,6 +9,7 @@ import {
   leader,
   noteText,
   openApp,
+  openTodoList,
   plus,
   readAll,
   TODO_ROW,
@@ -98,7 +99,7 @@ const stateOf = (page: Page, words: string, state: string) =>
 /** Opens the todo pane with both rows listed. */
 async function openTodos(page: Page): Promise<void> {
   await openApp(page);
-  await leader(page, "gt");
+  await openTodoList(page);
   await expect(page.getByRole("button", { name: `open ${LAUNDRY}` })).toBeVisible();
 }
 
@@ -111,7 +112,7 @@ async function openUnlisted(page: Page, id: string) {
   await page.goto("/");
   await asked;
   await expect(page.getByRole("button", { name: "Search notes" })).toBeVisible({ timeout: 15_000 });
-  await leader(page, "gt");
+  await openTodoList(page);
   await expect(page.getByRole("button", { name: `open ${LAUNDRY}` })).toBeVisible();
   return {
     release,
@@ -293,7 +294,7 @@ async function openStates(page: Page, vault: string): Promise<void> {
     },
   );
   await openApp(page);
-  await leader(page, "gt");
+  await openTodoList(page);
   await expect(page.locator(TODO_ROW)).toHaveCount(7);
 }
 
@@ -458,7 +459,7 @@ test.describe("#1018 the name place past a span holding a wait stamp", () => {
     // No fixed clock: a day before the store's look-again day hides the row.
     await vaultWith(stack.vault, { [NOTE]: `${lines.join("\n")}\n` });
     await openApp(page);
-    await leader(page, "gt");
+    await openTodoList(page);
     const input = page.getByLabel("edit line");
     for (const want of lines) {
       await cursorTo(page, want.split(" ").at(-3) ?? "");

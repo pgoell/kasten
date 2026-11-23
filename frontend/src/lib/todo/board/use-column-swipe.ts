@@ -11,7 +11,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { swipeOffset, swipeTarget } from "@/lib/todo/column-swipe";
+import { swipeOffset, swipeTarget } from "@/lib/todo/board/column-swipe";
 import { axis, type Sample, speed } from "@/lib/ui/motion/sheet-math";
 import { afterRelease, SPRINGS, Spring } from "@/lib/ui/motion/spring";
 

@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { parseTodo, type Todo } from "@/lib/todo/todo";
+
 import {
   COLUMNS,
   columnOf,
@@ -8,8 +8,9 @@ import {
   onBoard,
   projectChoices,
   withProjectLink,
-} from "@/lib/todo/todo-board";
-import { pinnedBy } from "@/lib/todo/todo-drag";
+} from "@/lib/todo/board/todo-board";
+import { pinnedBy } from "@/lib/todo/board/todo-drag";
+import { parseTodo, type Todo } from "@/lib/todo/todo";
 
 /** The day every test below is written against, so no assertion expires. */
 const TODAY = "2026-10-16";

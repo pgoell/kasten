@@ -19,7 +19,7 @@ import { PdfPane } from "@/components/pdf/pdf-pane";
 import { PersonPane } from "@/components/person-pane";
 import { ReviewPane } from "@/components/review/review-pane";
 import { TerminalPane } from "@/components/terminal/terminal-pane";
-import { TodoPane } from "@/components/todo/todo-pane";
+import { TodoView } from "@/components/todo/view/todo-view";
 import { VideoPane } from "@/components/video/video-pane";
 import { TimersPane } from "@/lib/app/push/timers-pane";
 import { type KindField, PANE_KINDS, type Pane } from "@/lib/panes/layout/pane-kinds";
@@ -44,7 +44,7 @@ interface Expected {
 const EXPECTED: { [K in KindField]: Expected } = {
   path: { value: "a.md", draws: NotePane, archive: true, notice: true },
   term: { value: "main", draws: TerminalPane },
-  todos: { value: true, draws: TodoPane, archive: true, open: "line", notice: true },
+  todos: { value: true, draws: TodoView, archive: true, open: "path", notice: true },
   log: { value: true, draws: LogPane, open: "line", notice: true },
   overview: { value: true, draws: OverviewPane, archive: true },
   finance: { value: true, draws: FinancePane, notice: true },
