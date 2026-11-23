@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { type ChildProcess, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { once } from "node:events";
 import { cp, mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -7,7 +7,7 @@ import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { expect as plainExpect, test as plainTest } from "@playwright/test";
-import { fixtureVault, root } from "../harness/paths.ts";
+import { compose, DOWN, fixtureVault, root } from "../harness/paths.ts";
 import {
   type Backend,
   backendEnv,
@@ -223,4 +223,60 @@ plainTest("killing a process group that already left throws nothing", async () =
   const gone = spawn("true", { detached: true });
   await once(gone, "exit");
   plainExpect(() => killGroup(gone.pid ?? 0, "SIGTERM")).not.toThrow();
+});
+
+/** Runners these tests started and their projects, so a test that fails or times out leaves none up. */
+const runners: ChildProcess[] = [];
+const projects: string[] = [];
+
+/** Runs the global setup in a process of its own, as a runner would, and answers its project. */
+async function setUpRun(after: string) {
+  const setup = JSON.stringify(join(root, "e2e/harness/global-setup.ts"));
+  const script = `import setup from ${setup}; const stop = await setup(); console.log(process.env.E2E_PROJECT); ${after}`;
+  const runner = spawn(process.execPath, ["--input-type=module", "-e", script], {
+    detached: true,
+    stdio: ["ignore", "pipe", "inherit"],
+  });
+  runners.push(runner);
+  const [out] = await once(runner.stdout, "data");
+  const project = String(out).trim();
+  projects.push(project);
+  return { runner, project };
+}
+
+const watching = (project: string) =>
+  new Promise<boolean>((done) =>
+    spawn("pgrep", ["-f", project]).on("exit", (code) => done(code === 0)),
+  );
+
+plainTest.describe("a run's compose project (#2284)", () => {
+  // Setup starts Postgres and nginx and migrates; the watcher's down takes some seconds more.
+  plainTest.describe.configure({ timeout: 120_000 });
+  // After the test's own checks, so a watcher that failed them still leaves no project up.
+  plainTest.afterEach(async () => {
+    for (const runner of runners.splice(0)) killGroup(runner.pid ?? 0, "SIGKILL");
+    for (const project of projects.splice(0)) await compose(project, ...DOWN);
+  });
+
+  plainTest(
+    "a run killed after its setup, as a shell timeout kills, leaves its compose project down and no other",
+    async () => {
+      const { runner, project } = await setUpRun("setInterval(() => stop, 1 << 30);");
+      plainExpect(await compose(project, "ps", "-q")).not.toBe("");
+      killGroup(runner.pid ?? 0, "SIGKILL");
+      await plainExpect.poll(() => compose(project, "ps", "-aq"), { timeout: 60_000 }).toBe("");
+      await plainExpect.poll(() => watching(project), { timeout: 10_000 }).toBe(false);
+      plainExpect(await compose(process.env.E2E_PROJECT ?? "", "ps", "-q")).not.toBe("");
+    },
+  );
+
+  plainTest(
+    "a run that ends on its own takes its project down by its teardown and leaves no watcher",
+    async () => {
+      const { runner, project } = await setUpRun("await stop();");
+      await once(runner, "exit");
+      plainExpect(await compose(project, "ps", "-aq")).toBe("");
+      await plainExpect.poll(() => watching(project), { timeout: 5_000 }).toBe(false);
+    },
+  );
 });

@@ -166,6 +166,8 @@ test.describe("on a phone with a keyboard, where no panel takes the leader", () 
     await expect(page.locator(".cm-content").first()).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "File tree", exact: true }).tap();
     // The drawer leaves the focus where it was; a keyboard's Tab reaches the cursor row, the tree's one tab stop.
+    // Row 0 is 04 Books until the paths listing lands; focus() resolves, then focuses, so it waits for 01 Notes (#2282).
+    await at(page, "01 Notes");
     await cursor(page).focus();
     await expect(cursor(page)).toBeFocused();
     await page.keyboard.press("j");

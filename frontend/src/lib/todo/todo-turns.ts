@@ -3,8 +3,15 @@
 /** Presses running now. A press can start before the last one has settled. */
 let running = 0;
 
-export function beginPress(): void {
+/** Presses' store writes landed less the `todos` events seen since: one above 0 is an echo still on its way. */
+let echoes = 0;
+/** The event stream a press began under, raised when one opens afresh: a press from an older one owes no echo. */
+let stream = 0;
+
+/** Begins a press; hand what it answers to `endPress`. */
+export function beginPress(): number {
   running += 1;
+  return stream;
 }
 
 /** Whether a press runs now: its end asks for the todo list, so nothing else need (#1998). */
@@ -12,8 +19,29 @@ export function pressRunning(): boolean {
   return running > 0;
 }
 
-export function endPress(): void {
+/** Ends a press begun under `began`; `wrote` when the store took its write, whose `todos` event may land before or after this. */
+export function endPress(began: number, wrote: boolean): void {
   running -= 1;
+  // Its echo may have gone to the old stream, or come before the reopen.
+  if (wrote && began === stream) echoes += 1;
+  // Events past a press's own echoes came from elsewhere, and the last press's end read covers them.
+  if (running === 0) echoes = Math.max(echoes, 0);
+}
+
+/**
+ * Whether a `todos` event needs no read: one during a press, or a press's echo landing after its end read was
+ * asked (#2283). A miscount costs a read, never one missed: each echo is counted once.
+ */
+export function pressEcho(): boolean {
+  if (running === 0 && echoes <= 0) return false;
+  echoes -= 1;
+  return true;
+}
+
+/** A stream opened afresh reads the list anew, and echoes sent before it never come. */
+export function forgetEchoes(): void {
+  echoes = 0;
+  stream += 1;
 }
 
 /** A todo row as the list names it. */

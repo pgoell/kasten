@@ -229,7 +229,9 @@ Some readers of note text read todo lines without knowing it. Where each stands:
   writes the shared lists, which stay lines. The agent guide written at startup
   points at the store.
 - **Events.** A store write touches no note, so it sends a `todos` event of its
-  own on `/api/events` once it commits, and every open pane asks again.
+  own on `/api/events` once it commits, and every open pane asks again. A
+  press reads the list once its write lands, so the tab that pressed takes that
+  write's own event as read, whether it comes before or after the answer (#2283).
 
 The import loses two small things on purpose: a part's `^block` id, since parts
 get no embed, and the look of old daily notes, whose ticked lines become

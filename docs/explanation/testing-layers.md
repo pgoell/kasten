@@ -25,6 +25,11 @@ most for that cost, and the rule below says where that is.
 `frontend/probes/offline.ts`, that proves offline capture against the build; the
 journeys in `e2e/` are the layer this page means by e2e.
 
+An e2e run keeps its Postgres and nginx in a Docker Compose project of its own,
+which its teardown removes. A runner killed before its teardown would leave the
+project up, so `e2e/harness/global-setup.ts` starts a watcher in a session of
+its own that removes the project once the runner is gone (#2284).
+
 A unit test file that touches no `window` or `document` starts with
 `// @vitest-environment node`. jsdom takes about half a second to build for
 each file, and a file under node skips it. `tests/setup.ts` stubs the browser

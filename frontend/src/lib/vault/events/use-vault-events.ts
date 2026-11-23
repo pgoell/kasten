@@ -5,7 +5,7 @@ import { reloadLogConfig } from "@/lib/log/log-card";
 import type { useAutosave } from "@/lib/notes/note/use-autosave";
 import { dailyDate, weeklyWeek, yearlyYear } from "@/lib/notes/text/periodic";
 import { pageWritten } from "@/lib/panes/html/page-written";
-import { pressRunning } from "@/lib/todo/todo-turns";
+import { forgetEchoes, pressEcho, pressRunning } from "@/lib/todo/todo-turns";
 import { parseVaultEvent, type VaultEvent } from "@/lib/vault/events/vault-events";
 
 type Autosave = ReturnType<typeof useAutosave>;
@@ -110,7 +110,7 @@ function onVaultEvent(
 ): void {
   // A write to the todo store touches no note: only the todos are stale (#2191).
   if (event.change === "todos") {
-    refreshTodos(queryClient);
+    if (!pressEcho()) refreshTodos(queryClient);
     return;
   }
   // A rewritten html page goes to the panes showing it only: no note cache holds it.
@@ -187,6 +187,7 @@ export function useVaultEvents(focusedNote: RefObject<FocusedNote>, onDeclined: 
       queryClient.invalidateQueries({ queryKey: ["files"] }, { cancelRefetch: false });
       queryClient.invalidateQueries({ queryKey: ["log"] }, { cancelRefetch: false });
       // A fresh read, not one joined: a fetch begun before the open may predate a write no watcher saw (#2118).
+      forgetEchoes();
       refreshTodos(queryClient, true);
       reloadLogConfig();
     };
