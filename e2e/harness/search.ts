@@ -35,9 +35,12 @@ export const hit = (
 
 /** Answers every content search with `reply`'s hits rather than the vault's. */
 export async function answer(page: Page, reply: (route: Route) => Hit[] | Promise<Hit[]>) {
-  await page.route("**/api/search?**", async (route) =>
-    route.fulfill({ json: await reply(route) }),
-  );
+  await page.route("**/api/search?**", async (route) => {
+    // The home view's recent notes ask the search too, and its editor takes no tap until they answer.
+    const q = new URL(route.request().url()).searchParams.get("q") ?? "";
+    if (q.startsWith("modified:")) return route.fallback();
+    await route.fulfill({ json: await reply(route) });
+  });
 }
 
 /** Opens the search with `Space f g`, and waits for its input to hold the focus before keys go. */

@@ -15,8 +15,18 @@ vi.mock("@/lib/core/api", async (importOriginal) => ({
   fetchTodos,
   cycleStoreTodo,
 }));
-vi.mock("@/lib/app/push/timers-row", () => ({ TimersRow: () => null }));
-vi.mock("@/lib/search/use-recent-notes", () => ({ useRecentNotes: () => [] }));
+vi.mock("@/lib/app/push/timers-row", () => ({
+  TimersRow: () => null,
+  TIMERS_KEY: ["timers"],
+  PUSH_KEY: ["push"],
+}));
+vi.mock("@/lib/search/use-recent-notes", () => ({
+  useRecentNotes: () => [],
+  recentKeys: () => [
+    ["search", "this"],
+    ["search", "prior"],
+  ],
+}));
 vi.mock("@/lib/review/use-review-waiting", () => ({ useReviewWaiting: () => 0 }));
 vi.mock("@/lib/review/use-review-limits", () => ({
   useReviewLimits: () => ({ retry: () => {} }),
@@ -58,9 +68,19 @@ async function settled() {
 
 function open() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  // The home view draws once every read above its editor has answered (#2296).
+  for (const key of [["search", "this"], ["search", "prior"], ["timers"], ["push"]]) {
+    client.setQueryData(key, []);
+  }
   return render(
     <QueryClientProvider client={client}>
-      <TodayPane archive={false} onOpen={() => {}} onReview={() => {}} onOverview={() => {}} />
+      <TodayPane
+        archive={false}
+        editor={null}
+        onOpen={() => {}}
+        onReview={() => {}}
+        onOverview={() => {}}
+      />
     </QueryClientProvider>,
   );
 }

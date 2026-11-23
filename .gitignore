@@ -51,3 +51,5 @@ frontend/.pdfjs-*/
 .session-copy/
 e2e/test-results/
 e2e/playwright-report/
+# The runs of the verify skill, .claude/skills/verify/run.sh.
+/.verify/

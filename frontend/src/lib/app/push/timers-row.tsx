@@ -17,6 +17,10 @@ import {
 } from "@/lib/app/push/timers";
 import { WaterSwitch } from "@/lib/app/push/water";
 
+/** The keys of the timers read and the push devices read, which the home view waits on. */
+export const TIMERS_KEY = ["timers"];
+export const PUSH_KEY = ["push"];
+
 /** Every second while a timer runs, so its clock counts down; still when none does. */
 function useNow(running: boolean): Date {
   const [now, setNow] = useState(() => new Date());
@@ -36,14 +40,14 @@ function useNow(running: boolean): Date {
 export function TimersRow() {
   const queryClient = useQueryClient();
   const timers = useQuery({
-    queryKey: ["timers"],
+    queryKey: TIMERS_KEY,
     queryFn: fetchTimers,
     // The sender removes a rung timer within a tick, so a rung one is read again soon.
     refetchInterval: (query) =>
       (query.state.data ?? []).some((timer) => new Date(timer.due) <= new Date()) ? 5000 : 60000,
   });
   // A timer rings to the subscribed devices only, so with none it would end without a sound.
-  const push = useQuery({ queryKey: ["push"], queryFn: fetchPush });
+  const push = useQuery({ queryKey: PUSH_KEY, queryFn: fetchPush });
   const running = timers.data ?? [];
   const now = useNow(running.length > 0);
   const [recent, setRecent] = useState<Recent[]>(readRecent);
@@ -51,7 +55,7 @@ export function TimersRow() {
   const [duration, setDuration] = useState("");
   const [failed, setFailed] = useState<string | null>(null);
 
-  const changed = () => void queryClient.invalidateQueries({ queryKey: ["timers"] });
+  const changed = () => void queryClient.invalidateQueries({ queryKey: TIMERS_KEY });
 
   const start = useMutation({
     mutationFn: (timer: Recent) => startTimer(timer.label, timer.seconds),

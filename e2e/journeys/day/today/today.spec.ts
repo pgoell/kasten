@@ -12,8 +12,8 @@ import {
   tapHeight,
   vaultWith,
   walkBackoff,
-} from "../../harness/app.ts";
-import { expect, test } from "../../harness/stack.ts";
+} from "../../../harness/app.ts";
+import { expect, test } from "../../../harness/stack.ts";
 
 const UNREAD = "Cards could not be counted: the daily limits could not be read";
 
@@ -186,7 +186,8 @@ test.describe("the home screen's columns", () => {
     );
     await openThursday(page, stack.vault, { "report.md": `${DOING_TODAY}\n` });
     await expect.poll(failed).toBeGreaterThan(0);
-    await expect(column(page, 0)).toContainText("Nothing for today.");
+    // Visible: a failed read counts as answered, so the page draws while the read retries (#2296).
+    await expect(column(page, 0).getByText("Nothing for today.")).toBeVisible();
     await expect(column(page, 0)).not.toContainText("Draft the report");
     await expect(column(page, 2)).toContainText(/\d+ cards? waiting/);
   });

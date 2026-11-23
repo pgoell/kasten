@@ -221,9 +221,11 @@ test("the palette rereads the note: refused over a write still out, and with the
 }) => {
   await open(page, stack.vault, `${FM}line one\n`, "off");
   let out = false;
+  let reads = 0;
   let letGo = () => {};
   const gate = new Promise<void>((done) => (letGo = done));
   await page.route(/\/api\/files\/Vim\.md$/, async (route) => {
+    if (route.request().method() === "GET") reads++;
     if (route.request().method() !== "PUT") return route.fallback();
     out = true;
     await gate;
@@ -233,6 +235,9 @@ test("the palette rereads the note: refused over a write still out, and with the
   await page.keyboard.type(" typed");
   await expect.poll(() => out).toBe(true);
   await runCommand(page, /^Read the note off the vault again(?!,)/);
+  // The refusal flashes the save sign and reads nothing, so no late answer can still replace the text.
+  await expect(page.locator(".animate-flash")).toHaveCount(1);
+  expect(reads).toBe(0);
   await expect(caretLine(page)).toHaveText("line one typed");
   await runCommand(page, /^Read the note off the vault again, throwing away unsaved text/);
   await expect(page.locator(".cm-content:visible")).not.toContainText("typed");
@@ -319,6 +324,9 @@ test.describe("on a phone with vim off", () => {
     await open(page, stack.vault, "[[reading/borges]]");
     await expect(caretLine(page)).toHaveText("[[reading/borges]]");
     await page.locator(".cm-content:visible").getByText("reading/borges").tap();
+    // A key typed after the tap lands in this note only once a follow would have drawn its tab.
+    await page.keyboard.type("x");
+    await expect(caretLine(page)).toContainText("x");
     await expect(page.getByRole("tab", { selected: true })).toContainText("Vim");
   });
 
