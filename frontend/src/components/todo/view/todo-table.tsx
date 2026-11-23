@@ -1,8 +1,14 @@
 import { TodoStateBox } from "@/components/todo/todo-state-box";
 import { Icon, type IconName, PriorityBars } from "@/components/todo/view/view-icons";
 import type { TodoRow } from "@/lib/core/api";
-import { type DateCell, dateCell, detailCell, projectHue } from "@/lib/todo/view/row-facts";
-import { type Group, type Line, projectName } from "@/lib/todo/view/view-rows";
+import {
+  type DateCell,
+  dateCell,
+  detailCell,
+  minutes,
+  projectHue,
+} from "@/lib/todo/view/rows/row-facts";
+import { type Group, type Line, projectName } from "@/lib/todo/view/rows/view-rows";
 
 const DETAIL_ICON: Record<string, IconName> = {
   time: "clock",
@@ -40,7 +46,7 @@ export function TodoTable({
   return (
     <div className="todo-table @container min-h-0 flex-1 overflow-y-auto">
       {groups.map((group) => (
-        <section key={group.key} aria-label={group.label}>
+        <section key={group.key} aria-label={group.label} data-group={group.key}>
           <GroupHeading group={group} onNew={onNew} />
           <ul>
             {group.lines.map((line) => (
@@ -62,25 +68,51 @@ export function TodoTable({
   );
 }
 
+/** A state's box or a project's dot; a day group has neither. */
+function GroupMark({ group }: { group: Group }) {
+  if (group.state !== undefined) return <TodoStateBox state={group.state} />;
+  if (group.sub !== undefined) return null;
+  return (
+    <span
+      className="size-2 rounded-full"
+      style={{ background: projectHue(group.project ?? null) }}
+    />
+  );
+}
+
+/** A day group's hard due dates and the time planned on it. */
+function DayLoad({ group }: { group: Group }) {
+  return (
+    <span className="ml-auto flex items-center gap-4 whitespace-nowrap font-normal text-k-ink-soft text-sm">
+      {(group.deadlines ?? 0) > 0 && (
+        <span className="flex items-center gap-1 text-k-warn">
+          <Icon name="flag" />
+          {group.deadlines === 1 ? "1 deadline" : `${group.deadlines} deadlines`}
+        </span>
+      )}
+      {(group.minutes ?? 0) > 0 && <span>{minutes(group.minutes ?? 0)} planned</span>}
+    </span>
+  );
+}
+
 function GroupHeading({ group, onNew }: { group: Group; onNew: (group: Group) => void }) {
   return (
     <h3 className="flex h-10 items-center gap-2.5 border-k-rule border-b bg-k-surface px-4">
-      {group.state !== undefined ? (
-        <TodoStateBox state={group.state} />
-      ) : (
-        <span
-          className="size-2 rounded-full"
-          style={{ background: projectHue(group.project ?? null) }}
-        />
-      )}
+      <GroupMark group={group} />
       <span className="font-semibold text-k-ink text-sm">{group.label}</span>
+      {group.sub && (
+        <span className="whitespace-nowrap font-normal text-k-ink-soft text-sm @max-[720px]:hidden">
+          {group.sub}
+        </span>
+      )}
       <span className="font-normal text-k-muted text-sm">{group.lines.length}</span>
+      {group.sub !== undefined ? <DayLoad group={group} /> : <span className="ml-auto" />}
       {group.key !== "done" && (
         <button
           type="button"
           aria-label={`New todo in ${group.label}`}
           onClick={() => onNew(group)}
-          className="ml-auto rounded p-1 text-k-muted hover:bg-k-inset hover:text-k-ink"
+          className="rounded p-1 text-k-muted hover:bg-k-inset hover:text-k-ink"
         >
           <Icon name="plus" />
         </button>
@@ -131,14 +163,14 @@ function TableRow({ line, byId, today, cursor, open, onOpen, onTick }: RowProps)
         type="button"
         tabIndex={-1}
         onClick={() => onOpen(row.id)}
-        className="grid min-w-0 cursor-default grid-cols-[minmax(0,1fr)_56px_150px_110px_36px_76px] items-center gap-x-3 py-2 text-left @max-[600px]:grid-cols-[minmax(0,1fr)_auto] @max-[600px]:gap-y-0.5"
+        className="grid min-w-0 cursor-default grid-cols-[minmax(0,1fr)_56px_150px_110px_36px_76px] items-center gap-x-3 py-2 text-left @max-[720px]:grid-cols-[minmax(0,1fr)_auto] @max-[720px]:gap-y-0.5"
       >
-        <span className="flex min-w-0 items-center gap-2.5 @max-[600px]:col-span-2">
+        <span className="flex min-w-0 items-center gap-2.5 @max-[720px]:col-span-2">
           <span className={`truncate ${done ? "text-k-muted line-through" : "text-k-ink"}`}>
             {bareWords(row.words)}
           </span>
           {row.tags.map((tag) => (
-            <span key={tag} className="shrink-0 text-k-muted text-sm @max-[600px]:hidden">
+            <span key={tag} className="shrink-0 text-k-muted text-sm @max-[720px]:hidden">
               {tag}
             </span>
           ))}
@@ -156,7 +188,7 @@ function Cells({ line, byId, today }: { line: Line; byId: Map<string, TodoRow>; 
   const cell = "flex min-w-0 items-center gap-1.5 text-k-ink-soft text-sm";
   return (
     <>
-      <span className={`${cell} @max-[600px]:hidden`}>
+      <span className={`${cell} @max-[720px]:hidden`}>
         {parts !== null && (
           <>
             <Icon name="parts" className="text-k-muted" />
@@ -164,7 +196,7 @@ function Cells({ line, byId, today }: { line: Line; byId: Map<string, TodoRow>; 
           </>
         )}
       </span>
-      <span className={`${cell} @max-[600px]:hidden`}>
+      <span className={`${cell} @max-[720px]:hidden`}>
         {detail !== null && (
           <>
             <Icon name={DETAIL_ICON[detail.kind] ?? "clock"} className="text-k-muted" />
@@ -183,7 +215,7 @@ function Cells({ line, byId, today }: { line: Line; byId: Map<string, TodoRow>; 
           </>
         )}
       </span>
-      <span className={`${cell} @max-[600px]:hidden`}>
+      <span className={`${cell} @max-[720px]:hidden`}>
         {line.notes > 0 && (
           <>
             <Icon name="doc" className="text-k-muted" />

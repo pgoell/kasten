@@ -10,6 +10,8 @@ export interface ViewKeyActions {
   add(): void;
   filter(): void;
   goToNote(): void;
+  /** Open the date, state or priority popover on the cursor's row. */
+  pick(kind: "date" | "state" | "priority"): void;
   close(): boolean;
 }
 
@@ -51,6 +53,9 @@ export function useViewKeys(commands: EditorCommands, act: ViewKeyActions, idle:
       x: act.tick,
       a: act.add,
       "/": act.filter,
+      d: () => act.pick("date"),
+      s: () => act.pick("state"),
+      p: () => act.pick("priority"),
       g: () => {
         afterG.current = true;
       },

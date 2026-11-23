@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { TodoView } from "@/components/todo/view/todo-view";
 import type { TodoHit, TodoRow } from "@/lib/core/api";
 import { stubCommands } from "../stub-commands";
@@ -145,6 +145,65 @@ describe("the todo view", () => {
         priority: "high",
         project: "03 Areas/Haus",
       },
+    });
+  });
+
+  it("plans the cursor's todo from the date popover on d, and sets its priority on p", async () => {
+    renderView();
+    const pane = await screen.findByRole("region", { name: "Todos" });
+    await screen.findByText("write the parser tests");
+    fireEvent.keyDown(pane, { key: "j" });
+    fireEvent.keyDown(pane, { key: "d" });
+    const dates = screen.getByRole("dialog", { name: "Dates" });
+    fireEvent.change(within(dates).getByRole("textbox", { name: "Type a day" }), {
+      target: { value: "wed" },
+    });
+    fireEvent.keyDown(within(dates).getByRole("textbox", { name: "Type a day" }), { key: "Enter" });
+    await act(() => vi.advanceTimersByTimeAsync(50));
+    expect(api.patchTodo).toHaveBeenLastCalledWith("kt-000001", {
+      planned: "2026-11-25",
+      version: 3,
+    });
+    expect(screen.queryByRole("dialog", { name: "Dates" })).toBeNull();
+
+    fireEvent.keyDown(pane, { key: "p" });
+    fireEvent.keyDown(screen.getByRole("dialog", { name: "Priority" }), { key: "1" });
+    await act(() => vi.advanceTimersByTimeAsync(50));
+    expect(api.patchTodo).toHaveBeenLastCalledWith("kt-000001", {
+      priority: "highest",
+      version: 4,
+    });
+  });
+
+  it("sets a hard due date from the panel's Due field, on the popover's Due tab", async () => {
+    renderView();
+    fireEvent.click(await screen.findByText("file the report"));
+    fireEvent.click(screen.getByRole("button", { name: "Due: Set a due date" }));
+    const dates = screen.getByRole("dialog", { name: "Dates" });
+    expect(within(dates).getByRole("button", { name: "Due", pressed: true })).toBeVisible();
+    fireEvent.click(within(dates).getByRole("button", { name: /Fri 27 Nov/ }));
+    await act(() => vi.advanceTimersByTimeAsync(50));
+    expect(api.patchTodo).toHaveBeenLastCalledWith("kt-000002", {
+      due: "2026-11-27",
+      due_hard: true,
+      version: 1,
+    });
+  });
+
+  it("lists Upcoming by day under the week strip, a day's + planning the new todo on it", async () => {
+    store = [...ROWS, row("kt-000009", "order the lamp", { planned: "2026-11-26", estimate: 30 })];
+    renderView();
+    fireEvent.click(await screen.findByRole("button", { name: "Upcoming" }));
+    expect(screen.getByRole("button", { name: "Thursday 26, 1 · 30m" })).toBeVisible();
+    expect(screen.getByRole("region", { name: "Thursday" })).toHaveTextContent("30 m planned");
+    fireEvent.click(screen.getByRole("button", { name: "New todo in Thursday" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Words" }), {
+      target: { value: "fit the lamp" },
+    });
+    fireEvent.keyDown(screen.getByRole("textbox", { name: "Words" }), { key: "Enter" });
+    await act(() => vi.advanceTimersByTimeAsync(50));
+    expect(post).toHaveBeenLastCalledWith("/api/todos", {
+      body: { words: "fit the lamp", planned: "2026-11-26" },
     });
   });
 });

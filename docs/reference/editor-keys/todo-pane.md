@@ -17,7 +17,13 @@ Upcoming, Inbox, All and Board, then a filter, the grouping and New.
 * **Today** lists what is on now: a todo planned for today or before, one due
   today or overdue, one being done or in review, and one waiting on somebody.
   A part counts with its parent's planned day.
-* **Upcoming** lists the todos planned, or else due, in the next seven days.
+* **Upcoming** lists the todos planned, or else due, in the next fourteen days,
+  grouped by day: one group for each of the next seven days, then one for the
+  week after. Above them a strip draws the seven days, each with how many todos
+  it holds, their estimates added up, and a bar that fills at six hours; a flag
+  marks a day with a hard due date. A press on a day scrolls to its group. Each
+  day group's heading says its hard due dates and the time planned on it, and
+  its `+` plans the new todo on that day.
 * **Inbox** lists the todos with no project, no planned day and no parent.
 * **All** lists every open todo, those held off until a later day included.
 * **Board** draws [the todo pane](#the-todo-pane) below on its board, as it was.
@@ -27,7 +33,7 @@ waiting one before its look-again day. Today and All end in **Done today**,
 the todos finished today.
 
 The table groups by state (Doing, Review, Open, Waiting, Blocked) or, picked
-from **Group**, by project. A heading names its group and how many it holds,
+from **Group**, by project; Upcoming groups by day. A heading names its group and how many it holds,
 and its `+` starts a new todo in that state or project. Each row shows the
 priority as bars, the state box, the words with the tags after them, the parts
 done of all, then one detail (who it waits on and for how many days, the todo
@@ -36,7 +42,7 @@ project, how many notes it touches (the note it lives in and each `[[link]]` in
 its words or description), and the day: a hard due date with its flag, red once
 past, else the planned day, else a soft due date two days out or nearer. A part
 sits under its parent when both are in the group. On a pane narrower than about
-600 pixels a row takes two lines, the words over the project and the day.
+720 pixels a row takes two lines, the words over the project and the day.
 
 A click on the state box ticks the todo done, or opens a finished one again. A
 click on the rest of the row opens it in the panel.
@@ -45,14 +51,15 @@ click on the rest of the row opens it in the panel.
 
 The panel sits to the right of the table, or in its place on a pane narrower
 than 900 pixels. It holds the project, the words, a description, the fields
-State, Priority, Planned, Due, Time, Repeat and Tags, the notes and the parts.
+State, Priority, Planned, Due, Hold until, Time, Repeat and Tags, the notes and
+the parts.
 Everything saves as it is typed: changes rest 0.4 seconds, then go to the store
 as one change. A change the store refuses because the todo moved since it was
 read is read again and sent once more. The foot of the panel says Saving… or
 Saved as you type.
 
-* The project and each field is a picker; an empty day clears it. Clearing the
-  due date gives back the soft one the store keeps 14 days out.
+* The project, State and Priority are pickers. Planned, Due and Hold until each
+  open [the date popover](#the-date-popover) on their own tab.
 * Time takes an estimate as `2h`, `45m`, `1h30m` or minutes, and Start or Stop
   runs the timer.
 * Tags are read off the words, so a `#tag` typed in the words adds one.
@@ -61,6 +68,21 @@ Saved as you type.
 * Parts lists the todo's parts, each box ticking it and each name opening it in
   the panel, and Add part adds one on Enter.
 * The `⋯` asks once more, then deletes the todo and its parts.
+
+### The date popover
+
+`d` on a row, or a press on a date in the panel, opens one popover for the
+todo's three dates: Planned, Due and Hold until, one tab each, and Tab moves
+between them. A day is typed (`wed`, `tomorrow`, `2026-12-01`), picked from the
+list (Today, Tomorrow, Next week, which is the coming Monday, and No day) with
+the arrows and Enter, or pressed on the three weeks of calendar below. A due
+date picked this way is hard; No day on Due gives back the soft one the store
+keeps 14 days out. With a due date set, a switch at the foot makes it hard or
+soft, and the line under it says how the todo repeats.
+
+`s` and `p` open a short list of the states or the priorities by the row: `j`
+and `k` or the arrows move, Enter or the number beside one picks it. Escape or
+a press outside closes any of them.
 
 ### A new todo
 
@@ -78,6 +100,9 @@ Enter adds it and starts the next, Escape cancels.
 | `j` / `k` | Move the cursor down or up; with the panel open, it follows |
 | Enter | Edit the cursor's todo in the panel |
 | `x` | Tick the cursor's todo done, or open it again |
+| `d` | Open the date popover on the cursor's todo |
+| `s` | Pick the cursor's todo's state |
+| `p` | Pick the cursor's todo's priority |
 | `a` | Start a new todo in the panel |
 | `g` `n` | Open the note the cursor's todo lives in |
 | `/` | Filter the table by its words |

@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { newTodoOf, readQuick, settled } from "@/lib/todo/view/quick-words";
+import { newTodoOf, readQuick, settled } from "@/lib/todo/view/rows/quick-words";
 import { TODAY } from "./rows";
 
 const PROJECTS = ["03 Areas/Haus", "02 Projects/FDE"];
@@ -33,12 +33,22 @@ describe("the words of a new todo", () => {
     });
   });
 
+  it("take the day of the group they were started from, unless the words name one", () => {
+    const group = { planned: "2026-11-26" };
+    expect(settled(readQuick("order the lamp", TODAY, PROJECTS), {}, group).fields).toEqual({
+      planned: "2026-11-26",
+    });
+    expect(settled(readQuick("order it tomorrow", TODAY, PROJECTS), {}, group).fields).toEqual({
+      planned: "2026-11-23",
+    });
+  });
+
   it("give way to a field picked by hand, and the group's project fills in where none is named", () => {
     const quick = readQuick("call tomorrow", TODAY, PROJECTS);
     const { fields, from } = settled(
       quick,
       { planned: undefined, priority: "low" },
-      "02 Projects/FDE",
+      { project: "02 Projects/FDE" },
     );
     expect(fields).toEqual({ project: "02 Projects/FDE", priority: "low" });
     expect([...from]).toEqual([]);

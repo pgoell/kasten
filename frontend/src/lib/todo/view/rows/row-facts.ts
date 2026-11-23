@@ -6,11 +6,16 @@ import { shiftDay } from "@/lib/core/clock";
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+/** `23 Nov`. */
+export function dayMonth(day: string): string {
+  return `${Number(day.slice(8, 10))} ${MONTHS[Number(day.slice(5, 7)) - 1] ?? ""}`;
+}
+
 /** `23 Nov`; today and tomorrow by name. */
 export function shortDay(day: string, today: string): string {
   if (day === today) return "today";
   if (day === shiftDay(today, 1)) return "tomorrow";
-  return `${Number(day.slice(8, 10))} ${MONTHS[Number(day.slice(5, 7)) - 1] ?? ""}`;
+  return dayMonth(day);
 }
 
 /** `Mon 23 Nov`, for the panel. */

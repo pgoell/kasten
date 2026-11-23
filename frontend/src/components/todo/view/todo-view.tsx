@@ -1,14 +1,13 @@
 import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, type RefObject, useEffect, useMemo, useRef, useState } from "react";
-import { NewTodoPanel, type Preset } from "@/components/todo/view/new-todo-panel";
-import { TodoPanel } from "@/components/todo/view/todo-panel";
+import { NewTodoPanel, type Preset } from "@/components/todo/view/panel/new-todo-panel";
+import { TodoPanel } from "@/components/todo/view/panel/todo-panel";
+import { type PickKind, RowPick } from "@/components/todo/view/pick/row-pick";
 import { TodoTable } from "@/components/todo/view/todo-table";
 import { Icon } from "@/components/todo/view/view-icons";
+import { WeekStrip } from "@/components/todo/view/week-strip";
 import type { TodoRow } from "@/lib/core/api";
 import { periodicNote } from "@/lib/notes/text/periodic";
-import { stateTodo } from "@/lib/todo/view/todo-store";
-import { useTodoData } from "@/lib/todo/view/use-todo-data";
-import { useViewKeys } from "@/lib/todo/view/use-view-keys";
 import {
   countOf,
   type Group,
@@ -16,7 +15,10 @@ import {
   groupsOf,
   TABS,
   type Tab,
-} from "@/lib/todo/view/view-rows";
+} from "@/lib/todo/view/rows/view-rows";
+import { stateTodo } from "@/lib/todo/view/todo-store";
+import { useTodoData } from "@/lib/todo/view/use-todo-data";
+import { useViewKeys } from "@/lib/todo/view/use-view-keys";
 import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
 
 type Panel = { kind: "todo"; id: string } | { kind: "new"; preset: Preset } | null;
@@ -77,6 +79,8 @@ export function TodoView(props: TodoViewProps) {
   const [typed, setTyped] = useState("");
   const [cursor, setCursor] = useState<string | null>(null);
   const [panel, setPanel] = useState<Panel>(null);
+  const [pop, setPop] = useState<{ kind: PickKind; id: string } | null>(null);
+  const [day, setDay] = useState<string | null>(null);
   const filter = useRef<HTMLInputElement>(null);
   const board = useRef<HTMLDivElement>(null);
   const listTab: Tab = tab === "board" ? "today" : tab;
@@ -102,7 +106,23 @@ export function TodoView(props: TodoViewProps) {
   };
   const tick = (row: TodoRow) => tickTodo(queryClient, row, onNotice);
   const newIn = (group?: Group) =>
-    setPanel({ kind: "new", preset: { state: group?.state, project: group?.project } });
+    setPanel({
+      kind: "new",
+      preset: { state: group?.state, project: group?.project, planned: group?.day },
+    });
+  const toDay = (picked: string) => {
+    setDay(picked);
+    pane.current?.querySelector(`[data-group="${picked}"]`)?.scrollIntoView?.({ block: "start" });
+  };
+  const switchTab = (next: Tab | "board") => {
+    setTab(next);
+    // Upcoming reads by day; leaving it, the day grouping has nothing to stand on.
+    if (next === "upcoming") setBy("day");
+    else if (by === "day") setBy("state");
+    // The board takes its keys at once, as the list did when `<leader>gt` opened it.
+    if (next === "board")
+      requestAnimationFrame(() => board.current?.querySelector<HTMLElement>("section")?.focus());
+  };
   const atCursor = cursor === null ? undefined : data.byId.get(cursor);
 
   const onKeyDown = useViewKeys(
@@ -128,6 +148,7 @@ export function TodoView(props: TodoViewProps) {
       add: () => newIn(),
       filter: () => filter.current?.focus(),
       goToNote: () => atCursor?.note && props.onOpen(atCursor.note),
+      pick: (kind) => atCursor && setPop({ kind, id: atCursor.id }),
       close() {
         if (panel === null) return false;
         close();
@@ -161,11 +182,7 @@ export function TodoView(props: TodoViewProps) {
     >
       <Toolbar
         tab={tab}
-        onTab={(next) => {
-          setTab(next);
-          // The board takes its keys at once, as the list did when `<leader>gt` opened it.
-          if (next === "board") requestAnimationFrame(() => board.current?.querySelector<HTMLElement>("section")?.focus());
-        }}
+        onTab={switchTab}
         counts={(each) => countOf(data.rows, each, today)}
         filter={filter}
         typed={typed}
@@ -181,6 +198,9 @@ export function TodoView(props: TodoViewProps) {
         </div>
       ) : (
         <Split narrow={width < SIDE_BY_SIDE} panel={panelOpen ? panelNode : null}>
+          {tab === "upcoming" && (
+            <WeekStrip rows={data.rows} today={today} picked={day} onDay={toDay} />
+          )}
           <TodoTable
             groups={groups}
             empty={data.loaded ? "Nothing to do here." : ""}
@@ -195,7 +215,42 @@ export function TodoView(props: TodoViewProps) {
           <KeyHints />
         </Split>
       )}
+      {pop !== null && (
+        <PopSlot
+          pop={pop}
+          row={data.byId.get(pop.id)}
+          pane={pane.current}
+          today={today}
+          onClose={() => {
+            setPop(null);
+            pane.current?.focus();
+          }}
+          onNotice={onNotice}
+        />
+      )}
     </section>
+  );
+}
+
+/** The popover a key opened on the row it was opened on, while that row is still listed. */
+function PopSlot(props: {
+  pop: { kind: PickKind; id: string };
+  row: TodoRow | undefined;
+  pane: HTMLElement | null;
+  today: string;
+  onClose: () => void;
+  onNotice: (text: string) => void;
+}) {
+  if (props.row === undefined) return null;
+  return (
+    <RowPick
+      kind={props.pop.kind}
+      row={props.row}
+      anchor={props.pane?.querySelector<HTMLElement>(`[data-todo="${props.pop.id}"]`) ?? null}
+      today={props.today}
+      onClose={props.onClose}
+      onNotice={props.onNotice}
+    />
   );
 }
 
@@ -328,6 +383,7 @@ function Toolbar(props: {
             onChange={(event) => props.onBy(event.target.value as GroupBy)}
             className="shrink-0 rounded-md border border-k-rule bg-k-paper px-2 py-1 text-k-ink text-sm"
           >
+            {props.tab === "upcoming" && <option value="day">Group: day</option>}
             <option value="state">Group: state</option>
             <option value="project">Group: project</option>
           </select>
@@ -350,6 +406,9 @@ const HINTS = [
   ["j k", "move"],
   ["Enter", "edit in the panel"],
   ["x", "done"],
+  ["d", "date"],
+  ["s", "state"],
+  ["p", "priority"],
   ["g n", "go to its note"],
   ["a", "add"],
   ["/", "filter"],
@@ -357,9 +416,9 @@ const HINTS = [
 
 function KeyHints() {
   return (
-    <p className="hidden shrink-0 gap-4 border-k-rule border-t px-4 py-2 text-k-muted text-sm [@media(pointer:fine)]:flex">
+    <p className="hidden shrink-0 flex-wrap gap-x-4 border-k-rule border-t px-4 py-2 text-k-muted text-sm [@media(pointer:fine)]:flex">
       {HINTS.map(([key, does]) => (
-        <span key={key}>
+        <span key={key} className="whitespace-nowrap">
           <b className="text-k-ink-soft">{key}</b> {does}
         </span>
       ))}
