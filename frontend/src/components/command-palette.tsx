@@ -56,8 +56,8 @@ export function CommandPalette({ entries, onClose }: CommandPaletteProps) {
     field.current?.focus();
     return () => {
       if (!(opener instanceof HTMLElement)) return;
-      // A bare focus on a phone reads the DOM's caret, at the note's start; the view's
-      // own focus writes the caret a command just set (#2094).
+      // A bare focus on a phone reads the DOM's caret, at the note's start (#2094, #1976). No
+      // keyboardUnasked(): the palette's field raised the keyboard, and a command's follow-up types.
       const view = EditorView.findFromDOM(opener);
       if (view === null) opener.focus();
       else view.focus();
