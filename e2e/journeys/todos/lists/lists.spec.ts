@@ -13,6 +13,7 @@ import {
   openTodoList,
   phone,
   TODO_ROW,
+  todoList,
   vaultWith,
 } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
@@ -157,9 +158,9 @@ const SCOPE = {
   "05 Shared/Einkauf.md": "# Einkauf\n\n- [ ] send the offer #client\n",
 };
 const row = (page: Page, text: string) => page.locator(TODO_ROW, { hasText: text });
-// In the old list, which sits inside the todo view (its own All tab included) under Board.
+// In the old list, not the todo view's own All tab around it.
 const toggle = (page: Page, name: string) =>
-  page.getByRole("region", { name: "Todos" }).last().getByRole("button", { name, exact: true });
+  todoList(page).getByRole("button", { name, exact: true });
 
 /** The todo pane over SCOPE's two notes, once its rows are drawn. */
 async function todoPane(page: Page, vault: string): Promise<void> {
