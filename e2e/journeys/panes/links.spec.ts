@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import {
+  caretLine,
   findNote,
   hold,
   inbox,
@@ -222,7 +223,7 @@ test.describe("following a link's alias by a click or a tap", () => {
       await alias(page).tap();
       // The phone keeps the note it left in the page, hidden, so the read is of the one it opened.
       const opened = page.locator(".cm-content", { hasText: "born 1899" });
-      await expect(opened.locator(".cm-activeLine")).toHaveText(heading("Life"));
+      await expect(caretLine(opened)).toHaveText(heading("Life"));
     });
   });
 });

@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { panes } from "../../../harness/app.ts";
+import { caretLine, panes } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
 import { beside, focusedPane, layout, load, normal, saved, seed, selectedTab } from "./stored.ts";
 
@@ -122,7 +122,7 @@ test.describe("a URL naming a note, over a stored workspace", () => {
     await expect
       .poll(async () => [
         await page.locator(".cm-activeLineGutter").first().textContent(),
-        await page.locator(".cm-activeLine").first().textContent(),
+        await caretLine(page).textContent(),
       ])
       .toEqual(["6", "A note long enough that its last todo sits past the first screen."]);
   });

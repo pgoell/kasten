@@ -25,7 +25,9 @@ def _noon() -> dt.datetime:
     return dt.datetime.now(BERLIN).replace(hour=12, minute=0, second=0, microsecond=0)
 
 
-ALARM = f"⏰ {_noon():%Y-%m-%d %H:%M}"
+def _alarm(at: dt.datetime) -> str:
+    # Built from the now a test takes, never at import: a run can cross midnight in Berlin (#2278).
+    return f"⏰ {at:%Y-%m-%d %H:%M}"
 
 
 async def _rows(client: httpx.AsyncClient) -> dict[str, dict]:
@@ -46,14 +48,15 @@ async def _act(client: httpx.AsyncClient, action: str, text: str) -> int:
 async def test_1682_done_ticks_the_todo_and_its_open_parts(
     client: httpx.AsyncClient, served: Settings
 ) -> None:
-    top = await todo(client, f"- [ ] call the dentist {ALARM}", PATH)
+    now = _noon()
+    top = await todo(client, f"- [ ] call the dentist {_alarm(now)}", PATH)
     answer = await client.post(
         "/api/todos/line", json={"text": "- [ ] find the card", "parent_id": top["id"]}
     )
     part = answer.json()[0]
     assert await _act(client, "done", await _line(client, top["id"])) == 204
     rows = await _rows(client)
-    today = _noon().date().isoformat()
+    today = now.date().isoformat()
     assert (rows[top["id"]]["state"], rows[top["id"]]["done"]) == ("done", today)
     assert (rows[part["id"]]["state"], rows[part["id"]]["done"]) == ("done", today)
 
@@ -95,8 +98,10 @@ async def test_1682_an_act_on_no_open_reminder_writes_nothing(
 async def test_1682_done_on_a_repeat_keeps_the_round_and_moves_the_todo_on(
     client: httpx.AsyncClient, served: Settings
 ) -> None:
-    today = _noon().date()
-    row = await todo(client, f"- [ ] pay rent 🔁 every day 📅 {today.isoformat()} {ALARM}", PATH)
+    now = _noon()
+    today = now.date()
+    line = f"- [ ] pay rent 🔁 every day 📅 {today.isoformat()} {_alarm(now)}"
+    row = await todo(client, line, PATH)
     assert await _act(client, "done", await _line(client, row["id"])) == 204
     rows = await _rows(client)
     moved = rows[row["id"]]
@@ -108,7 +113,7 @@ async def test_1682_done_on_a_repeat_keeps_the_round_and_moves_the_todo_on(
 async def test_1682_done_unblocks_the_todo_it_held(
     client: httpx.AsyncClient, served: Settings
 ) -> None:
-    first = await todo(client, f"- [ ] pay rent {ALARM}", PATH)
+    first = await todo(client, f"- [ ] pay rent {_alarm(_noon())}", PATH)
     then = await todo(client, f"- [ ] then this ⛔ {first['id']}", PATH)
     assert then["state"] == "blocked"
     assert await _act(client, "done", await _line(client, first["id"])) == 204
@@ -129,15 +134,16 @@ async def test_1682_a_reminder_carries_its_line_and_after_tomorrow_waits_a_day(
     service = PushService()
     await subscribe(client, service, "phone")
     now = _noon()
+    alarm = _alarm(now)
     top = await todo(client, "- [ ] errands", PATH)
     await client.post(
-        "/api/todos/line", json={"text": f"- [ ] call the dentist {ALARM}", "parent_id": top["id"]}
+        "/api/todos/line", json={"text": f"- [ ] call the dentist {alarm}", "parent_id": top["id"]}
     )
     async with service.client() as http:
         assert await tick(push_db, served, http, now) == 1
         line = service.sent[0][1]["text"]
         assert line.startswith("  - [ ] call the dentist ")
-        assert f"{ALARM} 🆔 kt-" in line
+        assert f"{alarm} 🆔 kt-" in line
         assert await _act(client, "tomorrow", line) == 204
         assert await tick(push_db, served, http, now + dt.timedelta(minutes=1)) == 0
         assert await tick(push_db, served, http, now + dt.timedelta(days=1)) == 1

@@ -1,5 +1,5 @@
 import type { Page, Route } from "@playwright/test";
-import { leader, openApp, openNote, panes, readAll } from "../../../harness/app.ts";
+import { caretLine, leader, openApp, openNote, panes, readAll } from "../../../harness/app.ts";
 import { answer, bars, daysAgo, type Hit, hit, openSearch } from "../../../harness/search.ts";
 import { expect, test } from "../../../harness/stack.ts";
 
@@ -32,7 +32,7 @@ test("the arrows walk across notes, and Enter opens the line the highlight lands
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Enter");
   await expect(page.getByRole("tab", { name: "Long note", selected: true })).toBeVisible();
-  await expect(page.locator(".cm-activeLine")).toContainText("Line 240 of filler text");
+  await expect(caretLine(page)).toContainText("Line 240 of filler text");
 });
 
 test("with vim off, the palette opens the search and a click on a row opens its line", async ({
@@ -47,7 +47,7 @@ test("with vim off, the palette opens the search and a click on a row opens its 
   await page.keyboard.type("the");
   await rows(page).nth(1).click();
   await expect(page.getByRole("tab", { name: "Long note", selected: true })).toBeVisible();
-  await expect(page.locator(".cm-activeLine")).toContainText("Line 240 of filler text");
+  await expect(caretLine(page)).toContainText("Line 240 of filler text");
 });
 
 test("each note groups its lines under a serif title, its path in mono, each line number muted, in its place in the entrance", async ({
@@ -205,7 +205,7 @@ test("a click on a bar leaves the focus in the input, and the arrows and Enter o
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Enter");
   await expect(page.getByRole("tab", { name: "Long note", selected: true })).toBeVisible();
-  await expect(page.locator(".cm-activeLine")).toContainText("Line 240 of filler text");
+  await expect(caretLine(page)).toContainText("Line 240 of filler text");
 });
 
 test("the query is set in serif at the display size, an empty status draws no rule, and Enter on a focused bar presses it", async ({
@@ -254,7 +254,7 @@ test("with two panes, Enter opens the line in the focused pane and leaves the ot
   await expect(rows(page)).toHaveCount(1);
   await page.keyboard.press("Enter");
   const [left, right] = [panes(page).first(), panes(page).last()];
-  await expect(right.locator(".cm-activeLine")).toContainText("Line 240 of filler text");
+  await expect(caretLine(right)).toContainText("Line 240 of filler text");
   await expect(left.locator(".cm-content")).toContainText("front door");
   await expect(left.locator(".cm-content")).not.toContainText("Line 240 of filler");
 });

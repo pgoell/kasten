@@ -1,5 +1,6 @@
 import type { Locator, Page } from "@playwright/test";
 import {
+  caretLine,
   drawn,
   hold,
   inbox,
@@ -295,7 +296,7 @@ for (const vim of ["on", "off"]) {
       await openMarks(page, stack.vault, vim);
       await press(page, "click", "bold");
       // Vim's normal mode leaves the link drawn; without vim the line shows its source.
-      await expect(page.locator(".cm-activeLine")).toHaveText(/^see (\*\*\[\[)?bold(]]\*\*)? now$/);
+      await expect(caretLine(page)).toHaveText(/^see (\*\*\[\[)?bold(]]\*\*)? now$/);
       await park(page, "click");
       await press(page, "click", "short");
       await park(page, "click");
@@ -390,8 +391,8 @@ test.describe("on a phone", () => {
     for (const text of ["bold", "short"]) {
       await page.keyboard.type(`/${text}`);
       await page.keyboard.press("Enter");
-      await expect(page.locator(".cm-activeLine")).toContainText(`see ${text}`);
-      await press(page, "tap", page.locator(".cm-activeLine").getByText(text).last());
+      await expect(caretLine(page)).toContainText(`see ${text}`);
+      await press(page, "tap", caretLine(page).getByText(text).last());
     }
     await expect(page.getByRole("tab", { selected: true })).toContainText("Marks");
     expect(await opened(page)).toEqual(["https://example.com/short"]);
