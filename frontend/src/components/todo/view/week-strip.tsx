@@ -16,6 +16,8 @@ function loadText(day: WeekDay): string {
 export function WeekStrip(props: {
   rows: TodoRow[];
   today: string;
+  /** The table's filter, so the strip counts what the list shows. */
+  words: string;
   picked: string | null;
   onDay: (day: string) => void;
 }) {
@@ -24,7 +26,7 @@ export function WeekStrip(props: {
       aria-label="The week ahead"
       className="grid shrink-0 grid-cols-[repeat(7,minmax(84px,1fr))] overflow-x-auto border-k-rule border-b"
     >
-      {upcomingWeek(props.rows, props.today).map((day) => (
+      {upcomingWeek(props.rows, props.today, props.words).map((day) => (
         <li key={day.day} className="min-w-0 border-k-rule border-r last:border-r-0">
           <button
             type="button"

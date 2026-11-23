@@ -205,8 +205,8 @@ export function TodoView(props: TodoViewProps) {
         </div>
       ) : (
         <Split narrow={width < SIDE_BY_SIDE} panel={panelOpen ? panelNode : null}>
-          {tab === "upcoming" && (
-            <WeekStrip rows={data.rows} today={today} picked={day} onDay={toDay} />
+          {tab === "upcoming" && by === "day" && (
+            <WeekStrip rows={data.rows} today={today} words={typed} picked={day} onDay={toDay} />
           )}
           <TodoTable
             groups={groups}

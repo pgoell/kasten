@@ -62,6 +62,7 @@ describe("the Upcoming tab", () => {
     expect(week[0]).toMatchObject({ count: 3, minutes: 120, deadline: false });
     expect(week[0]?.load).toBeCloseTo(120 / 360);
     expect(week[1]).toMatchObject({ count: 0, load: 0, deadline: false });
+    expect(upcomingWeek(ROWS, TODAY, "release")[0]).toMatchObject({ count: 1, minutes: 90 });
     expect(week[2]).toMatchObject({ count: 0, deadline: false });
     expect(week[4]).toMatchObject({ count: 2, deadline: true });
   });
