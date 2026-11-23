@@ -68,14 +68,14 @@ The journeys sit in `e2e/journeys/`: review in `review/` (a sitting, a jotted qu
 `panes/` (layout, the top bar, the pane and tab keys, pane moves while a write is held, links to pages and assets; a note changed on disk under
 unsaved text, `:e` and `:e!`, and a conflicted note reopened in `panes/conflict/`; the workspace over a reload, held text in a restored pane, a URL over it, the tree panel and keys in `tree/`, the leader keys and gf to a highlight's book in `panes/workspace/`; the drawer, phone toolbar, key help, AltGr, a resized window, sheets, the link margin and todo pane taps in `panes/narrow/`), notes, the finder, a tree row dragged, the new note prompt's folder rows and the bar's save sign in `notes/`, where a note opens, the vim setting and the table line-up in `notes/editor/`, with saving in `notes/saving/` (edits,
 mention links, held text, the editor's build and relation names, live preview and its lists and tables) and content search and an epub opened mid-listing in `notes/search/`, the todo list, board, presses,
-twin ids, a person's card and the shared lists in `todos/` (the panel, keys, taps, held order, edit line, strip, refile, `board/` and `rows/` in `todos/pane/`), capture, the web page import, chat replies, the log (overview in `log/overview/`), the home screen in `day/today/`, tokens in `day/`, finance in `day/finance/`, and the book finder, book, video and clip panes and csv and svg files in
+twin ids, a person's card and the shared lists in `todos/` (the panel, keys, taps, held order, edit line, strip, refile, `board/` and `rows/` in `todos/pane/`), capture, web page import, chat replies, the log (overview in `log/overview/`), the home screen in `day/today/`, tokens in `day/`, finance in `day/finance/`, and the book finder, book, video and clip panes and csv and svg files in
 `media/`. `harness.spec.ts` checks the harness. Each journey is a
-daily task; a write checks the disk. 62 files
+daily task; a write checks the disk. 63 files
 run at 414 px with touch, vim off: in `review/`, `sitting/sitting`, `sitting/jot`, `sitting/undo`, `keys`, `overview/rows` and `overview/decks`; in `notes/`, `editor/vim`, `editor/table-lineup`, `finder`,
 `status-bar`, `search/book-open-listing`, `search/content-search-*`, `saving/editor-build`, `saving/edits`,
 `saving/mentions` and `saving/live-preview-blocks`; in `panes/`, `links`, `workspace/reload`, `workspace/tree/edits`,
 `narrow/drawer`, `narrow/phone`, `narrow/key-help`, `narrow/resize` and `narrow/todo-pane`; in `todos/`, `list`,
-`board`, `pane/board/board`, `pane/order`, `pane/rows/*`, `pane/strip`, `twin-ids`, `person-card` and `lists/*`; in `day/`, `capture`, `chat`, `finance/drill`, `finance/plans`, `finance/tabs`, each `log/` spec but `pane/events`, and `today`; and in
+`board`, `pane/board/board`, `pane/order`, `pane/rows/*`, `pane/strip`, `twin-ids`, `person-card` and `lists/*`; in `day/`, `capture`, `chat`, `finance/drill`, `finance/plans`, `finance/tabs`, each `log/` spec but `pane/events`, and `today/*`; and in
 `media/`, `book`, `book-finder`, `clip`, `csv`, `svg`, `video/watching`, `video/full-screen`, `video/view`, `video/shield` and `video/close`.
 `git grep -l 'test.use(phone)' e2e/journeys` lists them.
 Video journeys fake YouTube, which a runner lacks (`fakeYouTube` in

@@ -15,7 +15,11 @@ vi.mock("@/lib/core/api", async (importOriginal) => ({
   fetchTodos,
   cycleStoreTodo,
 }));
-vi.mock("@/lib/app/push/timers-row", () => ({ TimersRow: () => null }));
+vi.mock("@/lib/app/push/timers-row", () => ({
+  TimersRow: () => null,
+  TIMERS_KEY: ["timers"],
+  PUSH_KEY: ["push"],
+}));
 vi.mock("@/lib/search/use-recent-notes", () => ({
   useRecentNotes: () => [],
   recentKeys: () => [

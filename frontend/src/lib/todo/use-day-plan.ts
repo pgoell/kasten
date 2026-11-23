@@ -14,6 +14,8 @@ export function blocksAt(
   };
 }
 
+export const planKey = (day: string) => ["plan", day];
+
 /** Today's plan at the present minute. A refetch with the same plan redraws nothing, so a tick moves the blocks on. */
 export function useDayPlan(): ReturnType<typeof blocksAt> {
   const [at, setAt] = useState(() => new Date());
@@ -23,7 +25,7 @@ export function useDayPlan(): ReturnType<typeof blocksAt> {
   }, []);
   const clock = readClock(at);
   const plan = useQuery({
-    queryKey: ["plan", clock.date],
+    queryKey: planKey(clock.date),
     queryFn: () => fetchPlan(clock.date),
     refetchInterval: 60_000,
   });

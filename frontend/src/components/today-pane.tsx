@@ -1,8 +1,8 @@
 import { type QueryKey, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type ReactNode, useState, useSyncExternalStore } from "react";
+import { type ReactNode, useCallback, useState, useSyncExternalStore } from "react";
 import { TryAgain } from "@/components/review/review-answer";
 import { TodoStateBox } from "@/components/todo/todo-state-box";
-import { TimersRow } from "@/lib/app/push/timers-row";
+import { PUSH_KEY, TIMERS_KEY, TimersRow } from "@/lib/app/push/timers-row";
 import { cycleStoreTodo, fetchTodos, type PlanBlock, type TodoHit } from "@/lib/core/api";
 import { readClock } from "@/lib/core/clock";
 import { noteName } from "@/lib/notes/links/note-path";
@@ -12,8 +12,10 @@ import { recentKeys, useRecentNotes } from "@/lib/search/use-recent-notes";
 import { isOpen, parseTodo, STATE_SYMBOL, type Todo, type TodoState } from "@/lib/todo/todo";
 import { openTodo } from "@/lib/todo/todo-api";
 import { sectionOf } from "@/lib/todo/todo-view";
-import { useDayPlan } from "@/lib/todo/use-day-plan";
+import { planKey, useDayPlan } from "@/lib/todo/use-day-plan";
 import { absorb } from "@/lib/todo/use-todo-actions";
+
+const todosKey = (archive: boolean) => ["todos", archive];
 
 /** The states that are work somebody has started and not finished, and not due today. */
 const LOOP_STATES: ReadonlySet<TodoState> = new Set(["doing", "waiting", "blocked"]);
@@ -38,17 +40,15 @@ function dayOf(stamp: string): string {
  */
 function useAnswered(keys: QueryKey[]): { all: boolean; cardsFailed: boolean } {
   const cache = useQueryClient().getQueryCache();
-  const answered = useSyncExternalStore(
-    (change) => cache.subscribe(change),
-    () =>
-      keys.every((queryKey) => {
-        const state = cache.find({ queryKey, exact: true })?.state;
-        return state !== undefined && (state.data !== undefined || state.fetchFailureCount > 0);
-      }),
+  const subscribe = useCallback((change: () => void) => cache.subscribe(change), [cache]);
+  const answered = useSyncExternalStore(subscribe, () =>
+    keys.every((queryKey) => {
+      const state = cache.find({ queryKey, exact: true })?.state;
+      return state !== undefined && (state.data !== undefined || state.fetchFailureCount > 0);
+    }),
   );
-  const cardsFailed = useSyncExternalStore(
-    (change) => cache.subscribe(change),
-    () => cache.findAll({ queryKey: ["cards"] }).some((query) => query.state.fetchFailureCount > 0),
+  const cardsFailed = useSyncExternalStore(subscribe, () =>
+    cache.findAll({ queryKey: ["cards"] }).some((query) => query.state.fetchFailureCount > 0),
   );
   return { all: answered, cardsFailed };
 }
@@ -59,11 +59,11 @@ function useAnswered(keys: QueryKey[]): { all: boolean; cardsFailed: boolean } {
  */
 function useReady(archive: boolean, today: string, review: number | null | undefined): boolean {
   const answered = useAnswered([
-    ["todos", archive],
+    todosKey(archive),
     ...recentKeys(archive, today),
-    ["timers"],
-    ["push"],
-    ["plan", today],
+    TIMERS_KEY,
+    PUSH_KEY,
+    planKey(today),
   ]);
   const [drawn, setDrawn] = useState(false);
   const ready = drawn || (answered.all && (review !== undefined || answered.cardsFailed));
@@ -93,7 +93,7 @@ export function TodayPane({
   const clock = readClock(now);
   const today = clock.date;
 
-  const todos = useQuery({ queryKey: ["todos", archive], queryFn: () => fetchTodos(archive) });
+  const todos = useQuery({ queryKey: todosKey(archive), queryFn: () => fetchTodos(archive) });
   const recent = useRecentNotes(archive);
   const review = useReviewWaiting(archive);
   // The same query the count waits on, so Try again reads the limits it lacks.
