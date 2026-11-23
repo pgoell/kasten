@@ -4,9 +4,12 @@ import {
   caretLine,
   leader,
   openApp,
+  openTodoList,
   plus,
   runCommand,
   today,
+  todoList,
+  toTodoList,
   vaultWith,
   watchDrop,
 } from "../../../../harness/app.ts";
@@ -35,7 +38,6 @@ const cursor = (page: Page) => page.locator('[data-card][tabindex="0"]');
 const shown = (page: Page) => page.locator("[data-card]:visible");
 const picker = (page: Page) => page.getByTestId("todo-project-pick");
 const filter = (page: Page) => page.getByLabel("filter todos");
-const region = (page: Page) => page.getByRole("region", { name: "Todos" });
 type Stack = { url: string; vault: string };
 /** The todo as `GET /api/todos` renders it from its row, its id and created stamp on it. */
 const lineOf = async (url: string, words: string): Promise<string | undefined> => {
@@ -81,9 +83,12 @@ async function board(
   await openApp(page);
   // A pane beside, so an editor stays on screen for Escape to hand the focus to.
   if (split) await leader(page, "%");
-  if (vim === "on") await leader(page, "gt");
-  else await runCommand(page, /^Open the todo pane/);
-  await expect(region(page)).toBeVisible({ timeout: 15_000 });
+  if (vim === "on") await openTodoList(page);
+  else {
+    await runCommand(page, /^Open the todo pane/);
+    await toTodoList(page);
+  }
+  await expect(todoList(page)).toBeVisible({ timeout: 15_000 });
   if (!empty || Object.keys(notes).length)
     await expect(page.locator('[data-row*=".md:"]').first()).toBeVisible();
   const writes: string[] = [];
@@ -119,7 +124,7 @@ test("A7 Enter opens the cursor card's line, and a click opens the clicked card'
   await board(page, stack);
   await page.keyboard.press("Enter");
   await expect(caretLine(page)).toContainText("send the invoice");
-  await leader(page, "gt");
+  await openTodoList(page);
   await page.keyboard.press("c");
   await page.locator(`[data-card="${PLAN}:1"]`).click();
   await expect(caretLine(page)).toContainText("write the deck");
@@ -244,8 +249,8 @@ test("I4 a leader sequence, /, Escape and q still work on the board", async ({ p
   await leader(page, "ct");
   await expect(page.getByRole("tab")).toHaveCount(2);
   await page.getByRole("tab").first().click();
-  // The tab drew the pane afresh, as the list.
-  await page.locator('[data-row*=".md:"]').first().focus();
+  // The tab drew the pane afresh, as the todo view; the helper ends on the list.
+  await toTodoList(page);
   await page.keyboard.press("c");
   await card(page, "send the invoice").focus();
   await page.keyboard.press("/");
@@ -255,7 +260,7 @@ test("I4 a leader sequence, /, Escape and q still work on the board", async ({ p
   await expect(page.locator(".cm-content").first()).toBeFocused();
   await card(page, "send the invoice").focus();
   await page.keyboard.press("q");
-  await expect(region(page)).toHaveCount(0);
+  await expect(todoList(page)).toHaveCount(0);
 });
 
 test("I5 O on a done card puts it back to open", async ({ page, stack }) => {
@@ -300,7 +305,7 @@ test("#773 I2 Enter on the focused cursor card picks in the open picker and open
     .poll(() => lineOf(stack.url, "fix the tap"))
     .toMatch(new RegExp(`^- \\[ \\] fix the tap ${literal(KASTEN)} .*🆔 kt-000009$`));
   await expect(caretLine(page)).toHaveCount(0);
-  await expect(region(page)).toBeVisible();
+  await expect(todoList(page)).toBeVisible();
 });
 
 const columns = (page: Page) => page.getByTestId("todo-column");

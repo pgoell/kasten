@@ -1,11 +1,12 @@
 import type { Locator, Page } from "@playwright/test";
 import {
-  leader,
   openApp,
+  openTodoList,
   phone,
   plus,
   readAll,
   TODO_ROW,
+  tapTodoList,
   vaultWith,
 } from "../../../../harness/app.ts";
 import { expect, test } from "../../../../harness/stack.ts";
@@ -72,7 +73,7 @@ test("#811 a row draws its state box, words and meta line, its date by the clock
     ...DONE,
   ]);
   await openApp(page);
-  await leader(page, "gt");
+  await openTodoList(page);
   await expect(row(page, "buy milk")).toBeVisible();
 
   await expect(row(page, "wire the pane").locator('svg[data-state="doing"]')).toHaveCount(1);
@@ -161,7 +162,7 @@ test.describe("on a phone", () => {
       ...DONE,
     ]);
     await page.goto("/");
-    await page.getByRole("button", { name: "Open the todo pane" }).tap();
+    await tapTodoList(page);
 
     const state = page.getByRole("button", { name: "cycle write the parser" });
     await expect(state.locator('svg[data-state="review"]')).toHaveCount(1);

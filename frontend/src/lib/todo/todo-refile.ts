@@ -5,8 +5,8 @@
 
 import type { SearchHit } from "@/lib/core/api";
 import { appendUnder } from "@/lib/notes/text/note-section";
+import { laneName } from "@/lib/todo/board/todo-board";
 import { parseTodo } from "@/lib/todo/todo";
-import { laneName } from "@/lib/todo/todo-board";
 
 /** Where a new todo lands, and so where a refiled one does. */
 const TODOS = "## TODOs";

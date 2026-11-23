@@ -3,13 +3,15 @@ import {
   atDrop,
   caretLine,
   cursorTo,
-  leader,
   openApp,
+  openTodoList,
   phone,
   plus,
   runCommand,
   TODO_ROW,
+  tapTodoList,
   today,
+  toTodoList,
   vaultWith,
   watchDrop,
 } from "../../../../harness/app.ts";
@@ -60,7 +62,7 @@ async function notes(page: Page, vault: string): Promise<string[]> {
 async function byTouch(page: Page, vault: string, board = true): Promise<string[]> {
   const writes = await notes(page, vault);
   await page.goto("/");
-  await page.getByRole("button", { name: "Open the todo pane" }).tap({ timeout: 15_000 });
+  await tapTodoList(page);
   await expect(page.locator(TODO_ROW, { hasText: "fix the tap" })).toBeVisible();
   if (!board) return writes;
   await page.getByRole("button", { name: "board", exact: true }).tap();
@@ -214,8 +216,11 @@ async function byKeys(page: Page, vault: string, vim: string): Promise<string[]>
   const writes = await notes(page, vault);
   if (vim === "off") await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
   await openApp(page);
-  if (vim === "on") await leader(page, "gt");
-  else await runCommand(page, /^Open the todo pane/);
+  if (vim === "on") await openTodoList(page);
+  else {
+    await runCommand(page, /^Open the todo pane/);
+    await toTodoList(page);
+  }
   await expect(page.locator(TODO_ROW, { hasText: "fix the tap" })).toBeVisible();
   return writes;
 }

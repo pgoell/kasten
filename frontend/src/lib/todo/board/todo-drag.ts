@@ -3,8 +3,8 @@
  * order, so a drop writes a state or a project, never a position.
  */
 
+import type { Column } from "@/lib/todo/board/todo-board";
 import type { TodoState } from "@/lib/todo/todo";
-import type { Column } from "@/lib/todo/todo-board";
 
 /** A cell of the board: the lane's id, `""` for "No project" or "No kind", and the column. */
 export interface Spot {

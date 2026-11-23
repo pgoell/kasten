@@ -198,8 +198,31 @@ async function editorHolds(host: HTMLElement, text: string) {
   await waitFor(() => expect(visibleEditor(host).textContent).toContain(text), PATIENCE);
 }
 
+/** The list under the todo view's Board tab, where the rows open their note's line. */
+async function toTodoList(host: HTMLElement) {
+  const tab = await waitFor(
+    () =>
+      need(
+        [...host.querySelectorAll<HTMLElement>("button[aria-pressed]")].find(
+          (each) => each.textContent?.trim() === "Board",
+        ),
+        "Board tab",
+      ),
+    PATIENCE,
+  );
+  if (tab.getAttribute("aria-pressed") === "true") return;
+  fireEvent.click(tab);
+  const board = await waitFor(
+    () =>
+      need(host.querySelector<HTMLElement>("[aria-label='Todos'] [aria-label='Todos']"), "board"),
+    PATIENCE,
+  );
+  fireEvent.keyDown(board, { key: "c" });
+}
+
 /** The todo row for the far todo, which opens its note on a click. */
 async function clickTodo(host: HTMLElement) {
+  await toTodoList(host);
   const row = await waitFor(
     () =>
       need(
@@ -323,7 +346,10 @@ it("A5 a todo click on a note open in another pane shows the line", async () => 
     // so the pane is found by the list it holds, before the click replaces it.
     const todoPane = await waitFor(
       () =>
-        need(host.querySelector<HTMLElement>("[data-pane]:has([data-row])"), "pane of the todos"),
+        need(
+          host.querySelector<HTMLElement>("[data-pane]:has([aria-label='Todos'])"),
+          "pane of the todos",
+        ),
       PATIENCE,
     );
     await clickTodo(host);

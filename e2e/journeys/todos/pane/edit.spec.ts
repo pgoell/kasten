@@ -6,10 +6,12 @@ import {
   leader,
   noteText,
   openApp,
+  openTodoList,
   plus,
   runCommand,
   TODO_ROW,
   today,
+  toTodoList,
   vaultWith,
 } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
@@ -47,9 +49,12 @@ async function lineOf(url: string, words: string): Promise<string> {
 async function onDentist(page: Page, vault: string, vim = "on") {
   await vaultWith(vault, { [NOTE]: note(LINE, NEXT) });
   await openApp(page);
-  if (vim === "on") await leader(page, "gt");
+  if (vim === "on") await openTodoList(page);
   // Space is a letter with vim off, so the palette opens the pane.
-  else await runCommand(page, /^Open the todo pane/);
+  else {
+    await runCommand(page, /^Open the todo pane/);
+    await toTodoList(page);
+  }
   await expect(page.locator(TODO_ROW, { hasText: "book the checkup" })).toBeVisible();
   await cursorTo(page, "call the dentist");
 }
@@ -227,7 +232,7 @@ test("i with no row in the list opens no edit line and throws nothing", async ({
   for (const one of await rows(stack.url))
     await fetch(`${stack.url}/api/todos/${one.id}`, { method: "DELETE" });
   await openApp(page);
-  await leader(page, "gt");
+  await openTodoList(page);
   await expect(page.getByText("nothing to do", { exact: true })).toBeVisible();
   await expect(page.locator(TODO_ROW)).toHaveCount(0);
   await page.keyboard.press("i");
@@ -257,7 +262,7 @@ test("an edit that moves the row under another heading writes the line and keeps
   const edited = `- [ ] call the dentist ⏳ ${today()} #health`;
   await vaultWith(stack.vault, { [NOTE]: note("- [ ] call the dentist #health", NEXT) });
   await openApp(page);
-  await leader(page, "gt");
+  await openTodoList(page);
   await cursorTo(page, "call the dentist");
   await page.keyboard.press("i");
   await draft(page).fill(edited);
@@ -304,8 +309,10 @@ test.describe("@ sends the cursor's todo to the agent (#523)", () => {
     if (o.vim === "off") await page.addInitScript(() => localStorage.setItem("kasten.vim", "off"));
     await vaultWith(vault, { [AT]: text(lines) });
     await openApp(page);
-    if (o.vim === "off") await runCommand(page, /^Open the todo pane/);
-    else await leader(page, "gt");
+    if (o.vim === "off") {
+      await runCommand(page, /^Open the todo pane/);
+      await toTodoList(page);
+    } else await openTodoList(page);
     await expect(row(page, words).first()).toBeVisible({ timeout: 15_000 });
     if (o.held) await page.route("**/api/todos*", () => new Promise(() => {}));
     await cursorTo(page, words);

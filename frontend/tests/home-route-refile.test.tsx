@@ -1,4 +1,4 @@
-import { fireEvent } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { useMemo } from "react";
 import type { TodoHit, TodoRow } from "@/lib/core/api";
 import { noteBase } from "@/lib/notes/note-base";
@@ -127,8 +127,8 @@ const paneProps = vi.hoisted(() => ({
     onCycle: (hit: TodoHit, state?: TodoState, twins?: number[]) => void;
   } | null,
 }));
-vi.mock("@/components/todo/todo-pane", async (importOriginal) => {
-  const real = await importOriginal<typeof import("@/components/todo/todo-pane")>();
+vi.mock("@/components/todo/pane/todo-pane", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/components/todo/pane/todo-pane")>();
   function TodoPane(props: Parameters<typeof real.TodoPane>[0]) {
     paneProps.current = props;
     return <real.TodoPane {...props} />;
@@ -190,10 +190,17 @@ describe("the route", () => {
       patchTodo.mockResolvedValue([]);
     });
 
-    /** `<leader>gt`, then `m` on the first row, and the write it starts settled. */
-    async function refile(app: Awaited<ReturnType<typeof renderApp>>) {
+    /** `<leader>gt` and the Board tab, where the list and board keep their keys. */
+    async function board(app: Awaited<ReturnType<typeof renderApp>>) {
       app.leader("g", "t");
       await settle();
+      fireEvent.click(screen.getByRole("button", { name: "Board" }));
+      await settle();
+    }
+
+    /** The Board tab's list, then `m` on the first row, and the write it starts settled. */
+    async function refile(app: Awaited<ReturnType<typeof renderApp>>) {
+      await board(app);
       const pane = app.todoPane() as HTMLElement;
       pane.focus();
       fireEvent.keyDown(pane, { key: "m" });
@@ -267,8 +274,7 @@ describe("the route", () => {
     it("#397 A2 a card dropped on another project lane moves into that project's note", async () => {
       const app = await renderApp();
       await settle();
-      app.leader("g", "t");
-      await settle();
+      await board(app);
 
       act(() => paneProps.current?.onRefile({ ...ROW, project: null }, "02 Projects/Other"));
       await settle();

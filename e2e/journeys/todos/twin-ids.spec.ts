@@ -1,12 +1,13 @@
 import type { Page } from "@playwright/test";
 import {
   cursorTo,
-  leader,
   openApp,
+  openTodoList,
   plus,
   readAll,
   runCommand,
   today,
+  toTodoList,
   vaultWith,
 } from "../../harness/app.ts";
 import { expect, type Stack, test } from "../../harness/stack.ts";
@@ -42,7 +43,7 @@ async function sessions(stack: Stack): Promise<string[]> {
 async function paneOver(page: Page, vault: string, note: string, last: string) {
   await vaultWith(vault, { "Waits.md": note });
   await openApp(page);
-  await leader(page, "gt");
+  await openTodoList(page);
   await expect(at(page, last)).toBeVisible();
 }
 /** The row of `words` in Waits.md, by its name after its state, priority and client mark: a row names its blocker's words too. */
@@ -198,7 +199,7 @@ test.describe("a key straight after an x, before the x's write answers (#2084)",
       },
     );
     await openApp(page);
-    await leader(page, "gt");
+    await openTodoList(page);
     await cursorTo(page, words);
     await page.keyboard.press("x");
     return release;
@@ -267,6 +268,7 @@ test.describe("with vim off, a key straight after an x (#2084)", () => {
     await openApp(page);
     // The palette, since the leader is vim's.
     await runCommand(page, /^Open the todo pane/);
+    await toTodoList(page);
     await expect(page.getByRole("button", { name: "open water the tomatoes" })).toBeVisible();
     await page.keyboard.press("x");
     await page.keyboard.press("t");

@@ -1,6 +1,6 @@
 import { EditorView } from "@codemirror/view";
 import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import type { AgentRow } from "@/components/todo/todo-pane";
+import type { AgentRow } from "@/components/todo/pane/todo-pane";
 import { askLogConfig, logConfig, subscribeLogConfig } from "@/lib/log/log-config";
 import { DEFAULT_CONFIG } from "@/lib/log/log-kinds";
 import { lineCandidates, rankIndexes } from "@/lib/search/fuzzy";

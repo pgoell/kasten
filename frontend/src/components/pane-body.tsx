@@ -16,7 +16,8 @@ import { OverviewPane } from "@/components/overview-pane";
 import { PdfPane } from "@/components/pdf/pdf-pane";
 import { PersonPane } from "@/components/person-pane";
 import { ReviewPane } from "@/components/review/review-pane";
-import { type AgentRow, TodoPane } from "@/components/todo/todo-pane";
+import { type AgentRow, TodoPane } from "@/components/todo/pane/todo-pane";
+import { TodoView } from "@/components/todo/view/todo-view";
 import type { PaneMoves } from "@/components/use-pane-moves";
 import { VideoPane } from "@/components/video/video-pane";
 import { TimersPane } from "@/lib/app/push/timers-pane";
@@ -168,27 +169,38 @@ const BODIES: { [K in KindField]: Body<K> } = {
     </Suspense>
   ),
   todos: (_, { shared, extras, focused, signal }) => (
-    <TodoPane
+    <TodoView
       commands={shared.commands}
-      onOpen={(path, hitLine) => void shared.openInPane(path, hitLine)}
-      onCycle={extras.todos.cycleTodo}
-      onAdd={() => extras.onTodoPrompt()}
-      onSubtask={(hit) => extras.onTodoPrompt(hit)}
-      onEdit={extras.todos.editTodo}
-      onBlock={extras.todos.blockTodo}
-      onTimer={extras.todos.toggleTimer}
-      onAgent={(hit, twins) => void extras.todos.agentTodo(hit, twins)}
-      cursorRow={focused ? extras.todoRow : undefined}
-      onRefile={(hit, project) => void extras.todos.refileTodo(hit, project)}
+      onOpen={(path) => void shared.openInPane(path)}
       onNotice={shared.onNotice}
       archive={shared.archive}
       focusSignal={signal}
-      // Read at the render rather than inside the pane, which
-      // stays a function of the strings it is handed. A tab left
-      // open across midnight keeps yesterday's sections until
-      // something makes it render, which is what the event stream
-      // does the moment anything is written.
       today={readClock(new Date()).date}
+      board={
+        <TodoPane
+          commands={shared.commands}
+          onOpen={(path, hitLine) => void shared.openInPane(path, hitLine)}
+          onCycle={extras.todos.cycleTodo}
+          onAdd={() => extras.onTodoPrompt()}
+          onSubtask={(hit) => extras.onTodoPrompt(hit)}
+          onEdit={extras.todos.editTodo}
+          onBlock={extras.todos.blockTodo}
+          onTimer={extras.todos.toggleTimer}
+          onAgent={(hit, twins) => void extras.todos.agentTodo(hit, twins)}
+          cursorRow={focused ? extras.todoRow : undefined}
+          onRefile={(hit, project) => void extras.todos.refileTodo(hit, project)}
+          onNotice={shared.onNotice}
+          archive={shared.archive}
+          focusSignal={signal}
+          initialBoard
+          // Read at the render rather than inside the pane, which
+          // stays a function of the strings it is handed. A tab left
+          // open across midnight keeps yesterday's sections until
+          // something makes it render, which is what the event stream
+          // does the moment anything is written.
+          today={readClock(new Date()).date}
+        />
+      }
     />
   ),
   log: (_, { shared, extras, signal }) => (

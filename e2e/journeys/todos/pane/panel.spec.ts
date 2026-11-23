@@ -2,13 +2,14 @@ import type { Page, Route } from "@playwright/test";
 import {
   caretLine,
   cursorTo,
-  leader,
   noteText,
   openApp,
+  openTodoList,
   plus,
   readAll,
   TODO_ROW,
   today,
+  todoList,
   vaultWith,
 } from "../../../harness/app.ts";
 import { openPanel } from "../../../harness/search.ts";
@@ -65,7 +66,7 @@ async function openPrompt(page: Page) {
       writes.push(request.url());
   });
   await openApp(page);
-  await leader(page, "gt");
+  await openTodoList(page);
   await expect(page.getByRole("button", { name: "open water the tomatoes" })).toBeVisible();
   await page.keyboard.press("a");
   const dialog = page.getByRole("dialog", { name: "Add todo" });
@@ -154,6 +155,7 @@ test.describe("the todo prompt", () => {
     await expect(dialog).toBeHidden();
     expect(writes).toEqual([]);
     // A todo added next lands after any write the Escape sent, so its line shows none came.
+    await todoList(page).focus();
     await page.keyboard.press("a");
     await page.keyboard.type("buy milk");
     await page.keyboard.press("Enter");
@@ -169,7 +171,7 @@ test.describe("the todo prompt", () => {
 
   test("opened by s on a row, it says which todo the part goes under", async ({ page }) => {
     await openApp(page);
-    await leader(page, "gt");
+    await openTodoList(page);
     await cursorTo(page, "water the tomatoes");
     await page.keyboard.press("s");
     const dialog = page.getByRole("dialog", { name: "Add part" });
@@ -231,9 +233,9 @@ test("the todo pane counts parts on their todo, indents them under it, names one
   ];
   await vaultWith(stack.vault, { "02 Projects/Parts.md": `${note.join("\n")}\n` });
   await openApp(page);
-  await leader(page, "gt");
+  await openTodoList(page);
   await expect(page.locator(TODO_ROW, { hasText: "farther" })).toBeVisible();
-  // Each row by its own words (the last known word in it), with its text, group and indent, read at once.
+  // Each row by its own words, with its text, group and indent, read at once.
   const rows = await readAll(
     page,
     '[data-row*="Parts.md:"]',
@@ -295,7 +297,7 @@ async function viewsPane(page: Page) {
     if (request.method() === "POST" && path === `/api/files/${VIEWS}`) creates.push(path);
   });
   await openApp(page);
-  await leader(page, "gt");
+  await openTodoList(page);
   await expect(page.getByRole("button", { name: "open water the tomatoes" })).toBeVisible();
   const rows = page.locator(TODO_ROW);
   const all = await rows.count();
@@ -414,7 +416,7 @@ const PICK = "write the docs";
 async function picker(page: Page, vault: string, lines: string[], on = PICK) {
   await vaultWith(vault, { [BLOCKS]: `${lines.join("\n")}\n` });
   await openApp(page);
-  await leader(page, "gt");
+  await openTodoList(page);
   await cursorTo(page, on);
   await page.keyboard.press("b");
   return page.getByTestId("todo-pick");

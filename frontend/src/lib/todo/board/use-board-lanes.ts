@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import type { SearchHit, TodoHit } from "@/lib/core/api";
+import { COLUMNS, columnOf, KINDS, kindOf, laneName } from "@/lib/todo/board/todo-board";
 import type { Todo } from "@/lib/todo/todo";
-import { COLUMNS, columnOf, KINDS, kindOf, laneName } from "@/lib/todo/todo-board";
 import type { Placed } from "@/lib/todo/todo-view";
 
 /** The key a board card is known by, `path:line`. */
