@@ -1,18 +1,19 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import {
-  DayPick,
+  DateButton,
   FieldRow,
   InlineText,
   PriorityPick,
   ProjectPick,
   StatePick,
-} from "@/components/todo/view/panel-fields";
-import { PanelNotes, PanelParts } from "@/components/todo/view/panel-sections";
+} from "@/components/todo/view/panel/panel-fields";
+import { PanelNotes, PanelParts } from "@/components/todo/view/panel/panel-sections";
+import { DatePick, type Which } from "@/components/todo/view/pick/date-pick";
 import { Icon } from "@/components/todo/view/view-icons";
 import type { TodoRow } from "@/lib/core/api";
-import { readMinutes } from "@/lib/todo/view/quick-words";
-import { longDay, minutes } from "@/lib/todo/view/row-facts";
+import { readMinutes } from "@/lib/todo/view/rows/quick-words";
+import { longDay, minutes } from "@/lib/todo/view/rows/row-facts";
 import { deleteTodo, stateTodo, timerTodo } from "@/lib/todo/view/todo-store";
 import { usePanelSave } from "@/lib/todo/view/use-panel-save";
 
@@ -44,12 +45,23 @@ export function TodoPanel(props: PanelProps) {
   );
   const [repeat, setRepeat] = useState(row.repeat ?? "");
   const [deleting, setDeleting] = useState(false);
+  const [dates, setDates] = useState<{ which: Which; anchor: HTMLElement } | null>(null);
   const failed = (error: unknown) =>
     onNotice(`Not saved: ${error instanceof Error ? error.message : error}`);
   const worked = row.worked ?? 0;
 
   return (
     <aside aria-label="Todo" className="flex h-full min-h-0 flex-col bg-k-bg">
+      {dates !== null && (
+        <DatePick
+          anchor={dates.anchor}
+          dates={row}
+          today={today}
+          start={dates.which}
+          onSet={(change) => save(change, true)}
+          onClose={() => setDates(null)}
+        />
+      )}
       <div className="flex items-center gap-2 px-6 pt-4">
         <ProjectPick
           project={row.project}
@@ -122,24 +134,11 @@ export function TodoPanel(props: PanelProps) {
               onPick={(priority) => save({ priority: priority as TodoRow["priority"] }, true)}
             />
           </FieldRow>
-          <FieldRow icon="sun" label="Planned">
-            <DayPick
-              label="Planned"
-              day={row.planned}
-              shown={row.planned === null ? "" : longDay(row.planned, today)}
-              empty="Plan a day"
-              onPick={(planned) => save({ planned }, true)}
-            />
-          </FieldRow>
-          <FieldRow icon="flag" label="Due">
-            <DayPick
-              label="Due"
-              day={row.due_hard ? row.due : null}
-              shown={row.due === null ? "" : longDay(row.due, today)}
-              empty="Set a due date"
-              onPick={(due) => save({ due, due_hard: due !== null }, true)}
-            />
-          </FieldRow>
+          <DateRows
+            row={row}
+            today={today}
+            onOpen={(which, anchor) => setDates({ which, anchor })}
+          />
           <FieldRow icon="clock" label="Time">
             {worked > 0 && <span className="shrink-0 text-k-ink">{minutes(worked)} of</span>}
             <InlineText
@@ -216,5 +215,46 @@ export function TodoPanel(props: PanelProps) {
         </span>
       </div>
     </aside>
+  );
+}
+
+/** Planned, due and hold until, each opening the one date popover on its own tab. */
+function DateRows(props: {
+  row: TodoRow;
+  today: string;
+  onOpen: (which: Which, anchor: HTMLElement) => void;
+}) {
+  const { row, today } = props;
+  const shown = (day: string | null) => (day === null ? "" : longDay(day, today));
+  return (
+    <>
+      <FieldRow icon="sun" label="Planned">
+        <DateButton
+          label="Planned"
+          day={row.planned}
+          shown={shown(row.planned)}
+          empty="Plan a day"
+          onOpen={(anchor) => props.onOpen("planned", anchor)}
+        />
+      </FieldRow>
+      <FieldRow icon="flag" label="Due">
+        <DateButton
+          label="Due"
+          day={row.due_hard ? row.due : null}
+          shown={shown(row.due)}
+          empty="Set a due date"
+          onOpen={(anchor) => props.onOpen("due", anchor)}
+        />
+      </FieldRow>
+      <FieldRow icon="hour" label="Hold until">
+        <DateButton
+          label="Hold until"
+          day={row.hold_until}
+          shown={shown(row.hold_until)}
+          empty="Not held"
+          onOpen={(anchor) => props.onOpen("hold_until", anchor)}
+        />
+      </FieldRow>
+    </>
   );
 }

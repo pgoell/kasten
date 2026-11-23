@@ -2,8 +2,8 @@ import type { ReactNode } from "react";
 import { TodoStateBox } from "@/components/todo/todo-state-box";
 import { Icon, type IconName } from "@/components/todo/view/view-icons";
 import type { TodoState } from "@/lib/todo/todo";
-import { projectHue } from "@/lib/todo/view/row-facts";
-import { projectName } from "@/lib/todo/view/view-rows";
+import { projectHue } from "@/lib/todo/view/rows/row-facts";
+import { projectName } from "@/lib/todo/view/rows/view-rows";
 
 export const STATES: TodoState[] = [
   "open",
@@ -184,6 +184,26 @@ export function DayPick(props: {
         className="absolute inset-0 cursor-pointer opacity-0"
       />
     </span>
+  );
+}
+
+/** A day drawn as its text; a press opens the date popover by it. */
+export function DateButton(props: {
+  label: string;
+  day: string | null;
+  shown: string;
+  empty: string;
+  onOpen: (anchor: HTMLElement) => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={`${props.label}: ${props.day === null ? props.empty : props.shown}`}
+      onClick={(event) => props.onOpen(event.currentTarget)}
+      className={`rounded px-1 text-left hover:bg-k-inset ${props.day === null ? "text-k-muted" : "text-k-ink"}`}
+    >
+      {props.day === null ? props.empty : props.shown}
+    </button>
   );
 }
 

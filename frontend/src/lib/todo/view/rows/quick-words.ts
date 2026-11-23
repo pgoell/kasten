@@ -5,8 +5,8 @@
  */
 
 import { shiftDay } from "@/lib/core/clock";
+import { projectName } from "@/lib/todo/view/rows/view-rows";
 import type { NewTodo } from "@/lib/todo/view/todo-store";
-import { projectName } from "@/lib/todo/view/view-rows";
 
 export type Priority = "highest" | "high" | "medium" | "low" | "lowest";
 
@@ -105,14 +105,18 @@ export function readQuick(text: string, today: string, projects: string[]): Quic
 
 /**
  * The fields a new todo gets: what was picked by hand, else what the words name, else the
- * project of the group it was started from. `from` names those the words gave.
+ * project or day of the group it was started from. `from` names those the words gave.
  */
 export function settled(
   quick: Quick,
   picked: QuickFields,
-  project: string | null | undefined,
+  group: { project?: string | null; planned?: string },
 ): { fields: QuickFields; from: Set<keyof QuickFields> } {
-  const fields: QuickFields = { ...(project ? { project } : {}), ...quick.fields };
+  const base: QuickFields = {
+    ...(group.project ? { project: group.project } : {}),
+    ...(group.planned ? { planned: group.planned } : {}),
+  };
+  const fields: QuickFields = { ...base, ...quick.fields };
   const from = new Set(Object.keys(quick.fields) as (keyof QuickFields)[]);
   for (const key of Object.keys(picked) as (keyof QuickFields)[]) {
     from.delete(key);

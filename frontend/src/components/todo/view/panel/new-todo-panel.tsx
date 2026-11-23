@@ -7,7 +7,7 @@ import {
   PriorityPick,
   ProjectPick,
   StatePick,
-} from "@/components/todo/view/panel-fields";
+} from "@/components/todo/view/panel/panel-fields";
 import { Icon } from "@/components/todo/view/view-icons";
 import type { TodoRow } from "@/lib/core/api";
 import type { TodoState } from "@/lib/todo/todo";
@@ -17,14 +17,15 @@ import {
   readMinutes,
   readQuick,
   settled,
-} from "@/lib/todo/view/quick-words";
-import { longDay, minutes } from "@/lib/todo/view/row-facts";
+} from "@/lib/todo/view/rows/quick-words";
+import { longDay, minutes } from "@/lib/todo/view/rows/row-facts";
 import { addTodo, stateTodo } from "@/lib/todo/view/todo-store";
 
-/** What a new todo starts with before anything is typed: its group's state or project. */
+/** What a new todo starts with before anything is typed: its group's state, project or day. */
 export interface Preset {
   state?: TodoState;
   project?: string | null;
+  planned?: string;
 }
 
 /** The words with each field word marked, laid under the input so the marks sit on the words. */
@@ -65,7 +66,7 @@ export function NewTodoPanel(props: {
   const [estimate, setEstimate] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const quick = readQuick(text, today, projects);
-  const { fields, from } = settled(quick, picked, props.preset.project);
+  const { fields, from } = settled(quick, picked, props.preset);
   const state = picked.state ?? props.preset.state ?? "open";
 
   async function add(next: boolean) {

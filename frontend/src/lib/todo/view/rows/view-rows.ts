@@ -7,9 +7,19 @@ import type { TodoRow } from "@/lib/core/api";
 import { shiftDay } from "@/lib/core/clock";
 import { wikiLinkTargets } from "@/lib/notes/links/wikilink";
 import type { TodoState } from "@/lib/todo/todo";
+import {
+  DAYS_AHEAD,
+  dayGroupKey,
+  dayHeading,
+  dayOf,
+  LAST_AHEAD,
+  plannedOf,
+  type WeekDay,
+  weekStrip,
+} from "@/lib/todo/view/rows/upcoming";
 
 export type Tab = "today" | "upcoming" | "inbox" | "all";
-export type GroupBy = "state" | "project";
+export type GroupBy = "state" | "project" | "day";
 
 export const TABS: { tab: Tab; label: string }[] = [
   { tab: "today", label: "Today" },
@@ -33,6 +43,13 @@ export interface Group {
   state?: TodoState;
   /** The project a project group gathers. */
   project?: string | null;
+  /** The day a day group gathers, which a new todo from its `+` is planned on. */
+  day?: string;
+  /** The dates beside a day group's name. */
+  sub?: string;
+  /** A day group's estimates added up, and its hard due dates. */
+  minutes?: number;
+  deadlines?: number;
   lines: Line[];
 }
 
@@ -47,19 +64,12 @@ export function held(row: TodoRow, today: string): boolean {
   return row.state === "waiting" && row.look_again !== null && row.look_again > today;
 }
 
-/** The planned day, else the parent's: a part plans with the todo above it. */
-function plannedOf(row: TodoRow, byId: Map<string, TodoRow>): string | null {
-  for (let at: TodoRow | undefined = row; at; at = parentOf(at, byId)) {
-    if (at.planned !== null) return at.planned;
-  }
-  return null;
+/** The filter's rule, one for the table and the week strip so both count the same rows. */
+function matchesWords(row: TodoRow, words: string): boolean {
+  return row.words.toLowerCase().includes(words.trim().toLowerCase());
 }
 
-function parentOf(row: TodoRow, byId: Map<string, TodoRow>): TodoRow | undefined {
-  return row.parent_id === null ? undefined : byId.get(row.parent_id);
-}
-
-/** Whether a tab lists a todo still open. Upcoming is the week ahead, Today what is on now. */
+/** Whether a tab lists a todo still open. Upcoming is two weeks ahead, Today what is on now. */
 function listed(tab: Tab, row: TodoRow, today: string, byId: Map<string, TodoRow>): boolean {
   if (closed(row) || row.round_of !== null) return false;
   if (tab === "all") return true;
@@ -67,8 +77,8 @@ function listed(tab: Tab, row: TodoRow, today: string, byId: Map<string, TodoRow
   const planned = plannedOf(row, byId);
   if (tab === "inbox") return row.project === null && planned === null && row.parent_id === null;
   if (tab === "upcoming") {
-    const day = planned ?? row.due;
-    return day !== null && day > today && day <= shiftDay(today, 7);
+    const day = dayOf(row, byId);
+    return day !== null && day > today && day <= shiftDay(today, LAST_AHEAD);
   }
   if (row.state === "doing" || row.state === "review") return true;
   if (row.state === "waiting") return true;
@@ -135,22 +145,10 @@ export function groupsOf(
     if (row.parent_id === null || row.round_of !== null) continue;
     children.set(row.parent_id, [...(children.get(row.parent_id) ?? []), row]);
   }
-  const typed = o.words?.trim().toLowerCase() ?? "";
-  const matches = (row: TodoRow) => typed === "" || row.words.toLowerCase().includes(typed);
+  const matches = (row: TodoRow) => matchesWords(row, o.words ?? "");
   const kept = rows.filter((row) => listed(o.tab, row, o.today, byId) && matches(row));
 
-  const groups: Group[] =
-    o.by === "state"
-      ? STATE_GROUPS.map(({ state, label }) => ({
-          key: state,
-          label,
-          state,
-          lines: treeLines(
-            kept.filter((row) => row.state === state),
-            children,
-          ),
-        }))
-      : projectGroups(kept, children);
+  const groups = byGroups(kept, children, o.by, o.today, byId);
 
   if (o.tab === "today" || o.tab === "all") {
     const done = rows.filter((row) => row.state === "done" && row.done === o.today && matches(row));
@@ -162,6 +160,58 @@ export function groupsOf(
     });
   }
   return groups.filter((group) => group.lines.length > 0);
+}
+
+function byGroups(
+  kept: TodoRow[],
+  children: Map<string, TodoRow[]>,
+  by: GroupBy,
+  today: string,
+  byId: Map<string, TodoRow>,
+): Group[] {
+  if (by === "project") return projectGroups(kept, children);
+  if (by === "day") return dayGroups(kept, children, today, byId);
+  return STATE_GROUPS.map(({ state, label }) => ({
+    key: state,
+    label,
+    state,
+    lines: treeLines(
+      kept.filter((row) => row.state === state),
+      children,
+    ),
+  }));
+}
+
+/** A group for each day of the week ahead, then one for the week after; a todo with no day sits last. */
+function dayGroups(
+  kept: TodoRow[],
+  children: Map<string, TodoRow[]>,
+  today: string,
+  byId: Map<string, TodoRow>,
+): Group[] {
+  const keyOf = (row: TodoRow) => {
+    const day = dayOf(row, byId);
+    return day === null || day <= today ? "none" : dayGroupKey(day, today);
+  };
+  const keys = [
+    ...Array.from({ length: DAYS_AHEAD }, (_, at) => shiftDay(today, at + 1)),
+    "later",
+    "none",
+  ];
+  return keys.map((key) => {
+    const rows = kept.filter((row) => keyOf(row) === key);
+    const heading = key === "none" ? { label: "No day", sub: "" } : dayHeading(key, today);
+    const inRange = (due: string | null) =>
+      due !== null && (key === "later" ? dayGroupKey(due, today) === "later" : due === key);
+    return {
+      key,
+      ...heading,
+      ...(key === "none" || key === "later" ? {} : { day: key }),
+      minutes: rows.reduce((sum, row) => sum + (row.estimate ?? 0), 0),
+      deadlines: rows.filter((row) => row.due_hard && inRange(row.due)).length,
+      lines: treeLines(rows, children),
+    };
+  });
 }
 
 function projectGroups(kept: TodoRow[], children: Map<string, TodoRow[]>): Group[] {
@@ -183,4 +233,13 @@ function projectGroups(kept: TodoRow[], children: Map<string, TodoRow[]>): Group
 export function countOf(rows: TodoRow[], tab: Tab, today: string): number {
   const byId = new Map(rows.map((row) => [row.id, row]));
   return rows.filter((row) => listed(tab, row, today, byId)).length;
+}
+
+/** The week strip over the rows Upcoming lists, so a day's count matches its group below. */
+export function upcomingWeek(rows: TodoRow[], today: string, words = ""): WeekDay[] {
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  const kept = rows.filter(
+    (row) => listed("upcoming", row, today, byId) && matchesWords(row, words),
+  );
+  return weekStrip(kept, byId, today);
 }

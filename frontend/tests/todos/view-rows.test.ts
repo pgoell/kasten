@@ -1,6 +1,6 @@
 // @vitest-environment node
-import { dateCell, detailCell } from "@/lib/todo/view/row-facts";
-import { countOf, groupsOf } from "@/lib/todo/view/view-rows";
+import { dateCell, detailCell } from "@/lib/todo/view/rows/row-facts";
+import { countOf, groupsOf } from "@/lib/todo/view/rows/view-rows";
 import { row, TODAY } from "./rows";
 
 const ROWS = [
