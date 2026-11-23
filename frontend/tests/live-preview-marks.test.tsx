@@ -311,3 +311,78 @@ describe("#1973 a vim motion reaches the hidden part of a link drawn short", () 
     expect(content(container)).toBe("Jo after");
   });
 });
+
+describe("#2306 a vim motion reaches a markdown link's hidden address", () => {
+  const press = (container: HTMLElement, keys: string[]) => {
+    const editor = container.querySelector(".cm-content") as HTMLElement;
+    for (const key of keys) fireEvent.keyDown(editor, { key });
+  };
+  const view = (container: HTMLElement) =>
+    EditorView.findFromDOM(container.querySelector(".cm-editor") as HTMLElement) as EditorView;
+  const LINK = "intro\n\n[text](https://example.com)";
+  const AT = LINK.indexOf("[");
+
+  it("enters insert mode before the ( after G $ F ( i, the link showing its source", async () => {
+    const { container } = renderEditor(<Editor initialDoc={LINK} />);
+    press(container, ["G", "$", "F", "(", "i"]);
+    await waitFor(() => expect(content(container)).toContain("[text](https://example.com)"));
+    expect(view(container).state.selection.main.head).toBe(AT + 6);
+  });
+
+  it("shows the link's source while the cursor rests on its ) after $, so x deletes it", async () => {
+    const { container } = renderEditor(<Editor initialDoc={LINK} />);
+    press(container, ["G", "$"]);
+    await waitFor(() => expect(content(container)).toContain("[text](https://example.com)"));
+    press(container, ["x"]);
+    expect(view(container).state.doc.toString()).toBe("intro\n\n[text](https://example.com");
+  });
+
+  it("draws the link as its text again once the cursor leaves the address", async () => {
+    const { container } = renderEditor(<Editor initialDoc={LINK} />);
+    press(container, ["G", "$", "F", "("]);
+    await waitFor(() => expect(content(container)).toContain("(https://example.com)"));
+    press(container, ["F", "x"]);
+    await waitFor(() => expect(content(container)).toBe("introtext"));
+    press(container, ["$"]);
+    await waitFor(() => expect(content(container)).toContain("(https://example.com)"));
+    press(container, ["k"]);
+    await waitFor(() => expect(content(container)).toBe("introtext"));
+  });
+
+  it("still walks the cursor off the opening [, the link staying drawn", () => {
+    const { container } = renderEditor(<Editor initialDoc={LINK} />);
+    press(container, ["G", "0", "x"]);
+    expect(view(container).state.doc.toString()).toBe("intro\n\n[ext](https://example.com)");
+    expect(content(container)).toBe("introext");
+  });
+
+  it("gives a reference link's hidden ][label] the same rule", async () => {
+    const doc = "[ref]: https://example.com\n\n[text][ref]";
+    const { container } = renderEditor(<Editor initialDoc={doc} />);
+    press(container, ["G", "$", "F", "[", "i"]);
+    await waitFor(() => expect(content(container)).toContain("[text][ref]"));
+    expect(view(container).state.selection.main.head).toBe(doc.lastIndexOf("["));
+  });
+
+  it("walks the cursor off a shortcut reference link's lone ], which hides no address", () => {
+    const doc = "[text]: https://example.com\n\n[text] after";
+    const { container } = renderEditor(<Editor initialDoc={doc} />);
+    press(container, ["G", "0", "e", "l"]);
+    expect(view(container).state.selection.main.head).toBe(doc.lastIndexOf("]") + 1);
+    expect(content(container)).toContain("text after");
+  });
+
+  it("leaves the link as source when escape steps back onto its ) at the line's end", async () => {
+    const { container } = renderEditor(<Editor initialDoc={LINK} />);
+    press(container, ["G", "A"]);
+    await waitFor(() => expect(view(container).state.selection.main.head).toBe(LINK.length));
+    press(container, ["Escape"]);
+    await waitFor(() => expect(view(container).state.selection.main.head).toBe(LINK.length - 1));
+    await waitFor(() => expect(content(container)).toContain("[text](https://example.com)"));
+  });
+
+  it("draws a markdown link in a preview as its text", () => {
+    const { container } = render(<NotePreview text={"[text](https://example.com) after"} />);
+    expect(content(container)).toBe("text after");
+  });
+});

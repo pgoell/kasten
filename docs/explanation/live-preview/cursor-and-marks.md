@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: Cursor and marks in live preview
-description: Why the vim mode, not the cursor, decides what shows as source, why the cursor never rests on hidden text, why a drawn marker leaves with its text, and why the gutter counts from the cursor.
+description: Why the vim mode, not the cursor, decides what shows as source, why the cursor rests on a link's hidden name or address but no other hidden text, why a drawn marker leaves with its text, and why the gutter counts from the cursor.
 tags: [design, editor, frontend, vim]
 status: stable
 ---
@@ -42,8 +42,9 @@ Visual mode reveals for a narrower reason. You are about to act on a stretch of
 text, and the highlight would otherwise cover ranges you cannot see, so `y`
 would copy asterisks that were never on the screen.
 
-One construct reveals in normal mode too: a wikilink drawn shorter than its
-source, once the cursor lands on the text it hides.
+Two constructs reveal in normal mode too: a wikilink drawn shorter than its
+source and a markdown link drawn as its text, once the cursor lands on the text
+they hide.
 [A link's hidden name is text](#a-links-hidden-name-is-text) says why.
 
 A mode the code does not recognise renders. If vim grows a submode nobody here
@@ -122,8 +123,16 @@ link shows its source while it does, in normal mode as in insert mode. Once the
 cursor leaves the hidden part, onto the alias or to another line, the link
 draws short again. A preview pane has no cursor and always draws it short.
 
+A markdown link hides its address the same way. `[text](https://example.com)`
+draws as `text`, and `$` or `F(` can land on the hidden `](https://example.com)`.
+The cursor rests there too, the link shows its source, and `i` writes before
+the `(`, as in Obsidian (#2306). A reference link's hidden `][label]` works
+the same.
+
 A link that hides only its brackets, `[[note]]`, still walks the cursor off
-them, as `##` and `**` do: nothing there is worth landing on.
+them, as `##` and `**` do: nothing there is worth landing on. So does a
+markdown link's opening `[`, and the lone `]` of a reference link written
+`[text]`.
 
 ## A drawn marker leaves with the text it stands in for
 

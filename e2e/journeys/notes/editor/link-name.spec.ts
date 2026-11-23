@@ -26,3 +26,23 @@ for (const motion of [
     await expect(line).toHaveText("[[borg|Jo]]");
   });
 }
+
+// `F(` reaches a markdown link's hidden address, and `i` writes before it, as in Obsidian (#2306).
+test("G $ F ( i writes before the ( of a markdown link drawn as its text", async ({
+  page,
+  stack,
+}) => {
+  await vaultWith(stack.vault, { "Links.md": "intro\n\n[text](https://example.com)" });
+  await openApp(page);
+  await openNote(page, "Links");
+  const line = page.locator(".cm-line").last();
+  await expect(line).toHaveText("text");
+  for (const key of ["G", "$", "F", "("]) await page.keyboard.press(key);
+  await expect(line).toHaveText("[text](https://example.com)");
+  await page.keyboard.press("i");
+  await page.keyboard.type("x");
+  await page.keyboard.press("Escape");
+  await expect
+    .poll(() => noteText(stack.vault, "Links.md"), { timeout: 15_000 })
+    .toContain("\n[text]x(https://example.com)");
+});
