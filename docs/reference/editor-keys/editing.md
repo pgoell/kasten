@@ -219,6 +219,11 @@ Tab with the cursor at the end of an open checkbox line with words on it,
 fields read off the line as a typed todo line is, and the line becomes the
 todo's embed, `![[kt-…]]`. Anywhere else, Tab indents.
 
+A trailing `^block` id stays on the line after the embed, so links to it still
+land. A second Tab while the store answers sends nothing more. If the line was
+edited in the meantime, it is kept as typed and the embed goes on the line
+under it. A refused add leaves the line alone and says why.
+
 ## Lists
 
 | Key | Does |

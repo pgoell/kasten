@@ -4,15 +4,46 @@
  */
 
 import type { Completion, CompletionContext, CompletionResult } from "@codemirror/autocomplete";
+import { StateEffect, StateField } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import type { TodoRow } from "@/lib/core/api";
 import { embedSource } from "@/lib/notes/embeds/embed";
+import { noticeSource } from "@/lib/notes/embeds/image";
 import { notePath } from "@/lib/todo/todo-commands";
 
-/** `- [ ] words`, open, with words and no store id yet. */
-const CHECKBOX = /^(\s*)[-*+] \[ \] (?=\S)(.*\S)\s*$/;
+/** `- [ ] words`, open, with words and no store id yet; a trailing `^block` id kept apart. */
+const CHECKBOX = /^(\s*)[-*+] \[ \] (?=\S)(.*?\S)(\s\^[\w-]+)?\s*$/;
 /** `[[todo` and what is typed after it, up to the cursor. */
 const TYPED = /\[\[todo\b[^\]\n]*$/i;
+
+interface Making {
+  key: number;
+  /** The start of the line, mapped through every edit while the store answers. */
+  at: number;
+}
+
+const making = StateEffect.define<{ key: number; at?: number }>({
+  map: (value, changes) =>
+    value.at === undefined ? value : { ...value, at: changes.mapPos(value.at) },
+});
+
+/** The checkbox lines Tab has sent to the store and not yet swapped for their embed. */
+export const makingTodos = StateField.define<readonly Making[]>({
+  create: () => [],
+  update(value, tr) {
+    let next = tr.docChanged
+      ? value.map((each) => ({ ...each, at: tr.changes.mapPos(each.at) }))
+      : value;
+    for (const effect of tr.effects) {
+      if (!effect.is(making)) continue;
+      const { key, at } = effect.value;
+      next = at === undefined ? next.filter((each) => each.key !== key) : [...next, { key, at }];
+    }
+    return next;
+  },
+});
+
+let nextKey = 0;
 
 /**
  * Tab with the cursor at the end of an open checkbox line: the store adds the todo to this
@@ -22,22 +53,38 @@ export function makeTodoOnTab(view: EditorView): boolean {
   const { state } = view;
   const source = state.facet(embedSource);
   const path = state.facet(notePath);
+  const inFlight = state.field(makingTodos, false);
   const { main } = state.selection;
   const line = state.doc.lineAt(main.head);
   const found = CHECKBOX.exec(line.text);
   if (!main.empty || main.head !== line.to || found === null || !source?.addTodo || !path)
     return false;
+  if (inFlight === undefined) return false;
+  // A second Tab while the store answers would make a second todo.
+  if (inFlight.some((each) => state.doc.lineAt(each.at).number === line.number)) return true;
+  const key = nextKey++;
   const typed = line.text;
-  void source.addTodo(path, typed.trim()).then((id) => {
-    // Found again by its text: typing may have moved it while the store answered.
-    const now = view.state.doc;
-    for (let at = 1; at <= now.lines; at++) {
-      const each = now.line(at);
-      if (each.text !== typed) continue;
-      view.dispatch({ changes: { from: each.from, to: each.to, insert: `${found[1]}![[${id}]]` } });
-      return;
-    }
-  });
+  const [, indent = "", , block = ""] = found;
+  const notice = state.facet(noticeSource)();
+  view.dispatch({ effects: making.of({ key, at: line.from }) });
+  source.addTodo(path, `- [ ] ${found[2]}`).then(
+    (id) => {
+      const at = view.state.field(makingTodos).find((each) => each.key === key)?.at;
+      const done = making.of({ key });
+      if (at === undefined) return view.dispatch({ effects: done });
+      const now = view.state.doc.lineAt(at);
+      // An edited line stays as typed and gets the embed under it, so the todo is never lost.
+      const changes =
+        now.text === typed
+          ? { from: now.from, to: now.to, insert: `${indent}![[${id}]]${block}` }
+          : { from: now.to, insert: `\n${indent}![[${id}]]` };
+      view.dispatch({ changes, effects: done });
+    },
+    (error: unknown) => {
+      view.dispatch({ effects: making.of({ key }) });
+      notice?.(`Not made a todo: ${error instanceof Error ? error.message : String(error)}`);
+    },
+  );
   return true;
 }
 

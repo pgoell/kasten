@@ -57,7 +57,7 @@ import { weatherCard } from "@/lib/notes/note/weather-card";
 import { periodicReview, type ReviewSource, reviewSource } from "@/lib/review/periodic-review";
 import { type CycleHandler, idElsewhere, notePath, todoCycled } from "@/lib/todo/todo-commands";
 import { todoCompletions } from "@/lib/todo/todo-suggest";
-import { makeTodoOnTab, todoLinkCompletions } from "@/lib/todo/view/in-note";
+import { makeTodoOnTab, makingTodos, todoLinkCompletions } from "@/lib/todo/view/in-note";
 import { keyboardUnasked } from "@/lib/ui/input/last-input";
 import type { EditorCommands } from "@/lib/ui/keys/key-bindings";
 import { slashCompletions } from "@/lib/ui/palette";
@@ -301,6 +301,7 @@ export function createNoteView(o: {
         markdownLanguage.data.of({ autocomplete: wikiLinkCompletions }),
         markdownLanguage.data.of({ autocomplete: todoCompletions }),
         markdownLanguage.data.of({ autocomplete: todoLinkCompletions }),
+        makingTodos,
         markdownLanguage.data.of({ autocomplete: imageCompletions }),
         markdownLanguage.data.of({ autocomplete: tagCompletions }),
         markdownLanguage.data.of({ autocomplete: relationCompletions }),

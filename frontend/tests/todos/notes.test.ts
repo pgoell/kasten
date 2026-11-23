@@ -3,8 +3,9 @@ import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { notesMatching } from "@/components/todo/view/pick/note-pick";
 import { embedSource } from "@/lib/notes/embeds/embed";
+import { noticeSource } from "@/lib/notes/embeds/image";
 import { notePath } from "@/lib/todo/todo-commands";
-import { makeTodoOnTab, todoLinkCompletions } from "@/lib/todo/view/in-note";
+import { makeTodoOnTab, makingTodos, todoLinkCompletions } from "@/lib/todo/view/in-note";
 import { linkTo, todosLinking } from "@/lib/todo/view/rows/note-links";
 import { row } from "./rows";
 
@@ -37,12 +38,21 @@ describe("todos and the notes they link", () => {
   });
 });
 
-function editor(doc: string, source: Parameters<typeof embedSource.of>[0]) {
+function editor(
+  doc: string,
+  source: Parameters<typeof embedSource.of>[0],
+  notice: (message: string) => void = () => {},
+) {
   return new EditorView({
     state: EditorState.create({
       doc,
       selection: { anchor: doc.length },
-      extensions: [embedSource.of(source), notePath.of("03 Areas/FDE/index.md")],
+      extensions: [
+        embedSource.of(source),
+        notePath.of("03 Areas/FDE/index.md"),
+        noticeSource.of(() => notice),
+        makingTodos,
+      ],
     }),
   });
 }
@@ -64,6 +74,61 @@ describe("a note's ways to a store todo", () => {
       "- [ ] ask Jonas for the room",
     );
     await vi.waitFor(() => expect(view.state.doc.toString()).toBe("Intro\n![[kt-abcdef]]"));
+  });
+
+  it("keeps a line's ^block id after the embed, so links to it still land", async () => {
+    const store = source();
+    const view = editor("- [ ] ask Jonas for the room ^room", store);
+    makeTodoOnTab(view);
+    expect(store.addTodo).toHaveBeenCalledWith(
+      "03 Areas/FDE/index.md",
+      "- [ ] ask Jonas for the room",
+    );
+    await vi.waitFor(() => expect(view.state.doc.toString()).toBe("![[kt-abcdef]] ^room"));
+  });
+
+  it("sends a line once however often Tab is pressed while the store answers", async () => {
+    let answer: (id: string) => void = () => {};
+    const store = {
+      ...source(),
+      addTodo: vi.fn(() => new Promise<string>((done) => (answer = done))),
+    };
+    const view = editor("- [ ] call back\n- [ ] call back", store);
+    expect(makeTodoOnTab(view)).toBe(true);
+    expect(makeTodoOnTab(view)).toBe(true);
+    expect(store.addTodo).toHaveBeenCalledTimes(1);
+    view.dispatch({ changes: { from: 0, insert: "Calls\n" } });
+    answer("kt-abcdef");
+    // The line pressed on, the second, not the first one with the same words.
+    await vi.waitFor(() =>
+      expect(view.state.doc.toString()).toBe("Calls\n- [ ] call back\n![[kt-abcdef]]"),
+    );
+  });
+
+  it("puts the embed under a line edited while the store answered, and says why a failure made none", async () => {
+    let answer: (id: string) => void = () => {};
+    const store = {
+      ...source(),
+      addTodo: vi.fn(() => new Promise<string>((done) => (answer = done))),
+    };
+    const view = editor("- [ ] call back", store);
+    makeTodoOnTab(view);
+    view.dispatch({ changes: { from: view.state.doc.length, insert: " soon" } });
+    answer("kt-abcdef");
+    await vi.waitFor(() =>
+      expect(view.state.doc.toString()).toBe("- [ ] call back soon\n![[kt-abcdef]]"),
+    );
+
+    const notice = vi.fn();
+    const failing = {
+      ...source(),
+      addTodo: vi.fn(async () => Promise.reject(new Error("offline"))),
+    };
+    const other = editor("- [ ] call back", failing, notice);
+    makeTodoOnTab(other);
+    await vi.waitFor(() => expect(notice).toHaveBeenCalledWith("Not made a todo: offline"));
+    expect(other.state.doc.toString()).toBe("- [ ] call back");
+    expect(other.state.field(makingTodos)).toEqual([]);
   });
 
   it("leaves Tab to indent off a checkbox line's end", () => {
