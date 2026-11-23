@@ -64,6 +64,11 @@ export function held(row: TodoRow, today: string): boolean {
   return row.state === "waiting" && row.look_again !== null && row.look_again > today;
 }
 
+/** The filter's rule, one for the table and the week strip so both count the same rows. */
+function matchesWords(row: TodoRow, words: string): boolean {
+  return row.words.toLowerCase().includes(words.trim().toLowerCase());
+}
+
 /** Whether a tab lists a todo still open. Upcoming is two weeks ahead, Today what is on now. */
 function listed(tab: Tab, row: TodoRow, today: string, byId: Map<string, TodoRow>): boolean {
   if (closed(row) || row.round_of !== null) return false;
@@ -140,8 +145,7 @@ export function groupsOf(
     if (row.parent_id === null || row.round_of !== null) continue;
     children.set(row.parent_id, [...(children.get(row.parent_id) ?? []), row]);
   }
-  const typed = o.words?.trim().toLowerCase() ?? "";
-  const matches = (row: TodoRow) => typed === "" || row.words.toLowerCase().includes(typed);
+  const matches = (row: TodoRow) => matchesWords(row, o.words ?? "");
   const kept = rows.filter((row) => listed(o.tab, row, o.today, byId) && matches(row));
 
   const groups = byGroups(kept, children, o.by, o.today, byId);
@@ -234,9 +238,8 @@ export function countOf(rows: TodoRow[], tab: Tab, today: string): number {
 /** The week strip over the rows Upcoming lists, so a day's count matches its group below. */
 export function upcomingWeek(rows: TodoRow[], today: string, words = ""): WeekDay[] {
   const byId = new Map(rows.map((row) => [row.id, row]));
-  const typed = words.trim().toLowerCase();
   const kept = rows.filter(
-    (row) => listed("upcoming", row, today, byId) && row.words.toLowerCase().includes(typed),
+    (row) => listed("upcoming", row, today, byId) && matchesWords(row, words),
   );
   return weekStrip(kept, byId, today);
 }
