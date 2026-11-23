@@ -24,7 +24,6 @@ const LINES = [
   "- [ ] buy milk #home",
 ];
 const note = (lines: string[]) => `# Keys\n\n${lines.join("\n")}\n`;
-const region = todoList;
 const row = (page: Page, words: string) => page.locator(TODO_ROW, { hasText: words });
 const cursorRow = (page: Page) => page.locator(`${TODO_ROW}[tabindex="0"]`);
 const filter = (page: Page) => page.getByLabel("filter todos");
@@ -109,7 +108,7 @@ test("a write that moves the cursor's row hands the focus back to the list, and 
   await cursorTo(page, "call the plumber");
   await page.keyboard.press("X");
   await expect(row(page, "call the plumber")).toHaveCount(0);
-  await expect(region(page).locator(`${TODO_ROW}:focus`)).toHaveCount(1);
+  await expect(todoList(page).locator(`${TODO_ROW}:focus`)).toHaveCount(1);
   const before = await cursorRow(page).textContent();
   await page.keyboard.press("j");
   await expect(cursorRow(page)).not.toHaveText(before ?? "");
@@ -152,10 +151,10 @@ test("Escape hands the list back the focus and keeps the filter applied", async 
   await openPane(page, stack.vault);
   await page.keyboard.press("/");
   await page.keyboard.type("#keys");
-  await expect(region(page).locator(TODO_ROW)).toHaveCount(2);
+  await expect(todoList(page).locator(TODO_ROW)).toHaveCount(2);
   await page.keyboard.press("Escape");
   await expect(cursorRow(page)).toBeFocused();
-  await expect(region(page).locator(TODO_ROW)).toHaveCount(2);
+  await expect(todoList(page).locator(TODO_ROW)).toHaveCount(2);
   await expect(filter(page)).toHaveValue("#keys");
 });
 
@@ -193,7 +192,7 @@ test("the desktop footer names the keys the list binds", async ({ page, stack })
 test("q closes the todo pane", async ({ page, stack }) => {
   await openPane(page, stack.vault);
   await page.keyboard.press("q");
-  await expect(region(page)).toHaveCount(0);
+  await expect(todoList(page)).toHaveCount(0);
 });
 
 test("the leader and a digit go to that tab from the focused cursor row", async ({
@@ -240,7 +239,7 @@ for (const vim of ["on", "off"]) {
     await done.focus();
     await page.keyboard.press("Enter");
     await expect(done).toHaveAttribute("aria-pressed", "true");
-    await expect(region(page)).toBeVisible();
+    await expect(todoList(page)).toBeVisible();
     await expect(caretLine(page)).toHaveCount(0);
   });
 }
@@ -272,7 +271,7 @@ test("<leader>q empties the pane of the todo list and leaves the one pane", asyn
 }) => {
   await openPane(page, stack.vault);
   await leader(page, "q");
-  await expect(region(page)).toHaveCount(0);
+  await expect(todoList(page)).toHaveCount(0);
   await expect(panes(page)).toHaveCount(1);
 });
 
