@@ -187,23 +187,40 @@ function grow(tr: Transaction, [from, to]: Span, widen: (span: Span) => Span): S
   ];
 }
 
-/** A link definition, which a link anywhere in the note reads. */
-const DEFINITION = /^ {0,3}\[[^\]]+\]:/;
+/** Whether `tree` holds a link definition in `[from, to]`, which a link anywhere in the note reads, in a quote or a list too. */
+function defines(tree: Tree, from: number, to: number): boolean {
+  let found = false;
+  tree.iterate({
+    from,
+    to,
+    enter(node) {
+      if (node.name === "LinkReference") found = true;
+      return !found;
+    },
+  });
+  return found;
+}
+
+/** Whether a line of `doc` in `[from, to]` links a video, which a time anywhere in the note seeks. */
+function linksVideo(doc: Text, from: number, to: number): boolean {
+  for (const line of doc.iterLines(doc.lineAt(from).number, doc.lineAt(to).number + 1)) {
+    if (noteVideos(line).length > 0) return true;
+  }
+  return false;
+}
 
 /** Whether the spans held or hold text the rest of the note reads: a link definition or a video a time seeks. */
 function readsAcross(tr: Transaction, spans: readonly Span[]): boolean {
   const back = tr.changes.invertedDesc;
-  const reads = (doc: Text, from: number, to: number) => {
-    for (const line of doc.iterLines(doc.lineAt(from).number, doc.lineAt(to).number + 1)) {
-      if (DEFINITION.test(line) || noteVideos(line).length > 0) return true;
-    }
-    return false;
-  };
-  return spans.some(
-    ([from, to]) =>
-      reads(tr.state.doc, from, to) ||
-      reads(tr.startState.doc, back.mapPos(from, -1), back.mapPos(to, 1)),
-  );
+  return spans.some(([from, to]) => {
+    const [oldFrom, oldTo] = [back.mapPos(from, -1), back.mapPos(to, 1)];
+    return (
+      defines(syntaxTree(tr.state), from, to) ||
+      defines(syntaxTree(tr.startState), oldFrom, oldTo) ||
+      linksVideo(tr.state.doc, from, to) ||
+      linksVideo(tr.startState.doc, oldFrom, oldTo)
+    );
+  });
 }
 
 /**

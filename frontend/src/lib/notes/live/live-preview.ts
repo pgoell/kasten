@@ -127,6 +127,8 @@ function build(state: EditorState): Live {
  */
 function patch(value: Live, tr: Transaction): Live | null {
   if (value.players && tr.docChanged) return null;
+  // A parse that finishes inside this edit leaves no later step to walk what it reached.
+  if (!value.whole && syntaxTreeAvailable(tr.state, tr.state.doc.length)) return null;
   const decorations = value.decorations.map(tr.changes);
   const wide = value.wide.map(tr.changes);
   const spans = touchedSpans(tr, ([from, to]) => {

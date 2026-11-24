@@ -194,7 +194,7 @@ function expectDrawn(view: EditorView, base: Drawn[], name: string): void {
 const NOTE_2331 = [
   "# Title",
   "",
-  "Intro with [[Small]], a [ref link][r] and #tag.",
+  "Intro with [[Small]], a [ref link][r], a [quoted one][q] and #tag.",
   "",
   "## Lists",
   "- one **bold**",
@@ -345,6 +345,20 @@ describe("#2331 an edit redraws only the blocks it touched", () => {
       (v) => type(at(v, "Last"), "[00:10](https://www.youtube.com/watch?v=abcdefghijk&t=10s) "),
       false,
     ],
+    [
+      "a definition typed in a quote",
+      (v) => type(at(v, "Para line"), "> [q]: https://q.example\n\n"),
+      false,
+    ],
+    [
+      "an svg typed below a prelude and a blank line",
+      (v) =>
+        type(
+          at(v, "Para line"),
+          '<?xml version="1.0"?>\n\n<svg viewBox="0 0 2 2"><circle r="1"/></svg>\n\n',
+        ),
+      false,
+    ],
     ["a link definition changed", (v) => type(at(v, "example.com"), "x"), false],
     [
       "a whole-text replace",
@@ -380,6 +394,16 @@ describe("#2331 an edit redraws only the blocks it touched", () => {
       view.destroy();
     });
   }
+
+  it("an svg closed by a key in an indented line past a blank line draws whole", () => {
+    const view = mount(
+      'Text.\n\n<svg viewBox="0 0 2 2">\n\n    <circle r="1"/>\n\nAfter.\n',
+      false,
+    );
+    view.dispatch(type(view.state.doc.toString().indexOf("/>") + 2, "</svg>"));
+    expectDrawn(view, fresh(view, false), "closed");
+    view.destroy();
+  });
 
   it("a fence made longer or shorter recounts the todos it turns into code or back", () => {
     const view = mount("```\nx\n```\n- [ ] parent\n  - [ ] child\n", false);
