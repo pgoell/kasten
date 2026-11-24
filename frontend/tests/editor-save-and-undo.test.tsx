@@ -250,6 +250,24 @@ describe("#2098 an undo after the first save added the frontmatter", () => {
   });
 });
 
+describe("#2341 a reload deleting a table above one with the same head", () => {
+  it("takes the first table's start with it, and leaves the second's", () => {
+    const table = "| a | b |\n| - | - |\n| 1 | 2 |";
+    const doc = `before\n\n${table}\n\n${table}\n| 3 | 4 |`;
+    const { container } = render(<Editor initialDoc={doc} preview={false} />);
+    const view = viewIn(container);
+    const dispatch = vi.spyOn(view, "dispatch");
+    const [first, second] = [doc.indexOf("| a"), doc.lastIndexOf("| a")];
+    const wanted = doc.slice(0, first) + doc.slice(second);
+    act(() => takeVaultText(view, wanted));
+    const [[{ changes }]] = dispatch.mock.calls as unknown as [[{ changes: unknown }]];
+    expect([changes, view.state.doc.toString()]).toEqual([
+      { from: first - 1, to: second - 1 },
+      wanted,
+    ]);
+  });
+});
+
 describe("Editor", () => {
   it("starts in vim normal mode, so keys act as commands", () => {
     const { container } = render(<Editor initialDoc={"line one\nline two"} />);
