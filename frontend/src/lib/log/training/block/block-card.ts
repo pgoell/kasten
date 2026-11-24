@@ -186,8 +186,11 @@ interface Card extends Shown {
 }
 
 function build(state: EditorState, shown: Shown): Card {
+  // The head first: a long note that is no block reads no whole text per key (#2331).
+  if (!isBlock(state.doc.sliceString(0, HEAD_CHARS)))
+    return { ...shown, decorations: Decoration.none };
   const text = state.doc.toString();
-  const block = isBlock(text.slice(0, HEAD_CHARS)) ? parseBlock(text) : null;
+  const block = parseBlock(text);
   const line = block === null ? null : cardLine(state.doc);
   if (block === null || line === null) return { ...shown, decorations: Decoration.none };
   const widget = new BlockCard(block, shown, text);

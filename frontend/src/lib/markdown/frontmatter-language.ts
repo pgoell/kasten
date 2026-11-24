@@ -5,6 +5,7 @@ import {
   LanguageSupport,
   languageDataProp,
 } from "@codemirror/language";
+import type { Text } from "@codemirror/state";
 import {
   type Input,
   NodeType,
@@ -73,12 +74,17 @@ function block(input: Input, reach: number): { open: number; from: number; to: n
  * Where the body starts: past the closer, or 0 with no block. The editor and the highlighting
  * both ask here, so they draw the same line.
  */
-export function belowFrontmatter(doc: string): number {
+export function belowFrontmatter(doc: string | Text): number {
+  // A Text is read a line at a time, so a key in a long note reads only the head (#2331).
+  const read =
+    typeof doc === "string"
+      ? (from: number, to: number) => doc.slice(from, to)
+      : (from: number, to: number) => doc.sliceString(from, to);
   const input: Input = {
     length: doc.length,
     lineChunks: false,
-    chunk: (from) => doc.slice(from),
-    read: (from, to) => doc.slice(from, to),
+    chunk: (from) => read(from, doc.length),
+    read,
   };
   return block(input, doc.length)?.to ?? 0;
 }
