@@ -43,11 +43,23 @@ function placesOf(view: EditorView, path: string): Map<number, number> {
 }
 
 /**
- * Moves saved places and drawn starts through `changes`. A table whose first character went is dropped,
- * so its place cannot pass to the table after it (#2338).
+ * Where a table's start lands, or null for a table whose first character was deleted with nothing
+ * written in its place, so its place cannot pass to the table after it (#2338). One rewritten from
+ * its start, as the line-up adds a leading pipe, keeps it.
  */
+function startAfter(changes: ChangeDesc, at: number): number | null {
+  const kept = changes.mapPos(at, 1, MapMode.TrackAfter);
+  if (kept !== null) return kept;
+  let written = false;
+  changes.iterChangedRanges((fromA, toA, fromB, toB) => {
+    if (fromA <= at && at < toA && toB > fromB) written = true;
+  });
+  return written ? changes.mapPos(at, -1) : null;
+}
+
+/** Moves saved places and drawn starts through `changes`, dropping the tables `startAfter` drops. */
 function follow(changes: ChangeDesc, places: Map<number, number>, drawn: Iterable<Watch>): void {
-  const map = (at: number) => changes.mapPos(at, 1, MapMode.TrackAfter);
+  const map = (at: number) => startAfter(changes, at);
   const moved = [...places].map(([at, left]) => [map(at), left] as const);
   places.clear();
   for (const [at, left] of moved) if (at !== null) places.set(at, left);

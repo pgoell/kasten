@@ -307,6 +307,29 @@ describe("table reading", () => {
     expect(scrollerOf(host.querySelector(".cm-table-block") as HTMLElement).scrollLeft).toBe(0);
   });
 
+  it("#2338 a table written without a leading pipe keeps its place when the line-up adds one", async () => {
+    const row = (cells: (c: number) => string) =>
+      Array.from({ length: 30 }, (_, c) => cells(c)).join(" | ");
+    const lines = [
+      row((c) => `column ${c}`),
+      row(() => "---"),
+      row((c) => `cell ${c}`),
+      row((c) => `cell ${c}`),
+    ];
+    const doc = `before\n\n${lines.join("\n")}`;
+    const { at, scroller, host } = await drawn(doc);
+    scroller.scrollLeft = 150;
+    await expect.poll(() => scroller.scrollLeft).toBe(150);
+    at.dispatch({ selection: { anchor: doc.indexOf("cell 0") } });
+    await expect.poll(() => host.querySelector(".cm-table-block")).toBeNull();
+    at.dispatch({ changes: { from: doc.indexOf("cell 0"), insert: "wider " } });
+    at.dispatch({ selection: { anchor: 0 } });
+    await expect.poll(() => at.state.doc.line(3).text.startsWith("| column 0")).toBe(true);
+    await expect
+      .poll(() => scrollerOf(host.querySelector(".cm-table-block") as HTMLElement)?.scrollLeft)
+      .toBe(150);
+  });
+
   it("#792 A2 at 1440 a wide table keeps its words whole and scrolls", async () => {
     // Words with no space in them: a cell may break between words, never inside one.
     await page.viewport(1440, 900);
