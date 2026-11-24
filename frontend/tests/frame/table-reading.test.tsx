@@ -18,46 +18,19 @@ import { imagePaths } from "@/lib/notes/embeds/image";
 import { vaultPaths } from "@/lib/notes/links/wikilink";
 import { livePreview } from "@/lib/notes/live/live-preview";
 import { notePath } from "@/lib/todo/todo-commands";
-import { mountApp, SITE, settled, stubOpen, tableLinkCleanup, tap } from "./table-link-fixture";
+import {
+  drawn,
+  mountApp,
+  SITE,
+  scrollerOf,
+  settled,
+  stubOpen,
+  tableLinkCleanup,
+  tap,
+  wideNote,
+} from "./table-link-fixture";
 
 tableLinkCleanup();
-
-/** A note with a line above a table of `rows` body rows and `columns` columns. */
-function wideNote(rows: number, columns = 30): string {
-  const cell = (text: string) => ` ${text} |`;
-  const header = `|${Array.from({ length: columns }, (_, c) => cell(`column ${c}`)).join("")}`;
-  const divider = `|${" --- |".repeat(columns)}`;
-  const body = Array.from(
-    { length: rows },
-    (_, r) =>
-      `|${Array.from({ length: columns }, (_, c) =>
-        cell(c === 0 ? `item ${r}` : c === 1 ? `${r * 10}` : `cell ${r} ${c}`),
-      ).join("")}`,
-  );
-  return ["before", "", header, divider, ...body].join("\n");
-}
-
-/**
- * The box a table scrolls in. Before the inner box existed the block scrolled
- * itself, so a missing inner box falls back to the block, and a test then fails
- * on the behaviour it checks rather than on the lookup.
- */
-function scrollerOf(block: Element): HTMLElement {
-  return (block.querySelector(".cm-table-scroll") ?? block) as HTMLElement;
-}
-
-/** The editor on `doc`, with the table's own box and its scroll, once drawn. */
-async function drawn(doc: string, height = 600) {
-  // Set here, not left to the test before: a width read from another test's leftover
-  // viewport made a table fit or not by order.
-  await page.viewport(1440, 900);
-  const host = mountApp(doc, height, { vim: "off" });
-  await expect.poll(() => host.querySelector(".cm-table-block")).not.toBeNull();
-  const at = EditorView.findFromDOM(host.querySelector(".cm-editor") as HTMLElement) as EditorView;
-  const block = host.querySelector(".cm-table-block") as HTMLElement;
-  const scroller = scrollerOf(block);
-  return { host, at, block, scroller, table: scroller.querySelector("table") as HTMLTableElement };
-}
 
 /** What a CSS value resolves to in this page, read off a probe the way a style would take it. */
 function resolved(property: "color" | "font-family", value: string): string {
@@ -220,35 +193,6 @@ describe("table reading", () => {
 
     const again = scrollerOf(at.dom.querySelector(".cm-table-block") as HTMLElement);
     await expect.poll(() => again.scrollLeft).toBe(150);
-  });
-
-  it("#2334 each table keeps its place through edits above it, drawn or not, and an edit in it", async () => {
-    const doc = `${wideNote(3)}\n\nmiddle\n\n${wideNote(3).replace("before\n\n", "")}`;
-    const { at } = await drawn(doc);
-    const blocks = () => [...at.dom.querySelectorAll(".cm-table-block")].map(scrollerOf);
-    await expect.poll(() => blocks().length).toBe(2);
-    const [first, second] = blocks() as [HTMLElement, HTMLElement];
-    first.scrollLeft = 150;
-    second.scrollLeft = 60;
-    await expect.poll(() => [first.scrollLeft, second.scrollLeft]).toEqual([150, 60]);
-    const head = () => at.state.doc.toString().indexOf("| column 0");
-    /** The cursor into the first table, which takes its widget off the page, then `edit`, then out. */
-    const inAndOut = async (edit: () => void) => {
-      at.dispatch({ selection: { anchor: head() } });
-      await expect.poll(() => blocks().length).toBe(1);
-      edit();
-      at.dispatch({ selection: { anchor: 0 } });
-      await expect.poll(() => blocks().map((scroller) => scroller.scrollLeft)).toEqual([150, 60]);
-    };
-
-    // Typed above while the table is drawn, the widget kept on the page.
-    at.dispatch({ changes: { from: 0, insert: "x" } });
-    await inAndOut(() => {});
-    // Typed above while it is not drawn, and taken back.
-    await inAndOut(() => at.dispatch({ changes: { from: 0, insert: "yy\n" } }));
-    await inAndOut(() => at.dispatch({ changes: { from: 0, to: 3 } }));
-    // Typed in a cell.
-    await inAndOut(() => at.dispatch({ changes: { from: head() + 4, insert: "z" } }));
   });
 
   it("#792 A2 at 1440 a wide table keeps its words whole and scrolls", async () => {
