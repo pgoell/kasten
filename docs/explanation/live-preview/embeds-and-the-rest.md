@@ -114,6 +114,16 @@ parse lands. So past that point the old drawing stays, moved through the edit,
 until the parse lands and the decorations are rebuilt. Only what the edit
 touched, and the lines a cursor sits on, show their source in the meantime.
 
+**A note opens drawn.** A new editor gets the same 20ms, and CodeMirror leaves
+the rest to an idle pass 100ms or more later. On a slow phone the headings past
+that point would show their `#` until then, where Obsidian shows none. So the
+editor parses on to the end of the screen, or a screen past the cursor, before
+the first paint, and again when an open names a line further down, with up to
+200ms for it. A note that opens at its top costs nothing more; one that opens
+deep in a long note pays for the parse up to the cursor (#1984). A scroll past
+the parsed part still waits for the idle pass (#2323), as does an embedded
+note's own view (#2324).
+
 The finder's preview pane is the exception. It is told nothing about how to
 read the vault, so it shows `![[...]]` as source rather than calling every
 target missing.
