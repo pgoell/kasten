@@ -106,6 +106,21 @@ this one, so a box built once with the decorations would go stale and stay
 that way. Instead each box watches its note and redraws itself when the note
 changes, whatever changed it.
 
+**An edit redraws only what it touched.** The drawing lives in a `StateField`,
+since the filter that walks the cursor out of hidden marks reads it from the
+state, and a field cannot see the screen. So rather than walk the whole tree
+again on each key, as it did until #2331, it moves the old drawing through the
+edit and walks again only the blocks the edit touched, before and after it,
+and the lines the cursor left and entered. A block that grows over others, as
+a fence opened above them does, takes them in. A whole walk still runs where
+part of the note reads another part: a link definition or a video link in the
+edited lines, an edit to the frontmatter, a vim mode switch, a fold, a theme,
+and a tree that has not reached the edit. The counts after a parent todo read
+the whole note, so they are read again only when an edit changes a todo, a
+list item, a heading or a fence line. A widget that needs its place in the
+note reads it when it is clicked, as a callout's fold does, so a drawing moved
+through an edit above it stays right.
+
 **An edit keeps the box.** CodeMirror gives the parse after each edit 20ms. On
 a loaded machine it can run out, and a drawing built from the tree as it then
 stands would stop where the tree does: every embed past that point would lose

@@ -58,9 +58,9 @@ The block at the top of the text, which scrolls with the note:
 Read and Edit sit at the top right of the header, as a small switch, 15 px on a
 phone.
 
-In a note over 20,000 characters the meta line and the relations catch up with
-the text a second after the typing pauses, not on each key, since reading them
-walks the whole note (#2329).
+In a note over 20,000 characters the meta line, the Properties list and the
+relations catch up with the text a second after the typing pauses, not on each
+key, since reading them walks the whole note (#2329).
 
 A yearly or weekly note also carries its review under the title, drawn in Read
 and in Edit and never written into the file. The review sits above the note's
@@ -91,9 +91,9 @@ saved place puts its cursor on the first line past them.
 The left margin lists the headings. The heading over the top of the view is
 marked with the accent colour and a 2 px accent rule at its left edge. A click
 or a tap on a row puts the cursor on that heading and scrolls it to the top.
-In a note over 20,000 characters the rows catch up a second after the typing
-pauses, as the header does; a row tapped before that still goes to the heading
-it names.
+In a note over 20,000 characters the rows and the marked heading catch up a
+second after the typing pauses, as the header does; a row tapped before that
+still goes to the heading it names.
 
 ## The margins and the breaks
 
