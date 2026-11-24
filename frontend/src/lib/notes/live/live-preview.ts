@@ -48,7 +48,7 @@ import {
 import { isProgress, Lists, movesCounts } from "@/lib/notes/live/live-preview-lists";
 import { drawBlockMath, drawInlineMath } from "@/lib/notes/live/live-preview-math";
 import { drawSvg } from "@/lib/notes/live/live-preview-svg";
-import { drawTable } from "@/lib/notes/live/live-preview-tables";
+import { drawTable, tablePlaces } from "@/lib/notes/live/live-preview-tables";
 import { drawTime, linkedVideos } from "@/lib/notes/live/live-preview-times";
 import { videoLayer } from "@/lib/notes/live/live-preview-video";
 import { watchPresses } from "@/lib/ui/input/presses";
@@ -521,6 +521,7 @@ export function livePreview(): Extension {
     rethemes,
     videoLayer,
     parseShownPart,
+    tablePlaces,
   ];
 }
 
@@ -531,5 +532,5 @@ export function livePreview(): Extension {
 export function renderedMarkdown(): Extension {
   // For the reason `livePreview` watches them: a preview may be the only view.
   watchPresses();
-  return [vimModeField, folds, live, foldClicks, rethemes, videoLayer, parseShownPart];
+  return [vimModeField, folds, live, foldClicks, rethemes, videoLayer, parseShownPart, tablePlaces];
 }

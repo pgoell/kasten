@@ -222,6 +222,35 @@ describe("table reading", () => {
     await expect.poll(() => again.scrollLeft).toBe(150);
   });
 
+  it("#2334 each table keeps its place through edits above it, drawn or not, and an edit in it", async () => {
+    const doc = `${wideNote(3)}\n\nmiddle\n\n${wideNote(3).replace("before\n\n", "")}`;
+    const { at } = await drawn(doc);
+    const blocks = () => [...at.dom.querySelectorAll(".cm-table-block")].map(scrollerOf);
+    await expect.poll(() => blocks().length).toBe(2);
+    const [first, second] = blocks() as [HTMLElement, HTMLElement];
+    first.scrollLeft = 150;
+    second.scrollLeft = 60;
+    await expect.poll(() => [first.scrollLeft, second.scrollLeft]).toEqual([150, 60]);
+    const head = () => at.state.doc.toString().indexOf("| column 0");
+    /** The cursor into the first table, which takes its widget off the page, then `edit`, then out. */
+    const inAndOut = async (edit: () => void) => {
+      at.dispatch({ selection: { anchor: head() } });
+      await expect.poll(() => blocks().length).toBe(1);
+      edit();
+      at.dispatch({ selection: { anchor: 0 } });
+      await expect.poll(() => blocks().map((scroller) => scroller.scrollLeft)).toEqual([150, 60]);
+    };
+
+    // Typed above while the table is drawn, the widget kept on the page.
+    at.dispatch({ changes: { from: 0, insert: "x" } });
+    await inAndOut(() => {});
+    // Typed above while it is not drawn, and taken back.
+    await inAndOut(() => at.dispatch({ changes: { from: 0, insert: "yy\n" } }));
+    await inAndOut(() => at.dispatch({ changes: { from: 0, to: 3 } }));
+    // Typed in a cell.
+    await inAndOut(() => at.dispatch({ changes: { from: head() + 4, insert: "z" } }));
+  });
+
   it("#792 A2 at 1440 a wide table keeps its words whole and scrolls", async () => {
     // Words with no space in them: a cell may break between words, never inside one.
     await page.viewport(1440, 900);
