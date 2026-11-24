@@ -3,7 +3,8 @@ import {
   EditorState,
   type Extension,
   type Line,
-  RangeSet,
+  type Range,
+  type RangeSet,
   StateField,
   type Transaction,
 } from "@codemirror/state";
@@ -29,9 +30,13 @@ import {
 import { drawEmbed } from "@/lib/notes/live/live-preview-embeds";
 import { drawFence, retheme, rethemes } from "@/lib/notes/live/live-preview-fences";
 import {
+  bandStart,
   isLineRevealed,
   isNodeRevealed,
+  keeper,
+  keepPastParse,
   nudgeOutOfHidden,
+  parsedTo,
   type Span,
   touchedSpans,
   Walk,
@@ -48,7 +53,7 @@ import {
 import { isProgress, Lists, movesCounts } from "@/lib/notes/live/live-preview-lists";
 import { drawBlockMath, drawInlineMath } from "@/lib/notes/live/live-preview-math";
 import { drawSvg } from "@/lib/notes/live/live-preview-svg";
-import { drawTable } from "@/lib/notes/live/live-preview-tables";
+import { drawTable, tablePlaces } from "@/lib/notes/live/live-preview-tables";
 import { drawTime, linkedVideos } from "@/lib/notes/live/live-preview-times";
 import { videoLayer } from "@/lib/notes/live/live-preview-video";
 import { watchPresses } from "@/lib/ui/input/presses";
@@ -70,6 +75,8 @@ interface Live {
   nested: boolean;
   /** Whether a video's player is drawn: it keeps its place from when it was built, so an edit walks whole. */
   players: boolean;
+  /** Up to where this is what a whole walk draws; past it the drawing waits on the parse. */
+  reach: number;
 }
 
 /** The nodes drawn by their line that no flag of their own picks out. */
@@ -118,6 +125,46 @@ function build(state: EditorState): Live {
     whole: syntaxTreeAvailable(state, state.doc.length),
     nested: lists.nested,
     players: walk.decorations.some((range) => isPlayer(range.value)),
+    reach: parsedTo(state),
+  };
+}
+
+/**
+ * The drawing after a parse step, or a key past the parse's reach: only what the parse newly reached and the lines
+ * the edit touched are walked, where a whole walk cost a long note's every key near its end (#2333).
+ */
+function pastReach(value: Live, tr: Transaction): Live | null {
+  if (value.whole || value.nested || (value.players && tr.docChanged)) return null;
+  const { doc } = tr.state;
+  const reach = parsedTo(tr.state);
+  const from = bandStart(tr, Math.min(tr.changes.mapPos(value.reach, -1), reach));
+  if (from === null) return null;
+  const { walk, lists } = walkOver(tr.state, [[from, doc.length]]);
+  if (lists.nested) return null;
+  // As keepPastParse: past the reach a range keeps its old drawing unless the edit or a cursor is on its line.
+  const keep = keeper(tr, doc.length > reach ? reach : Infinity);
+  const join = (set: RangeSet<Decoration>, add: Range<Decoration>[]) =>
+    set.map(tr.changes).update({
+      filterFrom: from,
+      filterTo: doc.length,
+      filter: (start, end) => start < from || keep(start, end),
+      add: add.filter((range) => !keep(range.from, range.to)),
+      sort: true,
+    });
+  return {
+    decorations: join(value.decorations, walk.decorations),
+    hidden: join(value.hidden, walk.hidden),
+    wide: value.wide.map(tr.changes).update({
+      filterFrom: from,
+      filterTo: doc.length,
+      filter: (start) => start < from,
+      add: walk.wide,
+      sort: true,
+    }),
+    whole: reach >= doc.length,
+    nested: false,
+    players: value.players || walk.decorations.some((range) => isPlayer(range.value)),
+    reach,
   };
 }
 
@@ -179,6 +226,7 @@ function patch(value: Live, tr: Transaction): Live | null {
     whole: value.whole,
     nested,
     players: value.players || walk.decorations.some((range) => isPlayer(range.value)),
+    reach: tr.changes.mapPos(value.reach, -1),
   };
 }
 
@@ -342,54 +390,6 @@ function enterInline(
   drawInline(walk, node.node, inline, inlineRevealed);
 }
 
-/**
- * How far the parse has got. The tree's own length can run past it, so this
- * asks CodeMirror, by halves, up to where a full tree is available.
- */
-function parsedTo(state: EditorState): number {
-  let low = 0;
-  let high = state.doc.length;
-  while (low < high) {
-    const mid = Math.ceil((low + high) / 2);
-    if (syntaxTreeAvailable(state, mid)) low = mid;
-    else high = mid - 1;
-  }
-  return low;
-}
-
-/**
- * Where an edit's parse ran out of its 20ms (#1005), the tree stops short.
- * The old drawing holds there until the parse lands, so an embed does not lose its box and remount.
- */
-function keepPastParse(value: Live, tr: Transaction, fresh: Live): Live {
-  const { doc, selection } = tr.state;
-  const reach = parsedTo(tr.state);
-  if (syntaxTreeAvailable(tr.state) || reach >= doc.length) return fresh;
-  const kept = { whole: false, nested: fresh.nested, wide: fresh.wide, players: fresh.players };
-  const keep = (from: number, to: number) => {
-    if (from < reach) return false;
-    const onLines = (start: number, end: number) =>
-      doc.lineAt(start).from <= to && doc.lineAt(end).to >= from;
-    let touched = false;
-    tr.changes.iterChangedRanges((_fromA, _toA, fromB, toB) => {
-      if (onLines(fromB, toB)) touched = true;
-    });
-    return !touched && !selection.ranges.some((range) => onLines(range.from, range.to));
-  };
-  // One source per range: a stopped tree can hold nodes past the reach, so the fresh drawing
-  // may hold what the old one keeps, and joined, each rebuild nests another mark (#2227).
-  const both = <T extends Decoration>(now: RangeSet<T>, before: RangeSet<T>) =>
-    RangeSet.join([
-      now.update({ filter: (from, to) => !keep(from, to) }),
-      (tr.docChanged ? before.map(tr.changes) : before).update({ filter: keep }),
-    ]);
-  return {
-    ...kept,
-    decorations: both(fresh.decorations, value.decorations),
-    hidden: both(fresh.hidden, value.hidden),
-  };
-}
-
 const live = StateField.define<Live>({
   create: build,
   update(value, tr) {
@@ -421,7 +421,7 @@ const live = StateField.define<Live>({
     if (!global) {
       // A drawing a patch made already holds what the parse catching up would bring.
       if (!edited && value.whole) return value;
-      const patched = edited ? patch(value, tr) : null;
+      const patched = (edited ? patch(value, tr) : null) ?? pastReach(value, tr);
       if (patched) return patched;
     }
     return keepPastParse(value, tr, build(tr.state));
@@ -521,6 +521,7 @@ export function livePreview(): Extension {
     rethemes,
     videoLayer,
     parseShownPart,
+    tablePlaces,
   ];
 }
 
@@ -531,5 +532,5 @@ export function livePreview(): Extension {
 export function renderedMarkdown(): Extension {
   // For the reason `livePreview` watches them: a preview may be the only view.
   watchPresses();
-  return [vimModeField, folds, live, foldClicks, rethemes, videoLayer, parseShownPart];
+  return [vimModeField, folds, live, foldClicks, rethemes, videoLayer, parseShownPart, tablePlaces];
 }

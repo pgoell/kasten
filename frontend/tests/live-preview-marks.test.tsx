@@ -386,3 +386,13 @@ describe("#2306 a vim motion reaches a markdown link's hidden address", () => {
     expect(content(container)).toBe("text after");
   });
 });
+
+it("a fold click after an edit above it folds the callout clicked (#2332)", () => {
+  const doc = "Intro\n\n> [!note]- One\n> body one\n\n> [!note]- Two\n> body two\n\nEnd";
+  const { container } = renderEditor(<Editor initialDoc={doc} />);
+  const at = EditorView.findFromDOM(container.querySelector(".cm-editor") as HTMLElement);
+  at?.dispatch({ changes: { from: 0, insert: "more " } });
+  fireEvent.click(container.querySelectorAll(".cm-callout-fold")[1] as HTMLElement);
+  const shown = content(container);
+  expect([shown.includes("body one"), shown.includes("body two")]).toEqual([false, true]);
+});

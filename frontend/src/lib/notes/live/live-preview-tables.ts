@@ -1,5 +1,11 @@
 import type { EditorState } from "@codemirror/state";
-import { Decoration, type EditorView, WidgetType } from "@codemirror/view";
+import {
+  Decoration,
+  type EditorView,
+  ViewPlugin,
+  type ViewUpdate,
+  WidgetType,
+} from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
 import { type Align, alignsOf, isRow } from "@/lib/notes/editor/table";
 import { isBlockRevealed, isLineRevealed, type Walk } from "@/lib/notes/live/live-preview-hidden";
@@ -10,19 +16,50 @@ import { isCodeToken, isDashes, isNumericColumn } from "@/lib/notes/live/table-k
 import { notePath } from "@/lib/todo/todo-commands";
 import { repeats } from "@/lib/ui/input/presses";
 
+/** A drawn table: its observer, the note's saved places, and where it starts once laid out (null before). */
+interface Watch {
+  observer: ResizeObserver;
+  places: Map<number, number>;
+  at: number | null;
+  drawn: Set<Watch>;
+}
+
 /**
- * The scroll place of each drawn table, kept per editor, note and table start.
+ * The scroll place of each table, kept per editor and note by where the table starts.
  * A rebuilt widget would otherwise scroll back to the start each time the cursor enters the table.
  */
-const scrolled = new WeakMap<EditorView, Map<string, number>>();
+const scrolled = new WeakMap<EditorView, Map<string, Map<number, number>>>();
+/** The tables each editor has on the page, whose starts move with an edit as the saved places do. */
+const drawnIn = new WeakMap<EditorView, Set<Watch>>();
+/** Kept so `destroy` can let the observer go and save the scroll. */
+const watching = new WeakMap<HTMLElement, Watch>();
+
+function placesOf(view: EditorView, path: string): Map<number, number> {
+  const notes = scrolled.get(view) ?? new Map<string, Map<number, number>>();
+  scrolled.set(view, notes);
+  const places = notes.get(path) ?? new Map<number, number>();
+  notes.set(path, places);
+  return places;
+}
+
 /**
- * The observer each drawn table holds, and the place its scroll goes back to,
- * kept so `destroy` can let the observer go and save the scroll.
+ * Moves the note's saved places and drawn tables with each edit, as a widget keeps its first start (#2334).
+ * Another note's places are left alone: the edit says nothing about its offsets.
  */
-const watching = new WeakMap<
-  HTMLElement,
-  { observer: ResizeObserver; place: Map<string, number>; key: string }
->();
+export const tablePlaces = ViewPlugin.define((view) => ({
+  update(update: ViewUpdate) {
+    const path = update.state.facet(notePath) ?? "";
+    if (!update.docChanged || path !== (update.startState.facet(notePath) ?? "")) return;
+    const places = placesOf(view, path);
+    const moved = [...places].map(([at, left]) => [update.changes.mapPos(at, 1), left] as const);
+    places.clear();
+    for (const [at, left] of moved) places.set(at, left);
+    for (const watch of drawnIn.get(view) ?? []) {
+      if (watch.places === places && watch.at !== null)
+        watch.at = update.changes.mapPos(watch.at, 1);
+    }
+  },
+}));
 
 /** The text a cell shows, or null for a cell that holds a picture, which is never a number or code. */
 function textOf(spans: Span[]): string | null {
@@ -34,13 +71,21 @@ function textOf(spans: Span[]): string | null {
  * Keeps the edge shadows and the sticky first column true to the scroller.
  * Read off the scroll and the box, so resizes and scrolls land on the same numbers.
  */
-function watchTable(
-  block: HTMLElement,
-  scroller: HTMLElement,
-  place: Map<string, number>,
-  key: string,
-): void {
-  let restore = place.get(key);
+function watchTable(view: EditorView, block: HTMLElement, scroller: HTMLElement): void {
+  const watch: Watch = {
+    observer: new ResizeObserver(() => {
+      // The start is read once on the page, as a widget mapped through edits keeps the start it was built at.
+      if (watch.at === null) {
+        watch.at = view.posAtDOM(block);
+        const restore = watch.places.get(watch.at);
+        if (restore !== undefined) scroller.scrollLeft = restore;
+      }
+      measure();
+    }),
+    places: placesOf(view, view.state.facet(notePath) ?? ""),
+    at: null,
+    drawn: drawnIn.get(view) ?? new Set<Watch>(),
+  };
   const measure = (): void => {
     const { scrollLeft, scrollWidth, clientWidth } = scroller;
     block.toggleAttribute("data-shadow-left", scrollLeft > 0);
@@ -55,17 +100,11 @@ function watchTable(
   };
   // Set once the table has a layout, as a widget is not yet on the page when
   // it is built and a scroll set before then does nothing.
-  const observer = new ResizeObserver(() => {
-    if (restore !== undefined) {
-      scroller.scrollLeft = restore;
-      restore = undefined;
-    }
-    measure();
-  });
-  observer.observe(scroller);
-  observer.observe(scroller.firstElementChild as Element);
+  watch.observer.observe(scroller);
+  watch.observer.observe(scroller.firstElementChild as Element);
   scroller.addEventListener("scroll", measure, { passive: true });
-  watching.set(block, { observer, place, key });
+  watching.set(block, watch);
+  drawnIn.set(view, watch.drawn.add(watch));
 }
 
 function alignCell(cell: HTMLElement, explicit: Align, numeric: boolean): void {
@@ -110,26 +149,22 @@ function spanElement(view: EditorView, span: Span): Node {
 class TableGrid extends WidgetType {
   private readonly rows: Span[][][];
   private readonly aligns: Align[];
-  /** Where the table starts, the key its scroll place is kept under. */
-  private readonly from: number;
   /** What `eq` compares, the rows being a fresh array on every build. */
   private readonly key: string;
 
-  constructor(rows: Span[][][], aligns: Align[], from: number) {
+  constructor(rows: Span[][][], aligns: Align[]) {
     super();
     this.rows = rows;
     this.aligns = aligns;
-    this.from = from;
     this.key = JSON.stringify([rows, aligns]);
   }
 
   override destroy(dom: HTMLElement): void {
     const scroller = dom.querySelector<HTMLElement>(".cm-table-scroll");
     const drawn = watching.get(dom);
-    if (drawn !== undefined && scroller !== null) {
-      drawn.place.set(drawn.key, scroller.scrollLeft);
-    }
+    if (drawn?.at != null && scroller !== null) drawn.places.set(drawn.at, scroller.scrollLeft);
     drawn?.observer.disconnect();
+    drawn?.drawn.delete(drawn);
     watching.delete(dom);
   }
 
@@ -251,9 +286,7 @@ class TableGrid extends WidgetType {
         for (const span of spans) cell.append(spanElement(view, span));
       });
     });
-    const place = scrolled.get(view) ?? new Map<string, number>();
-    scrolled.set(view, place);
-    watchTable(block, scroller, place, `${view.state.facet(notePath) ?? ""}:${this.from}`);
+    watchTable(view, block, scroller);
     return block;
   }
 }
@@ -285,7 +318,7 @@ function tableGrid(state: EditorState, table: SyntaxNode, end: number): TableGri
     }
     rows.push(rowSpans(state, child));
   }
-  return new TableGrid(rows, aligns, table.from);
+  return new TableGrid(rows, aligns);
 }
 
 /**

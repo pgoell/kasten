@@ -12,6 +12,7 @@ import { noteLanguage } from "@/lib/markdown/note-language";
 import { setVimMode, vimKeys } from "@/lib/notes/editor/vim-mode";
 import { vaultPaths, wikiLinkAt } from "@/lib/notes/links/wikilink";
 import { livePreview, renderedMarkdown } from "@/lib/notes/live/live-preview";
+import { retheme } from "@/lib/notes/live/live-preview-fences";
 import { stalled } from "./live-preview-fixture";
 
 /** Whether some decoration replaces the range with a widget. */
@@ -463,4 +464,67 @@ describe("#2331 an edit redraws only the blocks it touched", () => {
     other.destroy();
     view.destroy();
   });
+
+  /** A long note parsed to `upto` on a clock that keeps each later step short, the cursor at its end. */
+  const half = (vim: boolean, upto: number, nested = false) => {
+    const block = NOTE_2331.replace("[r]: https://example.com", "Plain.");
+    const doc = Array(60)
+      .fill(nested ? block : block.replace(/ {2}- /g, "- "))
+      .join("\n\n");
+    const view = stalled(() => {
+      const state = EditorState.create({
+        doc,
+        selection: { anchor: doc.length },
+        extensions: extensions(vim),
+      });
+      const made = new EditorView({ state });
+      if (vim) made.dispatch({ effects: setVimMode.of("insert") });
+      return made;
+    });
+    forceParsing(view, doc.length - upto, 10_000);
+    return view;
+  };
+  // A definition and a video are read by the whole note, and walk it whole as indented todos do.
+  const KEYS = ["a", "b", "\n[q]: https://q.example", "[0:10](https://youtu.be/abcdefghijk?t=10)"];
+
+  for (const [vim, nested] of [
+    [false, false],
+    [true, false],
+    [false, true],
+  ] as const) {
+    it(`#2333 a key past the parse's reach draws as main, walking whole only where main must, vim ${vim}, nested ${nested}`, () => {
+      const view = half(vim, 15_000, nested);
+      const whole = vi.spyOn(Tree.prototype, "iterate");
+      for (const key of KEYS) {
+        whole.mockClear();
+        stalled(() => view.dispatch(type(view.state.doc.length, key)));
+        const tree = syntaxTree(view.state);
+        const walks = whole.mock.contexts.filter(
+          (t, i) => t === tree && whole.mock.calls[i]?.[0].from === undefined,
+        );
+        if (!nested && key.length === 1) expect(walks.length, key).toBe(0);
+        expect(syntaxTreeAvailable(view.state, view.state.doc.length)).toBe(false);
+        // Main's path: a whole walk, its drawing kept past the reach but on the edited line.
+        const main = view.state.update({ effects: retheme.of(null) }).state;
+        expectDrawn(view, drawing({ state: main } as EditorView), key);
+      }
+      whole.mockRestore();
+      forceParsing(view, view.state.doc.length, 10_000);
+      expectDrawn(view, fresh(view, vim), "parsed in a step after the keys");
+      view.destroy();
+      const top = half(vim, 15_000, nested);
+      top.dispatch({ selection: { anchor: 0 } });
+      forceParsing(top, top.state.doc.length, 10_000);
+      expectDrawn(top, fresh(top, vim), "parsed with the cursor above");
+      top.destroy();
+      // The key's parse runs to the end of what the view shows, so the view shows the end first.
+      const near = half(vim, 3000, nested);
+      const end = { anchor: near.state.doc.length };
+      stalled(() => near.dispatch({ selection: end, scrollIntoView: true }));
+      near.dispatch(type(end.anchor, "x"));
+      expect(syntaxTreeAvailable(near.state, near.state.doc.length)).toBe(true);
+      expectDrawn(near, fresh(near, vim), "parsed inside the key");
+      near.destroy();
+    });
+  }
 });

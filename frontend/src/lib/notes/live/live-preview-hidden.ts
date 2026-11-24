@@ -4,7 +4,7 @@ import {
   type EditorState,
   type Line,
   type Range,
-  type RangeSet,
+  RangeSet,
   type Text,
   type Transaction,
 } from "@codemirror/state";
@@ -317,4 +317,82 @@ export function nudgeOutOfHidden(
   });
 
   return changed ? EditorSelection.create(ranges, next.mainIndex) : null;
+}
+
+/**
+ * How far the parse has got. The tree's own length can run past it, so this
+ * asks CodeMirror, by halves, up to where a full tree is available.
+ */
+export function parsedTo(state: EditorState): number {
+  let low = 0;
+  let high = state.doc.length;
+  while (low < high) {
+    const mid = Math.ceil((low + high) / 2);
+    if (syntaxTreeAvailable(state, mid)) low = mid;
+    else high = mid - 1;
+  }
+  return low;
+}
+
+/** Whether a range past `reach` keeps its old drawing: the edit and the cursors leave its lines alone. */
+export function keeper(tr: Transaction, reach: number): (from: number, to: number) => boolean {
+  const { doc, selection } = tr.state;
+  // The lines read once, not per range: a long note keeps thousands of ranges past the reach.
+  const lines: Span[] = selection.ranges.map((range) => [range.from, range.to]);
+  tr.changes.iterChangedRanges((_fromA, _toA, fromB, toB) => lines.push([fromB, toB]));
+  const touched = lines.map(([start, end]): Span => [doc.lineAt(start).from, doc.lineAt(end).to]);
+  return (from, to) => from >= reach && touched.every(([start, end]) => start > to || end < from);
+}
+
+interface Drawing {
+  decorations: RangeSet<Decoration>;
+  hidden: RangeSet<Decoration>;
+  whole: boolean;
+}
+
+/**
+ * Where an edit's parse ran out of its 20ms (#1005), the tree stops short.
+ * The old drawing holds there until the parse lands, so an embed does not lose its box and remount.
+ */
+export function keepPastParse<T extends Drawing>(value: T, tr: Transaction, fresh: T): T {
+  const reach = parsedTo(tr.state);
+  if (syntaxTreeAvailable(tr.state) || reach >= tr.state.doc.length) return fresh;
+  const keep = keeper(tr, reach);
+  // One source per range: a stopped tree can hold nodes past the reach, so the fresh drawing
+  // may hold what the old one keeps, and joined, each rebuild nests another mark (#2227).
+  const both = <D extends Decoration>(now: RangeSet<D>, before: RangeSet<D>) =>
+    RangeSet.join([
+      now.update({ filter: (from, to) => !keep(from, to) }),
+      (tr.docChanged ? before.map(tr.changes) : before).update({ filter: keep }),
+    ]);
+  return {
+    ...fresh,
+    whole: false,
+    decorations: both(fresh.decorations, value.decorations),
+    hidden: both(fresh.hidden, value.hidden),
+  };
+}
+
+/**
+ * Where a walk of what the parse newly reached starts: the block holding `reach`, below which the old drawing is a
+ * whole walk's (#2333). Null where an edit or a cursor sits below it, or text there is read by the rest of the note.
+ */
+export function bandStart(tr: Transaction, reach: number): number | null {
+  const { changes, startState, state } = tr;
+  const back = changes.invertedDesc;
+  const now = blocksOf(syntaxTree(state), reach, reach);
+  const before = blocksOf(syntaxTree(startState), back.mapPos(reach, -1), back.mapPos(reach, 1));
+  if (now === null || before === null) return null;
+  const from = Math.min(now[0], changes.mapPos(before[0], -1));
+  // A parse step moves no cursor and no text, so a cursor above the band changes nothing drawn there.
+  const step = !tr.docChanged && !tr.selection;
+  if (!step && seedsOf(tr).some(([start]) => start < from)) return null;
+  const old = back.mapPos(from, -1);
+  if (defines(syntaxTree(state), from, state.doc.length)) return null;
+  if (defines(syntaxTree(startState), old, startState.doc.length)) return null;
+  let video = false;
+  changes.iterChanges((fromA, toA, fromB, toB) => {
+    video ||= linksVideo(state.doc, fromB, toB) || linksVideo(startState.doc, fromA, toA);
+  });
+  return video ? null : from;
 }
