@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Editor } from "@/components/editor";
 import { Outline as OutlineRows } from "@/components/note/note-margins";
 import type { Outline } from "@/lib/notes/note/head/note-head";
-import { ATX } from "@/lib/notes/note/head/note-outline";
+import { ATX, LONG_NOTE, SETTLE_MS } from "@/lib/notes/note/head/note-outline";
 
 const PATH = "02 Projects/Kasten/Reader.md";
 // The fenced `#` line is code, and the closing hashes of the last heading are not its words.
@@ -156,5 +156,103 @@ describe("#1908 an outline heading after a long run of blanks or closing hashes"
     ["#  \r\n", " "],
   ])("reads %j as on main", (line, words) => {
     expect(ATX.exec(line)?.[2]).toBe(words);
+  });
+});
+
+describe("#2329 a key typed in a long note", () => {
+  // Past LONG_NOTE, so the header and the outline wait for the typing to pause.
+  const filler = "Some filler words here.\n\n".repeat(Math.ceil(LONG_NOTE / 25));
+  const LONG = `---\ntags: [one]\n---\n${SECTIONS}${filler}`;
+
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => {
+    vi.useRealTimers();
+    localStorage.clear();
+  });
+
+  function long(onOutline = vi.fn(), onChange = vi.fn()) {
+    const { container, unmount } = render(
+      <Editor initialDoc={LONG} path={PATH} onOutline={onOutline} onChange={onChange} />,
+    );
+    const view = EditorView.findFromDOM(container.querySelector(".cm-editor") as HTMLElement);
+    if (view === null) throw new Error("no editor");
+    const meta = () => container.querySelector("[data-head='meta']")?.textContent ?? "";
+    const type = (keys: string, at = view.state.doc.length) => {
+      for (const [index, key] of [...keys].entries()) {
+        act(() =>
+          view.dispatch({ changes: { from: at + index, insert: key }, userEvent: "input.type" }),
+        );
+      }
+    };
+    return { container, unmount, view, meta, type, onOutline, onChange };
+  }
+
+  it.each(["off", "on"])(
+    "reads the header and the outline once the typing pauses, not on each key, vim %s",
+    (vim) => {
+      localStorage.setItem("kasten.vim", vim);
+      const { container, meta, type, onOutline } = long();
+      const words = meta();
+      const reports = onOutline.mock.calls.length;
+
+      type("\n## Late #fresh");
+
+      expect(meta()).toBe(words);
+      expect(onOutline.mock.calls.length).toBe(reports);
+      // The Read and Edit switch reads no note, so it still follows at once.
+      const read = [...container.querySelectorAll("button")].find((b) => b.textContent === "Read");
+      act(() => read?.click());
+      expect(read?.getAttribute("aria-pressed")).toBe("true");
+
+      act(() => vi.advanceTimersByTime(SETTLE_MS));
+      expect(meta()).not.toBe(words);
+      expect(meta()).toContain("#fresh");
+      expect(onOutline.mock.calls.length).toBe(reports + 1);
+      expect(lastOutline(onOutline)?.headings.map(({ text }) => text)).toContain("Late #fresh");
+    },
+  );
+
+  it("a jump right after a key lands on the heading its row shows, before the read", () => {
+    const { view, type, onOutline } = long();
+
+    type("abc", LONG.indexOf("text"));
+    act(() => lastOutline(onOutline)?.jump(2));
+
+    const head = view.state.selection.main.head;
+    expect(view.state.doc.lineAt(head).text).toBe("## Three");
+  });
+
+  it("a jump, a scroll and a cursor move after a delete of headings stay in the doc", () => {
+    const { view, onOutline } = long();
+    const jump = lastOutline(onOutline)?.jump;
+
+    act(() => view.dispatch({ changes: { from: 0, to: view.state.doc.length - 10 } }));
+    act(() => jump?.(2));
+    act(() => view.scrollDOM.dispatchEvent(new Event("scroll")));
+    act(() => view.dispatch({ selection: { anchor: 0 } }));
+    act(() => vi.advanceTimersByTime(SETTLE_MS));
+
+    expect(view.state.selection.main.head).toBeLessThanOrEqual(view.state.doc.length);
+    expect(lastOutline(onOutline)?.headings).toEqual([]);
+  });
+
+  it("a view closed while a read waits reads nothing after", () => {
+    const { unmount, type, onOutline } = long();
+
+    type("\n# Gone");
+    const reports = onOutline.mock.calls.length;
+    unmount();
+
+    expect(() => act(() => vi.advanceTimersByTime(SETTLE_MS))).not.toThrow();
+    expect(onOutline.mock.calls.length).toBe(reports);
+  });
+
+  it("every key of a fast run reaches onChange", () => {
+    const { type, onChange } = long();
+
+    type("abcdefghijklmnopqrst");
+
+    expect(onChange).toHaveBeenCalledTimes(20);
+    expect(onChange.mock.calls.at(-1)?.[0]).toBe(`${LONG}abcdefghijklmnopqrst`);
   });
 });

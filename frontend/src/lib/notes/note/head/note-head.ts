@@ -14,6 +14,7 @@ import {
   type Outline,
   outlinePlugin,
   proseLines,
+  Settle,
   tagText,
 } from "@/lib/notes/note/head/note-outline";
 import { frontEndOf, readHiding, readMode } from "@/lib/notes/note/head/note-read-hiding";
@@ -313,6 +314,10 @@ class HeadPlugin {
   private observer: ResizeObserver | null = null;
   private data: Head | null;
   private shown = "";
+  private readonly settle = new Settle(() => {
+    this.data = read(this.view.state).head;
+    this.draw(this.view.state);
+  });
 
   constructor(view: EditorView, toggle: () => void) {
     this.view = view;
@@ -333,11 +338,12 @@ class HeadPlugin {
   }
 
   update(update: ViewUpdate) {
-    if (update.docChanged) this.data = read(update.state).head;
+    if (update.docChanged) this.settle.edited(update.state.doc);
     this.draw(update.state);
   }
 
   destroy() {
+    this.settle.cancel();
     this.observer?.disconnect();
     if (this.head === null) return;
     this.head.remove();

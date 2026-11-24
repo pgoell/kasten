@@ -29,6 +29,42 @@ export const ATX =
 /** How far below the top of the scroller a heading still counts as the one being read. */
 const READING_LINE = 24;
 
+/** Past this many characters the header and the outline read the note once edits pause, as each read walks it whole (#2329). */
+export const LONG_NOTE = 20_000;
+/** How long edits pause before a long note's header and outline read it again. */
+export const SETTLE_MS = 1000;
+
+/** Runs `read` at once after an edit of a short note, and once edits pause in a long one. */
+export class Settle {
+  private readonly read: () => void;
+  private timer: ReturnType<typeof setTimeout> | undefined;
+
+  constructor(read: () => void) {
+    this.read = read;
+  }
+
+  get pending(): boolean {
+    return this.timer !== undefined;
+  }
+
+  edited(doc: Text) {
+    this.cancel();
+    if (doc.length <= LONG_NOTE) this.read();
+    else this.timer = setTimeout(() => this.flush(), SETTLE_MS);
+  }
+
+  private flush() {
+    if (!this.pending) return;
+    this.cancel();
+    this.read();
+  }
+
+  cancel() {
+    clearTimeout(this.timer);
+    this.timer = undefined;
+  }
+}
+
 /**
  * The lines from `first` on that are not inside a fenced block, numbered as the editor numbers them.
  * A `#` or `[[` inside a fence is code, not a heading or link, and every reader of the body skips the same lines.
@@ -152,6 +188,7 @@ class OutlineReporter {
   };
   private headings: OutlineHeading[] = [];
   private reported = "";
+  private readonly settle = new Settle(() => this.refresh());
 
   constructor(
     view: EditorView,
@@ -166,11 +203,15 @@ class OutlineReporter {
   }
 
   update(update: ViewUpdate) {
-    if (update.docChanged) this.refresh();
-    else if (update.selectionSet) this.publish(cursorCurrentOf(this.view, this.headings));
+    if (update.docChanged) {
+      // Kept in range until the read lands, so a scroll or a jump meanwhile finds a place in the doc.
+      for (const heading of this.headings) heading.from = update.changes.mapPos(heading.from);
+      this.settle.edited(update.state.doc);
+    } else if (update.selectionSet) this.publish(cursorCurrentOf(this.view, this.headings));
   }
 
   destroy() {
+    this.settle.cancel();
     this.view.scrollDOM.removeEventListener("scroll", this.onScroll);
   }
 
@@ -183,6 +224,7 @@ class OutlineReporter {
 
   /** Reports when the headings or the heading being read differ from the last report. */
   private publish(current: number) {
+    if (this.settle.pending) return;
     const key = JSON.stringify([this.headings, current]);
     if (key === this.reported) return;
     this.reported = key;
