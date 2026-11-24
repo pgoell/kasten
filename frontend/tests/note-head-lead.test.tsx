@@ -1,5 +1,5 @@
 import { syntaxTreeAvailable } from "@codemirror/language";
-import { Text } from "@codemirror/state";
+import { EditorState, Text } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { act, render } from "@testing-library/react";
 import type { ReactElement } from "react";
@@ -96,25 +96,32 @@ function hides(view: EditorView, from: number, to: number): boolean {
 }
 
 /**
- * Rendered on a clock that jumps `by` at every read, so CodeMirror's 20 ms first parse stops at its
- * first step. With `open` the editor's own parse on open keeps real time, as on a box loaded a moment.
+ * Rendered on a clock that jumps `by` at every read inside `EditorState.create`, so CodeMirror's 20 ms
+ * first parse stops at its first step. With `open` false the editor's own parse on open is starved too.
  */
 function starved(ui: ReactElement, by = 30, open = true) {
   const real = Date.now.bind(Date);
+  const create = EditorState.create.bind(EditorState);
   let now = real();
+  let creating = false;
+  const parse = vi.spyOn(EditorState, "create").mockImplementation((config) => {
+    creating = true;
+    try {
+      return create(config);
+    } finally {
+      creating = false;
+    }
+  });
   const clock = vi.spyOn(Date, "now").mockImplementation(() => {
-    if (open && new Error().stack?.includes("parseShown")) return real();
+    if (open && !creating) return real();
     now += by;
     return now;
   });
-  // The parser's own frames run deep under `parseShown`.
-  const limit = Error.stackTraceLimit;
-  Error.stackTraceLimit = 100;
   try {
     return render(ui);
   } finally {
-    Error.stackTraceLimit = limit;
     clock.mockRestore();
+    parse.mockRestore();
   }
 }
 
