@@ -234,13 +234,15 @@ describe("a table's sideways place", () => {
     first.scrollLeft = 150;
     second.scrollLeft = 60;
     await expect.poll(() => [first.scrollLeft, second.scrollLeft]).toEqual([150, 60]);
-    at.dispatch({ selection: { anchor: doc.lastIndexOf("| column 0") } });
-    await expect.poll(() => blocks().length).toBe(1);
-    at.dispatch({
-      changes: { from: 0, to: doc.length, insert: doc },
-      selection: { anchor: doc.length },
-    });
+    const second0 = doc.lastIndexOf("| column 0");
+    // The first table's place saved, then the second's, then the first off the page again.
+    for (const anchor of [1, second0, 1]) {
+      at.dispatch({ selection: { anchor } });
+      await expect.poll(() => blocks().length).toBe(1);
+    }
+    at.dispatch({ changes: { from: 0, to: doc.length, insert: doc }, selection: { anchor: 1 } });
+    at.dispatch({ selection: { anchor: doc.length } });
     await expect.poll(() => blocks().length).toBe(2);
-    await expect.poll(() => blocks().map((scroller) => scroller.scrollLeft)).toEqual([150, 0]);
+    await expect.poll(() => blocks().map((scroller) => scroller.scrollLeft)).toEqual([150, 60]);
   });
 });
