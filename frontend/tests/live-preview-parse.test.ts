@@ -381,6 +381,31 @@ describe("#2331 an edit redraws only the blocks it touched", () => {
     });
   }
 
+  it("a fence made longer or shorter recounts the todos it turns into code or back", () => {
+    const view = mount("```\nx\n```\n- [ ] parent\n  - [ ] child\n", false);
+    view.dispatch(type(0, "`"));
+    expectDrawn(view, fresh(view, false), "longer");
+    undo(view);
+    expectDrawn(view, fresh(view, false), "back");
+    view.destroy();
+  });
+
+  it("an edit above a video's player draws the player at its new place", () => {
+    const view = mount("Text above.\n\n![](https://www.youtube.com/watch?v=abcdefghijk)\n", false);
+    view.dispatch(type(0, "x"));
+    const places: number[][] = [];
+    for (const source of view.state.facet(EditorView.decorations)) {
+      if (typeof source === "function") continue;
+      source.between(0, view.state.doc.length, (from, _to, value) => {
+        const widget = value.spec.widget as { from?: number } | undefined;
+        if (widget?.constructor.name === "Player") places.push([from, widget.from ?? -1]);
+      });
+    }
+    expect(places.length).toBe(1);
+    expect(places[0]?.[1]).toBe(places[0]?.[0]);
+    view.destroy();
+  });
+
   it("a key in a long note reads only the lines around it", () => {
     const block = NOTE_2331.replace("[r]: https://example.com", "Plain line.");
     const view = mount(Array(300).fill(block).join("\n\n"), false);

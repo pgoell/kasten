@@ -117,9 +117,10 @@ part of the note reads another part: a link definition or a video link in the
 edited lines, an edit to the frontmatter, a vim mode switch, a fold, a theme,
 and a tree that has not reached the edit. The counts after a parent todo read
 the whole note, so they are read again only when an edit changes a todo, a
-list item, a heading or a fence line. A widget that needs its place in the
-note reads it when it is clicked, as a callout's fold does, so a drawing moved
-through an edit above it stays right.
+list item, a heading or a fence line. A callout's fold reads its place in the
+note when it is clicked, so a drawing moved through an edit above it stays
+right. A video's player keeps the place it was built at, so in a note that
+draws one every edit walks the whole tree, as before.
 
 **An edit keeps the box.** CodeMirror gives the parse after each edit 20ms. On
 a loaded machine it can run out, and a drawing built from the tree as it then

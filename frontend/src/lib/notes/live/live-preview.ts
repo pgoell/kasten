@@ -36,7 +36,7 @@ import {
   touchedSpans,
   Walk,
 } from "@/lib/notes/live/live-preview-hidden";
-import { drawImage } from "@/lib/notes/live/live-preview-images";
+import { drawImage, isPlayer } from "@/lib/notes/live/live-preview-images";
 import {
   drawInline,
   drawLink,
@@ -68,6 +68,8 @@ interface Live {
   whole: boolean;
   /** Whether a todo is indented, so a patch draws the parents' counts from the whole note. */
   nested: boolean;
+  /** Whether a video's player is drawn: it keeps its place from when it was built, so an edit walks whole. */
+  players: boolean;
 }
 
 /** The nodes drawn by their line that no flag of their own picks out. */
@@ -115,6 +117,7 @@ function build(state: EditorState): Live {
     wide: Decoration.set(walk.wide, true),
     whole: syntaxTreeAvailable(state, state.doc.length),
     nested: lists.nested,
+    players: walk.decorations.some((range) => isPlayer(range.value)),
   };
 }
 
@@ -123,6 +126,7 @@ function build(state: EditorState): Live {
  * key in a long note costs what it costs in a short one (#2331). Null where only a whole walk is sure to be right.
  */
 function patch(value: Live, tr: Transaction): Live | null {
+  if (value.players && tr.docChanged) return null;
   const decorations = value.decorations.map(tr.changes);
   const wide = value.wide.map(tr.changes);
   const spans = touchedSpans(tr, ([from, to]) => {
@@ -172,6 +176,7 @@ function patch(value: Live, tr: Transaction): Live | null {
     // Past a parse still running the drawing stays the whole walk's, as before; the parse's next step walks again.
     whole: value.whole,
     nested,
+    players: value.players || walk.decorations.some((range) => isPlayer(range.value)),
   };
 }
 
@@ -358,7 +363,7 @@ function keepPastParse(value: Live, tr: Transaction, fresh: Live): Live {
   const { doc, selection } = tr.state;
   const reach = parsedTo(tr.state);
   if (syntaxTreeAvailable(tr.state) || reach >= doc.length) return fresh;
-  const kept = { whole: false, nested: fresh.nested, wide: fresh.wide };
+  const kept = { whole: false, nested: fresh.nested, wide: fresh.wide, players: fresh.players };
   const keep = (from: number, to: number) => {
     if (from < reach) return false;
     const onLines = (start: number, end: number) =>

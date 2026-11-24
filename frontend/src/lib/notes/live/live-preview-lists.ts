@@ -175,7 +175,10 @@ function countedKinds(doc: Text, from: number, to: number): string {
   for (const line of doc.iterLines(doc.lineAt(from).number, doc.lineAt(to).number + 1)) {
     const todo = parseTodo(line);
     const stop = todo === null ? stopOf(line) : null;
-    kinds.push(todo ? `t${todo.indent}${todo.state}` : FENCE_LINE.test(line) ? "f" : `s${stop}`);
+    // A fence by its whole text: its marker's length decides which fences pair, and so which lines are code.
+    kinds.push(
+      todo ? `t${todo.indent}${todo.state}` : FENCE_LINE.test(line) ? `f${line}` : `s${stop}`,
+    );
   }
   return kinds.join(" ");
 }
