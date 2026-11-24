@@ -512,6 +512,11 @@ describe("#2331 an edit redraws only the blocks it touched", () => {
       forceParsing(view, view.state.doc.length, 10_000);
       expectDrawn(view, fresh(view, vim), "parsed in a step after the keys");
       view.destroy();
+      const top = half(vim, 15_000, nested);
+      top.dispatch({ selection: { anchor: 0 } });
+      forceParsing(top, top.state.doc.length, 10_000);
+      expectDrawn(top, fresh(top, vim), "parsed with the cursor above");
+      top.destroy();
       // The key's parse runs to the end of what the view shows, so the view shows the end first.
       const near = half(vim, 3000, nested);
       const end = { anchor: near.state.doc.length };

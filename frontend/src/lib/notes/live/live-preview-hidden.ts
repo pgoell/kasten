@@ -384,7 +384,9 @@ export function bandStart(tr: Transaction, reach: number): number | null {
   const before = blocksOf(syntaxTree(startState), back.mapPos(reach, -1), back.mapPos(reach, 1));
   if (now === null || before === null) return null;
   const from = Math.min(now[0], changes.mapPos(before[0], -1));
-  if (seedsOf(tr).some(([start]) => start < from)) return null;
+  // A parse step moves no cursor and no text, so a cursor above the band changes nothing drawn there.
+  const step = !tr.docChanged && !tr.selection;
+  if (!step && seedsOf(tr).some(([start]) => start < from)) return null;
   const old = back.mapPos(from, -1);
   if (defines(syntaxTree(state), from, state.doc.length)) return null;
   if (defines(syntaxTree(startState), old, startState.doc.length)) return null;
