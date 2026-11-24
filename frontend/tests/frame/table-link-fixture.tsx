@@ -304,3 +304,40 @@ export const BOTH = (["tap", "ctrl"] as const).flatMap((how) =>
 export const PRESSES = (["ctrl", "meta"] as const).flatMap((how) =>
   VIMS.map((vim) => [how, vim] as const),
 );
+
+/** A note with a line above a table of `rows` body rows and `columns` columns. */
+export function wideNote(rows: number, columns = 30): string {
+  const cell = (text: string) => ` ${text} |`;
+  const header = `|${Array.from({ length: columns }, (_, c) => cell(`column ${c}`)).join("")}`;
+  const divider = `|${" --- |".repeat(columns)}`;
+  const body = Array.from(
+    { length: rows },
+    (_, r) =>
+      `|${Array.from({ length: columns }, (_, c) =>
+        cell(c === 0 ? `item ${r}` : c === 1 ? `${r * 10}` : `cell ${r} ${c}`),
+      ).join("")}`,
+  );
+  return ["before", "", header, divider, ...body].join("\n");
+}
+
+/**
+ * The box a table scrolls in. Before the inner box existed the block scrolled
+ * itself, so a missing inner box falls back to the block, and a test then fails
+ * on the behaviour it checks rather than on the lookup.
+ */
+export function scrollerOf(block: Element): HTMLElement {
+  return (block.querySelector(".cm-table-scroll") ?? block) as HTMLElement;
+}
+
+/** The editor on `doc`, with the table's own box and its scroll, once drawn. */
+export async function drawn(doc: string, height = 600) {
+  // Set here, not left to the test before: a width read from another test's leftover
+  // viewport made a table fit or not by order.
+  await page.viewport(1440, 900);
+  const host = mountApp(doc, height, { vim: "off" });
+  await expect.poll(() => host.querySelector(".cm-table-block")).not.toBeNull();
+  const at = EditorView.findFromDOM(host.querySelector(".cm-editor") as HTMLElement) as EditorView;
+  const block = host.querySelector(".cm-table-block") as HTMLElement;
+  const scroller = scrollerOf(block);
+  return { host, at, block, scroller, table: scroller.querySelector("table") as HTMLTableElement };
+}
