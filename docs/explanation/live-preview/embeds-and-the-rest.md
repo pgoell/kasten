@@ -118,11 +118,17 @@ touched, and the lines a cursor sits on, show their source in the meantime.
 the rest to an idle pass 100ms or more later. On a slow phone the headings past
 that point would show their `#` until then, where Obsidian shows none. So the
 editor parses on to the end of the screen, or a screen past the cursor, before
-the first paint, and again when an open names a line further down, with up to
-200ms for it. A note that opens at its top costs nothing more; one that opens
-deep in a long note pays for the parse up to the cursor (#1984). A scroll past
-the parsed part still waits for the idle pass (#2323), as does an embedded
-note's own view (#2324).
+the first paint, and again when an open names a line further down or a saved
+scroll puts the screen past the cursor, with up to 200ms for it (#1984).
+
+**What a view shows is parsed before it paints.** The same holds after the
+open, and in every view that draws a note: the editor, an embedded note's view
+and the note preview. Whenever a view opens, scrolls, jumps (vim `G`, a search
+hit) or has its text replaced by a save elsewhere, and the parse has not reached
+the end of what it shows, the rendering parses up to there before the browser
+paints, again with up to 200ms (#2323, #2324). The markdown parser cannot start
+in the middle of a note, so a jump to the end of a long note parses all of it
+once; a note too long for the 200ms still shows the rest raw until the idle pass.
 
 The finder's preview pane is the exception. It is told nothing about how to
 read the vault, so it shows `![[...]]` as source rather than calling every

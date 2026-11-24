@@ -51,3 +51,46 @@ it("#983 an editor that comes back before it is taken down keeps its scroll", as
     sheet.remove();
   }
 });
+
+it("#2323 a scroll to the end of a long note draws no heading with its raw #", async () => {
+  localStorage.clear();
+  const sheet = document.head.appendChild(document.createElement("style"));
+  sheet.textContent = ".h-full, .cm-editor { height: 100%; }";
+  // About 300 KB: past what CodeMirror's 20 ms first parse reaches, inside what the 200 ms cap parses.
+  const part = `${"A paragraph the parser has to walk through, line by line.\n\n".repeat(10)}`;
+  const doc = Array.from({ length: 500 }, (_, i) => `## Part ${i + 1}\n\n${part}`).join("");
+  const host = document.body.appendChild(document.createElement("div"));
+  const root = createRoot(host);
+  // Every line with a raw heading mark at a paint. The editor draws a scroll in its own scroll handler, so a
+  // microtask queued after it reads what the browser paints next.
+  const raw: string[] = [];
+  let painted = 0;
+  const record = () => {
+    painted += 1;
+    for (const line of host.querySelectorAll(".cm-line")) {
+      const text = line.textContent ?? "";
+      if (/^#{1,6} /.test(text) && !raw.includes(text)) raw.push(text);
+    }
+  };
+  const onScroll = () => queueMicrotask(record);
+  try {
+    await act(async () => root.render(view(false, doc)));
+    const scroller = host.querySelector<HTMLElement>(".cm-scroller");
+    if (scroller === null) throw new Error("no editor was drawn");
+    scroller.addEventListener("scroll", onScroll);
+    // A finger's fling or the scrollbar dragged to the end, at once.
+    scroller.scrollTop = scroller.scrollHeight;
+    const content = host.querySelector(".cm-content");
+    for (let i = 0; i < 30 && !content?.textContent?.includes("Part 500"); i++) await frame();
+    await frame();
+
+    expect(scroller.scrollTop).toBeGreaterThan(0);
+    expect(content?.textContent).toContain("Part 500");
+    expect(painted).toBeGreaterThan(0);
+    expect(raw).toEqual([]);
+  } finally {
+    root.unmount();
+    host.remove();
+    sheet.remove();
+  }
+});

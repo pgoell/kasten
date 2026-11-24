@@ -1,3 +1,4 @@
+import { syntaxTreeAvailable } from "@codemirror/language";
 import { EditorView } from "@codemirror/view";
 import { act, render } from "@testing-library/react";
 import { Editor } from "@/components/editor";
@@ -119,10 +120,13 @@ describe("an embedded note and the note preview past CodeMirror's first parse (#
     expect(view.contentDOM.textContent).toContain("Deep");
   });
 
-  it("throws nothing when the embed goes before its parse runs", async () => {
-    const { unmount } = starved(embedding(PARTS).ui);
+  it("spends no parse on an embed gone before its parse runs", async () => {
+    const { container, unmount } = starved(embedding(PARTS).ui);
+    const view = nested(container);
     unmount();
     await act(async () => {});
+
+    expect(syntaxTreeAvailable(view.state, PARTS.length)).toBe(false);
   });
 
   for (const mark of [undefined, 60]) {
