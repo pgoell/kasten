@@ -427,7 +427,7 @@ describe("saving a story to share later", () => {
   };
 
   beforeEach(() => {
-    addTodo.mockResolvedValue({ id: "kt-5a1e00" });
+    addTodo.mockResolvedValue({ id: "kt-5a1e00", version: 1 });
     deleteTodo.mockResolvedValue([]);
   });
 
@@ -503,8 +503,29 @@ describe("saving a story to share later", () => {
     await waitFor(() =>
       expect(posted).toHaveBeenCalledWith({ kasten: "unshared", anchor: "s1" }, "*"),
     );
-    expect(deleteTodo.mock.calls.map(([, id]) => id)).toEqual(["kt-5a1e00"]);
+    expect(deleteTodo.mock.calls.map(([, id, version]) => [id, version])).toEqual([
+      ["kt-5a1e00", 1],
+    ]);
     expect(saveNote).not.toHaveBeenCalled();
     expect(posted).not.toHaveBeenCalledWith(expect.objectContaining({ kasten: "untake" }), "*");
+  });
+
+  it("Undo leaves a todo written since as it is, and says so", async () => {
+    answering();
+    deleteTodo.mockRejectedValue(new Error("kt-5a1e00 changed since it was read: read it again."));
+    const { frame } = renderPane();
+    const posted = vi
+      .spyOn(frame.contentWindow as Window, "postMessage")
+      .mockImplementation(() => {});
+
+    frame.focus();
+    fromPage(frame.contentWindow, STORY);
+    fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
+
+    expect(
+      await screen.findByText("The todo changed since, so Undo left it as it is"),
+    ).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+    expect(posted).not.toHaveBeenCalledWith({ kasten: "unshared", anchor: "s1" }, "*");
   });
 });

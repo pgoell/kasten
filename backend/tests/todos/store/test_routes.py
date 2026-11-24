@@ -304,6 +304,16 @@ async def test_every_write_is_in_the_history_and_a_delete_keeps_it(client: Async
     assert history[1]["after"]["state"] == "doing"
 
 
+async def test_a_delete_sent_with_a_stale_version_is_refused(client: AsyncClient) -> None:
+    row = await add(client, "share the story")
+    doing = (await state(client, row["id"], "doing"))[0]
+    stale = await client.delete(f"/api/todos/{row['id']}", params={"version": row["version"]})
+    kept = "share the story" in await rows(client)
+    fresh = await client.delete(f"/api/todos/{row['id']}", params={"version": doing["version"]})
+
+    assert (stale.status_code, kept, fresh.status_code) == (409, True, 204)
+
+
 async def test_an_unknown_id_is_404_and_the_archive_waits_to_be_asked(client: AsyncClient) -> None:
     missing = await client.post("/api/todos/kt-nothere/cycle")
     await add(client, "old", note="98 Archive/old.md")

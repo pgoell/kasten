@@ -106,11 +106,18 @@ export function addTodo(queryClient: QueryClient, todo: NewTodo): Promise<TodoRo
   });
 }
 
-/** Delete a todo and its parts; their history stays in the store. */
-export function deleteTodo(queryClient: QueryClient, id: string): Promise<TodoRow[]> {
+/**
+ * Delete a todo and its parts; their history stays in the store. With `version`, a todo
+ * written since it was read at that version is refused, not deleted.
+ */
+export function deleteTodo(
+  queryClient: QueryClient,
+  id: string,
+  version?: number,
+): Promise<TodoRow[]> {
   return inStore(queryClient, async () => {
     const { error, response } = await client.DELETE("/api/todos/{todo_id}", {
-      params: { path: { todo_id: id } },
+      params: { path: { todo_id: id }, query: version === undefined ? {} : { version } },
     });
     if (response.ok) return [];
     throw new Error(

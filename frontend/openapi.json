@@ -8637,7 +8637,7 @@
       },
       "delete": {
         "summary": "Delete Todo",
-        "description": "Delete a todo and its parts; its history stays.",
+        "description": "Delete a todo and its parts; its history stays. A stale `version`, when sent, answers 409.",
         "operationId": "delete_todo_api_todos__todo_id__delete",
         "parameters": [
           {
@@ -8647,6 +8647,22 @@
             "schema": {
               "type": "string",
               "title": "Todo Id"
+            }
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Version"
             }
           }
         ],

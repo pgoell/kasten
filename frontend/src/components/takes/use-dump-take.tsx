@@ -39,10 +39,11 @@ export function useDumpTake(o: {
    */
   take(taking: Taking): Promise<boolean>;
   /**
-   * Add a take somewhere else than the dump, such as the todo store, with the same toast. `add`
-   * answers the take's Undo. Returns false when `add` failed, with its reason on the toast.
+   * Add a take somewhere else than the dump, such as the todo store, with the same toast and
+   * the same count of take ids, which the pane's Undo goes by. `add` answers the take's Undo.
+   * Returns false when `add` failed, with its reason on the toast.
    */
-  added(taking: Taking, add: () => Promise<CallUndo["run"]>): Promise<boolean>;
+  added(taking: Taking, add: () => Promise<Omit<CallUndo, "id">>): Promise<boolean>;
   /** Drop the toast (a new document in the pane). */
   forget(): void;
   /** The toast, or null; the pane renders it inside its wrapper. */
@@ -100,13 +101,13 @@ export function useDumpTake(o: {
     return true;
   }
 
-  async function added(taking: Taking, add: () => Promise<CallUndo["run"]>): Promise<boolean> {
+  async function added(taking: Taking, add: () => Promise<Omit<CallUndo, "id">>): Promise<boolean> {
     marks.current += 1;
     const id = marks.current;
     const started = toast.generation();
-    let run: CallUndo["run"];
+    let undo: Omit<CallUndo, "id">;
     try {
-      run = await add();
+      undo = await add();
     } catch (error) {
       if (!(error instanceof Error)) throw error;
       if (!toast.moved(started)) toast.show(`Not saved: ${error.message}`, taking);
@@ -114,7 +115,7 @@ export function useDumpTake(o: {
     }
     if (toast.moved(started)) return true;
     taking.onKept?.(id);
-    toast.show(taking.landed ?? "Saved", taking, { id, run });
+    toast.show(taking.landed ?? "Saved", taking, { id, ...undo });
     return true;
   }
 

@@ -265,12 +265,14 @@ class Writes:
         if found is None or not found.epic or epic == id_:
             raise RefusedError(f"{epic} is no epic {id_} can count toward.")
 
-    async def delete(self, id_: str) -> None:
+    async def delete(self, id_: str, version: int | None = None) -> None:
         """Delete a todo and its parts, each recorded; their change rows stay.
 
         Each todo they blocked lets go of their ids and opens once nothing holds it (#2219).
         """
         row = await self.get(id_)
+        if version is not None and row.version != version:
+            raise StaleError(id_)
         gone = [row, *await self.parts(row)]
         ids = [one.id for one in gone]
         for one in gone:

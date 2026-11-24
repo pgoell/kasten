@@ -283,10 +283,16 @@ describe("the dump take a pane shares", () => {
     const onMarked = vi.fn();
     const onUnmarked = vi.fn();
     const onKept = vi.fn();
-    const undone = vi.fn(async () => {});
+    const undone = vi.fn(async () => true);
     render(<Taker onMarked={onMarked} onUnmarked={onUnmarked} />);
 
-    act(() => void dump?.added({ ...TAKING, story: true, onKept }, async () => undone));
+    act(
+      () =>
+        void dump?.added({ ...TAKING, story: true, onKept }, async () => ({
+          run: undone,
+          refused: "Changed",
+        })),
+    );
     const toast = await screen.findByRole("status");
     expect(within(toast).queryByRole("button", { name: "Put it in a note" })).toBeNull();
     fireEvent.click(within(toast).getByRole("button", { name: "Undo" }));

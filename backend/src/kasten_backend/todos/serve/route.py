@@ -388,9 +388,11 @@ async def toggle_timer(todo_id: str, session: Session, settings: VaultSettings) 
 
 
 @router.delete("/{todo_id}", status_code=204)
-async def delete_todo(todo_id: str, session: Session, settings: VaultSettings) -> Response:
-    """Delete a todo and its parts; its history stays."""
-    await _write(session, settings, lambda writes: writes.delete(todo_id))
+async def delete_todo(
+    todo_id: str, session: Session, settings: VaultSettings, version: int | None = None
+) -> Response:
+    """Delete a todo and its parts; its history stays. A stale `version`, when sent, answers 409."""
+    await _write(session, settings, lambda writes: writes.delete(todo_id, version))
     return Response(status_code=204)
 
 

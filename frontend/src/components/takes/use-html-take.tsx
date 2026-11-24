@@ -212,9 +212,17 @@ export function useHtmlTake(o: {
     };
     const kept = await dump.added(taking, async () => {
       const row = await addTodo(queryClient, shareTodo(path, story, daily));
-      return async () => {
-        await deleteTodo(queryClient, row.id);
+      const run = async () => {
+        try {
+          await deleteTodo(queryClient, row.id, row.version);
+          return true;
+        } catch (error) {
+          if (error instanceof Error && error.message.includes("changed since it was read"))
+            return false;
+          throw error;
+        }
       };
+      return { run, refused: "The todo changed since, so Undo left it as it is" };
     });
     if (!kept) saving.current.delete(story.anchor);
   }

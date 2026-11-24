@@ -25,7 +25,10 @@ export interface ToastTaking {
 export interface CallUndo {
   /** The take's id, handed to `onUnmarked` once the call has gone through. */
   id: number;
-  run: () => Promise<void>;
+  /** False when what the take wrote changed since, so the call left it as it is. */
+  run: () => Promise<boolean>;
+  /** The toast's line for that refusal. */
+  refused: string;
 }
 
 /** The toast on screen: what it says, and the take it can undo, if it can. */
@@ -37,8 +40,7 @@ interface Toast extends ToastTaking {
 
 async function called(undo: CallUndo): Promise<UndoOutcome> {
   try {
-    await undo.run();
-    return { state: "undone" };
+    return (await undo.run()) ? { state: "undone" } : { state: "refused" };
   } catch (error) {
     if (error instanceof Error) return { state: "failed", message: error.message };
     throw error;
@@ -98,9 +100,8 @@ export function useTakeToast(o: TakeToastOptions): {
   }
 
   /**
-   * Take the passage back out of its note, if the note has not changed since the
-   * take. The read and the write are the undo's own (`undoPassage`), so a write
-   * that landed in between is refused, not overwritten.
+   * Undo the take: a note edit through `undoPassage`, or a call of its own. Either
+   * refuses, rather than overwrites, a write that landed in between.
    */
   async function undoTake(undo: Undo | CallUndo) {
     const { without, refused, onUnmarked } = options.current;
@@ -111,7 +112,8 @@ export function useTakeToast(o: TakeToastOptions): {
       return;
     }
     // The toast says why Undo did nothing, and loses the Undo it can no longer make.
-    const title = outcome.state === "refused" ? refused : outcome.message;
+    const said = "run" in undo ? undo.refused : refused;
+    const title = outcome.state === "refused" ? said : outcome.message;
     setToast((current) => current && { ...current, title, undo: undefined });
   }
 
