@@ -8,6 +8,7 @@
  */
 
 import { forceParsing } from "@codemirror/language";
+import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { act, render } from "@testing-library/react";
 import type { ReactElement } from "react";
@@ -37,5 +38,55 @@ export function renderStarved(ui: ReactElement) {
     return render(ui);
   } finally {
     clock.mockRestore();
+  }
+}
+
+/** The text a line draws, its marks hidden or not. */
+export function drawnLine(view: EditorView, number: number): string | null | undefined {
+  const { node } = view.domAtPos(view.state.doc.line(number).from);
+  const element = node instanceof HTMLElement ? node : node.parentElement;
+  return element?.closest(".cm-line")?.textContent;
+}
+
+/** Whether a decoration hides `[from, to)`, on screen or not. */
+export function hides(view: EditorView, from: number, to: number): boolean {
+  let found = false;
+  for (const source of view.state.facet(EditorView.decorations)) {
+    const set = typeof source === "function" ? source(view) : source;
+    set.between(from, to, (start, end, value) => {
+      if (start === from && end >= to && value.spec.widget === undefined && !value.spec.class)
+        found = true;
+    });
+  }
+  return found;
+}
+
+/**
+ * Rendered on a clock that jumps `by` at every read inside `EditorState.create`, so CodeMirror's 20 ms
+ * first parse stops at its first step. With `open` false the editor's own parse on open is starved too.
+ */
+export function starved(ui: ReactElement, by = 30, open = true) {
+  const real = Date.now.bind(Date);
+  const create = EditorState.create.bind(EditorState);
+  let now = real();
+  let creating = false;
+  const parse = vi.spyOn(EditorState, "create").mockImplementation((config) => {
+    creating = true;
+    try {
+      return create(config);
+    } finally {
+      creating = false;
+    }
+  });
+  const clock = vi.spyOn(Date, "now").mockImplementation(() => {
+    if (open && !creating) return real();
+    now += by;
+    return now;
+  });
+  try {
+    return render(ui);
+  } finally {
+    clock.mockRestore();
+    parse.mockRestore();
   }
 }

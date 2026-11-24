@@ -1,4 +1,4 @@
-import { syntaxTree, syntaxTreeAvailable } from "@codemirror/language";
+import { forceParsing, syntaxTree, syntaxTreeAvailable } from "@codemirror/language";
 import {
   EditorState,
   type Extension,
@@ -7,7 +7,13 @@ import {
   StateField,
   type Transaction,
 } from "@codemirror/state";
-import { Decoration, type DecorationSet, EditorView } from "@codemirror/view";
+import {
+  Decoration,
+  type DecorationSet,
+  EditorView,
+  ViewPlugin,
+  type ViewUpdate,
+} from "@codemirror/view";
 import type { SyntaxNode, SyntaxNodeRef } from "@lezer/common";
 import { setVimMode, vimKeys, vimModeField, vimModeState } from "@/lib/notes/editor/vim-mode";
 import { embedSource } from "@/lib/notes/embeds/embed";
@@ -351,11 +357,63 @@ const nudgeSelection = EditorState.transactionFilter.of((tr) => {
   return nudged ? [tr, { selection: nudged }] : tr;
 });
 
+/** Room for a parse before a paint on a slow phone; a screen of markdown takes a few ms on a desktop. */
+export const PAINT_PARSE_MS = 200;
+
+/**
+ * Parses to the end of what a view shows before the paint, as it opens, scrolls, jumps or has its text replaced.
+ * CodeMirror's own parse stops after 20 ms and leaves the rest to an idle pass (#2323, #2324).
+ */
+const parseShownPart = ViewPlugin.fromClass(
+  class {
+    private readonly view: EditorView;
+    private queued = false;
+    private gone = false;
+
+    constructor(view: EditorView) {
+      this.view = view;
+      this.queue();
+    }
+
+    update(update: ViewUpdate) {
+      if (update.viewportChanged || update.docChanged) this.queue();
+    }
+
+    destroy() {
+      this.gone = true;
+    }
+
+    private parsed(): boolean {
+      return syntaxTreeAvailable(this.view.state, this.view.viewport.to);
+    }
+
+    private queue() {
+      if (this.queued || this.parsed()) return;
+      this.queued = true;
+      // A microtask: a dispatch inside an update throws, and microtasks still run before the paint.
+      queueMicrotask(() => {
+        this.queued = false;
+        if (this.gone || this.parsed()) return;
+        forceParsing(this.view, this.view.viewport.to, PAINT_PARSE_MS);
+      });
+    }
+  },
+);
+
 export function livePreview(): Extension {
   // The picture's and the table's follows read the presses too, and a view
   // may be mounted without the editor that would watch them.
   watchPresses();
-  return [vimModeState(), folds, live, foldClicks, nudgeSelection, rethemes, videoLayer];
+  return [
+    vimModeState(),
+    folds,
+    live,
+    foldClicks,
+    nudgeSelection,
+    rethemes,
+    videoLayer,
+    parseShownPart,
+  ];
 }
 
 /**
@@ -365,5 +423,5 @@ export function livePreview(): Extension {
 export function renderedMarkdown(): Extension {
   // For the reason `livePreview` watches them: a preview may be the only view.
   watchPresses();
-  return [vimModeField, folds, live, foldClicks, rethemes, videoLayer];
+  return [vimModeField, folds, live, foldClicks, rethemes, videoLayer, parseShownPart];
 }

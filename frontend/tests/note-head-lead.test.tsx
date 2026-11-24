@@ -1,12 +1,12 @@
 import { syntaxTreeAvailable } from "@codemirror/language";
-import { EditorState, Text } from "@codemirror/state";
+import { Text } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
+import { getCM, Vim } from "@replit/codemirror-vim";
 import { act, render } from "@testing-library/react";
-import type { ReactElement } from "react";
 import { Editor } from "@/components/editor";
 import { writePosition } from "@/lib/notes/editor/positions";
 import { leadLines, textStart } from "@/lib/notes/text/note-lead";
-import { finishParsing } from "./parsing";
+import { drawnLine, finishParsing, hides, starved } from "./parsing";
 import { stubCommands } from "./stub-commands";
 
 const PATH = "02 Projects/Reader.md";
@@ -74,56 +74,6 @@ describe("the lines between the frontmatter and the text", () => {
     expect(flat(container)).toEqual([]);
   });
 });
-
-/** The text a line draws, its marks hidden or not. */
-function drawnLine(view: EditorView, number: number): string | null | undefined {
-  const { node } = view.domAtPos(view.state.doc.line(number).from);
-  const element = node instanceof HTMLElement ? node : node.parentElement;
-  return element?.closest(".cm-line")?.textContent;
-}
-
-/** Whether a decoration hides `[from, to)`, on screen or not. */
-function hides(view: EditorView, from: number, to: number): boolean {
-  let found = false;
-  for (const source of view.state.facet(EditorView.decorations)) {
-    const set = typeof source === "function" ? source(view) : source;
-    set.between(from, to, (start, end, value) => {
-      if (start === from && end >= to && value.spec.widget === undefined && !value.spec.class)
-        found = true;
-    });
-  }
-  return found;
-}
-
-/**
- * Rendered on a clock that jumps `by` at every read inside `EditorState.create`, so CodeMirror's 20 ms
- * first parse stops at its first step. With `open` false the editor's own parse on open is starved too.
- */
-function starved(ui: ReactElement, by = 30, open = true) {
-  const real = Date.now.bind(Date);
-  const create = EditorState.create.bind(EditorState);
-  let now = real();
-  let creating = false;
-  const parse = vi.spyOn(EditorState, "create").mockImplementation((config) => {
-    creating = true;
-    try {
-      return create(config);
-    } finally {
-      creating = false;
-    }
-  });
-  const clock = vi.spyOn(Date, "now").mockImplementation(() => {
-    if (open && !creating) return real();
-    now += by;
-    return now;
-  });
-  try {
-    return render(ui);
-  } finally {
-    clock.mockRestore();
-    parse.mockRestore();
-  }
-}
 
 describe("a note past CodeMirror's first parse (#1984)", () => {
   const MORE = `${DOC}\n\n- item [[b|Bee]]`;
@@ -215,5 +165,76 @@ describe("a note past CodeMirror's first parse (#1984)", () => {
     expect(syntaxTreeAvailable(view.state, MORE.length)).toBe(false);
     finishParsing(container);
     expect([drawnLine(view, 9), drawnLine(view, 11)]).toEqual(["Reader", "item Bee"]);
+  });
+});
+
+describe("a jump past the parsed part of a long note (#2323)", () => {
+  const LONG = `${DOC}\n\n${"A paragraph the parser walks through.\n\n".repeat(3000)}# Deep\n\nend`;
+  const DEEP = LONG.indexOf("# Deep");
+
+  let opened = 0;
+
+  /**
+   * The note opened at its top with CodeMirror's first parse starved, so the parse stops near the top.
+   * A path of its own each time: a path remembers where its cursor was left.
+   */
+  function openedAtTop(vim: string) {
+    localStorage.setItem("kasten.vim", vim);
+    opened += 1;
+    const path = `Long ${opened}.md`;
+    const view = viewIn(
+      starved(<Editor initialDoc={LONG} path={path} commands={stubCommands()} />).container,
+    );
+    expect(syntaxTreeAvailable(view.state, DEEP)).toBe(false);
+    return view;
+  }
+
+  afterEach(() => localStorage.clear());
+
+  it("draws the heading at the end without its # after vim G", async () => {
+    const view = openedAtTop("on");
+    const cm = getCM(view);
+    if (cm === null) throw new Error("vim is off");
+    act(() => Vim.handleKey(cm, "G", "user"));
+    await act(async () => {});
+
+    expect(view.state.doc.lineAt(view.state.selection.main.head).number).toBe(view.state.doc.lines);
+    expect(hides(view, DEEP, DEEP + 2)).toBe(true);
+  });
+
+  it("draws the heading at the end without its # after a jump with vim off", async () => {
+    const view = openedAtTop("off");
+    // A search hit or ctrl+end: the selection moves far down and scrolls into view.
+    act(() => view.dispatch({ selection: { anchor: LONG.length }, scrollIntoView: true }));
+    await act(async () => {});
+
+    expect(hides(view, DEEP, DEEP + 2)).toBe(true);
+  });
+
+  it("starts no parse for a jump inside the parsed part", async () => {
+    const view = openedAtTop("off");
+    finishParsing(view.dom.parentElement as HTMLElement);
+    const dispatch = vi.spyOn(view, "dispatch");
+    act(() => view.dispatch({ selection: { anchor: DEEP }, scrollIntoView: true }));
+    await act(async () => {});
+
+    expect(dispatch).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops at its cap on a box too slow for it, and draws the rest once the parse lands", async () => {
+    const view = openedAtTop("off");
+    // 300 ms a read spends the jump's budget at its first step, as a far slower box would.
+    let now = Date.now();
+    const clock = vi.spyOn(Date, "now").mockImplementation(() => (now += 300));
+    try {
+      act(() => view.dispatch({ selection: { anchor: LONG.length }, scrollIntoView: true }));
+      await act(async () => {});
+    } finally {
+      clock.mockRestore();
+    }
+
+    expect(syntaxTreeAvailable(view.state, DEEP)).toBe(false);
+    finishParsing(view.dom.parentElement as HTMLElement);
+    expect(hides(view, DEEP, DEEP + 2)).toBe(true);
   });
 });

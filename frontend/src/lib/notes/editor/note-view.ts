@@ -50,7 +50,7 @@ import {
 import { pickFiles } from "@/lib/notes/embeds/pick";
 import { relationCompletions, vaultRelations } from "@/lib/notes/links/ontology";
 import { vaultPaths, wikiLinkCompletions } from "@/lib/notes/links/wikilink";
-import { livePreview } from "@/lib/notes/live/live-preview";
+import { livePreview, PAINT_PARSE_MS } from "@/lib/notes/live/live-preview";
 import { timeSeek } from "@/lib/notes/live/live-preview-times";
 import { graphHandler, noteHead, type Outline } from "@/lib/notes/note/head/note-head";
 import { readMode } from "@/lib/notes/note/head/note-read-hiding";
@@ -365,9 +365,6 @@ export function createNoteView(o: {
   return view;
 }
 
-/** Room for the parse on open on a slow phone; a screen of markdown takes a few ms on a desktop. */
-const OPEN_PARSE_MS = 200;
-
 /**
  * Parses to the end of the screen, a screen past the cursor, or `below`, before the first paint.
  * CodeMirror's first parse stops after 20 ms, and past it a heading kept its `#` until the idle pass (#1984).
@@ -376,7 +373,7 @@ export function parseShown(view: EditorView, below = 0): void {
   const { viewport, state } = view;
   const cursor = state.selection.main.head + viewport.to - viewport.from;
   const screen = Math.max(viewport.to, cursor, below);
-  forceParsing(view, Math.min(screen, state.doc.length), OPEN_PARSE_MS);
+  forceParsing(view, Math.min(screen, state.doc.length), PAINT_PARSE_MS);
 }
 
 export function setVim(view: EditorView, on: boolean): void {
