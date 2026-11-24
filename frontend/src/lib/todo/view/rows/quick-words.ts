@@ -13,6 +13,7 @@ export type Priority = "highest" | "high" | "medium" | "low" | "lowest";
 export interface QuickFields {
   planned?: string;
   due?: string;
+  hold_until?: string;
   priority?: Priority;
   project?: string;
   estimate?: number;

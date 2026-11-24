@@ -1,13 +1,14 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
 import {
-  DayPick,
+  DateRows,
   FieldRow,
   InlineText,
   PriorityPick,
   ProjectPick,
   StatePick,
 } from "@/components/todo/view/panel/panel-fields";
+import { type DateChange, DatePick, type Which } from "@/components/todo/view/pick/date-pick";
 import { Icon } from "@/components/todo/view/view-icons";
 import type { TodoRow } from "@/lib/core/api";
 import type { TodoState } from "@/lib/todo/todo";
@@ -18,7 +19,7 @@ import {
   readQuick,
   settled,
 } from "@/lib/todo/view/rows/quick-words";
-import { longDay, minutes } from "@/lib/todo/view/rows/row-facts";
+import { minutes } from "@/lib/todo/view/rows/row-facts";
 import { addTodo, stateTodo } from "@/lib/todo/view/todo-store";
 
 /** What a new todo starts with before anything is typed: its group's state, project or day. */
@@ -205,24 +206,7 @@ function NewFields(props: {
           }
         />
       </FieldRow>
-      <FieldRow icon="sun" label="Planned" from={from.has("planned")}>
-        <DayPick
-          label="Planned"
-          day={fields.planned ?? null}
-          shown={fields.planned ? longDay(fields.planned, today) : ""}
-          empty="Plan a day"
-          onPick={(day) => onPick({ planned: day ?? undefined })}
-        />
-      </FieldRow>
-      <FieldRow icon="flag" label="Due" from={from.has("due")}>
-        <DayPick
-          label="Due"
-          day={fields.due ?? null}
-          shown={fields.due ? longDay(fields.due, today) : ""}
-          empty="Set a due date"
-          onPick={(day) => onPick({ due: day ?? undefined })}
-        />
-      </FieldRow>
+      <NewDates today={today} fields={fields} from={from} onPick={onPick} />
       <FieldRow icon="clock" label="Time" from={from.has("estimate")}>
         <InlineText
           label="Estimate"
@@ -247,5 +231,54 @@ function NewFields(props: {
         />
       </FieldRow>
     </div>
+  );
+}
+
+/** A picked date as the new todo's fields hold it: a day cleared is left out. */
+function fieldsOf(change: DateChange): QuickFields {
+  const keys = ["planned", "due", "hold_until"] as const;
+  return Object.fromEntries(
+    keys.filter((key) => key in change).map((key) => [key, change[key] ?? undefined]),
+  );
+}
+
+/** The three dates, each opening the date popover the todo panel uses. */
+function NewDates(props: {
+  today: string;
+  fields: QuickFields;
+  from: Set<keyof QuickFields>;
+  onPick: (set: QuickFields) => void;
+}) {
+  const { today, fields, from, onPick } = props;
+  const [open, setOpen] = useState<{ which: Which; anchor: HTMLElement } | null>(null);
+  return (
+    <>
+      <DateRows
+        days={{
+          planned: fields.planned ?? null,
+          due: fields.due ?? null,
+          hold_until: fields.hold_until ?? null,
+        }}
+        today={today}
+        from={from}
+        onOpen={(which, anchor) => setOpen({ which, anchor })}
+      />
+      {open !== null && (
+        <DatePick
+          anchor={open.anchor}
+          dates={{
+            planned: fields.planned ?? null,
+            due: fields.due ?? null,
+            due_hard: fields.due !== undefined,
+            hold_until: fields.hold_until ?? null,
+            repeat: fields.repeat ?? null,
+          }}
+          today={today}
+          start={open.which}
+          onSet={(change) => onPick(fieldsOf(change))}
+          onClose={() => setOpen(null)}
+        />
+      )}
+    </>
   );
 }

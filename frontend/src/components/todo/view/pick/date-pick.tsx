@@ -18,10 +18,11 @@ export interface Dates {
 
 export type DateChange = Partial<Pick<Dates, "planned" | "due" | "due_hard" | "hold_until">>;
 
-const TABS: { which: Which; label: string }[] = [
-  { which: "planned", label: "Planned" },
-  { which: "due", label: "Due" },
-  { which: "hold_until", label: "Hold until" },
+/** The three dates, in tab order, with how a panel row shows each. */
+export const DATES: { which: Which; label: string; icon: IconName; empty: string }[] = [
+  { which: "planned", label: "Planned", icon: "sun", empty: "Plan a day" },
+  { which: "due", label: "Due", icon: "flag", empty: "Set a due date" },
+  { which: "hold_until", label: "Hold until", icon: "hour", empty: "Not held" },
 ];
 
 interface Option {
@@ -54,8 +55,8 @@ export function optionsFor(typed: string, today: string): Option[] {
 }
 
 function nextTab(which: Which, back: boolean): Which {
-  const at = TABS.findIndex((tab) => tab.which === which);
-  return TABS[(at + (back ? 2 : 1)) % TABS.length]?.which ?? "planned";
+  const at = DATES.findIndex((tab) => tab.which === which);
+  return DATES[(at + (back ? 2 : 1)) % DATES.length]?.which ?? "planned";
 }
 
 /** Three weeks of days, from the Monday of this one. */
@@ -107,7 +108,7 @@ export function DatePick(props: {
     <Popover anchor={props.anchor} label="Dates" onClose={props.onClose} onKey={onKey}>
       <div className="flex flex-col gap-1">
         <div className="grid grid-cols-3 gap-1 rounded-lg bg-k-inset p-1">
-          {TABS.map((tab) => (
+          {DATES.map((tab) => (
             <button
               key={tab.which}
               type="button"

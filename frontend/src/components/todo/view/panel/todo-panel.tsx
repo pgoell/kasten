@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import {
-  DateButton,
+  DateRows,
   FieldRow,
   InlineText,
   PriorityPick,
@@ -15,7 +15,7 @@ import { Icon } from "@/components/todo/view/view-icons";
 import type { TodoRow } from "@/lib/core/api";
 import { linkTo } from "@/lib/todo/view/rows/note-links";
 import { readMinutes } from "@/lib/todo/view/rows/quick-words";
-import { longDay, minutes } from "@/lib/todo/view/rows/row-facts";
+import { minutes } from "@/lib/todo/view/rows/row-facts";
 import { deleteTodo, stateTodo, timerTodo } from "@/lib/todo/view/todo-store";
 import { usePanelSave } from "@/lib/todo/view/use-panel-save";
 
@@ -174,7 +174,7 @@ export function TodoPanel(props: PanelProps) {
             />
           </FieldRow>
           <DateRows
-            row={row}
+            days={daysOf(row)}
             today={today}
             onOpen={(which, anchor) => setDates({ which, anchor })}
           />
@@ -258,43 +258,7 @@ export function TodoPanel(props: PanelProps) {
   );
 }
 
-/** Planned, due and hold until, each opening the one date popover on its own tab. */
-function DateRows(props: {
-  row: TodoRow;
-  today: string;
-  onOpen: (which: Which, anchor: HTMLElement) => void;
-}) {
-  const { row, today } = props;
-  const shown = (day: string | null) => (day === null ? "" : longDay(day, today));
-  return (
-    <>
-      <FieldRow icon="sun" label="Planned">
-        <DateButton
-          label="Planned"
-          day={row.planned}
-          shown={shown(row.planned)}
-          empty="Plan a day"
-          onOpen={(anchor) => props.onOpen("planned", anchor)}
-        />
-      </FieldRow>
-      <FieldRow icon="flag" label="Due">
-        <DateButton
-          label="Due"
-          day={row.due_hard ? row.due : null}
-          shown={shown(row.due)}
-          empty="Set a due date"
-          onOpen={(anchor) => props.onOpen("due", anchor)}
-        />
-      </FieldRow>
-      <FieldRow icon="hour" label="Hold until">
-        <DateButton
-          label="Hold until"
-          day={row.hold_until}
-          shown={shown(row.hold_until)}
-          empty="Not held"
-          onOpen={(anchor) => props.onOpen("hold_until", anchor)}
-        />
-      </FieldRow>
-    </>
-  );
+/** The days the date rows show: a due day that is not hard reads as unset. */
+function daysOf(row: TodoRow): Record<Which, string | null> {
+  return { planned: row.planned, due: row.due_hard ? row.due : null, hold_until: row.hold_until };
 }

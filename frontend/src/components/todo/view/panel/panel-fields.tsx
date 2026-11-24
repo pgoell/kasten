@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
 import { TodoStateBox } from "@/components/todo/todo-state-box";
+import { DATES, type Which } from "@/components/todo/view/pick/date-pick";
 import { Icon, type IconName } from "@/components/todo/view/view-icons";
 import type { TodoState } from "@/lib/todo/todo";
-import { projectHue } from "@/lib/todo/view/rows/row-facts";
+import { longDay, projectHue } from "@/lib/todo/view/rows/row-facts";
 import { projectName } from "@/lib/todo/view/rows/view-rows";
 
 export const STATES: TodoState[] = [
@@ -163,48 +164,29 @@ export function ProjectPick(props: {
   );
 }
 
-/** A day as text that opens the browser's own date picker; empty clears it. */
-export function DayPick(props: {
-  label: string;
-  day: string | null;
-  shown: string;
-  empty: string;
-  onPick: (day: string | null) => void;
+/** Planned, due and hold until, each a button opening the date popover on its own tab. */
+export function DateRows(props: {
+  days: Record<Which, string | null>;
+  today: string;
+  from?: Set<string>;
+  onOpen: (which: Which, anchor: HTMLElement) => void;
 }) {
-  return (
-    <span className="relative inline-flex items-center rounded px-1 hover:bg-k-inset">
-      <span className={props.day === null ? "text-k-muted" : "text-k-ink"}>
-        {props.day === null ? props.empty : props.shown}
-      </span>
-      <input
-        type="date"
-        aria-label={props.label}
-        value={props.day ?? ""}
-        onChange={(event) => props.onPick(event.target.value === "" ? null : event.target.value)}
-        className="absolute inset-0 cursor-pointer opacity-0"
-      />
-    </span>
-  );
-}
-
-/** A day drawn as its text; a press opens the date popover by it. */
-export function DateButton(props: {
-  label: string;
-  day: string | null;
-  shown: string;
-  empty: string;
-  onOpen: (anchor: HTMLElement) => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={`${props.label}: ${props.day === null ? props.empty : props.shown}`}
-      onClick={(event) => props.onOpen(event.currentTarget)}
-      className={`rounded px-1 text-left hover:bg-k-inset ${props.day === null ? "text-k-muted" : "text-k-ink"}`}
-    >
-      {props.day === null ? props.empty : props.shown}
-    </button>
-  );
+  return DATES.map(({ which, label, icon, empty }) => {
+    const day = props.days[which];
+    const text = day === null ? empty : longDay(day, props.today);
+    return (
+      <FieldRow key={which} icon={icon} label={label} from={props.from?.has(which)}>
+        <button
+          type="button"
+          aria-label={`${label}: ${text}`}
+          onClick={(event) => props.onOpen(which, event.currentTarget)}
+          className={`rounded px-1 text-left hover:bg-k-inset ${day === null ? "text-k-muted" : "text-k-ink"}`}
+        >
+          {text}
+        </button>
+      </FieldRow>
+    );
+  });
 }
 
 /** A short text field drawn as its value until focused, saved as typed. */
