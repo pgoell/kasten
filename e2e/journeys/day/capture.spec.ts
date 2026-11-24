@@ -1,5 +1,13 @@
 import type { Locator, Page } from "@playwright/test";
-import { leader, noteText, openApp, phone, runCommand, today } from "../../harness/app.ts";
+import {
+  leader,
+  noteText,
+  openApp,
+  phone,
+  runCommand,
+  today,
+  vaultWith,
+} from "../../harness/app.ts";
 import { expect, test } from "../../harness/stack.ts";
 
 const THOUGHT = "call the plumber about the tap";
@@ -171,6 +179,33 @@ test.describe("on a phone", () => {
     await expect(prompt).toBeHidden();
     await expect.poll(() => dailyText(stack.vault), { timeout: 15_000 }).toMatch(UNDER_DUMP);
   });
+
+  // A touchstart opens CodeMirror's 300 ms window, inside which a bare refocus would hand it the
+  // DOM's caret at the note's top (#2311).
+  for (const vim of ["on", "off"] as const) {
+    test(`Escape just after a touch on the note leaves the caret where it was, vim ${vim} (#2311)`, async ({
+      page,
+      stack,
+    }) => {
+      await page.addInitScript((mode) => localStorage.setItem("kasten.vim", mode), vim);
+      await vaultWith(stack.vault, { "01 Notes/Walk.md": "# Walk\n\nThe walk:\n" });
+      await page.goto(`/?note=${encodeURIComponent("01 Notes/Walk.md")}`);
+      // A click, not a tap: a tap moves the page's selection and not CodeMirror's (#1975).
+      await page.getByText("The walk:").click({ timeout: 15_000 });
+      await runCommand(page, /Capture a thought/, "capture");
+      const prompt = page.getByRole("dialog", { name: "Capture a thought" });
+      await expect(prompt).toBeVisible();
+
+      await page.locator(".cm-content").dispatchEvent("touchstart");
+      await page.keyboard.press("Escape");
+      await expect(prompt).toBeHidden();
+      await page.keyboard.press(vim === "on" ? "Shift+A" : "End");
+      await page.keyboard.type("zz");
+      await expect
+        .poll(() => noteText(stack.vault, "01 Notes/Walk.md"), { timeout: 10_000 })
+        .toContain("The walk:zz");
+    });
+  }
 });
 
 test.describe("the capture page", () => {

@@ -2,6 +2,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useEffect, useId, useRef, useState } from "react";
 import { type RankedAnswer, rankedSearch } from "@/lib/core/api";
 import { noteName } from "@/lib/notes/links/note-path";
+import { focusBack } from "@/lib/ui/focus-trap";
 import {
   BACKDROP,
   closeOnBackdrop,
@@ -87,7 +88,7 @@ export function MeaningFinder({ archive, onOpen, onClose }: MeaningFinderProps) 
     field.current?.focus();
     return () => {
       if (opening.current) return;
-      if (opener instanceof HTMLElement) opener.focus();
+      focusBack(opener);
     };
   }, []);
 

@@ -4,6 +4,7 @@ import { SearchPreview } from "@/components/search/search-preview";
 import { SearchRow } from "@/components/search/search-row";
 import type { Mention, SearchHit } from "@/lib/core/api";
 import { isMention, type SearchMode, useSearchHits } from "@/lib/search/use-search-hits";
+import { focusBack } from "@/lib/ui/focus-trap";
 import {
   BACKDROP,
   BODY,
@@ -154,7 +155,7 @@ function LineSearch({
     field.current?.focus();
     return () => {
       if (opening.current) return;
-      if (opener instanceof HTMLElement) opener.focus();
+      focusBack(opener);
     };
   }, []);
 

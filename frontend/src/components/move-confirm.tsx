@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
+import { focusBack } from "@/lib/ui/focus-trap";
 import {
   BACKDROP,
   closeOnBackdrop,
@@ -58,7 +59,7 @@ export function MoveConfirm({ mode, startPath, target, onMoved, onClose }: MoveC
     const opener = document.activeElement;
     dialog.current?.focus();
     return () => {
-      if (opener instanceof HTMLElement) opener.focus();
+      focusBack(opener);
     };
   }, []);
 

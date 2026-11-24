@@ -1,3 +1,5 @@
+import { EditorView } from "@codemirror/view";
+
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -25,4 +27,16 @@ export function trapTab(event: KeyboardEvent | React.KeyboardEvent, box: HTMLEle
     return true;
   }
   return false;
+}
+
+/**
+ * Gives the focus back to what held it before a dialog, a note through its own view, which never
+ * scrolls: a bare focus on a phone reads the DOM's caret, at the note's start (#2094, #1976, #2311).
+ * No keyboardUnasked(): a caller that must keep the keyboard down asks for that itself (#2312).
+ */
+export function focusBack(opener: Element | null, options?: FocusOptions): void {
+  if (!(opener instanceof HTMLElement)) return;
+  const view = EditorView.findFromDOM(opener);
+  if (view === null) opener.focus(options);
+  else view.focus();
 }

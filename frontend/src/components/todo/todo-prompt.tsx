@@ -3,6 +3,7 @@ import { TodoHints } from "@/components/todo/todo-hints";
 import { formatTodo } from "@/lib/todo/todo";
 import { expandShorthand } from "@/lib/todo/todo-shorthand";
 import { shorthandSuggestions } from "@/lib/todo/todo-suggest";
+import { focusBack } from "@/lib/ui/focus-trap";
 import {
   BACKDROP,
   closeOnBackdrop,
@@ -54,7 +55,7 @@ export function TodoPrompt({ onAdd, onClose, today, under, typed: kept }: TodoPr
     const opener = document.activeElement;
     field.current?.focus();
     return () => {
-      if (opener instanceof HTMLElement) opener.focus();
+      focusBack(opener);
     };
   }, []);
 

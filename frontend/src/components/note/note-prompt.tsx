@@ -7,6 +7,7 @@ import {
   type NotePathVerdict,
 } from "@/lib/notes/links/note-path";
 import { folderCandidates, rankCandidates } from "@/lib/search/fuzzy";
+import { focusBack } from "@/lib/ui/focus-trap";
 import {
   BACKDROP,
   closeOnBackdrop,
@@ -180,7 +181,7 @@ export function NotePrompt({ mode, paths, startPath, openNote, onOpen, onClose }
     if (mode !== "create") field.current?.setSelectionRange(...nameRange(startPath, mode));
     return () => {
       if (opening.current) return;
-      if (opener instanceof HTMLElement) opener.focus();
+      focusBack(opener);
     };
     // Neither changes while the prompt is open: the route sets both when it
     // opens one and unmounts it to close.

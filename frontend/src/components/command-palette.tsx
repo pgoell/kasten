@@ -1,9 +1,10 @@
-import { EditorView } from "@codemirror/view";
+import type { EditorView } from "@codemirror/view";
 import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { AgentRow } from "@/components/todo/pane/todo-pane";
 import { askLogConfig, logConfig, subscribeLogConfig } from "@/lib/log/log-config";
 import { DEFAULT_CONFIG } from "@/lib/log/log-kinds";
 import { lineCandidates, rankIndexes } from "@/lib/search/fuzzy";
+import { focusBack } from "@/lib/ui/focus-trap";
 import type { TreeCommands } from "@/lib/ui/keys/key-bindings";
 import {
   BACKDROP,
@@ -55,12 +56,7 @@ export function CommandPalette({ entries, onClose }: CommandPaletteProps) {
     const opener = document.activeElement;
     field.current?.focus();
     return () => {
-      if (!(opener instanceof HTMLElement)) return;
-      // A bare focus on a phone reads the DOM's caret, at the note's start (#2094, #1976). No
-      // keyboardUnasked(): the palette's field raised the keyboard, and a command's follow-up types.
-      const view = EditorView.findFromDOM(opener);
-      if (view === null) opener.focus();
-      else view.focus();
+      focusBack(opener);
     };
   }, []);
 

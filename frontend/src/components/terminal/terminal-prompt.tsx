@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { noteCandidates, rankCandidates } from "@/lib/search/fuzzy";
+import { focusBack } from "@/lib/ui/focus-trap";
 import {
   BACKDROP,
   closeOnBackdrop,
@@ -68,7 +69,7 @@ export function TerminalPrompt({ sessions, onOpen, onClose }: TerminalPromptProp
     field.current?.focus();
     return () => {
       if (opening.current) return;
-      if (opener instanceof HTMLElement) opener.focus();
+      focusBack(opener);
     };
   }, []);
 

@@ -5,6 +5,7 @@ import { fetchNote } from "@/lib/core/api";
 import { noteName } from "@/lib/notes/links/note-path";
 import { noteBody } from "@/lib/notes/text/note-frontmatter";
 import { noteCandidates, rankCandidates } from "@/lib/search/fuzzy";
+import { focusBack } from "@/lib/ui/focus-trap";
 import { useViewport } from "@/lib/ui/input/use-viewport";
 import {
   BACKDROP,
@@ -233,7 +234,7 @@ export function NoteFinder({
     field.current?.focus();
     return () => {
       if (opening.current) return;
-      if (opener instanceof HTMLElement) opener.focus();
+      focusBack(opener);
     };
   }, []);
 

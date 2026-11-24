@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { focusBack } from "@/lib/ui/focus-trap";
 import {
   BACKDROP,
   closeOnBackdrop,
@@ -34,7 +35,7 @@ export function DumpPrompt({ onCapture, onClose, today }: DumpPromptProps) {
     const opener = document.activeElement;
     field.current?.focus();
     return () => {
-      if (opener instanceof HTMLElement) opener.focus();
+      focusBack(opener);
     };
   }, []);
 

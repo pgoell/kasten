@@ -11,6 +11,7 @@ import { daysBetween, dayWords } from "@/lib/review/review-days";
 import type { Card, Rating } from "@/lib/review/srs";
 import { soundsShowing, useCardSounds } from "@/lib/review/use-card-sounds";
 import { useReviewSitting } from "@/lib/review/use-review-sitting";
+import { focusBack } from "@/lib/ui/focus-trap";
 
 /**
  * The typing toggle is kept in the browser, not the vault: it is a preference, not a fact about the notes.
@@ -156,7 +157,7 @@ export function ReviewSession({ deck, onLeave, onControls, onOpen }: ReviewSessi
     const opener = document.activeElement;
     field.current?.focus();
     return () => {
-      if (opener instanceof HTMLElement) opener.focus();
+      focusBack(opener);
     };
   }, [jotOpen]);
 

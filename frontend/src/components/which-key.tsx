@@ -1,5 +1,5 @@
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { trapTab } from "@/lib/ui/focus-trap";
+import { focusBack, trapTab } from "@/lib/ui/focus-trap";
 import { isChord } from "@/lib/ui/keys/key-bindings";
 import { heldModifier, TAB_KEYS } from "@/lib/ui/keys/leader-keys";
 import { contextAt, type LeaderContext, type PanelRow, panelRows } from "@/lib/ui/keys/leader-view";
@@ -84,9 +84,8 @@ function closesPanel(event: KeyboardEvent): boolean {
  * Hands the focus back to what held it when Space was pressed. Synchronous and
  * without a scroll, so the panel's leave never moves the page.
  */
-function focusBack(opener: LeaderOpener) {
-  const from = opener.from;
-  if (from instanceof HTMLElement && from.isConnected) from.focus({ preventScroll: true });
+function returnFocus(opener: LeaderOpener) {
+  if (opener.from?.isConnected) focusBack(opener.from, { preventScroll: true });
 }
 
 /** Each press as a chip. After a key a click on the Space chip goes back to the groups, as Backspace does. */
@@ -304,7 +303,7 @@ export function WhichKey() {
   // keeps it: the command runs after the focus is back, not before.
   const fire = useCallback(
     (from: LeaderOpener, run: () => void) => {
-      focusBack(from);
+      returnFocus(from);
       leave();
       run();
     },
@@ -329,7 +328,7 @@ export function WhichKey() {
   // it. Stopping it here is what keeps vim's `y` from yanking under the panel.
   useEffect(() => {
     const close = (opener: LeaderOpener) => {
-      focusBack(opener);
+      returnFocus(opener);
       leave();
     };
     const typeKey = (opener: LeaderOpener, next: string) => {
