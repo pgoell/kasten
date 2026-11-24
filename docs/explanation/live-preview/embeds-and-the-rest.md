@@ -129,6 +129,8 @@ the end of what it shows, the rendering parses up to there before the browser
 paints, again with up to 200ms (#2323, #2324). The markdown parser cannot start
 in the middle of a note, so a jump to the end of a long note parses all of it
 once; a note too long for the 200ms still shows the rest raw until the idle pass.
+Typing or deleting that leaves the screen where it was parses nothing more: on a
+slow phone the 200ms would come after every key (#2327).
 
 The finder's preview pane is the exception. It is told nothing about how to
 read the vault, so it shows `![[...]]` as source rather than calling every

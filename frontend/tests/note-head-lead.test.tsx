@@ -237,4 +237,63 @@ describe("a jump past the parsed part of a long note (#2323)", () => {
     finishParsing(view.dom.parentElement as HTMLElement);
     expect(hides(view, DEEP, DEEP + 2)).toBe(true);
   });
+
+  /** Runs `step` on a clock that jumps 300 ms a read, so no parse in it gets past its first step; `after` too unless false. */
+  async function slowed(step: () => void, after = true) {
+    let now = Date.now();
+    const clock = vi.spyOn(Date, "now").mockImplementation(() => (now += 300));
+    try {
+      act(step);
+      if (after) await act(async () => {});
+    } finally {
+      clock.mockRestore();
+    }
+    await act(async () => {});
+  }
+
+  it.each(["on", "off"])(
+    "starts no parse for a key typed where the parse has not reached, vim %s (#2327)",
+    async (vim) => {
+      const view = openedAtTop(vim);
+      await slowed(() =>
+        view.dispatch({ selection: { anchor: LONG.length }, scrollIntoView: true }),
+      );
+      expect(syntaxTreeAvailable(view.state, DEEP)).toBe(false);
+      const dispatch = vi.spyOn(view, "dispatch");
+      const at = view.state.doc.length;
+      await slowed(() =>
+        view.dispatch({
+          changes: { from: at, insert: "x" },
+          selection: { anchor: at + 1 },
+          userEvent: "input.type",
+        }),
+      );
+
+      expect(dispatch).toHaveBeenCalledTimes(1);
+      expect(syntaxTreeAvailable(view.state, DEEP)).toBe(false);
+      // The idle pass still lands, and draws what the key left raw.
+      finishParsing(view.dom.parentElement as HTMLElement);
+      expect(hides(view, DEEP, DEEP + 2)).toBe(true);
+    },
+  );
+
+  it("parses the screen a typed key scrolls onto", async () => {
+    const view = openedAtTop("off");
+    // The open's own parse lands first, so only the key's can reach the end.
+    await act(async () => {});
+    expect(syntaxTreeAvailable(view.state, DEEP)).toBe(false);
+    const at = view.state.doc.length;
+    await slowed(
+      () =>
+        view.dispatch({
+          changes: { from: at, insert: "x" },
+          selection: { anchor: at + 1 },
+          scrollIntoView: true,
+          userEvent: "input.type",
+        }),
+      false,
+    );
+
+    expect(hides(view, DEEP, DEEP + 2)).toBe(true);
+  });
 });
