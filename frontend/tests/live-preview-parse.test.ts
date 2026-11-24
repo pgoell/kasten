@@ -12,6 +12,7 @@ import { noteLanguage } from "@/lib/markdown/note-language";
 import { setVimMode, vimKeys } from "@/lib/notes/editor/vim-mode";
 import { vaultPaths, wikiLinkAt } from "@/lib/notes/links/wikilink";
 import { livePreview, renderedMarkdown } from "@/lib/notes/live/live-preview";
+import { retheme } from "@/lib/notes/live/live-preview-fences";
 import { stalled } from "./live-preview-fixture";
 
 /** Whether some decoration replaces the range with a widget. */
@@ -461,6 +462,72 @@ describe("#2331 an edit redraws only the blocks it touched", () => {
     other.dispatch({});
     expectDrawn(view, drawing(other), "renderedMarkdown");
     other.destroy();
+    view.destroy();
+  });
+
+  /** A long note parsed to `upto`, the cursor at its end, on a clock that keeps each later step short. */
+  const half = (vim: boolean, upto: number) => {
+    const block = NOTE_2331.replace("[r]: https://example.com", "Plain.").replace(/ {2}- /g, "- ");
+    const doc = Array(60).fill(block).join("\n\n");
+    const view = stalled(() => {
+      const state = EditorState.create({
+        doc,
+        selection: { anchor: doc.length },
+        extensions: extensions(vim),
+      });
+      const made = new EditorView({ state });
+      if (vim) made.dispatch({ effects: setVimMode.of("insert") });
+      return made;
+    });
+    forceParsing(view, doc.length - upto, 10_000);
+    return view;
+  };
+
+  for (const vim of [false, true]) {
+    it(`#2333 a key past the parse's reach walks no whole tree, draws as main, and right once parsed, vim ${vim ? "insert" : "off"}`, () => {
+      const view = half(vim, 15_000);
+      const whole = vi.spyOn(Tree.prototype, "iterate");
+      for (const key of "abc") {
+        whole.mockClear();
+        stalled(() => view.dispatch(type(view.state.doc.length, key)));
+        const tree = syntaxTree(view.state);
+        expect(
+          whole.mock.contexts.filter(
+            (t, i) => t === tree && whole.mock.calls[i]?.[0].from === undefined,
+          ),
+        ).toEqual([]);
+        expect(syntaxTreeAvailable(view.state, view.state.doc.length)).toBe(false);
+        // Main's path: a whole walk, its drawing kept past the reach but on the edited line.
+        const main = view.state.update({ effects: retheme.of(null) }).state;
+        expectDrawn(view, drawing({ state: main } as EditorView), `key ${key}`);
+      }
+      whole.mockRestore();
+      forceParsing(view, view.state.doc.length, 10_000);
+      expectDrawn(view, fresh(view, vim), "parsed in a step after the keys");
+      view.destroy();
+      // The key whose own parse lands the rest of the tree.
+      const near = half(vim, 300);
+      expect(syntaxTreeAvailable(near.state, near.state.doc.length)).toBe(false);
+      // The key's parse runs up to the end of what the view shows, so the view shows the end first.
+      stalled(() =>
+        near.dispatch({ selection: { anchor: near.state.doc.length }, scrollIntoView: true }),
+      );
+      near.dispatch(type(near.state.doc.length, "x"));
+      expect(syntaxTreeAvailable(near.state, near.state.doc.length)).toBe(true);
+      expectDrawn(near, fresh(near, vim), "parsed inside the key");
+      near.destroy();
+    });
+  }
+
+  it("a fold click after an edit above it folds the callout clicked", () => {
+    const doc = "Intro\n\n> [!note]- One\n> body one\n\n> [!note]- Two\n> body two\n\nEnd";
+    const view = mount(doc, false);
+    document.body.append(view.dom);
+    view.dispatch(type(0, "more "));
+    const folds = view.dom.querySelectorAll(".cm-callout-fold");
+    folds[1]?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const shown = view.dom.querySelector(".cm-content")?.textContent ?? "";
+    expect([shown.includes("body one"), shown.includes("body two")]).toEqual([false, true]);
     view.destroy();
   });
 });
