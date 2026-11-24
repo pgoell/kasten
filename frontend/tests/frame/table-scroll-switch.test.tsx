@@ -223,7 +223,7 @@ describe("a table's sideways place", () => {
       .toBe(150);
   });
 
-  it("#2338 a note replaced whole keeps only the place of the table at its start", async () => {
+  it("#2338 a note replaced whole passes no table's place to another", async () => {
     const tables = [wideNote(3), wideNote(4)].map((note) => note.replace("before\n\n", ""));
     const doc = `${tables.join("\n\n")}\n\nafter`;
     const { at, host } = await drawn(doc);
@@ -243,6 +243,6 @@ describe("a table's sideways place", () => {
     at.dispatch({ changes: { from: 0, to: doc.length, insert: doc }, selection: { anchor: 1 } });
     at.dispatch({ selection: { anchor: doc.length } });
     await expect.poll(() => blocks().length).toBe(2);
-    await expect.poll(() => blocks().map((scroller) => scroller.scrollLeft)).toEqual([150, 60]);
+    await expect.poll(() => blocks().map((scroller) => scroller.scrollLeft)).toEqual([0, 0]);
   });
 });

@@ -45,7 +45,8 @@ function placesOf(view: EditorView, path: string): Map<number, number> {
 /**
  * Where a table's start lands, or null for a table whose first character was deleted with nothing
  * written in its place, so its place cannot pass to the table after it (#2338). One rewritten from
- * exactly its start, as the line-up adds a leading pipe, keeps it; one inside a wider rewrite goes.
+ * exactly its start, as the line-up adds a leading pipe, keeps it; one inside a wider rewrite goes,
+ * so a whole note replaced passes no place from one table to another.
  */
 function startAfter(changes: ChangeDesc, at: number): number | null {
   const kept = changes.mapPos(at, 1, MapMode.TrackAfter);
