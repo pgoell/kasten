@@ -92,6 +92,8 @@ async def search_todos(  # noqa: PLR0913, PLR0917  one argument per field a mode
     shown_on: Annotated[
         date | None, Field(description="Only what that day's lists show: no hold, no early wait.")
     ] = None,
+    done_from: Annotated[date | None, Field(description="Done on or after.")] = None,
+    done_to: Annotated[date | None, Field(description="Done on or before.")] = None,
     archive: bool = False,
     sort: Annotated[
         Literal["place", "priority", "due", "planned", "created"],
@@ -115,6 +117,8 @@ async def search_todos(  # noqa: PLR0913, PLR0917  one argument per field a mode
         look_again_by=look_again_by,
         waiting=waiting,
         shown_on=shown_on,
+        done_from=done_from,
+        done_to=done_to,
         archive=None if archive else settings.archive_path,
         sort=sort,
         limit=max(1, min(limit, 500)),

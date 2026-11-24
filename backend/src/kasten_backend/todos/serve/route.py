@@ -179,6 +179,8 @@ class Search(BaseModel):
     waiting: bool | None = None
     look_again_by: date | None = None
     shown_on: date | None = None
+    done_from: date | None = None
+    done_to: date | None = None
     note: str | None = None
     shared_list: str | None = None
     archive: bool = False

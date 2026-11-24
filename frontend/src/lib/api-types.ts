@@ -13250,6 +13250,8 @@ export interface operations {
                 waiting?: boolean | null;
                 look_again_by?: string | null;
                 shown_on?: string | null;
+                done_from?: string | null;
+                done_to?: string | null;
                 note?: string | null;
                 shared_list?: string | null;
                 archive?: boolean;
@@ -13300,6 +13302,8 @@ export interface operations {
                 waiting?: boolean | null;
                 look_again_by?: string | null;
                 shown_on?: string | null;
+                done_from?: string | null;
+                done_to?: string | null;
                 note?: string | null;
                 shared_list?: string | null;
                 archive?: boolean;

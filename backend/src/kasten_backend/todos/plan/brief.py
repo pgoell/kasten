@@ -118,6 +118,17 @@ async def _last_plan(session: AsyncSession, day: date) -> dict[str, Any] | None:
     return plan
 
 
+async def _done_before(
+    session: AsyncSession, settings: Settings, day: date
+) -> list[dict[str, Any]]:
+    """Every todo done on the day before `day`, picked or not; a repeat's finished round too."""
+    last = day - timedelta(days=1)
+    filters = Filters(state=("done",), done_from=last, done_to=last, archive=settings.archive_path)
+    rows = [row for row in await search(session, filters) if row.shared_list is None]
+    keep = ("id", "words", "tags", "project", "round_of")
+    return [{key: plain(row)[key] for key in keep} for row in rows]
+
+
 async def brief(
     session: AsyncSession, settings: Settings, day: date, limit: int = 60
 ) -> dict[str, Any]:
@@ -132,6 +143,7 @@ async def brief(
     return {
         "day": day,
         "last_plan": await _last_plan(session, day),
+        "done": await _done_before(session, settings, day),
         "look_again": [
             _row(row, picked)
             for row in rows
