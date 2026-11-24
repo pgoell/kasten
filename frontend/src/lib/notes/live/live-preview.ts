@@ -134,7 +134,7 @@ function build(state: EditorState): Live {
  * the edit touched are walked, where a whole walk cost a long note's every key near its end (#2333).
  */
 function pastReach(value: Live, tr: Transaction): Live | null {
-  if (value.nested || (value.players && tr.docChanged)) return null;
+  if (value.whole || value.nested || (value.players && tr.docChanged)) return null;
   const { doc } = tr.state;
   const reach = parsedTo(tr.state);
   const from = bandStart(tr, Math.min(tr.changes.mapPos(value.reach, -1), reach));
