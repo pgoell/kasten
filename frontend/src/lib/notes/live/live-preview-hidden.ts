@@ -337,16 +337,11 @@ export function parsedTo(state: EditorState): number {
 /** Whether a range past `reach` keeps its old drawing: the edit and the cursors leave its lines alone. */
 export function keeper(tr: Transaction, reach: number): (from: number, to: number) => boolean {
   const { doc, selection } = tr.state;
-  return (from, to) => {
-    if (from < reach) return false;
-    const onLines = (start: number, end: number) =>
-      doc.lineAt(start).from <= to && doc.lineAt(end).to >= from;
-    let touched = false;
-    tr.changes.iterChangedRanges((_fromA, _toA, fromB, toB) => {
-      if (onLines(fromB, toB)) touched = true;
-    });
-    return !touched && !selection.ranges.some((range) => onLines(range.from, range.to));
-  };
+  // The lines read once, not per range: a long note keeps thousands of ranges past the reach.
+  const lines: Span[] = selection.ranges.map((range) => [range.from, range.to]);
+  tr.changes.iterChangedRanges((_fromA, _toA, fromB, toB) => lines.push([fromB, toB]));
+  const touched = lines.map(([start, end]): Span => [doc.lineAt(start).from, doc.lineAt(end).to]);
+  return (from, to) => from >= reach && touched.every(([start, end]) => start > to || end < from);
 }
 
 interface Drawing {
