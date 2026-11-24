@@ -66,16 +66,8 @@ const stub = async (input: RequestInfo | URL, init?: RequestInit): Promise<Respo
     api.note = `## Dump\n\n${api.dumps.join("\n\n")}\n`;
     return json({ path: api.daily, content: api.note });
   }
-  if (url.pathname === "/api/todos" && method === "POST" && request) {
-    const { words } = JSON.parse(await request.text()) as { words: string };
-    const id = `kt-${api.todos.size.toString(16).padStart(6, "0")}`;
-    api.todos.set(id, words);
-    return json({ id, words, version: 1 });
-  }
-  if (url.pathname.startsWith("/api/todos/") && method === "DELETE") {
-    api.todos.delete(url.pathname.slice("/api/todos/".length));
-    return new Response(null, { status: 204 });
-  }
+  const todo = await storeTodo(url, method, request);
+  if (todo !== undefined) return todo;
   if (isDaily(url) && method === "GET") return json({ path: api.daily, content: api.note });
   if (isDaily(url) && method === "PUT" && request) {
     const body = JSON.parse(await request.text()) as { content: string; base?: string };
@@ -85,6 +77,23 @@ const stub = async (input: RequestInfo | URL, init?: RequestInit): Promise<Respo
   }
   return (await otherNote(url, method, request)) ?? real(input, init);
 };
+
+/** A shared story's todo, added to the store or deleted by its Undo. */
+async function storeTodo(
+  url: URL,
+  method: string,
+  request: Request | undefined,
+): Promise<Response | undefined> {
+  if (url.pathname === "/api/todos" && method === "POST" && request) {
+    const { words } = JSON.parse(await request.text()) as { words: string };
+    const id = `kt-${api.todos.size.toString(16).padStart(6, "0")}`;
+    api.todos.set(id, words);
+    return json({ id, words, version: 1 });
+  }
+  if (!url.pathname.startsWith("/api/todos/") || method !== "DELETE") return undefined;
+  api.todos.delete(url.pathname.slice("/api/todos/".length));
+  return new Response(null, { status: 204 });
+}
 
 /** Any other note the put reads first, then writes; a path not yet written reads empty. */
 async function otherNote(

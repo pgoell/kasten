@@ -417,9 +417,9 @@ describe("forged y messages (#877)", () => {
 
     await userEvent.click(inFrame(frame).getByRole("button", { name: "Share later" }).nth(1));
 
-    await expect.poll(() => [...api.todos.values()].some((words) => words.includes("#share"))).toBe(
-      true,
-    );
+    await expect
+      .poll(() => [...api.todos.values()].some((words) => words.includes("#share")))
+      .toBe(true);
   });
 
   it("Shift with an arrow key grows a selection and y takes it, twice in one visit", async () => {
