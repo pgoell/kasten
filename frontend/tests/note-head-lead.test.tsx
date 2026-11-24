@@ -185,6 +185,24 @@ describe("a note past CodeMirror's first parse (#1984)", () => {
     expect(hides(view, DEEP, DEEP + 2)).toBe(true);
   });
 
+  it("draws a heading without its # by the scroll it was left at, the cursor at the top", async () => {
+    writePosition(PATH, { anchor: 0, head: 0, top: 1_000_000 });
+    // jsdom lays nothing out, and a pane of no height keeps its saved scroll for later.
+    const height = vi.spyOn(Element.prototype, "clientHeight", "get").mockReturnValue(600);
+    try {
+      const { container } = starved(
+        <Editor initialDoc={LONG} path={PATH} commands={stubCommands()} />,
+      );
+      await act(async () => {});
+      const view = viewIn(container);
+
+      expect(view.state.selection.main.head).toBe(0);
+      expect(hides(view, DEEP, DEEP + 2)).toBe(true);
+    } finally {
+      height.mockRestore();
+    }
+  });
+
   it("opens a note the budget cannot parse, and draws the rest once the parse lands", () => {
     // 300 ms a read, the open's parse too, spends its budget at its first step, as a far slower box would.
     const { container } = starved(

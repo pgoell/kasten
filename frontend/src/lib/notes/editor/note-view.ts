@@ -369,12 +369,13 @@ export function createNoteView(o: {
 const OPEN_PARSE_MS = 200;
 
 /**
- * Parses to the end of the screen, or a screen past the cursor, before the first paint. CodeMirror's
- * first parse stops after 20 ms, and past it a heading kept its `#` until the idle pass (#1984).
+ * Parses to the end of the screen, a screen past the cursor, or `below`, before the first paint.
+ * CodeMirror's first parse stops after 20 ms, and past it a heading kept its `#` until the idle pass (#1984).
  */
-export function parseShown(view: EditorView): void {
+export function parseShown(view: EditorView, below = 0): void {
   const { viewport, state } = view;
-  const screen = Math.max(viewport.to, state.selection.main.head + viewport.to - viewport.from);
+  const cursor = state.selection.main.head + viewport.to - viewport.from;
+  const screen = Math.max(viewport.to, cursor, below);
   forceParsing(view, Math.min(screen, state.doc.length), OPEN_PARSE_MS);
 }
 

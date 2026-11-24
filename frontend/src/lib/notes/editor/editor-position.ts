@@ -1,6 +1,7 @@
 import type { Text } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { belowFrontmatter } from "@/lib/markdown/frontmatter-language";
+import { parseShown } from "@/lib/notes/editor/note-view";
 import { readPosition, writePosition } from "@/lib/notes/editor/positions";
 import { noteName } from "@/lib/notes/links/note-path";
 import { textStart } from "@/lib/notes/text/note-lead";
@@ -42,6 +43,11 @@ export function notePosition(path: string | undefined, named: boolean) {
     if (shown || saved === undefined || view.scrollDOM.clientHeight === 0) return;
     shown = true;
     scrollTo(view, saved.top);
+    // The scroll can sit past the cursor's screen. A microtask: a geometry update may be what calls this (#1984).
+    const below = view.lineBlockAtHeight(saved.top + view.scrollDOM.clientHeight).to;
+    queueMicrotask(() => {
+      if (view.dom.isConnected) parseShown(view, below);
+    });
   }
   // Trailing, not reset while pending, so a held `j` writes twice a second, not per line.
   function soon(view: EditorView) {
