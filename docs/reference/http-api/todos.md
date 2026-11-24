@@ -142,7 +142,9 @@ Starts a session, or stops every one running and sums the closed ones into
 
 ## DELETE /api/todos/{todo_id}
 
-Deletes the todo and its parts, answering `204`. Each one's delete is recorded
+Deletes the todo and its parts, answering `204`. With `?version=` it deletes
+only a todo still at that version, and answers `409` for any other, as `PATCH`
+does. Each one's delete is recorded
 and its history stays. Their ids leave the `blocked_by` of every todo they
 held, and a blocked one that nothing else holds opens.
 

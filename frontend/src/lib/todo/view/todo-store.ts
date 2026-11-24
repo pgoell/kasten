@@ -106,15 +106,27 @@ export function addTodo(queryClient: QueryClient, todo: NewTodo): Promise<TodoRo
   });
 }
 
-/** Delete a todo and its parts; their history stays in the store. */
-export function deleteTodo(queryClient: QueryClient, id: string): Promise<TodoRow[]> {
+/** The store refused a write sent with a version the todo has moved past. */
+export class StaleTodoError extends Error {
+  override name = "StaleTodoError";
+}
+
+/**
+ * Delete a todo and its parts; their history stays in the store. With `version`, a todo
+ * changed since it was read at that version is refused with a `StaleTodoError`.
+ */
+export function deleteTodo(
+  queryClient: QueryClient,
+  id: string,
+  version?: number,
+): Promise<TodoRow[]> {
   return inStore(queryClient, async () => {
     const { error, response } = await client.DELETE("/api/todos/{todo_id}", {
-      params: { path: { todo_id: id } },
+      params: { path: { todo_id: id }, query: version === undefined ? {} : { version } },
     });
     if (response.ok) return [];
-    throw new Error(
-      reason(error as { detail?: unknown }) ?? `DELETE /api/todos failed with ${response.status}`,
-    );
+    const said = reason(error as { detail?: unknown });
+    if (response.status === 409) throw new StaleTodoError(said ?? "the todo changed since");
+    throw new Error(said ?? `DELETE /api/todos failed with ${response.status}`);
   });
 }

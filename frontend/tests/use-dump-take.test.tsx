@@ -1,5 +1,5 @@
 import "fake-indexeddb/auto";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { type Taking, useDumpTake } from "@/components/takes/use-dump-take";
 import { reset, waiting } from "@/lib/capture/outbox";
 import { readClock } from "@/lib/core/clock";
@@ -278,20 +278,48 @@ describe("the dump take a pane shares", () => {
     });
   });
 
-  it("a line of its own goes into the dump as it is, tells onKept its id and marks nothing", async () => {
+  it("an add of its own tells onKept its id, marks nothing, and its Undo is the add's own", async () => {
     const sent = answering();
     const onMarked = vi.fn();
+    const onUnmarked = vi.fn();
     const onKept = vi.fn();
-    render(<Taker onMarked={onMarked} onUnmarked={() => {}} />);
+    const undone = vi.fn(async () => true);
+    render(<Taker onMarked={onMarked} onUnmarked={onUnmarked} />);
 
-    act(() => void dump?.take({ ...TAKING, line: () => "- [ ] call the bank", onKept }));
-    await settled(() => onKept.mock.calls.length > 0 && dumpsSent(sent).length > 0);
+    act(
+      () =>
+        void dump?.added({ ...TAKING, story: true, onKept }, async () => ({
+          run: undone,
+          refused: "Changed",
+        })),
+    );
+    const toast = await screen.findByRole("status");
+    expect(within(toast).queryByRole("button", { name: "Put it in a note" })).toBeNull();
+    fireEvent.click(within(toast).getByRole("button", { name: "Undo" }));
 
-    await screen.findByRole("status");
+    await waitFor(() => expect(onUnmarked).toHaveBeenCalledWith(1));
     expect({
-      sent: dumpsSent(sent).map((dump) => dump.text),
+      sent: dumpsSent(sent),
       kept: onKept.mock.calls,
       marked: onMarked.mock.calls.length,
-    }).toEqual({ sent: ["- [ ] call the bank"], kept: [[1]], marked: 0 });
+      undone: undone.mock.calls.length,
+    }).toEqual({ sent: [], kept: [[1]], marked: 0, undone: 1 });
+  });
+
+  it("an add that fails says why and answers false", async () => {
+    answering();
+    const onKept = vi.fn();
+    render(<Taker onMarked={() => {}} onUnmarked={() => {}} />);
+
+    let answer: Promise<boolean> | undefined;
+    act(() => {
+      answer = dump?.added({ ...TAKING, onKept }, async () => {
+        throw new Error("the store is down");
+      });
+    });
+
+    expect(await answer).toBe(false);
+    expect(await screen.findByText("Not saved: the store is down")).not.toBeNull();
+    expect(onKept).not.toHaveBeenCalled();
   });
 });

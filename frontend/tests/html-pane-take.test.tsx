@@ -38,6 +38,13 @@ vi.mock("@/lib/core/api", () => {
   class ChangedOnDisk extends Error {}
   return { fetchNote, saveNote, updateNote, searchNotes, ChangedOnDisk };
 });
+// A story saved to share later is a store todo, which the store's own tests cover.
+const { addTodo, deleteTodo, StaleTodoError } = vi.hoisted(() => ({
+  addTodo: vi.fn(),
+  deleteTodo: vi.fn(),
+  StaleTodoError: class extends Error {},
+}));
+vi.mock("@/lib/todo/view/todo-store", () => ({ addTodo, deleteTodo, StaleTodoError }));
 
 // The take goes through the real outbox, which keeps the dump in IndexedDB.
 // Its stand-in is the one the capture route's tests use.
@@ -270,10 +277,10 @@ describe("taking a passage out of an html page", () => {
 
   it("in a split each pane's button answers only its own frame", () => {
     const view = render(
-      <>
+      <QueryClientProvider client={new QueryClient()}>
         <HtmlPane path="a.html" commands={stubCommands()} onFocus={() => {}} />
         <HtmlPane path="b.html" commands={stubCommands()} onFocus={() => {}} />
-      </>,
+      </QueryClientProvider>,
     );
     const frames = view.container.querySelectorAll("iframe");
     const frameA = frames[0] as HTMLIFrameElement;
@@ -418,11 +425,19 @@ describe("saving a story to share later", () => {
     anchor: "s1",
     source: "https://news.example/one",
   };
-  const today = () => readClock(NOW).date;
-  const LINE = () =>
-    `- [ ] share [Results](https://news.example/one) ([[${PATH}#s1|in the paper]]) #share ➕ ${today()}`;
+  const TODO = {
+    words: "share Results #share #private",
+    description: `https://news.example/one\n[[${PATH}#s1|in the paper]]`,
+    due: readClock(NOW).date,
+    due_hard: true,
+  };
 
-  it("a press writes the todo into the dump, tells the page, and a second press adds nothing", async () => {
+  beforeEach(() => {
+    addTodo.mockResolvedValue({ id: "kt-5a1e00", version: 1 });
+    deleteTodo.mockResolvedValue([]);
+  });
+
+  it("a press adds the todo to the store, tells the page, and a second press adds nothing", async () => {
     const sent = answering();
     const { frame } = renderPane();
     const posted = vi
@@ -434,7 +449,8 @@ describe("saving a story to share later", () => {
     fromPage(frame.contentWindow, STORY);
     const toast = await screen.findByRole("status");
 
-    expect(dumpsSent(sent).map((dump) => dump.text)).toEqual([LINE()]);
+    expect(addTodo.mock.calls.map(([, todo]) => todo)).toEqual([TODO]);
+    expect(dumpsSent(sent)).toEqual([]);
     expect(within(toast).getByText("Saved to share later")).not.toBeNull();
     expect(within(toast).queryByRole("button", { name: "Put it in a note" })).toBeNull();
     expect(posted).toHaveBeenCalledWith({ kasten: "shared", anchor: "s1" }, "*");
@@ -442,13 +458,13 @@ describe("saving a story to share later", () => {
   });
 
   it("is not saved while the frame does not hold the focus", async () => {
-    const sent = answering();
+    answering();
     const { frame } = renderPane();
 
     fromPage(frame.contentWindow, STORY);
     await settled(() => false);
 
-    expect(dumpsSent(sent)).toEqual([]);
+    expect(addTodo).not.toHaveBeenCalled();
   });
 
   it("#968 is not saved without a press the browser still counts", async () => {
@@ -456,21 +472,31 @@ describe("saving a story to share later", () => {
       "navigator",
       Object.assign(Object.create(navigator), { userActivation: { isActive: false } }),
     );
-    const sent = answering();
+    answering();
     const { frame } = renderPane();
 
     frame.focus();
     fromPage(frame.contentWindow, STORY);
     await settled(() => false);
 
-    expect(dumpsSent(sent)).toEqual([]);
+    expect(addTodo).not.toHaveBeenCalled();
   });
 
-  it("Undo takes the todo out and gives the page its button back", async () => {
+  it("a store that refuses says why, and the next press tries again", async () => {
     answering();
-    const note = () => `## Dump\n\n${LINE()}\n`;
-    fetchNote.mockImplementation(async () => note());
-    saveNote.mockResolvedValue({ path: DAILY, content: "" });
+    addTodo.mockRejectedValueOnce(new Error("the store is down"));
+    const { frame } = renderPane();
+
+    frame.focus();
+    fromPage(frame.contentWindow, STORY);
+    expect(await screen.findByText("Not saved: the store is down")).not.toBeNull();
+    fromPage(frame.contentWindow, STORY);
+
+    await waitFor(() => expect(addTodo).toHaveBeenCalledTimes(2));
+  });
+
+  it("Undo deletes the todo and gives the page its button back", async () => {
+    answering();
     const { frame } = renderPane();
     const posted = vi
       .spyOn(frame.contentWindow as Window, "postMessage")
@@ -480,16 +506,32 @@ describe("saving a story to share later", () => {
     fromPage(frame.contentWindow, STORY);
     fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
 
-    await waitFor(() => expect(saveNote).toHaveBeenCalledTimes(1));
-    expect(saveNote).toHaveBeenCalledWith(
-      DAILY,
-      expect.not.stringContaining("#share"),
-      false,
-      noteBase(note()),
-    );
     await waitFor(() =>
       expect(posted).toHaveBeenCalledWith({ kasten: "unshared", anchor: "s1" }, "*"),
     );
+    expect(deleteTodo.mock.calls.map(([, id, version]) => [id, version])).toEqual([
+      ["kt-5a1e00", 1],
+    ]);
+    expect(saveNote).not.toHaveBeenCalled();
     expect(posted).not.toHaveBeenCalledWith(expect.objectContaining({ kasten: "untake" }), "*");
+  });
+
+  it("Undo leaves a todo written since as it is, and says so", async () => {
+    answering();
+    deleteTodo.mockRejectedValue(new StaleTodoError("kt-5a1e00 moved on."));
+    const { frame } = renderPane();
+    const posted = vi
+      .spyOn(frame.contentWindow as Window, "postMessage")
+      .mockImplementation(() => {});
+
+    frame.focus();
+    fromPage(frame.contentWindow, STORY);
+    fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
+
+    expect(
+      await screen.findByText("The todo changed since, so Undo left it as it is"),
+    ).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+    expect(posted).not.toHaveBeenCalledWith({ kasten: "unshared", anchor: "s1" }, "*");
   });
 });

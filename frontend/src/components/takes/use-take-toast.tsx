@@ -2,7 +2,7 @@ import { type ReactNode, useCallback, useLayoutEffect, useRef, useState } from "
 import { TakeToast } from "@/components/takes/take-toast";
 import { noteName } from "@/lib/notes/links/note-path";
 import { writePassage } from "@/lib/takes/page-highlight";
-import { type Undo, undoPassage } from "@/lib/takes/page-undo";
+import { type Undo, type UndoOutcome, undoPassage } from "@/lib/takes/page-undo";
 
 /** A passage held for a take, as the toast shows it. */
 export interface ToastTaking {
@@ -17,19 +17,34 @@ export interface ToastTaking {
   source: string;
   /** The passage sat in the lower half of its frame, so the toast goes to the top (#885). */
   top: boolean;
-  /**
-   * The dump's line in place of the quote, written relative to the daily note: a
-   * story saved to share later. Such a take is no passage, so there is nothing to
-   * put into a note.
-   */
-  line?: (note: string) => string;
+  /** A story saved to share later, which is no passage: there is nothing to put into a note. */
+  story?: boolean;
+}
+
+/** An Undo that is a call of its own, such as deleting a todo the take added, and no note's edit. */
+export interface CallUndo {
+  /** The take's id, handed to `onUnmarked` once the call has gone through. */
+  id: number;
+  /** False when what the take wrote changed since, so the call left it as it is. */
+  run: () => Promise<boolean>;
+  /** The toast's line for that refusal. */
+  refused: string;
 }
 
 /** The toast on screen: what it says, and the take it can undo, if it can. */
 interface Toast extends ToastTaking {
   id: number;
   title: string;
-  undo?: Undo;
+  undo?: Undo | CallUndo;
+}
+
+async function called(undo: CallUndo): Promise<UndoOutcome> {
+  try {
+    return (await undo.run()) ? { state: "undone" } : { state: "refused" };
+  } catch (error) {
+    if (error instanceof Error) return { state: "failed", message: error.message };
+    throw error;
+  }
 }
 
 export interface TakeToastOptions {
@@ -50,7 +65,7 @@ export interface TakeToastOptions {
  */
 export function useTakeToast(o: TakeToastOptions): {
   /** Show `title` for `taking`, with an Undo when `undo` is given. */
-  show: (title: string, taking: ToastTaking, undo?: Undo) => void;
+  show: (title: string, taking: ToastTaking, undo?: Undo | CallUndo) => void;
   /** Read before an await, then given to `moved` after it. */
   generation: () => number;
   /** Whether the pane has forgotten its document since `since` was read. */
@@ -78,27 +93,27 @@ export function useTakeToast(o: TakeToastOptions): {
     setToast(null);
   }, []);
 
-  function show(title: string, taking: ToastTaking, undo?: Undo) {
+  function show(title: string, taking: ToastTaking, undo?: Undo | CallUndo) {
     toastId.current += 1;
-    const { text, linkIn, source, top, line } = taking;
-    setToast({ id: toastId.current, title, text, linkIn, source, top, line, undo });
+    const { text, linkIn, source, top, story } = taking;
+    setToast({ id: toastId.current, title, text, linkIn, source, top, story, undo });
   }
 
   /**
-   * Take the passage back out of its note, if the note has not changed since the
-   * take. The read and the write are the undo's own (`undoPassage`), so a write
-   * that landed in between is refused, not overwritten.
+   * Undo the take: a note edit through `undoPassage`, or a call of its own. Either
+   * refuses, rather than overwrites, a write that landed in between.
    */
-  async function undoTake(undo: Undo) {
+  async function undoTake(undo: Undo | CallUndo) {
     const { without, refused, onUnmarked } = options.current;
-    const outcome = await undoPassage(undo, without);
+    const outcome = "run" in undo ? await called(undo) : await undoPassage(undo, without);
     if (outcome.state === "undone") {
       onUnmarked(undo.id);
       setToast(null);
       return;
     }
     // The toast says why Undo did nothing, and loses the Undo it can no longer make.
-    const title = outcome.state === "refused" ? refused : outcome.message;
+    const said = "run" in undo ? undo.refused : refused;
+    const title = outcome.state === "refused" ? said : outcome.message;
     setToast((current) => current && { ...current, title, undo: undefined });
   }
 
@@ -129,9 +144,7 @@ export function useTakeToast(o: TakeToastOptions): {
         source={toast.source}
         archive={o.archive}
         onUndo={undo === undefined ? undefined : () => void undoTake(undo)}
-        onPut={
-          toast.line === undefined ? (notePath) => putInto(toast.id, notePath, toast) : undefined
-        }
+        onPut={toast.story ? undefined : (notePath) => putInto(toast.id, notePath, toast)}
         onDone={forget}
       />
     );

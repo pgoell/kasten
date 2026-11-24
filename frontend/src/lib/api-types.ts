@@ -3405,7 +3405,7 @@ export interface paths {
         post?: never;
         /**
          * Delete Todo
-         * @description Delete a todo and its parts; its history stays.
+         * @description Delete a todo and its parts; its history stays. A stale `version`, when sent, answers 409.
          */
         delete: operations["delete_todo_api_todos__todo_id__delete"];
         options?: never;
@@ -13439,7 +13439,9 @@ export interface operations {
     };
     delete_todo_api_todos__todo_id__delete: {
         parameters: {
-            query?: never;
+            query?: {
+                version?: number | null;
+            };
             header?: never;
             path: {
                 todo_id: string;

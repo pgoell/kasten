@@ -10,6 +10,7 @@
  * message that never arrived.
  */
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
@@ -21,6 +22,9 @@ import { WhichKey } from "@/components/which-key";
 import { tapBox } from "../match-media";
 import "@/styles/app.css";
 import { stubCommands } from "../stub-commands";
+
+/** The pane saves a shared story as a store todo, which reaches the store through this. */
+const queries = new QueryClient();
 
 type Spy = ReturnType<typeof stubCommands>;
 
@@ -95,7 +99,9 @@ function Layout({ paths, spy, phone = false }: { paths: string[]; spy: Spy; phon
       <div className="flex min-h-0 flex-1">
         {paths.map((path) => (
           <div key={path} data-pane className="min-w-0 flex-1">
-            <HtmlPane path={path} commands={commands} onFocus={() => {}} />
+            <QueryClientProvider client={queries}>
+              <HtmlPane path={path} commands={commands} onFocus={() => {}} />
+            </QueryClientProvider>
           </div>
         ))}
       </div>

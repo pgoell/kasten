@@ -1,11 +1,20 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
-import { useLayoutEffect } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { act, fireEvent, render as renderBare, screen, within } from "@testing-library/react";
+import { type ReactElement, useLayoutEffect } from "react";
 import { HtmlPane } from "@/components/html-pane";
 import { encodePath } from "@/lib/notes/links/note-path";
 import { hostLeader, type LeaderOpener } from "@/lib/ui/keys/which-key";
 import { applyTheme } from "@/lib/ui/theme";
 import { stubMatchMedia } from "./match-media";
 import { stubCommands } from "./stub-commands";
+
+/** The pane saves a shared story as a store todo, which reaches the store through a query client. */
+const render = (ui: ReactElement) =>
+  renderBare(ui, {
+    wrapper: ({ children }) => (
+      <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>
+    ),
+  });
 
 const PATH = "30 Research/report.html";
 

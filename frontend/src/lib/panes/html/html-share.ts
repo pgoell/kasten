@@ -1,5 +1,5 @@
 /**
- * A newspaper story saved to share later, as the todo the page pane writes into today's `## Dump`.
+ * A newspaper story saved to share later, as a `#share` todo in the store.
  * The page is not trusted, so the headline is escaped and the source must be http or https.
  */
 
@@ -22,8 +22,8 @@ const SOURCE_CAP = 2000;
 const HEADING_MAX = 300;
 const ANCHOR_MAX = 200;
 
-/** The tag every saved story carries, which the todo board filters on. */
-export const SHARE_TAG = "#share";
+/** The tags every saved story carries: the board filters on the first, and the second is its kind. */
+export const SHARE_TAGS = "#share #private";
 
 /** The story in a `share` message, or null when the message is not one. */
 export function storyOf(data: Record<string, unknown>): Story | null {
@@ -59,16 +59,26 @@ export function sourceOf(raw: string): string {
   return href.length > SOURCE_CAP ? "" : href;
 }
 
+/** The new todo's fields: what the todo view lists, the two ways back to the story, and its day. */
+export interface ShareTodo {
+  words: string;
+  description: string;
+  due: string;
+  due_hard: true;
+}
+
 /**
- * The todo line for a story, with the headline inside the link so a date marker in it stays words.
- * `from` is the note the line is written into.
+ * The todo for a story: the headline in its words, plain so the table reads it, and the source
+ * and the link to its place in the paper in its description, which the panel lists under Notes.
+ * `from` is the note the todo lives in, which a markdown link to an odd page name is relative to.
  */
-export function shareLine(path: string, story: Story, from: string, date: string): string {
+export function shareTodo(path: string, story: Story, from: string, date: string): ShareTodo {
   const headline = aliasOf(story.heading) || aliasOf(fileOf(path));
-  const passage = { text: "", anchor: story.anchor };
-  const link =
-    story.source === ""
-      ? pageLink(path, { ...passage, heading: headline }, from)
-      : `[${headline}](${story.source}) (${pageLink(path, { ...passage, heading: "in the paper" }, from)})`;
-  return `- [ ] share ${link} ${SHARE_TAG} ➕ ${date}`;
+  const paper = pageLink(path, { text: "", anchor: story.anchor, heading: "in the paper" }, from);
+  return {
+    words: `share ${headline} ${SHARE_TAGS}`,
+    description: story.source === "" ? paper : `${story.source}\n${paper}`,
+    due: date,
+    due_hard: true,
+  };
 }

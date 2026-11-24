@@ -7,6 +7,7 @@
  * and the test reads that answer rather than the frame's DOM.
  */
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { commands as browser, page, userEvent } from "vitest/browser";
@@ -16,6 +17,9 @@ import { WhichKey } from "@/components/which-key";
 import { PALETTE_KEY, pickPalette, THEME_KEY, toggleTheme } from "@/lib/ui/theme";
 import "@/styles/app.css";
 import { stubCommands } from "../stub-commands";
+
+/** The pane saves a shared story as a store todo, which reaches the store through this. */
+const queries = new QueryClient();
 
 type Spy = ReturnType<typeof stubCommands>;
 
@@ -120,7 +124,9 @@ function Layout({ paths, phone = false }: { paths: string[]; phone?: boolean }) 
       <div className="flex min-h-0 flex-1">
         {paths.map((path) => (
           <div key={path} data-pane className="min-w-0 flex-1">
-            <HtmlPane path={path} commands={spy} onFocus={() => {}} />
+            <QueryClientProvider client={queries}>
+              <HtmlPane path={path} commands={spy} onFocus={() => {}} />
+            </QueryClientProvider>
           </div>
         ))}
       </div>

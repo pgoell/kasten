@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import {
   type ReactNode,
   type RefObject,
@@ -9,7 +10,8 @@ import {
 } from "react";
 import { useDumpTake } from "@/components/takes/use-dump-take";
 import { readClock } from "@/lib/core/clock";
-import { type Story, shareLine, storyOf } from "@/lib/panes/html/html-share";
+import { periodicNote } from "@/lib/notes/text/periodic";
+import { type Story, shareTodo, storyOf } from "@/lib/panes/html/html-share";
 import { spendActivation } from "@/lib/panes/html/user-activation";
 import { fileOf, type PagePassage, pageLink } from "@/lib/takes/html-take";
 import {
@@ -21,6 +23,7 @@ import {
   selectionOf,
 } from "@/lib/takes/page-selection";
 import { type PressHandlers, usePressGuard } from "@/lib/takes/take-button";
+import { addTodo, deleteTodo, StaleTodoError } from "@/lib/todo/view/todo-store";
 
 /** The passage held, and where its button goes, or null where it has no place. */
 export interface Held {
@@ -76,6 +79,7 @@ export function useHtmlTake(o: {
   coarse: boolean;
 }): HtmlTake {
   const { path, archive, frame, wrapper, coarse } = o;
+  const queryClient = useQueryClient();
   // Read by the listener, which is added once, so it is mirrored in a layout effect.
   const coarseRef = useRef(coarse);
   useLayoutEffect(() => {
@@ -187,25 +191,39 @@ export function useHtmlTake(o: {
   const takeNow = useCallback(() => takeRef.current(), []);
 
   /**
-   * Save a story to share later as a `#share` todo, linked to its source and place in the paper. A story
-   * already saved is not saved twice, and the selection is left as it is.
+   * Save a story to share later as a `#share` todo in the store, linked to its source and place in
+   * the paper; Undo deletes it. A story already saved is not saved twice, and the selection stays.
    */
   async function share(story: Story) {
     if (saving.current.has(story.anchor)) return;
     // Held at once, so a second press while the first is on its way adds nothing.
     saving.current.add(story.anchor);
-    const date = readClock(new Date()).date;
-    const kept = await dump.take({
+    const now = new Date();
+    const daily = periodicNote("daily", now).path;
+    const taking = {
       text: story.heading === "" ? fileOf(path) : story.heading,
-      linkIn: (note) => pageLink(path, { text: "", ...story }, note),
-      line: (note) => shareLine(path, story, note, date),
+      linkIn: (note: string) => pageLink(path, { text: "", ...story }, note),
+      story: true,
       source: fileOf(path),
       top: false,
       landed: "Saved to share later",
-      onKept: (id) => {
+      onKept: (id: number) => {
         shared.current.set(id, story.anchor);
         frame.current?.contentWindow?.postMessage({ kasten: "shared", anchor: story.anchor }, "*");
       },
+    };
+    const kept = await dump.added(taking, async () => {
+      const row = await addTodo(queryClient, shareTodo(path, story, daily, readClock(now).date));
+      const run = async () => {
+        try {
+          await deleteTodo(queryClient, row.id, row.version);
+          return true;
+        } catch (error) {
+          if (error instanceof StaleTodoError) return false;
+          throw error;
+        }
+      };
+      return { run, refused: "The todo changed since, so Undo left it as it is" };
     });
     if (!kept) saving.current.delete(story.anchor);
   }

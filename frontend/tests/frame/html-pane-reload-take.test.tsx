@@ -25,7 +25,10 @@ import {
 import { NEWS, page as pageOf } from "./html-take-pages";
 
 /** Holds each take's keep until the test lets it go, and counts the keeps asked for. */
-const { gate } = vi.hoisted(() => ({ gate: { hold: null as Promise<void> | null, asked: 0 } }));
+const { gate, adds } = vi.hoisted(() => ({
+  gate: { hold: null as Promise<void> | null, asked: 0 },
+  adds: { hold: null as Promise<void> | null, asked: 0 },
+}));
 vi.mock("@/lib/capture/outbox", async (importOriginal) => {
   const real = await importOriginal<typeof import("@/lib/capture/outbox")>();
   return {
@@ -38,10 +41,22 @@ vi.mock("@/lib/capture/outbox", async (importOriginal) => {
   };
 });
 
-/** Holds the keeps from now on, and answers the call that lets them all land. */
-function holdKeeps(): () => void {
+vi.mock("@/lib/todo/view/todo-store", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/todo/view/todo-store")>();
+  return {
+    ...real,
+    addTodo: async (...args: Parameters<typeof real.addTodo>) => {
+      adds.asked += 1;
+      if (adds.hold !== null) await adds.hold;
+      return real.addTodo(...args);
+    },
+  };
+});
+
+/** Holds the keeps, or a shared story's store adds; answers the call that lets them land. */
+function holdKeeps(held: { hold: Promise<void> | null } = gate): () => void {
   let release = () => {};
-  gate.hold = new Promise<void>((resolve) => {
+  held.hold = new Promise<void>((resolve) => {
     release = resolve;
   });
   return release;
@@ -70,13 +85,15 @@ function loadOf(frame: HTMLIFrameElement) {
 /** The page's Share later button of the story at `index`. */
 const shareButton = (frame: HTMLIFrameElement, index = 0) =>
   inFrame(frame).getByRole("button", { name: "Share later" }).nth(index);
-const shares = () => api.dumps.filter((dump) => dump.includes("#share"));
+const shares = () => [...api.todos.values()].filter((words) => words.includes("#share"));
 
 let mounted: Mounted;
 
 beforeEach(async () => {
   gate.hold = null;
   gate.asked = 0;
+  adds.hold = null;
+  adds.asked = 0;
   mounted = await setUp();
 });
 
@@ -308,24 +325,25 @@ it("a Share later pressed before a slow page's load and again after it saves onc
   const frame = frameOf(mounted, 0);
   const loaded = loadOf(frame);
   await ready(frame);
-  const release = holdKeeps();
+  const release = holdKeeps(adds);
   await userEvent.click(shareButton(frame));
-  await expect.poll(() => gate.asked).toBe(1);
+  await expect.poll(() => adds.asked).toBe(1);
   expect(loaded()).toBe(false);
 
   await expect.poll(loaded, { timeout: 5000 }).toBe(true);
   await userEvent.click(shareButton(frame));
   // Answered after the page's share message, so that message has been heard.
   await selected(frame);
-  expect(gate.asked).toBe(1);
+  expect(adds.asked).toBe(1);
   release();
 
-  await expect.poll(() => api.dumps.length).toBe(1);
+  await expect.poll(() => shares().length).toBe(1);
   await expect.poll(() => buttonNamed("Undo")).not.toBeUndefined();
   await userEvent.click(buttonNamed("Undo") as HTMLButtonElement);
+  await expect.poll(() => shares().length).toBe(0);
   // The button is back, and a press on it saves the story again.
   await userEvent.click(shareButton(frame));
-  await expect.poll(() => shares().length).toBe(2);
+  await expect.poll(() => shares().length).toBe(1);
 });
 
 it("a link followed inside the page drops the held passage and its take button", async () => {
@@ -404,7 +422,7 @@ it("a page that posts many share messages after one click saves at most one (#12
 
   // One real press, which the forged messages came before.
   await userEvent.click(shareButton(frame, 1));
-  await expect.poll(() => shares().some((dump) => dump.includes("Second story"))).toBe(true);
+  await expect.poll(() => shares().some((words) => words.includes("Second story"))).toBe(true);
   expect(shares().length).toBe(2);
 });
 
@@ -419,7 +437,7 @@ it("two real Share later presses on two stories save both", async () => {
   await userEvent.click(shareButton(frame, 0));
 
   await expect.poll(() => shares().length).toBe(2);
-  expect(shares().some((dump) => dump.includes("First story"))).toBe(true);
+  expect(shares().some((words) => words.includes("First story"))).toBe(true);
 });
 
 it("two takes in flight before either keep lands each mark their own passage (#897)", async () => {

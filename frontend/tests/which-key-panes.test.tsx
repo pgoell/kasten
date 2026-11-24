@@ -335,7 +335,9 @@ describe("the which-key panel", () => {
     const spy = vi.fn();
     const off = hostLeader(spy);
     const { container } = render(
-      <HtmlPane path="report.html" commands={stubCommands()} onFocus={vi.fn()} />,
+      <QueryClientProvider client={new QueryClient()}>
+        <HtmlPane path="report.html" commands={stubCommands()} onFocus={vi.fn()} />
+      </QueryClientProvider>,
     );
 
     fireEvent.keyDown(container.querySelector("[data-html-pane]") as HTMLElement, { key: " " });

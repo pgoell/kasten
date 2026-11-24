@@ -1,6 +1,7 @@
 /**
- * The two requests a take makes, answered in place of the vault: the dump the
- * outbox sends, and the daily note the take reads back for its Undo (#787).
+ * The requests a take makes, answered in place of the vault: the dump the
+ * outbox sends, the daily note the take reads back for its Undo (#787), and the
+ * todo a shared story adds to the store and its Undo deletes.
  *
  * The API client takes `fetch` when it is made, so this installs when the module
  * loads, which must be before `@/lib/core/api-client` does. Each take test file imports
@@ -23,6 +24,8 @@ export const api = {
   recent: [] as string[],
   /** The other notes as the vault holds them, by path, for Put it in a note. */
   notes: {} as Record<string, string>,
+  /** The words of each todo the store holds, by id, in the order they were added. */
+  todos: new Map<string, string>(),
 };
 
 function json(body: unknown): Response {
@@ -63,6 +66,8 @@ const stub = async (input: RequestInfo | URL, init?: RequestInit): Promise<Respo
     api.note = `## Dump\n\n${api.dumps.join("\n\n")}\n`;
     return json({ path: api.daily, content: api.note });
   }
+  const todo = await storeTodo(url, method, request);
+  if (todo !== undefined) return todo;
   if (isDaily(url) && method === "GET") return json({ path: api.daily, content: api.note });
   if (isDaily(url) && method === "PUT" && request) {
     const body = JSON.parse(await request.text()) as { content: string; base?: string };
@@ -72,6 +77,23 @@ const stub = async (input: RequestInfo | URL, init?: RequestInit): Promise<Respo
   }
   return (await otherNote(url, method, request)) ?? real(input, init);
 };
+
+/** A shared story's todo, added to the store or deleted by its Undo. */
+async function storeTodo(
+  url: URL,
+  method: string,
+  request: Request | undefined,
+): Promise<Response | undefined> {
+  if (url.pathname === "/api/todos" && method === "POST" && request) {
+    const { words } = JSON.parse(await request.text()) as { words: string };
+    const id = `kt-${api.todos.size.toString(16).padStart(6, "0")}`;
+    api.todos.set(id, words);
+    return json({ id, words, version: 1 });
+  }
+  if (!url.pathname.startsWith("/api/todos/") || method !== "DELETE") return undefined;
+  api.todos.delete(url.pathname.slice("/api/todos/".length));
+  return new Response(null, { status: 204 });
+}
 
 /** Any other note the put reads first, then writes; a path not yet written reads empty. */
 async function otherNote(
@@ -98,4 +120,5 @@ export function resetApi(daily: string) {
   api.puts = [];
   api.recent = [];
   api.notes = {};
+  api.todos = new Map();
 }

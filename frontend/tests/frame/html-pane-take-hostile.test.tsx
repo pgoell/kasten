@@ -172,7 +172,7 @@ it("at 390x844 with touch, the button sits below the selection and a tap takes i
   const frame = frameOf(mounted, 0);
   await ready(frame);
   // On the words, not the frame's middle: at 390 that lies a few px from the second
-  // story's Share later button, which with another font is under it and saves a dump (#1213).
+  // story's Share later button, which with another font is under it and saves a todo (#1213).
   await userEvent.click(inFrame(frame).getByTestId("p2"));
 
   await ask(frame, { probe: "touchSelect", range: ["p2", 0, "p2", 6] }, "selected");
@@ -417,7 +417,9 @@ describe("forged y messages (#877)", () => {
 
     await userEvent.click(inFrame(frame).getByRole("button", { name: "Share later" }).nth(1));
 
-    await expect.poll(() => api.dumps.some((dump) => dump.includes("#share"))).toBe(true);
+    await expect
+      .poll(() => [...api.todos.values()].some((words) => words.includes("#share")))
+      .toBe(true);
   });
 
   it("Shift with an arrow key grows a selection and y takes it, twice in one visit", async () => {
