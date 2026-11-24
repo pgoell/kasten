@@ -123,8 +123,8 @@ todo does: open, with a soft due date 14 days on. `#share` in the todo pane's
 lists every story still to send.
 
 The button then reads Saved to share until Undo deletes the todo again. Undo
-leaves a todo that was written since, from another tab or an agent, as it is,
-and says so. A store
+leaves a todo whose own fields changed since, from another tab or an agent, as
+it is, and says so. A part added under it does not count as a change. A store
 that refuses the todo says why on the toast, and the button stays Share later. A story
 is saved once while its page is open, even across a slow page's load; a second
 press does nothing, and one press saves at most one story. The toast

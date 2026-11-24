@@ -39,8 +39,12 @@ vi.mock("@/lib/core/api", () => {
   return { fetchNote, saveNote, updateNote, searchNotes, ChangedOnDisk };
 });
 // A story saved to share later is a store todo, which the store's own tests cover.
-const { addTodo, deleteTodo } = vi.hoisted(() => ({ addTodo: vi.fn(), deleteTodo: vi.fn() }));
-vi.mock("@/lib/todo/view/todo-store", () => ({ addTodo, deleteTodo }));
+const { addTodo, deleteTodo, StaleTodoError } = vi.hoisted(() => ({
+  addTodo: vi.fn(),
+  deleteTodo: vi.fn(),
+  StaleTodoError: class extends Error {},
+}));
+vi.mock("@/lib/todo/view/todo-store", () => ({ addTodo, deleteTodo, StaleTodoError }));
 
 // The take goes through the real outbox, which keeps the dump in IndexedDB.
 // Its stand-in is the one the capture route's tests use.
@@ -512,7 +516,7 @@ describe("saving a story to share later", () => {
 
   it("Undo leaves a todo written since as it is, and says so", async () => {
     answering();
-    deleteTodo.mockRejectedValue(new Error("kt-5a1e00 changed since it was read: read it again."));
+    deleteTodo.mockRejectedValue(new StaleTodoError("kt-5a1e00 changed since it was read."));
     const { frame } = renderPane();
     const posted = vi
       .spyOn(frame.contentWindow as Window, "postMessage")

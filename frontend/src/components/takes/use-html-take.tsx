@@ -22,7 +22,7 @@ import {
   selectionOf,
 } from "@/lib/takes/page-selection";
 import { type PressHandlers, usePressGuard } from "@/lib/takes/take-button";
-import { addTodo, deleteTodo } from "@/lib/todo/view/todo-store";
+import { addTodo, deleteTodo, StaleTodoError } from "@/lib/todo/view/todo-store";
 
 /** The passage held, and where its button goes, or null where it has no place. */
 export interface Held {
@@ -217,8 +217,7 @@ export function useHtmlTake(o: {
           await deleteTodo(queryClient, row.id, row.version);
           return true;
         } catch (error) {
-          if (error instanceof Error && error.message.includes("changed since it was read"))
-            return false;
+          if (error instanceof StaleTodoError) return false;
           throw error;
         }
       };
