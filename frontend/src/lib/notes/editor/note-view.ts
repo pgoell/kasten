@@ -1,6 +1,7 @@
 import { acceptCompletion } from "@codemirror/autocomplete";
 import { indentWithTab } from "@codemirror/commands";
 import { markdownLanguage } from "@codemirror/lang-markdown";
+import { forceParsing } from "@codemirror/language";
 import { Compartment, EditorState, type Extension, type Text } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
@@ -355,12 +356,26 @@ export function createNoteView(o: {
       ],
     }),
   });
+  parseShown(view);
   // Joined to the page after the constructor, not through `parent`: the constructor
   // reads fonts and styles, which forces a style pass over the tree it is still
   // building. Detached, that pass covers nothing, and the tree takes one pass when
   // it joins.
   o.parent.append(view.dom);
   return view;
+}
+
+/** Room for the parse on open on a slow phone; a screen of markdown takes a few ms on a desktop. */
+const OPEN_PARSE_MS = 200;
+
+/**
+ * Parses to the end of the screen, or a screen past the cursor, before the first paint. CodeMirror's
+ * first parse stops after 20 ms, and past it a heading kept its `#` until the idle pass (#1984).
+ */
+export function parseShown(view: EditorView): void {
+  const { viewport, state } = view;
+  const screen = Math.max(viewport.to, state.selection.main.head + viewport.to - viewport.from);
+  forceParsing(view, Math.min(screen, state.doc.length), OPEN_PARSE_MS);
 }
 
 export function setVim(view: EditorView, on: boolean): void {

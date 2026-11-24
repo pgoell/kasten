@@ -7,6 +7,7 @@ import { notePosition } from "@/lib/notes/editor/editor-position";
 import {
   createNoteView,
   type NoteViewLatest,
+  parseShown,
   setListings,
   setPreview,
   setVim,
@@ -338,6 +339,7 @@ export function Editor({
       // Centred, so a match at an edge is not one you cannot read around.
       effects: EditorView.scrollIntoView(line.from, { y: "center" }),
     });
+    parseShown(view);
   }, [startLine, jump]);
 
   // Vault text written to the open note elsewhere goes in as one transaction, not a remount,
