@@ -231,6 +231,33 @@ describe("the todo view", () => {
     });
   });
 
+  it("picks a new todo's due and hold-until days from the date popover", async () => {
+    renderView();
+    const pane = await screen.findByRole("region", { name: "Todos" });
+    fireEvent.keyDown(pane, { key: "a" });
+    fireEvent.click(screen.getByRole("button", { name: "Due: Set a due date" }));
+    fireEvent.click(
+      within(screen.getByRole("dialog", { name: "Dates" })).getByRole("button", {
+        name: /Fri 27 Nov/,
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Hold until: Not held" }));
+    fireEvent.click(
+      within(screen.getByRole("dialog", { name: "Dates" })).getByRole("button", {
+        name: /Thu 26 Nov/,
+      }),
+    );
+    expect(screen.getByRole("button", { name: /^Due: Fri/ })).toBeVisible();
+    fireEvent.change(screen.getByRole("textbox", { name: "Words" }), {
+      target: { value: "send the deck" },
+    });
+    fireEvent.keyDown(screen.getByRole("textbox", { name: "Words" }), { key: "Enter" });
+    await act(() => vi.advanceTimersByTimeAsync(50));
+    expect(post).toHaveBeenLastCalledWith("/api/todos", {
+      body: { words: "send the deck", due: "2026-11-27", due_hard: true, hold_until: "2026-11-26" },
+    });
+  });
+
   it("lists Upcoming by day under the week strip, a day's + planning the new todo on it", async () => {
     store = [...ROWS, row("kt-000009", "order the lamp", { planned: "2026-11-26", estimate: 30 })];
     renderView();

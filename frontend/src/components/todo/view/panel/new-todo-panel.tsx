@@ -1,13 +1,14 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
 import {
-  DayPick,
+  DateButton,
   FieldRow,
   InlineText,
   PriorityPick,
   ProjectPick,
   StatePick,
 } from "@/components/todo/view/panel/panel-fields";
+import { type DateChange, DatePick, type Which } from "@/components/todo/view/pick/date-pick";
 import { Icon } from "@/components/todo/view/view-icons";
 import type { TodoRow } from "@/lib/core/api";
 import type { TodoState } from "@/lib/todo/todo";
@@ -205,24 +206,7 @@ function NewFields(props: {
           }
         />
       </FieldRow>
-      <FieldRow icon="sun" label="Planned" from={from.has("planned")}>
-        <DayPick
-          label="Planned"
-          day={fields.planned ?? null}
-          shown={fields.planned ? longDay(fields.planned, today) : ""}
-          empty="Plan a day"
-          onPick={(day) => onPick({ planned: day ?? undefined })}
-        />
-      </FieldRow>
-      <FieldRow icon="flag" label="Due" from={from.has("due")}>
-        <DayPick
-          label="Due"
-          day={fields.due ?? null}
-          shown={fields.due ? longDay(fields.due, today) : ""}
-          empty="Set a due date"
-          onPick={(day) => onPick({ due: day ?? undefined })}
-        />
-      </FieldRow>
+      <NewDates today={today} fields={fields} from={from} onPick={onPick} />
       <FieldRow icon="clock" label="Time" from={from.has("estimate")}>
         <InlineText
           label="Estimate"
@@ -247,5 +231,63 @@ function NewFields(props: {
         />
       </FieldRow>
     </div>
+  );
+}
+
+/** A picked date as the new todo's fields hold it: a day cleared is left out. */
+function fieldsOf(change: DateChange): QuickFields {
+  const keys = ["planned", "due", "hold_until"] as const;
+  return Object.fromEntries(
+    keys.filter((key) => key in change).map((key) => [key, change[key] ?? undefined]),
+  );
+}
+
+/** The three dates, each opening the date popover the todo panel uses. */
+function NewDates(props: {
+  today: string;
+  fields: QuickFields;
+  from: Set<keyof QuickFields>;
+  onPick: (set: QuickFields) => void;
+}) {
+  const { today, fields, from, onPick } = props;
+  const [open, setOpen] = useState<{ which: Which; anchor: HTMLElement } | null>(null);
+  const rows: { which: Which; icon: "sun" | "flag" | "hour"; label: string; empty: string }[] = [
+    { which: "planned", icon: "sun", label: "Planned", empty: "Plan a day" },
+    { which: "due", icon: "flag", label: "Due", empty: "Set a due date" },
+    { which: "hold_until", icon: "hour", label: "Hold until", empty: "Not held" },
+  ];
+  return (
+    <>
+      {rows.map((row) => {
+        const day = fields[row.which] ?? null;
+        return (
+          <FieldRow key={row.which} icon={row.icon} label={row.label} from={from.has(row.which)}>
+            <DateButton
+              label={row.label}
+              day={day}
+              shown={day === null ? "" : longDay(day, today)}
+              empty={row.empty}
+              onOpen={(anchor) => setOpen({ which: row.which, anchor })}
+            />
+          </FieldRow>
+        );
+      })}
+      {open !== null && (
+        <DatePick
+          anchor={open.anchor}
+          dates={{
+            planned: fields.planned ?? null,
+            due: fields.due ?? null,
+            due_hard: fields.due !== undefined,
+            hold_until: fields.hold_until ?? null,
+            repeat: fields.repeat ?? null,
+          }}
+          today={today}
+          start={open.which}
+          onSet={(change) => onPick(fieldsOf(change))}
+          onClose={() => setOpen(null)}
+        />
+      )}
+    </>
   );
 }

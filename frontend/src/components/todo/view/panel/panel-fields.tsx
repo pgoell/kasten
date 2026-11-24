@@ -163,30 +163,6 @@ export function ProjectPick(props: {
   );
 }
 
-/** A day as text that opens the browser's own date picker; empty clears it. */
-export function DayPick(props: {
-  label: string;
-  day: string | null;
-  shown: string;
-  empty: string;
-  onPick: (day: string | null) => void;
-}) {
-  return (
-    <span className="relative inline-flex items-center rounded px-1 hover:bg-k-inset">
-      <span className={props.day === null ? "text-k-muted" : "text-k-ink"}>
-        {props.day === null ? props.empty : props.shown}
-      </span>
-      <input
-        type="date"
-        aria-label={props.label}
-        value={props.day ?? ""}
-        onChange={(event) => props.onPick(event.target.value === "" ? null : event.target.value)}
-        className="absolute inset-0 cursor-pointer opacity-0"
-      />
-    </span>
-  );
-}
-
 /** A day drawn as its text; a press opens the date popover by it. */
 export function DateButton(props: {
   label: string;
