@@ -1,4 +1,4 @@
-import type { EditorState } from "@codemirror/state";
+import { type ChangeDesc, type EditorState, MapMode } from "@codemirror/state";
 import {
   Decoration,
   type EditorView,
@@ -43,6 +43,21 @@ function placesOf(view: EditorView, path: string): Map<number, number> {
 }
 
 /**
+ * Moves saved places and drawn starts through `changes`. A table whose first character went is dropped,
+ * so its place cannot pass to the table after it (#2338).
+ */
+function follow(changes: ChangeDesc, places: Map<number, number>, drawn: Iterable<Watch>): void {
+  const map = (at: number) => changes.mapPos(at, 1, MapMode.TrackAfter);
+  const moved = [...places].map(([at, left]) => [map(at), left] as const);
+  places.clear();
+  for (const [at, left] of moved) if (at !== null) places.set(at, left);
+  // Null again, so a deleted table saves nothing and one kept on the page reads its start afresh.
+  for (const watch of drawn) {
+    if (watch.places === places && watch.at !== null) watch.at = map(watch.at);
+  }
+}
+
+/**
  * Moves the note's saved places and drawn tables with each edit, as a widget keeps its first start (#2334).
  * Another note's places are left alone: the edit says nothing about its offsets.
  */
@@ -50,14 +65,7 @@ export const tablePlaces = ViewPlugin.define((view) => ({
   update(update: ViewUpdate) {
     const path = update.state.facet(notePath) ?? "";
     if (!update.docChanged || path !== (update.startState.facet(notePath) ?? "")) return;
-    const places = placesOf(view, path);
-    const moved = [...places].map(([at, left]) => [update.changes.mapPos(at, 1), left] as const);
-    places.clear();
-    for (const [at, left] of moved) places.set(at, left);
-    for (const watch of drawnIn.get(view) ?? []) {
-      if (watch.places === places && watch.at !== null)
-        watch.at = update.changes.mapPos(watch.at, 1);
-    }
+    follow(update.changes, placesOf(view, path), drawnIn.get(view) ?? []);
   },
 }));
 

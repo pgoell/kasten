@@ -8,6 +8,7 @@
  * editor is the app's own, mounted the way table-link-url.test.tsx mounts it.
  */
 
+import { undo } from "@codemirror/commands";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { cdp, page } from "vitest/browser";
@@ -249,6 +250,61 @@ describe("table reading", () => {
     await inAndOut(() => at.dispatch({ changes: { from: 0, to: 3 } }));
     // Typed in a cell.
     await inAndOut(() => at.dispatch({ changes: { from: head() + 4, insert: "z" } }));
+  });
+
+  it.each([
+    ["at 1440 with vim off", "off", 1440],
+    ["at 390 with vim on", "on", 390],
+  ] as const)(
+    "#2338 a table after a deleted one opens at its own place, %s",
+    async (_, vim, width) => {
+      await page.viewport(width, 900);
+      const doc = `${wideNote(3)}\n\n${wideNote(4).replace("before\n\n", "")}`;
+      const host = mountApp(doc, 600, { vim });
+      const blocks = () => [...host.querySelectorAll(".cm-table-block")].map(scrollerOf);
+      await expect.poll(() => blocks().length).toBe(2);
+      const at = EditorView.findFromDOM(
+        host.querySelector(".cm-editor") as HTMLElement,
+      ) as EditorView;
+      const [first, second] = blocks() as [HTMLElement, HTMLElement];
+      first.scrollLeft = 150;
+      second.scrollLeft = 60;
+      await expect.poll(() => [first.scrollLeft, second.scrollLeft]).toEqual([150, 60]);
+      const from = doc.indexOf("| column 0");
+      const to = doc.lastIndexOf("| column 0");
+      at.dispatch({ selection: { anchor: to } });
+      await expect.poll(() => blocks().length).toBe(1);
+      // The first table and the blank line under it, the cursor staying in the second.
+      at.dispatch({ changes: { from, to } });
+      at.dispatch({ selection: { anchor: 0 } });
+      await expect.poll(() => blocks().map((scroller) => scroller.scrollLeft)).toEqual([60]);
+      // Taken back, the second keeps its place and the first comes back at the start.
+      undo(at);
+      at.dispatch({ selection: { anchor: 0 } });
+      await expect.poll(() => blocks().map((scroller) => scroller.scrollLeft)).toEqual([0, 60]);
+    },
+  );
+
+  it.each(["drawn", "saved"])("#2338 a deleted %s table's place goes with it", async (kind) => {
+    // A paragraph of rows under the table, which a line of dashes makes a table later.
+    const [head, , ...body] = wideNote(2).replace("before\n\n", "").split("\n");
+    const doc = `${wideNote(3)}\n\n${[head, ...body].join("\n")}`;
+    const { at, scroller, host } = await drawn(doc);
+    scroller.scrollLeft = 150;
+    await expect.poll(() => scroller.scrollLeft).toBe(150);
+    const from = doc.indexOf("| column 0");
+    if (kind === "saved") {
+      at.dispatch({ selection: { anchor: from } });
+      await expect.poll(() => host.querySelector(".cm-table-block")).toBeNull();
+    }
+    at.dispatch({ changes: { from, to: doc.lastIndexOf("| column 0") }, selection: { anchor: 0 } });
+    at.dispatch({
+      changes: { from: from + (head ?? "").length, insert: `\n|${" --- |".repeat(30)}` },
+    });
+    await expect
+      .poll(() => host.querySelector(".cm-table-block[data-shadow-right]"))
+      .not.toBeNull();
+    expect(scrollerOf(host.querySelector(".cm-table-block") as HTMLElement).scrollLeft).toBe(0);
   });
 
   it("#792 A2 at 1440 a wide table keeps its words whole and scrolls", async () => {
