@@ -180,4 +180,15 @@ describe("the block card", () => {
     whole.mockRestore();
     view.destroy();
   });
+
+  it("#2331 comes and goes as an edit makes the head a block or stops it being one", async () => {
+    const view = mount();
+    await vi.waitFor(() => expect(document.querySelector(".cm-block")).not.toBeNull());
+    const at = NOTE.indexOf("Training Block");
+    view.dispatch({ changes: { from: at, to: at + "Training Block".length, insert: "Note" } });
+    expect(document.querySelector(".cm-block")).toBeNull();
+    view.dispatch({ changes: { from: at, to: at + "Note".length, insert: "Training Block" } });
+    expect(document.querySelector(".cm-block")).not.toBeNull();
+    view.destroy();
+  });
 });

@@ -64,7 +64,7 @@ const HEADING = /^ATXHeading([1-6])$/;
 interface Live {
   decorations: DecorationSet;
   hidden: RangeSet<Decoration>;
-  /** Whether this is what a whole walk over the finished tree draws, so an edit may patch it (#2331). */
+  /** Whether this is what a whole walk over the finished tree draws, so the parse catching up changes nothing. */
   whole: boolean;
   /** Whether a todo is indented, so a patch draws the parents' counts from the whole note. */
   nested: boolean;
@@ -141,7 +141,6 @@ function readsAcross(tr: Transaction, spans: readonly Span[]): boolean {
  * key in a long note costs what it costs in a short one (#2331). Null where only a whole walk is sure to be right.
  */
 function patch(value: Live, tr: Transaction): Live | null {
-  if (!value.whole) return null;
   const decorations = value.decorations.map(tr.changes);
   const spans = touchedSpans(tr, ([from, to]) => {
     let low = from;
@@ -177,7 +176,8 @@ function patch(value: Live, tr: Transaction): Live | null {
       add: walk.hidden,
       sort: true,
     }),
-    whole: true,
+    // Past a parse still running the drawing stays the whole walk's, as before; the parse's next step walks again.
+    whole: value.whole,
     nested,
   };
 }

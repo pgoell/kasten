@@ -223,6 +223,8 @@ const NOTE_2331 = [
   "",
   "[r]: https://example.com",
   "",
+  "At [00:05] it starts.",
+  "",
   "Last [[Other|alias]] line.",
 ].join("\n");
 
@@ -336,6 +338,11 @@ describe("#2331 an edit redraws only the blocks it touched", () => {
     [
       "a frontmatter stamp at the top, the cursor lower",
       () => ({ changes: { from: 0, insert: "---\nid: x\n---\n" } }),
+      false,
+    ],
+    [
+      "a video link typed, which a time elsewhere seeks",
+      (v) => type(at(v, "Last"), "[00:10](https://www.youtube.com/watch?v=abcdefghijk&t=10s) "),
       false,
     ],
     ["a link definition changed", (v) => type(at(v, "example.com"), "x"), false],
