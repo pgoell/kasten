@@ -279,6 +279,9 @@ describe("a jump past the parsed part of a long note (#2323)", () => {
 
   it("parses the screen a typed key scrolls onto", async () => {
     const view = openedAtTop("off");
+    // The open's own parse lands first, so only the key's can reach the end.
+    await act(async () => {});
+    expect(syntaxTreeAvailable(view.state, DEEP)).toBe(false);
     const at = view.state.doc.length;
     await slowed(
       () =>
