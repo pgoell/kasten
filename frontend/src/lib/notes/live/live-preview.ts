@@ -363,20 +363,30 @@ export const PAINT_PARSE_MS = 200;
 /**
  * Parses to the end of what a view shows before the paint, as it opens, scrolls, jumps or has its text replaced.
  * CodeMirror's own parse stops after 20 ms and leaves the rest to an idle pass (#2323, #2324).
+ * Not for typing that keeps the screen: up to 200 ms a key on a slow phone (#2327).
  */
 const parseShownPart = ViewPlugin.fromClass(
   class {
     private readonly view: EditorView;
     private queued = false;
     private gone = false;
+    private shown: { from: number; to: number };
 
     constructor(view: EditorView) {
       this.view = view;
+      this.shown = view.viewport;
       this.queue();
     }
 
     update(update: ViewUpdate) {
-      if (update.viewportChanged || update.docChanged) this.queue();
+      const before = this.shown;
+      this.shown = update.view.viewport;
+      if (!update.viewportChanged && !update.docChanged) return;
+      // A key moves the screen's end by what it typed; only a scroll or a jump moves it further.
+      const kept =
+        update.changes.mapPos(before.from, -1) === this.shown.from &&
+        update.changes.mapPos(before.to, 1) === this.shown.to;
+      if (!kept || !typed(update)) this.queue();
     }
 
     destroy() {
@@ -399,6 +409,13 @@ const parseShownPart = ViewPlugin.fromClass(
     }
   },
 );
+
+/** An edit the user typed or deleted, which leaves the rest of the note as it was. */
+function typed(update: ViewUpdate): boolean {
+  return update.transactions.every(
+    (tr) => !tr.docChanged || tr.isUserEvent("input") || tr.isUserEvent("delete"),
+  );
+}
 
 export function livePreview(): Extension {
   // The picture's and the table's follows read the presses too, and a view
