@@ -4,6 +4,7 @@ import { TodoStateBox } from "@/components/todo/todo-state-box";
 import { Icon } from "@/components/todo/view/view-icons";
 import type { TodoRow } from "@/lib/core/api";
 import { noteName } from "@/lib/notes/links/note-path";
+import { namesAFile } from "@/lib/notes/links/wikilink";
 import { linkedNotes } from "@/lib/todo/view/rows/note-links";
 import { addTodo, stateTodo } from "@/lib/todo/view/todo-store";
 
@@ -34,7 +35,7 @@ export function PanelNotes(props: {
           key={path}
           icon="link"
           path={path}
-          why={files.includes(path) ? "from the text" : "not written yet"}
+          why={files.includes(path) || namesAFile(path) ? "from the text" : "not written yet"}
           onOpen={props.onOpenNote}
         />
       ))}

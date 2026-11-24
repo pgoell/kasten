@@ -8,6 +8,7 @@
  */
 
 // The three faces `main.tsx` loads, so the pictures show the app's type.
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "@fontsource-variable/newsreader/opsz.css";
 import "@fontsource-variable/instrument-sans/index.css";
 import "@fontsource-variable/jetbrains-mono/index.css";
@@ -20,6 +21,9 @@ import { applyTheme, PALETTE_KEY, THEME_KEY, type Theme } from "@/lib/ui/theme";
 import "@/styles/app.css";
 import { stubCommands } from "../stub-commands";
 import { shot } from "./shots";
+
+/** The pane saves a shared story as a store todo, which reaches the store through this. */
+const queries = new QueryClient();
 
 const SHOTS = import.meta.env.VITE_KASTEN_SHOTS === "1";
 const DESKTOP = { width: 1440, height: 900, touch: false };
@@ -83,7 +87,9 @@ function Fixture({ phone, path }: { phone: boolean; path: string }) {
     <div className="flex h-dvh flex-col bg-k-bg">
       <div className="flex min-h-0 flex-1">
         <div className="min-w-0 flex-1">
-          <HtmlPane path={path} commands={stubCommands()} onFocus={() => {}} />
+          <QueryClientProvider client={queries}>
+            <HtmlPane path={path} commands={stubCommands()} onFocus={() => {}} />
+          </QueryClientProvider>
         </div>
       </div>
       {!phone && <WhichKey />}

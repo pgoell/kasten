@@ -105,21 +105,25 @@ the line is edited in the daily note. A selection made after `y` stays.
 ## Saving a story to share later
 
 A newspaper in the vault shows a Share later button beside each story's id.
-A press writes a todo into today's dump, by the same route and with the same
-toast, Undo and outbox as a take:
+A press adds a todo to the [todo store](/reference/http-api/todos.md#post-apitodos),
+in today's daily note, with the toast and Undo a take has:
 
-```markdown
-- [ ] share [<headline>](<source>) ([[<page>#<story id>|in the paper]]) #share ➕ <date>
-```
+| Field | What it holds |
+| --- | --- |
+| words | `share <headline> #share` |
+| description | the source on its first line, then `[[<page>#<story id>\|in the paper]]` |
 
-A story that links to no source gets `- [ ] share [[<page>#<story id>|<headline>]] #share ➕ <date>`.
-The headline loses the characters that would open a link, a tag or markup, and
-sits inside a link either way, so a date or a marker in it gives the todo no
-field. The source must be an `http` or `https` address of 2000 characters at
-most, or the line leaves it out. `#share` in the todo pane's [filter line](/reference/todo-format/tags-projects-and-views.md#filter-terms) lists every story
-still to send.
+A story that links to no source gets only the link to the paper. The headline
+loses the characters that would open a link, a tag or markup, so it gives the
+todo no tag of its own. The todo view's panel lists the paper under Notes, from
+the description. The source must be an `http` or `https` address of 2000
+characters at most, or the description leaves it out. The rest starts as any new
+todo does: open, with a soft due date 14 days on. `#share` in the todo pane's
+[filter line](/reference/todo-format/tags-projects-and-views.md#filter-terms)
+lists every story still to send.
 
-The button then reads Saved to share until Undo takes the todo back out. A story
+The button then reads Saved to share until Undo deletes the todo again. A store
+that refuses the todo says why on the toast, and the button stays Share later. A story
 is saved once while its page is open, even across a slow page's load; a second
 press does nothing, and one press saves at most one story. The toast
 offers no Put it in a note, since there is no passage to put. Where the button

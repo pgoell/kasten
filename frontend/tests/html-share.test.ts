@@ -1,34 +1,31 @@
 // @vitest-environment node
-import { shareLine, sourceOf, storyOf } from "@/lib/panes/html/html-share";
+import { shareTodo, sourceOf, storyOf } from "@/lib/panes/html/html-share";
 
 const PAGE = "01 Periodic/05 Newspaper/2026-10-26.html";
 const DAILY = "01 Periodic/00 Daily/2026-10-26.md";
 
-describe("shareLine", () => {
-  it("links the headline to its source and the paper beside it", () => {
+describe("shareTodo", () => {
+  it("puts the headline in the words, and the source and the paper in the description", () => {
     const story = { heading: "First story", anchor: "s1", source: "https://news.example/one" };
-    expect(shareLine(PAGE, story, DAILY, "2026-10-26")).toBe(
-      `- [ ] share [First story](https://news.example/one) ([[${PAGE}#s1|in the paper]]) #share ➕ 2026-10-26`,
-    );
+    expect(shareTodo(PAGE, story, DAILY)).toEqual({
+      words: "share First story #share",
+      description: `https://news.example/one\n[[${PAGE}#s1|in the paper]]`,
+    });
   });
 
-  it("links the headline to the paper where the story names no source", () => {
+  it("links only the paper where the story names no source", () => {
     const story = { heading: "First story", anchor: "s1", source: "" };
-    expect(shareLine(PAGE, story, DAILY, "2026-10-26")).toBe(
-      `- [ ] share [[${PAGE}#s1|First story]] #share ➕ 2026-10-26`,
-    );
+    expect(shareTodo(PAGE, story, DAILY).description).toBe(`[[${PAGE}#s1|in the paper]]`);
   });
 
-  it("takes the link and tag syntax out of a headline", () => {
+  it("takes the link and tag syntax out of a headline, so it gives the todo no tag", () => {
     const story = { heading: "A [b] #c | d", anchor: "s1", source: "https://x.example/" };
-    expect(shareLine(PAGE, story, DAILY, "2026-10-26")).toContain(
-      "share [A b c d](https://x.example/)",
-    );
+    expect(shareTodo(PAGE, story, DAILY).words).toBe("share A b c d #share");
   });
 
   it("names the page where the story has no headline", () => {
     const story = { heading: "", anchor: "s1", source: "" };
-    expect(shareLine(PAGE, story, DAILY, "2026-10-26")).toContain("|2026-10-26.html]]");
+    expect(shareTodo(PAGE, story, DAILY).words).toBe("share 2026-10-26.html #share");
   });
 });
 

@@ -1,7 +1,17 @@
-import { act, cleanup, render, screen, within } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { act, cleanup, render as renderBare, screen, within } from "@testing-library/react";
+import type { ReactElement } from "react";
 import { HtmlPane } from "@/components/html-pane";
 import { COARSE, stubMatchMedia } from "./match-media";
 import { stubCommands } from "./stub-commands";
+
+/** The pane saves a shared story as a store todo, which reaches the store through a query client. */
+const render = (ui: ReactElement) =>
+  renderBare(ui, {
+    wrapper: ({ children }) => (
+      <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>
+    ),
+  });
 
 // Where the take button sits for a selection: above the words with a mouse,
 // below them on a touch screen, and inside the frame either way. The take

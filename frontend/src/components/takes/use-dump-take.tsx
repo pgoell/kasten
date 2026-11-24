@@ -1,5 +1,5 @@
 import { type ReactNode, useLayoutEffect, useRef } from "react";
-import { type ToastTaking, useTakeToast } from "@/components/takes/use-take-toast";
+import { type CallUndo, type ToastTaking, useTakeToast } from "@/components/takes/use-take-toast";
 // Renamed for the reason `use-prompts.tsx` renames it: the take is a dump, and
 // the page has no other `flush` to confuse it with.
 import { type Dump, type Failure, flush as flushOutbox, keep } from "@/lib/capture/outbox";
@@ -38,6 +38,11 @@ export function useDumpTake(o: {
    * so the pane does not hold the old passage over a new document; false when it was not kept.
    */
   take(taking: Taking): Promise<boolean>;
+  /**
+   * Add a take somewhere else than the dump, such as the todo store, with the same toast. `add`
+   * answers the take's Undo. Returns false when `add` failed, with its reason on the toast.
+   */
+  added(taking: Taking, add: () => Promise<CallUndo["run"]>): Promise<boolean>;
   /** Drop the toast (a new document in the pane). */
   forget(): void;
   /** The toast, or null; the pane renders it inside its wrapper. */
@@ -57,7 +62,7 @@ export function useDumpTake(o: {
   async function take(taking: Taking): Promise<boolean> {
     const now = new Date();
     const daily = periodicNote("daily", now).path;
-    const quote = taking.line?.(daily) ?? quoteBlock(taking.text, taking.linkIn(daily));
+    const quote = quoteBlock(taking.text, taking.linkIn(daily));
     marks.current += 1;
     const id = marks.current;
     // Read before the first await, so a forget() during the keep or the send shows.
@@ -76,9 +81,8 @@ export function useDumpTake(o: {
 
     // Kept on a document the pane has left: the mark and the passage's onKept belong to
     // the old one, so they are skipped. The line is still sent.
-    // A line of its own is no selection, so there is nothing on the page to mark.
     if (!moved()) {
-      if (taking.line === undefined) markedRef.current(id);
+      markedRef.current(id);
       taking.onKept?.(id);
     }
     // The same answers `capture` gives, in the take's words.
@@ -96,5 +100,23 @@ export function useDumpTake(o: {
     return true;
   }
 
-  return { take, forget: toast.forget, toast: toast.toast };
+  async function added(taking: Taking, add: () => Promise<CallUndo["run"]>): Promise<boolean> {
+    marks.current += 1;
+    const id = marks.current;
+    const started = toast.generation();
+    let run: CallUndo["run"];
+    try {
+      run = await add();
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
+      if (!toast.moved(started)) toast.show(`Not saved: ${error.message}`, taking);
+      return false;
+    }
+    if (toast.moved(started)) return true;
+    taking.onKept?.(id);
+    toast.show(taking.landed ?? "Saved", taking, { id, run });
+    return true;
+  }
+
+  return { take, added, forget: toast.forget, toast: toast.toast };
 }

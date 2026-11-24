@@ -30,7 +30,7 @@ For a page that opts in, kasten also does the following.
 
 Every page, opted in or not, gets a mark when a passage is taken from it. The page script adds a highlight named `kasten-taken` and a constructed stylesheet that styles it: the `--k-mark` background and a 1 px underline in `--k-accent`. A page that does not opt in has no `--k-mark`, so the mark takes the light value. The page's markup is not touched. The marks stay while the page is open, and Undo takes the last one away.
 
-Every page, opted in or not, gets a Share later button on each story: an `article` that holds an `a.sid` link. The button goes right after that link, inside a shadow root, so the page's styles do not reach it and neither a selection nor the page's text takes in its label. Its colours are `--k-muted`, `--k-rule` and `--k-accent`, with light values for a page that does not opt in. The story's source is the address of the story's `a.src` link, or else of the first link in the story that leaves kasten's host. A press saves the story as a todo; [Capture](/reference/editor-keys/capture.md#saving-a-story-to-share-later) gives the line.
+Every page, opted in or not, gets a Share later button on each story: an `article` that holds an `a.sid` link. The button goes right after that link, inside a shadow root, so the page's styles do not reach it and neither a selection nor the page's text takes in its label. Its colours are `--k-muted`, `--k-rule` and `--k-accent`, with light values for a page that does not opt in. The story's source is the address of the story's `a.src` link, or else of the first link in the story that leaves kasten's host. A press saves the story as a todo; [Capture](/reference/editor-keys/capture.md#saving-a-story-to-share-later) gives its fields.
 
 ## Messages
 
@@ -52,8 +52,8 @@ The pane acts on a selection only while the frame holds the focus, and on a `y` 
 Sharing a story uses three:
 
 - The page script posts `{kasten: 'share', heading, anchor, source}` when the reader presses a story's Share later button. The pane saves at most one share per press: each one spends the reader's user activation. `heading` is the story's first `h1` to `h6`, `anchor` its `a.sid` id and `source` the address it links to, or `''` where it links nowhere.
-- The pane posts `{kasten: 'shared', anchor}` once the todo is safe in today's dump. The page script greys that story's button out and labels it Saved to share.
-- The pane posts `{kasten: 'unshared', anchor}` when Undo takes the todo back out. The button goes back to Share later.
+- The pane posts `{kasten: 'shared', anchor}` once the todo store has the todo. The page script greys that story's button out and labels it Saved to share.
+- The pane posts `{kasten: 'unshared', anchor}` when Undo deletes the todo. The button goes back to Share later.
 
 The pane acts on a `share` only while the frame holds the focus and the window has just had a click or a key, and only once per story while the page is open. A page could post one itself, so the toast shows each share with its Undo.
 
