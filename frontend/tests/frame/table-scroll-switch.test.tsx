@@ -15,6 +15,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { page } from "vitest/browser";
 import { Editor } from "@/components/editor";
+import { takeVaultText } from "@/lib/notes/editor/buffer-writes";
 import "@/styles/app.css";
 import { drawn, mountApp, scrollerOf, tableLinkCleanup, wideNote } from "./table-link-fixture";
 
@@ -223,13 +224,71 @@ describe("a table's sideways place", () => {
       .toBe(150);
   });
 
-  it("#2338 a note replaced whole passes no table's place to another", async () => {
+  it.each([
+    ["drawn", "off", 1440],
+    ["drawn", "on", 390],
+    ["saved", "off", 1440],
+    ["saved", "on", 390],
+  ] as const)(
+    "#2341 a reload deleting the table above, with the same header, leaves the next at its own place: %s, vim %s, at %i",
+    async (kind, vim, width) => {
+      await page.viewport(width, 900);
+      const doc = `${wideNote(3)}\n\n${wideNote(4).replace("before\n\n", "")}`;
+      const host = mountApp(doc, 600, { vim });
+      const blocks = () => [...host.querySelectorAll(".cm-table-block")].map(scrollerOf);
+      await expect.poll(() => blocks().length).toBe(2);
+      // Each laid out, so its start is read and a place it gives up is saved.
+      await expect
+        .poll(() => host.querySelectorAll(".cm-table-block[data-shadow-right]").length)
+        .toBe(2);
+      const at = EditorView.findFromDOM(
+        host.querySelector(".cm-editor") as HTMLElement,
+      ) as EditorView;
+      const [first, second] = blocks() as [HTMLElement, HTMLElement];
+      first.scrollLeft = 150;
+      second.scrollLeft = 60;
+      await expect.poll(() => [first.scrollLeft, second.scrollLeft]).toEqual([150, 60]);
+      const from = doc.indexOf("| column 0");
+      const to = doc.lastIndexOf("| column 0");
+      // Saved: both places in the map, the cursor left in the second so only the map holds it.
+      if (kind === "saved") {
+        for (const anchor of [from, to]) {
+          at.dispatch({ selection: { anchor } });
+          await expect.poll(() => blocks().length).toBe(1);
+        }
+      }
+      // The first table and the blank line under it gone from the vault, as sed in the shell would.
+      act(() => takeVaultText(at, doc.slice(0, from) + doc.slice(to)));
+      // In and out of the table, so it opens from its saved place, not a widget kept on the page.
+      for (const anchor of [from + 2, 0]) at.dispatch({ selection: { anchor } });
+      await expect.poll(() => blocks().map((scroller) => scroller.scrollLeft)).toEqual([60]);
+    },
+  );
+
+  it("#2341 a reload deleting the second table leaves the first at its own place", async () => {
+    const doc = `${wideNote(3)}\n\n${wideNote(4).replace("before\n\n", "")}`;
+    const { at, host } = await drawn(doc);
+    const blocks = () => [...host.querySelectorAll(".cm-table-block")].map(scrollerOf);
+    await expect
+      .poll(() => host.querySelectorAll(".cm-table-block[data-shadow-right]").length)
+      .toBe(2);
+    const [first] = blocks() as [HTMLElement];
+    first.scrollLeft = 150;
+    await expect.poll(() => first.scrollLeft).toBe(150);
+    act(() => takeVaultText(at, wideNote(3)));
+    for (const anchor of [doc.indexOf("| column 0") + 2, 0]) at.dispatch({ selection: { anchor } });
+    await expect.poll(() => blocks().map((scroller) => scroller.scrollLeft)).toEqual([150]);
+  });
+
+  it("#2338 a note replaced whole keeps the first table's own place and passes the second's to none", async () => {
     const tables = [wideNote(3), wideNote(4)].map((note) => note.replace("before\n\n", ""));
     const doc = `${tables.join("\n\n")}\n\nafter`;
     const { at, host } = await drawn(doc);
     const blocks = () => [...host.querySelectorAll(".cm-table-block")].map(scrollerOf);
+    const laidOut = () => host.querySelectorAll(".cm-table-block[data-shadow-right]").length;
     at.dispatch({ selection: { anchor: doc.length } });
-    await expect.poll(() => blocks().length).toBe(2);
+    // Laid out first: a table taken off the page before then has no start read and saves no place.
+    await expect.poll(laidOut).toBe(2);
     const [first, second] = blocks() as [HTMLElement, HTMLElement];
     first.scrollLeft = 150;
     second.scrollLeft = 60;
@@ -243,6 +302,10 @@ describe("a table's sideways place", () => {
     at.dispatch({ changes: { from: 0, to: doc.length, insert: doc }, selection: { anchor: 1 } });
     at.dispatch({ selection: { anchor: doc.length } });
     await expect.poll(() => blocks().length).toBe(2);
-    await expect.poll(() => blocks().map((scroller) => scroller.scrollLeft)).toEqual([0, 0]);
+    // Read once both are laid out, as the place is put back by the resize observer.
+    await expect.poll(laidOut).toBe(2);
+    // The first is rewritten from exactly its start, as the line-up's leading pipe is, so it keeps
+    // its own place; the second's start was inside the rewrite, so its place goes with it.
+    await expect.poll(() => blocks().map((scroller) => scroller.scrollLeft)).toEqual([150, 0]);
   });
 });

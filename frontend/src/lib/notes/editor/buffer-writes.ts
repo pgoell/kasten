@@ -10,8 +10,9 @@ export const fromVault = Annotation.define<boolean>();
 
 /**
  * The one span where `wanted` differs from `held`, so the cursor and undo keep their place.
- * An insertion that fits at several places goes at a line start: a frontmatter block put in
- * at offset 1 of a line starting `-` splits the undo of an edit to that line (#2098).
+ * An insertion or deletion that fits at several places goes at a line start: a frontmatter block
+ * put in at offset 1 of a line starting `-` splits the undo of an edit to that line (#2098), and a
+ * table deleted above one with the same head would leave its start, and scroll place, to it (#2341).
  */
 function smallestChange(held: string, wanted: string): ChangeSpec | null {
   let from = 0;
@@ -26,18 +27,21 @@ function smallestChange(held: string, wanted: string): ChangeSpec | null {
   }
   if (from === to && from === insertTo) return null;
 
-  const line = from === to ? lineStart(held, wanted.slice(from, insertTo), from) : -1;
-  if (line >= 0) return { from: line, insert: wanted.slice(line, insertTo - (from - line)) };
-  return { from, to, insert: wanted.slice(from, insertTo) };
+  const moved =
+    from === to ? wanted.slice(from, insertTo) : from === insertTo ? held.slice(from, to) : "";
+  const line = moved === "" ? -1 : lineStart(held, moved, from);
+  if (line < 0) return { from, to, insert: wanted.slice(from, insertTo) };
+  if (from === insertTo) return { from: line, to: line + to - from };
+  return { from: line, insert: wanted.slice(line, insertTo - (from - line)) };
 }
 
-/** The first line start `insert` can slide left to from `at` and stay the same edit, or -1. */
-function lineStart(held: string, insert: string, at: number): number {
+/** The first line start that `text`, put in or taken out at `at`, can slide left to, or -1. */
+function lineStart(held: string, text: string, at: number): number {
   let line = at === 0 || held[at - 1] === "\n" ? at : -1;
-  // Each step left trades the inserted text's last character for the one before it.
+  // Each step left trades the text's last character for the one before it.
   for (
     let p = at;
-    p > 0 && held[p - 1] === insert[insert.length - 1 - ((at - p) % insert.length)];
+    p > 0 && held[p - 1] === text[text.length - 1 - ((at - p) % text.length)];
     p -= 1
   ) {
     if (p === 1 || held[p - 2] === "\n") line = p - 1;
