@@ -164,7 +164,6 @@ export function ProjectPick(props: {
   );
 }
 
-/** A day drawn as its text; a press opens the date popover by it. */
 /** Planned, due and hold until, each a button opening the date popover on its own tab. */
 export function DateRows(props: {
   days: Record<Which, string | null>;
