@@ -11,9 +11,13 @@ import {
 import { Decoration } from "@codemirror/view";
 import type { Tree } from "@lezer/common";
 import { editingMode, type VimMode } from "@/lib/notes/editor/vim-mode";
+import { noteVideos } from "@/lib/panes/video/video";
 
 /** An empty replacement: the range is in the document but not on the screen. */
 export const HIDDEN = Decoration.replace({});
+
+/** A marker of a construct's reach, never drawn. */
+const WIDE = Decoration.mark({});
 
 /** A folded callout's body, told apart from `HIDDEN` by `skipHidden`. */
 export const FOLDED = Decoration.replace({});
@@ -76,9 +80,16 @@ export class Walk {
   tableEnd = -1;
   /** How far a table or ruby widget already reaches, the walk going on past it. */
   drawn = -1;
+  /** What a construct showing its source reaches past its block, as an svg over blank lines does, for a patch to redraw whole. */
+  readonly wide: Range<Decoration>[] = [];
 
   constructor(state: EditorState) {
     this.state = state;
+  }
+
+  /** Notes that `[from, to]` is one construct across blocks, though nothing is drawn over it. */
+  reaches(from: number, to: number): void {
+    this.wide.push(WIDE.range(from, to));
   }
 
   hide(from: number, to: number, kind = HIDDEN): void {
@@ -104,10 +115,16 @@ export type Span = readonly [number, number];
 /** The nodes that hold the note's blocks: the frontmatter wrapper's and markdown's. */
 const HOLDERS = new Set(["Document", "Body"]);
 
+/**
+ * Blocks an svg starts or runs on in, which it draws as one across blank lines, so no tree node gives its extent; and
+ * the frontmatter, which a video's start reads. A span that reaches one is left to a whole walk.
+ */
+const WHOLE = new Set(["Frontmatter", "HTMLBlock", "CommentBlock", "ProcessingInstructionBlock"]);
+
 /** How often an edit's stretch may grow before a whole walk is cheaper to trust. */
 const ROUNDS = 8;
 
-/** The blocks of `tree` that `[from, to]` reaches, as one span; null in the frontmatter, which a video's start reads. */
+/** The blocks of `tree` that `[from, to]` reaches, as one span; null where one is in `WHOLE`. */
 function blocksOf(tree: Tree, from: number, to: number): Span | null {
   let low = from;
   let high = to;
@@ -117,7 +134,7 @@ function blocksOf(tree: Tree, from: number, to: number): Span | null {
     to,
     enter(node) {
       if (HOLDERS.has(node.name)) return;
-      if (node.name === "Frontmatter") front = true;
+      if (WHOLE.has(node.name)) front = true;
       low = Math.min(low, node.from);
       high = Math.max(high, node.to);
       return false;
@@ -170,9 +187,29 @@ function grow(tr: Transaction, [from, to]: Span, widen: (span: Span) => Span): S
   ];
 }
 
+/** A link definition, which a link anywhere in the note reads. */
+const DEFINITION = /^ {0,3}\[[^\]]+\]:/;
+
+/** Whether the spans held or hold text the rest of the note reads: a link definition or a video a time seeks. */
+function readsAcross(tr: Transaction, spans: readonly Span[]): boolean {
+  const back = tr.changes.invertedDesc;
+  const reads = (doc: Text, from: number, to: number) => {
+    for (const line of doc.iterLines(doc.lineAt(from).number, doc.lineAt(to).number + 1)) {
+      if (DEFINITION.test(line) || noteVideos(line).length > 0) return true;
+    }
+    return false;
+  };
+  return spans.some(
+    ([from, to]) =>
+      reads(tr.state.doc, from, to) ||
+      reads(tr.startState.doc, back.mapPos(from, -1), back.mapPos(to, 1)),
+  );
+}
+
 /**
  * The stretches of `tr.state` a walk must redraw: the blocks the edit and the cursors touch, before and after, and
- * whatever an old drawing there reaches (`widen`); null where the tree stops short of them or they keep growing.
+ * whatever an old drawing there reaches (`widen`); null where the tree stops short of them, they keep growing, or they
+ * hold text the rest of the note reads.
  */
 export function touchedSpans(tr: Transaction, widen: (span: Span) => Span): Span[] | null {
   let spans = joined(seedsOf(tr), tr.state.doc);
@@ -183,7 +220,7 @@ export function touchedSpans(tr: Transaction, widen: (span: Span) => Span): Span
     const same =
       grown.length === spans.length &&
       grown.every(([f, t], i) => spans[i]?.[0] === f && spans[i]?.[1] === t);
-    if (same) return spans;
+    if (same) return readsAcross(tr, spans) ? null : spans;
     spans = grown;
   }
   return null;

@@ -5,7 +5,6 @@ import {
   type Line,
   RangeSet,
   StateField,
-  type Text,
   type Transaction,
 } from "@codemirror/state";
 import {
@@ -52,7 +51,6 @@ import { drawSvg } from "@/lib/notes/live/live-preview-svg";
 import { drawTable } from "@/lib/notes/live/live-preview-tables";
 import { drawTime, linkedVideos } from "@/lib/notes/live/live-preview-times";
 import { videoLayer } from "@/lib/notes/live/live-preview-video";
-import { noteVideos } from "@/lib/panes/video/video";
 import { watchPresses } from "@/lib/ui/input/presses";
 
 const HEADING = /^ATXHeading([1-6])$/;
@@ -64,6 +62,8 @@ const HEADING = /^ATXHeading([1-6])$/;
 interface Live {
   decorations: DecorationSet;
   hidden: RangeSet<Decoration>;
+  /** What constructs showing their source reach across blocks, never drawn. */
+  wide: RangeSet<Decoration>;
   /** Whether this is what a whole walk over the finished tree draws, so the parse catching up changes nothing. */
   whole: boolean;
   /** Whether a todo is indented, so a patch draws the parents' counts from the whole note. */
@@ -112,28 +112,10 @@ function build(state: EditorState): Live {
   return {
     decorations: Decoration.set(walk.decorations, true),
     hidden: Decoration.set(walk.hidden, true),
+    wide: Decoration.set(walk.wide, true),
     whole: syntaxTreeAvailable(state, state.doc.length),
     nested: lists.nested,
   };
-}
-
-/** A link definition, which a link anywhere in the note reads. */
-const DEFINITION = /^ {0,3}\[[^\]]+\]:/;
-
-/** Whether the spans held or hold text the rest of the note reads: a link definition or a video a time seeks. */
-function readsAcross(tr: Transaction, spans: readonly Span[]): boolean {
-  const back = tr.changes.invertedDesc;
-  const reads = (doc: Text, from: number, to: number) => {
-    for (const line of doc.iterLines(doc.lineAt(from).number, doc.lineAt(to).number + 1)) {
-      if (DEFINITION.test(line) || noteVideos(line).length > 0) return true;
-    }
-    return false;
-  };
-  return spans.some(
-    ([from, to]) =>
-      reads(tr.state.doc, from, to) ||
-      reads(tr.startState.doc, back.mapPos(from, -1), back.mapPos(to, 1)),
-  );
 }
 
 /**
@@ -142,20 +124,24 @@ function readsAcross(tr: Transaction, spans: readonly Span[]): boolean {
  */
 function patch(value: Live, tr: Transaction): Live | null {
   const decorations = value.decorations.map(tr.changes);
+  const wide = value.wide.map(tr.changes);
   const spans = touchedSpans(tr, ([from, to]) => {
     let low = from;
     let high = to;
-    decorations.between(from, to, (start, end) => {
+    const reach = (start: number, end: number) => {
       low = Math.min(low, start);
       high = Math.max(high, end);
-    });
+    };
+    decorations.between(from, to, reach);
+    wide.between(from, to, reach);
     return [low, high];
   });
-  if (spans === null || readsAcross(tr, spans)) return null;
+  if (spans === null) return null;
   const { walk, lists } = walkOver(tr.state, spans);
   const inside = (from: number, to: number) => spans.some(([a, b]) => from >= a && to <= b);
   // A drawing that reaches past its block, as an svg over blank lines can, is left to a whole walk.
-  if (!walk.decorations.every((range) => inside(range.from, range.to))) return null;
+  if (![...walk.decorations, ...walk.wide].every((range) => inside(range.from, range.to)))
+    return null;
   const nested = value.nested || lists.nested;
   // The counts read the whole note, so they are drawn again only when the edit can move them.
   const recount = nested && (!value.nested || movesCounts(tr));
@@ -174,6 +160,13 @@ function patch(value: Live, tr: Transaction): Live | null {
       filterTo: spans.at(-1)?.[1],
       filter: outside,
       add: walk.hidden,
+      sort: true,
+    }),
+    wide: wide.update({
+      filter: outside,
+      filterFrom: spans[0]?.[0],
+      filterTo: spans.at(-1)?.[1],
+      add: walk.wide,
       sort: true,
     }),
     // Past a parse still running the drawing stays the whole walk's, as before; the parse's next step walks again.
@@ -365,7 +358,7 @@ function keepPastParse(value: Live, tr: Transaction, fresh: Live): Live {
   const { doc, selection } = tr.state;
   const reach = parsedTo(tr.state);
   if (syntaxTreeAvailable(tr.state) || reach >= doc.length) return fresh;
-  const kept = { whole: false, nested: fresh.nested };
+  const kept = { whole: false, nested: fresh.nested, wide: fresh.wide };
   const keep = (from: number, to: number) => {
     if (from < reach) return false;
     const onLines = (start: number, end: number) =>

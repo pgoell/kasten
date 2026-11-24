@@ -130,7 +130,10 @@ export function drawSvg(walk: Walk, node: SyntaxNode): false | undefined {
   if (!SVG_BLOCK.test(source)) return undefined;
   if (isBlockRevealed(state, node.from, range.to)) {
     // The blocks past this one are part of the same source, so none of them draws on its own.
-    if (range.to > node.to) walk.drawn = range.to;
+    if (range.to > node.to) {
+      walk.drawn = range.to;
+      walk.reaches(node.from, range.to);
+    }
     return undefined;
   }
   decorations.push(
