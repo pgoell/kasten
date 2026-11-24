@@ -22,8 +22,8 @@ const SOURCE_CAP = 2000;
 const HEADING_MAX = 300;
 const ANCHOR_MAX = 200;
 
-/** The tag every saved story carries, which the todo board filters on. */
-export const SHARE_TAG = "#share";
+/** The tags every saved story carries: the board filters on the first, and the second is its kind. */
+export const SHARE_TAGS = "#share #private";
 
 /** The story in a `share` message, or null when the message is not one. */
 export function storyOf(data: Record<string, unknown>): Story | null {
@@ -59,22 +59,27 @@ export function sourceOf(raw: string): string {
   return href.length > SOURCE_CAP ? "" : href;
 }
 
-/** The new todo's words and description: what the todo view lists, and the two ways back to the story. */
+/** The new todo's fields: what the todo view lists, the two ways back to the story, and its day. */
 export interface ShareTodo {
   words: string;
   description: string;
+  due: string;
+  due_hard: true;
 }
 
 /**
  * The todo for a story: the headline in its words, plain so the table reads it, and the source
  * and the link to its place in the paper in its description, which the panel lists under Notes.
  * `from` is the note the todo lives in, which a markdown link to an odd page name is relative to.
+ * It is due, hard, on `date`, the day it is saved, so no share sits undated.
  */
-export function shareTodo(path: string, story: Story, from: string): ShareTodo {
+export function shareTodo(path: string, story: Story, from: string, date: string): ShareTodo {
   const headline = aliasOf(story.heading) || aliasOf(fileOf(path));
   const paper = pageLink(path, { text: "", anchor: story.anchor, heading: "in the paper" }, from);
   return {
-    words: `share ${headline} ${SHARE_TAG}`,
+    words: `share ${headline} ${SHARE_TAGS}`,
     description: story.source === "" ? paper : `${story.source}\n${paper}`,
+    due: date,
+    due_hard: true,
   };
 }

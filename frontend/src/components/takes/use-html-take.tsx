@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import { useDumpTake } from "@/components/takes/use-dump-take";
+import { readClock } from "@/lib/core/clock";
 import { periodicNote } from "@/lib/notes/text/periodic";
 import { type Story, shareTodo, storyOf } from "@/lib/panes/html/html-share";
 import { spendActivation } from "@/lib/panes/html/user-activation";
@@ -197,7 +198,8 @@ export function useHtmlTake(o: {
     if (saving.current.has(story.anchor)) return;
     // Held at once, so a second press while the first is on its way adds nothing.
     saving.current.add(story.anchor);
-    const daily = periodicNote("daily", new Date()).path;
+    const now = new Date();
+    const daily = periodicNote("daily", now).path;
     const taking = {
       text: story.heading === "" ? fileOf(path) : story.heading,
       linkIn: (note: string) => pageLink(path, { text: "", ...story }, note),
@@ -211,7 +213,7 @@ export function useHtmlTake(o: {
       },
     };
     const kept = await dump.added(taking, async () => {
-      const row = await addTodo(queryClient, shareTodo(path, story, daily));
+      const row = await addTodo(queryClient, shareTodo(path, story, daily, readClock(now).date));
       const run = async () => {
         try {
           await deleteTodo(queryClient, row.id, row.version);

@@ -426,8 +426,10 @@ describe("saving a story to share later", () => {
     source: "https://news.example/one",
   };
   const TODO = {
-    words: "share Results #share",
+    words: "share Results #share #private",
     description: `https://news.example/one\n[[${PATH}#s1|in the paper]]`,
+    due: readClock(NOW).date,
+    due_hard: true,
   };
 
   beforeEach(() => {

@@ -110,15 +110,16 @@ in today's daily note, with the toast and Undo a take has:
 
 | Field | What it holds |
 | --- | --- |
-| words | `share <headline> #share` |
+| words | `share <headline> #share #private` |
 | description | the source on its first line, then `[[<page>#<story id>\|in the paper]]` |
+| due | the day it is saved, hard, so no share sits undated |
 
 A story that links to no source gets only the link to the paper. The headline
 loses the characters that would open a link, a tag or markup, so it gives the
 todo no tag of its own. The todo view's panel lists the paper under Notes, from
 the description. The source must be an `http` or `https` address of 2000
 characters at most, or the description leaves it out. The rest starts as any new
-todo does: open, with a soft due date 14 days on. `#share` in the todo pane's
+todo does, open. `#share` in the todo pane's
 [filter line](/reference/todo-format/tags-projects-and-views.md#filter-terms)
 lists every story still to send.
 
