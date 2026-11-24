@@ -41,7 +41,6 @@ vi.mock("@/lib/capture/outbox", async (importOriginal) => {
   };
 });
 
-// A shared story is a todo added to the store, held the same way.
 vi.mock("@/lib/todo/view/todo-store", async (importOriginal) => {
   const real = await importOriginal<typeof import("@/lib/todo/view/todo-store")>();
   return {
@@ -54,7 +53,7 @@ vi.mock("@/lib/todo/view/todo-store", async (importOriginal) => {
   };
 });
 
-/** Holds the keeps, or the store's adds, from now on, and answers the call that lets them all land. */
+/** Holds the keeps, or a shared story's store adds; answers the call that lets them land. */
 function holdKeeps(held: { hold: Promise<void> | null } = gate): () => void {
   let release = () => {};
   held.hold = new Promise<void>((resolve) => {
