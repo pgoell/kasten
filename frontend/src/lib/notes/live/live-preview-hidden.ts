@@ -1,3 +1,4 @@
+import { syntaxTree, syntaxTreeAvailable } from "@codemirror/language";
 import {
   EditorSelection,
   type EditorState,
@@ -5,12 +6,18 @@ import {
   type Range,
   type RangeSet,
   type Text,
+  type Transaction,
 } from "@codemirror/state";
 import { Decoration } from "@codemirror/view";
+import type { Tree } from "@lezer/common";
 import { editingMode, type VimMode } from "@/lib/notes/editor/vim-mode";
+import { noteVideos } from "@/lib/panes/video/video";
 
 /** An empty replacement: the range is in the document but not on the screen. */
 export const HIDDEN = Decoration.replace({});
+
+/** A marker of a construct's reach, never drawn. */
+const WIDE = Decoration.mark({});
 
 /** A folded callout's body, told apart from `HIDDEN` by `skipHidden`. */
 export const FOLDED = Decoration.replace({});
@@ -73,9 +80,16 @@ export class Walk {
   tableEnd = -1;
   /** How far a table or ruby widget already reaches, the walk going on past it. */
   drawn = -1;
+  /** What a construct showing its source reaches past its block, as an svg over blank lines does, for a patch to redraw whole. */
+  readonly wide: Range<Decoration>[] = [];
 
   constructor(state: EditorState) {
     this.state = state;
+  }
+
+  /** Notes that `[from, to]` is one construct across blocks, though nothing is drawn over it. */
+  reaches(from: number, to: number): void {
+    this.wide.push(WIDE.range(from, to));
   }
 
   hide(from: number, to: number, kind = HIDDEN): void {
@@ -93,6 +107,140 @@ export class Walk {
     while (to < line.to && this.state.doc.sliceString(to, to + 1) === " ") to++;
     this.hide(from, to);
   }
+}
+
+/** A stretch of the note, both ends inside it. */
+export type Span = readonly [number, number];
+
+/** The nodes that hold the note's blocks: the frontmatter wrapper's and markdown's. */
+const HOLDERS = new Set(["Document", "Body"]);
+
+/**
+ * Blocks an svg starts or runs on in, which it draws as one across blank lines, so no tree node gives its extent; and
+ * the frontmatter, which a video's start reads. A span that reaches one is left to a whole walk.
+ */
+const WHOLE = new Set(["Frontmatter", "HTMLBlock", "CommentBlock", "ProcessingInstructionBlock"]);
+
+/** How often an edit's stretch may grow before a whole walk is cheaper to trust. */
+const ROUNDS = 8;
+
+/** The blocks of `tree` that `[from, to]` reaches, as one span; null where one is in `WHOLE`. */
+function blocksOf(tree: Tree, from: number, to: number): Span | null {
+  let low = from;
+  let high = to;
+  let front = false;
+  tree.iterate({
+    from,
+    to,
+    enter(node) {
+      if (HOLDERS.has(node.name)) return;
+      if (WHOLE.has(node.name)) front = true;
+      low = Math.min(low, node.from);
+      high = Math.max(high, node.to);
+      return false;
+    },
+  });
+  return front ? null : [low, high];
+}
+
+/** Sorted, with spans that touch or overlap joined, each widened to whole lines. */
+function joined(spans: Span[], doc: Text): Span[] {
+  const lines = spans
+    .map(([from, to]): Span => [doc.lineAt(from).from, doc.lineAt(to).to])
+    .sort((a, b) => a[0] - b[0]);
+  const out: [number, number][] = [];
+  for (const [from, to] of lines) {
+    const last = out.at(-1);
+    if (last && from <= last[1] + 1) last[1] = Math.max(last[1], to);
+    else out.push([from, to]);
+  }
+  return out;
+}
+
+/** Where an edit and the cursors before and after it sit in `tr.state`. */
+function seedsOf(tr: Transaction): Span[] {
+  const { changes, startState, state } = tr;
+  const seeds: Span[] = [];
+  changes.iterChangedRanges((_fromA, _toA, from, to) => seeds.push([from, to]));
+  for (const r of startState.selection.ranges) {
+    seeds.push([changes.mapPos(r.from, -1), changes.mapPos(r.to, 1)]);
+  }
+  for (const r of state.selection.ranges) seeds.push([r.from, r.to]);
+  return seeds;
+}
+
+/** One span grown by the blocks it reaches in the new tree and the old, and by `widen`; null where a tree stops short. */
+function grow(tr: Transaction, [from, to]: Span, widen: (span: Span) => Span): Span | null {
+  const { changes, startState, state } = tr;
+  const back = changes.invertedDesc;
+  const [oldFrom, oldTo] = [back.mapPos(from, -1), back.mapPos(to, 1)];
+  const parsed =
+    syntaxTreeAvailable(state, Math.min(to + 1, state.doc.length)) &&
+    syntaxTreeAvailable(startState, Math.min(oldTo + 1, startState.doc.length));
+  const now = parsed ? blocksOf(syntaxTree(state), from, to) : null;
+  const before = parsed ? blocksOf(syntaxTree(startState), oldFrom, oldTo) : null;
+  if (now === null || before === null) return null;
+  const [wideFrom, wideTo] = widen([from, to]);
+  return [
+    Math.min(now[0], changes.mapPos(before[0], -1), wideFrom),
+    Math.max(now[1], changes.mapPos(before[1], 1), wideTo),
+  ];
+}
+
+/** Whether `tree` holds a link definition in `[from, to]`, which a link anywhere in the note reads, in a quote or a list too. */
+function defines(tree: Tree, from: number, to: number): boolean {
+  let found = false;
+  tree.iterate({
+    from,
+    to,
+    enter(node) {
+      if (node.name === "LinkReference") found = true;
+      return !found;
+    },
+  });
+  return found;
+}
+
+/** Whether a line of `doc` in `[from, to]` links a video, which a time anywhere in the note seeks. */
+function linksVideo(doc: Text, from: number, to: number): boolean {
+  for (const line of doc.iterLines(doc.lineAt(from).number, doc.lineAt(to).number + 1)) {
+    if (noteVideos(line).length > 0) return true;
+  }
+  return false;
+}
+
+/** Whether the spans held or hold text the rest of the note reads: a link definition or a video a time seeks. */
+function readsAcross(tr: Transaction, spans: readonly Span[]): boolean {
+  const back = tr.changes.invertedDesc;
+  return spans.some(([from, to]) => {
+    const [oldFrom, oldTo] = [back.mapPos(from, -1), back.mapPos(to, 1)];
+    return (
+      defines(syntaxTree(tr.state), from, to) ||
+      defines(syntaxTree(tr.startState), oldFrom, oldTo) ||
+      linksVideo(tr.state.doc, from, to) ||
+      linksVideo(tr.startState.doc, oldFrom, oldTo)
+    );
+  });
+}
+
+/**
+ * The stretches of `tr.state` a walk must redraw: the blocks the edit and the cursors touch, before and after, and
+ * whatever an old drawing there reaches (`widen`); null where the tree stops short of them, they keep growing, or they
+ * hold text the rest of the note reads.
+ */
+export function touchedSpans(tr: Transaction, widen: (span: Span) => Span): Span[] | null {
+  let spans = joined(seedsOf(tr), tr.state.doc);
+  for (let round = 0; round < ROUNDS; round++) {
+    const next = spans.map((span) => grow(tr, span, widen));
+    if (next.some((span) => span === null)) return null;
+    const grown = joined(next as Span[], tr.state.doc);
+    const same =
+      grown.length === spans.length &&
+      grown.every(([f, t], i) => spans[i]?.[0] === f && spans[i]?.[1] === t);
+    if (same) return readsAcross(tr, spans) ? null : spans;
+    spans = grown;
+  }
+  return null;
 }
 
 /**

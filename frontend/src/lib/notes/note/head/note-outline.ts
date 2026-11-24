@@ -54,7 +54,6 @@ export class Settle {
   }
 
   private flush() {
-    if (!this.pending) return;
     this.cancel();
     this.read();
   }
@@ -205,7 +204,10 @@ class OutlineReporter {
   update(update: ViewUpdate) {
     if (update.docChanged) {
       // Kept in range until the read lands, so a scroll or a jump meanwhile finds a place in the doc.
-      for (const heading of this.headings) heading.from = update.changes.mapPos(heading.from);
+      this.headings = this.headings.map((heading) => {
+        const from = update.changes.mapPos(heading.from);
+        return { ...heading, from, line: update.state.doc.lineAt(from).number };
+      });
       this.settle.edited(update.state.doc);
     } else if (update.selectionSet) this.publish(cursorCurrentOf(this.view, this.headings));
   }

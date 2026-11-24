@@ -10,13 +10,15 @@
 
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { EditorState } from "@codemirror/state";
+import { EditorState, Text } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { QueryClient } from "@tanstack/react-query";
+import { vi } from "vitest";
 import { parseConfig } from "@/lib/log/log-kinds";
 import { logLines } from "@/lib/log/log-lines";
 import { parseMyFoods } from "@/lib/log/my-foods";
 import { belowFrontmatter } from "@/lib/markdown/frontmatter-language";
+import { frontEndOf, readHiding, readMode } from "@/lib/notes/note/head/note-read-hiding";
 import { noteBody, readField, setField } from "@/lib/notes/text/note-frontmatter";
 import { periodicReview, reviewSource } from "@/lib/review/periodic-review";
 import { landedAs, unstamped } from "@/lib/saving/held-text";
@@ -263,5 +265,35 @@ describe("#1449 the review sits under the closer frontmatter.py finds, on a note
     }
 
     expect(from).toEqual([closer === 0 ? 0 : state.doc.line(closer).to]);
+  });
+});
+
+describe("#2331 Read's frontmatter hiding on a key in a long note", () => {
+  const body = "A line of prose in a long note.\n".repeat(7000);
+  const mount = (doc: string) =>
+    EditorState.create({
+      doc,
+      selection: { anchor: doc.length },
+      extensions: [notePath.of("Notes.md"), readMode.of(true), readHiding()],
+    });
+
+  it("reads no whole text, and still finds the block's end", () => {
+    const state = mount(note("---", "id: one", "---", body));
+    const whole = vi.spyOn(Text.prototype, "toString");
+    const next = state.update({ changes: { from: state.doc.length, insert: "x" } }).state;
+    expect(whole).not.toHaveBeenCalled();
+    whole.mockRestore();
+    expect(frontEndOf(next.doc)).toBe(note("---", "id: one", "---").length);
+  });
+
+  it("follows an edit that opens, closes or removes the block", () => {
+    let state = mount(note("---", "id: one", body));
+    expect(frontEndOf(state.doc)).toBe(0);
+    state = state.update({
+      changes: { from: note("---", "id: one").length, insert: "\n---" },
+    }).state;
+    expect(frontEndOf(state.doc)).toBe(note("---", "id: one", "---").length);
+    state = state.update({ changes: { from: 0, to: 4 } }).state;
+    expect(frontEndOf(state.doc)).toBe(0);
   });
 });

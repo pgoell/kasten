@@ -203,6 +203,11 @@ class Clip extends WidgetType {
  * The player an `![](youtube link)` is drawn as, where it is quoted.
  * Its frame lives in live-preview-video.ts, since a widget built here reloads when scrolled away and back.
  */
+/** Whether a decoration is a video's player, which keeps its place in the note from when it was built. */
+export function isPlayer(decoration: Decoration): boolean {
+  return decoration.spec.widget instanceof Player;
+}
+
 class Player extends WidgetType {
   private readonly id: string;
   private readonly url: string;

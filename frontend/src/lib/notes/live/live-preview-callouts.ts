@@ -31,7 +31,9 @@ export const foldClicks = EditorView.domEventHandlers({
   click(event, view) {
     const title = foldingTitle(event.target);
     if (title === null) return false;
-    view.dispatch({ effects: toggleFold.of(Number(title.getAttribute("data-fold"))) });
+    view.dispatch({
+      effects: toggleFold.of(foldAt(view, title, Number(title.getAttribute("data-fold")))),
+    });
     return true;
   },
 });
@@ -60,14 +62,22 @@ export const folds = StateField.define<readonly number[]>({
 });
 
 /**
- * Makes `dom` flip the fold of the callout at `from`.
+ * The callout's `>`, `offset` into the line `dom` sits on. Read at the click, so a drawing an edit above has
+ * only moved, not redrawn, still names its own callout (#2331).
+ */
+function foldAt(view: EditorView, dom: Element, offset: number): number {
+  return view.state.doc.lineAt(view.posAtDOM(dom)).from + offset;
+}
+
+/**
+ * Makes `dom` flip the fold of the callout whose `>` sits `offset` into its line.
  * The press must not reach CodeMirror, or a cursor here shows the source.
  */
-function flipsFold(dom: HTMLElement, view: EditorView, from: number): void {
+function flipsFold(dom: HTMLElement, view: EditorView, offset: number): void {
   dom.addEventListener("mousedown", (event) => event.preventDefault());
   dom.addEventListener("click", (event) => {
     event.preventDefault();
-    view.dispatch({ effects: toggleFold.of(from) });
+    view.dispatch({ effects: toggleFold.of(foldAt(view, dom, offset)) });
   });
 }
 
@@ -84,7 +94,7 @@ function chevron(open: boolean): HTMLElement {
  */
 class CalloutHead extends WidgetType {
   private readonly title: string | null;
-  /** The callout's `>`, or null for one that does not fold. */
+  /** How far into its line the callout's `>` sits, or null for one that does not fold. */
   private readonly fold: number | null;
   private readonly open: boolean;
 
@@ -118,22 +128,23 @@ class CalloutHead extends WidgetType {
 
 /** The chevron after a written title, which is text and so cannot take the click. */
 class FoldToggle extends WidgetType {
-  private readonly from: number;
+  /** How far into its line the callout's `>` sits. */
+  private readonly offset: number;
   private readonly open: boolean;
 
-  constructor(from: number, open: boolean) {
+  constructor(offset: number, open: boolean) {
     super();
-    this.from = from;
+    this.offset = offset;
     this.open = open;
   }
 
   override eq(other: FoldToggle): boolean {
-    return other.from === this.from && other.open === this.open;
+    return other.offset === this.offset && other.open === this.open;
   }
 
   toDOM(view: EditorView): HTMLElement {
     const toggle = chevron(this.open);
-    flipsFold(toggle, view, this.from);
+    flipsFold(toggle, view, this.offset);
     return toggle;
   }
 }
@@ -254,21 +265,24 @@ export class Callouts {
     box.head = { from: node.from, to: this.header.to };
     const widget = new CalloutHead(
       callout.titled ? null : callout.title,
-      folding ? node.from : null,
+      folding ? node.from - line.from : null,
       open,
     );
     decorations.push(Decoration.replace({ widget }).range(node.from, this.header.to));
     hidden.push(HIDDEN.range(node.from, this.header.to));
     if (callout.titled) {
       const end = this.header.to + callout.title.length;
-      // The callout's `>` on a title that folds, for `foldClicks` to read.
-      const attributes = folding ? { "data-fold": String(node.from) } : undefined;
+      // How far into the line the callout's `>` sits, on a title that folds, for `foldClicks` to read.
+      const attributes = folding ? { "data-fold": String(node.from - line.from) } : undefined;
       decorations.push(
         Decoration.mark({ class: "cm-callout-title", attributes }).range(this.header.to, end),
       );
       if (folding) {
         decorations.push(
-          Decoration.widget({ widget: new FoldToggle(node.from, open), side: -1 }).range(line.to),
+          Decoration.widget({
+            widget: new FoldToggle(node.from - line.from, open),
+            side: -1,
+          }).range(line.to),
         );
       }
     }

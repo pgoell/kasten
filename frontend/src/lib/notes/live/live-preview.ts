@@ -19,16 +19,24 @@ import { setVimMode, vimKeys, vimModeField, vimModeState } from "@/lib/notes/edi
 import { embedSource } from "@/lib/notes/embeds/embed";
 import { imagePaths } from "@/lib/notes/embeds/image";
 import { vaultPaths } from "@/lib/notes/links/wikilink";
-import { Callouts, foldClicks, folds, toggleFold } from "@/lib/notes/live/live-preview-callouts";
+import {
+  Callouts,
+  foldClicks,
+  folds,
+  opensFor,
+  toggleFold,
+} from "@/lib/notes/live/live-preview-callouts";
 import { drawEmbed } from "@/lib/notes/live/live-preview-embeds";
 import { drawFence, retheme, rethemes } from "@/lib/notes/live/live-preview-fences";
 import {
   isLineRevealed,
   isNodeRevealed,
   nudgeOutOfHidden,
+  type Span,
+  touchedSpans,
   Walk,
 } from "@/lib/notes/live/live-preview-hidden";
-import { drawImage } from "@/lib/notes/live/live-preview-images";
+import { drawImage, isPlayer } from "@/lib/notes/live/live-preview-images";
 import {
   drawInline,
   drawLink,
@@ -37,7 +45,7 @@ import {
   type Inline,
   markRelation,
 } from "@/lib/notes/live/live-preview-inline";
-import { Lists } from "@/lib/notes/live/live-preview-lists";
+import { isProgress, Lists, movesCounts } from "@/lib/notes/live/live-preview-lists";
 import { drawBlockMath, drawInlineMath } from "@/lib/notes/live/live-preview-math";
 import { drawSvg } from "@/lib/notes/live/live-preview-svg";
 import { drawTable } from "@/lib/notes/live/live-preview-tables";
@@ -54,6 +62,14 @@ const HEADING = /^ATXHeading([1-6])$/;
 interface Live {
   decorations: DecorationSet;
   hidden: RangeSet<Decoration>;
+  /** What constructs showing their source reach across blocks, never drawn. */
+  wide: RangeSet<Decoration>;
+  /** Whether this is what a whole walk over the finished tree draws, so the parse catching up changes nothing. */
+  whole: boolean;
+  /** Whether a todo is indented, so a patch draws the parents' counts from the whole note. */
+  nested: boolean;
+  /** Whether a video's player is drawn: it keeps its place from when it was built, so an edit walks whole. */
+  players: boolean;
 }
 
 /** The nodes drawn by their line that no flag of their own picks out. */
@@ -67,29 +83,102 @@ const LINE_NODES = new Set([
   "InlineMath",
 ]);
 
-function build(state: EditorState): Live {
+/** One walk over the spans of the note, or over all of it. */
+function walkOver(state: EditorState, spans: readonly Span[] | null): { walk: Walk; lists: Lists } {
   const walk = new Walk(state);
   const callouts = new Callouts();
   const lists = new Lists();
   // One read of the note's videos for the whole walk, shared by every stamp.
   const linked = linkedVideos(state);
-
-  syntaxTree(state).iterate({
-    enter(node) {
-      // Inside a table the widget has already drawn: nothing there is on the
-      // screen to decorate.
-      if (node.to <= walk.drawn) return false;
-      if (callouts.covers(node.from, node.to)) return false;
-      return enterBlock(walk, callouts, lists, linked, node);
-    },
-  });
-
+  const visit = (from?: number, to?: number) =>
+    syntaxTree(state).iterate({
+      from,
+      to,
+      enter(node) {
+        // Inside a table the widget has already drawn: nothing there is on the
+        // screen to decorate.
+        if (node.to <= walk.drawn) return false;
+        if (callouts.covers(node.from, node.to)) return false;
+        return enterBlock(walk, callouts, lists, linked, node);
+      },
+    });
+  if (spans === null) visit();
+  else for (const [from, to] of spans) visit(from, to);
   callouts.finish(walk);
-  lists.finish(walk);
+  return { walk, lists };
+}
 
+function build(state: EditorState): Live {
+  const { walk, lists } = walkOver(state, null);
+  lists.finish(walk);
   return {
     decorations: Decoration.set(walk.decorations, true),
     hidden: Decoration.set(walk.hidden, true),
+    wide: Decoration.set(walk.wide, true),
+    whole: syntaxTreeAvailable(state, state.doc.length),
+    nested: lists.nested,
+    players: walk.decorations.some((range) => isPlayer(range.value)),
+  };
+}
+
+/**
+ * The drawing after an edit or a cursor move: the old one mapped, with only the blocks it touched walked again, so a
+ * key in a long note costs what it costs in a short one (#2331). Null where only a whole walk is sure to be right.
+ */
+function patch(value: Live, tr: Transaction): Live | null {
+  if (value.players && tr.docChanged) return null;
+  // A parse that finishes inside this edit leaves no later step to walk what it reached.
+  if (!value.whole && syntaxTreeAvailable(tr.state, tr.state.doc.length)) return null;
+  const decorations = value.decorations.map(tr.changes);
+  const wide = value.wide.map(tr.changes);
+  const spans = touchedSpans(tr, ([from, to]) => {
+    let low = from;
+    let high = to;
+    const reach = (start: number, end: number) => {
+      low = Math.min(low, start);
+      high = Math.max(high, end);
+    };
+    decorations.between(from, to, reach);
+    wide.between(from, to, reach);
+    return [low, high];
+  });
+  if (spans === null) return null;
+  const { walk, lists } = walkOver(tr.state, spans);
+  const inside = (from: number, to: number) => spans.some(([a, b]) => from >= a && to <= b);
+  // A drawing that reaches past its block, as an svg over blank lines can, is left to a whole walk.
+  if (![...walk.decorations, ...walk.wide].every((range) => inside(range.from, range.to)))
+    return null;
+  const nested = value.nested || lists.nested;
+  // The counts read the whole note, so they are drawn again only when the edit can move them.
+  const recount = nested && (!value.nested || movesCounts(tr));
+  if (recount) lists.finish(walk, true);
+  const outside = (from: number, to: number) => spans.every(([a, b]) => to < a || from > b);
+  const reach = recount ? {} : { filterFrom: spans[0]?.[0], filterTo: spans.at(-1)?.[1] };
+  return {
+    decorations: decorations.update({
+      ...reach,
+      filter: (from, to, decoration) => (isProgress(decoration) ? !recount : outside(from, to)),
+      add: walk.decorations,
+      sort: true,
+    }),
+    hidden: value.hidden.map(tr.changes).update({
+      filterFrom: spans[0]?.[0],
+      filterTo: spans.at(-1)?.[1],
+      filter: outside,
+      add: walk.hidden,
+      sort: true,
+    }),
+    wide: wide.update({
+      filter: outside,
+      filterFrom: spans[0]?.[0],
+      filterTo: spans.at(-1)?.[1],
+      add: walk.wide,
+      sort: true,
+    }),
+    // Past a parse still running the drawing stays the whole walk's, as before; the parse's next step walks again.
+    whole: value.whole,
+    nested,
+    players: value.players || walk.decorations.some((range) => isPlayer(range.value)),
   };
 }
 
@@ -276,6 +365,7 @@ function keepPastParse(value: Live, tr: Transaction, fresh: Live): Live {
   const { doc, selection } = tr.state;
   const reach = parsedTo(tr.state);
   if (syntaxTreeAvailable(tr.state) || reach >= doc.length) return fresh;
+  const kept = { whole: false, nested: fresh.nested, wide: fresh.wide, players: fresh.players };
   const keep = (from: number, to: number) => {
     if (from < reach) return false;
     const onLines = (start: number, end: number) =>
@@ -294,6 +384,7 @@ function keepPastParse(value: Live, tr: Transaction, fresh: Live): Live {
       (tr.docChanged ? before.map(tr.changes) : before).update({ filter: keep }),
     ]);
   return {
+    ...kept,
     decorations: both(fresh.decorations, value.decorations),
     hidden: both(fresh.hidden, value.hidden),
   };
@@ -314,7 +405,9 @@ const live = StateField.define<Live>({
     const vaultChanged =
       tr.startState.facet(vaultPaths) !== tr.state.facet(vaultPaths) ||
       tr.startState.facet(imagePaths) !== tr.state.facet(imagePaths) ||
-      tr.startState.facet(embedSource) !== tr.state.facet(embedSource);
+      tr.startState.facet(embedSource) !== tr.state.facet(embedSource) ||
+      tr.startState.facet(opensFor) !== tr.state.facet(opensFor) ||
+      tr.startState.readOnly !== tr.state.readOnly;
     // A long note is parsed in slices off the main thread's idle time, each
     // slice landing as a transaction that changes nothing else. Without this
     // the text past the first slice stays raw until the cursor moves.
@@ -322,16 +415,14 @@ const live = StateField.define<Live>({
     const flipped = tr.effects.some((effect) => effect.is(toggleFold));
     // A diagram is drawn in the theme it was built in, so a switch builds it again.
     const rethemed = tr.effects.some((effect) => effect.is(retheme));
-    if (
-      !tr.docChanged &&
-      !tr.selection &&
-      !modeChanged &&
-      !vaultChanged &&
-      !parsed &&
-      !flipped &&
-      !rethemed
-    ) {
-      return value;
+    const global = modeChanged || vaultChanged || flipped || rethemed;
+    const edited = tr.docChanged || tr.selection !== undefined;
+    if (!edited && !global && !parsed) return value;
+    if (!global) {
+      // A drawing a patch made already holds what the parse catching up would bring.
+      if (!edited && value.whole) return value;
+      const patched = edited ? patch(value, tr) : null;
+      if (patched) return patched;
     }
     return keepPastParse(value, tr, build(tr.state));
   },

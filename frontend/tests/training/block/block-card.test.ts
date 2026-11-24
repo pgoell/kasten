@@ -1,4 +1,4 @@
-import { EditorState } from "@codemirror/state";
+import { EditorState, Text } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createNote } from "@/lib/core/api";
@@ -166,5 +166,29 @@ describe("the block card", () => {
     expect(path).toBe(`${FOLDER}Block 2026-11-16 Grundlage.md`);
     expect(text).toContain("start: 2026-11-16");
     expect(text).toContain("- [[Kniebeuge]] 3x8, +2.5 kg, 82.5 kg");
+  });
+
+  it("#2331 reads only the head of a long note that is no block, on each key", () => {
+    const doc = `# Notes\n\n${"A line of prose in a long note.\n".repeat(7000)}`;
+    const view = new EditorView({
+      state: EditorState.create({ doc, extensions: [notePath.of("Notes.md"), blockCard] }),
+      parent: document.body,
+    });
+    const whole = vi.spyOn(Text.prototype, "toString");
+    view.dispatch({ changes: { from: 9, insert: "x" } });
+    expect(whole).not.toHaveBeenCalled();
+    whole.mockRestore();
+    view.destroy();
+  });
+
+  it("#2331 comes and goes as an edit makes the head a block or stops it being one", async () => {
+    const view = mount();
+    await vi.waitFor(() => expect(document.querySelector(".cm-block")).not.toBeNull());
+    const at = NOTE.indexOf("Training Block");
+    view.dispatch({ changes: { from: at, to: at + "Training Block".length, insert: "Note" } });
+    expect(document.querySelector(".cm-block")).toBeNull();
+    view.dispatch({ changes: { from: at, to: at + "Note".length, insert: "Training Block" } });
+    expect(document.querySelector(".cm-block")).not.toBeNull();
+    view.destroy();
   });
 });

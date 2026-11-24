@@ -35,7 +35,7 @@ interface Hiding {
 
 /** The end of the frontmatter's closing line, or 0 where there is no block. */
 export function frontEndOf(doc: Text): number {
-  const after = belowFrontmatter(doc.toString());
+  const after = belowFrontmatter(doc);
   // `belowFrontmatter` answers the start of the line after the closing fence,
   // whose newline is the last character of the closing line.
   return after === 0 ? 0 : doc.lineAt(after - 1).to;

@@ -1,4 +1,4 @@
-import type { Line } from "@codemirror/state";
+import type { Line, Text, Transaction } from "@codemirror/state";
 import { Decoration, WidgetType } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
 import { readClock } from "@/lib/core/clock";
@@ -6,7 +6,14 @@ import { LETTER_MARK } from "@/lib/notes/editor/format-commands";
 import type { Walk } from "@/lib/notes/live/live-preview-hidden";
 import { masked, parseTodo } from "@/lib/todo/todo";
 import { DUE } from "@/lib/todo/todo-fields";
-import { descendants, noteTree, type Placed, progressOf, treeOf } from "@/lib/todo/todo-view";
+import {
+  descendants,
+  noteTree,
+  type Placed,
+  progressOf,
+  stopOf,
+  treeOf,
+} from "@/lib/todo/todo-view";
 
 /** How far one level of list nesting shifts an item, in `em`. The hang in `live-preview-lists.css` matches it. */
 const BULLET_INDENT = 1.6;
@@ -132,14 +139,17 @@ export class Lists {
     }
   }
 
+  /** Whether a todo walked by is indented: only one can be a part (#1445), so a flat note needs no count. */
+  get nested(): boolean {
+    return this.placed.some((entry) => entry.todo.indent > 0);
+  }
+
   /**
-   * After the walk, since a parent's count is the lines under it.
-   * `Decoration.set` sorts, so pushing out of order is safe.
+   * After the walk, since a parent's count is the lines under it. `nested` reads the whole note, as a walk over part
+   * of it has not seen every todo. `Decoration.set` sorts, so pushing out of order is safe.
    */
-  finish(walk: Walk): void {
+  finish(walk: Walk, nested = this.nested): void {
     const { state, decorations } = walk;
-    // Only an indented todo can be a part (#1445), so a flat note skips the second read.
-    const nested = this.placed.some((entry) => entry.todo.indent > 0);
     const roots = nested ? noteTree(state.doc.toString().split("\n")) : treeOf(this.placed);
     for (const root of roots) {
       for (const node of [root, ...descendants(root)]) {
@@ -154,6 +164,38 @@ export class Lists {
       }
     }
   }
+}
+
+/** A fence's line, which `noteTree` reads to keep code out of the counts. */
+const FENCE_LINE = /^\s*(?:`{3,}|~{3,})/;
+
+/** What the counts read of each line of `doc` in `[from, to]`: a todo's indent and state, a stop, a fence. */
+function countedKinds(doc: Text, from: number, to: number): string {
+  const kinds: string[] = [];
+  for (const line of doc.iterLines(doc.lineAt(from).number, doc.lineAt(to).number + 1)) {
+    const todo = parseTodo(line);
+    const stop = todo === null ? stopOf(line) : null;
+    // A fence by its whole text: its marker's length decides which fences pair, and so which lines are code.
+    kinds.push(
+      todo ? `t${todo.indent}${todo.state}` : FENCE_LINE.test(line) ? `f${line}` : `s${stop}`,
+    );
+  }
+  return kinds.join(" ");
+}
+
+/** Whether an edit can change a parent's count: only one that changed what the counts read of its lines. */
+export function movesCounts(tr: Transaction): boolean {
+  let moved = false;
+  tr.changes.iterChangedRanges((fromA, toA, fromB, toB) => {
+    moved ||=
+      countedKinds(tr.startState.doc, fromA, toA) !== countedKinds(tr.state.doc, fromB, toB);
+  });
+  return moved;
+}
+
+/** Whether a decoration is a parent's count, which `Lists.finish` draws for the whole note. */
+export function isProgress(decoration: Decoration): boolean {
+  return decoration.spec.widget instanceof Progress;
 }
 
 /**
