@@ -71,7 +71,6 @@ export interface ShareTodo {
  * The todo for a story: the headline in its words, plain so the table reads it, and the source
  * and the link to its place in the paper in its description, which the panel lists under Notes.
  * `from` is the note the todo lives in, which a markdown link to an odd page name is relative to.
- * It is due, hard, on `date`, the day it is saved, so no share sits undated.
  */
 export function shareTodo(path: string, story: Story, from: string, date: string): ShareTodo {
   const headline = aliasOf(story.heading) || aliasOf(fileOf(path));

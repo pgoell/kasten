@@ -518,7 +518,7 @@ describe("saving a story to share later", () => {
 
   it("Undo leaves a todo written since as it is, and says so", async () => {
     answering();
-    deleteTodo.mockRejectedValue(new StaleTodoError("kt-5a1e00 changed since it was read."));
+    deleteTodo.mockRejectedValue(new StaleTodoError("kt-5a1e00 moved on."));
     const { frame } = renderPane();
     const posted = vi
       .spyOn(frame.contentWindow as Window, "postMessage")
