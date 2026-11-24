@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
 import {
-  DateButton,
+  DateRows,
   FieldRow,
   InlineText,
   PriorityPick,
@@ -19,7 +19,7 @@ import {
   readQuick,
   settled,
 } from "@/lib/todo/view/rows/quick-words";
-import { longDay, minutes } from "@/lib/todo/view/rows/row-facts";
+import { minutes } from "@/lib/todo/view/rows/row-facts";
 import { addTodo, stateTodo } from "@/lib/todo/view/todo-store";
 
 /** What a new todo starts with before anything is typed: its group's state, project or day. */
@@ -251,27 +251,18 @@ function NewDates(props: {
 }) {
   const { today, fields, from, onPick } = props;
   const [open, setOpen] = useState<{ which: Which; anchor: HTMLElement } | null>(null);
-  const rows: { which: Which; icon: "sun" | "flag" | "hour"; label: string; empty: string }[] = [
-    { which: "planned", icon: "sun", label: "Planned", empty: "Plan a day" },
-    { which: "due", icon: "flag", label: "Due", empty: "Set a due date" },
-    { which: "hold_until", icon: "hour", label: "Hold until", empty: "Not held" },
-  ];
   return (
     <>
-      {rows.map((row) => {
-        const day = fields[row.which] ?? null;
-        return (
-          <FieldRow key={row.which} icon={row.icon} label={row.label} from={from.has(row.which)}>
-            <DateButton
-              label={row.label}
-              day={day}
-              shown={day === null ? "" : longDay(day, today)}
-              empty={row.empty}
-              onOpen={(anchor) => setOpen({ which: row.which, anchor })}
-            />
-          </FieldRow>
-        );
-      })}
+      <DateRows
+        days={{
+          planned: fields.planned ?? null,
+          due: fields.due ?? null,
+          hold_until: fields.hold_until ?? null,
+        }}
+        today={today}
+        from={from}
+        onOpen={(which, anchor) => setOpen({ which, anchor })}
+      />
       {open !== null && (
         <DatePick
           anchor={open.anchor}
