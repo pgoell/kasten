@@ -30,7 +30,7 @@ dependencies = [
     "pydantic-settings>=2.7",
     "pypdfium2>=4.30",
     "recipe-scrapers==15.13.0",
-    "sqlalchemy[asyncio]>=2.1.8",
+    "sqlalchemy[asyncio]>=2.1.9",
     "tokenizers>=0.22",
     "watchfiles>=1.0",
     "youtube-transcript-api>=1.2",
