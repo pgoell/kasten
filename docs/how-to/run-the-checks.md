@@ -110,7 +110,7 @@ five times (the ten most changed at most), traces in `e2e-burn-in-results`.
 Locally:
 
 ```sh
-cd e2e && mise exec -- bunx playwright test --repeat-each=5 journeys/<file>
+cd e2e && mise exec -- bunx playwright test --repeat-each=5 --no-deps journeys/<file>
 ```
 
 A journey that fails only sometimes is a bug to fix in that pull request:
@@ -286,8 +286,8 @@ limits exist and how to split a file or folder that is over one.
 ## When the hook hangs with no output
 
 A commit that sits there printing nothing but the lefthook banner is mise
-waiting for you to trust the config. It happens in every fresh clone and every
-new git worktree, because mise trusts by path.
+waiting for you to trust the config. It happens in every fresh clone and
+worktree, as mise trusts by path.
 
 ```sh
 mise trust
@@ -297,8 +297,8 @@ Then commit again.
 
 ## When node_modules is a pnpm and bun hybrid
 
-A `node_modules` that pnpm built and bun later installed into is broken in a
-way neither tool reports: bun writes its flat tree over pnpm's symlinks into
+A `node_modules` that pnpm built and bun later installed into is broken, and
+neither tool says so: bun writes its flat tree over pnpm's symlinks into
 `.pnpm/` without clearing them, leaving links to packages that are gone. There
 are two copies, and each shows it differently.
 
@@ -314,8 +314,8 @@ mise run fe:install
 
 **The container's tree, `.container/node_modules`.** The hosted dev environment
 mounts this instead of yours, and it persists across restarts. The container
-installs again whenever `bun.lock` changes, but no install clears a stale
-tree, and it outlives every `dev:restart`. The symptom is the page loading
+installs again whenever `bun.lock` changes, so a new package needs nothing
+from you, but no install clears a stale tree, and it outlives every `dev:restart`. The symptom is the page loading
 while the stylesheet 500s, with `ENOENT` on a path under
 `node_modules/.pnpm/tailwindcss@x.y.z/` in the logs.
 
@@ -325,7 +325,7 @@ rm -rf .container/node_modules && mkdir -p .container/node_modules
 docker compose -f compose.yaml -f compose.dev.yml up -d frontend-dev
 ```
 
-Recreate the directory yourself before starting the container, as above. It is
+Recreate the directory before starting the container, as above. It is
 a bind mount, so Docker creates it as root if it is missing, and the container
 runs as uid 1000 and cannot then write to it.
 

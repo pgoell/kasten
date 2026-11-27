@@ -131,12 +131,14 @@ test("#914 A5 f again and Exit full screen on the player each leave full screen"
   await page.keyboard.press("f");
   // The focus moves to the box once the change has landed: an exit asked before that is lost.
   await expect.poll(() => focusIs(page)).toBe("box");
+  expect(await fullIs(page)).toBe("box");
   await page.keyboard.press("f");
   await expect.poll(() => fullIs(page)).toBe("none");
   await expect.poll(() => focusIs(page)).toBe("pane");
 
   await page.keyboard.press("f");
   await expect.poll(() => focusIs(page)).toBe("box");
+  expect(await fullIs(page)).toBe("box");
   await exitButton(page).click();
   await expect.poll(() => fullIs(page)).toBe("none");
   await expect.poll(() => focusIs(page)).toBe("pane");
