@@ -102,21 +102,19 @@ CI's E2E jobs run the journeys on every pull request, split in two by
 `E2E_SHARD=1/2` and `2/2`, each on 3 workers (4 locally). Set
 `E2E_SHARD` to run one slice locally. They are not required checks
 yet. Each slice's `e2e-results-<n>` artifact holds its traces and screenshots.
-The journeys in `harness.spec.ts` that bring a compose project up and down run
-first, as the `compose` project, in each slice.
 
 ### Burn in a journey
 
 CI's `E2E burn-in` job runs each journey file a pull request adds or changes
-five times over (the ten most changed, at most), and keeps its traces in
-`e2e-burn-in-results`. To do the same before you push:
+five times (the ten most changed at most), traces in `e2e-burn-in-results`.
+Locally:
 
 ```sh
 cd e2e && mise exec -- bunx playwright test --repeat-each=5 journeys/<file>
 ```
 
-When a journey fails only sometimes, on CI or here, fix the cause in the same
-pull request that found it: [why a flaky test is a bug](/explanation/testing-layers.md#why-a-flaky-test-is-a-bug).
+A journey that fails only sometimes is a bug to fix in that pull request:
+[why](/explanation/testing-layers.md#why-a-flaky-test-is-a-bug).
 
 ## The hooks
 
@@ -299,15 +297,10 @@ Then commit again.
 
 ## When node_modules is a pnpm and bun hybrid
 
-This project moved from pnpm to bun. A `node_modules` directory that pnpm
-built and bun later installed into is broken in a way that neither tool
-reports, because bun writes its flat tree over the top without clearing
-pnpm's, and pnpm's top-level entries are symlinks into `.pnpm/`. What is left
-is a mix of real directories and symlinks pointing at packages that are no
-longer there.
-
-It surfaces differently depending on which copy is stale, and there are two
-copies.
+A `node_modules` that pnpm built and bun later installed into is broken in a
+way neither tool reports: bun writes its flat tree over pnpm's symlinks into
+`.pnpm/` without clearing them, leaving links to packages that are gone. There
+are two copies, and each shows it differently.
 
 **Your own tree, `frontend/node_modules`.** The symptom is the vim test in
 `frontend/tests/editor-save-and-undo.test.tsx` failing locally while CI is green. Two copies
@@ -321,9 +314,8 @@ mise run fe:install
 
 **The container's tree, `.container/node_modules`.** The hosted dev environment
 mounts this instead of yours, and it persists across restarts. The container
-installs again whenever `bun.lock` changes, so a package added there needs
-nothing from you. A stale tree is another matter: no install clears it, and it
-outlives every `dev:restart`. The symptom is the page loading
+installs again whenever `bun.lock` changes, but no install clears a stale
+tree, and it outlives every `dev:restart`. The symptom is the page loading
 while the stylesheet 500s, with `ENOENT` on a path under
 `node_modules/.pnpm/tailwindcss@x.y.z/` in the logs.
 
@@ -337,8 +329,7 @@ Recreate the directory yourself before starting the container, as above. It is
 a bind mount, so Docker creates it as root if it is missing, and the container
 runs as uid 1000 and cannot then write to it.
 
-If pnpm built that tree, `.container/pnpm-store` is beside it holding a few
-hundred megabytes that nothing reads any more. Delete it whenever you notice.
+A `.container/pnpm-store` beside it is unused: delete it.
 
 ## Answer the review on a pull request
 
@@ -363,12 +354,10 @@ pull request's author wrote them.
    skipped push counts no round, and the next `Security` round reads its
    commits too.
 
-To see how the findings were answered, run
-`python3 .github/review/outcomes.py [days] [sample size]`. It counts the
-Important threads of pull requests merged in the last 7 days by the first word
-of their answer, counts pull requests by rounds, and lists 5 whose summaries
-held Design points. An agent fixes whatever it is told, so read those 5
-yourself to judge whether the Design points were worth making.
+`python3 .github/review/outcomes.py [days] [sample size]` shows how findings
+were answered: Important threads of pull requests merged in the last 7 days by
+their answer's first word, pull requests by rounds, and 5 whose summaries held
+Design points. Read those 5 yourself, as an agent fixes whatever it is told.
 
 A pull request from a fork or from Dependabot gets no review, as its run sees
 no token: read it yourself. A draft gets none until it is marked ready. A run
