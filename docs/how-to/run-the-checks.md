@@ -106,8 +106,8 @@ yet. Each slice's `e2e-results-<n>` artifact holds its traces and screenshots.
 ### Burn in a journey
 
 CI's `E2E burn-in` job runs each journey file a pull request adds or changes
-five times (at most ten; not the compose journeys), traces in
-`e2e-burn-in-results`. Locally:
+five times (the ten most changed at most; not the compose journeys), traces
+in `e2e-burn-in-results`. Locally:
 
 ```sh
 cd e2e && mise exec -- bunx playwright test --repeat-each=5 --project=chromium --no-deps journeys/<file>
@@ -293,7 +293,7 @@ worktree, as mise trusts by path.
 mise trust
 ```
 
-Then commit again.
+Commit again.
 
 ## When node_modules is a pnpm and bun hybrid
 
@@ -325,7 +325,7 @@ rm -rf .container/node_modules && mkdir -p .container/node_modules
 docker compose -f compose.yaml -f compose.dev.yml up -d frontend-dev
 ```
 
-Recreate the directory first, as above. It is
+Recreate it first, as above. It is
 a bind mount, so Docker creates it as root if it is missing, and the container
 runs as uid 1000 and cannot then write to it.
 
