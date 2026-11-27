@@ -130,7 +130,7 @@ test.describe("an undo meets the sitting's writes (#600, #1135)", () => {
     for (const key of ["Space", "Enter", "n", "3", "s"]) await page.keyboard.press(key);
     await expect(back(page)).toHaveCount(0);
     await expect(page.getByTestId("review-capture")).toHaveCount(0);
-    expect(puts()).toBe(2);
+    await expect.poll(puts).toBe(2);
     await release();
     // A back revealed, then B asked once: nothing done while the undo was out came back.
     await expect(card(page)).toContainText("What is A?");
@@ -161,7 +161,7 @@ test.describe("an undo meets the sitting's writes (#600, #1135)", () => {
         await greyed.tap({ force: true });
       await expect(back(page)).toHaveCount(0);
       await expect(page.getByTestId("review-capture")).toHaveCount(0);
-      expect(puts()).toBe(2);
+      await expect.poll(puts).toBe(2);
       await release();
       await expect(back(page)).toHaveText("a");
       await button(page, "Good").tap();
@@ -182,7 +182,7 @@ test.describe("an undo meets the sitting's writes (#600, #1135)", () => {
     await undo(page).click();
     await jotLine(page).press("Enter");
     await expect(undo(page)).toHaveAttribute("aria-disabled", "true");
-    expect(puts()).toBe(2);
+    await expect.poll(puts).toBe(2);
     await expect(jotLine(page)).toHaveValue("What is a moved block?");
     await release();
     await expect(card(page)).toContainText("What is a VPC?");

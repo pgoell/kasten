@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: Testing layers
-description: What each test layer (pytest, unit, frame, e2e) is for and what it may fake, why a bug fix adds its test at the highest layer that reproduces the bug, and why a new jsdom component test needs a reason.
+description: What each test layer (pytest, unit, frame, e2e) is for and what it may fake, why a bug fix adds its test at the highest layer that reproduces the bug, why a new jsdom component test needs a reason, and why a flaky test is a bug to fix at its cause.
 tags: [testing, design]
 status: stable
 ---
@@ -74,7 +74,36 @@ side by side (`--shard=1/4` to `4/4`). The Test job merges their reports with
 its Perf job and the journeys in `e2e/` in two `E2E` jobs (`E2E_SHARD=1/2`
 and `2/2`), since in one job they outgrew its timeout.
 E2E is not a required check yet (#1606: Chromium can die between tests, and
-nothing retries), so a red E2E does not block a merge; read it anyway.
+nothing retries), so a red E2E does not block a merge; read it anyway. The
+`E2E burn-in` job runs each journey file a pull request adds or changes five
+times over, so a journey that passes only sometimes shows up in the pull
+request that brought it.
+
+## Why a flaky test is a bug
+
+A test that passes and fails on the same code is not tested code: a red run
+stops meaning anything, and the next real failure gets waved through as
+"probably flaky". So kasten has none. When a test fails on a change that
+cannot have caused it, the test is broken, and the fix goes to its cause.
+
+The cause is nearly always one of a few races, each seen in kasten's journeys:
+
+* A plain `expect(value)` on something the page has not finished doing, such
+  as a request count read right after a click. Poll it with `expect.poll`, or
+  wait for what the page shows once it is done.
+* A check that holds while the element is still hidden. `toContainText` reads
+  a hidden element too, so wait for `toBeVisible` before a measure.
+* A key pressed while the browser is still in a transition it started, such as
+  full screen. Wait for the state the app reaches once it lands.
+* Something outside the page that changes under it. A Docker network that
+  comes or goes fails every request in flight with `ERR_NETWORK_CHANGED`,
+  which is why the compose journeys run before any page loads.
+
+Retries hide all four, so the journeys have none, and `failOnFlakyTests` fails
+a run that someone gives retries. Never skip, quarantine or loosen a flaky
+test to get a green run, and never merge past one as unrelated: reproduce it
+with `--repeat-each`, fix the race, and prove the fix the same way
+([Burn in a journey](/how-to/run-the-checks.md#burn-in-a-journey)).
 
 ## Related
 

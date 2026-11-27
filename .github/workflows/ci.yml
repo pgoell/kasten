@@ -222,6 +222,55 @@ jobs:
             e2e/playwright-report/
           if-no-files-found: ignore
 
+  # Each journey file a pull request adds or changes, run five times over, so a
+  # flaky journey fails the pull request that brings it instead of a later one.
+  # The ten most changed files at most, which keeps it inside its timeout.
+  e2e-burn-in:
+    name: E2E burn-in
+    needs: [changes]
+    if: ${{ github.event_name == 'pull_request' && needs.changes.outputs.changed != 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - id: specs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RANGE: ${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          specs=$(gh api "repos/$GITHUB_REPOSITORY/compare/$RANGE" --jq '
+            [.files[] | select(.status != "removed" and (.filename | test("^e2e/journeys/.*\\.spec\\.ts$")))]
+            | sort_by(-.changes) | .[:10] | map(.filename | ltrimstr("e2e/")) | join(" ")')
+          echo "specs=$specs" >> "$GITHUB_OUTPUT"
+          echo "Burning in: ${specs:-nothing}"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.specs.outputs.specs != ''
+      - uses: ./.github/actions/setup-mise
+        if: steps.specs.outputs.specs != ''
+      - name: Install Chromium
+        if: steps.specs.outputs.specs != ''
+        run: frontend/node_modules/.bin/playwright install chromium --with-deps
+      - name: Journeys, five times each
+        if: steps.specs.outputs.specs != ''
+        env:
+          SPECS: ${{ steps.specs.outputs.specs }}
+        run: |
+          mise run fe:build
+          cd e2e
+          bun install --frozen-lockfile
+          # Word splitting on purpose: one path per word, none with a space.
+          # shellcheck disable=SC2086
+          bunx playwright test --repeat-each=5 $SPECS
+      - name: Keep traces and screenshots
+        if: ${{ !cancelled() && steps.specs.outputs.specs != '' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-burn-in-results
+          path: |
+            e2e/test-results/
+            e2e/playwright-report/
+          if-no-files-found: ignore
+
   # Lists the packages this pull request adds to the lockfiles, with licence and
   # latest release, and fails on a licence outside the allowlist. Registry
   # metadata only, so it needs no secrets and runs for forks and Dependabot too.

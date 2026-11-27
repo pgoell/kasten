@@ -118,6 +118,9 @@ Run the [verify skill](skills/verify/SKILL.md) before a commit that changes beha
   needs, not how the code got here. History goes in the commit message and
   `docs/`, never the code. Leave out what a good name or the docs already say.
   `lint:comments` stops a file from getting denser.
+- **No flaky tests.** A test that fails on a change that cannot have caused
+  it is a bug: fix its cause, never retry, skip or merge past it as
+  unrelated. [Why a flaky test is a bug](../docs/explanation/testing-layers.md#why-a-flaky-test-is-a-bug).
 - **SHA-pin every GitHub Action.** Every `uses:`, `actions/*` and `github/*`
   included, pins a full commit SHA with a trailing `# vX.Y.Z`; only a local
   `./` path goes without. The action's owner must be on

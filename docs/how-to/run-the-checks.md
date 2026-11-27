@@ -102,6 +102,21 @@ CI's E2E jobs run the journeys on every pull request, split in two by
 `E2E_SHARD=1/2` and `2/2`, each on 3 workers (4 locally). Set
 `E2E_SHARD` to run one slice locally. They are not required checks
 yet. Each slice's `e2e-results-<n>` artifact holds its traces and screenshots.
+The journeys in `harness.spec.ts` that bring a compose project up and down run
+first, as the `compose` project, in each slice.
+
+### Burn in a journey
+
+CI's `E2E burn-in` job runs each journey file a pull request adds or changes
+five times over (the ten most changed, at most), and keeps its traces in
+`e2e-burn-in-results`. To do the same before you push:
+
+```sh
+cd e2e && mise exec -- bunx playwright test --repeat-each=5 journeys/<file>
+```
+
+When a journey fails only sometimes, on CI or here, fix the cause in the same
+pull request that found it: [why a flaky test is a bug](/explanation/testing-layers.md#why-a-flaky-test-is-a-bug).
 
 ## The hooks
 
