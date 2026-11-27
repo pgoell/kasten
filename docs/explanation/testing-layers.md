@@ -77,7 +77,8 @@ E2E is not a required check yet (#1606: Chromium can die between tests, and
 nothing retries), so a red E2E does not block a merge; read it anyway. The
 `E2E burn-in` job runs each journey file a pull request adds or changes five
 times over, so a journey that passes only sometimes shows up in the pull
-request that brought it.
+request that brought it. The compose-project journeys run only in the E2E
+shards.
 
 ## Why a flaky test is a bug
 

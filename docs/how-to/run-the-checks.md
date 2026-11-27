@@ -106,8 +106,8 @@ yet. Each slice's `e2e-results-<n>` artifact holds its traces and screenshots.
 ### Burn in a journey
 
 CI's `E2E burn-in` job runs each journey file a pull request adds or changes
-five times (the ten most changed at most), traces in `e2e-burn-in-results`.
-Locally:
+five times (at most ten; not the compose journeys), traces in
+`e2e-burn-in-results`. Locally:
 
 ```sh
 cd e2e && mise exec -- bunx playwright test --repeat-each=5 --project=chromium --no-deps journeys/<file>
