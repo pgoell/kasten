@@ -207,7 +207,7 @@ jobs:
 
   # The whole platform at once: the built frontend under nginx, a backend per
   # test and Postgres from compose.yaml, all started by e2e/harness. Not a
-  # required check yet. Twelve slices, each about three minutes of journeys.
+  # required check yet. Sixteen slices, each about four minutes of journeys.
   e2e:
     name: E2E (${{ matrix.shard }}/16)
     needs: [changes, gate]
