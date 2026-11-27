@@ -260,7 +260,7 @@ jobs:
           bun install --frozen-lockfile
           # Word splitting on purpose: one path per word, none with a space.
           # shellcheck disable=SC2086
-          bunx playwright test --repeat-each=5 --no-deps $SPECS
+          bunx playwright test --repeat-each=5 --project=chromium --no-deps $SPECS
       - name: Keep traces and screenshots
         if: ${{ !cancelled() && steps.specs.outputs.specs != '' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

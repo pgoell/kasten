@@ -110,7 +110,7 @@ five times (the ten most changed at most), traces in `e2e-burn-in-results`.
 Locally:
 
 ```sh
-cd e2e && mise exec -- bunx playwright test --repeat-each=5 --no-deps journeys/<file>
+cd e2e && mise exec -- bunx playwright test --repeat-each=5 --project=chromium --no-deps journeys/<file>
 ```
 
 A journey that fails only sometimes is a bug to fix in that pull request:
@@ -325,7 +325,7 @@ rm -rf .container/node_modules && mkdir -p .container/node_modules
 docker compose -f compose.yaml -f compose.dev.yml up -d frontend-dev
 ```
 
-Recreate the directory before starting the container, as above. It is
+Recreate the directory first, as above. It is
 a bind mount, so Docker creates it as root if it is missing, and the container
 runs as uid 1000 and cannot then write to it.
 
