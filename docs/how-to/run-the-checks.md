@@ -315,9 +315,9 @@ mise run fe:install
 **The container's tree, `.container/node_modules`.** The hosted dev environment
 mounts this instead of yours, and it persists across restarts. The container
 installs again whenever `bun.lock` changes, so a new package needs nothing
-from you, but no install clears a stale tree, and it outlives every `dev:restart`. The symptom is the page loading
-while the stylesheet 500s, with `ENOENT` on a path under
-`node_modules/.pnpm/tailwindcss@x.y.z/` in the logs.
+from you, but no install clears a stale tree, and it outlives every
+`dev:restart`. The symptom is the page loading while the stylesheet 500s, with
+`ENOENT` on a path under `node_modules/.pnpm/tailwindcss@x.y.z/` in the logs.
 
 ```sh
 docker compose -f compose.yaml -f compose.dev.yml stop frontend-dev
