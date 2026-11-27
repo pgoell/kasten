@@ -98,16 +98,16 @@ cd e2e && mise exec -- bunx playwright test journeys/<file>
 A failure writes a trace and screenshot to `e2e/test-results/`; open
 one from `e2e/` with `bunx playwright show-trace <zip>`.
 
-CI's E2E jobs run the journeys on every pull request, split in two by
-`E2E_SHARD=1/2` and `2/2`, each on 3 workers (4 locally). Set
-`E2E_SHARD` to run one slice locally. They are not required checks
-yet. Each slice's `e2e-results-<n>` artifact holds its traces and screenshots.
+CI's sixteen E2E jobs run the journeys on every pull request
+(`E2E_SHARD=1/16` to `16/16`) on 3 workers each; set `E2E_SHARD` to run
+one locally. They are not required checks yet. Each slice's
+`e2e-results-<n>` artifact holds its traces and screenshots.
 
 ### Burn in a journey
 
-CI's `E2E burn-in` job runs each journey file a pull request adds or changes
-five times (the ten most changed at most; not the compose journeys), traces
-in `e2e-burn-in-results`. Locally:
+CI's three `E2E burn-in` jobs run each journey file a pull request adds or
+changes five times (the ten most changed at most; not the compose journeys),
+traces in `e2e-burn-in-results-<n>`. Locally:
 
 ```sh
 cd e2e && mise exec -- bunx playwright test --repeat-each=5 --project=chromium --no-deps journeys/<file>
