@@ -1,0 +1,36 @@
+name: Postgres for the backend tests
+description: >
+  Starts kasten's Postgres in the background (step start), then waits until it
+  answers (step wait), so the image builds while the caller does other setup.
+
+inputs:
+  step:
+    description: start or wait
+    required: true
+
+runs:
+  using: composite
+  steps:
+    # Not a `services:` container: those take an image from a registry and no
+    # build, and this one is built from deploy/postgres, the file dev uses and
+    # prod's copy follows. Port and credentials mirror compose.yaml, so
+    # backend/.env.example resolves without overrides.
+    - if: inputs.step == 'start'
+      shell: bash
+      run: |
+        (docker build -q -t kasten-postgres deploy/postgres &&
+          docker run -d --name postgres -p 5434:5432 \
+            -e POSTGRES_USER=kasten -e POSTGRES_PASSWORD=kasten -e POSTGRES_DB=kasten_dev \
+            kasten-postgres) > "$RUNNER_TEMP/postgres.log" 2>&1 &
+    # pg_isready over TCP, because the entrypoint's first server, the one that
+    # runs the init, listens on the socket only and then stops.
+    - if: inputs.step == 'wait'
+      shell: bash
+      run: |
+        for _ in $(seq 120); do
+          docker exec postgres pg_isready -h 127.0.0.1 -U kasten -d kasten_dev -q 2>/dev/null && exit 0
+          sleep 1
+        done
+        cat "$RUNNER_TEMP/postgres.log"
+        docker logs postgres
+        exit 1

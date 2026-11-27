@@ -84,8 +84,7 @@ jobs:
         run: mise exec -- uv run ty check --output-format github --error-on-warning
 
   # Apart from Test so the two suites run side by side: run one after the other
-  # they held Test to eleven minutes. Three slices of pytest-split's even
-  # split, as one job took five minutes; Backend below stays the required check.
+  # they held Test to eleven minutes. Three slices, as one job took five minutes.
   backend-slice:
     name: Backend (${{ matrix.group }}/3)
     needs: [changes, gate]
@@ -98,29 +97,13 @@ jobs:
         group: [1, 2, 3]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # Not a `services:` container: those take an image from a registry and
-      # no build, and this one is built here from deploy/postgres, the file
-      # dev uses and prod's copy follows. Port and credentials mirror
-      # compose.yaml, so backend/.env.example resolves without overrides.
-      # In the background, so the image builds while mise sets up.
-      - name: Start Postgres with pgvector and pg_textsearch
-        run: |
-          (docker build -q -t kasten-postgres deploy/postgres &&
-            docker run -d --name postgres -p 5434:5432 \
-              -e POSTGRES_USER=kasten -e POSTGRES_PASSWORD=kasten -e POSTGRES_DB=kasten_dev \
-              kasten-postgres) > "$RUNNER_TEMP/postgres.log" 2>&1 &
+      - uses: ./.github/actions/postgres
+        with:
+          step: start
       - uses: ./.github/actions/setup-mise
-      # pg_isready over TCP, because the entrypoint's first server, the one
-      # that runs the init, listens on the socket only and then stops.
-      - name: Wait for Postgres
-        run: |
-          for _ in $(seq 120); do
-            docker exec postgres pg_isready -h 127.0.0.1 -U kasten -d kasten_dev -q 2>/dev/null && exit 0
-            sleep 1
-          done
-          cat "$RUNNER_TEMP/postgres.log"
-          docker logs postgres
-          exit 1
+      - uses: ./.github/actions/postgres
+        with:
+          step: wait
       # Proves the Alembic wiring against a real database, which the unit
       # tests deliberately do not touch.
       - name: Apply migrations
@@ -128,7 +111,7 @@ jobs:
       - name: Backend tests
         run: mise exec -- uv run pytest -n 4 --splits 3 --group ${{ matrix.group }}
 
-  # The required check the slices answer to, and the name the main gate looks for.
+  # The required check, and the name the main gate looks for.
   backend:
     name: Backend
     needs: [changes, gate, backend-slice]
@@ -205,16 +188,14 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup-mise
-      # setup-mise runs `mise run install`, which puts the playwright CLI in
-      # frontend/node_modules, but the browser it drives is a separate download
-      # the runner image does not carry. `--with-deps` adds the shared
-      # libraries Chromium needs, which a bare runner is also missing.
+      # The playwright CLI is in frontend/node_modules; its browser and the
+      # shared libraries it needs (`--with-deps`) are not on the runner image.
       - name: Install Chromium
         run: frontend/node_modules/.bin/playwright install chromium --with-deps
       - name: Frame gate
         run: mise run fe:frame -- --shard=${{ matrix.shard }}/3
 
-  # The name the main gate and Record look for.
+  # The name the main gate looks for.
   perf:
     name: Perf
     needs: [changes, gate, perf-slice]

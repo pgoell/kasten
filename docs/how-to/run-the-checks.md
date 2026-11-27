@@ -23,8 +23,7 @@ or push to main that changes no file, such as a placeholder on an empty commit,
 skips them, and a skipped job counts as passed.
 
 `mise run test:py` runs pytest on four workers with `pytest-xdist`, each with a
-database of its own. CI splits it into three `Backend (n/3)` jobs with
-pytest-split; `uv run pytest -n 4 --splits 3 --group 2` runs one slice locally. To debug one test in order, call `uv run pytest <path>`
+database of its own. To debug one test in order, call `uv run pytest <path>`
 yourself.
 
 A new test goes at the highest layer that reproduces the bug: e2e, frame, unit
@@ -99,16 +98,16 @@ cd e2e && mise exec -- bunx playwright test journeys/<file>
 A failure writes a trace and screenshot to `e2e/test-results/`; open
 one from `e2e/` with `bunx playwright show-trace <zip>`.
 
-CI's E2E jobs run the journeys on every pull request, split in twelve by
-`E2E_SHARD=1/12` to `12/12`, each on 3 workers (4 locally). Set
-`E2E_SHARD` to run one slice locally. They are not required checks
-yet. Each slice's `e2e-results-<n>` artifact holds its traces and screenshots.
+CI's twelve E2E jobs run the journeys on every pull request
+(`E2E_SHARD=1/12` to `12/12`) on 3 workers each; set `E2E_SHARD` to run
+one locally. They are not required checks yet. Each slice's
+`e2e-results-<n>` artifact holds its traces and screenshots.
 
 ### Burn in a journey
 
 CI's three `E2E burn-in` jobs run each journey file a pull request adds or
 changes five times (the ten most changed at most; not the compose journeys),
-split by `--shard`, traces in `e2e-burn-in-results-<n>`. Locally:
+traces in `e2e-burn-in-results-<n>`. Locally:
 
 ```sh
 cd e2e && mise exec -- bunx playwright test --repeat-each=5 --project=chromium --no-deps journeys/<file>
