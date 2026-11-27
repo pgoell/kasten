@@ -13,7 +13,9 @@ asyncio_default_test_loop_scope   = "function"
 testpaths = ["backend/tests", "jobs/tests"]
 # `importlib` avoids the classic pytest trap where two test dirs that both
 # contain `__init__.py` collide under the same `tests` package name.
-addopts   = ["--import-mode=importlib"]
+# least_duration deals CI's slices (`--splits`) their tests in turn; the default
+# cuts the list in runs and gave one slice four times the work of another.
+addopts   = ["--import-mode=importlib", "--splitting-algorithm", "least_duration"]
 
 [tool.ruff]
 target-version = "py314"

@@ -70,9 +70,9 @@ into a test file that exists.
 
 CI splits every suite that takes minutes across jobs side by side, so a run
 takes as long as its slowest slice. pytest runs in three `Backend` slices
-(pytest-split's `--splits 3`), the unit project in four `Unit` slices
-(`--shard=1/4` to `4/4`), the frame project in three `Perf` slices and the
-journeys in `e2e/` in twelve `E2E` slices (`E2E_SHARD=1/12` to `12/12`). The
+(pytest-split's `--splits 3`, dealt out by `least_duration`), the unit project in four `Unit` slices
+(`--shard=1/4` to `4/4`), the frame project in four `Perf` slices and the
+journeys in `e2e/` in sixteen `E2E` slices (`E2E_SHARD=1/16` to `16/16`). The
 Test job merges the unit reports with `vitest --merge-reports`, then runs the
 perf project; the Backend and Perf jobs pass when all their slices did.
 E2E is not a required check yet (#1606: Chromium can die between tests, and
