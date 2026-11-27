@@ -18,7 +18,7 @@ dependencies = [
     # client fastapi's standard extra brings it in for.
     "httpcore>=1.0",
     "httpx>=0.28",
-    "justhtml==3.17.0",
+    "justhtml==3.17.1",
     "markdown-it-py>=3.0",
     # Pinned exactly, so a bump is its own pull request, where `test_mcp.py`'s
     # round trip catches the SDK's renames before production does.

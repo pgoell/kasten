@@ -100,12 +100,12 @@ respect-ignore-files = true
 [dependency-groups]
 dev = [
     "asgi-lifespan>=2.1",
-    "import-linter>=2.16",
+    "import-linter>=2.17",
     "pytest>=9.2.0",
     "pytest-asyncio>=1.5.0",
     "pytest-xdist>=3.8",
-    "ruff>=0.17.5",
-    "ty>=0.0.104",
+    "ruff>=0.17.6",
+    "ty>=0.0.107",
 ]
 
 # Each contract's name is what lint-imports prints on failure, so it states the rule and the fix.
