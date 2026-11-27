@@ -57,12 +57,13 @@ Three tasks name those projects. None of them runs all three.
 | Task | Projects | Where it runs |
 | --- | --- | --- |
 | `fe:test` | `unit`, `perf` | CI's Unit and Test jobs, and lefthook before a push |
-| `fe:frame` | `frame` | CI's Perf job. Needs a Chromium install |
+| `fe:frame` | `frame` | CI's three Perf slices. Needs a Chromium install |
 | `fe:bench` | `perf (bench)` | local only, and gates nothing |
 
 `fe:test` names its projects rather than running everything, because CI's Test
-job and lefthook install no browser. The Perf job installs one with
-`playwright install chromium --with-deps` and runs `fe:frame` alone.
+job and lefthook install no browser. Each Perf slice installs one with
+`playwright install chromium --with-deps` and runs a third of `fe:frame`
+(`--shard=n/3`) alone.
 
 The `perf` project also carries `sequence: { groupOrder: 1 }`, which keeps it
 out of the jsdom project's worker pool. Sharing one pool oversubscribes a

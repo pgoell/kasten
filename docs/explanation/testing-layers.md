@@ -68,14 +68,16 @@ into a test file that exists.
 
 ## What CI runs
 
-CI runs pytest in its Backend job and the unit project in four `Unit` jobs
-side by side (`--shard=1/4` to `4/4`). The Test job merges their reports with
-`vitest --merge-reports`, then runs the perf project. The frame project runs in
-its Perf job and the journeys in `e2e/` in two `E2E` jobs (`E2E_SHARD=1/2`
-and `2/2`), since in one job they outgrew its timeout.
+CI splits every suite that takes minutes across jobs side by side, so a run
+takes as long as its slowest slice. pytest runs in three `Backend` slices
+(pytest-split's `--splits 3`), the unit project in four `Unit` slices
+(`--shard=1/4` to `4/4`), the frame project in three `Perf` slices and the
+journeys in `e2e/` in twelve `E2E` slices (`E2E_SHARD=1/12` to `12/12`). The
+Test job merges the unit reports with `vitest --merge-reports`, then runs the
+perf project; the Backend and Perf jobs pass when all their slices did.
 E2E is not a required check yet (#1606: Chromium can die between tests, and
 nothing retries), so a red E2E does not block a merge; read it anyway. The
-`E2E burn-in` job runs each journey file a pull request adds or changes five
+`E2E burn-in` jobs run each journey file a pull request adds or changes five
 times over, so a journey that passes only sometimes shows up in the pull
 request that brought it. The compose-project journeys run only in the E2E
 shards.

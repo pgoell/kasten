@@ -74,7 +74,7 @@ the other two services run stock images and rebuild nothing.
 
 `fe:test` names its two projects rather than running every project, because the
 third one boots a real browser. CI's Unit and Test jobs and lefthook's pre-push hook
-install none, so `fe:frame` runs in its own CI job, after a
+install none, so `fe:frame` runs in CI jobs of its own, after a
 `playwright install chromium --with-deps`. Run it locally the same way, once.
 
 `fe:bench` gates nothing. It prints a mean per benchmark and exits zero

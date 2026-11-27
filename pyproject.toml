@@ -103,6 +103,7 @@ dev = [
     "import-linter>=2.17",
     "pytest>=9.2.0",
     "pytest-asyncio>=1.5.0",
+    "pytest-split>=0.10",
     "pytest-xdist>=3.8",
     "ruff>=0.17.6",
     "ty>=0.0.107",

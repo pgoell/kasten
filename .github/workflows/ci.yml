@@ -84,39 +84,59 @@ jobs:
         run: mise exec -- uv run ty check --output-format github --error-on-warning
 
   # Apart from Test so the two suites run side by side: run one after the other
-  # they held Test to eleven minutes.
-  backend:
-    name: Backend
+  # they held Test to eleven minutes. Three slices of pytest-split's even
+  # split, as one job took five minutes; Backend below stays the required check.
+  backend-slice:
+    name: Backend (${{ matrix.group }}/3)
     needs: [changes, gate]
     if: ${{ !cancelled() && needs.changes.outputs.changed != 'false' && needs.gate.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [1, 2, 3]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # Not a `services:` container: those take an image from a registry and
       # no build, and this one is built here from deploy/postgres, the file
       # dev uses and prod's copy follows. Port and credentials mirror
       # compose.yaml, so backend/.env.example resolves without overrides.
-      # pg_isready over TCP, because the entrypoint's first server, the one
-      # that runs the init, listens on the socket only and then stops.
+      # In the background, so the image builds while mise sets up.
       - name: Start Postgres with pgvector and pg_textsearch
         run: |
-          docker build -q -t kasten-postgres deploy/postgres
-          docker run -d --name postgres -p 5434:5432 \
-            -e POSTGRES_USER=kasten -e POSTGRES_PASSWORD=kasten -e POSTGRES_DB=kasten_dev \
-            kasten-postgres
-          for _ in $(seq 60); do
-            docker exec postgres pg_isready -h 127.0.0.1 -U kasten -d kasten_dev -q && exit 0
+          (docker build -q -t kasten-postgres deploy/postgres &&
+            docker run -d --name postgres -p 5434:5432 \
+              -e POSTGRES_USER=kasten -e POSTGRES_PASSWORD=kasten -e POSTGRES_DB=kasten_dev \
+              kasten-postgres) > "$RUNNER_TEMP/postgres.log" 2>&1 &
+      - uses: ./.github/actions/setup-mise
+      # pg_isready over TCP, because the entrypoint's first server, the one
+      # that runs the init, listens on the socket only and then stops.
+      - name: Wait for Postgres
+        run: |
+          for _ in $(seq 120); do
+            docker exec postgres pg_isready -h 127.0.0.1 -U kasten -d kasten_dev -q 2>/dev/null && exit 0
             sleep 1
           done
+          cat "$RUNNER_TEMP/postgres.log"
           docker logs postgres
           exit 1
-      - uses: ./.github/actions/setup-mise
       # Proves the Alembic wiring against a real database, which the unit
       # tests deliberately do not touch.
       - name: Apply migrations
         run: mise run db:migrate
       - name: Backend tests
-        run: mise run test:py
+        run: mise exec -- uv run pytest -n 4 --splits 3 --group ${{ matrix.group }}
+
+  # The required check the slices answer to, and the name the main gate looks for.
+  backend:
+    name: Backend
+    needs: [changes, gate, backend-slice]
+    if: ${{ !cancelled() && needs.changes.outputs.changed != 'false' && needs.gate.outputs.skip != 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every slice passed
+        run: test "${{ needs.backend-slice.result }}" = success
 
   # The unit project in four slices side by side: in one job it took five
   # minutes (#959). Test merges their reports and stays the required check.
@@ -169,11 +189,17 @@ jobs:
       - name: Chat runner tests
         run: mise run shell:test
 
-  perf:
-    name: Perf
+  # The frame gate in three slices side by side: in one job it took seven minutes.
+  perf-slice:
+    name: Perf (${{ matrix.shard }}/3)
     needs: [changes, gate]
     if: ${{ !cancelled() && needs.changes.outputs.changed != 'false' && needs.gate.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     # No Postgres service: the frame gate mounts React over a synthetic vault
     # and never reaches the backend, let alone the database.
     steps:
@@ -186,21 +212,31 @@ jobs:
       - name: Install Chromium
         run: frontend/node_modules/.bin/playwright install chromium --with-deps
       - name: Frame gate
-        run: mise run fe:frame
+        run: mise run fe:frame -- --shard=${{ matrix.shard }}/3
+
+  # The name the main gate and Record look for.
+  perf:
+    name: Perf
+    needs: [changes, gate, perf-slice]
+    if: ${{ !cancelled() && needs.changes.outputs.changed != 'false' && needs.gate.outputs.skip != 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every slice passed
+        run: test "${{ needs.perf-slice.result }}" = success
 
   # The whole platform at once: the built frontend under nginx, a backend per
   # test and Postgres from compose.yaml, all started by e2e/harness. Not a
-  # required check yet. Two slices: in one job the journeys outgrew 15 minutes.
+  # required check yet. Twelve slices, each about three minutes of journeys.
   e2e:
-    name: E2E (${{ matrix.shard }}/2)
+    name: E2E (${{ matrix.shard }}/12)
     needs: [changes, gate]
     if: ${{ !cancelled() && needs.changes.outputs.changed != 'false' && needs.gate.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup-mise
@@ -210,7 +246,7 @@ jobs:
       - name: Journeys
         run: mise run e2e
         env:
-          E2E_SHARD: ${{ matrix.shard }}/2
+          E2E_SHARD: ${{ matrix.shard }}/12
       # On a pass too, so the step is seen to work; a failure adds traces and screenshots.
       - name: Keep traces and screenshots
         if: ${{ !cancelled() }}
@@ -224,13 +260,17 @@ jobs:
 
   # Each journey file a pull request adds or changes, run five times over, so a
   # flaky journey fails the pull request that brings it instead of a later one.
-  # The ten most changed files at most, which keeps it inside its timeout.
+  # The ten most changed files at most, in three slices side by side.
   e2e-burn-in:
-    name: E2E burn-in
+    name: E2E burn-in (${{ matrix.shard }}/3)
     needs: [changes]
     if: ${{ github.event_name == 'pull_request' && needs.changes.outputs.changed != 'false' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     steps:
       - id: specs
         env:
@@ -260,12 +300,12 @@ jobs:
           bun install --frozen-lockfile
           # Word splitting on purpose: one path per word, none with a space.
           # shellcheck disable=SC2086
-          bunx playwright test --repeat-each=5 --project=chromium --no-deps $SPECS
+          bunx playwright test --repeat-each=5 --project=chromium --no-deps --pass-with-no-tests --shard=${{ matrix.shard }}/3 $SPECS
       - name: Keep traces and screenshots
         if: ${{ !cancelled() && steps.specs.outputs.specs != '' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: e2e-burn-in-results
+          name: e2e-burn-in-results-${{ matrix.shard }}
           path: |
             e2e/test-results/
             e2e/playwright-report/
