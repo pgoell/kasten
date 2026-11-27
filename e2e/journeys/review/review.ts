@@ -23,7 +23,7 @@ export async function openDecks(page: Page, vault: string, notes: Record<string,
   await openReview(page, { settled: true });
 }
 
-/** Counts the PUTs that write one of `notes`, from here on. */
+/** Counts the PUTs that write one of `notes`, from here on; poll it, as a request counts a tick after it is sent. */
 export function countPuts(page: Page, ...notes: string[]): () => number {
   let puts = 0;
   page.on("request", (r) => {

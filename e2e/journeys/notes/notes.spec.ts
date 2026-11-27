@@ -398,6 +398,8 @@ test.describe("following a link with an alias or a heading", () => {
     await expect.poll(() => inbox(stack.vault)).toEqual(["cortazar.md"]);
     // The new folder takes the focus into the tree, so the editor is clicked back first.
     await expect(page.getByRole("tab", { name: "cortazar", selected: true })).toBeVisible();
+    // The tab is selected a beat before Missing's editor leaves the page.
+    await expect(page.locator(".cm-content")).toHaveCount(1);
     await page.locator(".cm-content").click();
     await page.keyboard.press("Escape");
     await findNote(page, "Missing");

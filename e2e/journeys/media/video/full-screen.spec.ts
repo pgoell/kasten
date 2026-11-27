@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { openApp, phone, vaultWith } from "../../../harness/app.ts";
+import { phone, vaultWith } from "../../../harness/app.ts";
 import { expect, test } from "../../../harness/stack.ts";
 import { fakeYouTube } from "../../../harness/youtube.ts";
 
@@ -13,7 +13,10 @@ async function watch(page: Page, note = lecture): Promise<void> {
   await expect(page.locator(".cm-content").first()).toBeVisible({ timeout: 15_000 });
   await page.locator(".cm-content").first().click();
   await page.keyboard.press("Control+Shift+P");
-  await page.getByRole("option", { name: /Watch this note's video beside it/ }).first().click();
+  await page
+    .getByRole("option", { name: /Watch this note's video beside it/ })
+    .first()
+    .click();
   await expect(page.locator(`${pane}:focus`)).toHaveCount(1);
 }
 
@@ -126,13 +129,16 @@ test("#914 A5 f again and Exit full screen on the player each leave full screen"
 }) => {
   await watch(page);
   await page.keyboard.press("f");
-  await expect.poll(() => fullIs(page)).toBe("box");
+  // The focus moves to the box once the change has landed: an exit asked before that is lost.
+  await expect.poll(() => focusIs(page)).toBe("box");
+  expect(await fullIs(page)).toBe("box");
   await page.keyboard.press("f");
   await expect.poll(() => fullIs(page)).toBe("none");
   await expect.poll(() => focusIs(page)).toBe("pane");
 
   await page.keyboard.press("f");
-  await expect.poll(() => fullIs(page)).toBe("box");
+  await expect.poll(() => focusIs(page)).toBe("box");
+  expect(await fullIs(page)).toBe("box");
   await exitButton(page).click();
   await expect.poll(() => fullIs(page)).toBe("none");
   await expect.poll(() => focusIs(page)).toBe("pane");
@@ -326,7 +332,10 @@ test.describe("on a phone", () => {
     const commands = page.getByRole("toolbar", { name: "Commands" });
     await expect(commands).toBeVisible({ timeout: 15_000 });
     await commands.getByRole("button", { name: "Run a command by name" }).tap();
-    await page.getByRole("option", { name: /Watch this note's video beside it/ }).first().tap();
+    await page
+      .getByRole("option", { name: /Watch this note's video beside it/ })
+      .first()
+      .tap();
     await expect(page.locator(box)).toBeVisible();
   }
 
@@ -371,10 +380,10 @@ test.describe("on a phone", () => {
     await page.locator(pane).focus();
     await page.keyboard.press("f");
 
-    await expect(page.locator(`${pane} header`).getByRole("button", { name: "Mute" })).toBeVisible();
+    await expect(
+      page.locator(`${pane} header`).getByRole("button", { name: "Mute" }),
+    ).toBeVisible();
     await expect(headerButton(page)).toHaveCount(0);
     expect(await fullIs(page)).toBe("none");
   });
 });
-
-

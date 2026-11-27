@@ -246,8 +246,13 @@ export async function mountNote(size: Size, theme: Theme): Promise<Mounted> {
 }
 
 /** The empty pane, which shows Today above its editor. */
-export function mountToday(size: Size, theme: Theme): Promise<Mounted> {
-  return mount(size, theme, "/", "section[data-today]");
+export async function mountToday(size: Size, theme: Theme): Promise<Mounted> {
+  const mounted = await mount(size, theme, "/", "section[data-today]");
+  // The columns stay hidden until every read they wait on has answered (#2300).
+  const column = () => mounted.host.querySelector("[data-today-column]");
+  await waitFor(() => expect(column()?.checkVisibility()).toBe(true), PATIENCE);
+  await fontsIn();
+  return mounted;
 }
 
 export async function unmount({ host, root, stop }: Mounted) {

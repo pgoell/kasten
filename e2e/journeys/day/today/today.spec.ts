@@ -202,6 +202,8 @@ test.describe("the home screen's columns", () => {
       });
       await expect(column(page, 0)).toContainText("Draft the report");
       await expect(column(page, 1)).toContainText("b21 Oct");
+      // The columns hold their text while hidden, until every read they wait on has answered.
+      await expect(column(page, 2)).toBeVisible();
       const tops = await Promise.all(
         [0, 1, 2].map(async (n) => (await column(page, n).boundingBox())?.y ?? 0),
       );
